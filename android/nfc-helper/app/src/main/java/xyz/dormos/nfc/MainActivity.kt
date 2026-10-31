@@ -10,6 +10,8 @@ import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
+import android.nfc.tech.NdefFormatable
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.ViewGroup
@@ -65,6 +67,13 @@ class MainActivity : Activity() {
             }
         }
         addButton("写入 NFC 专用标签") { confirmWrite() }
+        addButton("检查 NFC 自动启动权限") {
+            if (Build.VERSION.SDK_INT >= 36 && nfc?.isTagIntentAllowed == false) {
+                show("系统禁止通过 NFC 标签启动本应用。请在设置 → 应用 → 特殊应用权限 → 通过 NFC 启动里允许 DORM OS 助手。")
+            } else {
+                show("未检测到 NFC 启动禁用状态；实际触发仍需真机碰卡验收。")
+            }
+        }
         addButton("取消 NFC 写入") { if (writing) { stopWriting(); show("已取消等待写入；不代表标签已经更改。") } else show("当前没有正在等待的 NFC 写入。") }
         addButton("打开 Wi-Fi 设置") { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         setContentView(layout)
@@ -142,12 +151,19 @@ class MainActivity : Activity() {
             NdefRecord.createMime(MIME, PAYLOAD.toByteArray(StandardCharsets.UTF_8))
         ))
         val outcome = try {
-            val ndef = Ndef.get(tag) ?: error("此标签不支持直接写入 NDEF")
-            ndef.connect()
-            try {
-                check(ndef.isWritable) { "此标签不可写" }
-                check(ndef.maxSize >= message.toByteArray().size) { "标签空间不足" }
-                ndef.writeNdefMessage(message)
+            val ndef = Ndef.get(tag)
+            if (ndef == null) {
+                // Some blank NFC stickers are not yet NDEF formatted.
+                val formatable = NdefFormatable.get(tag) ?: error("此标签不支持 NDEF 写入或格式化")
+                formatable.connect()
+                try { formatable.format(message) } finally { formatable.close() }
+                "已格式化并写入 NDEF；请离开应用再次碰卡，验证标签可触发。"
+            } else {
+                ndef.connect()
+                try {
+                    check(ndef.isWritable) { "此标签不可写" }
+                    check(ndef.maxSize >= message.toByteArray().size) { "标签空间不足" }
+                    ndef.writeNdefMessage(message)
                 // Read the physical tag again; the NFC write call alone is not an end-to-end proof.
                 val readBack = try { ndef.ndefMessage } catch (_: Exception) { null }
                 if (readBack != null && readBack.toByteArray().contentEquals(message.toByteArray())) {
@@ -155,7 +171,8 @@ class MainActivity : Activity() {
                 } else {
                     "已收到写入完成结果，但未确认回读内容；请再次碰卡检查，勿当作验证成功。"
                 }
-            } finally { ndef.close() }
+                } finally { ndef.close() }
+            }
         } catch (e: Exception) {
             "写入失败：" + (e.message ?: e.javaClass.simpleName)
         } finally {
