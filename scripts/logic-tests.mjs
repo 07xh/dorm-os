@@ -103,3 +103,9 @@ const tampered={...transfer,data:transfer.data.slice(0,ix)+(transfer.data[ix]===
 await assert.rejects(cryptoCtx.decryptBackup(tampered,'A-strong-passphrase-2048'));
 await assert.rejects(cryptoCtx.decryptBackup({...transfer,iterations:999999999},'A-strong-passphrase-2048'));
 console.log('Encrypted backup round trip, wrong-password and tamper rejection passed');
+
+assert.equal(ctx.getSceneFromNdef(tagMessage('https://dorm.0701000.xyz/?dormScene=study')).scene,'study');
+assert.equal(ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/index.html?dormScene=dev')).scene,'dev');
+assert.equal(ctx.getSceneFromNdef(tagMessage('https://evil.dorm-os-dk9.pages.dev/?dormScene=dev')),null);
+assert.equal(ctx.getSceneFromNdef(tagMessage('http://dorm.0701000.xyz/?dormScene=study')),null);
+console.log('NFC canonical and custom domain alias allowlist tests passed');

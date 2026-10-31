@@ -417,6 +417,14 @@ function tagLink(tag){const url=new URL(location.pathname,location.origin);url.s
 async function copyTagLink(id){const t=state.nfcTags.find(x=>x.id===id);if(!t)return;const url=tagLink(t);try{await navigator.clipboard.writeText(url);toast('NFC 场景链接已复制，可使用受信任的 NDEF 写入工具');}catch{window.prompt('复制这个 NFC 场景链接：',url);}}
 function testTagLink(id){const tag=state.nfcTags.find(x=>x.id===id);if(!tag)return;location.assign(tagLink(tag));}
 function activateScene(scene,source){if(!sceneDefs.some(x=>x.id===scene))return false;if(scene!=='study')timerStop();state.scene=scene;log(`${source}：切换网站场景为「${sceneLabel(scene)}」（未控制外部设备）`);persist();render();return true;}
+function nfcDiagnostics(){
+ const web=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
+ let storageOk=false;try{const k='dorm-os-storage-check';localStorage.setItem(k,'ok');storageOk=localStorage.getItem(k)==='ok';localStorage.removeItem(k);}catch{}
+ return [{title:'页面安全连接',value:isSecureContext?'已满足':'不满足',ok:isSecureContext,detail:'Web NFC 需要 HTTPS 安全上下文'},
+ {title:'浏览器 NFC API',value:web.ok?'接口存在':'不支持',ok:web.ok,detail:web.ok?'仍需前台权限授权和实体标签测试':web.reason},
+ {title:'浏览器本地存储',value:storageOk?'可用':'受限',ok:storageOk,detail:'课表、任务及标签绑定使用此设备本地存储'},
+ {title:'当前网络',value:navigator.onLine?'在线':'离线',ok:navigator.onLine,detail:'天气和未缓存页面需要网络'}];
+}
 function nfcPage(){
  const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
  const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'识别成功',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
@@ -435,11 +443,16 @@ function nfcPage(){
   </section>
  </div>
  <div class="card nfc-guide"><div class="card-header"><span class="card-title">三步绑定 · 真实使用</span></div><div class="guide-steps"><div><b>01</b><strong>注册标签</strong><small>名称和位置只保存在网站本地</small></div><div><b>02</b><strong>选择场景并写入</strong><small>把 DORM OS 链接写入可写 NDEF 标签</small></div><div><b>03</b><strong>手机触碰标签</strong><small>系统打开网页后切换网站场景</small></div></div>
- <div class="notice neutral">当前版本支持网站内部场景切换，不代表 MacroDroid / Tasker 已执行手机设置。不同设备的浏览器数据尚未自动同步。复制、分享或写入的标签链接可能被其他人看到，请勿在标签中保存密钥。</div></div>`;
+ <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
+  <div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div>`;
 }
 function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label>标签名称</label><input name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label>绑定的网站场景</label><select name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「模拟触碰」验证链接；修改绑定场景后需重新写入实体 NFC 标签。</p>`,'tag'));}
 function stopNfcScan({silent=false}={}){nfc.scanAttempt++;nfc.controller?.abort();nfc.controller=null;nfc.reader=null;nfc.phase='stopped';nfc.message='扫描已停止。';if(!silent&&page==='nfc')render();}
-function getSceneFromNdef(message){for(const rec of message?.records||[]){if(!['url','text','absolute-url'].includes(rec.recordType))continue;let raw='';try{raw=new TextDecoder().decode(rec.data);}catch{continue;}try{const u=new URL(raw);if(u.origin!==location.origin||u.pathname!==location.pathname)continue;const key=u.searchParams.get('dormTag');const own=state.nfcTags.find(x=>x.id===key);if(own)return {scene:own.scene,label:own.name};const fallback=u.searchParams.get('dormScene');if(sceneDefs.some(x=>x.id===fallback))return {scene:fallback,label:'URL 场景'};}catch{continue;}}return null;}
+function getSceneFromNdef(message){for(const rec of message?.records||[]){if(!['url','text','absolute-url'].includes(rec.recordType))continue;let raw='';try{raw=new TextDecoder().decode(rec.data);}catch{continue;}try{const u=new URL(raw);if(!trustedDormSceneUrl(u))continue;const key=u.searchParams.get('dormTag');const own=state.nfcTags.find(x=>x.id===key);if(own)return {scene:own.scene,label:own.name};const fallback=u.searchParams.get('dormScene');if(sceneDefs.some(x=>x.id===fallback))return {scene:fallback,label:'URL 场景'};}catch{continue;}}return null;}
+function trustedDormSceneUrl(u){
+ const allowed=new Set([location.origin,'https://dorm-os-dk9.pages.dev','https://dorm.0701000.xyz']);
+ return u.protocol==='https:'&&allowed.has(u.origin)&&(u.pathname===location.pathname||u.pathname==='/'||u.pathname==='/index.html');
+}
 async function startNfcScan(){const support=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});if(!support.ok){nfc.phase='error';nfc.message=support.reason;render();return;}if(nfc.controller)return;
  const id=++nfc.scanAttempt;const controller=new AbortController();nfc.controller=controller;nfc.phase='starting';nfc.message='正在请求 NFC 权限……';
  try{const reader=new NDEFReader();nfc.reader=reader;
