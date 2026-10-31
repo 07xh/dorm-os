@@ -81,3 +81,7 @@ NFC 页面现提供两条互斥的标签写入路线：A）把 DORM OS 网站 HT
 GitHub Actions 发布前已在桌面与手机模拟视口执行 14 项 Chromium 浏览器回归测试。发布后 Wrangler 输出该次**独立部署域名**，自动读取 `revision.json` 并核对其 Git commit SHA 必须完全匹配本次 `main` 提交；同时在线检查首页、PWA manifest 和 Service Worker。任何上线后 HTTP 校验失败将使 Deploy 工作流失败，不能宣称发布通过。
 
 `revision.json` 只保存公开 Git 提交号和构建时间，不存储账号、Token 或个人数据。硬件 NFC 与第三方 Android 系统自动化仍需用 `docs/ANDROID-MANUAL-ACCEPTANCE.md` 真机验证。
+
+## NFC 写入中断与状态核验
+
+NFC 页面的写入采用 `NDEFReader.write(message, {signal})`，只在浏览器实际返回写入成功后记录 `writtenAt`。待触碰期间可点击「取消写入」；离开 NFC 页面会终止等待。禁止并行扫描/写入，切换绑定后清除旧读取记录。写入成功仍需再次实际扫描验证，不代表 MacroDroid 或 Android 系统动作完成。
