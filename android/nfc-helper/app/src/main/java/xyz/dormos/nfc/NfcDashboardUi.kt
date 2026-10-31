@@ -132,6 +132,8 @@ class NfcDashboardUi(
         val quick = card()
         quick.addView(button("检查 Ncwu Wi-Fi", "diagnose", strong = true), params(bottom = 6))
         quick.addView(button("管理自定义 NFC 标签", "profiles"))
+        quick.addView(button("导出标签配置备份", "export"), params(top = 6))
+        quick.addView(button("从备份恢复标签", "import"), params(top = 3))
         base.addView(quick)
 
         header(base, "最近一次运行", "检查结果实时显示，不代表自动登录成功")
