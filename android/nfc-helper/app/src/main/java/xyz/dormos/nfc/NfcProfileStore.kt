@@ -43,6 +43,14 @@ class NfcProfileStore(context: Context) {
         return persist(previous.filterNot { it.id == id })
     }
 
+    /** Replace all profiles only after the caller has validated and previewed the backup. */
+    fun replaceAll(items: List<NfcProfile>): Boolean {
+        if (items.size > NfcProfileBackup.MAX_PROFILES ||
+            items.any { !NfcProfiles.validProfile(it) } ||
+            items.distinctBy { it.id }.size != items.size) return false
+        return persist(items)
+    }
+
     private fun persist(items: List<NfcProfile>): Boolean {
         val data = JSONArray()
         for (profile in items) {
