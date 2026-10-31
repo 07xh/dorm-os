@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "DORM OS · 个人生活",
+  "short_name": "DORM OS",
+  "description": "个人课表、任务、生活与 NFC 场景",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fc",
+  "theme_color": "#2563eb",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icons/dorm-os.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
