@@ -21,6 +21,13 @@ class NcwuRulesTest {
         assertFalse(NcwuRules.isSingleTargetWifi(null, 1))
     }
 
+    @Test fun copiedDiagnosticsDoNotContainOtherWifiNames() {
+        val result=NcwuRules.redactDiagnostic("当前 Wi-Fi 为 私人家庭网络， 不是 Ncwu；未发送认证请求。")
+        assertTrue(result.contains("当前 Wi-Fi 不是 Ncwu"))
+        assertFalse(result.contains("私人家庭网络"))
+        assertTrue(NcwuRules.redactDiagnostic("Ncwu Wi-Fi HTTPS 测试成功（HTTP 200）").contains("HTTP 200"))
+    }
+
     @Test fun captiveRedirectIsNeverHttpsSuccess() {
         assertTrue(NcwuRules.isHttpsSuccess(200))
         assertTrue(NcwuRules.isHttpsSuccess(204))

@@ -3,6 +3,9 @@ package xyz.dormos.nfc
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
@@ -34,6 +37,7 @@ class MainActivity : Activity() {
     private val writeEpoch = NfcWriteEpoch()
     private val writeInFlight = AtomicBoolean(false)
     private lateinit var status: TextView
+    private var latestDiagnostic: String? = null
     private var nfc: NfcAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +66,7 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         addButton("检测 Ncwu（仅一次）") { checkOnce() }
+        addButton("复制最近一次诊断摘要") { copyLastDiagnostic() }
         addButton("授权识别 Wi-Fi 名称") {
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7)
@@ -117,10 +122,15 @@ class MainActivity : Activity() {
         }
         show("正在检查 Ncwu Wi-Fi……")
         Thread {
-            val result = NetworkDiagnostics(this).run()
+            val result = try {
+                NetworkDiagnostics(applicationContext).run()
+            } catch (e: Exception) {
+                "网络诊断异常（" + e.javaClass.simpleName + "），本次安全停止；未发送登录请求。"
+            }
             runOnUiThread {
-                if (!isDestroyed) show(result)
+                latestDiagnostic = NcwuRules.redactDiagnostic(result)
                 running.set(false)
+                if (!isDestroyed) show(result)
             }
         }.start()
     }
@@ -203,6 +213,20 @@ class MainActivity : Activity() {
         writing = false
         writeEpoch.invalidate()
         nfc?.disableReaderMode(this)
+    }
+
+    private fun copyLastDiagnostic() {
+        val summary = latestDiagnostic
+        if (summary == null) {
+            show("尚无完成的诊断结果。请先点击「检测 Ncwu（仅一次）」。")
+            return
+        }
+        val content = "DORM OS NFC 助手诊断（仅本机生成）\n" +
+            "Android API: " + Build.VERSION.SDK_INT + "\n" +
+            summary + "\n未执行校园网账号认证。"
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("DORM OS 诊断摘要", content))
+        show("诊断摘要已复制。发送给别人之前请检查内容，避免泄露个人信息。")
     }
 
     private fun show(message: String) { status.text = message }
