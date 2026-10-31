@@ -36,3 +36,6 @@ python3 -m http.server 8000 --directory public
 ## 验收和后续
 
 浏览器桌面及手机视口已经回归检查基本导航、任务新增、标签注册、个人提醒和物品的保存操作。**不等同于 Android 真机的 NFC 读写通过。** 后续优先处理真实手机 NFC 测试、跨设备数据、Tasker/MacroDroid 权限和安全的回执接口。
+## 自动回归测试
+
+`npm run check` 除了网页脚本语法检查，还验证 NFC 标签场景链接、原绑定/改绑的解析行为、外站 URL 拒绝及旧版 JSON 备份兼容性。浏览器实机交互和 Android NFC 硬件测试仍需额外执行。

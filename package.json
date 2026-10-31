@@ -4,8 +4,8 @@
   "version": "0.3.3",
   "description": "DORM OS V3.3 personal dashboard with local tasks, timetable and NFC scene registry",
   "scripts": {
-    "check": "node scripts/check.mjs",
-    "test": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs && node scripts/logic-tests.mjs",
+    "test": "node scripts/check.mjs && node scripts/logic-tests.mjs"
   },
   "engines": {
     "node": ">=20"
