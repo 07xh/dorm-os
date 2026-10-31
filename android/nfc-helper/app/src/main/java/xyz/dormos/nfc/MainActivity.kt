@@ -150,7 +150,7 @@ class MainActivity : Activity() {
             show("无效 NFC 动作，已安全停止。")
             return
         }
-        if (!nfcIntentGate.accept(SystemClock.elapsedRealtime())) {
+        if (!nfcIntentGate.accept(payload, SystemClock.elapsedRealtime())) {
             show("短时间重复 NFC 触发已忽略；不会执行第二次。")
             return
         }
