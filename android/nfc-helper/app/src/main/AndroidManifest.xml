@@ -8,7 +8,8 @@
     <uses-feature android:name="android.hardware.nfc" android:required="true"/>
     <application
         android:allowBackup="false"
-        android:label="DORM OS NFC 助手"
+        android:label="DORM OS · NFC"
+        android:icon="@drawable/ic_dormos_nfc"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
