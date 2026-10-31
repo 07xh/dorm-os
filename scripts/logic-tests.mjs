@@ -125,3 +125,25 @@ const fallback=ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/?d
 assert.equal(fallback.scene,'study');
 assert.equal(fallback.tagId,null);
 console.log('NFC stale binding and actual-read evidence boundaries validated');
+
+
+const mergeCtx={safeState:ctx.safeState,structuredClone};
+runInNewContext(sourceBetween('function mergePersonalBackup(', 'const ENCRYPTED_BACKUP_MARKER'),mergeCtx);
+const currentData={...base,tasks:[{id:'shared',title:'本机高数作业',done:true,category:'高数',due:''}],nfcTags:[{id:'nfc-shared',name:'本机书桌',scene:'dev'}],reminders:[{id:'r1',text:'洗衣',done:true}]};
+const remoteData={...base,tasks:[{id:'shared',title:'云外版本',done:false,category:'高数'},{id:'new-task',title:'Python 作业',done:false}],nfcTags:[{id:'nfc-shared',name:'异地书桌',scene:'rest'},{id:'new-tag',name:'新标签',scene:'study'}],reminders:[{id:'r1',text:'洗衣',done:false},{id:'new-reminder',text:'取快递',done:false}]};
+const merged=mergeCtx.mergePersonalBackup(currentData,remoteData);
+assert.equal(merged.data.tasks.find(x=>x.id==='shared').title,'本机高数作业');
+assert.equal(merged.data.tasks.find(x=>x.id==='shared').done,true);
+assert.equal(merged.data.tasks.find(x=>x.id==='new-task').title,'Python 作业');
+assert.equal(merged.data.nfcTags.find(x=>x.id==='nfc-shared').scene,'dev');
+assert.equal(merged.data.nfcTags.find(x=>x.id==='new-tag').scene,'study');
+assert.equal(merged.data.reminders.find(x=>x.id==='r1').done,true);
+assert.equal(merged.data.reminders.find(x=>x.id==='new-reminder').text,'取快递');
+assert.equal(merged.added,3);
+assert.ok(merged.conflicts>=2);
+assert.equal(mergeCtx.mergePersonalBackup(merged.data,remoteData).added,0);
+const maxed={...base,tasks:Array.from({length:300},(_,i)=>({id:'t-'+i,title:'Task '+i}))};
+const atCapacity=mergeCtx.mergePersonalBackup(maxed,{...base,tasks:[{id:'new',title:'Task new'}]});
+assert.equal(atCapacity.data.tasks.length,300);
+assert.equal(atCapacity.capacitySkipped,1);
+console.log('Import merge preserves local records and completion, handles conflicts, idempotence and caps');
