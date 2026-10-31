@@ -187,7 +187,7 @@ function safeState(value){
   })).filter(x=>x.subject);
   const calendarEvents = (Array.isArray(value.calendarEvents)?value.calendarEvents:[]).slice(0,1200).filter(x=>x&&typeof x==='object'&&dateRE.test(x.date)&&timeRE.test(x.start)&&timeRE.test(x.end)&&x.start<x.end).map((x,i)=>({id:cleanText(x.id,180)||`event-${i}`,uid:cleanText(x.uid,120),date:x.date,start:x.start,end:x.end,subject:cleanText(x.subject,80),location:cleanText(x.location,60),source:'iCalendar'})).filter(x=>x.subject);
   const campusLinks=(Array.isArray(value.campusLinks)?value.campusLinks:[]).slice(0,30).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,60)||`link-${i}`,name:cleanText(x.name,40),url:cleanText(x.url,300)})).filter(x=>x.name&&/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(x.url));
-  const nfcTags = (Array.isArray(value.nfcTags)?value.nfcTags:[]).slice(0,60).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,80)||`tag-${i}`,name:cleanText(x.name,40),scene:['study','rest','dev','away'].includes(x.scene)?x.scene:'study',createdAt:cleanText(x.createdAt,40),writtenScene:['study','rest','dev','away'].includes(x.writtenScene)?x.writtenScene:'',writtenAt:cleanText(x.writtenAt,40)})).filter(x=>x.name);
+  const nfcTags = (Array.isArray(value.nfcTags)?value.nfcTags:[]).slice(0,60).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,80)||`tag-${i}`,name:cleanText(x.name,40),scene:['study','rest','dev','away'].includes(x.scene)?x.scene:'study',createdAt:cleanText(x.createdAt,40),writtenScene:['study','rest','dev','away'].includes(x.writtenScene)?x.writtenScene:'',writtenAt:cleanText(x.writtenAt,40),readAt:cleanText(x.readAt,40),readScene:['study','rest','dev','away'].includes(x.readScene)?x.readScene:''})).filter(x=>x.name);
   const reminders = (Array.isArray(value.reminders)?value.reminders:[]).slice(0,120).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,60)||`reminder-${i}`,text:cleanText(x.text,100),due:dateRE.test(x.due)?x.due:'',done:x.done===true})).filter(x=>x.text);
   const items = (Array.isArray(value.items)?value.items:[]).slice(0,120).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,60)||`item-${i}`,name:cleanText(x.name,80),place:cleanText(x.place,80)})).filter(x=>x.name);
   const events = (Array.isArray(value.events)?value.events:[]).slice(-80).filter(x=>x&&typeof x==='object').map(x=>({at:cleanText(x.at,40),text:cleanText(x.text,120)}));
@@ -427,15 +427,15 @@ function nfcDiagnostics(){
 }
 function nfcPage(){
  const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
- const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'识别成功',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
+ const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
  return `${titleBlock('NFC / PERSONAL AUTOMATION','我的 NFC 标签','用自己的 NFC 标签触发学习、休息或出门场景。网页绑定与手机系统自动化是两回事。',badge(state.nfcTags.length+' 枚标签'))}
  <div class="nfc-hero card"><div><span class="kicker">TAP TO START</span><h2>轻轻一碰，切换你的节奏。</h2><p>先在网页中注册标签并绑定场景，再使用 Android Chrome 的 Web NFC 写入或读取。标签无需存储个人账号资料。</p></div><div class="nfc-orbit" aria-hidden="true">◉</div></div>
  <div class="nfc-grid">
   <section class="card nfc-card"><div class="card-header"><span class="card-title">我的标签</span><button class="primary" type="button" data-action="tag-add">＋ 添加标签</button></div>
-   ${state.nfcTags.length?state.nfcTags.map(t=>`<div class="tag-entry"><div class="tag-icon">◉</div><div class="tag-info"><strong>${esc(t.name)}</strong><small>${esc(sceneLabel(t.scene))} · 本浏览器保存${t.writtenScene&&t.writtenScene!==t.scene?" · 已改绑，需重写":t.writtenScene===t.scene?" · 网页写入已确认":" · 未验证实体标签"}</small></div><div class="tag-operations"><button class="secondary" type="button" data-tag-edit="${esc(t.id)}">编辑</button><button class="secondary" type="button" data-tag-write="${esc(t.id)}">写入</button><button class="secondary" type="button" data-tag-copy="${esc(t.id)}">复制链接</button><button class="secondary" type="button" data-tag-test="${esc(t.id)}">模拟触碰</button><button class="action-link danger-btn" type="button" data-tag-delete="${esc(t.id)}" aria-label="删除 ${esc(t.name)}">删除</button></div></div>`).join(''):'<div class="friendly-empty">还没有注册标签。<br><span>点击「添加标签」，为自己的 NFC 贴纸起个名字。</span></div>'}
+   ${state.nfcTags.length?state.nfcTags.map(t=>`<div class="tag-entry"><div class="tag-icon">◉</div><div class="tag-info"><strong>${esc(t.name)}</strong><small>${esc(sceneLabel(t.scene))} · ${t.writtenScene&&t.writtenScene!==t.scene?"已改绑，需重写实体标签":t.readAt&&t.readScene===t.scene?"已通过手机前台真实读取":t.writtenScene===t.scene?"浏览器确认写入，尚未读取验证":"未验证实体标签"}</small></div><div class="tag-operations"><button class="secondary" type="button" data-tag-edit="${esc(t.id)}">编辑</button><button class="secondary" type="button" data-tag-write="${esc(t.id)}">写入</button><button class="secondary" type="button" data-tag-copy="${esc(t.id)}">复制链接</button><button class="secondary" type="button" data-tag-test="${esc(t.id)}">测试网页链接</button><button class="action-link danger-btn" type="button" data-tag-delete="${esc(t.id)}" aria-label="删除 ${esc(t.name)}">删除</button></div></div>`).join(''):'<div class="friendly-empty">还没有注册标签。<br><span>点击「添加标签」，为自己的 NFC 贴纸起个名字。</span></div>'}
    <p class="tiny muted">写入不可用时可复制场景链接，用兼容的 NDEF 写入工具保存到标签。更换绑定后，旧链接在其他设备可能仍指向原场景。</p>
   </section>
-  <section class="card nfc-card"><div class="card-header"><span class="card-title">网页 NFC 扫描</span>${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'?'orange':'')}</div>
+  <section class="card nfc-card"><div class="card-header"><span class="card-title">网页 NFC 扫描</span>${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</div>
    <p class="small muted">${esc(supported.reason)}。扫描必须从按钮主动开始，保持网页在前台。</p>
    <div class="button-row"><button type="button" class="primary" data-action="nfc-start" ${supported.ok&&!nfc.controller?'':'disabled'}>◉ 开始扫描</button><button class="secondary" type="button" data-action="nfc-stop" ${nfc.controller?'':'disabled'}>停止</button></div>
    <div class="notice neutral" role="status" aria-live="polite">${esc(nfc.message)}</div>
@@ -446,9 +446,24 @@ function nfcPage(){
  <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
   <div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div>`;
 }
-function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label>标签名称</label><input name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label>绑定的网站场景</label><select name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「模拟触碰」验证链接；修改绑定场景后需重新写入实体 NFC 标签。</p>`,'tag'));}
+function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label>标签名称</label><input name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label>绑定的网站场景</label><select name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「测试网页链接」检查跳转；这并不测试 NFC 硬件。修改绑定后需重新写入实体 NFC 标签。</p>`,'tag'));}
 function stopNfcScan({silent=false}={}){nfc.scanAttempt++;nfc.controller?.abort();nfc.controller=null;nfc.reader=null;nfc.phase='stopped';nfc.message='扫描已停止。';if(!silent&&page==='nfc')render();}
-function getSceneFromNdef(message){for(const rec of message?.records||[]){if(!['url','text','absolute-url'].includes(rec.recordType))continue;let raw='';try{raw=new TextDecoder().decode(rec.data);}catch{continue;}try{const u=new URL(raw);if(!trustedDormSceneUrl(u))continue;const key=u.searchParams.get('dormTag');const own=state.nfcTags.find(x=>x.id===key);if(own)return {scene:own.scene,label:own.name};const fallback=u.searchParams.get('dormScene');if(sceneDefs.some(x=>x.id===fallback))return {scene:fallback,label:'URL 场景'};}catch{continue;}}return null;}
+function getSceneFromNdef(message){
+ for(const rec of message?.records||[]){
+   if(!['url','text','absolute-url'].includes(rec.recordType))continue;
+   let raw='';try{raw=new TextDecoder().decode(rec.data);}catch{continue;}
+   try{
+     const u=new URL(raw);
+     if(!trustedDormSceneUrl(u))continue;
+     const tagId=u.searchParams.get('dormTag');
+     const encodedScene=u.searchParams.get('dormScene');
+     const own=state.nfcTags.find(x=>x.id===tagId);
+     if(own)return {scene:own.scene,label:own.name,tagId:own.id,encodedScene,stale:!!encodedScene&&encodedScene!==own.scene};
+     if(sceneDefs.some(x=>x.id===encodedScene))return {scene:encodedScene,label:'未注册的场景链接',tagId:null,encodedScene,stale:false};
+   }catch{continue;}
+ }
+ return null;
+}
 function trustedDormSceneUrl(u){
  const allowed=new Set([location.origin,'https://dorm-os-dk9.pages.dev','https://dorm.0701000.xyz']);
  return u.protocol==='https:'&&allowed.has(u.origin)&&(u.pathname===location.pathname||u.pathname==='/'||u.pathname==='/index.html');
@@ -457,14 +472,32 @@ async function startNfcScan(){const support=readerSupport({NDEFReader:globalThis
  const id=++nfc.scanAttempt;const controller=new AbortController();nfc.controller=controller;nfc.phase='starting';nfc.message='正在请求 NFC 权限……';
  try{const reader=new NDEFReader();nfc.reader=reader;
  reader.addEventListener('readingerror',()=>{if(id!==nfc.scanAttempt)return;nfc.phase='scanning';nfc.message='检测到了标签，但浏览器无法读取 NDEF 内容。';if(page==='nfc')render();});
- reader.addEventListener('reading',ev=>{if(id!==nfc.scanAttempt)return;const value=getSceneFromNdef(ev.message);if(!value){nfc.phase='other';nfc.message='标签可读取，但不是属于当前站点的 DORM OS 场景链接。';if(page==='nfc')render();return;}
- const name=value.label;stopNfcScan({silent:true});nfc.phase='matched';nfc.message=`识别 ${name}，已切换网站场景。`;activateScene(value.scene,'NFC 前台扫描');setPage('scenes');toast('NFC 已识别：网站场景已切换');});
+ reader.addEventListener('reading',ev=>{
+   if(id!==nfc.scanAttempt)return;
+   const value=getSceneFromNdef(ev.message);
+   if(!value){nfc.phase='other';nfc.message='读取到 NFC 标签，但不是本站场景链接。';if(page==='nfc')render();return;}
+   if(value.tagId){
+     const tag=state.nfcTags.find(x=>x.id===value.tagId);
+     if(tag){tag.readAt=new Date().toISOString();tag.readScene=value.encodedScene||'';persist();}
+   }
+   if(value.stale){
+     stopNfcScan({silent:true});
+     nfc.phase='stale';
+     nfc.message=`实体标签「${value.label}」仍保存旧场景，请重写后再试；网页改绑并没有自动改写 NFC 标签。`;
+     log(`手机前台读取发现旧 NFC 场景：${value.label}`);
+     persist();render();toast('发现旧 NFC 内容，请重写实体标签');return;
+   }
+   stopNfcScan({silent:true});
+   nfc.phase='matched';
+   nfc.message=`手机真实读取：${value.label}。网站场景已切换，未控制系统设置。`;
+   activateScene(value.scene,'NFC 前台真实读取');setPage('scenes');toast('NFC 读取成功，网站场景已切换');
+ });
  const pending=reader.scan({signal:controller.signal});render();await pending;if(id!==nfc.scanAttempt)return;nfc.phase='scanning';nfc.message='正在扫描，请将 NFC 标签靠近手机。';if(page==='nfc')render();}
  catch(err){if(id!==nfc.scanAttempt)return;nfc.controller=null;nfc.reader=null;nfc.phase='error';nfc.message=nfcErrorMessage(err);if(page==='nfc')render();}}
 async function writeNfcTag(id){const t=state.nfcTags.find(x=>x.id===id);if(!t)return;const support=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});if(!support.ok){toast(support.reason);return;}
  if(!confirm(`即将把「${t.name}」的网站链接写入 NFC 标签，可能覆盖旧的 NDEF 数据。确定继续？`))return;
  const url=tagLink(t);nfc.phase='writing';nfc.message='请将可写 NFC 标签靠近手机……';if(page==='nfc')render();
- try{const reader=new NDEFReader();await reader.write({records:[{recordType:'url',data:url}]});t.writtenScene=t.scene;t.writtenAt=new Date().toISOString();nfc.phase='written';nfc.message=`「${t.name}」写入成功（仅表示 NDEF 写入成功，不代表手机系统动作执行）。`;log(`写入 NFC 链接：${t.name}`);persist();toast('标签写入成功');}
+ try{const reader=new NDEFReader();await reader.write({records:[{recordType:'url',data:url}]});t.writtenScene=t.scene;t.writtenAt=new Date().toISOString();t.readAt='';t.readScene='';nfc.phase='written';nfc.message=`「${t.name}」写入成功（仅表示 NDEF 写入成功，不代表手机系统动作执行）。`;log(`写入 NFC 链接：${t.name}`);persist();toast('标签写入成功');}
  catch(err){nfc.phase='error';nfc.message=nfcErrorMessage(err);toast(nfc.message);}if(page==='nfc')render();}
 
 function lifePage(){return `${titleBlock('DAILY / PERSONAL','我的生活','日常提醒与物品清单只属于你自己，不启用寝室共享。')}
@@ -577,8 +610,20 @@ window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();});
 window.addEventListener('offline',updateOfflineBanner);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)timerSync();});
 window.addEventListener('storage',event=>{if(event.key!==STORAGE||!event.newValue)return;try{state=safeState(JSON.parse(event.newValue));if($('editor').open)$('editor').close();render();toast('已同步此浏览器另一标签页的修改');}catch(err){console.warn('其他标签页数据无法解析',err);}});
-const deepLink=new URLSearchParams(location.search);const requestedTag=deepLink.get('dormTag');const linkedTag=state.nfcTags.find(t=>t.id===requestedTag);const linkedScene=linkedTag?.scene||deepLink.get('dormScene');
-if((requestedTag||deepLink.has('dormScene'))&&sceneDefs.some(s=>s.id===linkedScene)){state.scene=linkedScene;log(`通过 NFC/链接进入网站场景「${sceneLabel(linkedScene)}」；外部设备未控制`);persist();history.replaceState(null,'',location.pathname+'#scenes');}
+const deepLink=new URLSearchParams(location.search);
+const requestedTag=deepLink.get('dormTag');
+const linkedTag=state.nfcTags.find(t=>t.id===requestedTag);
+const encodedScene=deepLink.get('dormScene');
+const linkedScene=linkedTag?.scene||encodedScene;
+if((requestedTag||deepLink.has('dormScene'))&&linkedTag&&encodedScene&&encodedScene!==linkedTag.scene){
+  nfc.phase='stale';nfc.message=`网页绑定「${linkedTag.name}」已经修改，但实体链接仍指向「${sceneLabel(encodedScene)}」，请重新写入 NFC 标签。`;
+  log(`旧 NFC 场景链接：${linkedTag.name}，没有切换场景`);
+  persist();history.replaceState(null,'',location.pathname+'#nfc');
+}else if((requestedTag||deepLink.has('dormScene'))&&sceneDefs.some(s=>s.id===linkedScene)){
+  state.scene=linkedScene;
+  log(`网页场景链接打开「${sceneLabel(linkedScene)}」（不是 NFC 实体读取证明；外部设备未控制）`);
+  persist();history.replaceState(null,'',location.pathname+'#scenes');
+}
 page=nameMap[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
 loadWeather();render();fetchWeather();setInterval(tick,10000);
 updateOfflineBanner();
