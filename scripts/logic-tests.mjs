@@ -109,3 +109,19 @@ assert.equal(ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/inde
 assert.equal(ctx.getSceneFromNdef(tagMessage('https://evil.dorm-os-dk9.pages.dev/?dormScene=dev')),null);
 assert.equal(ctx.getSceneFromNdef(tagMessage('http://dorm.0701000.xyz/?dormScene=study')),null);
 console.log('NFC canonical and custom domain alias allowlist tests passed');
+
+
+ctx.state.nfcTags=[{id:'tag-a',name:'书桌',scene:'dev'}];
+const stale=ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/?dormTag=tag-a&dormScene=study'));
+assert.equal(stale.scene,'dev');
+assert.equal(stale.stale,true);
+assert.equal(stale.tagId,'tag-a');
+assert.equal(stale.encodedScene,'study');
+const current=ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/?dormTag=tag-a&dormScene=dev'));
+assert.equal(current.stale,false);
+assert.equal(current.tagId,'tag-a');
+ctx.state.nfcTags=[];
+const fallback=ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/?dormTag=tag-a&dormScene=study'));
+assert.equal(fallback.scene,'study');
+assert.equal(fallback.tagId,null);
+console.log('NFC stale binding and actual-read evidence boundaries validated');
