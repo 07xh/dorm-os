@@ -13,6 +13,7 @@ import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.Button
@@ -28,7 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class MainActivity : Activity() {
     private val running = AtomicBoolean(false)
-    private var writing = false
+    @Volatile private var writing = false
+    private val nfcIntentGate = NfcIntentGate()
+    private val writeEpoch = NfcWriteEpoch()
     private val writeInFlight = AtomicBoolean(false)
     private lateinit var status: TextView
     private var nfc: NfcAdapter? = null
@@ -74,7 +77,7 @@ class MainActivity : Activity() {
                 show("未检测到 NFC 启动禁用状态；实际触发仍需真机碰卡验收。")
             }
         }
-        addButton("取消 NFC 写入") { if (writing) { stopWriting(); show("已取消等待写入；不代表标签已经更改。") } else show("当前没有正在等待的 NFC 写入。") }
+        addButton("取消 NFC 写入") { if (writing) { stopWriting(); show("已取消等待触碰；若标签正被写入，可能已发生变更，请重新读取核对。") } else show("当前没有正在等待的 NFC 写入。") }
         addButton("打开 Wi-Fi 设置") { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         setContentView(layout)
         handleNfc(intent)
@@ -101,7 +104,10 @@ class MainActivity : Activity() {
                     NcwuRules.isExpectedTag(String(record.type, StandardCharsets.US_ASCII), String(record.payload, StandardCharsets.UTF_8))
             }
         } == true
-        if (valid) checkOnce() else show("未知 NFC 标签：已忽略，不执行操作。")
+        if (valid) {
+            if (nfcIntentGate.accept(SystemClock.elapsedRealtime())) checkOnce()
+            else show("短时间重复的 NFC 触发已忽略；不会发起第二次检测。")
+        } else show("未知 NFC 标签：已忽略，不执行操作。")
     }
 
     private fun checkOnce() {
@@ -133,20 +139,26 @@ class MainActivity : Activity() {
     }
 
     private fun startWriting() {
-        if (writing) { show("正在等待写入，请先取消或触碰标签。"); return }
+        if (writing || writeInFlight.get()) { show("上一轮 NFC 写入尚未结束，请先确认状态。"); return }
+        val epoch = writeEpoch.begin()
         writing = true
         show("请将可写 NFC 标签贴近手机背面……")
         nfc?.enableReaderMode(
             this,
-            { tag -> writeTag(tag) },
+            { tag -> writeTag(tag, epoch) },
             NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
             null
         )
     }
 
-    private fun writeTag(tag: Tag) {
+    private fun writeTag(tag: Tag, epoch: Int) {
+        if (!writing || !writeEpoch.isCurrent(epoch)) return
         if (!writeInFlight.compareAndSet(false, true)) return
+        if (!writing || !writeEpoch.isCurrent(epoch)) {
+            writeInFlight.set(false)
+            return
+        }
         val message = NdefMessage(arrayOf(
             NdefRecord.createMime(MIME, PAYLOAD.toByteArray(StandardCharsets.UTF_8))
         ))
@@ -179,7 +191,8 @@ class MainActivity : Activity() {
             writeInFlight.set(false)
         }
         runOnUiThread {
-            if (!isDestroyed) {
+            // Cancel / Activity pause invalidates the result of a late hardware callback.
+            if (!isDestroyed && writing && writeEpoch.isCurrent(epoch)) {
                 stopWriting()
                 show(outcome)
             }
@@ -188,6 +201,7 @@ class MainActivity : Activity() {
 
     private fun stopWriting() {
         writing = false
+        writeEpoch.invalidate()
         nfc?.disableReaderMode(this)
     }
 
