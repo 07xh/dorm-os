@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class MainActivity : Activity() {
     private val running = AtomicBoolean(false)
     private var writing = false
+    private val writeInFlight = AtomicBoolean(false)
     private lateinit var status: TextView
     private var nfc: NfcAdapter? = null
 
@@ -64,6 +65,7 @@ class MainActivity : Activity() {
             }
         }
         addButton("写入 NFC 专用标签") { confirmWrite() }
+        addButton("取消 NFC 写入") { if (writing) { stopWriting(); show("已取消等待写入；不代表标签已经更改。") } else show("当前没有正在等待的 NFC 写入。") }
         addButton("打开 Wi-Fi 设置") { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         setContentView(layout)
         handleNfc(intent)
@@ -87,8 +89,7 @@ class MainActivity : Activity() {
         val valid = messages?.filterIsInstance<NdefMessage>()?.any { message ->
             message.records.any { record ->
                 record.tnf == NdefRecord.TNF_MIME_MEDIA &&
-                    String(record.type, StandardCharsets.US_ASCII) == MIME &&
-                    String(record.payload, StandardCharsets.UTF_8) == PAYLOAD
+                    NcwuRules.isExpectedTag(String(record.type, StandardCharsets.US_ASCII), String(record.payload, StandardCharsets.UTF_8))
             }
         } == true
         if (valid) checkOnce() else show("未知 NFC 标签：已忽略，不执行操作。")
@@ -123,6 +124,7 @@ class MainActivity : Activity() {
     }
 
     private fun startWriting() {
+        if (writing) { show("正在等待写入，请先取消或触碰标签。"); return }
         writing = true
         show("请将可写 NFC 标签贴近手机背面……")
         nfc?.enableReaderMode(
@@ -135,6 +137,7 @@ class MainActivity : Activity() {
     }
 
     private fun writeTag(tag: Tag) {
+        if (!writeInFlight.compareAndSet(false, true)) return
         val message = NdefMessage(arrayOf(
             NdefRecord.createMime(MIME, PAYLOAD.toByteArray(StandardCharsets.UTF_8))
         ))
@@ -145,14 +148,24 @@ class MainActivity : Activity() {
                 check(ndef.isWritable) { "此标签不可写" }
                 check(ndef.maxSize >= message.toByteArray().size) { "标签空间不足" }
                 ndef.writeNdefMessage(message)
-                "标签写入成功。再次碰卡时将启动一次检测。"
+                // Read the physical tag again; the NFC write call alone is not an end-to-end proof.
+                val readBack = try { ndef.ndefMessage } catch (_: Exception) { null }
+                if (readBack != null && readBack.toByteArray().contentEquals(message.toByteArray())) {
+                    "标签写入并回读一致。离开 App 后可再次碰卡验证一次性检测。"
+                } else {
+                    "已收到写入完成结果，但未确认回读内容；请再次碰卡检查，勿当作验证成功。"
+                }
             } finally { ndef.close() }
         } catch (e: Exception) {
             "写入失败：" + (e.message ?: e.javaClass.simpleName)
+        } finally {
+            writeInFlight.set(false)
         }
         runOnUiThread {
-            stopWriting()
-            show(outcome)
+            if (!isDestroyed) {
+                stopWriting()
+                show(outcome)
+            }
         }
     }
 
