@@ -178,3 +178,19 @@ const currentAway=ctx.safeState({...base,awayChecklist:{date:'2026-11-01',checke
 assert.equal(currentAway.awayChecklist.checked.length,2);
 assert.equal(currentAway.awayChecklist.checked.includes('not-real'),false);
 console.log('Scene deep links and daily personal away checklist validated');
+
+
+// Android handoff is user initiated and never claims remote execution.
+const handoffCtx={URL,location:ctx.location,sceneDefs:ctx.sceneDefs};
+runInNewContext(sourceBetween('function personalSceneUrl(', 'const sceneLabel='),handoffCtx);
+handoffCtx.androidSceneSelection='study';
+runInNewContext(sourceBetween('function androidSceneLink()', 'function nfcPage(){'),handoffCtx);
+assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'study');
+handoffCtx.androidSceneSelection='away';
+assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'away');
+handoffCtx.androidSceneSelection='invalid';
+assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'study');
+assert.ok(html.includes('data-action="android-copy-scene"'));
+assert.ok(html.includes('data-action="android-share-scene"'));
+assert.ok(html.includes('MacroDroid 会将标签写成自己的专用识别格式'));
+console.log('Android NFC handoff URLs and setup controls passed');
