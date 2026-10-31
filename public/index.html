@@ -339,6 +339,7 @@ let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
 let page='dashboard',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let deferredInstallPrompt=null;
+let androidSceneSelection='study';
 let pendingEncryptedBackup=null;
 let pendingPlainBackup=null;
 const timer={remaining:25*60,running:false,interval:null,deadline:0};
@@ -487,6 +488,53 @@ function nfcDiagnostics(){
  {title:'浏览器本地存储',value:storageOk?'可用':'受限',ok:storageOk,detail:'课表、任务及标签绑定使用此设备本地存储'},
  {title:'当前网络',value:navigator.onLine?'在线':'离线',ok:navigator.onLine,detail:'天气和未缓存页面需要网络'}];
 }
+function androidAutomationGuide(scene) {
+  const chosen=sceneDefs.some(x=>x.id===scene)?scene:'study';
+  const url=personalSceneUrl(chosen);
+  const opts=sceneDefs.map(x=>`<option value="${x.id}" ${chosen===x.id?'selected':''}>${esc(x.label)}</option>`).join('');
+  return `<section class="card wide" id="android-setup">
+    <div class="card-header"><span class="card-title">Android 自动化接入</span>${badge('需要手机自行配置')}</div>
+    <p class="small muted">先选择场景，再决定由手机浏览器打开标签，还是由 MacroDroid 原生识别标签。两条路线写入的 NFC 内容不同，请勿直接覆盖已有数据。</p>
+    <div class="form-field" style="max-width:340px;margin:12px 0"><label for="androidScenePicker">要接入的个人场景</label><select id="androidScenePicker">${opts}</select></div>
+    <div class="notice neutral"><strong>路线 A · 网页 NFC / 普通网址标签</strong><p class="small muted">复制下面的 HTTPS 链接，用网站支持的 Web NFC 或 NDEF 写入工具写入可写标签。Android 16 扫描此类网页标签时会按网址处理；打开页面可切换 DORM OS 内部场景，但不会执行系统勿扰或音量操作。</p>
+      <code style="display:block;overflow-wrap:anywhere;margin:10px 0;font-size:12px">${esc(url)}</code>
+      <div class="button-row"><button type="button" class="secondary" data-action="android-copy-scene">复制场景 URL</button><button type="button" class="secondary" data-action="android-share-scene">Android 分享</button></div>
+    </div>
+    <div class="notice neutral" style="margin-top:12px"><strong>路线 B · MacroDroid 原生 NFC 自动化</strong>
+      <ol class="small" style="line-height:1.8;margin:8px 0 10px;padding-left:20px">
+        <li>在 MacroDroid 创建宏，添加「NFC 标签」触发器并选择「写入新标签」，为其命名。</li>
+        <li>先配置需要的手机动作，例如勿扰模式或音量设置，再添加「打开网页」动作，填入上面的 DORM OS 场景 URL。</li>
+        <li>用 MacroDroid 自己写入这枚可写 NFC 标签，在手机上实际触碰并核对动作和网页。</li>
+      </ol>
+      <p class="small muted"><strong>重要：</strong>MacroDroid 会将标签写成自己的专用识别格式，并可能替换原有 NDEF 内容。若选择此路线，不要再用本页「写入」按钮覆盖同一枚标签。页面不会自动知道 MacroDroid 动作是否执行成功。</p>
+      <a href="https://macrodroidforum.com/wiki/index.php/Trigger:_NFC_Tag" target="_blank" rel="noopener noreferrer">查看 MacroDroid NFC 触发器文档 ↗</a>
+    </div>
+    <p class="tiny muted" style="margin-top:12px">当前集成状态：网站场景链接可生成；Android 系统自动化必须在手机端独立配置、授权、触碰测试。暂无可验证的远程执行回执。</p>
+  </section>`;
+}
+function androidSceneLink() {
+  const scene=sceneDefs.some(x=>x.id===androidSceneSelection)?androidSceneSelection:'study';
+  return personalSceneUrl(scene);
+}
+async function androidCopyScene() {
+  const url=androidSceneLink();
+  if(!url){toast('请先选择有效场景');return;}
+  try{await navigator.clipboard.writeText(url);toast('已复制 DORM OS 场景链接');}
+  catch{window.prompt('复制这个场景链接：',url);}
+}
+async function androidShareScene() {
+  const url=androidSceneLink();
+  if(!url){toast('请先选择有效场景');return;}
+  if(typeof navigator.share==='function'){
+    try{
+      await navigator.share({title:'DORM OS 场景',text:sceneLabel(androidSceneSelection),url});
+      return;
+    }catch(e){
+      if(e?.name==='AbortError')return;
+    }
+  }
+  await androidCopyScene();
+}
 function nfcPage(){
  const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
  const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
@@ -506,7 +554,7 @@ function nfcPage(){
  </div>
  <div class="card nfc-guide"><div class="card-header"><span class="card-title">三步绑定 · 真实使用</span></div><div class="guide-steps"><div><b>01</b><strong>注册标签</strong><small>名称和位置只保存在网站本地</small></div><div><b>02</b><strong>选择场景并写入</strong><small>把 DORM OS 链接写入可写 NDEF 标签</small></div><div><b>03</b><strong>手机触碰标签</strong><small>系统打开网页后切换网站场景</small></div></div>
  <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
-  <div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div>`;
+  <div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div>${androidAutomationGuide(androidSceneSelection)}` ;
 }
 function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label>标签名称</label><input name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label>绑定的网站场景</label><select name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「测试网页链接」检查跳转；这并不测试 NFC 硬件。修改绑定后需重新写入实体 NFC 标签。</p>`,'tag'));}
 function stopNfcScan({silent=false}={}){nfc.scanAttempt++;nfc.controller?.abort();nfc.controller=null;nfc.reader=null;nfc.phase='stopped';nfc.message='扫描已停止。';if(!silent&&page==='nfc')render();}
@@ -677,10 +725,10 @@ function backupImportChoices(){
 function encryptedImportDialog(){openDialog(formFrame('恢复加密备份','<div class="form-field"><label for="restorePassword">备份密码</label><input type="password" id="restorePassword" name="password" autocomplete="off" required></div>'+backupImportChoices(),'decrypt-backup'));}
 function plainImportDialog(){openDialog(formFrame('导入普通备份',backupImportChoices(),'import-plain'));}
 function exportedBackup(){return JSON.stringify(state,null,2);}
-function clickAction(action){if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal')$('editor').close();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset'){timerStop();timer.remaining=25*60;render();}}
+function clickAction(action){if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal')$('editor').close();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset'){timerStop();timer.remaining=25*60;render();}}
 document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
   if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.scene){activateScene(target.dataset.scene,'网页按钮');toast('网站场景已切换；外部设备未执行控制');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){state.reminders=state.reminders.filter(x=>x.id!==target.dataset.reminderDelete);persist();render();}else if(target.dataset.itemDelete){state.items=state.items.filter(x=>x.id!==target.dataset.itemDelete);persist();render();}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
-document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
+document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 $('quickAdd').addEventListener('click',()=>taskDialog());
 $('icsInput').addEventListener('change',async e=>{
