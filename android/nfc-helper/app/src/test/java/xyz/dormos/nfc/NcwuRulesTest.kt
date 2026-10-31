@@ -28,6 +28,16 @@ class NcwuRulesTest {
         assertTrue(NcwuRules.redactDiagnostic("Ncwu Wi-Fi HTTPS 测试成功（HTTP 200）").contains("HTTP 200"))
     }
 
+    @Test fun networkBoundSsidTakesPriorityOverGlobalWifiInfo() {
+        assertEquals("Ncwu", NcwuRules.selectSsid("\"Ncwu\"", "\"Other\""))
+        assertEquals("Other", NcwuRules.selectSsid("\"Other\"", "\"Ncwu\""))
+        assertEquals("Ncwu", NcwuRules.selectSsid("<unknown ssid>", "\"Ncwu\""))
+        assertNull(NcwuRules.selectSsid("<unknown ssid>", " "))
+        assertTrue(NcwuRules.isSingleTargetWifi("\"Ncwu\"", 1))
+        assertFalse(NcwuRules.isSingleTargetWifi("Ncwu-Guest", 1))
+        assertFalse(NcwuRules.isSingleTargetWifi("Ncwu", 2))
+    }
+
     @Test fun captiveRedirectIsNeverHttpsSuccess() {
         assertTrue(NcwuRules.isHttpsSuccess(200))
         assertTrue(NcwuRules.isHttpsSuccess(204))

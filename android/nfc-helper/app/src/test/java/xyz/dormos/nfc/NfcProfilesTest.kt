@@ -17,6 +17,12 @@ class NfcProfilesTest {
         assertFalse(NfcProfiles.isSafeHttpsUrl("javascript:alert(1)"))
         assertFalse(NfcProfiles.isSafeHttpsUrl("https://user:password@example.org/"))
         assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/?access_token=secret"))
+        assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/?access%5Ftoken=secret"))
+        assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/#access_token=secret"))
+        assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/path#route?client_secret=value"))
+        assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/?id_token=secret"))
+        assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/?invalid%QQ=value"))
+        assertTrue(NfcProfiles.isSafeHttpsUrl("https://example.org/path?course=math&week=2"))
         assertFalse(NfcProfiles.isSafeHttpsUrl("https://localhost/"))
         assertFalse(NfcProfiles.isSafeHttpsUrl("https://example.org/#" + "x".repeat(121)))
     }

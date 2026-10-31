@@ -3,6 +3,8 @@ package xyz.dormos.nfc
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
+import android.net.wifi.WifiInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
@@ -29,10 +31,15 @@ class NetworkDiagnostics(private val context: Context) {
             return "发现 Wi-Fi，但尚未授权读取 SSID。\n请在助手内授权，然后确认连接的网络为 Ncwu。"
         }
         val ssid = try {
+            // Prefer SSID associated with the exact Network used for the HTTPS probe.
+            val networkSsid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (capabilities.transportInfo as? WifiInfo)?.ssid
+            } else null
             val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             @Suppress("DEPRECATION")
-            wifi.connectionInfo?.ssid?.trim('"') ?: ""
-        } catch (e: SecurityException) {
+            val legacySsid = wifi.connectionInfo?.ssid
+            NcwuRules.selectSsid(networkSsid, legacySsid) ?: ""
+        } catch (_: SecurityException) {
             ""
         }
         if (!NcwuRules.isSingleTargetWifi(ssid, wifiNetworks.size)) {

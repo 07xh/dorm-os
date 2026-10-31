@@ -94,3 +94,9 @@
 - KSU 管理器的 Action 按钮可手动测试脚本，首次 NFC 测试应使用自有空白标签、解锁手机操作。
 
 **避免对使用限制的误解：**脚本模块并不能独自读取 NFC；需要 Android APK 接收 NFC Intent。LSPosed Hook 系统 NFC 框架在此方案中无必要。可参考 [KernelSU 官方模块文档](https://kernelsu.org/guide/module.html) 与 [NFCC (MIT)](https://github.com/PATILYASHH/nfcc) 的本地 NFC 场景理念，但本次未复制第三方代码。
+
+## 0.7 Android 16 Wi-Fi 身份与 HTTPS 链接验收
+
+- SSID 优先从被选定 Wi-Fi `NetworkCapabilities.transportInfo` 中获取；仅在系统隐藏该值时回退旧式 Wi-Fi 信息。所有 HTTPS 测试仍绑定目标 Wi-Fi，不允许通过移动数据冒充成功。多个网络或无法确认 Ncwu 时安全停止。
+- 自定义 HTTPS URL 会检查查询参数与片段中编码后的常见密钥字段，例如 `access%5Ftoken`、`client_secret`；仍需人工检查网址是否带私人信息。
+- 原生 JUnit 新增网络身份优先级、未知 SSID、恶意链接和正常学习网址测试。真实 Android 16 NFC 读写仍需手机验收。

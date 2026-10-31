@@ -8,8 +8,18 @@ object NcwuRules {
     fun isExpectedTag(mime: String?, payload: String?): Boolean =
         mime == MIME && payload == COMMAND
 
+    fun normalizeSsid(ssid: String?): String? {
+        val value = ssid?.trim()?.removeSurrounding("\"") ?: return null
+        if (value.isBlank() || value.equals("<unknown ssid>", ignoreCase = true)) return null
+        return value
+    }
+
+    /** Prefer SSID from the selected Network; global Wi-Fi info is only a fallback. */
+    fun selectSsid(networkSsid: String?, legacySsid: String?): String? =
+        normalizeSsid(networkSsid) ?: normalizeSsid(legacySsid)
+
     fun isSingleTargetWifi(ssid: String?, wifiNetworkCount: Int): Boolean =
-        wifiNetworkCount == 1 && ssid == "Ncwu"
+        wifiNetworkCount == 1 && normalizeSsid(ssid) == "Ncwu"
 
     /** Removes non-target Wi-Fi network names before a user explicitly copies a report. */
     fun redactDiagnostic(text: String): String =
