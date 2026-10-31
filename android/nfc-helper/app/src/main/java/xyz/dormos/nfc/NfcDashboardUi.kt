@@ -18,7 +18,7 @@ class NfcDashboardUi(
     private val activity: Activity,
     private val onAction: (String) -> Unit
 ) {
-    data class Content(val root: View, val status: TextView, val profileCounter: TextView)
+    data class Content(val root: View, val status: TextView, val profileCounter: TextView, val nfcCounter: TextView, val rootCounter: TextView)
 
     private val ink = Color.rgb(25, 44, 79)
     private val blue = Color.rgb(28, 101, 224)
@@ -123,9 +123,9 @@ class NfcDashboardUi(
             metrics.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight).apply { rightMargin = dp(6) })
             return valueView
         }
-        metric("NFC", if (nfcEnabled) "已开启" else "未开启", 1f)
+        val nfcCounter = metric("NFC", if (nfcEnabled) "已开启" else "未开启", 1f)
         val profileCounter = metric("我的标签", "$profileCount 个", 1f)
-        metric("KernelSU", if (rootOption) "已启用" else "默认关闭", 1.2f)
+        val rootCounter = metric("KernelSU", if (rootOption) "已启用" else "默认关闭", 1.2f)
         base.addView(metrics)
 
         header(base, "快速操作", "只在点击或扫描标签时工作")
@@ -166,6 +166,6 @@ class NfcDashboardUi(
             "安全说明：标签只保存动作编号。当前版本不提交 Ncwu 登录密码，也不支持让 NFC 执行任意脚本。",
             12f, muted
         ), params(top = 20))
-        return Content(scroll, state, profileCounter)
+        return Content(scroll, state, profileCounter, nfcCounter, rootCounter)
     }
 }
