@@ -24,6 +24,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.nio.charset.StandardCharsets
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -73,9 +74,100 @@ class MainActivity : Activity() {
         profileCounter.text = "${profiles.all().size} 个"
     }
 
+    private fun startProfileExport() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "dorm-os-nfc-tags.json")
+        }
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, REQUEST_EXPORT)
+        } catch (_: Exception) {
+            show("无法打开系统文件保存器，备份未导出。")
+        }
+    }
+
+    private fun startProfileImport() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, REQUEST_IMPORT)
+        } catch (_: Exception) {
+            show("无法打开系统文件选择器，原有标签配置未改变。")
+        }
+    }
+
+    @Deprecated("Android activity result callback; compatible with the standalone native build")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != Activity.RESULT_OK || data?.data == null) return
+        val uri = data.data ?: return
+        when (requestCode) {
+            REQUEST_EXPORT -> {
+                try {
+                    val payload = NfcProfileBackup.encode(profiles.all())
+                    val out = contentResolver.openOutputStream(uri, "wt")
+                        ?: error("cannot open output")
+                    out.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+                    show("标签配置已导出。备份包含标签名称和网页地址，请妥善保管。")
+                } catch (_: Exception) {
+                    show("备份写入失败，请检查保存位置和可用空间。")
+                }
+            }
+            REQUEST_IMPORT -> {
+                val input = try {
+                    val stream = contentResolver.openInputStream(uri)
+                        ?: error("cannot open input")
+                    stream.use {
+                        val output = ByteArrayOutputStream()
+                        val chunk = ByteArray(4096)
+                        while (true) {
+                            val length = it.read(chunk)
+                            if (length < 0) break
+                            if (output.size() + length > NfcProfileBackup.MAX_BYTES)
+                                error("backup too large")
+                            output.write(chunk, 0, length)
+                        }
+                        String(output.toByteArray(), Charsets.UTF_8)
+                    }
+                } catch (_: Exception) {
+                    show("无法读取备份：文件过大、不存在或未获得访问权限。")
+                    return
+                }
+                val imported = NfcProfileBackup.decode(input)
+                if (imported == null) {
+                    show("备份校验失败：格式、版本、链接安全或标签编号不符合要求；本机数据未改变。")
+                    return
+                }
+                val existingCount = profiles.all().size
+                AlertDialog.Builder(this)
+                    .setTitle("恢复 NFC 标签配置？")
+                    .setMessage(
+                        "将用备份中的 " + imported.size +
+                        " 条配置覆盖本机当前 " + existingCount + " 条绑定。\n" +
+                        "不会改写实体 NFC 标签或导入 Root 授权状态。\n" +
+                        "建议先导出本机配置，再确认恢复。"
+                    )
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("确认覆盖本机配置") { _, _ ->
+                        if (profiles.replaceAll(imported)) {
+                            refreshIndicators()
+                            show("已恢复 " + imported.size + " 条 NFC 配置。实体标签内容未被修改。")
+                        } else show("恢复失败，本次未更新标签绑定。")
+                    }.show()
+            }
+        }
+    }
+
     private fun handleUiAction(action: String) {
         when (action) {
             "diagnose" -> checkOnce()
+            "export" -> startProfileExport()
+            "import" -> startProfileImport()
             "profiles" -> CustomNfcUi(
                 activity = this,
                 store = profiles,
@@ -387,5 +479,7 @@ class MainActivity : Activity() {
     companion object {
         const val MIME = "application/vnd.dormos.ncwu"
         const val PAYLOAD = "v1:ncwu"
+        private const val REQUEST_EXPORT = 701
+        private const val REQUEST_IMPORT = 702
     }
 }
