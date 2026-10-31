@@ -40,6 +40,8 @@ class MainActivity : Activity() {
     private val profiles by lazy { NfcProfileStore(this) }
     private lateinit var status: TextView
     private lateinit var profileCounter: TextView
+    private lateinit var nfcCounter: TextView
+    private lateinit var rootCounter: TextView
     private var latestDiagnostic: String? = null
     private var nfc: NfcAdapter? = null
 
@@ -54,8 +56,21 @@ class MainActivity : Activity() {
         )
         status = ui.status
         profileCounter = ui.profileCounter
+        nfcCounter = ui.nfcCounter
+        rootCounter = ui.rootCounter
         setContentView(ui.root)
         handleNfc(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::nfcCounter.isInitialized && ::rootCounter.isInitialized) refreshIndicators()
+    }
+
+    private fun refreshIndicators() {
+        nfcCounter.text = if (nfc?.isEnabled == true) "已开启" else "未开启"
+        rootCounter.text = if (KsuActionRunner(applicationContext).isEnabled()) "已启用" else "默认关闭"
+        profileCounter.text = "${profiles.all().size} 个"
     }
 
     private fun handleUiAction(action: String) {
@@ -187,7 +202,7 @@ class MainActivity : Activity() {
     private fun toggleKsuPermission() {
         val runner = KsuActionRunner(applicationContext)
         if (runner.isEnabled()) {
-            if (runner.setEnabled(false)) show("KernelSU NFC 动作已关闭。")
+            if (runner.setEnabled(false)) { refreshIndicators(); show("KernelSU NFC 动作已关闭。") }
             else show("关闭选项保存失败。")
             return
         }
@@ -197,6 +212,7 @@ class MainActivity : Activity() {
             .setNegativeButton("暂不启用", null)
             .setPositiveButton("仅启用固定脚本") { _, _ ->
                 if (runner.setEnabled(true)) {
+                    refreshIndicators()
                     show("已在本机开启固定 KernelSU 动作；是否授予 su 仍由 KernelSU 管理器决定。")
                 } else show("保存失败，尚未启用。")
             }.show()
