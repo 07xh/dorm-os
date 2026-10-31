@@ -44,7 +44,7 @@ object NfcProfiles {
         val uri = try { URI(raw) } catch (_: Exception) { return false }
         if (uri.scheme != "https" || uri.userInfo != null || uri.host.isNullOrBlank()) return false
         if (uri.host == "localhost" || uri.port !in -1..65535 || uri.port == 0) return false
-        if (uri.host?.contains('.') != true || uri.rawFragment?.length ?: 0 > 120) return false
+        if (uri.host?.contains('.') != true || (uri.rawFragment?.length ?: 0) > 120) return false
         // Obvious credential-bearing URLs should not be stored as NFC actions.
         val query = (uri.rawQuery ?: "").lowercase()
         if (Regex("(^|&)(password|passwd|token|access_token|secret|api_key|session|auth)=").containsMatchIn(query)) return false
