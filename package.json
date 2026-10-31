@@ -1,8 +1,8 @@
 {
   "name": "dorm-os",
   "private": true,
-  "version": "0.1.2",
-  "description": "DORM OS personal dashboard",
+  "version": "0.3.3",
+  "description": "DORM OS V3.3 personal dashboard with local tasks, timetable and NFC scene registry",
   "scripts": {
     "check": "node scripts/check.mjs",
     "test": "node scripts/check.mjs"
