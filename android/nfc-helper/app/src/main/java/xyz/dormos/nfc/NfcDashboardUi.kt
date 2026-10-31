@@ -5,9 +5,11 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -82,6 +84,21 @@ class NfcDashboardUi(
         val scroll = ScrollView(activity).apply {
             isFillViewport = true
             background = background(pale, radius = 0)
+        }
+        // Android 15/16 enforce edge-to-edge for modern target SDKs.
+        // Pad outside the system bars so controls remain tappable above gesture navigation.
+        scroll.setOnApplyWindowInsetsListener { view, insets ->
+            if (Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                view.setPadding(
+                    insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom
+                )
+            }
+            insets
         }
         val base = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
