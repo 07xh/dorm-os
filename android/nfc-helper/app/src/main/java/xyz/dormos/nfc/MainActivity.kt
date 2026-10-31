@@ -7,6 +7,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
@@ -36,6 +37,7 @@ class MainActivity : Activity() {
     private val nfcIntentGate = NfcIntentGate()
     private val writeEpoch = NfcWriteEpoch()
     private val writeInFlight = AtomicBoolean(false)
+    private val profiles by lazy { NfcProfileStore(this) }
     private lateinit var status: TextView
     private var latestDiagnostic: String? = null
     private var nfc: NfcAdapter? = null
@@ -75,6 +77,14 @@ class MainActivity : Activity() {
             }
         }
         addButton("写入 NFC 专用标签") { confirmWrite() }
+        addButton("自定义 NFC 标签管理") {
+            CustomNfcUi(
+                activity = this,
+                store = profiles,
+                onWrite = { confirmWrite(it) },
+                onMessage = { show(it) }
+            ).openManager()
+        }
         addButton("检查 NFC 自动启动权限") {
             if (Build.VERSION.SDK_INT >= 36 && nfc?.isTagIntentAllowed == false) {
                 show("系统禁止通过 NFC 标签启动本应用。请在设置 → 应用 → 特殊应用权限 → 通过 NFC 启动里允许 DORM OS 助手。")
@@ -103,16 +113,66 @@ class MainActivity : Activity() {
         if (intent?.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
         @Suppress("DEPRECATION")
         val messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
-        val valid = messages?.filterIsInstance<NdefMessage>()?.any { message ->
-            message.records.any { record ->
+        val payload = messages?.filterIsInstance<NdefMessage>()?.asSequence()
+            ?.flatMap { it.records.asSequence() }
+            ?.firstOrNull { record ->
                 record.tnf == NdefRecord.TNF_MIME_MEDIA &&
-                    NcwuRules.isExpectedTag(String(record.type, StandardCharsets.US_ASCII), String(record.payload, StandardCharsets.UTF_8))
+                    String(record.type, StandardCharsets.US_ASCII) == NfcProfiles.MIME &&
+                    record.payload.size in 1..80
+            }?.let { String(it.payload, StandardCharsets.UTF_8) }
+        if (payload == null) {
+            show("未知 NFC 标签：已忽略，不执行操作。")
+            return
+        }
+        if (payload != PAYLOAD && NfcProfiles.decodeId(payload) == null) {
+            show("无效 NFC 动作，已安全停止。")
+            return
+        }
+        if (!nfcIntentGate.accept(SystemClock.elapsedRealtime())) {
+            show("短时间重复 NFC 触发已忽略；不会执行第二次。")
+            return
+        }
+        if (payload == PAYLOAD) {
+            checkOnce()  // All existing v1:ncwu tags continue to work.
+            return
+        }
+        val id = NfcProfiles.decodeId(payload) ?: return
+        val profile = profiles.byId(id)
+        if (profile == null) {
+            show("该标签没有在此手机绑定动作，已停止；可能已删除或来自其他设备。")
+        } else runProfile(profile)
+    }
+
+    private fun runProfile(profile: NfcProfile) {
+        if (!NfcProfiles.validProfile(profile)) {
+            show("标签动作配置无效，未执行。")
+            return
+        }
+        when (profile.action) {
+            NfcProfiles.DIAGNOSE_NCWU -> checkOnce()
+            NfcProfiles.OPEN_HTTPS -> openTrustedLink(profile.target, profile.name)
+            NfcProfiles.DORM_SCENE -> {
+                val link = NfcProfiles.sceneUrl(profile.target)
+                if (link != null) openTrustedLink(link, profile.name)
+                else show("场景名称无效，已停止。")
             }
-        } == true
-        if (valid) {
-            if (nfcIntentGate.accept(SystemClock.elapsedRealtime())) checkOnce()
-            else show("短时间重复的 NFC 触发已忽略；不会发起第二次检测。")
-        } else show("未知 NFC 标签：已忽略，不执行操作。")
+            else -> show("此动作暂不支持。")
+        }
+    }
+
+    private fun openTrustedLink(link: String, name: String) {
+        if (!NfcProfiles.isSafeHttpsUrl(link)) {
+            show("链接安全校验失败；未打开网页。")
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            })
+            show("已请求打开「" + name + "」。是否成功加载由浏览器决定。")
+        } catch (e: Exception) {
+            show("无法打开网页：" + (e.message ?: e.javaClass.simpleName))
+        }
     }
 
     private fun checkOnce() {
@@ -135,34 +195,43 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun confirmWrite() {
+    private fun confirmWrite(profile: NfcProfile? = null) {
         if (nfc == null || nfc?.isEnabled != true) {
             show("请先打开系统 NFC。")
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("写入专用 NFC 标签？")
+            .setTitle(if (profile == null) "写入 Ncwu 检测标签？" else "写入「" + profile.name + "」？")
             .setMessage("将覆盖标签原有 NDEF 内容。只写入动作标识，不包含账号密码。请使用你自己的可写标签。")
             .setNegativeButton("取消", null)
-            .setPositiveButton("确认覆盖") { _, _ -> startWriting() }
+            .setPositiveButton("确认覆盖") { _, _ ->
+                val payload = if (profile == null) PAYLOAD else {
+                    if (profiles.byId(profile.id) != profile) {
+                        show("标签绑定已变更或删除，停止写入。")
+                        return@setPositiveButton
+                    }
+                    NfcProfiles.payload(profile.id)
+                }
+                startWriting(payload)
+            }
             .show()
     }
 
-    private fun startWriting() {
+    private fun startWriting(payload: String) {
         if (writing || writeInFlight.get()) { show("上一轮 NFC 写入尚未结束，请先确认状态。"); return }
         val epoch = writeEpoch.begin()
         writing = true
         show("请将可写 NFC 标签贴近手机背面……")
         nfc?.enableReaderMode(
             this,
-            { tag -> writeTag(tag, epoch) },
+            { tag -> writeTag(tag, epoch, payload) },
             NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
             null
         )
     }
 
-    private fun writeTag(tag: Tag, epoch: Int) {
+    private fun writeTag(tag: Tag, epoch: Int, payload: String) {
         if (!writing || !writeEpoch.isCurrent(epoch)) return
         if (!writeInFlight.compareAndSet(false, true)) return
         if (!writing || !writeEpoch.isCurrent(epoch)) {
@@ -170,7 +239,7 @@ class MainActivity : Activity() {
             return
         }
         val message = NdefMessage(arrayOf(
-            NdefRecord.createMime(MIME, PAYLOAD.toByteArray(StandardCharsets.UTF_8))
+            NdefRecord.createMime(MIME, payload.toByteArray(StandardCharsets.UTF_8))
         ))
         val outcome = try {
             val ndef = Ndef.get(tag)
