@@ -20,6 +20,7 @@ object NfcProfiles {
     const val DIAGNOSE_NCWU = "ncwu"
     const val OPEN_HTTPS = "https"
     const val DORM_SCENE = "scene"
+    const val KSU_WIFI_STATUS = "ksu-wifi-status"
     const val SITE = "https://dorm-os-dk9.pages.dev/"
     private val uuidPattern = Regex("^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
     val allowedScenes = setOf("study", "rest", "dev", "away")
@@ -61,6 +62,7 @@ object NfcProfiles {
                 DIAGNOSE_NCWU -> p.target.isEmpty()
                 OPEN_HTTPS -> isSafeHttpsUrl(p.target)
                 DORM_SCENE -> p.target in allowedScenes
+                KSU_WIFI_STATUS -> p.target.isEmpty()
                 else -> false
             }
 }
