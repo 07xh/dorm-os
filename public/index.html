@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1629">
+  <meta name="description" content="DORM OS：个人宿舍学习、课表、任务和智能设备信息中心。">
+      <style>
+:root{font-family:Inter,"Microsoft YaHei", "PingFang SC",system-ui,-apple-system,sans-serif;color:#eaf0fd;background:#080f1d;font-synthesis:none;--base:#080f1d;--surface:#101c30;--surface2:#15233a;--border:rgba(155,182,220,.13);--text:#eaf0fd;--muted:#91a3c3;--blue:#5b9dff;--highlight:#2466e9;--green:#43d6ae;--danger:#f58e96;--shade:rgba(18,31,52,.8)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:radial-gradient(circle at 85% 0%,#142d55 0,transparent 36%),var(--base);color:var(--text)}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #8fb7ff;outline-offset:2px}::selection{background:#346add}.shell{min-height:100vh;display:grid;grid-template-columns:246px minmax(0,1fr)}.sidebar{position:sticky;top:0;height:100vh;background:#0c1628;border-right:1px solid var(--border);padding:30px 18px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:12px;padding:0 10px 36px}.brand-icon{height:42px;width:42px;display:grid;place-items:center;background:linear-gradient(135deg,#4787ff,#2555cd);border-radius:14px;font-weight:900;font-size:28px;color:white;box-shadow:0 10px 30px #1e55b840}.brand strong{font-size:19px;letter-spacing:1px}.brand em{color:#68a5ff;font-style:normal}.brand small{display:block;font-size:9px;letter-spacing:1.3px;color:var(--muted);margin-top:4px}.side-caption{margin:0 12px 14px;color:#7183a2;letter-spacing:2px;font-size:10px;font-weight:750}.main-nav{display:grid;gap:6px}.nav-link{border:0;background:none;color:#9caeca;text-align:left;border-radius:11px;padding:13px 14px;display:flex;align-items:center;gap:12px;font-size:13.5px;font-weight:570}.nav-link:hover{background:#17263d;color:#fff}.nav-link.active{background:#1a355c;color:#eaf2ff;box-shadow:inset 3px 0 #5d9dff}.nav-symbol{font-size:19px;width:22px;display:inline-block;text-align:center;color:#81a6d8}.sidebar-bottom{margin-top:auto;border-top:1px solid var(--border);padding:22px 10px 0}.secure-chip{color:#6cdbb4;font-size:12px;display:flex;gap:8px}.sidebar-bottom p{font-size:11px;line-height:1.7;color:#7d8ea9}.version{font-size:10px;letter-spacing:1px;color:#62738d}.workspace{min-width:0}.topbar{min-height:75px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;align-items:center;padding:0 clamp(18px,3.6vw,50px);background:rgba(8,15,29,.35);backdrop-filter:blur(10px)}.breadcrumb{font-size:12px;letter-spacing:.8px;color:#758aab}.breadcrumb strong{color:#bbcdea}.top-right{display:flex;align-items:center;gap:12px}.header-date,.campus-chip{font-size:12px;color:#a6b7d1}.campus-chip{background:#193759;color:#acd5ff;border:1px solid #28507b;padding:7px 11px;border-radius:9px}.header-action{background:#1e4e95;color:#fff;font-size:24px;border:1px solid #376cad;border-radius:10px;width:36px;height:36px}.header-action:hover{background:#2563b6}main{padding:36px clamp(18px,3.6vw,50px) 72px;max-width:1600px;margin:auto}.heading{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:27px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#6aa4ff;font-weight:750}.heading h1{font-size:clamp(25px,3vw,36px);letter-spacing:-.9px;line-height:1.3;margin:7px 0 5px}.subtext{color:var(--muted);line-height:1.7;font-size:13px;margin:0}.heading-side{text-align:right;color:var(--muted);font-size:12px}.clock{font-size:28px;font-weight:750;font-variant-numeric:tabular-nums;color:#d9e5fc;letter-spacing:-1px}.page-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(285px,1fr);gap:17px}.card{background:linear-gradient(160deg,rgba(25,43,69,.95),rgba(14,26,44,.95));border:1px solid var(--border);border-radius:17px;padding:21px;min-width:0;box-shadow:0 16px 42px rgba(0,0,0,.08)}.card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.card-title{font-size:15px;font-weight:740;letter-spacing:.1px}.muted{color:var(--muted)}.tiny{font-size:11px}.small{font-size:12px}.action-link{border:0;background:transparent;color:#83b8ff;font-size:12px;padding:6px 0}.action-link:hover{text-decoration:underline}.primary{border:1px solid #427deb;border-radius:10px;padding:10px 14px;background:linear-gradient(135deg,#3d7ef1,#225cca);color:white;font-weight:700;font-size:12px;box-shadow:0 5px 15px rgba(25,89,201,.14)}.primary:hover{filter:brightness(1.1)}.secondary{background:rgba(57,90,131,.25);border:1px solid #36516e;color:#d2e0f5;padding:10px 14px;border-radius:10px;font-size:12px}.secondary:hover{background:#263b58}.danger-btn{color:#ffadb3;background:#4d2635;border:1px solid #744250}.danger-btn:hover{background:#6b2d3e}.hero{position:relative;overflow:hidden;min-height:208px;background:linear-gradient(108deg,#224b8c,#163257 57%,#122039);padding:29px;border:1px solid #375c97}.hero::after{content:"";position:absolute;height:255px;width:255px;right:-65px;top:-81px;border:1px solid #7eacec55;border-radius:50%;box-shadow:0 0 0 32px #79a4e011,0 0 0 62px #79a4e00b;pointer-events:none}.hero-content{position:relative;z-index:1;max-width:75%}.hero-label{font-size:11px;letter-spacing:2px;color:#9bc7ff}.hero h2{margin:13px 0 7px;font-size:clamp(21px,2.6vw,31px);letter-spacing:-.5px}.hero p{color:#b7cae7;font-size:12px;line-height:1.8}.hero .primary{margin-top:14px}.metric-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:17px 0}.metric{background:var(--surface);border:1px solid var(--border);padding:19px;border-radius:15px;min-height:116px}.metric-label{font-size:12px;color:#91a4bf}.metric-num{font-size:29px;font-weight:760;margin:11px 0 4px;letter-spacing:-1px}.metric-note{color:#7f92b0;font-size:11px}.status-dot{width:7px;height:7px;border-radius:50%;background:#f0bb75;display:inline-block;margin-right:6px}.status-dot.ok{background:#3fdbad}.weather-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.weather-temp{font-size:43px;font-weight:800;letter-spacing:-2px;line-height:1.1}.weather-emoji{font-size:48px}.weather-sub{display:flex;gap:12px;flex-wrap:wrap;color:#aabbd2;font-size:12px;margin:15px 0}.notice{border-radius:11px;padding:11px 12px;background:#183452;border:1px solid #27527a;color:#bcd8fb;font-size:12px;line-height:1.6}.notice.warn{background:#3b2b2a;border-color:#775148;color:#f4c4a7}.notice.neutral{background:#152239;border-color:#2e405a;color:#93a9c6}.entry{display:flex;justify-content:space-between;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid rgba(160,185,218,.11)}.entry:last-child{border-bottom:0}.entry-info{min-width:0}.entry-title{font-weight:650;font-size:13px;overflow-wrap:anywhere}.entry-sub{font-size:11px;color:#879bb9;margin-top:4px;line-height:1.5}.pill{display:inline-flex;align-items:center;border:1px solid #355273;background:#1a3654;padding:5px 8px;border-radius:7px;color:#acd0ff;font-size:10px;white-space:nowrap}.pill.green{border-color:#2b685c;background:#163e3a;color:#7ee6c1}.pill.orange{border-color:#82564c;background:#422e30;color:#ffb69e}.empty{color:#7e92b1;font-size:12px;line-height:1.75;padding:25px 12px;text-align:center;border:1px dashed #334b66;border-radius:11px}.scene-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.scene-btn{padding:18px 8px;border-radius:13px;border:1px solid #324765;background:#172b45;color:#d0def5;display:grid;gap:10px;justify-items:center;font-size:12px}.scene-btn b{font-size:27px;font-weight:400}.scene-btn.selected{border-color:#5d9dff;background:#254b7e;box-shadow:inset 0 0 0 1px #3c80df}.scene-btn:hover{border-color:#7298c8}.notice + .notice{margin-top:10px}.split{display:grid;grid-template-columns:1fr 1fr;gap:17px}.wide{grid-column:1/-1}.toolbar{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-bottom:15px;flex-wrap:wrap}.button-row{display:flex;gap:9px;flex-wrap:wrap}.form-field{display:grid;gap:7px;margin-bottom:14px}.form-field label{font-size:12px;color:#a9bbd7}.form-field input,.form-field select,.form-field textarea{background:#0e1a2c;color:#e8f0ff;border:1px solid #34506d;border-radius:10px;padding:11px 12px;width:100%;min-height:42px;outline:0}.form-field input:focus,.form-field select:focus{border-color:#65a1ff}.grid-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.editor{background:#13223b;color:#eaf1ff;border:1px solid #3b5a82;border-radius:18px;max-width:min(480px,calc(100vw - 28px));width:100%;padding:24px;box-shadow:0 35px 120px #0009}.editor::backdrop{background:#0009;backdrop-filter:blur(3px)}.editor h2{font-size:19px;margin:0 0 19px}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}.list-controls{display:flex;gap:8px;flex-wrap:wrap}.filter-btn{background:#14243a;color:#afbdd2;border:1px solid #2d4764;border-radius:9px;padding:8px 11px;font-size:12px}.filter-btn.active{background:#25528c;border-color:#518ada;color:#fff}.task-item{display:flex;gap:12px;align-items:center;background:#111f34;border:1px solid var(--border);border-radius:11px;padding:15px;margin-bottom:9px}.task-item input[type=checkbox]{accent-color:#60adff;width:18px;height:18px;flex:none}.task-main{flex:1;min-width:0}.task-main.done .entry-title{text-decoration:line-through;color:#7e8faa}.task-actions{display:flex;gap:9px}.icon-btn{background:transparent;border:0;color:#8fb2dd;padding:4px;font-size:16px}.icon-btn:hover{color:#fff}.weekday-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}.weekday{padding:12px;background:#111f34;border:1px solid var(--border);border-radius:12px;min-height:175px}.weekday.today{border-color:#4d84d4;background:#192e4e}.weekday-title{font-size:12px;color:#98b0d3;margin-bottom:14px}.class-card{background:#213c5e;border-left:3px solid #62a5ff;border-radius:8px;padding:9px;margin-bottom:9px;font-size:11px}.class-card strong{display:block;font-size:12px;overflow-wrap:anywhere}.class-card .class-time{color:#a9c7ea;font-size:10px;margin:5px 0}.class-card button{border:0;background:none;color:#b1c9e8;padding:0;font-size:10px;text-decoration:underline}.week-empty{font-size:11px;color:#627a9a}.device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.device-name{font-weight:700;margin:12px 0 6px}.device-icon{font-size:30px}.device-card{min-height:155px}.device-status{margin-top:16px;display:flex;justify-content:space-between;align-items:center}.config-row{padding:15px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:18px;align-items:center}.config-row:last-child{border:0}.config-row .detail{font-size:11px;color:#8498b9;line-height:1.6;margin-top:5px}.config-row strong{font-size:13px}.config-row select{background:#0e1a2d;border:1px solid #335372;color:#eaf0fd;padding:9px;border-radius:8px}.log-line{font-size:12px;padding:11px 0;border-bottom:1px solid var(--border);color:#adc0dd}.log-line span{font-size:10px;color:#728cae;margin-right:10px}.toast{position:fixed;right:20px;bottom:20px;max-width:360px;background:#244a78;border:1px solid #5188ce;box-shadow:0 10px 35px #0006;color:white;padding:13px 18px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transform:translateY(15px);transition:.2s;z-index:200}.toast.show{opacity:1;transform:translateY(0)}.kbd{border:1px solid #546581;border-radius:5px;padding:2px 6px;background:#1b2e4a;font-size:10px;color:#b7c6dd}.footer{padding:30px 0 0;color:#617593;font-size:11px;text-align:center}.footer strong{color:#8ba5c7}.status-line{display:flex;align-items:center;gap:7px;color:#9badc5;font-size:12px}.status-line::before{content:"";width:7px;height:7px;border-radius:50%;background:#f2bd71}.status-line.good::before{background:#48d4aa}.theme-light{--base:#eef3f9;--surface:#ffffff;--surface2:#eaf1fc;--border:rgba(40,78,131,.18);--text:#132a48;--muted:#586f8c;background:var(--base);color:var(--text)}.theme-light body{background:var(--base)}.theme-light .sidebar{background:#e7eef8}.theme-light .card{background:#fff}.theme-light .topbar{background:#f3f7fd}.theme-light .nav-link{color:#455a73}.theme-light .nav-link.active{background:#cde0ff;color:#214a84}.theme-light .metric,.theme-light .weekday,.theme-light .task-item{background:#fff}.theme-light .entry-title,.theme-light .card-title,.theme-light .heading h1{color:#18334d}.theme-light .clock{color:#224875}.theme-light .device-name{color:#18334d}.theme-light .editor{background:#fff;color:#142c4a}.theme-light .form-field input,.theme-light .form-field select{background:#f3f7fc;color:#1b3653}.theme-light .config-row select{background:#fff;color:#1d3553}.theme-light .filter-btn{background:#e8f0fc;color:#21446b}.theme-light .filter-btn.active{background:#25528c;color:#fff}.theme-light .secondary{background:#e1ecf8;color:#23446d}.theme-light .class-card{background:#dbeaff;color:#153354}.theme-light .class-card .class-time{color:#3c628c}.theme-light .notice.neutral{color:#4b6586;background:#e4eefb}.theme-light .sidebar-bottom p{color:#516986}.theme-light .breadcrumb strong{color:#274b79}
+@media(max-width:1100px){.page-grid{grid-template-columns:1fr 1fr}.weekday-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.hero-content{max-width:84%}}
+@media(max-width:790px){.shell{display:block}.sidebar{position:sticky;z-index:20;top:0;height:auto;padding:10px 14px;display:block;background:#0b172b}.brand{padding:0;display:inline-flex;height:48px}.brand-icon{width:34px;height:34px;border-radius:10px;font-size:23px}.brand strong{font-size:15px}.brand small{font-size:8px}.side-caption,.sidebar-bottom{display:none}.main-nav{display:flex;overflow:auto;gap:6px;padding:7px 0 0;scrollbar-width:none}.main-nav::-webkit-scrollbar{display:none}.nav-link{white-space:nowrap;padding:9px 11px;font-size:12px}.nav-symbol{width:auto;font-size:15px}.topbar{padding:10px 18px;min-height:50px}.breadcrumb{display:none}.header-date{font-size:11px}.top-right{margin-left:auto}.workspace main{padding:24px 16px 60px}.heading{align-items:start}.heading h1{font-size:24px}.clock{font-size:23px}.page-grid,.split{grid-template-columns:1fr}.hero-content{max-width:100%}.hero::after{opacity:.3}.hero{min-height:195px}.weekday-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.device-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.metric-row{gap:7px}.metric{padding:13px 10px;min-height:104px}.metric-num{font-size:23px}.metric-label{font-size:11px}.card{padding:16px}.top-right{gap:7px}.weekday-grid{grid-template-columns:1fr 1fr;gap:7px}.weekday{padding:10px}.device-grid{grid-template-columns:1fr}.header-date{display:none}.hero{padding:22px}.heading-side{display:none}.scene-btn{padding:13px 5px}.config-row{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.toast{transition:none}}
+
+/* Campus integration module */
+.campus-banner{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px;border:1px solid var(--line,#334155);border-radius:20px;background:linear-gradient(125deg,rgba(50,112,220,.18),rgba(51,65,85,.06));margin:10px 0 22px}
+.campus-banner h2{margin:8px 0;font-size:clamp(20px,3vw,30px)}.campus-banner p{color:var(--muted,#94a3b8);max-width:700px;font-size:14px;line-height:1.7;margin:0}.campus-signal{font-size:70px;color:#74a6fb;line-height:1}
+.campus-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 2px;border-bottom:1px solid var(--line,rgba(130,140,150,.2));text-decoration:none;color:inherit}.campus-link:hover{color:#71a7ff}.campus-link strong{display:block;font-size:14px}.campus-link span{display:block;color:var(--muted,#94a3b8);font-size:12px;margin-top:4px}.campus-link>span{font-size:21px;color:#7da6f5}.campus-custom-link{display:flex;align-items:center;gap:12px}.campus-custom-link>.campus-link{flex:1;min-width:0}.campus-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.campus-status-grid>div{padding:16px;border:1px solid var(--line,rgba(130,140,150,.2));border-radius:12px;font-size:14px;line-height:1.8}.campus-status-grid b{margin-right:8px;color:#4ecf9b}.campus-status-grid small{display:block;color:var(--muted,#94a3b8);font-size:12px;margin-left:18px}
+@media(max-width:660px){.campus-status-grid{grid-template-columns:1fr}.campus-banner{padding:18px}.campus-signal{display:none}}
+
+/* Read-only NFC page */
+.nfc-card .notice{overflow-wrap:anywhere;margin-top:12px}.nfc-card code{font-size:11px;color:inherit;overflow-wrap:anywhere}.nfc-card select{color:var(--text,#e4efff);background:var(--surface2,#13243d);border:1px solid #42638b;border-radius:10px;padding:11px;font-size:14px}.nfc-card button:disabled{opacity:.55;cursor:not-allowed}.nfc-steps{display:grid;gap:12px;margin-bottom:18px}.nfc-steps>div{display:flex;align-items:center;gap:14px;border:1px solid #334c69;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.6}.nfc-steps b{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#24548f;color:#fff}.nfc-card .small{line-height:1.8}
+
+</style>
+  <title>DORM OS · 个人宿舍控制中心</title>
+</head>
+<body>
+<div id="shell" class="shell">
+  <aside class="sidebar" aria-label="主导航">
+    <a class="brand" href="#dashboard" aria-label="DORM OS 首页"><span class="brand-icon">⌂</span><span><strong>DORM <em>OS</em></strong><small>CAMPUS + NFC · V1.2</small></span></a>
+    <div class="side-caption">WORKSPACE</div>
+    <nav class="main-nav" id="sidebarNav">
+      <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol">◫</span> 总览面板</button>
+      <button type="button" data-page="timetable" class="nav-link"><span class="nav-symbol">▦</span> 我的课表</button>
+      <button type="button" data-page="campus" class="nav-link"><span class="nav-symbol">🎓</span> 校园助手</button>
+      <button type="button" data-page="tasks" class="nav-link"><span class="nav-symbol">☑</span> 任务中心</button>
+      <button type="button" data-page="scenes" class="nav-link"><span class="nav-symbol">⚡</span> 快捷场景</button>
+      <button type="button" data-page="nfc" class="nav-link"><span class="nav-symbol">◉</span> 桌面 NFC</button>
+      <button type="button" data-page="devices" class="nav-link"><span class="nav-symbol">⌁</span> 设备中心</button>
+      <button type="button" data-page="settings" class="nav-link"><span class="nav-symbol">⚙</span> 设置与备份</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先 · 无账号上传</span></div><p>课程和任务保存在当前浏览器。<br>不同设备尚未自动同步。</p><span class="version">DORM OS 0.1.2</span></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="top-left"><span class="breadcrumb">PERSONAL / <strong id="breadcrumb">总览面板</strong></span></div>
+      <div class="top-right"><span id="dateChip" class="header-date">—</span><span id="campusChip" class="campus-chip">江淮校区</span><button type="button" id="quickAdd" class="header-action" title="新增任务" aria-label="新增任务">＋</button></div>
+    </header>
+    <main id="app" tabindex="-1"></main>
+  </div>
+</div>
+<dialog id="editor" class="editor"><div id="editorContent"></div></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input id="icsInput" type="file" accept=".ics,text/calendar" hidden>
+<input id="importInput" type="file" accept="application/json,.json" hidden>
+<script>
+const TZ = 'Asia/Shanghai';
+const CAMPUSES = Object.freeze({
+  jianghuai: { name: '江淮校区', city: '罗山', lat: 32.20, lon: 114.53 },
+  huayuan: { name: '花园校区', city: '郑州', lat: 34.78, lon: 113.65 }
+});
+const DEFAULT_STATE = Object.freeze({
+  version: 1,
+  settings: { campus: 'jianghuai', theme: 'dark' },
+  tasks: [], classes: [], calendarEvents: [], campusLinks: [], events: [],
+  scene: 'none',
+  electricity: { balance: null, updatedAt: null }
+});
+const WEEKDAYS = ['周日','周一','周二','周三','周四','周五','周六'];
+const CATEGORIES = ['课程','高数','工程制图','Python','英语','生活','其他'];
+const pad = n => String(n).padStart(2, '0');
+function chinaParts(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}).formatToParts(date).map(p=>[p.type,p.value]));
+  const map = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+  return {date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}`,hour:Number(parts.hour),minute:Number(parts.minute),day:map[parts.weekday],year:Number(parts.year),month:Number(parts.month),dateNumber:Number(parts.day)};
+}
+function safeState(value){
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1) throw new Error('不是受支持的 DORM OS V1 备份');
+  const campus = CAMPUSES[value.settings?.campus] ? value.settings.campus : 'jianghuai';
+  const cleanText = (x,max=100) => String(x??'').trim().slice(0,max);
+  const dateRE = /^\d{4}-\d{2}-\d{2}$/;
+  const timeRE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const tasks = (Array.isArray(value.tasks)?value.tasks:[]).slice(0,300).filter(x=>x && typeof x==='object').map((x,i)=>({
+    id:cleanText(x.id,60)||`task-${i}`,title:cleanText(x.title,100),category:CATEGORIES.includes(x.category)?x.category:'其他',due:dateRE.test(x.due)?x.due:'',done:x.done===true,createdAt:cleanText(x.createdAt,40)
+  })).filter(x=>x.title);
+  const classes = (Array.isArray(value.classes)?value.classes:[]).slice(0,150).filter(x=>x && typeof x==='object' && Number.isInteger(x.day) && x.day>=0 && x.day<=6 && timeRE.test(x.start) && timeRE.test(x.end) && x.start<x.end).map((x,i)=>({
+    id:cleanText(x.id,60)||`class-${i}`,day:x.day,start:x.start,end:x.end,subject:cleanText(x.subject,80),location:cleanText(x.location,60)
+  })).filter(x=>x.subject);
+  const calendarEvents = (Array.isArray(value.calendarEvents)?value.calendarEvents:[]).slice(0,1200).filter(x=>x&&typeof x==='object'&&dateRE.test(x.date)&&timeRE.test(x.start)&&timeRE.test(x.end)&&x.start<x.end).map((x,i)=>({id:cleanText(x.id,180)||`event-${i}`,uid:cleanText(x.uid,120),date:x.date,start:x.start,end:x.end,subject:cleanText(x.subject,80),location:cleanText(x.location,60),source:'iCalendar'})).filter(x=>x.subject);
+  const campusLinks=(Array.isArray(value.campusLinks)?value.campusLinks:[]).slice(0,30).filter(x=>x&&typeof x==='object').map((x,i)=>({id:cleanText(x.id,60)||`link-${i}`,name:cleanText(x.name,40),url:cleanText(x.url,300)})).filter(x=>x.name&&/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(x.url));
+  const events = (Array.isArray(value.events)?value.events:[]).slice(-80).filter(x=>x&&typeof x==='object').map(x=>({at:cleanText(x.at,40),text:cleanText(x.text,120)}));
+  const amount = value.electricity?.balance;
+  return {version:1,settings:{campus,theme:value.settings?.theme==='light'?'light':'dark'},tasks,classes,calendarEvents,campusLinks,events,scene:['none','study','rest','away'].includes(value.scene)?value.scene:'none',electricity:{balance:typeof amount==='number' && Number.isFinite(amount) && amount>=0 && amount<100000?amount:null,updatedAt:cleanText(value.electricity?.updatedAt,40)||null}};
+}
+function classForDay(classes, day) {return classes.filter(x=>x.day===day).sort((a,b)=>a.start.localeCompare(b.start));}
+function upcomingClass(classes, day, time) {
+  for(let offset=0;offset<=7;offset++) {
+    const target=(day+offset)%7;
+    const eligible=classForDay(classes,target).filter(c=>offset>0||c.end>time);
+    if(eligible.length) return {...eligible[0],daysAway:offset};
+  }
+  return null;
+}
+function taskSummary(tasks,today) {
+  const remaining=tasks.filter(t=>!t.done);
+  return {remaining:remaining.length,dueToday:remaining.filter(t=>t.due===today).length,overdue:remaining.filter(t=>t.due && t.due<today).length};
+}
+function weatherInfo(code) {
+  if(code===0) return {name:'晴',icon:'☀️'};
+  if([1,2,3].includes(code)) return {name:'多云',icon:'⛅'};
+  if([45,48].includes(code)) return {name:'有雾',icon:'🌫️'};
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return {name:'有雨',icon:'🌧️'};
+  if([71,73,75,77,85,86].includes(code)) return {name:'有雪',icon:'🌨️'};
+  if([95,96,99].includes(code)) return {name:'雷雨',icon:'⛈️'};
+  return {name:'天气未知',icon:'🌤️'};
+}
+function weatherAdvice(weather) {
+  if(!weather) return '联网后显示出门建议';
+  if(weather.rainChance>=55 || weather.rain>0) return '有降水可能，出门带伞';
+  if(weather.feels<10) return '体感较冷，注意保暖';
+  if(weather.feels>=30) return '体感炎热，注意补水';
+  return '出门前查看课程与随身物品';
+}
+function eInkPayload(state,weather, now=new Date()) {
+  const p=chinaParts(now), cls=upcomingClass(state.classes,p.day,p.time);
+  return {schema:'dorm-os/eink-v1',generated_at:now.toISOString(),timezone:TZ,campus:state.settings.campus,location:CAMPUSES[state.settings.campus].city,clock:p.time,date:p.date,weather:weather?{temp:weather.temp,feels:weather.feels,description:weatherInfo(weather.code).name,last_updated:weather.fetchedAt}:null,next_class:cls?{subject:cls.subject,location:cls.location,start:cls.start,day:cls.day}:null,tasks:state.tasks.filter(t=>!t.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')).slice(0,3).map(t=>({title:t.title,due:t.due})),electricity_balance:state.electricity.balance};
+}
+
+/** DORM OS: local-only campus calendar bridge, no account scraping or upstream app code. */
+const days = {SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+const calPad=x=>String(x).padStart(2,'0');
+function addDays(s,n){const d=new Date(`${s}T00:00:00Z`);d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+function weekday(s){return new Date(`${s}T00:00:00Z`).getUTCDay();}
+function formatDate(raw){if(!/^\d{8}$/.test(raw))throw new Error('无效日历日期');const d=`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;if(new Date(`${d}T00:00:00Z`).toISOString().slice(0,10)!==d)throw new Error('无效日期');return d;}
+function unescapeIcal(x){return String(x||'').replace(/\\[nN]/g,'\n').replace(/\\([,;\\])/g,'$1').trim().slice(0,120);}
+function dateTime(raw,key){
+  const parts=key.split(';').slice(1);
+  const zone=parts.find(x=>x.startsWith('TZID='))?.slice(5);
+  if(zone && !['ASIA/SHANGHAI','ASIA/CHONGQING','ASIA/HARBIN','PRC'].includes(zone.toUpperCase()))throw new Error(`尚不支持 ${zone} 时区的课表，请导出北京时间日历`);
+  const m=String(raw).match(/^(\d{8})T(\d{2})(\d{2})(\d{2})?(Z)?$/);
+  if(!m)throw new Error('仅支持含具体开始和结束时间的日历课程');
+  const day=formatDate(m[1]),h=Number(m[2]),min=Number(m[3]);
+  if(h>23||min>59||Number(m[4]||0)>59)throw new Error('课程时间不合法');
+  if(m[5]){
+    const utc=new Date(`${day}T${calPad(h)}:${calPad(min)}:${m[4]||'00'}Z`);
+    const local=new Date(utc.getTime()+8*3600000);
+    return {date:local.toISOString().slice(0,10),time:`${calPad(local.getUTCHours())}:${calPad(local.getUTCMinutes())}`};
+  }
+  return {date:day,time:`${calPad(h)}:${calPad(min)}`};
+}
+function parseFields(lines){const o={};for(const line of lines){const ix=line.indexOf(':');if(ix<0)continue;const key=line.slice(0,ix).toUpperCase();const name=key.split(';')[0];if(!o[name])o[name]=[];o[name].push({key,value:line.slice(ix+1)});}return o;}
+function field(o,k){return o[k]?.[0];}
+function untilDate(x){if(!x)return null;const v=x.slice(0,8);return formatDate(v);}
+function recurrence(spec){const out={};for(const p of spec.split(';')){const [k,v]=p.split('=');if(k&&v)out[k.toUpperCase()]=v;}return out;}
+function parseICalendar(input){
+  if(typeof input!=='string'||input.length>1024*1024)throw new Error('日历文件需小于 1MB');
+  if(!input.includes('BEGIN:VCALENDAR'))throw new Error('不是有效的 iCalendar (.ics) 文件');
+  const lines=input.replace(/\r\n?/g,'\n').split('\n').reduce((a,line)=>{
+    if(/^[ \t]/.test(line)&&a.length)a[a.length-1]+=line.slice(1);else a.push(line);return a;
+  },[]);
+  const blocks=[];let block=null;
+  for(const l of lines){if(l==='BEGIN:VEVENT'){block=[];}else if(l==='END:VEVENT'){if(block){blocks.push(block);block=null;}}else if(block)block.push(l);}
+  if(blocks.length>400)throw new Error('日历包含过多事件，最多处理 400 条');
+  const result=[],errors=[];
+  for(const [index,lines] of blocks.entries()){
+    try {
+      const f=parseFields(lines),start=field(f,'DTSTART'),end=field(f,'DTEND');
+      if(!start||!end)throw new Error('缺少开始或结束时间');
+      const a=dateTime(start.value,start.key),b=dateTime(end.value,end.key);
+      if(a.date!==b.date||a.time>=b.time)throw new Error('跨日期或无效的课程时间暂不支持');
+      const subject=unescapeIcal(field(f,'SUMMARY')?.value);
+      if(!subject)throw new Error('课程名称为空');
+      const uid=String(field(f,'UID')?.value||`row-${index}`).trim().slice(0,120);
+      const location=unescapeIcal(field(f,'LOCATION')?.value).slice(0,60);
+      const excluded=new Set((f.EXDATE||[]).flatMap(x=>x.value.split(',').map(v=>{try{return dateTime(v,x.key).date;}catch{return '';}})));
+      let occurrences=[a.date];
+      if(field(f,'RRULE')){
+        const rule=recurrence(field(f,'RRULE').value);
+        if(rule.FREQ!=='WEEKLY')throw new Error('仅支持每周重复的课程规则');
+        const interval=Number(rule.INTERVAL||1),count=rule.COUNT?Number(rule.COUNT):null,until=untilDate(rule.UNTIL);
+        if(!Number.isInteger(interval)||interval<1||interval>52||count!==null&&(!Number.isInteger(count)||count<1))throw new Error('重复规则无效');
+        const byDays=rule.BYDAY?rule.BYDAY.split(',').map(x=>days[x]).filter(x=>x!==undefined):[weekday(a.date)];
+        if(!byDays.length)throw new Error('无法识别重复星期');
+        const maxDay=until&&until<addDays(a.date,364)?until:addDays(a.date,364);
+        occurrences=[];
+        for(let d=a.date;d<=maxDay;d=addDays(d,1)){
+          const w=Math.floor((Date.parse(`${d}T00:00:00Z`)-Date.parse(`${a.date}T00:00:00Z`))/(7*86400000));
+          if(w%interval===0&&byDays.includes(weekday(d))){occurrences.push(d);if(count!==null&&occurrences.length>=count)break;}
+          if(occurrences.length>=180)break;
+        }
+      }
+      for(const day of occurrences){if(excluded.has(day))continue;result.push({id:`${uid}|${day}|${a.time}`,uid,date:day,start:a.time,end:b.time,subject:subject.slice(0,80),location,source:'iCalendar'});}
+    }catch(e){errors.push(`事件 ${index+1}：${e.message}`);}
+  }
+  if(result.length>1200)throw new Error('日历课程展开超过 1200 条，请使用单学期导出');
+  return {events:result.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)),skipped:errors.length,warnings:errors.slice(0,8)};
+}
+function mergeCalendar(existing,incoming){const keys=new Set(existing.map(e=>e.id));const added=[];for(const ev of incoming){if(!keys.has(ev.id)){added.push(ev);keys.add(ev.id);}}return {items:[...existing,...added].sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)),added:added.length,duplicates:incoming.length-added.length};}
+function upcomingCalendar(events,date,time,limit=8){return events.filter(e=>e.date>date||e.date===date&&e.end>time).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).slice(0,limit);}
+
+// Read-only helpers. No tag writing, formatting, or serial-number persistence.
+// Android's vnd.android.nfc://ext/ URI represents the matching NFC Forum external record type.
+const XIAOMI_CONNECT_TYPE = 'com.xiaomi.mi_connect_service:externaltype';
+function canonicalRecordType(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  return text.startsWith('vnd.android.nfc://ext/')
+    ? text.slice('vnd.android.nfc://ext/'.length)
+    : text;
+}
+function isXiaomiLaptopRecord(record) {
+  return canonicalRecordType(record?.recordType) === XIAOMI_CONNECT_TYPE;
+}
+function containsXiaomiLaptopRecord(records) {
+  return Array.from(records ?? []).some(isXiaomiLaptopRecord);
+}
+function readerSupport({NDEFReader, isSecureContext, protocol} = {}) {
+  if (!isSecureContext || protocol === 'file:') return {ok:false,reason:'Web NFC 需要在手机 Chrome 的 HTTPS 页面打开；本地 HTML 文件不支持。'};
+  if (typeof NDEFReader !== 'function') return {ok:false,reason:'当前浏览器不支持 Web NFC。请用 Android 上的 Chrome 正常标签页打开。'};
+  return {ok:true,reason:'浏览器支持 Web NFC 接口（实际权限还需现场验证）。'};
+}
+function nfcErrorMessage(error) {
+  switch (error?.name) {
+    case 'NotAllowedError': return 'NFC 授权被拒绝。保持 Chrome 在前台，检查 Chrome → 网站设置中的 NFC 权限、系统 NFC 开关，再从网页按钮重新发起扫描。';
+    case 'NotSupportedError': return '设备或浏览器未提供兼容的 Web NFC 读取能力。系统 Tags 可以读取，也不代表 Chrome 一定可以读取。';
+    case 'InvalidStateError': return '已有 NFC 扫描在运行，请先停止后重试。';
+    case 'AbortError': return '已停止扫描。';
+    case 'SecurityError': return '浏览器安全限制阻止了 NFC，请使用 HTTPS 页面并保持网页前台。';
+    default: return '扫描启动失败，请确认已开启 NFC、网页处于前台，并检查浏览器权限。';
+  }
+}
+
+const STORAGE='dorm-os-state-v1';
+const $=id=>document.getElementById(id);
+const newId=()=>globalThis.crypto?.randomUUID?.()||`local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'未设置日期';
+let state;
+try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
+let page='dashboard',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
+const timer={remaining:25*60,running:false,interval:null};
+const nfc={phase:'idle',message:'尚未启动扫描',controller:null,reader:null,scanAttempt:0,lastRead:'',scene:'study'};
+function persist(){localStorage.setItem(STORAGE,JSON.stringify(state));}
+function log(text){state.events.push({at:new Date().toISOString(),text});state.events=state.events.slice(-80);}
+function toast(message){const node=$('toast');node.textContent=message;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),3400);}
+function download(name,content,type='application/json'){const blob=new Blob([content],{type:`${type};charset=utf-8`});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+const now=()=>chinaParts();
+const nameMap={dashboard:'总览面板',timetable:'我的课表',campus:'校园助手',tasks:'任务中心',scenes:'快捷场景',devices:'设备中心',settings:'设置与备份',nfc:'桌面 NFC'};
+function badge(text,tone=''){return `<span class="pill ${tone}">${esc(text)}</span>`;}
+function titleBlock(over,title,sub,more=''){return `<div class="heading"><div><span class="eyebrow">${esc(over)}</span><h1>${esc(title)}</h1><p class="subtext">${esc(sub)}</p></div><div class="heading-side">${more}</div></div>`;}
+function classRow(c){return `<div class="entry"><div class="entry-info"><div class="entry-title">${esc(c.subject)}</div><div class="entry-sub">${esc(c.start)}–${esc(c.end)}　${esc(c.location||'未填教室')}</div></div>${badge(WEEKDAYS[c.day])}</div>`;}
+function taskRow(t,actions=true){const p=now(),overdue=!t.done&&t.due&&t.due<p.date;return `<div class="task-item"><input type="checkbox" data-task-toggle="${esc(t.id)}" ${t.done?'checked':''} aria-label="标记 ${esc(t.title)} 完成"><div class="task-main ${t.done?'done':''}"><div class="entry-title">${esc(t.title)}</div><div class="entry-sub">${esc(t.category)} · ${t.due?fmtDate(t.due):'无截止日期'}</div></div>${t.done?badge('已完成','green'):overdue?badge('已逾期','orange'):t.due===p.date?badge('今天截止'):''}${actions?`<div class="task-actions"><button type="button" data-task-edit="${esc(t.id)}" class="icon-btn" aria-label="编辑任务">✎</button><button type="button" data-task-delete="${esc(t.id)}" class="icon-btn" aria-label="删除任务">×</button></div>`:''}</div>`;}
+function compactTasks(){const p=now();const data=state.tasks.filter(x=>!x.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')).slice(0,4);return data.length?data.map(t=>`<div class="entry"><div class="entry-info"><div class="entry-title">${esc(t.title)}</div><div class="entry-sub">${esc(t.category)} · ${t.due?fmtDate(t.due):'未设截止'}</div></div>${t.due===p.date?badge('今天','orange'):t.due&&t.due<p.date?badge('逾期','orange'):badge('待完成')}</div>`).join(''):'<div class="empty">还没有待办任务。添加一项真实作业，开始整理日程。</div>';}
+function weatherCard(){const loc=CAMPUSES[state.settings.campus];let body;
+if(weather){const info=weatherInfo(weather.code),stale=Date.now()-new Date(weather.fetchedAt).getTime()>60*60*1000;
+  body=`<div class="weather-top"><div><div class="weather-temp">${Math.round(weather.temp)}°</div><div class="small muted">${esc(info.name)} · 体感 ${Math.round(weather.feels)}°</div></div><div class="weather-emoji" aria-hidden="true">${info.icon}</div></div><div class="weather-sub"><span>💧 降雨概率 ${Math.round(weather.rainChance)}%</span><span>🌡️ 最高 ${Math.round(weather.max)}° / 最低 ${Math.round(weather.min)}°</span></div><div class="notice ${stale?'warn':''}">${esc(weatherAdvice(weather))}</div><p class="tiny muted">${stale?'缓存数据 · ':''}最后同步：${new Date(weather.fetchedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}（北京时间）</p>`;
+}else body=`<div class="empty">${weatherLoading?'正在获取实时天气…':'尚无天气数据。可点击刷新尝试联网获取。'}</div>${weatherError?`<p class="small muted">${esc(weatherError)}</p>`:''}`;
+return `<section class="card"><div class="card-header"><span class="card-title">☁ 天气 · ${esc(loc.city)}</span><button class="action-link" data-action="refresh-weather" type="button">${weatherLoading?'获取中…':'↻ 刷新'}</button></div>${body}</section>`;}
+function dashboard(){const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time),sum=taskSummary(state.tasks,p.date);return `${titleBlock('YOUR PERSONAL COMMAND CENTER','把日常生活，变得更简单。','不堆砌设备，也不虚构数据：先管理好课程、任务与个人空间。',`<div class="clock" data-clock>${p.time}</div><div>北京时间 · ${WEEKDAYS[p.day]}</div>`)}
+  <section class="hero card"><div class="hero-content"><div class="hero-label">WELCOME TO DORM OS</div><h2>你好，欢迎回到自己的空间。</h2><p>今天是 ${p.month} 月 ${p.dateNumber} 日，${esc(CAMPUSES[state.settings.campus].name)}。<br>${next?`下一节：${esc(next.subject)} · ${next.daysAway===0?'今天':WEEKDAYS[next.day]} ${esc(next.start)}`:'课表尚未添加或未来七天没有课程。'}</p><button type="button" data-page="timetable" class="primary">管理我的课程 →</button></div></section>
+  <div class="metric-row"><div class="metric"><div class="metric-label">待完成任务</div><div class="metric-num">${sum.remaining}</div><div class="metric-note">${sum.overdue?`其中 ${sum.overdue} 项已逾期`:'完成情况由你手动确认'}</div></div><div class="metric"><div class="metric-label">今日课程</div><div class="metric-num">${today.length}</div><div class="metric-note">${state.classes.length?'已添加的周期课程':'课表暂未导入'}</div></div><div class="metric"><div class="metric-label">个人设备</div><div class="metric-num">—</div><div class="metric-note"><span class="status-dot"></span>尚未连接硬件</div></div></div>
+  <div class="page-grid">${weatherCard()}<section class="card"><div class="card-header"><span class="card-title">◉ 宿舍环境</span>${badge('未接入','orange')}</div><div class="empty">尚未连接温湿度 / CO₂ 传感器。<br>不会用假数据代替真实测量。</div><p class="tiny muted">未来可接入 ESP32 墨水屏或 Home Assistant。</p></section>
+  <section class="card"><div class="card-header"><span class="card-title">▦ 今日课表</span><button class="action-link" type="button" data-page="timetable">查看整周 →</button></div>${today.length?today.map(classRow).join(''):'<div class="empty">今天没有已登记课程。<br>可以从课表页新增，或导入标准 CSV。</div>'}</section>
+  <section class="card"><div class="card-header"><span class="card-title">🎓 校园助手 · 日历课程</span><button class="action-link" type="button" data-page="campus">管理校园服务 →</button></div>${calendarPreview(3)}</section>
+  <section class="card"><div class="card-header"><span class="card-title">☑ 待办与作业</span><button class="action-link" type="button" data-page="tasks">全部任务 →</button></div>${compactTasks()}</section>
+  <section class="card wide"><div class="card-header"><span class="card-title">⚡ 快捷场景</span><span class="tiny muted">V1 仅管理网站状态</span></div>${sceneButtons()}<p class="small muted" style="margin:13px 0 0">当前模式：${sceneLabel(state.scene)}。手机系统设置、灯光控制尚未接入，切换不会误报为设备操作成功。</p></section></div>`;}
+const sceneDefs=[{id:'study',icon:'📘',label:'学习模式',desc:'任务看板 + 专注计时器'},{id:'rest',icon:'🌙',label:'休息模式',desc:'休息提示 + 低干扰'},{id:'away',icon:'🎒',label:'出门模式',desc:'天气 + 上课物品清单'}];
+const sceneLabel=id=>({'none':'未选择','study':'学习模式','rest':'休息模式','away':'出门模式'})[id]||'未选择';
+function sceneButtons(){return `<div class="scene-row">${sceneDefs.map(s=>`<button type="button" class="scene-btn ${state.scene===s.id?'selected':''}" data-scene="${s.id}"><b>${s.icon}</b>${s.label}</button>`).join('')}</div>`;}
+function timetable(){const p=now();return `${titleBlock('YOUR WEEKLY SCHEDULE','我的课表','先建立真实的课程与教室信息；没有课程时不做假排课。')}<div class="toolbar"><div class="small muted">按周重复 · 当前校区：${esc(CAMPUSES[state.settings.campus].name)}</div><div class="button-row"><button type="button" data-action="csv-template" class="secondary">下载 CSV 模板</button><button type="button" data-action="csv-import" class="secondary">导入 CSV</button><button type="button" data-action="ics-import" class="secondary">导入教务日历 .ics</button><button type="button" data-action="add-class" class="primary">＋ 添加课程</button></div></div><div class="weekday-grid">${[1,2,3,4,5,6,0].map(d=>{const arr=classForDay(state.classes,d);return `<section class="weekday ${p.day===d?'today':''}"><div class="weekday-title">${WEEKDAYS[d]} ${p.day===d?badge('今天','green'):''}</div>${arr.length?arr.map(c=>`<div class="class-card"><strong>${esc(c.subject)}</strong><div class="class-time">${esc(c.start)}–${esc(c.end)}</div><div class="tiny">${esc(c.location||'未填教室')}</div><button type="button" data-class-edit="${esc(c.id)}">编辑</button> · <button type="button" data-class-delete="${esc(c.id)}">删除</button></div>`).join(''):'<span class="week-empty">暂无课程</span>'}</section>`;}).join('')}</div><section class="card" style="margin-top:18px"><div class="card-header"><span class="card-title">来自教务助手的日期课程</span>${badge(`${state.calendarEvents.length} 条 · 精确日期`)}</div>${calendarPreview(12)}<p class="tiny muted">这些是按具体日期导入的事件，不会自动推断为每周固定课程。</p></section><div class="notice neutral" style="margin-top:18px">说明：可导入本网站提供的标准 CSV（星期、课程、开始、结束、教室）。这不是 SleepDown 原生备份解析器，暂不保证直接读取 .sleepdown 文件。</div>`;}
+function calendarPreview(limit=8){
+  const t=now();const entries=upcomingCalendar(state.calendarEvents,t.date,t.time,limit);
+  if(!entries.length)return `<div class="empty">${state.calendarEvents.length?'已导入日历，但当前没有后续课程。':'还没有导入教务日历。可从教务助手导出 .ics 文件后导入。'}</div>`;
+  return entries.map(c=>`<div class="entry"><div class="entry-info"><div class="entry-title">${esc(c.subject)}</div><div class="entry-sub">${esc(c.date)} · ${esc(c.start)}–${esc(c.end)} · ${esc(c.location||'未填写教室')}</div></div>${badge('日历')}</div>`).join('');
+}
+const linksOfficial=[
+ {title:'教务助手 · 开源项目',hint:'查看原项目源码、许可和使用说明',url:'https://github.com/znjhahaha/zhengfang-apk'},
+ {title:'下载 Android APK',hint:'原项目 GitHub 官方 Release，非 DORM OS 发布',url:'https://github.com/znjhahaha/zhengfang-apk/releases/latest'},
+ {title:'校园插件中心',hint:'查看学校适配状态；不代表已经支持华水',url:'https://plugins.hidisiwa.xyz/'},
+ {title:'插件开发文档',hint:'适配学校教务时参考 SDK 和授权范围',url:'https://plugins.hidisiwa.xyz/developers'}
+];
+function safeLink(name,url,hint=''){
+  return `<a class="campus-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(name)}</strong>${hint?`<span>${esc(hint)}</span>`:''}</div><span aria-hidden="true">↗</span></a>`;
+}
+function campusPage(){
+ const found=state.campusLinks.length;
+ return `${titleBlock('CAMPUS INTEGRATION / LOCAL FIRST','校园助手','以原版开源教务助手为基础打通数据入口：网页集中查看课程和校园服务，暂不代管教务账号。',badge('导入式对接 · 非教务实时同步'))}
+ <div class="campus-banner"><div><span class="eyebrow">OPEN SOURCE COMPANION</span><h2>教务助手 × DORM OS</h2><p>原生 App 负责学校教务与插件；DORM OS 网站管理个人日历、学习任务、宿舍设备和快捷入口。</p></div><div class="campus-signal">▦</div></div>
+ <div class="metric-row"><div class="metric"><div class="metric-label">教务日历课程</div><div class="metric-num">${state.calendarEvents.length}</div><div class="metric-note">保存在本浏览器 · 按实际日期</div></div><div class="metric"><div class="metric-label">已收藏校园服务</div><div class="metric-num">${found}</div><div class="metric-note">手动指定真实服务网址</div></div><div class="metric"><div class="metric-label">教务账号连接</div><div class="metric-num">—</div><div class="metric-note">未接入 · 不采集密码</div></div></div>
+ <div class="page-grid">
+ <section class="card"><div class="card-header"><span class="card-title">① 从开源教务助手导入课程</span>${badge('已实现','green')}</div><p class="small muted">在原版 App 中将课表导出为 iCalendar（.ics），再导入本站。系统解析具体日期、时间和地点；支持常见每周重复规则与重复导入去重。</p><div class="button-row"><button type="button" data-action="ics-import" class="primary">＋ 导入 .ics 日历</button><button type="button" data-action="clear-calendar" class="secondary">清空日历课程</button></div><div class="notice neutral" style="margin-top:14px">只读取你主动选择的本地文件，不上传教务密码。特殊时区、复杂周期规则会明确提示，避免产生错误课表。</div></section>
+ <section class="card"><div class="card-header"><span class="card-title">② 开源教务助手与插件</span>${badge('外部入口')}</div>${linksOfficial.map(l=>safeLink(l.title,l.url,l.hint)).join('')}<p class="tiny muted" style="margin-top:12px">本网站只是数据桥接与访问入口，未把 Kotlin Android App 嵌入浏览器，也未宣称华水教务插件已通过验收。</p></section>
+ <section class="card"><div class="card-header"><span class="card-title">③ 我收藏的校园服务</span><button type="button" data-action="add-campus-link" class="action-link">＋ 添加</button></div>${found?state.campusLinks.map(l=>`<div class="campus-custom-link">${safeLink(l.name,l.url)}<button type="button" class="icon-btn" data-campus-link-delete="${esc(l.id)}" aria-label="删除 ${esc(l.name)}">×</button></div>`).join(''):'<div class="empty">暂无已确认的校园服务入口。可以自行添加学校官方教务、二课、校园卡等 HTTPS 地址。</div>'}<p class="tiny muted">仅保存书签，不代替登录、不绕过学校系统限制。</p></section>
+ <section class="card"><div class="card-header"><span class="card-title">④ 即将到来的课程</span><button type="button" class="action-link" data-page="timetable">查看全部 →</button></div>${calendarPreview(7)}</section>
+ <section class="card wide"><div class="card-header"><span class="card-title">教务功能的实际接入状态</span>${badge('逐项验收')}</div><div class="campus-status-grid"><div><b>✓</b> 日历文件解析与去重<br><small>本站已实现，按日期显示</small></div><div><b>✓</b> 官方 App 与插件入口<br><small>链接跳转到开源项目</small></div><div><b>…</b> 华水教务账号实时同步<br><small>学校认证与接口尚未验证</small></div><div><b>…</b> 成绩、考试、二课数据<br><small>等待官方支持或授权导入</small></div></div></section>
+ </div>`;
+}
+function campusLinkDialog(){openDialog(formFrame('添加校园服务入口',`<div class="form-field"><label>服务名称</label><input name="name" maxlength="40" required placeholder="例如：学校官方教务平台"></div><div class="form-field"><label>官方网址（HTTPS）</label><input name="url" type="url" maxlength="300" required placeholder="https://..."></div><p class="small muted">只保存链接，不保存账号或密码。</p>`));$('modalForm').dataset.form='campus-link';}
+async function icsImport(){const f=$('icsInput');f.value='';f.click();}
+function tasksPage(){let rows=state.tasks;if(taskFilter==='open')rows=rows.filter(t=>!t.done);else if(taskFilter==='done')rows=rows.filter(t=>t.done);rows=[...rows].sort((a,b)=>Number(a.done)-Number(b.done)||(a.due||'9999').localeCompare(b.due||'9999'));
+return `${titleBlock('STUDY & DAILY LIFE','任务中心','作业状态只有在你确认之后才会变更。')}<div class="toolbar"><div class="list-controls">${[['all','全部'],['open','未完成'],['done','已完成']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}">${l}</button>`).join('')}</div><button type="button" data-action="add-task" class="primary">＋ 新增任务</button></div><section class="card">${rows.length?rows.map(t=>taskRow(t)).join(''):'<div class="empty">这里还没有相应的任务。<br>试着添加一条高数、工程制图或 Python 作业。</div>'}</section>`;}
+function scenesPage(){const p=now();return `${titleBlock('AUTOMATION SCENES','个人快捷场景','先实现网站内的真实状态切换，再逐步接入手机和智能设备。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">选择当前场景</span>${badge(sceneLabel(state.scene))}</div>${sceneButtons()}<div class="notice neutral" style="margin-top:16px">切换场景只会更新本网站的状态和事件记录。没有手机自动化客户端时，不会声称已调整勿扰模式或灯光。</div></section><section class="card"><div class="card-header"><span class="card-title">当前场景内容</span></div>${state.scene==='study'?`<div class="entry-title">📘 专注学习</div><p class="small muted">按 25 分钟专注计时；计时在这个网页打开期间运行，关闭页面不会后台提醒。</p><div class="weather-temp" id="timerDisplay">${timerText()}</div><div class="button-row"><button data-action="timer-toggle" class="primary">${timer.running?'暂停':'开始'}</button><button data-action="timer-reset" class="secondary">重置</button></div>`:state.scene==='rest'?`<div class="entry-title">🌙 休息模式</div><p class="small muted">建议放下手机、减少通知干扰。真实手机勿扰仍需在系统或自动化工具中设置。</p>${badge('未执行手机控制','orange')}`:state.scene==='away'?`<div class="entry-title">🎒 出门检查</div><p class="small muted">钥匙 · 校园卡 · 手机 · 水杯 · 今日课程用品</p><div class="notice">${esc(weatherAdvice(weather))}</div><p class="small muted">${esc(CAMPUSES[state.settings.campus].name)} · 今天 ${WEEKDAYS[p.day]}，已登记 ${classForDay(state.classes,p.day).length} 节课</p>`:'<div class="empty">选择一个场景以显示对应的实用工具。</div>'}</section><section class="card wide"><div class="card-header"><span class="card-title">近期事件</span></div>${state.events.length?state.events.slice(-10).reverse().map(e=>`<div class="log-line"><span>${esc(e.at?new Date(e.at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'')}</span>${esc(e.text)}</div>`).join(''):'<div class="empty">还没有场景切换或任务操作记录。</div>'}</section></div>`;}
+const devices=[['📱','一加 Ace 6','Android 自动化 · 未来通过授权客户端接入'],['▤','一加 Pad 2 Pro','平板学习面板 · 网页访问'],['💻','Windows 电脑','本地开发 · 后续可运行数据服务'],['▣','ESP32 墨水屏','未购买或尚未接入 · 预留 JSON 数据协议']];
+function devicesPage(){return `${titleBlock('HARDWARE INTEGRATION','设备中心','已知你的设备类别，但还没有获取任何真实在线状态。')}<div class="device-grid">${devices.map(d=>`<section class="card device-card"><div class="device-icon">${d[0]}</div><div class="device-name">${d[1]}</div><div class="small muted">${d[2]}</div><div class="device-status"><span class="status-line">未连接到网站</span>${badge('待接入')}</div></section>`).join('')}</div><div class="notice neutral" style="margin-top:16px">预留协议：<span class="kbd">dorm-os/eink-v1</span>，可在设置中导出 JSON 样例。静态 V1 网站不能对外提供实时硬件 API；后续需增加带身份验证的服务端。</div>`;}
+function settingsPage(){const c=state.settings.campus;return `${titleBlock('PREFERENCES & DATA','设置与备份','第一版是本地优先网站；你的资料只保存在当前浏览器。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">基本设置</span></div><div class="config-row"><div><strong>使用校区</strong><div class="detail">切换天气地点和界面标签，不会改动课程</div></div><select id="campusSelect" aria-label="使用校区"><option value="jianghuai" ${c==='jianghuai'?'selected':''}>江淮校区</option><option value="huayuan" ${c==='huayuan'?'selected':''}>花园校区</option></select></div><div class="config-row"><div><strong>界面主题</strong><div class="detail">适配电脑、平板和手机</div></div><select id="themeSelect" aria-label="界面主题"><option value="dark" ${state.settings.theme==='dark'?'selected':''}>深色</option><option value="light" ${state.settings.theme==='light'?'selected':''}>浅色</option></select></div><div class="config-row"><div><strong>宿舍电费余额</strong><div class="detail">手动填写 · ${state.electricity.updatedAt?`更新于 ${esc(new Date(state.electricity.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}`:'尚未录入'}</div></div><div style="text-align:right"><strong>${state.electricity.balance===null?'未录入':`¥${state.electricity.balance.toFixed(2)}`}</strong><br><button data-action="balance" class="action-link">更新余额</button></div></div></section><section class="card"><div class="card-header"><span class="card-title">数据管理</span></div><div class="notice neutral">当前版本没有账号和跨设备同步。换手机或清理浏览器数据前，请手动导出备份。</div><div class="button-row" style="margin-top:14px"><button type="button" class="primary" data-action="export">下载完整备份</button><button type="button" class="secondary" data-action="import">恢复备份</button><button type="button" class="secondary" data-action="eink-export">导出墨水屏 JSON</button></div><div style="margin-top:20px"><button type="button" class="secondary danger-btn" data-action="reset">清空本地数据</button></div></section><section class="card wide"><div class="card-header"><span class="card-title">安全与功能边界</span></div><div class="split"><div><div class="entry-title">✓ 已实现</div><p class="small muted">课表增删改、任务增删改、场景状态记录、本地 JSON 导入导出、标准课表 CSV 导入、联网天气和缓存、校区切换、墨水屏数据导出。</p></div><div><div class="entry-title">○ 尚未实现</div><p class="small muted">真实手机勿扰控制、传感器采集、智能灯控制、SleepDown 原生备份解析、云端登录、多设备同步与实时设备 API。</p></div></div></section></div>`;}
+function nfcPage(){
+ const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
+ const phaseLabel={idle:'未扫描',starting:'正在请求权限',scanning:'等待触碰标签',matched:'已识别小米互联记录',other:'读到了其他标签',error:'启动失败',stopped:'已停止'}[nfc.phase]||'未知';
+ return `${titleBlock('READ-ONLY NFC · NO NEW APPS','桌面 NFC 快捷场景','利用 REDMI Book 14 2025 原有 NFC 标签，不改写、不格式化、不保存标签序列号。')}
+ <div class="page-grid"><section class="card nfc-card"><div class="card-header"><span class="card-title">① 浏览器与权限</span>${badge(supported.ok?'接口可用':'需要调整',supported.ok?'green':'orange')}</div><p class="small muted">${esc(supported.reason)}</p><p class="small muted">要求：Android Chrome、HTTPS、NFC 已开启、网页保持前台且手机已解锁。电脑本机的 localhost 仅适合桌面预览，手机需访问 HTTPS 版本。</p><div class="notice neutral">你的系统 Tags 已确认读取到 <code>com.xiaomi.mi_connect_service:externaltype</code>。这不代表 Chrome 已被授予 Web NFC 权限。</div></section>
+ <section class="card nfc-card"><div class="card-header"><span class="card-title">② 选择场景并扫描</span>${badge(phaseLabel,nfc.phase==='matched'?'green':nfc.phase==='error'?'orange':'')}</div><div class="form-field"><label for="nfcScene">读取成功后切换为</label><select id="nfcScene"><option value="study" ${nfc.scene==='study'?'selected':''}>📘 学习模式</option><option value="rest" ${nfc.scene==='rest'?'selected':''}>🌙 休息模式</option><option value="away" ${nfc.scene==='away'?'selected':''}>🎒 出门模式</option></select></div><div class="button-row"><button type="button" class="primary" data-action="nfc-start" ${supported.ok&&nfc.phase!=='starting'&&nfc.phase!=='scanning'?'':'disabled'}>◉ 点击开始扫描</button><button type="button" class="secondary" data-action="nfc-stop" ${nfc.phase==='scanning'||nfc.phase==='starting'?'':'disabled'}>停止扫描</button></div><div class="notice neutral" role="status" aria-live="polite" id="nfcStatus" style="margin-top:15px">${esc(nfc.message)}</div>${nfc.lastRead?`<p class="tiny muted">最近一次读取：${esc(nfc.lastRead)}（仅本次网页会话）</p>`:''}<p class="tiny muted">仅当检测到小米互联外部类型记录才切换本网站场景；相同类型不等于能唯一识别这台笔记本。不会启动 Windows 软件或修改系统设置。</p></section>
+ <section class="card wide"><div class="card-header"><span class="card-title">③ 实际操作</span></div><div class="nfc-steps"><div><b>1</b><span>手机 Chrome 打开已部署的 HTTPS DORM OS 页面，进入「桌面 NFC」</span></div><div><b>2</b><span>把手机移开笔记本，点「开始扫描」并允许 NFC 权限</span></div><div><b>3</b><span>保持网页前台和手机解锁，再把手机 NFC 感应区碰到笔记本触摸板附近</span></div><div><b>4</b><span>识别成功后自动进入选择的网站场景，事件记录中注明“网页场景”</span></div></div><div class="notice neutral">如果出现 <strong>NotAllowedError</strong>：先检查 Chrome 网站 NFC 权限，退出系统 Tags 的弹窗并返回 Chrome 后重新扫描。若系统总是抢占标签，浏览器方案可能不兼容这枚厂商标签，不能保证靠 Root 绕过。</div></section></div>`;
+}
+function stopNfcScan({silent=false}={}) {
+ nfc.scanAttempt++;
+ nfc.controller?.abort(); nfc.controller=null; nfc.reader=null;
+ nfc.phase='stopped'; nfc.message='扫描已经停止；笔记本标签没有被修改。';
+ if(!silent&&page==='nfc')render();
+}
+async function startNfcScan(){
+ const support=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
+ if(!support.ok){nfc.phase='error';nfc.message=support.reason;render();return;}
+ if(nfc.controller){return;}
+ const id=++nfc.scanAttempt;
+ const controller=new AbortController();nfc.controller=controller;nfc.phase='starting';nfc.message='正在向 Chrome 请求 NFC 读取权限……';
+ // Call scan during the original click activation, before any unrelated await.
+ try {
+   const reader=new NDEFReader();nfc.reader=reader;
+   reader.addEventListener('readingerror',()=>{if(id!==nfc.scanAttempt)return;nfc.message='标签经过感应区，但浏览器无法解码 NDEF。';nfc.phase='scanning';if(page==='nfc')render();});
+   reader.addEventListener('reading',event=>{
+     if(id!==nfc.scanAttempt)return;
+     if(!containsXiaomiLaptopRecord(event.message?.records)){
+       nfc.phase='scanning';nfc.message='成功读到 NFC，但不是预期的小米互联外部类型记录。没有切换场景；继续扫描中。';nfc.lastRead='其他 NDEF 记录';if(page==='nfc')render();return;
+     }
+     nfc.phase='matched';nfc.lastRead='小米互联 externaltype';
+     nfc.message=`已识别小米互联记录类型：网站切换为「${sceneLabel(nfc.scene)}」。`;
+     if(nfc.scene!=='study')timerStop();state.scene=nfc.scene;
+     log(`NFC 前台扫描切换网站场景为「${sceneLabel(nfc.scene)}」（未控制系统或电脑）`);
+     persist();
+     stopNfcScan({silent:true});
+     nfc.phase='matched';nfc.message=`检测到小米互联类型的 NFC 记录，已切换网站场景为「${sceneLabel(state.scene)}」。`;
+     setPage('scenes');toast('NFC 已识别，网页学习场景已切换');
+   });
+   const scanning=reader.scan({signal:controller.signal});
+   render();
+   await scanning;
+   if(id!==nfc.scanAttempt)return;
+   nfc.phase='scanning';nfc.message='扫描已启动！请保持 Chrome 前台，再将手机靠近笔记本 NFC 区域。';
+   if(page==='nfc')render();
+ }catch(err){
+   if(id!==nfc.scanAttempt)return;
+   nfc.controller=null;nfc.reader=null;
+   nfc.phase=err.name==='AbortError'?'stopped':'error';nfc.message=nfcErrorMessage(err);
+   if(page==='nfc')render();
+ }
+}
+function render(){const pages={dashboard,timetable,campus:campusPage,tasks:tasksPage,scenes:scenesPage,devices:devicesPage,settings:settingsPage,nfc:nfcPage};$('app').innerHTML=pages[page]();document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===page;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
+function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'&&nfc.controller)stopNfcScan({silent:true});page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
+function tick(){const p=now();$('dateChip').textContent=`${p.month}月${p.dateNumber}日 · ${WEEKDAYS[p.day]}`;document.querySelectorAll('[data-clock]').forEach(x=>x.textContent=p.time);if($('timerDisplay'))$('timerDisplay').textContent=timerText();}
+function timerText(){return `${String(Math.floor(timer.remaining/60)).padStart(2,'0')}:${String(timer.remaining%60).padStart(2,'0')}`;}
+function timerStart(){if(timer.running)return;timer.running=true;timer.interval=setInterval(()=>{if(timer.remaining>0)timer.remaining--;else{timerStop();toast('本页专注计时结束');}tick();},1000);render();}
+function timerStop(){timer.running=false;if(timer.interval)clearInterval(timer.interval);timer.interval=null;}
+function openDialog(html){$('editorContent').innerHTML=html;$('editor').showModal();}
+function formFrame(title,body){return `<form id="modalForm"><h2>${esc(title)}</h2>${body}<div class="modal-actions"><button type="button" class="secondary" data-action="close-modal">取消</button><button type="submit" class="primary">保存</button></div></form>`;}
+function taskDialog(id){const t=state.tasks.find(x=>x.id===id);openDialog(formFrame(t?'编辑任务':'新增任务',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label for="taskTitle">任务名称 *</label><input id="taskTitle" name="title" maxlength="100" required placeholder="例如：完成高数作业" value="${esc(t?.title||'')}"></div><div class="grid-fields"><div class="form-field"><label for="taskCategory">类别</label><select name="category" id="taskCategory">${CATEGORIES.map(c=>`<option ${t?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><div class="form-field"><label for="taskDue">截止日期（可选）</label><input id="taskDue" type="date" name="due" value="${esc(t?.due||'')}"></div></div>`));$('modalForm').dataset.form='task';$('taskTitle').focus();}
+function classDialog(id){const c=state.classes.find(x=>x.id===id);openDialog(formFrame(c?'编辑课程':'添加课程',`<input name="id" type="hidden" value="${esc(c?.id||'')}"><div class="form-field"><label for="classSubject">课程名称 *</label><input id="classSubject" name="subject" maxlength="80" placeholder="例如：高等数学" required value="${esc(c?.subject||'')}"></div><div class="grid-fields"><div class="form-field"><label>星期</label><select name="day">${[1,2,3,4,5,6,0].map(d=>`<option value="${d}" ${c?.day===d?'selected':''}>${WEEKDAYS[d]}</option>`).join('')}</select></div><div class="form-field"><label>教室</label><input name="location" maxlength="60" placeholder="如教学楼 A201" value="${esc(c?.location||'')}"></div></div><div class="grid-fields"><div class="form-field"><label>开始时间</label><input name="start" type="time" required value="${esc(c?.start||'08:00')}"></div><div class="form-field"><label>结束时间</label><input name="end" type="time" required value="${esc(c?.end||'09:40')}"></div></div>`));$('modalForm').dataset.form='class';$('classSubject').focus();}
+function balanceDialog(){openDialog(formFrame('手动记录宿舍电费',`<p class="small muted">这里只保存你主动输入的数值，不连接学校收费系统。</p><div class="form-field"><label>电费余额（人民币）</label><input name="balance" type="number" min="0" max="99999" step="0.01" required value="${state.electricity.balance??''}" placeholder="例如 35.50"></div>`));$('modalForm').dataset.form='balance';}
+function processForm(form){const d=new FormData(form);if(form.dataset.form==='task'){const title=String(d.get('title')||'').trim().slice(0,100);if(!title){toast('请输入任务名称');return;}const id=String(d.get('id')||'');const current=state.tasks.find(x=>x.id===id);const record={id:current?.id||newId(),title,category:CATEGORIES.includes(d.get('category'))?d.get('category'):'其他',due:String(d.get('due')||''),done:current?.done||false,createdAt:current?.createdAt||new Date().toISOString()};if(current)Object.assign(current,record);else state.tasks.push(record);log(`${current?'修改':'新增'}任务：${title}`);}else if(form.dataset.form==='class'){const subject=String(d.get('subject')||'').trim().slice(0,80),start=d.get('start'),end=d.get('end');if(!subject||!start||!end||start>=end){toast('请检查课程名称及时间顺序');return;}const id=String(d.get('id')||'');const current=state.classes.find(x=>x.id===id);const record={id:current?.id||newId(),subject,day:Number(d.get('day')),start,end,location:String(d.get('location')||'').trim().slice(0,60)};if(current)Object.assign(current,record);else state.classes.push(record);log(`${current?'修改':'新增'}课程：${subject}`);}else if(form.dataset.form==='campus-link'){const name=String(d.get('name')||'').trim().slice(0,40),url=String(d.get('url')||'').trim();if(!name||!/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(url)||url.length>300){toast('请输入有效 HTTPS 地址和服务名称');return;}if(state.campusLinks.length>=30){toast('自定义入口最多 30 个');return;}state.campusLinks.push({id:newId(),name,url});log(`添加校园服务：${name}`);} else if(form.dataset.form==='balance'){const raw=String(d.get('balance')||'');const n=Number(raw);if(raw===''||!Number.isFinite(n)||n<0||n>99999){toast('请输入有效的非负余额');return;}state.electricity={balance:Math.round(n*100)/100,updatedAt:new Date().toISOString()};log('手动更新电费余额');}
+  persist();$('editor').close();render();toast('已保存到当前浏览器');}
+function weatherCacheKey(){return `dorm-os-weather-${state.settings.campus}`;}
+function loadWeather(){try{const raw=localStorage.getItem(weatherCacheKey());weather=raw?JSON.parse(raw):null;}catch{weather=null;}}
+async function fetchWeather(force=false){if(weatherLoading)return;const key=weatherCacheKey();loadWeather();if(!force && weather && Date.now()-new Date(weather.fetchedAt).getTime()<30*60*1000){render();return;}
+  weatherLoading=true;weatherError='';render();const campus=CAMPUSES[state.settings.campus],currentKey=state.settings.campus;
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),10000);
+  try{const url=new URL('https://api.open-meteo.com/v1/forecast');url.search=new URLSearchParams({latitude:String(campus.lat),longitude:String(campus.lon),current:'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code',daily:'temperature_2m_max,temperature_2m_min,precipitation_probability_max',forecast_days:'1',timezone:'Asia/Shanghai'}).toString();const resp=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!resp.ok)throw new Error(`HTTP ${resp.status}`);const data=await resp.json();if(!Number.isFinite(data.current?.temperature_2m)||!Number.isFinite(data.current?.apparent_temperature))throw new Error('天气数据无效');const item={temp:data.current.temperature_2m,feels:data.current.apparent_temperature,code:data.current.weather_code,rain:data.current.precipitation??0,humidity:data.current.relative_humidity_2m??null,rainChance:data.daily?.precipitation_probability_max?.[0]??0,max:data.daily?.temperature_2m_max?.[0]??data.current.temperature_2m,min:data.daily?.temperature_2m_min?.[0]??data.current.temperature_2m,fetchedAt:new Date().toISOString()};localStorage.setItem(key,JSON.stringify(item));if(state.settings.campus===currentKey){weather=item;weatherError='';}}
+  catch(e){if(state.settings.campus===currentKey){weatherError=weather?'联网失败，仍显示上次缓存。':`获取失败（${e.name==='AbortError'?'请求超时':'检查网络连接'}），稍后可重试。`;}}
+  finally{clearTimeout(timeout);weatherLoading=false;render();}}
+function parseCSV(text){const rows=[];let row=[],s='',q=false;for(let i=0;i<text.length;i++){const ch=text[i];if(q){if(ch==='"'&&text[i+1]==='"'){s+='"';i++;}else if(ch==='"')q=false;else s+=ch;}else{if(ch==='"')q=true;else if(ch===','){row.push(s);s='';}else if(ch==='\n'){row.push(s.replace(/\r$/,''));rows.push(row);row=[];s='';}else s+=ch;}}if(q)throw new Error('CSV 引号没有闭合');if(s!==''||row.length){row.push(s);rows.push(row);}const heading=rows.shift()?.map(x=>x.replace(/^\uFEFF/,'').trim())||[];const expected=['day','subject','start','end','location'];if(expected.some((x,i)=>heading[i]!==x))throw new Error('表头必须为 day,subject,start,end,location');const classes=[];for(const r of rows){if(r.every(x=>!x.trim()))continue;const days={'周日':0,'周一':1,'周二':2,'周三':3,'周四':4,'周五':5,'周六':6};const day=r[0] in days?days[r[0]]:Number(r[0]);const record={id:newId(),day,start:r[2]?.trim(),end:r[3]?.trim(),subject:r[1]?.trim(),location:r[4]?.trim()||''};if(!Number.isInteger(day)||day<0||day>6||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(record.start)||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(record.end)||record.start>=record.end||!record.subject)throw new Error(`第 ${rows.indexOf(r)+2} 行数据不符合课程格式`);classes.push(record);}if(classes.length>150)throw new Error('单次导入课程不能超过 150 条');return classes;}
+async function csvImport(){const f=document.createElement('input');f.type='file';f.accept='.csv,text/csv';f.onchange=async()=>{if(!f.files?.length)return;try{const text=await f.files[0].text();const rows=parseCSV(text);if(!rows.length){toast('文件中没有有效课程');return;}if(state.classes.length+rows.length>150)throw new Error('总课程数超过 150');if(!confirm(`即将追加 ${rows.length} 门周课表课程，确定吗？`))return;state.classes.push(...rows);log(`导入 ${rows.length} 条 CSV 课程`);persist();render();toast(`成功导入 ${rows.length} 条课程`);}catch(e){toast(`导入失败：${e.message}`);}};f.click();}
+function exportedBackup(){return JSON.stringify(state,null,2);}
+function clickAction(action){if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal')$('editor').close();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset'){timerStop();timer.remaining=25*60;render();}}
+document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter]');if(!target)return;
+  if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.scene){if(target.dataset.scene!=='study')timerStop();state.scene=target.dataset.scene;log(`网页场景切换为「${sceneLabel(state.scene)}」（未触发外部设备）`);persist();render();toast('网站场景已切换；外部设备未执行控制');}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
+document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();render();}}else if(el.id==='nfcScene'){if(['study','rest','away'].includes(el.value))nfc.scene=el.value;}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
+document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
+$('quickAdd').addEventListener('click',()=>taskDialog());
+$('icsInput').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+   if(file.size>1024*1024)throw new Error('请使用小于 1MB 的 .ics 日历文件');
+   const parsed=parseICalendar(await file.text());
+   if(!parsed.events.length){toast(parsed.warnings[0]||'日历中没有可识别的课程');return;}
+   const merged=mergeCalendar(state.calendarEvents,parsed.events);
+   if(merged.items.length>1200)throw new Error('导入后超过 1200 条课程上限');
+   const message=`识别 ${parsed.events.length} 条日期课程\n新增 ${merged.added} 条，重复 ${merged.duplicates} 条，跳过 ${parsed.skipped} 条。\n确定导入吗？`;
+   if(!confirm(message))return;
+   state.calendarEvents=merged.items;log(`导入教务 iCalendar：新增 ${merged.added} 条，跳过 ${parsed.skipped} 条`);persist();render();
+   toast(`导入完成：新增 ${merged.added} 条${parsed.skipped?'，有部分无法识别':''}`);
+   if(parsed.warnings.length)alert('未识别事件（最多显示 8 条）：\n'+parsed.warnings.join('\n'));
+ }catch(err){toast(`日历导入失败：${err.message}`);}finally{e.target.value='';}
+});
+$('importInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>1024*1024)throw new Error('备份大于 1MB，拒绝导入');const parsed=safeState(JSON.parse(await file.text()));if(!confirm('恢复将覆盖当前浏览器中所有任务、课表和设置，确定继续吗？'))return;state=parsed;persist();weather=null;loadWeather();setPage('dashboard');toast('备份恢复成功');}catch(err){toast(`恢复失败：${err.message}`);}finally{e.target.value='';}});
+$('editor').addEventListener('click',e=>{if(e.target===$('editor'))$('editor').close();});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(nameMap[h]&&h!==page){page=h;render();}});
+window.addEventListener('online',()=>fetchWeather());
+page=nameMap[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
+loadWeather();render();fetchWeather();setInterval(tick,10000);
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+</script>
+</body>
+</html>

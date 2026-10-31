@@ -1,0 +1,13 @@
+{
+  "name": "dorm-os",
+  "private": true,
+  "version": "0.1.2",
+  "description": "DORM OS personal dashboard",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
