@@ -18,7 +18,7 @@ const ctx = {
   sceneDefs: ['study','rest','dev','away'].map(id=>({id})),
 };
 runInNewContext(
-  sourceBetween('function safeState(value){','function classForDay(') +
+  sourceBetween('function validSceneLinkUrl(raw) {','function classForDay(') +
   sourceBetween('function tagLink(tag){','async function copyTagLink(') +
   sourceBetween('function getSceneFromNdef(message){','async function startNfcScan('),
   ctx,
@@ -147,3 +147,18 @@ const atCapacity=mergeCtx.mergePersonalBackup(maxed,{...base,tasks:[{id:'new',ti
 assert.equal(atCapacity.data.tasks.length,300);
 assert.equal(atCapacity.capacitySkipped,1);
 console.log('Import merge preserves local records and completion, handles conflicts, idempotence and caps');
+
+assert.equal(ctx.validSceneLinkUrl('https://github.com/07xh/dorm-os'),'https://github.com/07xh/dorm-os');
+assert.equal(ctx.validSceneLinkUrl('javascript:alert(1)'),'');
+assert.equal(ctx.validSceneLinkUrl('http://example.com'),'');
+assert.equal(ctx.validSceneLinkUrl('https://user:secret@example.com'),'');
+assert.equal(ctx.validSceneLinkUrl('https://example.com/?access_token=secret'),'');
+const linkState=ctx.safeState({...base,sceneLinks:[{id:'link1',scene:'study',name:'高数资料',url:'https://example.com/notes'},{id:'bad',scene:'dev',name:'拒绝',url:'javascript:alert(1)'}]});
+assert.equal(linkState.sceneLinks.length,1);
+assert.equal(linkState.sceneLinks[0].name,'高数资料');
+assert.equal(ctx.safeState(base).sceneLinks.length,0);
+const mergedLinks=mergeCtx.mergePersonalBackup({...base,sceneLinks:[{id:'shared',scene:'study',name:'本机',url:'https://example.com/a'}]},{...base,sceneLinks:[{id:'shared',scene:'study',name:'异地',url:'https://example.com/b'},{id:'new',scene:'rest',name:'自用平台',url:'https://example.org'}]});
+assert.equal(mergedLinks.data.sceneLinks.length,2);
+assert.equal(mergedLinks.data.sceneLinks.find(x=>x.id==='shared').name,'本机');
+assert.equal(mergedLinks.data.sceneLinks.find(x=>x.id==='new').scene,'rest');
+console.log('Personal scene quick links, validation and backup migration tests passed');
