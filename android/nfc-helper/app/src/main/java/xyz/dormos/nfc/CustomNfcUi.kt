@@ -26,7 +26,8 @@ class CustomNfcUi(
         "DORM OS · 学习模式",
         "DORM OS · 休息模式",
         "DORM OS · 开发模式",
-        "DORM OS · 出门模式"
+        "DORM OS · 出门模式",
+        "KernelSU · Wi-Fi 网卡状态（只读 SH）"
     )
     private val scenes = arrayOf("study", "rest", "dev", "away")
 
@@ -47,6 +48,7 @@ class CustomNfcUi(
         NfcProfiles.DIAGNOSE_NCWU -> "Ncwu 检测"
         NfcProfiles.OPEN_HTTPS -> "打开网页"
         NfcProfiles.DORM_SCENE -> "DORM " + profile.target
+        NfcProfiles.KSU_WIFI_STATUS -> "KernelSU 按需 SH 检测"
         else -> "未知动作"
     }
 
@@ -88,7 +90,7 @@ class CustomNfcUi(
             setText(if (old?.action == NfcProfiles.OPEN_HTTPS) old.target else "")
         }
         val note = TextView(activity).apply {
-            text = "标签只存随机编号，操作保存在此手机。修改名称或动作不必重新写卡。"
+            text = "标签只存随机编号，操作保存在此手机。KernelSU 动作需要另装可选模块并手动启用 Root 权限，不支持执行自填 SH。修改动作不必重写标签。"
             textSize = 13f
         }
         layout.addView(name)
@@ -97,6 +99,7 @@ class CustomNfcUi(
         layout.addView(note)
         val selection = when (old?.action) {
             NfcProfiles.OPEN_HTTPS -> 1
+            NfcProfiles.KSU_WIFI_STATUS -> 6
             NfcProfiles.DORM_SCENE -> scenes.indexOf(old.target).let { if (it < 0) 2 else it + 2 }
             else -> 0
         }
@@ -121,11 +124,13 @@ class CustomNfcUi(
                 val action = when (index) {
                     0 -> NfcProfiles.DIAGNOSE_NCWU
                     1 -> NfcProfiles.OPEN_HTTPS
+                    6 -> NfcProfiles.KSU_WIFI_STATUS
                     else -> NfcProfiles.DORM_SCENE
                 }
                 val destination = when (index) {
                     0 -> ""
                     1 -> target.text.toString().trim()
+                    6 -> ""
                     else -> scenes.getOrNull(index - 2) ?: ""
                 }
                 val record = NfcProfile(
