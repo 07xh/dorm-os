@@ -60,3 +60,28 @@ assert.equal(ctx.getSceneFromNdef(tagMessage('https://dorm-os-dk9.pages.dev/othe
 assert.equal(ctx.getSceneFromNdef(tagMessage('invalid url')),null);
 assert.equal(ctx.getSceneFromNdef({records:[{recordType:'mime',data:new Uint8Array()}]}),null);
 console.log('DORM OS NFC link, local rebinding, backup compatibility and URL origin tests passed');
+
+
+// Background tabs may throttle callbacks; focused time is computed using elapsed clock time.
+let fakeClock = 1_000_000;
+const focusCtx = {
+  Date:{now:()=>fakeClock},
+  timer:{remaining:25*60,running:false,interval:null,deadline:0},
+  setInterval:()=>1,clearInterval:()=>{},
+  render:()=>{},tick:()=>{},toast:()=>{},
+};
+runInNewContext(sourceBetween('function timerText(){','function openDialog('),focusCtx);
+focusCtx.timerStart();
+assert.equal(focusCtx.timer.running,true);
+fakeClock+=61_000;
+focusCtx.timerSync();
+assert.equal(focusCtx.timer.remaining,1439);
+focusCtx.timerStop();
+assert.equal(focusCtx.timer.remaining,1439);
+fakeClock+=120_000; // Pause should not consume remaining focus time.
+focusCtx.timerStart();
+fakeClock+=1439_000;
+focusCtx.timerSync();
+assert.equal(focusCtx.timer.running,false);
+assert.equal(focusCtx.timer.remaining,0);
+console.log('Focus timer wall-clock, pause and resume tests passed');
