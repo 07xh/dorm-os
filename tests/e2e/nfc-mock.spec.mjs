@@ -84,7 +84,7 @@ test('navigating away aborts pending NFC write',async({page})=>{
  await page.evaluate(()=>{__nfcHarness.mode='pending';});
  page.once('dialog',d=>d.accept());
  await page.locator('[data-tag-write]').click();
- await page.locator('[data-page="scenes"]').last().click();
+ await page.locator('[data-page="scenes"]:visible').first().click();
  await expect(page).toHaveURL(/#scenes$/);
  expect(await page.evaluate(()=>__nfcHarness.writes[0].canceled)).toBe(true);
  expect((await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),STORAGE)).nfcTags[0].writtenAt).toBeUndefined();
