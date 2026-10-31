@@ -64,13 +64,16 @@ test('register NFC tag and follow its website scene URL',async({page})=>{
 });
 
 test('stale NFC links refuse to switch the scene after rebinding',async({page})=>{
-  await page.goto('/');
-  await page.evaluate(key=>{
-    const state=JSON.parse(localStorage.getItem(key));
-    state.nfcTags=[{id:'tag-old',name:'旧标签',scene:'dev',writtenScene:'study'}];
-    localStorage.setItem(key,JSON.stringify(state));
-  },STORAGE);
-  await page.goto('/?dormTag=tag-old&dormScene=study');
+  await page.goto('/#nfc');
+  await page.locator('[data-action="tag-add"]').click();
+  await page.locator('#modalForm [name="name"]').fill('原书桌标签');
+  await page.locator('#modalForm [name="scene"]').selectOption('study');
+  await page.locator('#modalForm [type="submit"]').click();
+  const id=(await saved(page)).nfcTags[0].id;
+  await page.locator('[data-tag-edit]').click();
+  await page.locator('#modalForm [name="scene"]').selectOption('dev');
+  await page.locator('#modalForm [type="submit"]').click();
+  await page.goto('/?dormTag='+encodeURIComponent(id)+'&dormScene=study');
   await expect(page).toHaveURL(/#nfc$/);
   await expect(page.locator('#app')).toContainText('请重新写入');
   expect((await saved(page)).scene).toBe('none');
