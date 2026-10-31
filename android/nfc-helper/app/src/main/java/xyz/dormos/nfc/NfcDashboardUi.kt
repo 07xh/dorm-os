@@ -18,7 +18,7 @@ class NfcDashboardUi(
     private val activity: Activity,
     private val onAction: (String) -> Unit
 ) {
-    data class Content(val root: View, val status: TextView)
+    data class Content(val root: View, val status: TextView, val profileCounter: TextView)
 
     private val ink = Color.rgb(25, 44, 79)
     private val blue = Color.rgb(28, 101, 224)
@@ -111,18 +111,20 @@ class NfcDashboardUi(
         base.addView(hero, params(bottom = 14))
 
         val metrics = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        fun metric(title: String, value: String, weight: Float) {
+        fun metric(title: String, value: String, weight: Float): TextView {
             val item = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(13), dp(11), dp(9), dp(11))
                 background = background(Color.WHITE, 14, outline = true)
             }
             item.addView(text(title, 11f, muted))
-            item.addView(text(value, 14f, ink, true), params(top = 3))
+            val valueView = text(value, 14f, ink, true)
+            item.addView(valueView, params(top = 3))
             metrics.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight).apply { rightMargin = dp(6) })
+            return valueView
         }
         metric("NFC", if (nfcEnabled) "已开启" else "未开启", 1f)
-        metric("我的标签", "$profileCount 个", 1f)
+        val profileCounter = metric("我的标签", "$profileCount 个", 1f)
         metric("KernelSU", if (rootOption) "已启用" else "默认关闭", 1.2f)
         base.addView(metrics)
 
@@ -164,6 +166,6 @@ class NfcDashboardUi(
             "安全说明：标签只保存动作编号。当前版本不提交 Ncwu 登录密码，也不支持让 NFC 执行任意脚本。",
             12f, muted
         ), params(top = 20))
-        return Content(scroll, state)
+        return Content(scroll, state, profileCounter)
     }
 }

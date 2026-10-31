@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private val writeInFlight = AtomicBoolean(false)
     private val profiles by lazy { NfcProfileStore(this) }
     private lateinit var status: TextView
+    private lateinit var profileCounter: TextView
     private var latestDiagnostic: String? = null
     private var nfc: NfcAdapter? = null
 
@@ -52,6 +53,7 @@ class MainActivity : Activity() {
             profileCount = profiles.all().size
         )
         status = ui.status
+        profileCounter = ui.profileCounter
         setContentView(ui.root)
         handleNfc(intent)
     }
@@ -63,7 +65,8 @@ class MainActivity : Activity() {
                 activity = this,
                 store = profiles,
                 onWrite = { confirmWrite(it) },
-                onMessage = { show(it) }
+                onMessage = { show(it) },
+                onProfilesChanged = { profileCounter.text = "${profiles.all().size} 个" }
             ).openManager()
             "copy" -> copyLastDiagnostic()
             "write" -> confirmWrite()
@@ -281,13 +284,19 @@ class MainActivity : Activity() {
         val epoch = writeEpoch.begin()
         writing = true
         show("请将可写 NFC 标签贴近手机背面……")
-        nfc?.enableReaderMode(
+        try {
+            val adapter = nfc ?: error("未检测到 NFC 控制器")
+            adapter.enableReaderMode(
             this,
             { tag -> writeTag(tag, epoch, payload) },
             NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
             null
-        )
+            )
+        } catch (e: Exception) {
+            stopWriting()
+            show("NFC 写入模式启动失败（" + e.javaClass.simpleName + "）。请确认 NFC 已开启、应用仍在前台。")
+        }
     }
 
     private fun writeTag(tag: Tag, epoch: Int, payload: String) {
@@ -340,7 +349,7 @@ class MainActivity : Activity() {
     private fun stopWriting() {
         writing = false
         writeEpoch.invalidate()
-        nfc?.disableReaderMode(this)
+        try { nfc?.disableReaderMode(this) } catch (_: IllegalStateException) { /* Activity may already be paused. */ }
     }
 
     private fun copyLastDiagnostic() {

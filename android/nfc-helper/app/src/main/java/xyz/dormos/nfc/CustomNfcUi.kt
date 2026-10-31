@@ -18,7 +18,8 @@ class CustomNfcUi(
     private val activity: Activity,
     private val store: NfcProfileStore,
     private val onWrite: (NfcProfile) -> Unit,
-    private val onMessage: (String) -> Unit
+    private val onMessage: (String) -> Unit,
+    private val onProfilesChanged: () -> Unit
 ) {
     private val types = arrayOf(
         "Ncwu Wi-Fi 网络诊断",
@@ -64,8 +65,11 @@ class CustomNfcUi(
                         .setMessage("删除后，已写入的标签不会被擦除，但此手机将不再执行该标签。")
                         .setNegativeButton("取消", null)
                         .setPositiveButton("删除") { _, _ ->
-                            if (store.remove(profile.id)) onMessage("绑定已删除；实体标签未改写。")
-                            else onMessage("删除失败，请重试。")
+                            if (store.remove(profile.id)) {
+                                onProfilesChanged()
+                                onMessage("绑定已删除；实体标签未改写。")
+                                openManager()
+                            } else onMessage("删除失败，请重试。")
                         }.show()
                 }
             }.setNegativeButton("返回", null).show()
@@ -143,7 +147,9 @@ class CustomNfcUi(
                 }
                 if (store.save(record)) {
                     dialog.dismiss()
+                    onProfilesChanged()
                     onMessage(if (old == null) "已创建。请在管理列表里选择「写入」。" else "绑定已更新，无需重新写卡。")
+                    openManager()
                 } else {
                     onMessage("保存失败：最多支持 32 个标签配置。")
                 }

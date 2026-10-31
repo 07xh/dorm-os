@@ -100,3 +100,9 @@
 - SSID 优先从被选定 Wi-Fi `NetworkCapabilities.transportInfo` 中获取；仅在系统隐藏该值时回退旧式 Wi-Fi 信息。所有 HTTPS 测试仍绑定目标 Wi-Fi，不允许通过移动数据冒充成功。多个网络或无法确认 Ncwu 时安全停止。
 - 自定义 HTTPS URL 会检查查询参数与片段中编码后的常见密钥字段，例如 `access%5Ftoken`、`client_secret`；仍需人工检查网址是否带私人信息。
 - 原生 JUnit 新增网络身份优先级、未知 SSID、恶意链接和正常学习网址测试。真实 Android 16 NFC 读写仍需手机验收。
+
+## 0.8 自定义标签 UI 与 NFC 异常恢复
+
+- 自定义标签新增、编辑和删除后，首页计数立即更新，返回管理列表继续操作，不必重启 App。
+- `enableReaderMode()` 启动失败时会恢复写入状态并提示错误，不会永久显示等待写卡；退出写卡时容忍 Activity 暂停产生的 `IllegalStateException`。
+- 这些属于 Android 原生界面及生命周期行为，云端编译只能证明代码可构建；仍需在一加 Ace 6 上复核交互。
