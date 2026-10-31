@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'android/nfc-helper/**'
+      - 'modules/dormos-nfc-ksu/**'
       - '.github/workflows/build-nfc-helper.yml'
 
 jobs:
@@ -40,3 +41,35 @@ jobs:
         with:
           name: dorm-os-ncwu-nfc-debug
           path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
+
+  ksu-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate no-resident script-only KSU module
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/dormos-nfc-ksu
+          grep -qx 'id=dormos_nfc_actions' module.prop
+          test -f skip_mount
+          test ! -e service.sh
+          test ! -e post-fs-data.sh
+          test ! -e sepolicy.rule
+          sh -n action.sh run.sh scripts/wifi-status.sh
+          if sh run.sh unexpected 2>/dev/null; then
+            echo "Unknown KSU action must be denied"
+            exit 1
+          fi
+          test -z "$(find . -name '*.so' -o -name '*.dex')"
+      - name: Package optional KernelSU module
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/dormos-nfc-ksu
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh action.sh scripts README.md
+          unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-nfc-ksu-module
+          path: dormos-nfc-ksu.zip
