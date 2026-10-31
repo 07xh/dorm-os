@@ -46,57 +46,75 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         nfc = NfcAdapter.getDefaultAdapter(this)
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 48, 40, 36)
-        }
-        val heading = TextView(this).apply {
-            text = "DORM OS · Ncwu NFC 助手"
-            textSize = 22f
-        }
-        status = TextView(this).apply {
-            text = "NFC / Wi-Fi 诊断原型。\n登录接口尚未验证，不会提交密码。"
-            textSize = 16f
-            setPadding(0, 24, 0, 24)
-        }
-        layout.addView(heading)
-        layout.addView(status)
-        fun addButton(title: String, action: () -> Unit) {
-            layout.addView(Button(this).apply {
-                text = title
-                setOnClickListener { action() }
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        addButton("检测 Ncwu（仅一次）") { checkOnce() }
-        addButton("复制最近一次诊断摘要") { copyLastDiagnostic() }
-        addButton("授权识别 Wi-Fi 名称") {
-            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7)
-            } else {
-                show("已授权。请确保系统定位开关开启，再检测。")
-            }
-        }
-        addButton("写入 NFC 专用标签") { confirmWrite() }
-        addButton("KernelSU 固定脚本：启用 / 关闭") { toggleKsuPermission() }
-        addButton("自定义 NFC 标签管理") {
-            CustomNfcUi(
+        val ui = NfcDashboardUi(this, ::handleUiAction).build(
+            nfcEnabled = nfc?.isEnabled == true,
+            rootOption = KsuActionRunner(applicationContext).isEnabled(),
+            profileCount = profiles.all().size
+        )
+        status = ui.status
+        setContentView(ui.root)
+        handleNfc(intent)
+    }
+
+    private fun handleUiAction(action: String) {
+        when (action) {
+            "diagnose" -> checkOnce()
+            "profiles" -> CustomNfcUi(
                 activity = this,
                 store = profiles,
                 onWrite = { confirmWrite(it) },
                 onMessage = { show(it) }
             ).openManager()
-        }
-        addButton("检查 NFC 自动启动权限") {
-            if (Build.VERSION.SDK_INT >= 36 && nfc?.isTagIntentAllowed == false) {
-                show("系统禁止通过 NFC 标签启动本应用。请在设置 → 应用 → 特殊应用权限 → 通过 NFC 启动里允许 DORM OS 助手。")
-            } else {
-                show("未检测到 NFC 启动禁用状态；实际触发仍需真机碰卡验收。")
+            "copy" -> copyLastDiagnostic()
+            "write" -> confirmWrite()
+            "ksu" -> toggleKsuPermission()
+            "nfc-permission" -> {
+                val result = when {
+                    nfc == null -> "本设备没有可用 NFC 控制器。"
+                    nfc?.isEnabled != true -> "NFC 尚未开启，请先在系统设置中打开 NFC。"
+                    Build.VERSION.SDK_INT >= 36 && nfc?.isTagIntentAllowed == false ->
+                        "系统禁止 NFC 启动本 App。请进入「应用 → 特殊应用权限 → 通过 NFC 启动」进行授权。"
+                    else -> "未检测到已知的 NFC 启动阻断；仍需在真机贴卡后确认是否唤醒。"
+                }
+                show(result)
             }
+            "location" -> {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7)
+                } else show("已有读取 Wi-Fi 名称的权限，请确认系统定位开关已开启。")
+            }
+            "wifi-settings" -> startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+            "cancel-write" -> {
+                if (writing) {
+                    stopWriting()
+                    show("已取消等待写卡；已开始的物理写入不保证被中断，请重新核对标签内容。")
+                } else show("当前没有正在等待的 NFC 写入。")
+            }
+            "self-check" -> {
+                val locationAllowed = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val ksuEnabled = KsuActionRunner(applicationContext).isEnabled()
+                show(
+                    "设备与权限自检\n" +
+                    "Android API：" + Build.VERSION.SDK_INT + "\n" +
+                    "NFC：" + (if (nfc?.isEnabled == true) "已开启" else "未开启/不可用") + "\n" +
+                    "读取 Wi-Fi 名称：" + (if (locationAllowed) "已授权" else "未授权") + "\n" +
+                    "自定义标签：" + profiles.all().size + " 个\n" +
+                    "KernelSU 固定动作：" + (if (ksuEnabled) "已选择启用（Root 仍由 KSU 授权）" else "关闭") + "\n" +
+                    "Ncwu 登录：接口未验证，当前不提交账号密码。"
+                )
+            }
+            "help" -> AlertDialog.Builder(this)
+                .setTitle("DORM OS NFC · 使用说明")
+                .setMessage(
+                    "① 解锁手机并开启 NFC。\n" +
+                    "② 在标签管理中新建绑定，选择 Ncwu 检测、HTTPS 网页、DORM OS 场景或固定 KSU 诊断。\n" +
+                    "③ 确认旧内容可覆盖后写入自己的 NFC 标签。\n" +
+                    "④ 再碰标签，执行一次操作，结果显示在主界面。\n\n" +
+                    "省电：没有后台常驻或定时检测。一般不必开启 Root。\n" +
+                    "注意：目前不会自动提交 Ncwu 密码。"
+                )
+                .setPositiveButton("了解", null).show()
         }
-        addButton("取消 NFC 写入") { if (writing) { stopWriting(); show("已取消等待触碰；若标签正被写入，可能已发生变更，请重新读取核对。") } else show("当前没有正在等待的 NFC 写入。") }
-        addButton("打开 Wi-Fi 设置") { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
-        setContentView(layout)
-        handleNfc(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
