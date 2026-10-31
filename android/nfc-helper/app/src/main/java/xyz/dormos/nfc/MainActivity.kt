@@ -240,6 +240,21 @@ class MainActivity : Activity() {
 
     private fun handleNfc(intent: Intent?) {
         if (intent?.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
+        // NFC dispatcher normally supplies the physical Tag, not only NDEF text.
+        // This rejects basic externally forged ACTION_NDEF_DISCOVERED intents,
+        // but is not a cryptographic origin guarantee. Never execute tag-supplied commands.
+        val actualTag = try {
+            if (Build.VERSION.SDK_INT >= 33)
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
+            }
+        } catch (_: Exception) { null }
+        if (actualTag == null) {
+            show("未检测到实体 NFC 标签信息，已忽略此触发。")
+            return
+        }
         @Suppress("DEPRECATION")
         val messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
         val payload = messages?.filterIsInstance<NdefMessage>()?.asSequence()
