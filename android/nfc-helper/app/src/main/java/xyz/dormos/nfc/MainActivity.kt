@@ -77,6 +77,7 @@ class MainActivity : Activity() {
             }
         }
         addButton("写入 NFC 专用标签") { confirmWrite() }
+        addButton("KernelSU 固定脚本：启用 / 关闭") { toggleKsuPermission() }
         addButton("自定义 NFC 标签管理") {
             CustomNfcUi(
                 activity = this,
@@ -150,6 +151,7 @@ class MainActivity : Activity() {
         }
         when (profile.action) {
             NfcProfiles.DIAGNOSE_NCWU -> checkOnce()
+            NfcProfiles.KSU_WIFI_STATUS -> runKsuOnce()
             NfcProfiles.OPEN_HTTPS -> openTrustedLink(profile.target, profile.name)
             NfcProfiles.DORM_SCENE -> {
                 val link = NfcProfiles.sceneUrl(profile.target)
@@ -158,6 +160,45 @@ class MainActivity : Activity() {
             }
             else -> show("此动作暂不支持。")
         }
+    }
+
+
+    private fun toggleKsuPermission() {
+        val runner = KsuActionRunner(applicationContext)
+        if (runner.isEnabled()) {
+            if (runner.setEnabled(false)) show("KernelSU NFC 动作已关闭。")
+            else show("关闭选项保存失败。")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("允许 NFC 触发固定 KernelSU 脚本？")
+            .setMessage("仅运行模块自带的只读 wifi-status SH，不接受标签提供命令或路径。不常驻、不开机执行。需要 KernelSU 为本助手授权 Root，存在高权限风险。")
+            .setNegativeButton("暂不启用", null)
+            .setPositiveButton("仅启用固定脚本") { _, _ ->
+                if (runner.setEnabled(true)) {
+                    show("已在本机开启固定 KernelSU 动作；是否授予 su 仍由 KernelSU 管理器决定。")
+                } else show("保存失败，尚未启用。")
+            }.show()
+    }
+
+    private fun runKsuOnce() {
+        val runner = KsuActionRunner(applicationContext)
+        if (!runner.isEnabled()) {
+            show("KernelSU 执行默认关闭。请先在应用内启用；扫描 NFC 不会自动索取 Root。")
+            return
+        }
+        if (!running.compareAndSet(false, true)) {
+            show("已有一次性任务在运行，已忽略重复触发。")
+            return
+        }
+        show("执行固定只读 KernelSU SH，不会认证校园网……")
+        Thread {
+            val result = try { runner.run() } catch (_: Exception) { "KernelSU 执行异常，已安全停止。" }
+            runOnUiThread {
+                running.set(false)
+                if (!isDestroyed) show(result)
+            }
+        }.start()
     }
 
     private fun openTrustedLink(link: String, name: String) {
