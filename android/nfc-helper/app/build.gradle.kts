@@ -9,8 +9,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 6
+        versionName = "0.6.0-preview"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
