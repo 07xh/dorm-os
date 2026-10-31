@@ -4,14 +4,30 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+permissions:
+  contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm run check
+      - name: Install pinned browser testing tools
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Install Chromium test runtime
+        run: npx playwright install --with-deps chromium
+      - name: Syntax, security and logic tests
+        run: npm run check
+      - name: Desktop and mobile end-to-end tests
+        run: npm run test:e2e
+      - name: Upload failure traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-e2e-failures
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

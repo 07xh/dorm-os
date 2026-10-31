@@ -5,9 +5,14 @@
   "description": "DORM OS V3.3 personal dashboard with local tasks, timetable and NFC scene registry",
   "scripts": {
     "check": "node scripts/check.mjs && node scripts/logic-tests.mjs",
-    "test": "node scripts/check.mjs && node scripts/logic-tests.mjs"
+    "test": "node scripts/check.mjs && node scripts/logic-tests.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm run check && npm run test:e2e"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
   }
 }

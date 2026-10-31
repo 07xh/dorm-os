@@ -67,3 +67,10 @@ NFC 页面将检查 HTTPS 安全上下文、Web NFC API 是否存在、本地存
 ## Android 自动化接入指引
 
 NFC 页面现提供两条互斥的标签写入路线：A）把 DORM OS 网站 HTTPS 场景链接写入 NDEF 标签，只触发网站场景；B）在 MacroDroid 使用原生 NFC 标签触发器，写入 MacroDroid 自己的标识，由设备执行配置好的动作，再选择打开 DORM OS 场景链接。两种内容不要覆盖写在同一枚标签上。提供场景链接复制及 Android 分享面板。**没有实现网站直连 MacroDroid 或接收执行回执，不得将网页链接打开视为手机动作完成。**
+
+
+## 浏览器端到端验收
+
+每次 PR 提交自动执行原有 Node 逻辑测试，以及 Playwright Chromium 桌面（1365px）和 Android 触屏宽度（393px）端到端测试。覆盖真实浏览器的首页与导航、任务增改和完成状态、NFC 标签配置和网页 URL 测试、过期 NFC 链接拒绝、场景自定义链接、密码加密备份跨浏览器恢复、PWA 首次缓存后的离线加载。部署工作流增加先运行浏览器测试的 verify 门禁；仅通过时才能执行 Cloudflare Pages 发布。失败时 GitHub Actions 保留 Playwright 报告和截图（7 天）。
+
+此自动测试使用模拟的移动屏幕及普通 Chromium，**不能证明一加手机物理 NFC、Android 勿扰、MacroDroid 执行回执或真实端到端硬件功能已经通过**。实机验收另见 `docs/ANDROID-MANUAL-ACCEPTANCE.md`。
