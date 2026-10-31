@@ -74,3 +74,10 @@ NFC 页面现提供两条互斥的标签写入路线：A）把 DORM OS 网站 HT
 每次 PR 提交自动执行原有 Node 逻辑测试，以及 Playwright Chromium 桌面（1365px）和 Android 触屏宽度（393px）端到端测试。覆盖真实浏览器的首页与导航、任务增改和完成状态、NFC 标签配置和网页 URL 测试、过期 NFC 链接拒绝、场景自定义链接、密码加密备份跨浏览器恢复、PWA 首次缓存后的离线加载。部署工作流增加先运行浏览器测试的 verify 门禁；仅通过时才能执行 Cloudflare Pages 发布。失败时 GitHub Actions 保留 Playwright 报告和截图（7 天）。
 
 此自动测试使用模拟的移动屏幕及普通 Chromium，**不能证明一加手机物理 NFC、Android 勿扰、MacroDroid 执行回执或真实端到端硬件功能已经通过**。实机验收另见 `docs/ANDROID-MANUAL-ACCEPTANCE.md`。
+
+
+## 线上版本验收
+
+GitHub Actions 发布前已在桌面与手机模拟视口执行 14 项 Chromium 浏览器回归测试。发布后 Wrangler 输出该次**独立部署域名**，自动读取 `revision.json` 并核对其 Git commit SHA 必须完全匹配本次 `main` 提交；同时在线检查首页、PWA manifest 和 Service Worker。任何上线后 HTTP 校验失败将使 Deploy 工作流失败，不能宣称发布通过。
+
+`revision.json` 只保存公开 Git 提交号和构建时间，不存储账号、Token 或个人数据。硬件 NFC 与第三方 Android 系统自动化仍需用 `docs/ANDROID-MANUAL-ACCEPTANCE.md` 真机验证。
