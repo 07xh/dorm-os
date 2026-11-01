@@ -67,7 +67,7 @@ internal fun V2Home(
     nfcOn: Boolean,
     rootReady: Boolean,
     rootHint: String,
-    scenes: List<Pair<String, String>>,
+    scenes: List<Triple<String, String, String>>,
     onScan: () -> Unit,
     onScenes: () -> Unit,
     onScene: (String, String) -> Unit
@@ -163,8 +163,8 @@ internal fun V2Home(
             } else {
                 scenes.take(3).forEachIndexed { index, scene ->
                     if (index != 0) HorizontalDivider(color = v2Line)
-                    V2SceneRow(scene.second, "NFC 标签 · 执行 SH", onClick = {
-                        onScene(scene.first, scene.second)
+                    V2SceneRow(scene.second, "NFC 标签 · ${scene.third}", onClick = {
+                        onScene(scene.first, scene.third)
                     })
                 }
             }
