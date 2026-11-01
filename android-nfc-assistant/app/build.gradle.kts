@@ -10,8 +10,8 @@ android {
         applicationId = "com.dormos.nfc"
         minSdk = 26
         targetSdk = 35
-        versionCode = 200
-        versionName = "2.0.0-alpha1"
+        versionCode = 201
+        versionName = "2.0.0-alpha2"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
