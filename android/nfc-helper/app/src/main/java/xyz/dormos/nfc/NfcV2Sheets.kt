@@ -62,8 +62,15 @@ internal fun V2BottomSheet(
                                 Text(subtitle, color = p.muted, fontSize = 12.sp)
                             }
                         }
-                        TextButton(onClick = onDismiss, contentPadding = PaddingValues(8.dp)) {
-                            Text("关闭", color = p.muted)
+                        Surface(
+                            onClick = onDismiss,
+                            shape = RoundedCornerShape(13.dp),
+                            color = p.accentLow,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("×", color = p.muted, fontSize = 23.sp)
+                            }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
