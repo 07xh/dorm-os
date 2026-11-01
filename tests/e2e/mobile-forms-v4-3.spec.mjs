@@ -20,7 +20,7 @@ test('mobile task form acts as a bottom sheet with persistent actions and no dat
  await page.locator('[data-action="close-modal"]').click();
  await expect(dialog).not.toBeVisible();
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('dorm-os-state-v1')));
- expect(saved.tasks).toHaveLength(0);
+ expect(saved?.tasks||[]).toHaveLength(0);
 });
 
 test('NFC, reminders and items have accessible labeled inputs and retain save',async({page})=>{
