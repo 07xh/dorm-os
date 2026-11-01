@@ -3,7 +3,7 @@ const STORAGE='dorm-os-state-v1';
 test('NFC status filtering uses real registry records and does not alter data',async({page})=>{
  await page.goto('/#nfc');
  await page.evaluate(key=>{
-  const s=JSON.parse(localStorage.getItem(key) || '{"nfcTags":[],"events":[]}');
+  const s=JSON.parse(localStorage.getItem(key) || '{"version":1,"nfcTags":[],"events":[]}');
   s.nfcTags=[
    {id:'new1',name:'空白新标签',scene:'study'},
    {id:'waiting',name:'写入待验证',scene:'rest',writtenScene:'rest'},
