@@ -231,16 +231,30 @@ internal fun V2SceneRow(title: String, detail: String, onClick: () -> Unit) {
 
 @Composable
 internal fun V2Scenes(
-    scenes: List<Pair<String, String>>,
+    scenes: List<PersonalScene>,
+    scriptNames: Map<String, String>,
+    filter: String,
+    onFilter: (String) -> Unit,
     enabled: Boolean,
     rootReady: Boolean,
     busy: Boolean,
     onEnable: (Boolean) -> Unit,
     onNew: () -> Unit,
-    onOpen: (String, String) -> Unit
+    onOpen: (PersonalScene, String) -> Unit
 ) {
-    Text("已绑定 " + scenes.size + " 个场景", color = v2Muted, fontSize = 13.sp)
-    Spacer(Modifier.height(17.dp))
+    Text("已创建 ${scenes.size} 个场景 · 启用 ${scenes.count { it.enabled }} 个",
+        color = v2Muted, fontSize = 13.sp)
+    Spacer(Modifier.height(14.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("全部", "已启用", "已停用").forEach { option ->
+            FilterChip(
+                selected = filter == option,
+                onClick = { onFilter(option) },
+                label = { Text(option, fontSize = 12.sp) }
+            )
+        }
+    }
+    Spacer(Modifier.height(13.dp))
     Surface(color = Color.White, shape = RoundedCornerShape(19.dp),
         border = BorderStroke(1.dp, v2Line)) {
         Row(
@@ -250,29 +264,67 @@ internal fun V2Scenes(
             Column(Modifier.weight(1f)) {
                 Text("NFC 自动触发", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     color = v2Ink)
-                Text(if (enabled) "已开启 · 仅执行已绑定的 SH" else "已关闭 · 扫描不会执行脚本",
+                Text(if (enabled) "总开关已开启 · 仍受单个场景状态控制"
+                    else "总开关已关闭 · 所有标签均不会执行脚本",
                     color = v2Muted, fontSize = 11.sp)
             }
             Switch(checked = enabled, onCheckedChange = onEnable,
                 enabled = rootReady && !busy)
         }
     }
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(16.dp))
+    val visible = scenes.filter {
+        when (filter) {
+            "已启用" -> it.enabled
+            "已停用" -> !it.enabled
+            else -> true
+        }
+    }
     Surface(color = Color.White, shape = RoundedCornerShape(19.dp),
         border = BorderStroke(1.dp, v2Line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            if (scenes.isEmpty()) {
-                Text("还没有绑定场景", color = v2Ink, fontSize = 14.sp,
+            if (visible.isEmpty()) {
+                Text(if (scenes.isEmpty()) "还没有绑定场景" else "没有符合条件的场景",
+                    color = v2Ink, fontSize = 14.sp,
                     modifier = Modifier.padding(top = 19.dp))
-                Text("先创建或导入 SH，再选择绑定 NFC 标签。",
+                Text("创建场景后，选择一个本机 SH 脚本并写入自己的 NFC 标签。",
                     color = v2Muted, fontSize = 12.sp,
-                    modifier = Modifier.padding(vertical = 11.dp))
+                    modifier = Modifier.padding(top = 6.dp, bottom = 17.dp))
             } else {
-                scenes.forEachIndexed { index, scene ->
+                visible.forEachIndexed { index, scene ->
                     if (index > 0) HorizontalDivider(color = v2Line)
-                    V2SceneRow(scene.second, "NFC 标签 · 已关联", onClick = {
-                        onOpen(scene.first, scene.second)
-                    })
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            onOpen(scene, scriptNames[scene.scriptId] ?: "未知脚本")
+                        }.heightIn(min = 70.dp).padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF0F4FB)), contentAlignment = Alignment.Center) {
+                            V2NfcMark(Modifier.size(25.dp), v2Blue)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(scene.name, color = v2Ink, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            Text(scriptNames[scene.scriptId] ?: "未知脚本",
+                                color = v2Muted, fontSize = 11.sp, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                        Surface(
+                            color = if (scene.enabled) Color(0xFFE7F6F0) else Color(0xFFF0F2F6),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(if (scene.enabled) "启用" else "停用",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                color = if (scene.enabled) Color(0xFF168966) else v2Muted,
+                                fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.width(5.dp))
+                        Text("›", color = v2Muted, fontSize = 23.sp)
+                    }
                 }
             }
         }
