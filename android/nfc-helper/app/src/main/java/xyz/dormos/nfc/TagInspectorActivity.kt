@@ -1,3 +1,10 @@
+/*
+ * NDEF text payload decoder adapted from the AOSP/NFCReader algorithm.
+ * Copyright (C) 2010 The Android Open Source Project
+ * Licensed under the Apache License, Version 2.0.
+ * See assets/licenses/NFCReader-Apache-2.0.txt for license terms.
+ * Modifications: defensive length and reserved-status validation, separate UI and reader lifecycle.
+ */
 package xyz.dormos.nfc
 
 import android.nfc.NfcAdapter
