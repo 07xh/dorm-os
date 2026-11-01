@@ -623,6 +623,12 @@ private fun ManagerScreen(
             state = pagerState,
             modifier = Modifier.weight(1f),
             userScrollEnabled = true,
+            // There are only three top-level tabs. Keep the adjacent pages
+            // composed before the gesture starts so their first composition
+            // and measurement do not land on the swipe's animation frames.
+            // This trades a small, bounded amount of idle memory for a
+            // consistently warm page transition.
+            beyondViewportPageCount = 1,
             key = { page -> tabIdForPage(page) }
         ) { page ->
         val visibleTab = tabIdForPage(page)
