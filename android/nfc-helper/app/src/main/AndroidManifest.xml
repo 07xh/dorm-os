@@ -4,8 +4,8 @@
     <uses-feature android:name="android.hardware.nfc" android:required="true"/>
     <application
         android:allowBackup="false"
-        android:label="DORM NFC Manager"
-        android:icon="@drawable/ic_dormos_nfc"
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_tapflow"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
