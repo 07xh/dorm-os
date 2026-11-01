@@ -318,8 +318,6 @@ internal fun V2LogsSheet(
 internal fun V2ThemeSheet(
     selected: String,
     onSelect: (String) -> Unit,
-    navStyle: String,
-    onNavStyle: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val p = LocalV2Palette.current
@@ -348,33 +346,6 @@ internal fun V2ThemeSheet(
             }
             Spacer(Modifier.height(9.dp))
         }
-        Spacer(Modifier.height(5.dp))
-        Text("底部导航", fontSize = 15.sp, color = p.ink, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(5.dp))
-        listOf(
-            Triple("classic", "简洁原生", "原来的白色导航栏 · 默认"),
-            Triple("glass", "液态玻璃", "半透明玻璃质感 · 可滑动选中胶囊")
-        ).forEach { (id, title, desc) ->
-            val active = navStyle == id
-            Surface(
-                onClick = { onNavStyle(id) },
-                color = if (active) p.accentLow else p.surface,
-                shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(1.dp, if (active) p.blue else p.line)
-            ) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(title, color = p.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text(desc, color = p.muted, fontSize = 11.sp)
-                    }
-                    if (active) Text("✓", color = p.blue, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(Modifier.height(9.dp))
-        }
-        Text("玻璃模式使用原生半透明材质与高光，不依赖截图取样或后台服务。",
-            color = p.muted, fontSize = 11.sp, lineHeight = 16.sp)
-        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp)) { Text("完成") }
     }
