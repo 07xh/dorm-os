@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -33,13 +34,15 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun TapFlowGlassNavigation(
     selected: Int,
-    swipePosition: Float,
+    pagerState: PagerState,
     palette: V2Palette,
     night: Boolean,
     onSelect: (Int) -> Unit
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val clampedPosition = swipePosition.coerceIn(0f, 2f)
+    // Observe frame-by-frame progress only inside this small navigation component.
+    val clampedPosition = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+        .coerceIn(0f, 2f)
     val background = if (night)
         listOf(Color(0xF0273B57), Color(0xE51C2C44))
     else listOf(Color(0xF7FFFFFF), Color(0xEBE9F2FF), Color(0xF5FAFCFF))
