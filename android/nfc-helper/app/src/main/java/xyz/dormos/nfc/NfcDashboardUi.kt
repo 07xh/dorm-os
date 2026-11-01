@@ -117,7 +117,7 @@ class NfcDashboardUi(
 
         val top = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(text("DORM OS", 23f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(text("NFC  ASSISTANT  ·  V0.7", 11f, blue, true))
+        top.addView(text("NFC  ASSISTANT  ·  V0.8", 11f, blue, true))
         base.addView(top, params(bottom = 16))
 
         val hero = LinearLayout(activity).apply {
