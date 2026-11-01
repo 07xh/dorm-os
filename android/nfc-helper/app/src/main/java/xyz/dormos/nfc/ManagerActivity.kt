@@ -306,9 +306,13 @@ private fun ManagerScreen(
                     shape = RoundedCornerShape(15.dp),
                     border = BorderStroke(1.dp, paleBorder)
                 ) {
-                    Text(if (current == 3) "‹" else "⚙",
-                        color = ink, fontSize = 23.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                    Box(Modifier.size(43.dp), contentAlignment = Alignment.Center) {
+                        if (current == 3) {
+                            Text("‹", color = ink, fontSize = 26.sp)
+                        } else {
+                            V2SettingsIcon(ink)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -523,7 +527,12 @@ private fun ManagerScreen(
                 NavigationBarItem(
                     selected = current == entry.first,
                     onClick = { current = entry.first },
-                    icon = { Text(entry.second, fontSize = 23.sp) },
+                    icon = {
+                        V2NavIcon(
+                            which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
+                            color = if (current == entry.first) actionBlue else dim
+                        )
+                    },
                     label = { Text(entry.third, fontSize = 11.sp) },
                     alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
