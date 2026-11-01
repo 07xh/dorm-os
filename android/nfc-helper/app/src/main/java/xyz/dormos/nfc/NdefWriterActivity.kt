@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Foreground-only generic writer. This activity has no Root/Shell references.
@@ -37,11 +36,9 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         val draft: PreparedNdefWrite,
         val overwriteConfirmed: Boolean
     )
-    private val armedFlag = AtomicBoolean(false)
-    private val writingInFlight = AtomicBoolean(false)
+    private val gate = NfcOneShotGate<WriteRequest>()
     @Volatile private var inForeground = false
     @Volatile private var writeIssued = false
-    @Volatile private var pending: WriteRequest? = null
     private var adapter: NfcAdapter? = null
     private var ready by mutableStateOf(false)
     private var status by mutableStateOf("选择内容并确认，才会开始写卡")
@@ -77,13 +74,15 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                         if (nfc == null || !nfc.isEnabled) {
                             status = "请先在系统设置中开启 NFC"
                         } else {
-                            pending = WriteRequest(plan, overwrite)
-                            result = null
-                            resultVerified = null
-                            writeIssued = false
-                            ready = true
-                            armedFlag.set(true)
-                            status = "请将可写 NFC 标签贴近手机背部"
+                            if (gate.arm(WriteRequest(plan, overwrite))) {
+                                result = null
+                                resultVerified = null
+                                writeIssued = false
+                                ready = true
+                                status = "请将可写 NFC 标签贴近手机背部"
+                            } else {
+                                status = "前一次 NFC 写入尚未结束，请先确认标签状态"
+                            }
                         }
                     }
                 )
@@ -92,12 +91,10 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     }
 
     private fun disarm() {
-        if (writingInFlight.get()) {
-            status = "标签写入或回读中，操作不能中途撤销"
+        if (!gate.cancelPending()) {
+            status = "写入或回读中，无法取消已开始的操作"
             return
         }
-        armedFlag.set(false)
-        pending = null
         ready = false
         status = "已取消，未开始新的写卡操作"
     }
@@ -126,19 +123,19 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
 
     override fun onPause() {
         inForeground = false
-        armedFlag.set(false)
-        pending = null
+        gate.cancelPending()
         ready = false
-        if (writingInFlight.get()) status = "写卡过程被中断显示，结果未知。请重新读取标签确认。"
+        if (gate.isProcessing()) {
+            status = "写卡过程离开前台，结果暂未确认。请重新读取标签核对。"
+            resultVerified = null
+        }
         try { adapter?.disableReaderMode(this) } catch (_: Exception) {}
         super.onPause()
     }
 
     override fun onTagDiscovered(tag: Tag) {
-        if (!armedFlag.compareAndSet(true, false)) return
-        val request = pending ?: return
-        pending = null
-        writingInFlight.set(true)
+        if (!inForeground) return
+        val request = gate.claim() ?: return
         runOnUiThread {
             if (inForeground && !isFinishing && !isDestroyed) {
                 writing = true
@@ -149,8 +146,8 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         catch (e: Exception) {
             WriteOutcome(false, NfcFailureFeedback.writeFailure(e, writeIssued))
         }
+        gate.finish()
         runOnUiThread {
-            writingInFlight.set(false)
             writing = false
             if (inForeground && !isFinishing && !isDestroyed) {
                 ready = false
