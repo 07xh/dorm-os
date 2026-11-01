@@ -134,7 +134,7 @@ Debug APK 由 CI 临时生成调试签名，不承诺跨运行覆盖安装。要
 
 1. 在自己可信的电脑上生成专用发布密钥，并离线保留至少一份安全备份：
    ```bash
-   keytool -genkeypair -v -keystore dormos-release.jks -alias dormos-nfc -keyalg RSA -keysize 4096 -validity 10000
+   keytool -genkeypair -v -storetype JKS -keystore dormos-release.jks -alias dormos-nfc -keyalg RSA -keysize 4096 -validity 10000
    base64 -w 0 dormos-release.jks
    ```
    macOS 可使用 `base64 < dormos-release.jks | tr -d '\\n'`。不要把 JKS 文件、Base64 内容或密码提交到仓库、Issue、聊天或 APK。
