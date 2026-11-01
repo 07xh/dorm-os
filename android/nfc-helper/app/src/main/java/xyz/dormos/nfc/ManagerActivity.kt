@@ -343,7 +343,8 @@ private fun ManagerScreen(
                             singleLine = true, shape = RoundedCornerShape(18.dp)
                         )
                         Spacer(Modifier.width(9.dp))
-                        Button(onClick = { openEditor(null) }, enabled = !loading) { Text("+ 新建") }
+                        Button(onClick = { openEditor(null) }, enabled = !loading,
+                            shape = RoundedCornerShape(14.dp)) { Text("+ 新建") }
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -369,12 +370,19 @@ private fun ManagerScreen(
                             }
                             Spacer(Modifier.height(8.dp))
                         }
-                    Spacer(Modifier.height(10.dp))
-                    Button(onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
-                        enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                        Text("从文件导入 SH")
-                    }
                     Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
+                        enabled = !loading, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("↓ 导入本机 .sh 脚本") }
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("我的脚本", modifier = Modifier.weight(1f), color = ink,
+                            fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text("${entries.size} 个", color = dim, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
                     val shown = entries.filter { item ->
                         val location = scriptLocations[item.id] ?: "root"
                         (query.isNotBlank() || location == activeFolder) &&
@@ -383,68 +391,130 @@ private fun ManagerScreen(
                     }
                     if (shown.isEmpty()) Section("脚本列表") { Text("暂无脚本。可新建或导入自己的 .sh 文件。", color = dim) }
                     shown.forEach { item ->
+                        var moreOpen by remember(item.id) { mutableStateOf(false) }
                         Section(null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RoundedIcon("▤")
-                                Spacer(Modifier.width(11.dp))
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(item.name, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                                    Text("${item.bytes} B · 已登记", color = dim, fontSize = 11.sp)
+                                    Text(item.name, color = ink, fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("${item.bytes} B  ·  个人 SH", color = dim, fontSize = 12.sp)
                                 }
-                                MiniAction("▶") { confirmRun = item }
-                                MiniAction("✎") { openEditor(item) }
-                                MiniAction("×") { confirmDelete = item }
                             }
-                            Spacer(Modifier.height(8.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                TextButton(onClick = {
-                                    previewScript = item
-                                    previewContent = "正在读取…"
-                                    scope.launch {
-                                        val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
-                                        previewContent = data.first ?: data.second.output
+                            Spacer(Modifier.height(14.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { confirmRun = item },
+                                    modifier = Modifier.weight(1f), enabled = !loading,
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
+                                    Text("运行", fontSize = 13.sp)
+                                }
+                                Button(onClick = { confirmBind = item },
+                                    modifier = Modifier.weight(1f), enabled = !loading,
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)) {
+                                    Text("绑 NFC", fontSize = 13.sp)
+                                }
+                                Box {
+                                    OutlinedButton(onClick = { moreOpen = true },
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                                        Text("更多", fontSize = 13.sp)
                                     }
-                                }) { Text("预览") }
-                                TextButton(onClick = { renamingScript = item; folderName = item.name }) { Text("改名") }
-                                TextButton(onClick = { movingScript = item }) { Text("移动") }
-                                TextButton(onClick = { confirmBind = item }, enabled = !loading) { Text("绑 NFC") }
+                                    DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
+                                        DropdownMenuItem(text = { Text("编辑脚本") }, onClick = {
+                                            moreOpen = false
+                                            openEditor(item)
+                                        })
+                                        DropdownMenuItem(text = { Text("查看内容") }, onClick = {
+                                            moreOpen = false
+                                            previewScript = item
+                                            previewContent = "正在读取…"
+                                            scope.launch {
+                                                val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
+                                                previewContent = data.first ?: data.second.output
+                                            }
+                                        })
+                                        DropdownMenuItem(text = { Text("重命名") }, onClick = {
+                                            moreOpen = false
+                                            renamingScript = item
+                                            folderName = item.name
+                                        })
+                                        DropdownMenuItem(text = { Text("移动到文件夹") }, onClick = {
+                                            moreOpen = false
+                                            movingScript = item
+                                        })
+                                        HorizontalDivider(color = paleBorder)
+                                        DropdownMenuItem(text = { Text("删除脚本", color = Color(0xFFBD5360)) }, onClick = {
+                                            moreOpen = false
+                                            confirmDelete = item
+                                        })
+                                    }
+                                }
                             }
                         }
-                        Spacer(Modifier.height(9.dp))
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
                 2 -> {
-                    Section("NFC 读写工具") {
-                        Text("读取 NFC 信息，或将文字、网址安全写入标签。普通写卡不触发 Root。", color = dim, fontSize = 13.sp)
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(onClick = openTagInspector, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) {
-                                Text("读取标签")
-                            }
-                            OutlinedButton(onClick = openNdefWriter, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) {
-                                Text("写入内容")
+                    Surface(
+                        color = Color(0xFFEAF1FF), shape = RoundedCornerShape(21.dp),
+                        border = BorderStroke(1.dp, Color(0xFFD8E5FF))
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("NFC 自动化", color = ink, fontSize = 17.sp,
+                                        fontWeight = FontWeight.SemiBold)
+                                    Text(if (receiverEnabled) "已启用 · 碰卡执行已绑定的 SH"
+                                    else "未启用 · 标签不会触发 SH",
+                                        color = dim, fontSize = 12.sp)
+                                }
+                                Switch(checked = receiverEnabled, onCheckedChange = { on ->
+                                    runRoot({ bridge.enableNfc(on) }) {
+                                        if (it.success) { receiverEnabled = on; refresh() }
+                                    }
+                                }, enabled = installed && !loading)
                             }
                         }
                     }
+                    Spacer(Modifier.height(24.dp))
+                    Text("标签工具", color = ink, fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
-                    Section("NFC 标签绑定") {
-                        Text("NFC 只写入随机场景 ID，脚本留在手机的受保护目录。", color = dim, fontSize = 13.sp)
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("允许标签触发 Root 脚本", color = ink, modifier = Modifier.weight(1f))
-                            Switch(checked = receiverEnabled, onCheckedChange = { on ->
-                                runRoot({ bridge.enableNfc(on) }) { if (it.success) { receiverEnabled = on; refresh() } }
-                            }, enabled = installed && !loading)
-                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        HomeAction("⌁", "读取标签", "查看内容与容量",
+                            modifier = Modifier.weight(1f), onClick = openTagInspector)
+                        HomeAction("＋", "写入标签", "普通文本或网址",
+                            modifier = Modifier.weight(1f), onClick = openNdefWriter)
                     }
                     Spacer(Modifier.height(12.dp))
-                    Section("已绑定标签") {
-                        if (bindings.isBlank()) Text("暂无绑定。请在「脚本」页面选择绑定 NFC。", color = dim)
-                        else bindings.lineSequence().filter { it.contains('|') }.forEach { line ->
-                            val parts = line.split('|')
-                            val name = entries.firstOrNull { it.id == parts.getOrNull(1) }?.name ?: "未知脚本"
-                            SummaryRow("◉", name, parts[0].take(18) + "…", "查看") {
-                                selectedTag = parts[0] to name
+                    Text("绑定 SH 请到「脚本」页选中脚本，再点「绑 NFC」。",
+                        color = dim, fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 4.dp))
+                    Spacer(Modifier.height(22.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("已绑定的标签", color = ink, fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("${bindings.lineSequence().count { it.contains('|') }} 个",
+                            color = dim, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Section(null) {
+                        if (bindings.isBlank()) {
+                            Text("还没有绑定标签。保存 SH 后可直接在脚本卡片上绑定。",
+                                color = dim, fontSize = 13.sp)
+                        } else {
+                            bindings.lineSequence().filter { it.contains('|') }.forEach { line ->
+                                val parts = line.split('|')
+                                val name = entries.firstOrNull { it.id == parts.getOrNull(1) }?.name ?: "未知脚本"
+                                SummaryRow("⌁", name, "标签 ID · " + parts[0].take(12) + "…", "管理") {
+                                    selectedTag = parts[0] to name
+                                }
                             }
                         }
                     }
