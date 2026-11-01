@@ -404,12 +404,12 @@ private fun ManagerScreen(
                                     val path = entry.name
                                     val fileName = path.removePrefix("scripts/")
                                     val validPath = path.startsWith("scripts/") &&
-                                        !path.contains("..") && !path.contains('\\\\') &&
+                                        !path.contains("..") && !path.contains('\\') &&
                                         fileName.contains("__")
                                     val name = if (validPath) fileName.substringAfter("__") else ""
                                     val idPart = if (validPath) fileName.substringBefore("__") else ""
                                     if (!validPath || !ScriptRules.idValid(idPart) || !name.endsWith(".sh") ||
-                                        name.contains('/') || name.contains('\\\\') || name.contains('|')) {
+                                        name.contains('/') || name.contains('\\') || name.contains('|')) {
                                         skipped++
                                         readZipEntryLimited(zip, 16384)
                                     } else {
