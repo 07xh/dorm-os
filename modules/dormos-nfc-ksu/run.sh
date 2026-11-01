@@ -1,14 +1,9 @@
 #!/system/bin/sh
-# Called ONLY by user-approved DORM OS APK after a known local NFC profile matches.
-# Fixed allowlist, never evaluate NFC payloads, filenames or user shell text.
-set -eu
+# One-shot KernelSU entry point. No service/daemon is installed.
 MODDIR="${0%/*}"
-case "${1:-}" in
-  wifi-status)
-    exec /system/bin/sh "$MODDIR/scripts/wifi-status.sh"
-    ;;
-  *)
-    echo "DORM_KSU=unsupported_action"
-    exit 64
-    ;;
-esac
+if [ -x /system/bin/sh ]; then
+  SHELL_BIN=/system/bin/sh
+else
+  SHELL_BIN=/bin/sh
+fi
+exec "$SHELL_BIN" "$MODDIR/dispatcher.sh" "$@"

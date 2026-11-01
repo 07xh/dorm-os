@@ -4,35 +4,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KsuRulesTest {
-    @Test fun knownRootActionIsStrictlyAllowlisted() {
-        assertTrue(KsuRules.approved(KsuRules.ACTION, ""))
-        assertFalse(KsuRules.approved("shell", "id"))
-        assertFalse(KsuRules.approved(KsuRules.ACTION, "extra"))
-        assertFalse(KsuRules.approved("wifi-status;reboot", ""))
-        assertFalse(KsuRules.approved("", ""))
-    }
-
-    @Test fun rootCommandIsImmutableAndDoesNotUseTagPayload() {
+    @Test fun onlyValidatedUuidCanReachTheFixedDispatcher() {
+        val id = "123e4567-e89b-12d3-a456-426614174000"
+        assertTrue(KsuRules.validSceneId(id))
+        assertFalse(KsuRules.validSceneId("bad"))
+        assertFalse(KsuRules.validSceneId("123e4567-e89b-12d3-a456-426614174000;reboot"))
         assertEquals(
-            "/system/bin/sh /data/adb/modules/dormos_nfc_actions/run.sh wifi-status",
-            KsuRules.COMMAND
+            "/system/bin/sh /data/adb/modules/dormos_nfc_actions/run.sh --nfc $id",
+            KsuRules.sceneCommand(id)
         )
-        assertTrue(NfcProfiles.validProfile(
-            NfcProfile(NfcProfiles.makeId(), "固定 Wi-Fi SH", NfcProfiles.KSU_WIFI_STATUS)
-        ))
-        assertFalse(NfcProfiles.validProfile(
-            NfcProfile(NfcProfiles.makeId(), "任意脚本", "shell", "echo anything")
-        ))
-        assertFalse(NfcProfiles.validProfile(
-            NfcProfile(NfcProfiles.makeId(), "乱改参数", NfcProfiles.KSU_WIFI_STATUS, "reboot")
-        ))
     }
 
-    @Test fun rootSuccessRequiresBothExpectedOutputMarkers() {
-        assertTrue(KsuRules.succeeded(0, "DORM_KSU=ok\nACTION=wifi-status\n"))
-        assertFalse(KsuRules.succeeded(1, "DORM_KSU=ok\nACTION=wifi-status"))
-        assertFalse(KsuRules.succeeded(0, "DORM_KSU=ok"))
-        assertFalse(KsuRules.succeeded(0, "ACTION=arbitrary"))
-        assertFalse(KsuRules.succeeded(0, "DORM_KSU=ok\\nACTION=wifi-status\\n" + "x".repeat(2049)))
+    @Test fun commandIsImmutableAndLegacyPathIsFixed() {
+        assertEquals(
+            "/system/bin/sh /data/adb/modules/dormos_nfc_actions/run.sh --legacy-ncwu",
+            KsuRules.LEGACY_NCWU_COMMAND
+        )
+    }
+
+    @Test fun successRequiresDispatcherMarkerAndZeroExit() {
+        assertTrue(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\nDORM_ACTION=ncwu-check\n"))
+        assertFalse(KsuRules.succeeded(1, "DORM_NFC_RESULT=success"))
+        assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=failed"))
+        assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\n" + "x".repeat(4097)))
     }
 }

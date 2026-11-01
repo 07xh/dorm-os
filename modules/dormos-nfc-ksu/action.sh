@@ -1,4 +1,4 @@
 #!/system/bin/sh
-# Optional manual health check from KernelSU Manager Action button.
+# Manual KernelSU Action shortcut: one-shot module health check only.
 MODDIR="${0%/*}"
-exec /system/bin/sh "$MODDIR/run.sh" wifi-status
+exec /system/bin/sh "$MODDIR/run.sh" --status

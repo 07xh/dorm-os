@@ -1,4 +1,4 @@
-name: Build DORM OS NFC helper APKs
+name: Build DORM OS NFC receiver and KernelSU bridge
 
 on:
   workflow_dispatch:
@@ -28,25 +28,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Test safety rules and build debug APK
+      - name: Test minimal NFC receiver and build APKs
         working-directory: android/nfc-helper
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
       - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dorm-os-ncwu-test-report
+          name: dorm-os-nfc-test-report
           path: |
             android/nfc-helper/app/build/reports/tests/
             android/nfc-helper/app/build/test-results/testDebugUnitTest/
       - uses: actions/upload-artifact@v4
         with:
-          name: dorm-os-ncwu-nfc-debug
+          name: dorm-os-nfc-receiver-debug
           path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
 
   signed-release-apk:
-    # Never expose signing secrets to pull_request builds. Enable only by an explicit
-    # repository variable after the owner has installed a stable keystore in Actions secrets.
     if: github.event_name == 'workflow_dispatch' && vars.DORMOS_RELEASE_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -96,7 +94,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: dorm-os-nfc-release-signed
+          name: dorm-os-nfc-receiver-release-signed
           path: android/nfc-helper/app/build/outputs/apk/release/app-release.apk
 
   ksu-zip:
@@ -106,13 +104,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build KernelSU WebUI bundle
+      - name: Test and build KernelSU WebUI
         working-directory: modules/dormos-nfc-ksu/webui-src
         run: |
           set -euo pipefail
           npm install --no-package-lock --no-audit --no-fund
+          npm test
           npm run build
-      - name: Validate no-resident KSU module and WebUI
+      - name: Validate event-driven module and dispatcher
         shell: bash
         run: |
           set -euo pipefail
@@ -121,24 +120,23 @@ jobs:
           test -f skip_mount
           test ! -e service.sh
           test ! -e post-fs-data.sh
+          test ! -e post-mount.sh
+          test ! -e boot-completed.sh
           test ! -e sepolicy.rule
           test -s webroot/index.html
           test -s webroot/style.css
           test -s webroot/app.js
           node --check webroot/app.js
-          sh -n action.sh run.sh scripts/wifi-status.sh
-          if sh run.sh unexpected 2>/dev/null; then
-            echo "Unknown KSU action must be denied"
-            exit 1
-          fi
+          for script in action.sh run.sh dispatcher.sh scripts/*.sh; do sh -n "$script"; done
+          bash tests/test-dispatcher.sh
           test -z "$(find . -name '*.so' -o -name '*.dex')"
       - name: Package optional KernelSU module
         shell: bash
         run: |
           set -euo pipefail
           cd modules/dormos-nfc-ksu
-          chmod 0755 run.sh action.sh scripts/wifi-status.sh
-          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh action.sh scripts README.md webroot
+          chmod 0755 run.sh dispatcher.sh action.sh scripts/*.sh
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh action.sh scripts README.md webroot
           unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
       - uses: actions/upload-artifact@v4
         with:

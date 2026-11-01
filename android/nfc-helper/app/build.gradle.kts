@@ -3,8 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Stable release signing is opt-in and supplied only through local environment / CI secrets.
-// Never commit the keystore or passwords. Debug builds remain independent of these values.
 val releaseKeystorePath = System.getenv("DORMOS_RELEASE_KEYSTORE_PATH")
 val releaseStorePassword = System.getenv("DORMOS_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = System.getenv("DORMOS_RELEASE_KEY_ALIAS")
@@ -20,8 +18,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.8.1-preview"
+        versionCode = 10
+        versionName = "0.9.0-preview"
     }
     signingConfigs {
         if (hasReleaseSigning) {
@@ -36,10 +34,8 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            isMinifyEnabled = true
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -48,8 +44,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
 dependencies {
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
 }
-

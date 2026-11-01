@@ -61,3 +61,32 @@
 3. Android 16 继续使用专用 MIME NDEF 记录；首次 NFC 启动需要用户允许应用的 NFC 标签启动权限。网页 URL 标签与本项目自定义 MIME 标签分开处理。
 4. KernelSU 官方 WebUI 使用模块 webroot/index.html 和 JavaScript exec API，可承载模块状态、固定动作和日志界面；它不能代替 Android NFC Activity 接收系统 NFC Intent。
 5. 本项目继续采用“短生命周期 NFC Activity → 固定场景 ID → KernelSU 白名单 dispatcher”，模块不安装 service.sh、post-fs-data.sh 或后台守护进程。
+
+
+## V0.9.0 · 管理面迁移至 KernelSU WebUI
+
+本轮采用“KernelSU 模块管理与分发 + 极简 Android NFC Receiver”的架构。参考了 KernelSU 官方 WebUI 的 webroot/index.html 与 kernelsu JavaScript exec API；没有复制 KernelSU 内核或管理器源码。
+
+- 场景配置、动作白名单、启停开关、旧版 JSON 迁移、写卡入口、手动执行和脱敏日志统一放入 KSU WebUI。
+- 场景数据存储在 /data/adb/dormos_nfc_bridge，不放在可被模块更新覆盖的模块目录。
+- APK 移除场景管理 UI、SharedPreferences 场景库、网络诊断和网络/位置权限，只保留 NDEF 接收、UUID 校验、一次性 Root dispatcher 调用和按需写卡。
+- 现有 v2:tag:<UUID> 负载及 MIME 保持不变；旧版 JSON 备份可在 WebUI 导入，旧版 v1:ncwu 标签映射到只读 ncwu-check。
+- KSU dispatcher 仅接受格式正确的 UUID，并在模块内从 root-only 配置读取动作。支持 ncwu-check、wifi-status、open-url（安全 HTTPS）和四个固定 DORM OS 场景；不接受标签传入命令或脚本路径。
+- 默认 NFC Root 触发关闭；不安装 service.sh、post-fs-data.sh、post-mount.sh、boot-completed.sh、initrc、SEPolicy 或后台轮询。
+- WebUI 配置保存前由 Shell 再次校验场景数量、UUID 唯一性、动作白名单、Base64 字段和目标地址；日志只记录时间、场景 ID、动作及成功/失败。
+- 自动登录仍被锁定；Ncwu 检查脚本只读识别 SSID 与 IPv4，不把本地网络识别当作认证成功。
+
+### 本轮自动化门禁
+
+- Kotlin/JUnit：验证 NFC UUID 负载、固定 KSU dispatcher 命令、Root 成功标记和重复触碰防抖。
+- Node：验证场景动作白名单、HTTPS 凭据参数拒绝、旧版备份原子迁移与 TSV 解析。
+- Shell：验证默认关闭、启用后只执行登记 UUID、拒绝畸形 ID/配置、日志裁剪和清理。
+- Actions：构建 Debug APK、Release variant、KernelSU WebUI bundle 和 KSU ZIP。
+
+### 未完成的实机验收
+
+- Ace 6 Android 16 的 NFC 标签启动权限与息屏/锁屏边界。
+- WebUI 通过 am start 启动写卡 Activity 是否被 ColorOS 后台启动限制阻止。
+- NDEF 格式化标签写入后的重新读取验证。
+- KSU 对 NFC Receiver 的首次授权及重复扫描行为。
+- 实际耗电测量；本设计没有常驻监听/轮询，但不声称 NFC 控制器和一次性网络操作绝对零耗电。

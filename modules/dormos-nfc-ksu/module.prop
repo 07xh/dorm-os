@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
-name=DORM OS NFC Actions (on-demand)
-version=0.8.2
-versionCode=10
+name=DORM OS NFC Bridge
+version=0.9.0
+versionCode=11
 author=07xh / DORM OS
-description=On-demand NFC actions with KernelSU WebUI; no boot service or daemon
+description=Event-driven NFC scene dispatcher with KernelSU WebUI; no boot service or polling

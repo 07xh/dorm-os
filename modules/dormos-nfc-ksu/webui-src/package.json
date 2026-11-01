@@ -1,7 +1,9 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "esbuild main.js --bundle --format=iife --target=es2020 --outfile=../webroot/app.js"
+    "build": "esbuild main.js --bundle --format=iife --target=es2020 --outfile=../webroot/app.js",
+    "test": "node --test"
   },
   "devDependencies": {
     "esbuild": "0.24.2",

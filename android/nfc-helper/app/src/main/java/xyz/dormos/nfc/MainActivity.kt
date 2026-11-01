@@ -1,529 +1,268 @@
 package xyz.dormos.nfc
 
-import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.content.pm.PackageManager
+import android.nfc.Ndef
+import android.nfc.NdefFormatable
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
-import android.nfc.tech.Ndef
-import android.nfc.tech.NdefFormatable
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
-import android.provider.Settings
-import android.view.ViewGroup
-import android.widget.Button
+import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.nio.charset.StandardCharsets
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * One NFC tap -> one Wi-Fi diagnostic run.
- * No root, shell, boot receiver, foreground service or background polling.
- * Login is intentionally disabled until a real Ncwu success request is verified.
+ * Minimal one-shot NFC bridge.
+ * Scene management, action mapping, configuration and logs live in the KernelSU WebUI.
+ * This Activity only receives a tag, writes an opaque scene ID when explicitly requested,
+ * and calls one fixed KernelSU dispatcher entry point. No services, receivers or polling.
  */
-class MainActivity : Activity() {
-    private val running = AtomicBoolean(false)
-    @Volatile private var writing = false
-    private val nfcIntentGate = NfcIntentGate()
-    private val writeEpoch = NfcWriteEpoch()
-    private val writeInFlight = AtomicBoolean(false)
-    private val profiles by lazy { NfcProfileStore(this) }
+class MainActivity : Activity(), NfcAdapter.ReaderCallback {
+    private var adapter: NfcAdapter? = null
+    private var writeSceneId: String? = null
     private lateinit var status: TextView
-    private lateinit var profileCounter: TextView
-    private lateinit var nfcCounter: TextView
-    private lateinit var rootCounter: TextView
-    private var latestDiagnostic: String? = null
-    private var nfc: NfcAdapter? = null
+    private val writeInFlight = AtomicBoolean(false)
+    private val nfcGate = NfcIntentGate()
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        nfc = NfcAdapter.getDefaultAdapter(this)
-
-        val ui = NfcDashboardUi(this, ::handleUiAction).build(
-            nfcEnabled = nfc?.isEnabled == true,
-            rootOption = KsuActionRunner(applicationContext).isEnabled(),
-            profileCount = profiles.all().size
-        )
-        status = ui.status
-        profileCounter = ui.profileCounter
-        nfcCounter = ui.nfcCounter
-        rootCounter = ui.rootCounter
-        setContentView(ui.root)
-        handleNfc(intent)
+        adapter = NfcAdapter.getDefaultAdapter(this)
+        buildMinimalStatus()
+        handleLaunchIntent(intent)
     }
 
-    @Deprecated("Android runtime permission callback")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_WIFI_NAME_PERMISSION) {
-            show(
-                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
-                    "已授权读取 Wi-Fi 名称。助手只在本机判断是否为 Ncwu。"
-                else
-                    "未授权读取 Wi-Fi 名称；标签管理和网页动作仍可使用，Ncwu 诊断将安全停止。"
-            )
+    private fun buildMinimalStatus() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(36, 36, 36, 36)
+            setBackgroundColor(0xFFF1F6FD.toInt())
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (::nfcCounter.isInitialized && ::rootCounter.isInitialized) refreshIndicators()
-    }
-
-    private fun refreshIndicators() {
-        nfcCounter.text = if (nfc?.isEnabled == true) "已开启" else "未开启"
-        rootCounter.text = if (KsuActionRunner(applicationContext).isEnabled()) "已启用" else "默认关闭"
-        profileCounter.text = "${profiles.all().size} 个"
-    }
-
-    private fun startProfileExport() {
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/json"
-            putExtra(Intent.EXTRA_TITLE, "dorm-os-nfc-tags.json")
+        status = TextView(this).apply {
+            val nfcState = if (adapter?.isEnabled == true) "已开启" else "未开启/不可用"
+            val launchState = if (Build.VERSION.SDK_INT >= 36 && adapter?.isTagIntentAllowed == false) "系统尚未允许通过 NFC 启动本应用" else "系统 NFC 启动权限未发现明确阻断"
+            text = "DORM OS NFC Receiver\n\nNFC：$nfcState\n$launchState\n\n场景管理请在 KernelSU → 模块 → DORM OS NFC Bridge → WebUI 中进行。\n\n本应用只负责接收 NFC 标签和按需写卡，不运行后台服务。"
+            textSize = 16f
+            setTextColor(0xFF183252.toInt())
+            gravity = Gravity.CENTER
+            setLineSpacing(8f, 1f)
         }
-        try {
-            @Suppress("DEPRECATION")
-            startActivityForResult(intent, REQUEST_EXPORT)
-        } catch (_: Exception) {
-            show("无法打开系统文件保存器，备份未导出。")
-        }
+        root.addView(status, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+        setContentView(root)
     }
 
-    private fun startProfileImport() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/json"
+    private fun handleLaunchIntent(source: Intent?) {
+        if (source?.action == ACTION_WRITE_TAG) {
+            val id = source.getStringExtra(EXTRA_SCENE_ID)
+            if (!NfcProfiles.validId(id)) {
+                showAndFinish("写卡请求无效。请返回 KernelSU WebUI 重新发起。")
+                return
+            }
+            writeSceneId = id
+            status.text = "DORM OS NFC 写卡\n\n请将你自己的可写 NFC 标签靠近手机背部。\n\n只写入场景编号，不写入账号、密码或 Shell 命令。"
+            if (hasWindowFocus()) enableWriterReaderMode()
+            return
         }
-        try {
-            @Suppress("DEPRECATION")
-            startActivityForResult(intent, REQUEST_IMPORT)
-        } catch (_: Exception) {
-            show("无法打开系统文件选择器，原有标签配置未改变。")
-        }
-    }
-
-    @Deprecated("Android activity result callback; compatible with the standalone native build")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode != Activity.RESULT_OK || data?.data == null) return
-        val uri = data.data ?: return
-        when (requestCode) {
-            REQUEST_EXPORT -> {
-                try {
-                    val payload = NfcProfileBackup.encode(profiles.all())
-                    val out = contentResolver.openOutputStream(uri, "wt")
-                        ?: error("cannot open output")
-                    out.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-                    show("标签配置已导出。备份包含标签名称和网页地址，请妥善保管。")
-                } catch (_: Exception) {
-                    show("备份写入失败，请检查保存位置和可用空间。")
-                }
-            }
-            REQUEST_IMPORT -> {
-                val input = try {
-                    val stream = contentResolver.openInputStream(uri)
-                        ?: error("cannot open input")
-                    stream.use {
-                        val output = ByteArrayOutputStream()
-                        val chunk = ByteArray(4096)
-                        while (true) {
-                            val length = it.read(chunk)
-                            if (length < 0) break
-                            if (output.size() + length > NfcProfileBackup.MAX_BYTES)
-                                error("backup too large")
-                            output.write(chunk, 0, length)
-                        }
-                        String(output.toByteArray(), Charsets.UTF_8)
-                    }
-                } catch (_: Exception) {
-                    show("无法读取备份：文件过大、不存在或未获得访问权限。")
-                    return
-                }
-                val imported = NfcProfileBackup.decode(input)
-                if (imported == null) {
-                    show("备份校验失败：格式、版本、链接安全或标签编号不符合要求；本机数据未改变。")
-                    return
-                }
-                val existingCount = profiles.all().size
-                AlertDialog.Builder(this)
-                    .setTitle("恢复 NFC 标签配置？")
-                    .setMessage(
-                        "将用备份中的 " + imported.size +
-                        " 条配置覆盖本机当前 " + existingCount + " 条绑定。\n" +
-                        "不会改写实体 NFC 标签或导入 Root 授权状态。\n" +
-                        "建议先导出本机配置，再确认恢复。"
-                    )
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("确认覆盖本机配置") { _, _ ->
-                        if (profiles.replaceAll(imported)) {
-                            refreshIndicators()
-                            show("已恢复 " + imported.size + " 条 NFC 配置。实体标签内容未被修改。")
-                        } else show("恢复失败，本次未更新标签绑定。")
-                    }.show()
-            }
-        }
-    }
-
-    private fun handleUiAction(action: String) {
-        when (action) {
-            "diagnose" -> checkOnce()
-            "export" -> startProfileExport()
-            "import" -> startProfileImport()
-            "profiles" -> CustomNfcUi(
-                activity = this,
-                store = profiles,
-                onWrite = { confirmWrite(it) },
-                onMessage = { show(it) },
-                onProfilesChanged = { profileCounter.text = "${profiles.all().size} 个" }
-            ).openManager()
-            "copy" -> copyLastDiagnostic()
-            "write" -> confirmWrite()
-            "ksu" -> toggleKsuPermission()
-            "nfc-permission" -> {
-                val result = when {
-                    nfc == null -> "本设备没有可用 NFC 控制器。"
-                    nfc?.isEnabled != true -> "NFC 尚未开启，请先在系统设置中打开 NFC。"
-                    Build.VERSION.SDK_INT >= 36 && nfc?.isTagIntentAllowed == false ->
-                        "系统禁止 NFC 启动本 App。请进入「应用 → 特殊应用权限 → 通过 NFC 启动」进行授权。"
-                    else -> "未检测到已知的 NFC 启动阻断；仍需在真机贴卡后确认是否唤醒。"
-                }
-                show(result)
-            }
-            "location" -> {
-                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    AlertDialog.Builder(this)
-                        .setTitle("为什么需要此权限？")
-                        .setMessage(
-                            "Android 会保护当前 Wi-Fi 名称（SSID），读取它需要位置权限。\\n" +
-                            "DORM OS 只在本机比较网络是否为 Ncwu，不读取 GPS 坐标，也不保存或上传 SSID。\\n" +
-                            "如果拒绝，仍可使用自定义标签和网页功能，但 Ncwu 网络诊断无法确认网络名称。"
-                        )
-                        .setNegativeButton("暂不", null)
-                        .setPositiveButton("继续授权") { _, _ ->
-                            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_WIFI_NAME_PERMISSION)
-                        }
-                        .show()
-                } else show("已有读取 Wi-Fi 名称的权限；助手只在本机判断是否为 Ncwu。")
-            }
-            "wifi-settings" -> startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
-            "cancel-write" -> {
-                if (writing) {
-                    stopWriting()
-                    show("已取消等待写卡；已开始的物理写入不保证被中断，请重新核对标签内容。")
-                } else show("当前没有正在等待的 NFC 写入。")
-            }
-            "self-check" -> {
-                val locationAllowed = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                val ksuEnabled = KsuActionRunner(applicationContext).isEnabled()
-                show(
-                    "设备与权限自检\n" +
-                    "Android API：" + Build.VERSION.SDK_INT + "\n" +
-                    "NFC：" + (if (nfc?.isEnabled == true) "已开启" else "未开启/不可用") + "\n" +
-                    "读取 Wi-Fi 名称：" + (if (locationAllowed) "已授权" else "未授权") + "\n" +
-                    "自定义标签：" + profiles.all().size + " 个\n" +
-                    "KernelSU 固定动作：" + (if (ksuEnabled) "已选择启用（Root 仍由 KSU 授权）" else "关闭") + "\n" +
-                    "Ncwu 登录：接口未验证，当前不提交账号密码。"
-                )
-            }
-            "help" -> AlertDialog.Builder(this)
-                .setTitle("DORM OS NFC · 使用说明")
-                .setMessage(
-                    "① 解锁手机并开启 NFC。\n" +
-                    "② 在标签管理中新建绑定，选择 Ncwu 检测、HTTPS 网页、DORM OS 场景或固定 KSU 诊断。\n" +
-                    "③ 确认旧内容可覆盖后写入自己的 NFC 标签。\n" +
-                    "④ 再碰标签，执行一次操作，结果显示在主界面。\n\n" +
-                    "省电：没有后台常驻或定时检测。一般不必开启 Root。\n" +
-                    "注意：目前不会自动提交 Ncwu 密码。"
-                )
-                .setPositiveButton("了解", null).show()
+        if (source?.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+            handleNfc(source)
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleNfc(intent)
+        handleLaunchIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (writeSceneId != null) {
+            val nfc = adapter
+            if (nfc == null || !nfc.isEnabled) {
+                showAndFinish("设备没有可用 NFC，或系统 NFC 尚未开启。")
+                return
+            }
+            enableWriterReaderMode()
+        }
+    }
+
+    private fun enableWriterReaderMode() {
+        if (writeSceneId == null) return
+        val nfc = adapter
+        if (nfc == null || !nfc.isEnabled) {
+            showAndFinish("设备没有可用 NFC，或系统 NFC 尚未开启。")
+            return
+        }
+        try {
+            nfc.enableReaderMode(
+                this,
+                this,
+                NfcAdapter.FLAG_READER_NFC_A or
+                    NfcAdapter.FLAG_READER_NFC_B or
+                    NfcAdapter.FLAG_READER_NFC_F or
+                    NfcAdapter.FLAG_READER_NFC_V or
+                    NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+                null
+            )
+        } catch (_: Exception) {
+            showAndFinish("无法启动本次 NFC 写卡会话。请检查系统 NFC 设置。")
+        }
     }
 
     override fun onPause() {
-        if (writing) stopWriting()
+        try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
         super.onPause()
     }
 
-    private fun handleNfc(intent: Intent?) {
-        if (intent?.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
-        // NFC dispatcher normally supplies the physical Tag, not only NDEF text.
-        // This rejects basic externally forged ACTION_NDEF_DISCOVERED intents,
-        // but is not a cryptographic origin guarantee. Never execute tag-supplied commands.
+    override fun onTagDiscovered(tag: Tag) {
+        val id = writeSceneId ?: return
+        if (!writeInFlight.compareAndSet(false, true)) return
+        val result = try {
+            writeSceneTag(tag, id)
+        } catch (error: Exception) {
+            "写卡失败：" + (error.message ?: error.javaClass.simpleName)
+        }
+        runOnUiThread {
+            writeSceneId = null
+            try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
+            status.text = result
+            finishSoon()
+        }
+    }
+
+    private fun writeSceneTag(tag: Tag, id: String): String {
+        val payload = NfcProfiles.payload(id)
+        val record = NdefRecord.createMime(
+            NfcProfiles.MIME,
+            payload.toByteArray(StandardCharsets.UTF_8)
+        )
+        val message = NdefMessage(arrayOf(record))
+        val ndef = Ndef.get(tag)
+        if (ndef != null) {
+            ndef.connect()
+            try {
+                if (!ndef.isWritable) return "标签只读，未写入。"
+                if (ndef.maxSize < message.toByteArray().size) return "标签容量不足，未写入。"
+                ndef.writeNdefMessage(message)
+                val readBack = ndef.ndefMessage
+                    ?.records
+                    ?.firstOrNull { it.tnf == NdefRecord.TNF_MIME_MEDIA }
+                    ?.payload
+                    ?.let { String(it, StandardCharsets.UTF_8) }
+                if (readBack != payload) return "写入后回读不一致，请不要使用此标签。"
+                return "NFC 标签写入并回读成功。\n场景 ID：" + id
+            } finally {
+                try { ndef.close() } catch (_: Exception) { }
+            }
+        }
+
+        val formatable = NdefFormatable.get(tag)
+            ?: return "此标签不支持 NDEF 写入，未修改标签。"
+        formatable.connect()
+        try {
+            formatable.format(message)
+            return "未格式化标签已格式化并写入场景编号。\n请再次碰卡验证。"
+        } finally {
+            try { formatable.close() } catch (_: Exception) { }
+        }
+    }
+
+    private fun handleNfc(source: Intent) {
         val actualTag = try {
-            if (Build.VERSION.SDK_INT >= 33)
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
-            else {
+            if (Build.VERSION.SDK_INT >= 33) {
+                source.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
+                source.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
             }
         } catch (_: Exception) { null }
+
         if (actualTag == null) {
-            show("未检测到实体 NFC 标签信息，已忽略此触发。")
+            showAndFinish("未收到实体 NFC 标签信息，已忽略。")
             return
         }
+
         @Suppress("DEPRECATION")
-        val messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
-        val payload = messages?.filterIsInstance<NdefMessage>()?.asSequence()
+        val messages = source.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
+        val payload = messages
+            ?.filterIsInstance<NdefMessage>()
+            ?.asSequence()
             ?.flatMap { it.records.asSequence() }
             ?.firstOrNull { record ->
                 record.tnf == NdefRecord.TNF_MIME_MEDIA &&
                     String(record.type, StandardCharsets.US_ASCII) == NfcProfiles.MIME &&
                     record.payload.size in 1..80
-            }?.let { String(it.payload, StandardCharsets.UTF_8) }
-        if (payload == null) {
-            show("未知 NFC 标签：已忽略，不执行操作。")
-            return
-        }
-        if (payload != PAYLOAD && NfcProfiles.decodeId(payload) == null) {
-            show("无效 NFC 动作，已安全停止。")
-            return
-        }
-        if (!nfcIntentGate.accept(payload, SystemClock.elapsedRealtime())) {
-            show("短时间重复 NFC 触发已忽略；不会执行第二次。")
-            return
-        }
-        if (payload == PAYLOAD) {
-            checkOnce()  // All existing v1:ncwu tags continue to work.
-            return
-        }
-        val id = NfcProfiles.decodeId(payload) ?: return
-        val profile = profiles.byId(id)
-        if (profile == null) {
-            show("该标签没有在此手机绑定动作，已停止；可能已删除或来自其他设备。")
-        } else runProfile(profile)
-    }
-
-    private fun runProfile(profile: NfcProfile) {
-        if (!NfcProfiles.validProfile(profile)) {
-            show("标签动作配置无效，未执行。")
-            return
-        }
-        when (profile.action) {
-            NfcProfiles.DIAGNOSE_NCWU -> checkOnce()
-            NfcProfiles.KSU_WIFI_STATUS -> runKsuOnce()
-            NfcProfiles.OPEN_HTTPS -> openTrustedLink(profile.target, profile.name)
-            NfcProfiles.DORM_SCENE -> {
-                val link = NfcProfiles.sceneUrl(profile.target)
-                if (link != null) openTrustedLink(link, profile.name)
-                else show("场景名称无效，已停止。")
             }
-            else -> show("此动作暂不支持。")
+            ?.let { String(it.payload, StandardCharsets.UTF_8) }
+
+        if (payload == NfcProfiles.LEGACY_NCWU) {
+            runLegacyNcwu()
+            return
         }
+
+        val id = NfcProfiles.decodeId(payload)
+        if (id == null) {
+            showAndFinish("未知或无效 NFC 标签，未执行任何操作。")
+            return
+        }
+        if (!nfcGate.accept(id, SystemClock.elapsedRealtime())) {
+            showAndFinish("重复 NFC 触发已忽略，没有重复执行。")
+            return
+        }
+        runScene(id)
     }
 
-
-    private fun toggleKsuPermission() {
-        val runner = KsuActionRunner(applicationContext)
-        if (runner.isEnabled()) {
-            if (runner.setEnabled(false)) { refreshIndicators(); show("KernelSU NFC 动作已关闭。") }
-            else show("关闭选项保存失败。")
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle("允许 NFC 触发固定 KernelSU 脚本？")
-            .setMessage("仅运行模块自带的只读 wifi-status SH，不接受标签提供命令或路径。不常驻、不开机执行。需要 KernelSU 为本助手授权 Root，存在高权限风险。")
-            .setNegativeButton("暂不启用", null)
-            .setPositiveButton("仅启用固定脚本") { _, _ ->
-                if (runner.setEnabled(true)) {
-                    refreshIndicators()
-                    show("已在本机开启固定 KernelSU 动作；是否授予 su 仍由 KernelSU 管理器决定。")
-                } else show("保存失败，尚未启用。")
-            }.show()
-    }
-
-    private fun runKsuOnce() {
-        val runner = KsuActionRunner(applicationContext)
-        if (!runner.isEnabled()) {
-            show("KernelSU 执行默认关闭。请先在应用内启用；扫描 NFC 不会自动索取 Root。")
-            return
-        }
-        if (!running.compareAndSet(false, true)) {
-            show("已有一次性任务在运行，已忽略重复触发。")
-            return
-        }
-        show("执行固定只读 KernelSU SH，不会认证校园网……")
+    private fun runScene(id: String) {
+        status.text = "已识别 NFC 场景。\n正在请求 KernelSU 执行固定动作……"
         Thread {
-            val result = try { runner.run() } catch (_: Exception) { "KernelSU 执行异常，已安全停止。" }
+            val result = KsuActionRunner().runScene(id)
             runOnUiThread {
-                running.set(false)
-                if (!isDestroyed) show(result)
+                if (!isFinishing) {
+                    status.text = result
+                    finishSoon()
+                }
             }
         }.start()
     }
 
-    private fun openTrustedLink(link: String, name: String) {
-        if (!NfcProfiles.isSafeHttpsUrl(link)) {
-            show("链接安全校验失败；未打开网页。")
-            return
-        }
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).apply {
-                addCategory(Intent.CATEGORY_BROWSABLE)
-            })
-            show("已请求打开「" + name + "」。是否成功加载由浏览器决定。")
-        } catch (e: Exception) {
-            show("无法打开网页：" + (e.message ?: e.javaClass.simpleName))
-        }
-    }
-
-    private fun checkOnce() {
-        if (!running.compareAndSet(false, true)) {
-            show("正在检测，重复扫描已忽略。")
-            return
-        }
-        show("正在检查 Ncwu Wi-Fi……")
+    private fun runLegacyNcwu() {
+        status.text = "识别到旧版 Ncwu 标签。\n正在执行只读网络识别……"
         Thread {
-            val result = try {
-                NetworkDiagnostics(applicationContext).run()
-            } catch (e: Exception) {
-                "网络诊断异常（" + e.javaClass.simpleName + "），本次安全停止；未发送登录请求。"
-            }
+            val result = KsuActionRunner().runLegacyNcwu()
             runOnUiThread {
-                latestDiagnostic = NcwuRules.redactDiagnostic(result)
-                running.set(false)
-                if (!isDestroyed) show(result)
+                if (!isFinishing) {
+                    status.text = result
+                    finishSoon()
+                }
             }
         }.start()
     }
 
-    private fun confirmWrite(profile: NfcProfile? = null) {
-        if (nfc == null || nfc?.isEnabled != true) {
-            show("请先打开系统 NFC。")
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle(if (profile == null) "写入 Ncwu 检测标签？" else "写入「" + profile.name + "」？")
-            .setMessage("将覆盖标签原有 NDEF 内容。只写入动作标识，不包含账号密码。请使用你自己的可写标签。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("确认覆盖") { _, _ ->
-                val payload = if (profile == null) PAYLOAD else {
-                    if (profiles.byId(profile.id) != profile) {
-                        show("标签绑定已变更或删除，停止写入。")
-                        return@setPositiveButton
-                    }
-                    NfcProfiles.payload(profile.id)
-                }
-                startWriting(payload)
-            }
-            .show()
+    private fun showAndFinish(message: String) {
+        writeSceneId = null
+        status.text = message
+        finishSoon()
     }
 
-    private fun startWriting(payload: String) {
-        if (writing || writeInFlight.get()) { show("上一轮 NFC 写入尚未结束，请先确认状态。"); return }
-        val epoch = writeEpoch.begin()
-        writing = true
-        show("请将可写 NFC 标签贴近手机背面……")
-        try {
-            val adapter = nfc ?: error("未检测到 NFC 控制器")
-            adapter.enableReaderMode(
-            this,
-            { tag -> writeTag(tag, epoch, payload) },
-            NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
-                NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
-            null
-            )
-        } catch (e: Exception) {
-            stopWriting()
-            show("NFC 写入模式启动失败（" + e.javaClass.simpleName + "）。请确认 NFC 已开启、应用仍在前台。")
-        }
+    private fun finishSoon() {
+        handler.removeCallbacksAndMessages(null)
+        handler.postDelayed({ if (!isFinishing) finish() }, 2200L)
     }
-
-    private fun writeTag(tag: Tag, epoch: Int, payload: String) {
-        if (!writing || !writeEpoch.isCurrent(epoch)) return
-        if (!writeInFlight.compareAndSet(false, true)) return
-        if (!writing || !writeEpoch.isCurrent(epoch)) {
-            writeInFlight.set(false)
-            return
-        }
-        val message = NdefMessage(arrayOf(
-            NdefRecord.createMime(MIME, payload.toByteArray(StandardCharsets.UTF_8))
-        ))
-        val outcome = try {
-            val ndef = Ndef.get(tag)
-            if (ndef == null) {
-                // Some blank NFC stickers are not yet NDEF formatted.
-                val formatable = NdefFormatable.get(tag) ?: error("此标签不支持 NDEF 写入或格式化")
-                formatable.connect()
-                try { formatable.format(message) } finally { formatable.close() }
-                "已格式化并写入 NDEF；请离开应用再次碰卡，验证标签可触发。"
-            } else {
-                ndef.connect()
-                try {
-                    check(ndef.isWritable) { "此标签不可写" }
-                    check(ndef.maxSize >= message.toByteArray().size) { "标签空间不足" }
-                    ndef.writeNdefMessage(message)
-                // Read the physical tag again; the NFC write call alone is not an end-to-end proof.
-                val readBack = try { ndef.ndefMessage } catch (_: Exception) { null }
-                if (readBack != null && readBack.toByteArray().contentEquals(message.toByteArray())) {
-                    "标签写入并回读一致。离开 App 后可再次碰卡验证一次性检测。"
-                } else {
-                    "已收到写入完成结果，但未确认回读内容；请再次碰卡检查，勿当作验证成功。"
-                }
-                } finally { ndef.close() }
-            }
-        } catch (e: Exception) {
-            "写入失败：" + (e.message ?: e.javaClass.simpleName)
-        } finally {
-            writeInFlight.set(false)
-        }
-        runOnUiThread {
-            // Cancel / Activity pause invalidates the result of a late hardware callback.
-            if (!isDestroyed && writing && writeEpoch.isCurrent(epoch)) {
-                stopWriting()
-                show(outcome)
-            }
-        }
-    }
-
-    private fun stopWriting() {
-        writing = false
-        writeEpoch.invalidate()
-        try { nfc?.disableReaderMode(this) } catch (_: IllegalStateException) { /* Activity may already be paused. */ }
-    }
-
-    private fun copyLastDiagnostic() {
-        val summary = latestDiagnostic
-        if (summary == null) {
-            show("尚无完成的诊断结果。请先点击「检测 Ncwu（仅一次）」。")
-            return
-        }
-        val content = "DORM OS NFC 助手诊断（仅本机生成）\n" +
-            "Android API: " + Build.VERSION.SDK_INT + "\n" +
-            summary + "\n未执行校园网账号认证。"
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("DORM OS 诊断摘要", content))
-        show("诊断摘要已复制。发送给别人之前请检查内容，避免泄露个人信息。")
-    }
-
-    private fun show(message: String) { status.text = message }
 
     companion object {
-        const val MIME = "application/vnd.dormos.ncwu"
-        const val PAYLOAD = "v1:ncwu"
-        private const val REQUEST_WIFI_NAME_PERMISSION = 7
-        private const val REQUEST_EXPORT = 701
-        private const val REQUEST_IMPORT = 702
+        const val ACTION_WRITE_TAG = "xyz.dormos.nfc.action.WRITE_TAG"
+        const val EXTRA_SCENE_ID = "scene_id"
     }
 }
