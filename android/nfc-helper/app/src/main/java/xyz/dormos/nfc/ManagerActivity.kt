@@ -45,6 +45,19 @@ private val dim = Color(0xFF718099)
 private val actionBlue = Color(0xFF2865D8)
 private val paleBorder = Color(0xFFE7ECF5)
 
+private fun readZipEntryLimited(input: ZipInputStream, maxBytes: Int): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(4096)
+    var total = 0
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        total += count
+        if (total > maxBytes) throw IllegalArgumentException("单个 SH 文件超过 16 KiB")
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
+}
 private data class ManagerSnapshot(
     val status: RootResult,
     val scripts: List<PersonalScript>,
