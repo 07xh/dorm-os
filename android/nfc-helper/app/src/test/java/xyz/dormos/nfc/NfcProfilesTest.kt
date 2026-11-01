@@ -28,6 +28,15 @@ class NfcProfilesTest {
         assertFalse(NfcProfiles.validId(""))
     }
 
+    @Test fun replacingAnExistingTagCleansOnlyItsOldValidBinding() {
+        val old = "123e4567-e89b-12d3-a456-426614174000"
+        val fresh = "123e4567-e89b-12d3-a456-426614174001"
+        assertEquals(old, NfcProfiles.previousBindingToRemove(old, fresh))
+        assertNull(NfcProfiles.previousBindingToRemove(old, old))
+        assertNull(NfcProfiles.previousBindingToRemove("bad", fresh))
+        assertNull(NfcProfiles.previousBindingToRemove(old, null))
+    }
+
     @Test fun failedOrCanceledWriteCannotCreateBinding() {
         val tag = "123e4567-e89b-12d3-a456-426614174000"
         val script = "123e4567-e89b-12d3-a456-426614174001"

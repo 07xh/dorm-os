@@ -227,7 +227,17 @@ private fun ManagerScreen(
                 tag, script, result.data?.getStringExtra(MainActivity.EXTRA_SCENE_ID),
                 result.resultCode == Activity.RESULT_OK
             )) {
-            runRoot({ bridge.bind(tag, script) }) { if (it.success) refresh() }
+            val previousTag = result.data?.getStringExtra(MainActivity.EXTRA_PREVIOUS_TAG_ID)
+            val oldBinding = NfcProfiles.previousBindingToRemove(previousTag, tag)
+            runRoot({
+                val bound = bridge.bind(tag, script)
+                if (!bound.success || oldBinding == null) bound
+                else {
+                    val removed = bridge.unbind(oldBinding)
+                    if (removed.success) RootResult(0, "新绑定成功，旧标签关联已清理。")
+                    else RootResult(70, "新绑定已建立，但旧标签关联清理失败：" + removed.output)
+                }
+            }) { refresh() }
         } else {
             notify("写卡未通过验证，本次没有登记 NFC 绑定。")
         }

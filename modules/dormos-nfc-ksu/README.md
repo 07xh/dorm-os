@@ -55,3 +55,8 @@ The module now uses an atomic per-device run lock so an NFC tap and an in-app Ru
 - Recent execution output displays its tail so the final result is visible.
 - Execution history converts Unix timestamps into local time and script IDs into script names, skips malformed rows, and shows at most the latest 80 valid events.
 - The home page surfaces the actual module/Root status message when connection fails.
+
+
+## V1.7 NFC tag rebinding cleanup
+
+When overwriting a previously DORM-managed NDEF tag, the app reads and validates the old DORM UUID from the physical tag before writing. It writes and verifies the new UUID, commits the new Root binding, and then removes the old UUID mapping. Unrelated NDEF records are ignored. If old-binding cleanup fails, the app reports that the new binding was created but cleanup needs attention; it does not silently claim a clean replacement.

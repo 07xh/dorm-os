@@ -138,7 +138,9 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         runOnUiThread {
             writeSceneId = null
             if (result.verified) {
-                setResult(RESULT_OK, Intent().putExtra(EXTRA_SCENE_ID, id))
+                val data = Intent().putExtra(EXTRA_SCENE_ID, id)
+                result.previousTagId?.let { data.putExtra(EXTRA_PREVIOUS_TAG_ID, it) }
+                setResult(RESULT_OK, data)
             }
             try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
             status.text = result.message
@@ -146,7 +148,11 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         }
     }
 
-    private data class WriteOutcome(val verified: Boolean, val message: String)
+    private data class WriteOutcome(
+        val verified: Boolean,
+        val message: String,
+        val previousTagId: String? = null
+    )
 
     private fun writeSceneTag(tag: Tag, id: String): WriteOutcome {
         val payload = NfcProfiles.payload(id)
@@ -161,14 +167,31 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             try {
                 if (!ndef.isWritable) return WriteOutcome(false, "标签只读，未写入。")
                 if (ndef.maxSize < message.toByteArray().size) return WriteOutcome(false, "标签容量不足，未写入。")
+                val previousTagId = ndef.ndefMessage?.records
+                    ?.asSequence()
+                    ?.filter { it.tnf == NdefRecord.TNF_MIME_MEDIA }
+                    ?.mapNotNull { oldRecord ->
+                        NfcProfiles.decodeRecord(
+                            String(oldRecord.type, StandardCharsets.US_ASCII),
+                            oldRecord.payload
+                        )
+                    }
+                    ?.firstOrNull()
                 ndef.writeNdefMessage(message)
                 val readBack = ndef.ndefMessage
                     ?.records
-                    ?.firstOrNull { it.tnf == NdefRecord.TNF_MIME_MEDIA }
+                    ?.firstOrNull {
+                        it.tnf == NdefRecord.TNF_MIME_MEDIA &&
+                            NfcProfiles.isSupportedMime(String(it.type, StandardCharsets.US_ASCII))
+                    }
                     ?.payload
                     ?.let { String(it, StandardCharsets.UTF_8) }
                 if (readBack != payload) return WriteOutcome(false, "写入后回读不一致，请不要使用此标签。")
-                return WriteOutcome(true, "NFC 标签写入并回读成功。\n场景 ID：" + id)
+                return WriteOutcome(
+                    true,
+                    "NFC 标签写入并回读成功。\n场景 ID：" + id,
+                    previousTagId
+                )
             } finally {
                 try { ndef.close() } catch (_: Exception) { }
             }
@@ -223,6 +246,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             ndef.connect()
             ndef.ndefMessage?.records
                 ?.asSequence()
+                ?.filter { it.tnf == NdefRecord.TNF_MIME_MEDIA }
                 ?.mapNotNull { record ->
                     NfcProfiles.decodeRecord(
                         String(record.type, StandardCharsets.US_ASCII),
@@ -264,5 +288,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
     companion object {
         const val ACTION_WRITE_TAG = "xyz.dormos.nfc.action.WRITE_TAG"
         const val EXTRA_SCENE_ID = "scene_id"
+        const val EXTRA_PREVIOUS_TAG_ID = "previous_tag_id"
     }
 }

@@ -11,6 +11,9 @@ object NfcProfiles {
     fun bindingMayCommit(expectedTag: String?, scriptId: String?, returnedTag: String?, verified: Boolean) =
         verified && validId(expectedTag) && validId(scriptId) &&
             expectedTag == returnedTag
+
+    fun previousBindingToRemove(previousTagId: String?, newTagId: String?): String? =
+        previousTagId.takeIf { validId(it) && validId(newTagId) && it != newTagId }
     private val uuidPattern = Regex("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
 
     fun makeId(): String = UUID.randomUUID().toString()
