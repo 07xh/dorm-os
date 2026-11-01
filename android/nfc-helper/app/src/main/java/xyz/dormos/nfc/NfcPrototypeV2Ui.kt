@@ -1,6 +1,15 @@
 package xyz.dormos.nfc
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -317,7 +326,7 @@ internal fun V2Scenes(
     scriptNames: Map<String, String>,
     filter: String,
     onFilter: (String) -> Unit,
-    enabled: Boolean,
+    toggle: NfcTriggerToggleState,
     rootReady: Boolean,
     busy: Boolean,
     onEnable: (Boolean) -> Unit,
@@ -347,12 +356,23 @@ internal fun V2Scenes(
             Column(Modifier.weight(1f)) {
                 Text("NFC 自动触发", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     color = p.ink)
-                Text(if (enabled) "总开关已开启 · 仍受单个场景状态控制"
-                    else "总开关已关闭 · 所有标签均不会执行脚本",
-                    color = p.muted, fontSize = 11.sp)
+                Text(
+                    when {
+                        toggle.pending -> if (toggle.displayed) "正在开启 · 等待 KernelSU 确认"
+                            else "正在关闭 · 等待 KernelSU 确认"
+                        !rootReady -> "KernelSU 未连接 · 请到工具页检查授权"
+                        toggle.confirmed -> "已开启 · 仅已绑定且启用的标签执行 SH"
+                        else -> "已关闭 · 碰卡不会执行任何 SH"
+                    },
+                    color = p.muted, fontSize = 11.sp
+                )
             }
-            Switch(checked = enabled, onCheckedChange = onEnable,
-                enabled = rootReady && !busy)
+            TapFlowNfcTriggerSwitch(
+                checked = toggle.displayed,
+                interactive = rootReady && !busy && !toggle.pending,
+                onCheckedChange = onEnable,
+                p = p
+            )
         }
     }
     Spacer(Modifier.height(16.dp))
@@ -428,6 +448,49 @@ internal fun V2Scenes(
     Text("场景由 NFC 标签与本机 SH 脚本组成。新增自动化只需编辑脚本，无须修改 APK。",
         color = p.muted, fontSize = 12.sp, lineHeight = 19.sp)
     Spacer(Modifier.height(22.dp))
+}
+
+/** Compact local-only toggle: pending Root work does not make the track flash gray. */
+@Composable
+internal fun TapFlowNfcTriggerSwitch(
+    checked: Boolean,
+    interactive: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    p: V2Palette
+) {
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) p.blue else p.line,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "NFC trigger track"
+    )
+    val thumbX by animateDpAsState(
+        targetValue = if (checked) 26.dp else 4.dp,
+        animationSpec = tween(205, easing = FastOutSlowInEasing),
+        label = "NFC trigger thumb"
+    )
+    Box(
+        modifier = Modifier
+            .size(width = 56.dp, height = 34.dp)
+            .clip(RoundedCornerShape(50))
+            .background(trackColor)
+            .toggleable(
+                value = checked,
+                enabled = interactive,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            ),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(thumbX.roundToPx(), 0) }
+                .size(26.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White)
+        )
+    }
 }
 
 @Composable

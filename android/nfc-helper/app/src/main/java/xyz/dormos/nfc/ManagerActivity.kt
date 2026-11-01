@@ -207,7 +207,7 @@ private fun ManagerScreen(
     var confirmClearLogs by remember { mutableStateOf(false) }
     var editingNew by remember { mutableStateOf(true) }
     var installed by remember { mutableStateOf(false) }
-    var receiverEnabled by remember { mutableStateOf(false) }
+    var nfcToggle by remember { mutableStateOf(NfcTriggerToggleState()) }
     var status by remember { mutableStateOf("正在检查模块…") }
     var output by remember { mutableStateOf("暂无执行记录") }
     var query by rememberSaveable { mutableStateOf("") }
@@ -261,7 +261,9 @@ private fun ManagerScreen(
                 }
                 status = snapshot.status.output
                 installed = snapshot.status.success && snapshot.status.output.contains("DORM_MODULE=ready")
-                receiverEnabled = snapshot.status.output.contains("NFC_ENABLED=1")
+                nfcToggle = nfcToggle.withConfirmed(
+                    snapshot.status.output.contains("NFC_ENABLED=1")
+                )
                 entries = snapshot.scripts
                 scenes = snapshot.scenes
                 folders = snapshot.folders
@@ -926,12 +928,18 @@ private fun ManagerScreen(
                         scriptNames = scriptNames,
                         filter = sceneFilter,
                         onFilter = { sceneFilter = it },
-                        enabled = receiverEnabled,
+                        toggle = nfcToggle,
                         rootReady = installed,
                         busy = loading,
-                        onEnable = { on ->
-                            runRoot({ bridge.enableNfc(on) }) {
-                                if (it.success) { receiverEnabled = on; refresh() }
+                        onEnable = { requested ->
+                            if (installed && !loading && !nfcToggle.pending) {
+                                val next = nfcToggle.request(requested)
+                                if (next.pending) {
+                                    nfcToggle = next
+                                    runRoot({ bridge.enableNfc(requested) }) { result ->
+                                        nfcToggle = nfcToggle.complete(result.success)
+                                    }
+                                }
                             }
                         },
                         onNew = { beginSceneCreation() },
