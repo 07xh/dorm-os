@@ -197,31 +197,23 @@ private fun ReadScreen(
             .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)
     ) {
         Spacer(Modifier.height(22.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("‹ 返回") }
-            Spacer(Modifier.width(6.dp))
-            Text("NFC 读取", fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-        }
+        NfcPageHeader("读取标签", "扫描信息 · 安全只读 · 不执行脚本", onBack)
         Spacer(Modifier.height(16.dp))
-        Surface(shape = RoundedCornerShape(26.dp), color = Color(0xFFDFE9FC)) {
-            Column(
-                Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(if (report == null) "◎" else if (report.error == null) "✓" else "!",
-                    fontSize = 53.sp, color = blue)
-                Spacer(Modifier.height(8.dp))
-                Text(status, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(8.dp))
-                Text("前台只读扫描，不执行自动化", color = dim, fontSize = 12.sp)
-                if (reading) {
-                    Spacer(Modifier.height(10.dp))
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-                Spacer(Modifier.height(18.dp))
-                Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp)) {
-                    Text("重新扫描")
-                }
+        NfcSessionPanel(
+            mood = when {
+                reading -> NfcPanelMood.ACTIVE
+                report == null -> NfcPanelMood.IDLE
+                report.error == null -> NfcPanelMood.VERIFIED
+                else -> NfcPanelMood.NEEDS_ATTENTION
+            },
+            title = status,
+            subtitle = if (report == null) "将标签贴近手机背部 NFC 感应区域"
+                else if (report.error == null) "已从实体标签读取信息" else "查看下方原因及建议",
+            working = reading
+        ) {
+            Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (report == null) "重新开始扫描" else "扫描另一张标签")
             }
         }
         Spacer(Modifier.height(16.dp))
