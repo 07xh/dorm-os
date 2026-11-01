@@ -367,36 +367,96 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 }
 @media(prefers-reduced-motion:reduce){.editor.form-editor::backdrop{backdrop-filter:none}}
 
+
+/* V4.4 shared icon and mobile control standards */
+.dorm-icon-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.dorm-ui-icon{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.nav-symbol .dorm-ui-icon{width:21px;height:21px}
+.mobile-tabs button span{display:grid;place-items:center;min-height:24px}
+.mobile-tabs button .dorm-ui-icon{width:22px;height:22px}
+.header-action .dorm-ui-icon{width:21px;height:21px}
+#app .card{border-radius:18px;border-color:var(--border);box-shadow:0 4px 22px rgba(15,45,85,.035)}
+#app .v42-day-card,#app .v41-nfc-scan,#app .v41-nfc-list{border-radius:18px}
+#app :is(button,summary,a):focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+#app .v41-nfc-scan-actions button,#app .v41-nfc-list .card-header>button,
+#app .v41-tag-actions>button,#app .v41-tag-more>summary,#app .v41-tag-menu button,
+#app .nfc-filter,#app .v42-day-picker button,#app .v42-segments button,
+#app .v42-class-actions>button,#app .v42-row-more>summary,#app .v42-row-menu button{min-height:44px}
+#app .v41-nfc-scan .v41-scan-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-size:14px;font-weight:720}
+#app .v41-nfc-scan-actions{align-items:stretch;gap:10px}
+#app .v41-nfc-scan-actions>button:disabled:not([data-action="nfc-start"]){display:none}
+#app .v41-nfc-scan-actions>button:disabled{cursor:not-allowed;opacity:.62}
+#app .v41-nfc-scan-head h2{font-size:19px;line-height:1.35}
+#app .v44-nfc-live{display:inline-flex;flex:none;align-items:center}
+#app .v44-nfc-live .pill{display:inline-flex;align-items:center;gap:7px;padding:8px 10px;white-space:nowrap}
+#app .v44-nfc-live .pill::before{content:"";display:block;width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.6}
+#app .v44-nfc-live[data-scan-phase="matched"] .pill::before,
+#app .v44-nfc-live[data-scan-phase="written"] .pill::before{opacity:1}
+#app .v41-scan-feedback{line-height:1.6;padding:12px 14px;border:1px solid var(--border);min-height:44px}
+#app .v44-tag-icon{background:var(--surface2);color:var(--blue);border-radius:12px;display:grid;place-items:center}
+#app .v44-tag-icon .dorm-ui-icon{width:23px;height:23px}
+#app .v41-tag-actions>.primary{font-weight:700}
+#app .v41-tag-more>summary{display:flex;align-items:center;justify-content:center}
+#app .v41-tag-menu{min-width:180px}
+#app .v41-tag-menu button{font-size:13px}
+#app .v42-class-actions{gap:9px}
+#app .v42-class-actions>button.secondary,#app .v42-row-more>summary{font-size:12px;font-weight:650;text-decoration:none}
+#app .v42-class-card{border-radius:12px}
+#app .v42-class-card:focus-within{border-color:var(--blue)}
+@media(max-width:790px){
+ .mobile-tabs button{min-height:58px}
+ #app .v41-nfc-scan-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ #app .v41-nfc-scan-actions .v41-scan-button{grid-column:1/-1;width:100%;min-height:50px}
+ #app .v41-nfc-scan-actions>button:not(.v41-scan-button){width:100%;min-width:0}
+ #app .v41-nfc-scan-head{align-items:flex-start}
+ #app .v41-nfc-list .card-header>button{flex:none;white-space:nowrap}
+ #app .v41-tag-actions{display:grid;grid-template-columns:minmax(0,1fr) auto auto;width:100%;gap:8px}
+ #app .v41-tag-actions>button{min-height:46px;white-space:nowrap}
+ #app .v41-tag-actions .v41-tag-more summary{min-height:46px}
+ #app .v42-day-picker{gap:5px}
+ #app .v42-day-picker button{min-height:48px}
+ #app .v42-class-card{padding:14px}
+}
+@media(max-width:360px){
+ #app .v41-tag-actions{grid-template-columns:minmax(0,1fr) auto}
+ #app .v41-tag-actions>button[data-tag-write]{grid-column:1/-1}
+ #app .v41-tag-actions>button[data-tag-edit]{grid-column:1}
+ #app .v41-tag-actions .v41-tag-more{grid-column:2}
+ #app .v41-nfc-list .card-header{flex-wrap:wrap}
+ #app .v42-day-picker{gap:3px}
+ #app .v42-day-picker button{font-size:12px;min-width:0}
+}
 </style>
   <title>DORM OS · 个人生活与 NFC 场景</title>
 </head>
 <body>
+<svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
 <div id="shell" class="shell">
   <aside class="sidebar" aria-label="主导航">
     <a class="brand" href="#dashboard" aria-label="DORM OS 首页"><span class="brand-icon">◈</span><span><strong>DORM <em>OS</em></strong><small>PERSONAL · V4</small></span></a>
     <div class="side-caption">WORKSPACE</div>
     <nav class="main-nav" id="sidebarNav" aria-label="主导航">
-      <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol" aria-hidden="true">⌂</span> 首页</button>
-      <button type="button" data-page="study" class="nav-link"><span class="nav-symbol" aria-hidden="true">▦</span> 学习</button>
-      <button type="button" data-page="nfc" class="nav-link"><span class="nav-symbol" aria-hidden="true">◉</span> NFC</button>
-      <button type="button" data-page="life" class="nav-link"><span class="nav-symbol" aria-hidden="true">✦</span> 生活</button>
-      <button type="button" data-page="profile" class="nav-link"><span class="nav-symbol" aria-hidden="true">♙</span> 我的</button>
+      <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span> 首页</button>
+      <button type="button" data-page="study" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-study"></use></svg></span> 学习</button>
+      <button type="button" data-page="nfc" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-nfc"></use></svg></span> NFC</button>
+      <button type="button" data-page="life" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-life"></use></svg></span> 生活</button>
+      <button type="button" data-page="profile" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-profile"></use></svg></span> 我的</button>
     </nav>
 <div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先</span></div><p>数据保存在此浏览器</p><span class="version">DORM OS V4 · PERSONAL</span></div>
   </aside>
   <div class="workspace">
     <header class="topbar">
       <div class="top-left"><span class="breadcrumb">PERSONAL / <strong id="breadcrumb">总览面板</strong></span></div>
-      <div class="top-right"><span id="dateChip" class="header-date">—</span><span id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索">⌕</button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div>
+      <div class="top-right"><span id="dateChip" class="header-date">—</span><span id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-search"></use></svg></button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div>
     </header>
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>当前离线：已保存的课程、任务和个人场景仍可使用；天气与外部服务暂不可用。</div>
     <main id="app" tabindex="-1"></main>
     <nav class="mobile-tabs" aria-label="手机主导航">
-      <button type="button" data-page="dashboard"><span aria-hidden="true">⌂</span>首页</button>
-      <button type="button" data-page="study"><span aria-hidden="true">▦</span>学习</button>
-      <button type="button" data-page="nfc"><span aria-hidden="true">◉</span>NFC</button>
-      <button type="button" data-page="life"><span aria-hidden="true">✦</span>生活</button>
-      <button type="button" data-page="profile"><span aria-hidden="true">♙</span>我的</button>
+      <button type="button" data-page="dashboard"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span>首页</button>
+      <button type="button" data-page="study"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-study"></use></svg></span>学习</button>
+      <button type="button" data-page="nfc"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-nfc"></use></svg></span>NFC</button>
+      <button type="button" data-page="life"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-life"></use></svg></span>生活</button>
+      <button type="button" data-page="profile"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-profile"></use></svg></span>我的</button>
     </nav>
   </div>
 </div>
@@ -956,7 +1016,7 @@ function renderNfcTagList(){
  if(!state.nfcTags.length)return `<div class='friendly-empty'>还没有注册标签。<span>点击「添加标签」，为自己的 NFC 贴纸起个名字。</span></div>`;
  const tags=state.nfcTags.filter(t=>nfcTagFilter==='all'||nfcTagHealth(t).key===nfcTagFilter);
  if(!tags.length)return `<div class='friendly-empty'>这个状态下暂无标签。<span>选择「全部」查看其他已登记标签。</span></div>`;
- return tags.map(t=>{const s=nfcTagHealth(t);return `<div class='tag-entry' data-tag-status='${s.key}'><div class='tag-icon' aria-hidden='true'>◉</div><div class='tag-info'><strong>${esc(t.name)}</strong><span class='tag-scene'>${esc(sceneLabel(t.scene))} · ${badge(s.label,s.tone)}</span><small>${esc(s.detail)}</small></div><div class='tag-operations v41-tag-actions'><button class='primary' type='button' data-tag-write='${esc(t.id)}' ${nfc.writeController||nfc.controller?'disabled':''}>${s.key==='rewrite'?'重新写入':'写入标签'}</button><button class='secondary' type='button' data-tag-edit='${esc(t.id)}'>编辑</button><details class='v41-tag-more' data-tag-menu='${esc(t.id)}' ${expandedNfcTagMenu===t.id?'open':''}><summary aria-label='更多 ${esc(t.name)} 操作'>更多 ›</summary><div class='v41-tag-menu'><button class='secondary' type='button' data-tag-copy='${esc(t.id)}'>复制链接</button><button class='secondary' type='button' data-tag-test='${esc(t.id)}'>测试网页链接</button><button class='secondary danger-btn' type='button' data-tag-delete='${esc(t.id)}' aria-label='删除 ${esc(t.name)}'>删除标签</button></div></details></div></div>`;}).join('');}
+ return tags.map(t=>{const s=nfcTagHealth(t);return `<div class='tag-entry' data-tag-status='${s.key}'><div class='tag-icon v44-tag-icon' aria-hidden='true'><svg class='dorm-ui-icon' viewBox='0 0 24 24'><use href='#dicon-nfc'></use></svg></div><div class='tag-info'><strong>${esc(t.name)}</strong><span class='tag-scene'>${esc(sceneLabel(t.scene))} · ${badge(s.label,s.tone)}</span><small>${esc(s.detail)}</small></div><div class='tag-operations v41-tag-actions'><button class='primary' type='button' data-tag-write='${esc(t.id)}' ${nfc.writeController||nfc.controller?'disabled':''}>${s.key==='rewrite'?'重新写入':'写入标签'}</button><button class='secondary' type='button' data-tag-edit='${esc(t.id)}'>编辑</button><details class='v41-tag-more' data-tag-menu='${esc(t.id)}' ${expandedNfcTagMenu===t.id?'open':''}><summary aria-label='更多 ${esc(t.name)} 操作'>更多 ›</summary><div class='v41-tag-menu'><button class='secondary' type='button' data-tag-copy='${esc(t.id)}'>复制链接</button><button class='secondary' type='button' data-tag-test='${esc(t.id)}'>测试网页链接</button><button class='secondary danger-btn' type='button' data-tag-delete='${esc(t.id)}' aria-label='删除 ${esc(t.name)}'>删除标签</button></div></details></div></div>`;}).join('');}
 function nfcRecentActivity(){const entries=state.events.filter(e=>/NFC|标签/.test(e.text)).slice(-6).reverse();
  return `<section class='card nfc-guide' aria-label='NFC 本地操作记录'><div class='card-header'><span class='card-title'>最近操作记录</span>${badge('当前浏览器')}</div>${entries.length?`<ol class='nfc-activity'>${entries.map(e=>`<li><time>${esc(e.at.slice(0,16).replace('T',' '))}</time><span>${esc(e.text)}</span></li>`).join('')}</ol>`:`<p class='small muted'>暂无 NFC 操作记录。登记、改绑、写入和读取后会显示相应记录。</p>`}<p class='tiny muted'>这些是网站记录，不代表 Android 系统或第三方应用已执行动作。可在设置中导出备份。</p></section>`;}
 function nfcPage(){
@@ -964,8 +1024,8 @@ function nfcPage(){
  const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
  return `${titleBlock('','NFC 标签','',badge(state.nfcTags.length+' 枚'))}
  
- <section class="card v41-nfc-scan"><div class="v41-nfc-scan-head"><div><h2>读取 NFC 标签</h2><p class="small muted">手机浏览器前台授权后，将标签靠近手机背面。</p></div>${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</div>
-  <div class="v41-nfc-scan-actions"><button type="button" class="primary v41-scan-button" data-action="nfc-start" ${supported.ok&&!nfc.controller&&!nfc.writeController?'':'disabled'}>◉ 开始扫描</button><button class="secondary" type="button" data-action="nfc-stop" ${nfc.controller?'':'disabled'}>停止</button><button class="secondary" type="button" data-action="nfc-cancel-write" ${nfc.writeController?'':'disabled'}>取消写入</button></div>
+ <section class="card v41-nfc-scan"><div class="v41-nfc-scan-head"><div><h2>读取 NFC 标签</h2><p class="small muted">手机浏览器前台授权后，将标签靠近手机背面。</p></div><span class="v44-nfc-live" data-scan-phase="${esc(nfc.phase)}">${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</span></div>
+  <div class="v41-nfc-scan-actions"><button type="button" class="primary v41-scan-button" data-action="nfc-start" ${supported.ok&&!nfc.controller&&!nfc.writeController?'':'disabled'}><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-scan"></use></svg> 开始扫描</button><button class="secondary" type="button" data-action="nfc-stop" ${nfc.controller?'':'disabled'}>停止</button><button class="secondary" type="button" data-action="nfc-cancel-write" ${nfc.writeController?'':'disabled'}>取消写入</button></div>
   <div class="v41-scan-feedback" role="status" aria-live="polite">${esc(nfc.message)}</div>
   ${supported.ok?'':`<p class="small muted">当前环境：${esc(supported.reason)}</p>`}
  </section>
