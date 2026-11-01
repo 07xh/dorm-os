@@ -961,6 +961,7 @@ private fun ManagerScreen(
         if (navStyle == "glass") {
             TapFlowGlassNavigation(
                 selected = current,
+                pagerState = pagerState,
                 palette = p,
                 night = selectedTheme == "night",
                 onSelect = { navigateToTab(it) }
