@@ -4,7 +4,13 @@ import java.util.UUID
 
 /** Shared NDEF contract. The tag contains only an opaque script-binding UUID, never commands. */
 object NfcProfiles {
-    const val MIME = "application/vnd.dormos.ncwu"
+    const val MIME = "application/vnd.dormos.nfc-script"
+    const val LEGACY_MIME = "application/vnd.dormos.ncwu"
+    fun isSupportedMime(value: String) = value == MIME || value == LEGACY_MIME
+
+    fun bindingMayCommit(expectedTag: String?, scriptId: String?, returnedTag: String?, verified: Boolean) =
+        verified && validId(expectedTag) && validId(scriptId) &&
+            expectedTag == returnedTag
     private val uuidPattern = Regex("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
 
     fun makeId(): String = UUID.randomUUID().toString()

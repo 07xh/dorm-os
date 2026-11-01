@@ -71,6 +71,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
                 return
             }
             writeSceneId = id
+            setResult(RESULT_CANCELED)
             status.text = "DORM OS NFC 写卡\n\n请将你自己的可写 NFC 标签靠近手机背部。\n\n只写入场景编号，不写入账号、密码或 Shell 命令。"
             if (hasWindowFocus()) enableWriterReaderMode()
             return
@@ -132,17 +133,22 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         val result = try {
             writeSceneTag(tag, id)
         } catch (error: Exception) {
-            "写卡失败：" + (error.message ?: error.javaClass.simpleName)
+            WriteOutcome(false, "写卡失败：" + (error.message ?: error.javaClass.simpleName))
         }
         runOnUiThread {
             writeSceneId = null
+            if (result.verified) {
+                setResult(RESULT_OK, Intent().putExtra(EXTRA_SCENE_ID, id))
+            }
             try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
-            status.text = result
+            status.text = result.message
             finishSoon()
         }
     }
 
-    private fun writeSceneTag(tag: Tag, id: String): String {
+    private data class WriteOutcome(val verified: Boolean, val message: String)
+
+    private fun writeSceneTag(tag: Tag, id: String): WriteOutcome {
         val payload = NfcProfiles.payload(id)
         val record = NdefRecord.createMime(
             NfcProfiles.MIME,
@@ -153,27 +159,27 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         if (ndef != null) {
             ndef.connect()
             try {
-                if (!ndef.isWritable) return "标签只读，未写入。"
-                if (ndef.maxSize < message.toByteArray().size) return "标签容量不足，未写入。"
+                if (!ndef.isWritable) return WriteOutcome(false, "标签只读，未写入。")
+                if (ndef.maxSize < message.toByteArray().size) return WriteOutcome(false, "标签容量不足，未写入。")
                 ndef.writeNdefMessage(message)
                 val readBack = ndef.ndefMessage
                     ?.records
                     ?.firstOrNull { it.tnf == NdefRecord.TNF_MIME_MEDIA }
                     ?.payload
                     ?.let { String(it, StandardCharsets.UTF_8) }
-                if (readBack != payload) return "写入后回读不一致，请不要使用此标签。"
-                return "NFC 标签写入并回读成功。\n场景 ID：" + id
+                if (readBack != payload) return WriteOutcome(false, "写入后回读不一致，请不要使用此标签。")
+                return WriteOutcome(true, "NFC 标签写入并回读成功。\n场景 ID：" + id)
             } finally {
                 try { ndef.close() } catch (_: Exception) { }
             }
         }
 
         val formatable = NdefFormatable.get(tag)
-            ?: return "此标签不支持 NDEF 写入，未修改标签。"
+            ?: return WriteOutcome(false, "此标签不支持 NDEF 写入，未修改标签。")
         formatable.connect()
         try {
             formatable.format(message)
-            return "未格式化标签已格式化并写入场景编号。\n请再次碰卡验证。"
+            return WriteOutcome(false, "标签已格式化。请再次点击绑定、写卡并回读验证；此时尚未建立脚本绑定。")
         } finally {
             try { formatable.close() } catch (_: Exception) { }
         }
@@ -202,7 +208,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             ?.flatMap { it.records.asSequence() }
             ?.firstOrNull { record ->
                 record.tnf == NdefRecord.TNF_MIME_MEDIA &&
-                    String(record.type, StandardCharsets.US_ASCII) == NfcProfiles.MIME &&
+                    NfcProfiles.isSupportedMime(String(record.type, StandardCharsets.US_ASCII)) &&
                     record.payload.size in 1..80
             }
             ?.let { String(it.payload, StandardCharsets.UTF_8) }

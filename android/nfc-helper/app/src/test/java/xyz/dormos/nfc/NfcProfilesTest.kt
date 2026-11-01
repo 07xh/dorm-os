@@ -19,7 +19,20 @@ class NfcProfilesTest {
         assertFalse(NfcProfiles.validId(""))
     }
 
-    @Test fun mimeRemainsStableForExistingGenericTags() {
-        assertEquals("application/vnd.dormos.ncwu", NfcProfiles.MIME)
+    @Test fun failedOrCanceledWriteCannotCreateBinding() {
+        val tag = "123e4567-e89b-12d3-a456-426614174000"
+        val script = "123e4567-e89b-12d3-a456-426614174001"
+        assertTrue(NfcProfiles.bindingMayCommit(tag, script, tag, true))
+        assertFalse(NfcProfiles.bindingMayCommit(tag, script, tag, false))
+        assertFalse(NfcProfiles.bindingMayCommit(tag, script, script, true))
+        assertFalse(NfcProfiles.bindingMayCommit(tag, "../invalid", tag, true))
+        assertFalse(NfcProfiles.bindingMayCommit(null, script, tag, true))
+    }
+
+    @Test fun newMimeAndOldMimeAreBothRecognized() {
+        assertEquals("application/vnd.dormos.nfc-script", NfcProfiles.MIME)
+        assertTrue(NfcProfiles.isSupportedMime("application/vnd.dormos.nfc-script"))
+        assertTrue(NfcProfiles.isSupportedMime("application/vnd.dormos.ncwu"))
+        assertFalse(NfcProfiles.isSupportedMime("text/plain"))
     }
 }

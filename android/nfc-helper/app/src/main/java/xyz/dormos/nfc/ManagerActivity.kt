@@ -1,5 +1,6 @@
 package xyz.dormos.nfc
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.Build
@@ -61,10 +62,10 @@ class ManagerActivity : ComponentActivity() {
                         } else Toast.makeText(this, "仅 Android 16 或更新版本提供此入口", Toast.LENGTH_SHORT).show()
                     },
                     notify = { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() },
-                    writeTag = { uuid ->
-                        startActivity(Intent(this, MainActivity::class.java)
+                    tagWriteIntent = { uuid ->
+                        Intent(this, MainActivity::class.java)
                             .setAction(MainActivity.ACTION_WRITE_TAG)
-                            .putExtra(MainActivity.EXTRA_SCENE_ID, uuid))
+                            .putExtra(MainActivity.EXTRA_SCENE_ID, uuid)
                     },
                     importFile = { uri, callback ->
                         try {
@@ -104,7 +105,7 @@ private fun ManagerScreen(
     bridge: RootModuleClient,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
-    writeTag: (String) -> Unit,
+    tagWriteIntent: (String) -> Intent,
     importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -194,6 +195,24 @@ private fun ManagerScreen(
                     editing = true
                 } else notify("读取失败：" + pair.second.output)
             }
+        }
+    }
+
+    var pendingTag by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingScript by rememberSaveable { mutableStateOf<String?>(null) }
+    val writeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val tag = pendingTag
+        val script = pendingScript
+        pendingTag = null
+        pendingScript = null
+        if (tag != null && script != null &&
+            NfcProfiles.bindingMayCommit(
+                tag, script, result.data?.getStringExtra(MainActivity.EXTRA_SCENE_ID),
+                result.resultCode == Activity.RESULT_OK
+            )) {
+            runRoot({ bridge.bind(tag, script) }) { if (it.success) refresh() }
+        } else {
+            notify("写卡未通过验证，本次没有登记 NFC 绑定。")
         }
     }
 
@@ -447,8 +466,14 @@ private fun ManagerScreen(
                 TextButton(onClick = {
                     confirmBind = null
                     val tag = bridge.newId()
-                    runRoot({ bridge.bind(tag, item.id) }) {
-                        if (it.success) { writeTag(tag); refresh() }
+                    pendingTag = tag
+                    pendingScript = item.id
+                    try {
+                        writeLauncher.launch(tagWriteIntent(tag))
+                    } catch (error: Exception) {
+                        pendingTag = null
+                        pendingScript = null
+                        notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
                     }
                 }) { Text("绑定并写卡") }
             }, dismissButton = { TextButton(onClick = { confirmBind = null }) { Text("取消") } }
