@@ -33,5 +33,6 @@ class KsuRulesTest {
         assertFalse(KsuRules.succeeded(1, "DORM_KSU=ok\nACTION=wifi-status"))
         assertFalse(KsuRules.succeeded(0, "DORM_KSU=ok"))
         assertFalse(KsuRules.succeeded(0, "ACTION=arbitrary"))
+        assertFalse(KsuRules.succeeded(0, "DORM_KSU=ok\\nACTION=wifi-status\\n" + "x".repeat(2049)))
     }
 }
