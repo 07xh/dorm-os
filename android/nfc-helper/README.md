@@ -10,3 +10,11 @@ TapFlow（触序）是个人 Android NFC 场景与 Shell 脚本管理工具，�
 - Campus network: no dedicated feature. Import a personally reviewed `校园网.sh` like any other script.
 
 No KernelSU WebUI, Magisk/LSPosed layer, side-key hooks, boot-time service, polling loop or cloud account is included.
+
+## Independent installation (recommended)
+
+The APK and KernelSU ZIP are intentionally separate deliverables. Install the TapFlow APK through Android's normal package installer, then install the matching `dormos-nfc-ksu.zip` from the KernelSU app. Open TapFlow, grant its Root request in KernelSU, and use Refresh to verify that the module is detected.
+
+The module does not install, replace, or silently update the APK. This keeps app updates independent from Root-module updates, avoids package-signature/version conflicts during module installation, and ensures uninstalling or updating the module cannot unexpectedly replace the user-facing app. User scripts and bindings remain in the module's separate data directory.
+
+If Android refuses an in-place APK update because the signing certificate differs, export/backup the app's user data before replacing the old build. Do not uninstall the app just to update the KernelSU module.

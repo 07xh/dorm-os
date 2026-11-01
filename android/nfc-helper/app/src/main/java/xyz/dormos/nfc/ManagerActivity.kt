@@ -16,8 +16,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -32,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -153,6 +160,13 @@ class ManagerActivity : ComponentActivity() {
         if (::inlineNdefWriter.isInitialized) inlineNdefWriter.onPause()
         super.onPause()
     }
+}
+
+private fun tabNavigationOrder(tab: Int): Int = when (tab) {
+    0 -> 0 // Home
+    2 -> 1 // Scenes
+    1 -> 2 // Tools
+    else -> tab
 }
 
 @Composable
@@ -590,15 +604,26 @@ private fun ManagerScreen(
             targetState = current,
             modifier = Modifier.weight(1f),
             transitionSpec = {
-                // Short native movement preserves context, without a new page stack.
-                val forwards = targetState > initialState
-                (fadeIn(tween(160)) + slideInHorizontally(
-                    initialOffsetX = { if (forwards) it / 12 else -it / 12 },
-                    animationSpec = tween(180)
-                )) togetherWith (fadeOut(tween(105)) + slideOutHorizontally(
-                    targetOffsetX = { if (forwards) -it / 20 else it / 20 },
-                    animationSpec = tween(130)
-                ))
+                // Use visible order (Home → Scenes → Tools), not internal IDs (0, 2, 1).
+                val forwards = tabNavigationOrder(targetState) > tabNavigationOrder(initialState)
+                val easing = FastOutSlowInEasing
+                val enter = fadeIn(tween(220, easing = easing)) +
+                    slideInHorizontally(
+                        initialOffsetX = { width -> if (forwards) width / 5 else -width / 5 },
+                        animationSpec = tween(260, easing = easing)
+                    ) + scaleIn(
+                        initialScale = 0.985f,
+                        animationSpec = tween(260, easing = easing)
+                    )
+                val exit = fadeOut(tween(170, easing = easing)) +
+                    slideOutHorizontally(
+                        targetOffsetX = { width -> if (forwards) -width / 12 else width / 12 },
+                        animationSpec = tween(220, easing = easing)
+                    ) + scaleOut(
+                        targetScale = 0.995f,
+                        animationSpec = tween(220, easing = easing)
+                    )
+                enter togetherWith exit
             },
             label = "TapFlow navigation"
         ) { visibleTab ->
@@ -965,12 +990,31 @@ private fun ManagerScreen(
                     selected = current == entry.first,
                     onClick = { current = entry.first },
                     icon = {
+                        val selected = current == entry.first
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (selected) 1.08f else 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            label = "TapFlow selected navigation icon"
+                        )
                         V2NavIcon(
                             which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
-                            color = if (current == entry.first) p.blue else p.muted
+                            color = if (selected) p.blue else p.muted,
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            }
                         )
                     },
-                    label = { Text(entry.third, fontSize = 11.sp) },
+                    label = {
+                        Text(
+                            entry.third,
+                            fontSize = 11.sp,
+                            fontWeight = if (current == entry.first) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    },
                     alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = p.blue,
