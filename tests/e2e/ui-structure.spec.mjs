@@ -52,5 +52,8 @@ test('NFC first screen prioritizes scan and puts destructive actions behind More
  await expect(tag.locator('[data-tag-delete]')).toBeHidden();
  await tag.locator('.v41-tag-more summary').click();
  await expect(tag.locator('[data-tag-delete]')).toBeVisible();
+ // An unrelated render (for example weather loading) must not collapse an active menu.
+ await page.evaluate(()=>render());
+ await expect(tag.locator('[data-tag-delete]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
 });

@@ -15,7 +15,7 @@ test('homepage, navigation and responsive mobile viewport',async({page},info)=>{
   await page.goto('/#scenes');
   await expect(page.locator('#app')).toContainText('个人快捷场景');
   await page.goto('/#nfc');
-  await expect(page.locator('#app')).toContainText('我的 NFC 标签');
+  await expect(page.locator('#app h1')).toHaveText('NFC 标签');
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
   expect(caught).toEqual([]);
@@ -184,17 +184,22 @@ test('study deadline exports standards-shaped all-day iCalendar event',async({pa
 });
 
 
-test('V4 has one five-item navigation and all legacy features in My',async({page},info)=>{
+test('V4.1 has five navigation areas and keeps legacy management pages accessible',async({page},info)=>{
  await page.goto('/');
- const primary=['dashboard','timetable','tasks','scenes','profile'];
+ const primary=['dashboard','study','nfc','life','profile'];
  const nav=info.project.name==='mobile-chromium'?page.locator('.mobile-tabs'):page.locator('#sidebarNav');
  await expect(nav.locator('[data-page]')).toHaveCount(5);
  for(const id of primary)await expect(nav.locator('[data-page="'+id+'"]')).toHaveCount(1);
  await nav.locator('[data-page="profile"]').click();
  await expect(page.locator('#app')).toContainText('我的空间');
- for(const id of ['life','campus','nfc','devices','settings'])await expect(page.locator('#app .v4-profile-link[data-page="'+id+'"]')).toBeVisible();
- await page.locator('#app [data-page="nfc"]').click();
- await expect(page.locator('#app')).toContainText('我的 NFC 标签');
+ for(const id of ['devices','settings'])await expect(page.locator('#app .v4-profile-link[data-page="'+id+'"]')).toBeVisible();
+ await expect(page.locator('#app .v4-profile-link')).toHaveCount(2);
+ await nav.locator('[data-page="study"]').click();
+ await expect(page.locator('#app')).toContainText('学习中心');
+ await page.locator('#app [data-page="campus"]').first().click();
+ await expect(page).toHaveURL(/#campus$/);
+ await nav.locator('[data-page="nfc"]').click();
+ await expect(page.locator('#app h1')).toHaveText('NFC 标签');
 });
 
 test('V4 contextual add avoids duplicated task and schedule actions',async({page})=>{
