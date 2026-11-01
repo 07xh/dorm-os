@@ -38,6 +38,13 @@ class NcwuRulesTest {
         assertFalse(NcwuRules.isSingleTargetWifi("Ncwu", 2))
     }
 
+    @Test fun diagnosticsNeverBypassVpnOrMobileDefaultRoute() {
+        assertTrue(NcwuRules.mayProbeActiveNetwork(isWifiTransport = true, hasInternetCapability = true))
+        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = false, hasInternetCapability = true))
+        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = true, hasInternetCapability = false))
+        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = false, hasInternetCapability = false))
+    }
+
     @Test fun captiveRedirectIsNeverHttpsSuccess() {
         assertTrue(NcwuRules.isHttpsSuccess(200))
         assertTrue(NcwuRules.isHttpsSuccess(204))
