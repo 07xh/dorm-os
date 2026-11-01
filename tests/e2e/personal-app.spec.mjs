@@ -165,3 +165,19 @@ test('focus session survives reload, saves pause and allows switching duration',
   await expect(page.locator('#timerDisplay')).toHaveText('45:00');
   expect((await saved(page)).focusTimer.duration).toBe(45);
 });
+
+test('study deadline exports standards-shaped all-day iCalendar event',async({page})=>{
+ await page.goto('/#tasks');
+ await page.locator('[data-action="add-task"]').click();
+ await page.locator('#taskTitle').fill('高数作业截止');
+ await page.locator('#taskDue').fill('2026-12-31');
+ await page.locator('#modalForm [type="submit"]').click();
+ const [file]=await Promise.all([page.waitForEvent('download'),page.locator('[data-action="export-deadlines"]').click()]);
+ expect(file.suggestedFilename()).toMatch(/\.ics$/);
+ const ics=await readFile(await file.path(),'utf8');
+ expect(ics).toContain('BEGIN:VCALENDAR\r\n');
+ expect(ics).toContain('SUMMARY:学习任务：高数作业截止');
+ expect(ics).toContain('DTSTART;VALUE=DATE:20261231');
+ expect(ics).toContain('DTEND;VALUE=DATE:20270101');
+ expect(ics).toContain('END:VCALENDAR\r\n');
+});

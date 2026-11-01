@@ -220,3 +220,25 @@ assert.equal(focusState.focusTimer.duration,45);
 assert.equal(focusState.focusTimer.remaining,1700);
 assert.equal(ctx.safeState(base).focusTimer.duration,25);
 console.log('Focus timer persist, restoration, duration, expiry and legacy backup checks passed');
+
+const exportCtx={Date,TextEncoder,encodeURIComponent};
+runInNewContext(sourceBetween('function escapeIcsText(', 'function parseCSV('),exportCtx);
+const icsResult=exportCtx.exportPersonalCalendar({
+ tasks:[{id:'test-1',title:'高数,线性;复习\n新章',due:'2026-12-31',done:false},{id:'test2',title:'完成作业',due:'2026-11-01',done:true}],
+ reminders:[{id:'rem1',text:'取快递',due:'2026-02-28',done:false},{id:'rem2',text:'不存在的日期',due:'2026-02-30',done:false}],
+},new Date('2026-11-01T00:00:00Z'));
+assert.equal(icsResult.count,2);
+assert.ok(icsResult.content.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'));
+assert.ok(icsResult.content.includes('DTSTART;VALUE=DATE:20261231'));
+assert.ok(icsResult.content.includes('DTEND;VALUE=DATE:20270101'));
+assert.ok(icsResult.content.includes('DTEND;VALUE=DATE:20260301'));
+assert.ok(icsResult.content.includes('DTSTAMP:20261101T000000Z'));
+assert.ok(icsResult.content.includes('SUMMARY:学习任务：高数\\,线性\\;复习\\n新章'));
+assert.ok(!icsResult.content.includes('不存在的日期'));
+assert.ok(!icsResult.content.includes('完成作业'));
+for(const row of icsResult.content.split('\r\n')){
+ if(!row)continue;
+ assert.ok(new TextEncoder().encode(row).length<=75, 'RFC5545 octet fold limit exceeded');
+}
+assert.equal(exportCtx.exportPersonalCalendar({tasks:[],reminders:[]}).count,0);
+console.log('All-day iCalendar output, escaping, Unicode line folding and date rollover verified');
