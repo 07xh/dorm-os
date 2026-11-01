@@ -1,4 +1,4 @@
-# DORM OS NFC Actions · KernelSU 按需模块（验证原型）
+# DORM OS NFC Actions · KernelSU 按需模块（V0.8）
 
 此可选模块只提供一份已审核的 **wifi-status** 只读诊断 SH，不包含校园网密码登录。NFC 系统事件由 DORM OS 安卓 APK 接收，APK 在用户明确启用 Root 选项、KernelSU 允许权限后调用本模块固定入口。
 
