@@ -35,12 +35,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val canvas = Color(0xFFF5F7FC)
+private val canvas = Color(0xFFF7F8FC)
 private val panel = Color.White
 private val tint = Color(0xFFE2EBFF)
-private val ink = Color(0xFF19263D)
+private val ink = Color(0xFF17253B)
 private val dim = Color(0xFF718099)
-private val actionBlue = Color(0xFF3A61BE)
+private val actionBlue = Color(0xFF2865D8)
 private val paleBorder = Color(0xFFE7ECF5)
 
 class ManagerActivity : ComponentActivity() {
@@ -147,6 +147,7 @@ private fun ManagerScreen(
     var confirmBind by remember { mutableStateOf<PersonalScript?>(null) }
     var bindings by remember { mutableStateOf("") }
     var logs by remember { mutableStateOf("") }
+    var chooseSceneScript by remember { mutableStateOf(false) }
 
     fun refresh() {
         if (loading) return
@@ -267,74 +268,73 @@ private fun ManagerScreen(
     Column(Modifier.fillMaxSize().background(canvas)) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            Spacer(Modifier.height(26.dp))
-            Text("D O R M   /   N F C", color = actionBlue, fontSize = 11.sp,
-                fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(22.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    when (current) {
-                        0 -> "工作台"
-                        1 -> "脚本库"
-                        2 -> "NFC 标签"
-                        else -> "设置与记录"
-                    },
-                    color = ink, fontSize = 30.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when (current) {
+                            0 -> {
+                                val hour = java.util.Calendar.getInstance()
+                                    .get(java.util.Calendar.HOUR_OF_DAY)
+                                when (hour) {
+                                    in 5..11 -> "早上好"
+                                    in 12..17 -> "下午好"
+                                    else -> "晚上好"
+                                }
+                            }
+                            1 -> "实用工具"
+                            2 -> "我的场景"
+                            else -> "设备设置"
+                        },
+                        color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        when (current) {
+                            0 -> "DORM OS · NFC 助手"
+                            1 -> "脚本、标签读写集中管理"
+                            2 -> "按 NFC 标签组织你的 SH 自动化"
+                            else -> "权限、执行记录与配置"
+                        },
+                        color = dim, fontSize = 12.sp
+                    )
+                }
                 Surface(
-                    onClick = { refresh() },
-                    enabled = !loading,
-                    shape = RoundedCornerShape(14.dp),
-                    color = panel, border = BorderStroke(1.dp, paleBorder)
+                    onClick = { if (current == 3) current = 0 else current = 3 },
+                    color = Color.White,
+                    shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, paleBorder)
                 ) {
-                    Text(if (loading) "更新中" else "↻ 刷新",
-                        color = actionBlue, fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                    Text(if (current == 3) "‹" else "⚙",
+                        color = ink, fontSize = 23.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
+            val nfcEnabledNow =
+                NfcAdapter.getDefaultAdapter(androidx.compose.ui.platform.LocalContext.current)
+                    ?.isEnabled == true
+            val sceneBindings = bindings.lineSequence().mapNotNull { line ->
+                val parts = line.split('|')
+                if (parts.size != 2 || !NfcProfiles.validId(parts[0])) null
+                else parts[0] to (entries.firstOrNull { it.id == parts[1] }?.name ?: "未知脚本")
+            }.toList()
             when (current) {
                 0 -> {
-                    DashboardHero(
-                        installed = installed,
-                        enabled = receiverEnabled,
-                        detail = status,
-                        scripts = entries.size,
-                        bound = bindings.lineSequence().count { it.contains('|') },
-                        onOpenSettings = { current = 3 }
+                    V2Home(
+                        nfcOn = nfcEnabledNow,
+                        rootReady = installed,
+                        rootHint = status,
+                        scenes = sceneBindings,
+                        onScan = openTagInspector,
+                        onScenes = { current = 2 },
+                        onScene = { tagId, scriptName -> selectedTag = tagId to scriptName }
                     )
-                    Spacer(Modifier.height(26.dp))
-                    Text("快捷操作", color = ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        HomeAction("⌁", "读取标签", "检查标签信息",
-                            modifier = Modifier.weight(1f), onClick = openTagInspector)
-                        HomeAction("＋", "写入内容", "文本或网址",
-                            modifier = Modifier.weight(1f), onClick = openNdefWriter)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        HomeAction("▤", "管理 SH", "新建和绑定脚本",
-                            modifier = Modifier.weight(1f), onClick = { current = 1 })
-                        HomeAction("◎", "我的绑定", "查看 NFC 场景",
-                            modifier = Modifier.weight(1f), onClick = { current = 2 })
-                    }
-                    Spacer(Modifier.height(26.dp))
-                    Text("最近操作", color = ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(10.dp))
-                    Section(null) {
-                        Text(output.takeLast(380).ifBlank { "暂无执行记录" },
-                            color = dim, fontSize = 13.sp, maxLines = 5)
-                        Spacer(Modifier.height(6.dp))
-                        TextButton(onClick = { current = 3 }, contentPadding = PaddingValues(0.dp)) {
-                            Text("查看全部日志", color = actionBlue)
-                        }
-                    }
                 }
                 1 -> {
+                    V2ToolsHeading(onScan = openTagInspector, onWrite = openNdefWriter)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = query, onValueChange = { query = it },
@@ -461,63 +461,26 @@ private fun ManagerScreen(
                     }
                 }
                 2 -> {
-                    Surface(
-                        color = Color(0xFFEAF1FF), shape = RoundedCornerShape(21.dp),
-                        border = BorderStroke(1.dp, Color(0xFFD8E5FF))
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("NFC 自动化", color = ink, fontSize = 17.sp,
-                                        fontWeight = FontWeight.SemiBold)
-                                    Text(if (receiverEnabled) "已启用 · 碰卡执行已绑定的 SH"
-                                    else "未启用 · 标签不会触发 SH",
-                                        color = dim, fontSize = 12.sp)
-                                }
-                                Switch(checked = receiverEnabled, onCheckedChange = { on ->
-                                    runRoot({ bridge.enableNfc(on) }) {
-                                        if (it.success) { receiverEnabled = on; refresh() }
-                                    }
-                                }, enabled = installed && !loading)
+                    V2Scenes(
+                        scenes = sceneBindings,
+                        enabled = receiverEnabled,
+                        rootReady = installed,
+                        busy = loading,
+                        onEnable = { on ->
+                            runRoot({ bridge.enableNfc(on) }) {
+                                if (it.success) { receiverEnabled = on; refresh() }
                             }
-                        }
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Text("标签工具", color = ink, fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        HomeAction("⌁", "读取标签", "查看内容与容量",
-                            modifier = Modifier.weight(1f), onClick = openTagInspector)
-                        HomeAction("＋", "写入标签", "普通文本或网址",
-                            modifier = Modifier.weight(1f), onClick = openNdefWriter)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Text("绑定 SH 请到「脚本」页选中脚本，再点「绑 NFC」。",
-                        color = dim, fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 4.dp))
-                    Spacer(Modifier.height(22.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("已绑定的标签", color = ink, fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text("${bindings.lineSequence().count { it.contains('|') }} 个",
-                            color = dim, fontSize = 12.sp)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Section(null) {
-                        if (bindings.isBlank()) {
-                            Text("还没有绑定标签。保存 SH 后可直接在脚本卡片上绑定。",
-                                color = dim, fontSize = 13.sp)
-                        } else {
-                            bindings.lineSequence().filter { it.contains('|') }.forEach { line ->
-                                val parts = line.split('|')
-                                val name = entries.firstOrNull { it.id == parts.getOrNull(1) }?.name ?: "未知脚本"
-                                SummaryRow("⌁", name, "标签 ID · " + parts[0].take(12) + "…", "管理") {
-                                    selectedTag = parts[0] to name
-                                }
+                        },
+                        onNew = {
+                            if (entries.isEmpty()) {
+                                current = 1
+                                openEditor(null)
+                            } else {
+                                chooseSceneScript = true
                             }
-                        }
-                    }
+                        },
+                        onOpen = { tagId, scriptName -> selectedTag = tagId to scriptName }
+                    )
                 }
                 else -> {
                     Section("个人配置") {
@@ -549,28 +512,57 @@ private fun ManagerScreen(
             }
         }
         NavigationBar(
-            containerColor = panel,
+            containerColor = Color.White,
             tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            listOf("⌂" to "工作台", "▤" to "脚本", "⌁" to "NFC", "⚙" to "设置")
-                .forEachIndexed { i, item ->
-                    NavigationBarItem(
-                        selected = current == i,
-                        onClick = { current = i },
-                        icon = { Text(item.first, fontSize = 23.sp) },
-                        label = { Text(item.second, fontSize = 11.sp) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = actionBlue,
-                            selectedTextColor = actionBlue,
-                            indicatorColor = tint,
-                            unselectedIconColor = dim,
-                            unselectedTextColor = dim
-                        )
+            listOf(
+                Triple(0, "⌂", "首页"),
+                Triple(2, "▦", "场景"),
+                Triple(1, "⚒", "工具")
+            ).forEach { entry ->
+                NavigationBarItem(
+                    selected = current == entry.first,
+                    onClick = { current = entry.first },
+                    icon = { Text(entry.second, fontSize = 23.sp) },
+                    label = { Text(entry.third, fontSize = 11.sp) },
+                    alwaysShowLabel = true,
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = actionBlue,
+                        selectedTextColor = actionBlue,
+                        indicatorColor = Color(0xFFE9F0FF),
+                        unselectedIconColor = dim,
+                        unselectedTextColor = dim
                     )
-                }
+                )
+            }
         }
+    }
+
+    if (chooseSceneScript) {
+        AlertDialog(
+            onDismissRequest = { chooseSceneScript = false },
+            title = { Text("选择要绑定的 SH") },
+            text = {
+                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                    Text("新场景将写入随机 NFC ID，脚本保存在 KernelSU 保护目录。",
+                        color = dim, fontSize = 12.sp)
+                    Spacer(Modifier.height(12.dp))
+                    entries.forEach { item ->
+                        TextButton(onClick = {
+                            chooseSceneScript = false
+                            confirmBind = item
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(item.name, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Start)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { chooseSceneScript = false }) { Text("取消") }
+            }
+        )
     }
 
     if (editing) {
