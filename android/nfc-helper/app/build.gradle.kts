@@ -20,8 +20,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.4.0-preview"
+        versionCode = 14
+        versionName = "1.5.0-preview"
     }
     signingConfigs {
         if (hasReleaseSigning) {

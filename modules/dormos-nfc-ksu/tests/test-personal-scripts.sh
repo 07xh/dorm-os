@@ -49,4 +49,21 @@ if sh "$R" --nfc "$TAG" >/dev/null 2>&1; then
 fi
 sh "$R" --script-delete "$ID" | grep -q DORM_SCRIPT_DELETED
 [[ -z "$(sh "$R" --script-list)" ]]
+# Concurrent NFC/app triggers must never run two Root scripts at once.
+BUSY_ID=123e4567-e89b-12d3-a456-426614174002
+BUSY_NAME=$(printf '并发测试.sh' | base64 -w0)
+BUSY_BODY=$(printf '#!/system/bin/sh\nsleep 3\necho slow-script-finished\n' | base64 -w0)
+sh "$R" --script-save "$BUSY_ID" "$BUSY_NAME" "$BUSY_BODY" | grep -q DORM_SCRIPT_SAVED
+sh "$R" --script-run "$BUSY_ID" > "$TMP/first-run.out" 2>&1 &
+FIRST_PID=$!
+sleep 0.25
+if sh "$R" --script-run "$BUSY_ID" > "$TMP/second-run.out" 2>&1; then
+  echo "Concurrent Root script execution was not blocked" >&2
+  exit 1
+fi
+grep -q 'DORM_SCRIPT_ERROR=script_busy' "$TMP/second-run.out"
+wait "$FIRST_PID"
+grep -q 'DORM_SCRIPT_RESULT=success' "$TMP/first-run.out"
+sh "$R" --script-delete "$BUSY_ID" | grep -q DORM_SCRIPT_DELETED
+
 echo "personal script manager tests passed"

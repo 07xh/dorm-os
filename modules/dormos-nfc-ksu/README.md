@@ -42,3 +42,8 @@ The native app writes a new NDEF tag and verifies the read-back **before** it re
 - Added unit tests for MIME/payload validation and verbose-output success-marker handling.
 
 This hardens forged-Intent handling but does not make NFC tags secret or unclonable. A copied tag still acts as a bearer trigger for its bound script.
+
+
+## V1.5 concurrent Root execution guard
+
+The module now uses an atomic per-device run lock so an NFC tap and an in-app Run action cannot launch two registered Root scripts at the same time. A second request receives `DORM_SCRIPT_ERROR=script_busy` and does not run. The lock records both the manager PID and active timeout PID, cleans up on normal exit/signals, and can recover a stale lock after both owners have exited. Log rotation uses unique temporary files. The personal-script test suite includes a concurrent-run positive/negative case.

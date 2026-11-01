@@ -12,12 +12,13 @@ fi
 SCRIPTS="$BASE/scripts"
 BINDINGS="$BASE/script_bindings.tsv"
 LOG="$BASE/script_events.log"
+LOCK="$BASE/script-run.lock"
 
 die() { echo "DORM_SCRIPT_ERROR=$1"; exit "${2:-1}"; }
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 b64() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; }
 
-[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$LOG" ] || die unsafe_dir 70
+[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$LOG" ] && [ ! -L "$LOCK" ] || die unsafe_dir 70
 mkdir -p "$SCRIPTS"
 chmod 700 "$BASE" "$SCRIPTS" 2>/dev/null || :
 
@@ -29,9 +30,42 @@ item() {
 }
 record() {
   printf '%s|%s|%s\n' "$(date +%s)" "$1" "$2" >> "$LOG"
-  tail -n 80 "$LOG" > "$LOG.tmp"
-  mv "$LOG.tmp" "$LOG"
-  chmod 600 "$LOG" 2>/dev/null || :
+  tmp="$LOG.tmp.$"
+  tail -n 80 "$LOG" > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$LOG"
+}
+RUNNER_PID=""
+lock_pid_alive() {
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null
+}
+write_lock_owner() {
+  printf '%s %s\n' "$" "${RUNNER_PID:-}" > "$LOCK/pid"
+  chmod 600 "$LOCK/pid"
+}
+cleanup_run_lock() {
+  if [ -n "$RUNNER_PID" ]; then
+    kill "$RUNNER_PID" 2>/dev/null || :
+    wait "$RUNNER_PID" 2>/dev/null || :
+  fi
+  rm -rf "$LOCK"
+}
+acquire_run_lock() {
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    [ -s "$LOCK/pid" ] || die script_busy 75
+    owner_shell=""
+    owner_runner=""
+    IFS=' ' read -r owner_shell owner_runner < "$LOCK/pid" 2>/dev/null || :
+    if lock_pid_alive "$owner_shell" || lock_pid_alive "$owner_runner"; then
+      die script_busy 75
+    fi
+    rm -rf "$LOCK"
+    mkdir "$LOCK" 2>/dev/null || die script_busy 75
+  fi
+  write_lock_owner
+  trap 'cleanup_run_lock' EXIT
+  trap 'exit 143' HUP INT TERM
 }
 
 case "${1:-}" in
@@ -106,11 +140,17 @@ case "${1:-}" in
     [ -f "$FILE" ] || die not_found 66
     command -v timeout >/dev/null 2>&1 || die timeout_unavailable 69
     "$SH" -n "$FILE" || die syntax_error 65
-    if timeout 20 "$SH" "$FILE"; then
+    acquire_run_lock
+    timeout 20 "$SH" "$FILE" &
+    RUNNER_PID=$!
+    write_lock_owner
+    if wait "$RUNNER_PID"; then
+      RUNNER_PID=""
       record "$2" ok
       echo "DORM_SCRIPT_RESULT=success"
     else
       code=$?
+      RUNNER_PID=""
       record "$2" failed
       echo "DORM_SCRIPT_RESULT=failed"
       exit "$code"
@@ -156,8 +196,10 @@ case "${1:-}" in
     [ -f "$LOG" ] && tail -n 80 "$LOG" || :
     ;;
   --clear-logs)
-    : > "$LOG"
-    chmod 600 "$LOG" 2>/dev/null || :
+    tmp="$LOG.clear.$"
+    : > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$LOG"
     echo "DORM_SCRIPT_LOGS=CLEARED"
     ;;
   *)

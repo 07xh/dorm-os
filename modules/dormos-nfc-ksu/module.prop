@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
 name=DORM NFC Manager
-version=1.4.0-preview
-versionCode=15
+version=1.5.0-preview
+versionCode=16
 author=07xh / DORM OS
 description=Personal KernelSU SH library and one-shot NFC-to-script dispatcher; no WebUI or daemon
