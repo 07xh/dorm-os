@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,17 +33,48 @@ import androidx.compose.ui.unit.sp
  * No mock scenes, no side-button features: all states/scene names are from the device.
  * The preview's simulated NFC button is replaced by Android's real NFC reader.
  */
-private val v2Ink = Color(0xFF17253B)
-private val v2Blue = Color(0xFF2865D8)
-private val v2Muted = Color(0xFF8490A2)
-private val v2Line = Color(0xFFE6EAF1)
-private val v2Background = Color(0xFFF7F8FC)
-private val v2Dark = Color(0xFF142D53)
+internal data class V2Palette(
+    val ink: Color,
+    val blue: Color,
+    val muted: Color,
+    val line: Color,
+    val background: Color,
+    val surface: Color,
+    val dark: Color,
+    val accentLow: Color,
+    val iconBackground: Color
+)
+
+internal fun v2Palette(theme: String): V2Palette = when (theme) {
+    "night" -> V2Palette(
+        ink = Color(0xFFE9F1FC), blue = Color(0xFF77A6FF),
+        muted = Color(0xFF96ABC4), line = Color(0xFF2B3D53),
+        background = Color(0xFF101B2A), surface = Color(0xFF19283C),
+        dark = Color(0xFF244E95), accentLow = Color(0xFF273D60),
+        iconBackground = Color(0xFF2B4160)
+    )
+    "editorial" -> V2Palette(
+        ink = Color(0xFF222B22), blue = Color(0xFF426F5B),
+        muted = Color(0xFF8A938A), line = Color(0xFFE8ECE5),
+        background = Color(0xFFF7F7F2), surface = Color.White,
+        dark = Color(0xFF244A3C), accentLow = Color(0xFFE7F1E8),
+        iconBackground = Color(0xFFEAF3EB)
+    )
+    else -> V2Palette(
+        ink = Color(0xFF17253B), blue = Color(0xFF2865D8),
+        muted = Color(0xFF8490A2), line = Color(0xFFE6EAF1),
+        background = Color(0xFFF7F8FC), surface = Color.White,
+        dark = Color(0xFF142D53), accentLow = Color(0xFFE8EFFF),
+        iconBackground = Color(0xFFF0F4FB)
+    )
+}
+
+internal val LocalV2Palette = staticCompositionLocalOf { v2Palette("default") }
 
 @Composable
 internal fun V2NfcMark(
     modifier: Modifier = Modifier,
-    color: Color = v2Blue
+    color: Color = Color(0xFF2865D8)
 ) {
     Canvas(modifier) {
         val w = size.width
@@ -72,10 +104,11 @@ internal fun V2Home(
     onScenes: () -> Unit,
     onScene: (String, String) -> Unit
 ) {
+    val p = LocalV2Palette.current
     Box(
         Modifier.fillMaxWidth().heightIn(min = 245.dp)
             .clip(RoundedCornerShape(27.dp))
-            .background(Brush.horizontalGradient(listOf(v2Dark, Color(0xFF1A3A69))))
+            .background(Brush.horizontalGradient(listOf(p.dark, p.dark.copy(alpha = 0.92f))))
     ) {
         Box(
             Modifier.align(Alignment.BottomEnd).padding(end = 25.dp, bottom = 64.dp)
@@ -120,15 +153,15 @@ internal fun V2Home(
     Spacer(Modifier.height(24.dp))
     V2SectionHeading("设备状态")
     Spacer(Modifier.height(11.dp))
-    Surface(shape = RoundedCornerShape(19.dp), color = Color.White,
-        border = BorderStroke(1.dp, v2Line)) {
+    Surface(shape = RoundedCornerShape(19.dp), color = p.surface,
+        border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
             V2StatusRow(
                 symbol = "⌁", title = "NFC",
                 detail = if (nfcOn) "系统 NFC 已开启" else "请在系统设置中开启 NFC",
                 good = nfcOn, state = if (nfcOn) "已开启" else "未开启"
             )
-            HorizontalDivider(color = v2Line)
+            HorizontalDivider(color = p.line)
             V2StatusRow(
                 symbol = "◇", title = "KernelSU",
                 detail = if (rootReady) "已连接 DORM SH 执行模块"
@@ -139,30 +172,30 @@ internal fun V2Home(
     }
     Spacer(Modifier.height(24.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("常用场景", color = v2Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+        Text("常用场景", color = p.ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f))
         TextButton(onClick = onScenes, contentPadding = PaddingValues(0.dp)) {
-            Text("查看全部  ›", color = v2Blue, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+            Text("查看全部  ›", color = p.blue, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
         }
     }
     Spacer(Modifier.height(10.dp))
-    Surface(shape = RoundedCornerShape(19.dp), color = Color.White,
-        border = BorderStroke(1.dp, v2Line)) {
+    Surface(shape = RoundedCornerShape(19.dp), color = p.surface,
+        border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
             if (scenes.isEmpty()) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
-                    Text("暂无已绑定的 NFC 场景", color = v2Ink,
+                    Text("暂无已绑定的 NFC 场景", color = p.ink,
                         fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     Spacer(Modifier.height(5.dp))
                     Text("到「工具」创建 SH，再在脚本卡片中选择「绑 NFC」。",
-                        color = v2Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                        color = p.muted, fontSize = 12.sp, lineHeight = 18.sp)
                     TextButton(onClick = onScenes, contentPadding = PaddingValues(0.dp)) {
-                        Text("查看场景  ›", color = v2Blue, fontSize = 12.sp)
+                        Text("查看场景  ›", color = p.blue, fontSize = 12.sp)
                     }
                 }
             } else {
                 scenes.take(3).forEachIndexed { index, scene ->
-                    if (index != 0) HorizontalDivider(color = v2Line)
+                    if (index != 0) HorizontalDivider(color = p.line)
                     V2SceneRow(scene.second, "NFC 标签 · ${scene.third}", onClick = {
                         onScene(scene.first, scene.third)
                     })
@@ -175,28 +208,29 @@ internal fun V2Home(
 
 @Composable
 private fun V2StatusRow(symbol: String, title: String, detail: String, good: Boolean, state: String) {
+    val p = LocalV2Palette.current
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(39.dp).clip(RoundedCornerShape(13.dp))
-                .background(Color(0xFFF0F5FF)),
+                .background(p.iconBackground),
             contentAlignment = Alignment.Center
         ) {
-            Text(symbol, color = v2Blue, fontSize = 22.sp)
+            Text(symbol, color = p.blue, fontSize = 22.sp)
         }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.SemiBold, color = v2Ink, fontSize = 14.sp)
-            Text(detail, color = v2Muted, fontSize = 11.sp, maxLines = 2,
+            Text(title, fontWeight = FontWeight.SemiBold, color = p.ink, fontSize = 14.sp)
+            Text(detail, color = p.muted, fontSize = 11.sp, maxLines = 2,
                 overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
         }
         Spacer(Modifier.width(7.dp))
         Surface(
-            color = if (good) Color(0xFFE7F6F0) else Color(0xFFF0F2F6),
+            color = if (good) if (p.surface == Color.White) Color(0xFFE7F6F0) else Color(0xFF194C45) else p.accentLow,
             shape = RoundedCornerShape(11.dp)
         ) {
             Text(state, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                color = if (good) Color(0xFF168966) else Color(0xFF8A95A5),
+                color = if (good) if (p.surface == Color.White) Color(0xFF168966) else Color(0xFFA3E1CB) else p.muted,
                 fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -204,28 +238,30 @@ private fun V2StatusRow(symbol: String, title: String, detail: String, good: Boo
 
 @Composable
 internal fun V2SectionHeading(title: String) {
-    Text(title, color = v2Ink, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+    val p = LocalV2Palette.current
+    Text(title, color = p.ink, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
 }
 
 @Composable
 internal fun V2SceneRow(title: String, detail: String, onClick: () -> Unit) {
+    val p = LocalV2Palette.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 70.dp)
         .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFF0F4FB)), contentAlignment = Alignment.Center) {
-            V2NfcMark(Modifier.size(25.dp), v2Blue)
+            .background(p.iconBackground), contentAlignment = Alignment.Center) {
+            V2NfcMark(Modifier.size(25.dp), p.blue)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = v2Ink, fontSize = 14.sp,
+            Text(title, color = p.ink, fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
-            Text(detail, color = v2Muted, fontSize = 11.sp, maxLines = 1,
+            Text(detail, color = p.muted, fontSize = 11.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
-        Text("›", color = v2Muted, fontSize = 24.sp)
+        Text("›", color = p.muted, fontSize = 24.sp)
     }
 }
 
@@ -242,8 +278,9 @@ internal fun V2Scenes(
     onNew: () -> Unit,
     onOpen: (PersonalScene, String) -> Unit
 ) {
+    val p = LocalV2Palette.current
     Text("已创建 ${scenes.size} 个场景 · 启用 ${scenes.count { it.enabled }} 个",
-        color = v2Muted, fontSize = 13.sp)
+        color = p.muted, fontSize = 13.sp)
     Spacer(Modifier.height(14.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf("全部", "已启用", "已停用").forEach { option ->
@@ -255,18 +292,18 @@ internal fun V2Scenes(
         }
     }
     Spacer(Modifier.height(13.dp))
-    Surface(color = Color.White, shape = RoundedCornerShape(19.dp),
-        border = BorderStroke(1.dp, v2Line)) {
+    Surface(color = p.surface, shape = RoundedCornerShape(19.dp),
+        border = BorderStroke(1.dp, p.line)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text("NFC 自动触发", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                    color = v2Ink)
+                    color = p.ink)
                 Text(if (enabled) "总开关已开启 · 仍受单个场景状态控制"
                     else "总开关已关闭 · 所有标签均不会执行脚本",
-                    color = v2Muted, fontSize = 11.sp)
+                    color = p.muted, fontSize = 11.sp)
             }
             Switch(checked = enabled, onCheckedChange = onEnable,
                 enabled = rootReady && !busy)
@@ -280,19 +317,19 @@ internal fun V2Scenes(
             else -> true
         }
     }
-    Surface(color = Color.White, shape = RoundedCornerShape(19.dp),
-        border = BorderStroke(1.dp, v2Line)) {
+    Surface(color = p.surface, shape = RoundedCornerShape(19.dp),
+        border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             if (visible.isEmpty()) {
                 Text(if (scenes.isEmpty()) "还没有绑定场景" else "没有符合条件的场景",
-                    color = v2Ink, fontSize = 14.sp,
+                    color = p.ink, fontSize = 14.sp,
                     modifier = Modifier.padding(top = 19.dp))
                 Text("创建场景后，选择一个本机 SH 脚本并写入自己的 NFC 标签。",
-                    color = v2Muted, fontSize = 12.sp,
+                    color = p.muted, fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp, bottom = 17.dp))
             } else {
                 visible.forEachIndexed { index, scene ->
-                    if (index > 0) HorizontalDivider(color = v2Line)
+                    if (index > 0) HorizontalDivider(color = p.line)
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             onOpen(scene, scriptNames[scene.scriptId] ?: "未知脚本")
@@ -300,30 +337,30 @@ internal fun V2Scenes(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFF0F4FB)), contentAlignment = Alignment.Center) {
-                            V2NfcMark(Modifier.size(25.dp), v2Blue)
+                            .background(p.iconBackground), contentAlignment = Alignment.Center) {
+                            V2NfcMark(Modifier.size(25.dp), p.blue)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(scene.name, color = v2Ink, fontSize = 14.sp,
+                            Text(scene.name, color = p.ink, fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(4.dp))
                             Text(scriptNames[scene.scriptId] ?: "未知脚本",
-                                color = v2Muted, fontSize = 11.sp, maxLines = 1,
+                                color = p.muted, fontSize = 11.sp, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
                         }
                         Surface(
-                            color = if (scene.enabled) Color(0xFFE7F6F0) else Color(0xFFF0F2F6),
+                            color = if (scene.enabled) if (p.surface == Color.White) Color(0xFFE7F6F0) else Color(0xFF194C45) else p.accentLow,
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(if (scene.enabled) "启用" else "停用",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                color = if (scene.enabled) Color(0xFF168966) else v2Muted,
+                                color = if (scene.enabled) if (p.surface == Color.White) Color(0xFF168966) else Color(0xFFA3E1CB) else p.muted,
                                 fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Spacer(Modifier.width(5.dp))
-                        Text("›", color = v2Muted, fontSize = 23.sp)
+                        Text("›", color = p.muted, fontSize = 23.sp)
                     }
                 }
             }
@@ -334,28 +371,29 @@ internal fun V2Scenes(
         onClick = onNew,
         modifier = Modifier.fillMaxWidth().height(54.dp),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color(0xFFBAD0F0)),
+        border = BorderStroke(1.dp, p.line),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color(0xFFF0F5FF), contentColor = v2Blue
+            containerColor = p.accentLow, contentColor = p.blue
         )
     ) {
         Text("＋  新建 NFC 场景", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
     Spacer(Modifier.height(20.dp))
     Text("场景由 NFC 标签与本机 SH 脚本组成。新增自动化只需编辑脚本，无须修改 APK。",
-        color = v2Muted, fontSize = 12.sp, lineHeight = 19.sp)
+        color = p.muted, fontSize = 12.sp, lineHeight = 19.sp)
     Spacer(Modifier.height(22.dp))
 }
 
 @Composable
 internal fun V2ToolsHeading(onScan: () -> Unit, onWrite: () -> Unit) {
+    val p = LocalV2Palette.current
     V2SectionHeading("标签工具")
     Spacer(Modifier.height(12.dp))
-    Surface(color = Color.White, shape = RoundedCornerShape(19.dp),
-        border = BorderStroke(1.dp, v2Line)) {
+    Surface(color = p.surface, shape = RoundedCornerShape(19.dp),
+        border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             V2SceneRow("读取 NFC 标签", "查看文本、链接、容量与技术类型", onClick = onScan)
-            HorizontalDivider(color = v2Line)
+            HorizontalDivider(color = p.line)
             V2SceneRow("写入普通标签", "仅写文本或网址，不触发 Root", onClick = onWrite)
         }
     }
