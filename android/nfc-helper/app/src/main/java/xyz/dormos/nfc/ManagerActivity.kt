@@ -318,7 +318,14 @@ private fun ManagerScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
-    Column(Modifier.fillMaxSize().background(canvas)) {
+    val pageCanvas = when (selectedTheme) {
+        "night" -> Color(0xFF182235)
+        "editorial" -> Color(0xFFF1EDE5)
+        else -> canvas
+    }
+    val headerInk = if (selectedTheme == "night") Color(0xFFEAF0F8) else ink
+    val headerMuted = if (selectedTheme == "night") Color(0xFFB2BED0) else dim
+    Column(Modifier.fillMaxSize().background(pageCanvas)) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
@@ -341,7 +348,7 @@ private fun ManagerScreen(
                             2 -> "我的场景"
                             else -> "我的场景"
                         },
-                        color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold
+                        color = headerInk, fontSize = 28.sp, fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -351,7 +358,7 @@ private fun ManagerScreen(
                             2 -> "按 NFC 标签组织你的 SH 自动化"
                             else -> "按触发方式组织你的 NFC 自动化"
                         },
-                        color = dim, fontSize = 12.sp
+                        color = headerMuted, fontSize = 12.sp
                     )
                 }
                 Surface(
@@ -440,11 +447,6 @@ private fun ManagerScreen(
                                 }
                                 Spacer(Modifier.height(8.dp))
                             }
-                        OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
-                            enabled = !loading, modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp)
-                        ) { Text("↓ 导入本机 .sh 脚本") }
                     }
                     Spacer(Modifier.height(10.dp))
                     val shown = entries.filter { item ->
@@ -473,14 +475,7 @@ private fun ManagerScreen(
                                     if (index > 0) HorizontalDivider(color = paleBorder)
                                     Row(
                                         Modifier.fillMaxWidth().heightIn(min = 72.dp)
-                                            .clickable {
-                                                previewScript = item
-                                                previewContent = "正在读取…"
-                                                scope.launch {
-                                                    val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
-                                                    previewContent = data.first ?: data.second.output
-                                                }
-                                            }.padding(vertical = 10.dp),
+                                            .padding(vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(
@@ -568,8 +563,11 @@ private fun ManagerScreen(
                             showThemeSheet = true
                         }
                         HorizontalDivider(color = canvas)
-                        SummaryRow("◇", "KernelSU 状态", "Root 授权与 NFC 触发权限", if (installed) "正常" else "检查") {
+                        SummaryRow("◇", "KernelSU 状态", "检查 Root 模块与授权", if (installed) "正常" else "检查") {
                             refresh()
+                        }
+                        HorizontalDivider(color = canvas)
+                        SummaryRow("⌁", "NFC 系统设置", "管理 Android NFC 开关与权限", "›") {
                             openNfcPreferences()
                         }
                     }
