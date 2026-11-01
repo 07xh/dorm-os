@@ -1,5 +1,8 @@
 package xyz.dormos.nfc
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -12,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +30,13 @@ internal fun V2BottomSheet(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val p = LocalV2Palette.current
+    var appeared by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "TapFlow bottom sheet entrance"
+    )
+    LaunchedEffect(Unit) { appeared = true }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -36,11 +47,18 @@ internal fun V2BottomSheet(
         ) {
             // A dedicated scrim handles outside taps without intercepting sheet controls.
             Box(Modifier.fillMaxSize()
+                .graphicsLayer { alpha = progress }
                 .background(Color(0x660D1728))
                 .clickable(onClick = onDismiss))
             Surface(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp)
+                    .graphicsLayer {
+                        // Draw-layer only, so long script/NFC forms are not remeasured.
+                        translationY = size.height * (1f - progress) * 0.22f
+                        alpha = 0.94f + 0.06f * progress
+                    },
                 color = p.surface,
+                shadowElevation = 14.dp,
                 shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
             ) {
                 Column(

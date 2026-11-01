@@ -11,6 +11,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -570,9 +577,25 @@ private fun ManagerScreen(
     CompositionLocalProvider(LocalV2Palette provides p) {
     MaterialTheme(colorScheme = scheme) {
     Column(Modifier.fillMaxSize().background(pageCanvas)) {
+        AnimatedContent(
+            targetState = current,
+            modifier = Modifier.weight(1f),
+            transitionSpec = {
+                // Short native movement preserves context, without a new page stack.
+                val forwards = targetState > initialState
+                (fadeIn(tween(160)) + slideInHorizontally(
+                    initialOffsetX = { if (forwards) it / 12 else -it / 12 },
+                    animationSpec = tween(180)
+                )) togetherWith (fadeOut(tween(105)) + slideOutHorizontally(
+                    targetOffsetX = { if (forwards) -it / 20 else it / 20 },
+                    animationSpec = tween(130)
+                ))
+            },
+            label = "TapFlow navigation"
+        ) { visibleTab ->
         Column(
-            Modifier.weight(1f)
-                .verticalScroll(when (current) {
+            Modifier.fillMaxSize()
+                .verticalScroll(when (visibleTab) {
                     0 -> homeScroll
                     2 -> scenesScroll
                     else -> toolsScroll
@@ -583,7 +606,7 @@ private fun ManagerScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        when (current) {
+                        when (visibleTab) {
                             0 -> {
                                 val hour = java.util.Calendar.getInstance()
                                     .get(java.util.Calendar.HOUR_OF_DAY)
@@ -601,7 +624,7 @@ private fun ManagerScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        when (current) {
+                        when (visibleTab) {
                             0 -> stringResource(R.string.app_brand)
                             1 -> "脚本、标签读写集中管理"
                             2 -> "按 NFC 标签组织你的 SH 自动化"
@@ -612,7 +635,7 @@ private fun ManagerScreen(
                 }
                 Surface(
                     onClick = {
-                        when (current) {
+                        when (visibleTab) {
                             0 -> showThemeSheet = true
                             1 -> showLogsSheet = true
                             2 -> beginSceneCreation()
@@ -623,7 +646,7 @@ private fun ManagerScreen(
                     border = BorderStroke(1.dp, p.line)
                 ) {
                     Box(Modifier.size(43.dp), contentAlignment = Alignment.Center) {
-                        when (current) {
+                        when (visibleTab) {
                             0 -> V2SettingsIcon(p.ink)
                             1 -> Text("☷", color = p.ink, fontSize = 22.sp)
                             else -> Text("+", color = p.ink, fontSize = 25.sp)
@@ -635,9 +658,13 @@ private fun ManagerScreen(
             val nfcEnabledNow =
                 NfcAdapter.getDefaultAdapter(androidx.compose.ui.platform.LocalContext.current)
                     ?.isEnabled == true
-            val scriptNames = entries.associate { it.id to it.name }
-            val homeScenes = scenes.filter { it.enabled }.map { scene -> Triple(scene.tagId, scene.name, scriptNames[scene.scriptId] ?: "未知脚本") }
-            when (current) {
+            val scriptNames = remember(entries) { entries.associate { it.id to it.name } }
+            val homeScenes = remember(scenes, scriptNames) {
+                scenes.filter { it.enabled }.map { scene ->
+                    Triple(scene.tagId, scene.name, scriptNames[scene.scriptId] ?: "未知脚本")
+                }
+            }
+            when (visibleTab) {
                 0 -> {
                     V2Home(
                         nfcOn = nfcEnabledNow,
@@ -766,11 +793,14 @@ private fun ManagerScreen(
                             }
                     }
                     Spacer(Modifier.height(10.dp))
-                    val shown = entries.filter { item ->
-                        val location = scriptLocations[item.id] ?: "root"
-                        (!showFolders || query.isNotBlank() || location == activeFolder) &&
-                            (item.name.contains(query, ignoreCase = true) ||
-                             (folders.firstOrNull { it.id == location }?.name?.contains(query, ignoreCase = true) == true))
+                    val shown = remember(entries, scriptLocations, showFolders, query, activeFolder, folders) {
+                        val folderNames = folders.associate { it.id to it.name }
+                        entries.filter { item ->
+                            val location = scriptLocations[item.id] ?: "root"
+                            (!showFolders || query.isNotBlank() || location == activeFolder) &&
+                                (item.name.contains(query, ignoreCase = true) ||
+                                 folderNames[location]?.contains(query, ignoreCase = true) == true)
+                        }
                     }
                     Surface(
                         color = p.surface,
@@ -910,6 +940,7 @@ private fun ManagerScreen(
                     )
                 }
             }
+        }
         }
         NavigationBar(
             containerColor = p.surface,
