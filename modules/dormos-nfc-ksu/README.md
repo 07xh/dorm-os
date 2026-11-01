@@ -60,3 +60,8 @@ The module now uses an atomic per-device run lock so an NFC tap and an in-app Ru
 ## V1.7 NFC tag rebinding cleanup
 
 When overwriting a previously DORM-managed NDEF tag, the app reads and validates the old DORM UUID from the physical tag before writing. It writes and verifies the new UUID, commits the new Root binding, and then removes the old UUID mapping. Unrelated NDEF records are ignored. If old-binding cleanup fails, the app reports that the new binding was created but cleanup needs attention; it does not silently claim a clean replacement.
+
+
+## V1.8 stale run-lock recovery
+
+Stale run-lock recovery now atomically renames the old lock directory before creating a replacement. This closes a race where two simultaneous requests could both observe a stale lock and both delete/recreate it. The shell test now verifies stale-owner recovery in addition to rejecting a second active Root run.

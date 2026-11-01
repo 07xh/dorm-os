@@ -60,7 +60,11 @@ acquire_run_lock() {
     if lock_pid_alive "$owner_shell" || lock_pid_alive "$owner_runner"; then
       die script_busy 75
     fi
-    rm -rf "$LOCK"
+    # Atomically claim the stale directory before replacing it. Two contenders
+    # cannot both delete/recreate the same stale lock and run simultaneously.
+    stale="$LOCK.stale.$"
+    mv "$LOCK" "$stale" 2>/dev/null || die script_busy 75
+    rm -rf "$stale"
     mkdir "$LOCK" 2>/dev/null || die script_busy 75
   fi
   write_lock_owner

@@ -54,6 +54,13 @@ BUSY_ID=123e4567-e89b-12d3-a456-426614174002
 BUSY_NAME=$(printf '并发测试.sh' | base64 -w0)
 BUSY_BODY=$(printf '#!/system/bin/sh\nsleep 3\necho slow-script-finished\n' | base64 -w0)
 sh "$R" --script-save "$BUSY_ID" "$BUSY_NAME" "$BUSY_BODY" | grep -q DORM_SCRIPT_SAVED
+# A stale lock whose two recorded owners have exited is recoverable.
+mkdir -p "$DORM_NFC_TEST_ROOT/script-run.lock"
+printf '99999999 99999998\n' > "$DORM_NFC_TEST_ROOT/script-run.lock/pid"
+sh "$R" --script-run "$BUSY_ID" > "$TMP/stale-recovery.out" 2>&1
+grep -q 'DORM_SCRIPT_RESULT=success' "$TMP/stale-recovery.out"
+test ! -e "$DORM_NFC_TEST_ROOT/script-run.lock"
+
 sh "$R" --script-run "$BUSY_ID" > "$TMP/first-run.out" 2>&1 &
 FIRST_PID=$!
 sleep 0.25
