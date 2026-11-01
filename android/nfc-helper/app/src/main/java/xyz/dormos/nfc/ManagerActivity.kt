@@ -11,23 +11,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -173,7 +167,14 @@ private fun ManagerScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
-    var current by rememberSaveable { mutableIntStateOf(0) }
+    // Pager owns both gesture and button navigation, avoiding desynchronized tabs.
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+    val current = tabIdForPage(pagerState.currentPage)
+    fun navigateToTab(tabId: Int) {
+        val page = tabNavigationOrder(tabId)
+        if (pagerState.targetPage == page && !pagerState.isScrollInProgress) return
+        scope.launch { pagerState.animateScrollToPage(page) }
+    }
     // Each tab owns its scroll position: leaving a long tools list must not
     // reopen the short home page halfway down or apparently empty.
     val homeScroll = rememberScrollState()
@@ -209,6 +210,13 @@ private fun ManagerScreen(
         mutableStateOf(
             context.getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default")
                 ?.takeIf { it in setOf("default", "night", "editorial") } ?: "default"
+        )
+    }
+    var navStyle by rememberSaveable {
+        mutableStateOf(
+            context.getSharedPreferences("dorm_nfc_view", 0)
+                .getString("nav_style", "classic")
+                ?.takeIf { it in setOf("classic", "glass") } ?: "classic"
         )
     }
     var confirmClearLogs by remember { mutableStateOf(false) }
@@ -342,7 +350,7 @@ private fun ManagerScreen(
 
     fun beginSceneCreation() {
         if (entries.isEmpty()) {
-            current = 1
+            navigateToTab(1)
             beginScriptCreation()
             notify("先创建或导入一个 SH 脚本，再回来绑定 NFC 场景。")
         } else {
@@ -611,30 +619,13 @@ private fun ManagerScreen(
                      folderNames[location]?.contains(query, ignoreCase = true) == true)
             }
         }
-        AnimatedContent(
-            targetState = current,
-            modifier = Modifier.weight(1f).clipToBounds(),
-            contentAlignment = Alignment.TopStart,
-            contentKey = { it },
-            transitionSpec = {
-                // Short, interruptible motion: avoid a scale layer on the full
-                // screen so quick taps stay light on mid-range Android devices.
-                val forwards = tabNavigationOrder(targetState) > tabNavigationOrder(initialState)
-                val easing = FastOutSlowInEasing
-                val enter = fadeIn(tween(175, easing = easing)) +
-                    slideInHorizontally(
-                        initialOffsetX = { width -> if (forwards) width / 6 else -width / 6 },
-                        animationSpec = tween(215, easing = easing)
-                    )
-                val exit = fadeOut(tween(135, easing = easing)) +
-                    slideOutHorizontally(
-                        targetOffsetX = { width -> if (forwards) -width / 14 else width / 14 },
-                        animationSpec = tween(185, easing = easing)
-                    )
-                enter togetherWith exit
-            },
-            label = "TapFlow navigation"
-        ) { visibleTab ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f),
+            userScrollEnabled = true,
+            key = { page -> tabIdForPage(page) }
+        ) { page ->
+        val visibleTab = tabIdForPage(page)
         Column(
             Modifier.fillMaxSize()
                 .verticalScroll(when (visibleTab) {
@@ -705,7 +696,7 @@ private fun ManagerScreen(
                         rootHint = status,
                         scenes = homeScenes,
                         onScan = { openInlineScanner() },
-                        onScenes = { current = 2 },
+                        onScenes = { navigateToTab(2) },
                         onScene = { tagId, _ -> selectedScene = scenes.firstOrNull { it.tagId == tagId } }
                     )
                 }
@@ -967,54 +958,63 @@ private fun ManagerScreen(
             }
         }
         }
-        NavigationBar(
-            containerColor = p.surface,
-            tonalElevation = 0.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            listOf(
-                Triple(0, "⌂", "首页"),
-                Triple(2, "▦", "场景"),
-                Triple(1, "⚒", "工具")
-            ).forEach { entry ->
-                NavigationBarItem(
-                    selected = current == entry.first,
-                    onClick = { current = entry.first },
-                    icon = {
-                        val selected = current == entry.first
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (selected) 1.08f else 1f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            ),
-                            label = "TapFlow selected navigation icon"
+        if (navStyle == "glass") {
+            TapFlowGlassNavigation(
+                selected = current,
+                palette = p,
+                night = selectedTheme == "night",
+                onSelect = { navigateToTab(it) }
+            )
+        } else {
+            NavigationBar(
+                containerColor = p.surface,
+                tonalElevation = 0.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                listOf(
+                    Triple(0, "⌂", "首页"),
+                    Triple(2, "▦", "场景"),
+                    Triple(1, "⚒", "工具")
+                ).forEach { entry ->
+                    NavigationBarItem(
+                        selected = current == entry.first,
+                        onClick = { navigateToTab(entry.first) },
+                        icon = {
+                            val selected = current == entry.first
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (selected) 1.08f else 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                ),
+                                label = "TapFlow selected navigation icon"
+                            )
+                            V2NavIcon(
+                                which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
+                                color = if (selected) p.blue else p.muted,
+                                modifier = Modifier.graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                }
+                            )
+                        },
+                        label = {
+                            Text(
+                                entry.third,
+                                fontSize = 11.sp,
+                                fontWeight = if (current == entry.first) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = p.blue,
+                            selectedTextColor = p.blue,
+                            indicatorColor = p.accentLow,
+                            unselectedIconColor = p.muted,
+                            unselectedTextColor = p.muted
                         )
-                        V2NavIcon(
-                            which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
-                            color = if (selected) p.blue else p.muted,
-                            modifier = Modifier.graphicsLayer {
-                                scaleX = iconScale
-                                scaleY = iconScale
-                            }
-                        )
-                    },
-                    label = {
-                        Text(
-                            entry.third,
-                            fontSize = 11.sp,
-                            fontWeight = if (current == entry.first) FontWeight.SemiBold else FontWeight.Normal
-                        )
-                    },
-                    alwaysShowLabel = true,
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = p.blue,
-                        selectedTextColor = p.blue,
-                        indicatorColor = p.accentLow,
-                        unselectedIconColor = p.muted,
-                        unselectedTextColor = p.muted
                     )
-                )
+                }
             }
         }
     }
@@ -1376,6 +1376,12 @@ private fun ManagerScreen(
                 selectedTheme = it
                 context.getSharedPreferences("dorm_nfc_view", 0).edit()
                     .putString("theme", it).apply()
+            },
+            navStyle = navStyle,
+            onNavStyle = {
+                navStyle = it
+                context.getSharedPreferences("dorm_nfc_view", 0).edit()
+                    .putString("nav_style", it).apply()
             },
             onDismiss = { showThemeSheet = false }
         )
