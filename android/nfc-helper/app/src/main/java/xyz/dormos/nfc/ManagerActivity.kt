@@ -201,6 +201,7 @@ private fun ManagerScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var showCreateScript by remember { mutableStateOf(false) }
     var editId by remember { mutableStateOf("") }
     var editName by remember { mutableStateOf("") }
     var editCode by remember { mutableStateOf("#!/system/bin/sh\n") }
@@ -296,6 +297,10 @@ private fun ManagerScreen(
         }
     }
 
+    fun beginScriptCreation() {
+        showCreateScript = true
+    }
+
     fun openSceneEditor(scene: PersonalScene? = null) {
         editingScene = scene
         sceneNameDraft = scene?.name ?: ""
@@ -306,7 +311,7 @@ private fun ManagerScreen(
     fun beginSceneCreation() {
         if (entries.isEmpty()) {
             current = 1
-            openEditor(null)
+            beginScriptCreation()
             notify("先创建或导入一个 SH 脚本，再回来绑定 NFC 场景。")
         } else {
             openSceneEditor(null)
@@ -596,7 +601,7 @@ private fun ManagerScreen(
                             enabled = !loading
                         ) { Text("导入") }
                         Spacer(Modifier.width(7.dp))
-                        Button(onClick = { openEditor(null) }, enabled = !loading,
+                        Button(onClick = { beginScriptCreation() }, enabled = !loading,
                             shape = RoundedCornerShape(14.dp)) { Text("+ 新建") }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -898,6 +903,20 @@ private fun ManagerScreen(
                     notify("找不到 NFC 设置入口，请到系统设置中手动开启 NFC")
                 }
             }
+        )
+    }
+
+    if (showCreateScript) {
+        V2CreateScriptSheet(
+            onContinue = { chosenName, template ->
+                showCreateScript = false
+                openEditor(null)
+                editName = chosenName
+                if (template == "device") {
+                    editCode = "#!/system/bin/sh\nprintf 'Android: '\ngetprop ro.build.version.release\nprintf 'Device: '\ngetprop ro.product.model\n"
+                }
+            },
+            onDismiss = { showCreateScript = false }
         )
     }
 
