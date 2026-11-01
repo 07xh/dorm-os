@@ -598,32 +598,6 @@ private fun ManagerScreen(
         }
     }
 
-    if (chooseSceneScript) {
-        AlertDialog(
-            onDismissRequest = { chooseSceneScript = false },
-            title = { Text("选择要绑定的 SH") },
-            text = {
-                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
-                    Text("新场景将写入随机 NFC ID，脚本保存在 KernelSU 保护目录。",
-                        color = dim, fontSize = 12.sp)
-                    Spacer(Modifier.height(12.dp))
-                    entries.forEach { item ->
-                        TextButton(onClick = {
-                            chooseSceneScript = false
-                            confirmBind = item
-                        }, modifier = Modifier.fillMaxWidth()) {
-                            Text(item.name, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Start)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { chooseSceneScript = false }) { Text("取消") }
-            }
-        )
-    }
-
     if (editing) {
         AlertDialog(
             onDismissRequest = { editing = false },
@@ -656,13 +630,14 @@ private fun ManagerScreen(
         )
     }
     confirmRun?.let { item ->
-        AlertDialog(
-            onDismissRequest = { confirmRun = null },
-            title = { Text("确认 Root 执行") },
-            text = { Text("运行「${item.name}」？脚本将获得 Root 权限，请确认你信任其内容。") },
-            confirmButton = {
-                TextButton(onClick = { confirmRun = null; runRoot({ bridge.runScript(item.id) }) }) { Text("运行") }
-            }, dismissButton = { TextButton(onClick = { confirmRun = null }) { Text("取消") } }
+        V2RunConfirmSheet(
+            scriptName = item.name,
+            busy = loading,
+            onConfirm = {
+                confirmRun = null
+                runRoot({ bridge.runScript(item.id) }) { refresh() }
+            },
+            onDismiss = { confirmRun = null }
         )
     }
     confirmDelete?.let { item ->
@@ -686,11 +661,13 @@ private fun ManagerScreen(
                     val tag = bridge.newId()
                     pendingTag = tag
                     pendingScript = item.id
+                    pendingSceneName = item.name.removeSuffix(".sh")
                     try {
                         writeLauncher.launch(tagWriteIntent(tag))
                     } catch (error: Exception) {
                         pendingTag = null
                         pendingScript = null
+                        pendingSceneName = ""
                         notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
                     }
                 }) { Text("绑定并写卡") }
@@ -803,18 +780,115 @@ private fun ManagerScreen(
             dismissButton = { TextButton(onClick = { previewScript = null }) { Text("关闭") } }
         )
     }
-    selectedTag?.let { selected ->
-        AlertDialog(
-            onDismissRequest = { selectedTag = null },
-            title = { Text("NFC 标签详情") },
-            text = { Text("关联脚本：${selected.second}\n标签 ID：${selected.first}\n\n标签可被复制，不是身份认证；请勿绑定高风险脚本。") },
-            confirmButton = { TextButton(onClick = {
-                selectedTag = null
-                runRoot({ bridge.unbind(selected.first) }) { if (it.success) refresh() }
-            }) { Text("解除绑定") } },
-            dismissButton = { TextButton(onClick = { selectedTag = null }) { Text("关闭") } }
+    if (sceneEditorOpen) {
+        V2SceneEditorSheet(
+            initialName = sceneNameDraft,
+            initialScriptId = sceneScriptDraft.ifBlank { null },
+            scripts = entries,
+            editing = editingScene != null,
+            busy = loading,
+            onSave = { name, scriptId ->
+                val existing = editingScene
+                if (existing == null) {
+                    val tag = bridge.newId()
+                    pendingTag = tag
+                    pendingScript = scriptId
+                    pendingSceneName = name
+                    sceneEditorOpen = false
+                    try {
+                        writeLauncher.launch(tagWriteIntent(tag))
+                    } catch (error: Exception) {
+                        pendingTag = null
+                        pendingScript = null
+                        pendingSceneName = ""
+                        notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
+                    }
+                } else {
+                    runRoot({
+                        val rebound = if (scriptId == existing.scriptId)
+                            RootResult(0, "脚本关联未改变")
+                        else bridge.bind(existing.tagId, scriptId)
+                        if (!rebound.success) rebound else bridge.saveScene(existing.tagId, name)
+                    }) {
+                        if (it.success) {
+                            sceneEditorOpen = false
+                            editingScene = null
+                            selectedScene = null
+                            refresh()
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                if (!loading) {
+                    sceneEditorOpen = false
+                    editingScene = null
+                }
+            }
         )
     }
+
+    selectedScene?.let { scene ->
+        V2SceneDetailSheet(
+            scene = scene,
+            scriptName = entries.firstOrNull { it.id == scene.scriptId }?.name ?: "脚本不存在",
+            busy = loading,
+            onToggle = { enabled ->
+                runRoot({ bridge.setSceneEnabled(scene.tagId, enabled) }) {
+                    if (it.success) {
+                        selectedScene = scene.copy(enabled = enabled)
+                        refresh()
+                    }
+                }
+            },
+            onEdit = {
+                selectedScene = null
+                openSceneEditor(scene)
+            },
+            onTest = {
+                selectedScene = null
+                val script = entries.firstOrNull { it.id == scene.scriptId }
+                if (script == null) notify("关联脚本不存在，不能执行测试")
+                else confirmRun = script
+            },
+            onUnbind = { confirmUnbindScene = scene },
+            onDismiss = { selectedScene = null }
+        )
+    }
+
+    confirmUnbindScene?.let { scene ->
+        AlertDialog(
+            onDismissRequest = { confirmUnbindScene = null },
+            title = { Text("解除 NFC 绑定？") },
+            text = { Text("「${scene.name}」解除后，标签仍保留编号，但不会再触发任何脚本。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmUnbindScene = null
+                    selectedScene = null
+                    runRoot({ bridge.unbind(scene.tagId) }) { refresh() }
+                }) { Text("解除绑定") }
+            },
+            dismissButton = { TextButton(onClick = { confirmUnbindScene = null }) { Text("取消") } }
+        )
+    }
+
+    if (showLogsSheet) {
+        V2LogsSheet(
+            logs = ExecutionLogFormatter.format(logs, entries),
+            output = output,
+            onRefresh = { refresh() },
+            onClear = { confirmClearLogs = true },
+            onDismiss = { showLogsSheet = false }
+        )
+    }
+    if (showThemeSheet) {
+        V2ThemeSheet(
+            selected = selectedTheme,
+            onSelect = { selectedTheme = it },
+            onDismiss = { showThemeSheet = false }
+        )
+    }
+
     if (confirmClearLogs) {
         AlertDialog(
             onDismissRequest = { confirmClearLogs = false },
