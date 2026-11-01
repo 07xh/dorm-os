@@ -29,7 +29,9 @@ internal object SceneWritePolicy {
 
 internal object SceneTagWriter {
     private fun fail(message: String) = SceneWriteOutcome(SceneWriteState.FAILED, message)
-    fun uid(tag: Tag): String = tag.id.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    fun uid(tag: Tag): String = try {
+        (tag.id ?: byteArrayOf()).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    } catch (_: Exception) { "" }
 
     fun write(
         tag: Tag,
