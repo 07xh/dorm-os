@@ -102,9 +102,9 @@ internal class NativeSceneStore(context: Context) {
         if (!prefs.getBoolean("initialized", false)) {
             if (!prefs.contains("scenes")) {
                 val welcome = NativeScene("wechat-group-01", "26电气日常查寝", listOf(
-                    NativeStep(NativeKind.COPY, "8624均在寝"),
-                    NativeStep(NativeKind.APP, "com.tencent.mm"),
-                    NativeStep(NativeKind.MANUAL, "进入「26电气日常查寝」群，粘贴并手动确认发送")
+                    NativeStep(NativeKind.CHAT_DRAFT,
+                        ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "26电气日常查寝", "8624均在寝"))),
+                    NativeStep(NativeKind.MANUAL, "选择正确的群聊并手动确认发送")
                 ))
                 prefs.edit().putString("scenes", JSONArray().put(encode(welcome)).toString())
                     .putBoolean("initialized", true).apply()
