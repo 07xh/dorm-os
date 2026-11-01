@@ -59,14 +59,20 @@ internal object SceneTagWriter {
                         )
                     }?.firstOrNull()
                 val matched = existing?.toByteArray()?.contentEquals(intended.toByteArray()) == true
+                // An unreadable or unknown existing NDEF message must not be treated as
+                // an empty tag. TNF_EMPTY is the one benign uninitialized record.
+                val mayContainData = existing == null || existing.records.any { record ->
+                    record.tnf != NdefRecord.TNF_EMPTY || record.payload.isNotEmpty()
+                }
                 if (SceneWritePolicy.needsOverwrite(
-                        recordsPresent = existing?.records?.isNotEmpty() == true,
+                        recordsPresent = mayContainData,
                         alreadyMatches = matched,
                         allowed = allowOverwrite
                     )) {
+                    if (signature.isBlank()) return fail("标签没有可确认的编号，无法安全覆盖已有数据")
                     return SceneWriteOutcome(
                         SceneWriteState.NEED_OVERWRITE,
-                        "检测到标签已有 NDEF 数据。确认覆盖后，再将同一标签贴近。",
+                        "检测到已有或无法确认的 NDEF 数据。请确认覆盖，再重新贴近同一标签。",
                         oldSceneId, signature
                     )
                 }
@@ -88,6 +94,7 @@ internal object SceneTagWriter {
         val formattable = NdefFormatable.get(tag)
             ?: return fail("标签不支持 NDEF 写入，未修改")
         if (!allowFormat) {
+            if (signature.isBlank()) return fail("此标签无法可靠识别，不能安全格式化")
             return SceneWriteOutcome(
                 SceneWriteState.NEED_FORMAT,
                 "标签尚未格式化。确认后重新贴卡格式化，随后还必须重新读取验证。",
