@@ -17,6 +17,7 @@ internal enum class NativeKind(val title: String, val hint: String) {
     COPY("复制文字", "保存到剪贴板"),
     APP("打开应用", "输入应用包名"),
     URL("打开链接", "仅支持 HTTPS"),
+    CHAT_DRAFT("指定聊天草稿", "选择聊天应用、群名和消息，手动发送"),
     SH("执行 SH 脚本", "只调用已保存的脚本，需明确确认"),
     MANUAL("人工确认步骤", "提示用户完成最后一步")
 }
@@ -47,6 +48,7 @@ internal object NativeSceneRules {
             if (handedOff && action.kind != NativeKind.MANUAL) return false
             when (action.kind) {
                 NativeKind.COPY, NativeKind.MANUAL -> {}
+                NativeKind.CHAT_DRAFT -> if (ChatDraftCodec.decode(action.value) == null) return false
                 NativeKind.APP -> if (!pkgPattern.matches(v)) return false
                 NativeKind.URL -> {
                     val u = try { URI(v) } catch (_: Exception) { return false }
@@ -54,9 +56,42 @@ internal object NativeSceneRules {
                 }
                 NativeKind.SH -> if (!NfcProfiles.validId(v)) return false
             }
-            if (action.kind == NativeKind.APP || action.kind == NativeKind.URL) handedOff = true
+            if (action.kind == NativeKind.APP || action.kind == NativeKind.URL || action.kind == NativeKind.CHAT_DRAFT) handedOff = true
         }
         return true
+    }
+}
+
+/**
+ * Reusable chat draft parameters. The first two newline-delimited fields are
+ * app package and exact chat name; remaining text is the user's draft.
+ * An app adapter may later locate a verified chat, but this fallback never
+ * guesses which chat is open and never presses the Send button.
+ */
+internal data class ChatDraft(val appPackage: String, val chatName: String, val message: String)
+
+internal object ChatDraftCodec {
+    private val packagePattern = Regex("^[a-zA-Z_][a-zA-Z_0-9]*(\\.[a-zA-Z_][a-zA-Z_0-9]*)+$")
+    fun encode(draft: ChatDraft): String =
+        draft.appPackage + "\n" + draft.chatName + "\n" + draft.message
+
+    fun decode(value: String): ChatDraft? {
+        val first = value.indexOf('\n')
+        if (first < 1) return null
+        val second = value.indexOf('\n', first + 1)
+        if (second <= first + 1) return null
+        val draft = ChatDraft(
+            value.substring(0, first),
+            value.substring(first + 1, second),
+            value.substring(second + 1)
+        )
+        if (!packagePattern.matches(draft.appPackage) || draft.appPackage.length > 130 ||
+            draft.chatName.isBlank() || draft.chatName.length > 80 ||
+            draft.chatName.any { it == '\n' || it == '\r' || it == '\u0000' } ||
+            draft.message.isBlank() || draft.message.length > 1700 ||
+            draft.message.contains('\u0000')
+        ) return null
+        return draft
     }
 }
 
@@ -131,6 +166,23 @@ internal object NativeSceneRunner {
                 NativeKind.MANUAL -> {
                     Toast.makeText(context, a.value.take(150), Toast.LENGTH_LONG).show()
                     execute(index + 1)
+                }
+                NativeKind.CHAT_DRAFT -> {
+                    val draft = ChatDraftCodec.decode(a.value)
+                    if (draft == null) { done("聊天草稿配置无效"); return }
+                    val intent = context.packageManager.getLaunchIntentForPackage(draft.appPackage)
+                    if (intent == null) { done("未安装指定聊天应用，或应用不可启动"); return }
+                    // Never infer a conversation from a stale window or an unverified UI coordinate.
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("TapFlow 聊天草稿", draft.message))
+                    Toast.makeText(context, "请核对聊天「" + draft.chatName.take(32) +
+                        "」，粘贴后手动发送", Toast.LENGTH_LONG).show()
+                    try {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        done("已准备「" + draft.chatName.take(32) +
+                            "」的草稿并启动应用；自动定位尚未通过真机验证")
+                    } catch (_: Exception) { done("无法启动聊天应用，草稿已复制") }
                 }
                 NativeKind.APP, NativeKind.URL -> {
                     // Show instructions before handing foreground control to an external app.
