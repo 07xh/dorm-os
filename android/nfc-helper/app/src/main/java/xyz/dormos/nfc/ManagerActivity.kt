@@ -868,23 +868,23 @@ private fun ManagerScreen(
                     }
                     Spacer(Modifier.height(18.dp))
                     Section("管理") {
-                        SummaryRow("◷", "运行记录", "查看真实触发与执行结果", "›") {
+                        SummaryRow(0, "运行记录", "查看真实触发与执行结果", "›") {
                             showLogsSheet = true
                         }
                         HorizontalDivider(color = p.line)
-                        SummaryRow("⇧", "配置与备份", "导出或恢复本机 SH 脚本", "›") {
+                        SummaryRow(1, "配置与备份", "导出或恢复本机 SH 脚本", "›") {
                             showBackupSheet = true
                         }
                         HorizontalDivider(color = p.line)
-                        SummaryRow("⚙", "外观与交互", "主题与界面设置", "›") {
+                        SummaryRow(2, "外观与交互", "主题与界面设置", "›") {
                             showThemeSheet = true
                         }
                         HorizontalDivider(color = p.line)
-                        SummaryRow("◇", "KernelSU 状态", "检查 Root 模块与授权", if (installed) "正常" else "检查") {
+                        SummaryRow(3, "KernelSU 状态", "检查 Root 模块与授权", if (installed) "正常" else "检查") {
                             refresh()
                         }
                         HorizontalDivider(color = p.line)
-                        SummaryRow("⌁", "NFC 系统设置", "管理 Android NFC 开关与权限", "›") {
+                        SummaryRow(4, "NFC 系统设置", "管理 Android NFC 开关与权限", "›") {
                             openNfcPreferences()
                         }
                     }
@@ -1329,25 +1329,47 @@ private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit)
 }
 
 @Composable
-private fun RoundedIcon(symbol: String) {
+private fun SummaryRow(icon: Int, title: String, subtitle: String, trailing: String, onClick: () -> Unit) {
     val p = LocalV2Palette.current
-    Surface(shape = RoundedCornerShape(15.dp), color = p.iconBackground) {
-        Text(symbol, fontSize = 23.sp, color = p.blue,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
-    }
-}
-
-@Composable
-private fun SummaryRow(icon: String, title: String, subtitle: String, trailing: String, onClick: () -> Unit) {
-    val p = LocalV2Palette.current
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        RoundedIcon(icon)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = p.ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = p.muted, fontSize = 12.sp, maxLines = 2)
+    // One Material surface owns the entire hit target and ripple. The icon,
+    // title, subtitle and trailing status are visual children of that same row.
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(15.dp),
+        color = p.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            Modifier.heightIn(min = 74.dp).padding(horizontal = 8.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(46.dp).background(p.iconBackground, RoundedCornerShape(15.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                V2ManagementIcon(icon, p.blue, Modifier.size(23.dp))
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = p.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(3.dp))
+                Text(subtitle, color = p.muted, fontSize = 11.sp, maxLines = 2,
+                    lineHeight = 16.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            if (trailing == "›") {
+                Text("›", color = p.muted, fontSize = 23.sp)
+            } else {
+                Surface(color = p.accentLow, shape = RoundedCornerShape(10.dp)) {
+                    Text(
+                        trailing,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = p.blue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
-        Text(trailing, color = p.blue)
     }
 }
