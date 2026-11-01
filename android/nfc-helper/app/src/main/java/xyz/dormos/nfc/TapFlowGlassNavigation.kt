@@ -1,9 +1,5 @@
 package xyz.dormos.nfc
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -23,6 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 
 /**
@@ -40,9 +37,6 @@ internal fun TapFlowGlassNavigation(
     onSelect: (Int) -> Unit
 ) {
     val shape = RoundedCornerShape(26.dp)
-    // Observe frame-by-frame progress only inside this small navigation component.
-    val clampedPosition = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-        .coerceIn(0f, 2f)
     val background = if (night)
         listOf(Color(0xF0273B57), Color(0xE51C2C44))
     else listOf(Color(0xF7FFFFFF), Color(0xEBE9F2FF), Color(0xF5FAFCFF))
@@ -62,12 +56,18 @@ internal fun TapFlowGlassNavigation(
                 .border(1.dp, if (night) Color(0x889FBDE8) else Color(0xFAFFFFFF), shape)
         ) {
             val slot = maxWidth / 3
-            // Following PagerState fraction makes the capsule track the finger
-            // during a drag; spring-to-tab animations would lag the gesture.
-            val offset = slot * clampedPosition
+            val slotPx = with(LocalDensity.current) { slot.toPx() }
             Box(
-                Modifier.offset(x = offset).width(slot).fillMaxHeight()
+                Modifier.width(slot).fillMaxHeight()
                     .padding(horizontal = 5.dp, vertical = 5.dp)
+                    // Read PagerState in the graphics-layer phase. This
+                    // moves only the indicator layer each frame instead of
+                    // recomposing the navigation tree while the finger drags.
+                    .graphicsLayer {
+                        val progress = (pagerState.currentPage +
+                            pagerState.currentPageOffsetFraction).coerceIn(0f, 2f)
+                        translationX = slotPx * progress
+                    }
                     .clip(RoundedCornerShape(21.dp))
                     .background(Brush.verticalGradient(capsule))
                     .border(1.dp, if (night) Color(0x886BA5EB) else Color.White.copy(alpha = 0.85f),
@@ -77,17 +77,7 @@ internal fun TapFlowGlassNavigation(
                 listOf(Triple(0, "首页", 0), Triple(2, "场景", 1), Triple(1, "工具", 2))
                     .forEach { (tab, title, icon) ->
                         val active = selected == tab
-                        val color by animateColorAsState(
-                            targetValue = if (active) palette.blue else palette.muted,
-                            label = "Glass navigation tint"
-                        )
-                        val scale by animateFloatAsState(
-                            targetValue = if (active) 1.08f else 1f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            ), label = "Glass navigation icon"
-                        )
+                        val color = if (active) palette.blue else palette.muted
                         Column(
                             Modifier.weight(1f).fillMaxHeight()
                                 .selectable(
@@ -101,10 +91,7 @@ internal fun TapFlowGlassNavigation(
                         ) {
                             V2NavIcon(
                                 which = icon, color = color,
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                }
+                                modifier = Modifier
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(title, color = color, fontSize = 11.sp,
