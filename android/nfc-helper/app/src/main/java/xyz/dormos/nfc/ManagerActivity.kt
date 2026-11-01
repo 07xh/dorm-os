@@ -599,34 +599,23 @@ private fun ManagerScreen(
     }
 
     if (editing) {
-        AlertDialog(
-            onDismissRequest = { editing = false },
-            title = { Text("SH 脚本编辑器") },
-            text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                    OutlinedTextField(value = editName, onValueChange = { editName = it },
-                        label = { Text("名称") }, singleLine = true)
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(value = editCode, onValueChange = { editCode = it },
-                        label = { Text("脚本内容") }, minLines = 10, maxLines = 17,
-                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp))
-                    Text("行数 ${editCode.lineSequence().count()} · ${editCode.toByteArray().size} B / 16384 B",
-                        fontSize = 11.sp, color = dim)
-                    Text("脚本将以 KernelSU Root 权限执行。请仅保存自己检查过的内容。", fontSize = 11.sp, color = dim)
-                }
+        V2ScriptEditorSheet(
+            name = editName,
+            code = editCode,
+            isNew = editingNew,
+            busy = loading,
+            onNameChange = { editName = it },
+            onCodeChange = { editCode = it },
+            onSave = {
+                val creating = editingNew
+                val folder = activeFolder
+                runRoot({
+                    val saved = bridge.saveScript(editId, editName.trim(), editCode)
+                    if (saved.success && creating && folder != "root") bridge.moveScript(editId, folder)
+                    else saved
+                }) { if (it.success) { editing = false; refresh() } }
             },
-            confirmButton = {
-                TextButton(enabled = !loading, onClick = {
-                    val creating = editingNew
-                    val folder = activeFolder
-                    runRoot({
-                        val saved = bridge.saveScript(editId, editName, editCode)
-                        if (saved.success && creating && folder != "root") bridge.moveScript(editId, folder)
-                        else saved
-                    }) { if (it.success) { editing = false; refresh() } }
-                }) { Text("保存") }
-            },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } }
+            onDismiss = { if (!loading) editing = false }
         )
     }
     confirmRun?.let { item ->
@@ -651,27 +640,25 @@ private fun ManagerScreen(
         )
     }
     confirmBind?.let { item ->
-        AlertDialog(
-            onDismissRequest = { confirmBind = null },
-            title = { Text("绑定 NFC") },
-            text = { Text("将「${item.name}」绑定到你自己的 NFC 标签。碰卡会以 Root 权限执行脚本。注意：NFC 标签内容可被复制，不是身份认证；请只绑定你已检查且可重复安全运行的脚本。确认继续？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmBind = null
-                    val tag = bridge.newId()
-                    pendingTag = tag
-                    pendingScript = item.id
-                    pendingSceneName = item.name.removeSuffix(".sh")
-                    try {
-                        writeLauncher.launch(tagWriteIntent(tag))
-                    } catch (error: Exception) {
-                        pendingTag = null
-                        pendingScript = null
-                        pendingSceneName = ""
-                        notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
-                    }
-                }) { Text("绑定并写卡") }
-            }, dismissButton = { TextButton(onClick = { confirmBind = null }) { Text("取消") } }
+        V2BindConfirmSheet(
+            scriptName = item.name,
+            busy = loading,
+            onConfirm = {
+                confirmBind = null
+                val tag = bridge.newId()
+                pendingTag = tag
+                pendingScript = item.id
+                pendingSceneName = item.name.removeSuffix(".sh")
+                try {
+                    writeLauncher.launch(tagWriteIntent(tag))
+                } catch (error: Exception) {
+                    pendingTag = null
+                    pendingScript = null
+                    pendingSceneName = ""
+                    notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
+                }
+            },
+            onDismiss = { confirmBind = null }
         )
     }
 
