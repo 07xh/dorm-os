@@ -3,9 +3,6 @@ package xyz.dormos.nfc
 import android.app.Activity
 import android.content.Intent
 import android.nfc.tech.Ndef
-import android.nfc.tech.NdefFormatable
-import android.nfc.NdefMessage
-import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Build
@@ -17,19 +14,17 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Minimal one-shot NFC bridge.
  * Script management and tag-to-script bindings live in the DORM NFC Manager app.
- * This Activity only receives a tag, writes an opaque scene ID when explicitly requested,
- * and calls one fixed KernelSU dispatcher entry point. No services, receivers or polling.
+ * This exported receiver validates a physical NFC tag and calls the fixed KernelSU
+ * dispatcher entry point. Tag writing is exclusively an inline ManagerActivity session.
+ * No services or polling.
  */
-class MainActivity : Activity(), NfcAdapter.ReaderCallback {
+class MainActivity : Activity() {
     private var adapter: NfcAdapter? = null
-    private var writeSceneId: String? = null
     private lateinit var status: TextView
-    private val writeInFlight = AtomicBoolean(false)
     private val nfcGate = NfcIntentGate()
     private val handler = Handler(Looper.getMainLooper())
 
@@ -50,7 +45,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         status = TextView(this).apply {
             val nfcState = if (adapter?.isEnabled == true) "已开启" else "未开启/不可用"
             val launchState = if (Build.VERSION.SDK_INT >= 36 && adapter?.isTagIntentAllowed == false) "系统尚未允许通过 NFC 启动本应用" else "系统 NFC 启动权限未发现明确阻断"
-            text = "DORM NFC 接收器\n\nNFC：$nfcState\n$launchState\n\n请打开 DORM NFC Manager 管理脚本与 NFC 标签。\n\n本应用只负责接收 NFC 标签和按需写卡，不运行后台服务。"
+            text = "DORM NFC 接收器\n\nNFC：$nfcState\n$launchState\n\n请打开 DORM NFC Manager 管理脚本与 NFC 标签。\n\n本接收器只负责 NFC 标签触发，不显示脚本编辑页，不运行后台服务。"
             textSize = 16f
             setTextColor(0xFF183252.toInt())
             gravity = Gravity.CENTER
@@ -64,18 +59,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
     }
 
     private fun handleLaunchIntent(source: Intent?) {
-        if (source?.action == ACTION_WRITE_TAG) {
-            val id = source.getStringExtra(EXTRA_SCENE_ID)
-            if (!NfcProfiles.validId(id)) {
-                showAndFinish("写卡请求无效。请返回 DORM NFC Manager 重新发起。")
-                return
-            }
-            writeSceneId = id
-            setResult(RESULT_CANCELED)
-            status.text = "DORM OS NFC 写卡\n\n请将你自己的可写 NFC 标签靠近手机背部。\n\n只写入场景编号，不写入账号、密码或 Shell 命令。"
-            if (hasWindowFocus()) enableWriterReaderMode()
-            return
-        }
         if (source?.action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
             handleNfc(source)
         }
@@ -85,68 +68,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         super.onNewIntent(intent)
         setIntent(intent)
         handleLaunchIntent(intent)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (writeSceneId != null) {
-            val nfc = adapter
-            if (nfc == null || !nfc.isEnabled) {
-                showAndFinish("设备没有可用 NFC，或系统 NFC 尚未开启。")
-                return
-            }
-            enableWriterReaderMode()
-        }
-    }
-
-    private fun enableWriterReaderMode() {
-        if (writeSceneId == null) return
-        val nfc = adapter
-        if (nfc == null || !nfc.isEnabled) {
-            showAndFinish("设备没有可用 NFC，或系统 NFC 尚未开启。")
-            return
-        }
-        try {
-            nfc.enableReaderMode(
-                this,
-                this,
-                NfcAdapter.FLAG_READER_NFC_A or
-                    NfcAdapter.FLAG_READER_NFC_B or
-                    NfcAdapter.FLAG_READER_NFC_F or
-                    NfcAdapter.FLAG_READER_NFC_V or
-                    NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
-                null
-            )
-        } catch (_: Exception) {
-            showAndFinish("无法启动本次 NFC 写卡会话。请检查系统 NFC 设置。")
-        }
-    }
-
-    override fun onPause() {
-        try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
-        super.onPause()
-    }
-
-    override fun onTagDiscovered(tag: Tag) {
-        val id = writeSceneId ?: return
-        if (!writeInFlight.compareAndSet(false, true)) return
-        val result = try {
-            SceneTagWriter.write(tag, id, allowOverwrite = true, allowFormat = true)
-        } catch (error: Exception) {
-            SceneWriteOutcome(SceneWriteState.FAILED, "写卡失败：" +
-                (error.message ?: error.javaClass.simpleName))
-        }
-        runOnUiThread {
-            writeSceneId = null
-            if (result.verified) {
-                val data = Intent().putExtra(EXTRA_SCENE_ID, id)
-                result.previousTagId?.let { data.putExtra(EXTRA_PREVIOUS_TAG_ID, it) }
-                setResult(RESULT_OK, data)
-            }
-            try { adapter?.disableReaderMode(this) } catch (_: Exception) { }
-            status.text = result.message
-            finishSoon()
-        }
     }
 
     private fun handleNfc(source: Intent) {
@@ -216,7 +137,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
     }
 
     private fun showAndFinish(message: String) {
-        writeSceneId = null
         status.text = message
         finishSoon()
     }
@@ -226,9 +146,4 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         handler.postDelayed({ if (!isFinishing) finish() }, 2200L)
     }
 
-    companion object {
-        const val ACTION_WRITE_TAG = "xyz.dormos.nfc.action.WRITE_TAG"
-        const val EXTRA_SCENE_ID = "scene_id"
-        const val EXTRA_PREVIOUS_TAG_ID = "previous_tag_id"
-    }
 }
