@@ -20,8 +20,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.15.0-tapflow-preview"
+        versionCode = 28
+        versionName = "1.16.0-inline-ndef-sheet"
     }
     signingConfigs {
         if (hasReleaseSigning) {
