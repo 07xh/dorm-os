@@ -50,46 +50,46 @@ safe_https_url() {
 }
 
 valid_scene_file() {
-  _file="$1"
-  [ -f "$_file" ] || return 1
-  [ "$(wc -c < "$_file" | tr -d ' ')" -le 16384 ] || return 1
-  [ "$(head -n 1 "$_file")" = "$HEADER" ] || return 1
-  _seen="$DATA_DIR/.seen.$$"
-  : > "$_seen"
-  _count=0
-  _line_no=0
-  while IFS='|' read -r _id _action _target64 _name64 _extra || [ -n "${_id:-}${_action:-}${_target64:-}${_name64:-}${_extra:-}" ]; do
-    if [ "$_line_no" -eq 0 ]; then _line_no=1; continue; fi
-    [ -z "${_id:-}" ] && continue
-    [ -z "${_extra:-}" ] || { rm -f "$_seen"; return 1; }
-    valid_id "$_id" || { rm -f "$_seen"; return 1; }
-    grep -Fxq "$_id" "$_seen" && { rm -f "$_seen"; return 1; }
-    printf '%s\n' "$_id" >> "$_seen"
-    valid_b64 "${_target64:-}" || { rm -f "$_seen"; return 1; }
-    valid_b64 "${_name64:-}" || { rm -f "$_seen"; return 1; }
-    [ -n "${_name64:-}" ] || { rm -f "$_seen"; return 1; }
-    _name=$(decode_b64 "$_name64") || { rm -f "$_seen"; return 1; }
-    [ -n "$_name" ] || { rm -f "$_seen"; return 1; }
-    [ "$(printf '%s' "$_name" | wc -c | tr -d ' ')" -le 160 ] || { rm -f "$_seen"; return 1; }
-    case "$_action" in
+  _vf_file="$1"
+  [ -f "$_vf_file" ] || return 1
+  [ "$(wc -c < "$_vf_file" | tr -d ' ')" -le 16384 ] || return 1
+  [ "$(head -n 1 "$_vf_file")" = "$HEADER" ] || return 1
+  _vf_seen="$DATA_DIR/.seen.$$"
+  : > "$_vf_seen"
+  _vf_count=0
+  _vf_line_no=0
+  while IFS='|' read -r _vf_id _vf_action _vf_target64 _vf_name64 _vf_extra || [ -n "${_vf_id:-}${_vf_action:-}${_vf_target64:-}${_vf_name64:-}${_vf_extra:-}" ]; do
+    if [ "$_vf_line_no" -eq 0 ]; then _vf_line_no=1; continue; fi
+    [ -z "${_vf_id:-}" ] && continue
+    [ -z "${_vf_extra:-}" ] || { rm -f "$_vf_seen"; return 1; }
+    valid_id "$_vf_id" || { rm -f "$_vf_seen"; return 1; }
+    grep -Fxq "$_vf_id" "$_vf_seen" && { rm -f "$_vf_seen"; return 1; }
+    printf '%s\n' "$_vf_id" >> "$_vf_seen"
+    valid_b64 "${_vf_target64:-}" || { rm -f "$_vf_seen"; return 1; }
+    valid_b64 "${_vf_name64:-}" || { rm -f "$_vf_seen"; return 1; }
+    [ -n "${_vf_name64:-}" ] || { rm -f "$_vf_seen"; return 1; }
+    _vf_name=$(decode_b64 "$_vf_name64") || { rm -f "$_vf_seen"; return 1; }
+    [ -n "$_vf_name" ] || { rm -f "$_vf_seen"; return 1; }
+    [ "$(printf '%s' "$_vf_name" | wc -c | tr -d ' ')" -le 160 ] || { rm -f "$_vf_seen"; return 1; }
+    case "$_vf_action" in
       wifi-status|ncwu-check)
-        [ -z "${_target64:-}" ] || { rm -f "$_seen"; return 1; } ;;
+        [ -z "${_vf_target64:-}" ] || { rm -f "$_vf_seen"; return 1; } ;;
       open-url)
-        [ -n "${_target64:-}" ] || { rm -f "$_seen"; return 1; }
-        _target=$(decode_b64 "$_target64") || { rm -f "$_seen"; return 1; }
-        safe_https_url "$_target" || { rm -f "$_seen"; return 1; } ;;
+        [ -n "${_vf_target64:-}" ] || { rm -f "$_vf_seen"; return 1; }
+        _vf_target=$(decode_b64 "$_vf_target64") || { rm -f "$_vf_seen"; return 1; }
+        safe_https_url "$_vf_target" || { rm -f "$_vf_seen"; return 1; } ;;
       dorm-scene)
-        [ -n "${_target64:-}" ] || { rm -f "$_seen"; return 1; }
-        _target=$(decode_b64 "$_target64") || { rm -f "$_seen"; return 1; }
-        case "$_target" in study|rest|dev|away) ;; *) rm -f "$_seen"; return 1 ;; esac ;;
+        [ -n "${_vf_target64:-}" ] || { rm -f "$_vf_seen"; return 1; }
+        _vf_target=$(decode_b64 "$_vf_target64") || { rm -f "$_vf_seen"; return 1; }
+        case "$_vf_target" in study|rest|dev|away) ;; *) rm -f "$_vf_seen"; return 1 ;; esac ;;
       *)
-        rm -f "$_seen"
+        rm -f "$_vf_seen"
         return 1 ;;
     esac
-    _count=$((_count + 1))
-    [ "$_count" -le 32 ] || { rm -f "$_seen"; return 1; }
-  done < "$_file"
-  rm -f "$_seen"
+    _vf_count=$((_vf_count + 1))
+    [ "$_vf_count" -le 32 ] || { rm -f "$_vf_seen"; return 1; }
+  done < "$_vf_file"
+  rm -f "$_vf_seen"
   return 0
 }
 scene_count() {
