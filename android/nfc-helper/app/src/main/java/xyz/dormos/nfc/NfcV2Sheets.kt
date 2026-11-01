@@ -16,11 +16,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-private val sheetInk = Color(0xFF172234)
-private val sheetMuted = Color(0xFF7A8798)
-private val sheetBlue = Color(0xFF2F65E8)
-private val sheetLine = Color(0xFFE8EDF4)
-
 @Composable
 internal fun V2BottomSheet(
     title: String,
@@ -28,6 +23,7 @@ internal fun V2BottomSheet(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val p = LocalV2Palette.current
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -38,7 +34,7 @@ internal fun V2BottomSheet(
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
-                color = Color.White,
+                color = p.surface,
                 shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
             ) {
                 Column(
@@ -48,20 +44,20 @@ internal fun V2BottomSheet(
                 ) {
                     Box(
                         Modifier.align(Alignment.CenterHorizontally).size(width = 38.dp, height = 4.dp)
-                            .background(Color(0xFFDDE3EC), RoundedCornerShape(50))
+                            .background(p.line, RoundedCornerShape(50))
                     )
                     Spacer(Modifier.height(17.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(title, color = sheetInk, fontSize = 20.sp,
+                            Text(title, color = p.ink, fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold)
                             if (!subtitle.isNullOrBlank()) {
                                 Spacer(Modifier.height(4.dp))
-                                Text(subtitle, color = sheetMuted, fontSize = 12.sp)
+                                Text(subtitle, color = p.muted, fontSize = 12.sp)
                             }
                         }
                         TextButton(onClick = onDismiss, contentPadding = PaddingValues(8.dp)) {
-                            Text("关闭", color = sheetMuted)
+                            Text("关闭", color = p.muted)
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -83,6 +79,7 @@ internal fun V2SceneEditorSheet(
     onSave: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     var name by remember(initialName) { mutableStateOf(initialName) }
     var scriptId by remember(initialScriptId) { mutableStateOf(initialScriptId ?: scripts.firstOrNull()?.id.orEmpty()) }
     var expanded by remember { mutableStateOf(false) }
@@ -103,25 +100,25 @@ internal fun V2SceneEditorSheet(
             shape = RoundedCornerShape(14.dp)
         )
         Spacer(Modifier.height(14.dp))
-        Text("触发方式", color = sheetMuted, fontSize = 12.sp)
+        Text("触发方式", color = p.muted, fontSize = 12.sp)
         Spacer(Modifier.height(7.dp))
         Surface(
-            color = Color(0xFFF2F6FF),
+            color = p.accentLow,
             shape = RoundedCornerShape(14.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDE7F8))
+            border = androidx.compose.foundation.BorderStroke(1.dp, p.line)
         ) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                V2NfcMark(Modifier.size(22.dp), sheetBlue)
+                V2NfcMark(Modifier.size(22.dp), p.blue)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("NFC 标签", color = sheetInk, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("仅在读取到已绑定的实体标签时触发", color = sheetMuted, fontSize = 11.sp)
+                    Text("NFC 标签", color = p.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("仅在读取到已绑定的实体标签时触发", color = p.muted, fontSize = 11.sp)
                 }
-                Text("已选", color = sheetBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("已选", color = p.blue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Spacer(Modifier.height(14.dp))
-        Text("执行动作", color = sheetMuted, fontSize = 12.sp)
+        Text("执行动作", color = p.muted, fontSize = 12.sp)
         Spacer(Modifier.height(7.dp))
         Box {
             OutlinedButton(
@@ -131,8 +128,8 @@ internal fun V2SceneEditorSheet(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(selected?.name ?: if (scripts.isEmpty()) "暂无 SH，请先创建或导入" else "选择 SH 脚本",
-                    modifier = Modifier.weight(1f), color = sheetInk)
-                Text("⌄", color = sheetMuted)
+                    modifier = Modifier.weight(1f), color = p.ink)
+                Text("⌄", color = p.muted)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 scripts.forEach { script ->
@@ -146,7 +143,7 @@ internal fun V2SceneEditorSheet(
         Spacer(Modifier.height(10.dp))
         Text(
             "场景名称与脚本绑定保存在 KernelSU 模块中。标签只写入随机编号，不写入账号、密码或 Shell 命令。",
-            color = sheetMuted, fontSize = 11.sp, lineHeight = 17.sp
+            color = p.muted, fontSize = 11.sp, lineHeight = 17.sp
         )
         Spacer(Modifier.height(18.dp))
         Button(
@@ -175,38 +172,39 @@ internal fun V2SceneDetailSheet(
     onUnbind: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet(title = scene.name, subtitle = "NFC 场景详情", onDismiss = onDismiss) {
         Surface(
-            color = Color(0xFFF4F7FC),
+            color = p.accentLow,
             shape = RoundedCornerShape(17.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, sheetLine)
+            border = androidx.compose.foundation.BorderStroke(1.dp, p.line)
         ) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                Text("触发方式", color = sheetMuted, fontSize = 11.sp)
+                Text("触发方式", color = p.muted, fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
-                Text("NFC 标签", color = sheetInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("NFC 标签", color = p.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(13.dp))
-                HorizontalDivider(color = sheetLine)
+                HorizontalDivider(color = p.line)
                 Spacer(Modifier.height(13.dp))
-                Text("执行动作", color = sheetMuted, fontSize = 11.sp)
+                Text("执行动作", color = p.muted, fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
-                Text(scriptName, color = sheetInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(scriptName, color = p.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(13.dp))
-                HorizontalDivider(color = sheetLine)
+                HorizontalDivider(color = p.line)
                 Spacer(Modifier.height(13.dp))
-                Text("标签编号", color = sheetMuted, fontSize = 11.sp)
+                Text("标签编号", color = p.muted, fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
-                Text(scene.tagId, color = sheetInk, fontSize = 12.sp)
+                Text(scene.tagId, color = p.ink, fontSize = 12.sp)
             }
         }
         Spacer(Modifier.height(13.dp))
-        Surface(color = Color(0xFFF8FAFD), shape = RoundedCornerShape(16.dp)) {
+        Surface(color = p.background, shape = RoundedCornerShape(16.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("启用这个场景", color = sheetInk, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("启用这个场景", color = p.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Text(if (scene.enabled) "标签触发时允许执行脚本" else "已停用，标签不会触发脚本",
-                        color = sheetMuted, fontSize = 11.sp)
+                        color = p.muted, fontSize = 11.sp)
                 }
                 Switch(checked = scene.enabled, onCheckedChange = onToggle, enabled = !busy)
             }
@@ -236,6 +234,7 @@ internal fun V2RunConfirmSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet("确认执行脚本", "KernelSU Root 权限操作", onDismiss) {
         Surface(color = Color(0xFFFFF6E9), shape = RoundedCornerShape(15.dp)) {
             Text(
@@ -262,16 +261,17 @@ internal fun V2LogsSheet(
     onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet("运行记录", "显示 KernelSU 模块返回的真实执行记录", onDismiss) {
         Text(
             logs.ifBlank { "暂无执行记录" },
-            color = sheetInk, fontSize = 12.sp, lineHeight = 19.sp
+            color = p.ink, fontSize = 12.sp, lineHeight = 19.sp
         )
         if (output.isNotBlank()) {
             Spacer(Modifier.height(14.dp))
-            Text("最近输出", color = sheetMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text("最近输出", color = p.muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(5.dp))
-            Text(output.takeLast(5000), color = sheetInk, fontSize = 11.sp, lineHeight = 17.sp)
+            Text(output.takeLast(5000), color = p.ink, fontSize = 11.sp, lineHeight = 17.sp)
         }
         Spacer(Modifier.height(15.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -289,6 +289,7 @@ internal fun V2ThemeSheet(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet("外观与交互", "选择 DORM NFC 的显示风格", onDismiss) {
         listOf(
             Triple("default", "一加简约", "蓝白配色 · 清晰主操作"),
@@ -298,18 +299,18 @@ internal fun V2ThemeSheet(
             val active = selected == id
             Surface(
                 onClick = { onSelect(id) },
-                color = if (active) Color(0xFFEAF0FF) else Color.White,
+                color = if (active) p.accentLow else p.surface,
                 shape = RoundedCornerShape(15.dp),
                 border = androidx.compose.foundation.BorderStroke(
-                    1.dp, if (active) Color(0xFFB9CCF2) else sheetLine
+                    1.dp, if (active) p.blue else p.line
                 )
             ) {
                 Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(title, color = sheetInk, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text(desc, color = sheetMuted, fontSize = 11.sp)
+                        Text(title, color = p.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(desc, color = p.muted, fontSize = 11.sp)
                     }
-                    if (active) Text("✓", color = sheetBlue, fontWeight = FontWeight.Bold)
+                    if (active) Text("✓", color = p.blue, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(9.dp))
@@ -330,6 +331,7 @@ internal fun V2ScriptEditorSheet(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet(
         title = if (isNew) "新建 SH 脚本" else "编辑 SH 脚本",
         subtitle = "保存在 KernelSU 保护目录 · 最大 16 KiB",
@@ -361,12 +363,12 @@ internal fun V2ScriptEditorSheet(
         Spacer(Modifier.height(7.dp))
         Text(
             "行数 ${code.lineSequence().count()} · ${code.toByteArray().size} / 16384 B",
-            color = sheetMuted, fontSize = 11.sp
+            color = p.muted, fontSize = 11.sp
         )
         Spacer(Modifier.height(8.dp))
         Text(
             "保存前会由 KernelSU 模块执行 Shell 语法检查。运行前仍需明确确认。",
-            color = sheetMuted, fontSize = 11.sp, lineHeight = 17.sp
+            color = p.muted, fontSize = 11.sp, lineHeight = 17.sp
         )
         Spacer(Modifier.height(15.dp))
         Button(
@@ -390,6 +392,7 @@ internal fun V2BindConfirmSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet("绑定 NFC 标签", "将实体标签关联到本机 SH 脚本", onDismiss) {
         Surface(color = Color(0xFFFFF6E9), shape = RoundedCornerShape(15.dp)) {
             Text(
@@ -419,11 +422,12 @@ internal fun V2BackupSheet(
     onImport: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val p = LocalV2Palette.current
     V2BottomSheet("配置与备份", "只备份本机 SH 脚本，不包含账号、密码或 Root 授权", onDismiss) {
-        Surface(color = Color(0xFFF3F6FC), shape = RoundedCornerShape(15.dp)) {
+        Surface(color = p.accentLow, shape = RoundedCornerShape(15.dp)) {
             Text(
                 "备份文件使用 ZIP 格式。导入时会为脚本生成新的本机编号；原 NFC 标签绑定不会自动迁移，需要重新写卡绑定。",
-                modifier = Modifier.padding(14.dp), color = sheetMuted,
+                modifier = Modifier.padding(14.dp), color = p.muted,
                 fontSize = 12.sp, lineHeight = 18.sp
             )
         }
