@@ -6,6 +6,13 @@ async function addTag(page,name='床头 NFC'){
  await page.locator('#modalForm [type="submit"]').click();
  await expect(page.locator('.tag-entry')).toContainText(name);
 }
+async function parkTriggerAboveBottomNav(page,trigger){
+ await trigger.evaluate(el=>{
+  const nav=document.querySelector('.mobile-tabs').getBoundingClientRect();
+  const rect=el.getBoundingClientRect();
+  window.scrollBy(0,rect.bottom-(nav.top-12));
+ });
+}
 async function expectMenuAboveTriggerAndNav(page,menu,trigger){
  const nav=await page.locator('.mobile-tabs').boundingBox();
  const menuBox=await menu.boundingBox();
@@ -42,6 +49,7 @@ test('NFC overflow menu opens above the tag and bottom navigation',async({page})
  const entry=page.locator('.tag-entry').last();
  const trigger=entry.locator('.v41-tag-more summary');
  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+ await parkTriggerAboveBottomNav(page,trigger);
  await trigger.click();
  const menu=entry.locator('.v41-tag-menu');
  await expect(menu).toBeVisible();
@@ -67,6 +75,7 @@ test('timetable row menu opens above its course and remains tappable',async({pag
  await page.locator('[data-timetable-day="'+day+'"]').click();
  const trigger=page.locator('.v42-day-content .v42-row-more summary').last();
  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+ await parkTriggerAboveBottomNav(page,trigger);
  await trigger.click();
  const menu=page.locator('.v42-day-content .v42-row-menu').last();
  await expect(menu).toBeVisible();
@@ -89,6 +98,7 @@ test('life overflow menu opens upward and toast stays above the bottom tabs',asy
  expect(toastBox.y+toastBox.height).toBeLessThan(navBox.y-2);
  const trigger=page.locator('[data-life-more]').last();
  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+ await parkTriggerAboveBottomNav(page,trigger);
  await trigger.click();
  const menu=page.locator('.v42-life-more.is-open .v42-menu');
  await expect(menu).toBeVisible();
