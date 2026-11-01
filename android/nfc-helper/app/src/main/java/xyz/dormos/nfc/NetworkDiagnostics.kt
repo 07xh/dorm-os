@@ -54,6 +54,10 @@ class NetworkDiagnostics(private val context: Context) {
             }
         }
 
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+            return "Android 已将 Ncwu 标记为需要门户认证。请使用系统 Wi-Fi 登录通知或浏览器手动完成认证；助手未提交账号密码。"
+        }
+
         return try {
             val conn = network.openConnection(URL("https://www.baidu.com/")) as HttpURLConnection
             conn.instanceFollowRedirects = false
