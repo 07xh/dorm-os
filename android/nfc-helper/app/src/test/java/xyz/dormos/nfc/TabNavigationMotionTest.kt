@@ -15,8 +15,8 @@ class TabNavigationMotionTest {
     @Test
     fun directionIsConsistentForEveryAdjacentTabPair() {
         assertTrue(tabNavigationOrder(2) > tabNavigationOrder(0)) // Home → Scenes
-        assert(tabNavigationOrder(1) > tabNavigationOrder(2)) // Scenes → Tools
-        assert(tabNavigationOrder(0) < tabNavigationOrder(2)) // Scenes → Home
-        assert(tabNavigationOrder(2) < tabNavigationOrder(1)) // Tools → Scenes
+        assertTrue(tabNavigationOrder(1) > tabNavigationOrder(2)) // Scenes → Tools
+        assertTrue(tabNavigationOrder(0) < tabNavigationOrder(2)) // Scenes → Home
+        assertTrue(tabNavigationOrder(2) < tabNavigationOrder(1)) // Tools → Scenes
     }
 }
