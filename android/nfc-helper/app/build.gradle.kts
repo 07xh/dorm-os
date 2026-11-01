@@ -20,8 +20,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.14.2-ui-polish"
+        versionCode = 26
+        versionName = "1.14.3-inline-scene-write"
     }
     signingConfigs {
         if (hasReleaseSigning) {
