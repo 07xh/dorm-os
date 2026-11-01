@@ -29,13 +29,13 @@ valid_name64() {
   if printf '%s' "$name" | grep -q '[[:cntrl:]]'; then die invalid_name 64; fi
 }
 no_duplicate() {
-  parent="$1"; value="$2"; except="$3"
-  for meta in "$FOLDERS"/*.meta; do
-    [ -f "$meta" ] && [ ! -L "$meta" ] || continue
-    id="${meta##*/}"; id="${id%.meta}"
-    [ "$id" = "$except" ] && continue
-    IFS='|' read -r old_parent old_name < "$meta" || :
-    if [ "$old_parent" = "$parent" ] && [ "$old_name" = "$value" ]; then die duplicate_folder 65; fi
+  _check_parent="$1"; _check_value="$2"; _check_except="$3"
+  for _check_meta in "$FOLDERS"/*.meta; do
+    [ -f "$_check_meta" ] && [ ! -L "$_check_meta" ] || continue
+    _check_id="${_check_meta##*/}"; _check_id="${_check_id%.meta}"
+    [ "$_check_id" = "$_check_except" ] && continue
+    IFS='|' read -r _check_existing_parent _check_existing_name < "$_check_meta" || :
+    if [ "$_check_existing_parent" = "$_check_parent" ] && [ "$_check_existing_name" = "$_check_value" ]; then die duplicate_folder 65; fi
   done
 }
 folder_parent() {
