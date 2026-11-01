@@ -23,6 +23,21 @@ class StructureTests(unittest.TestCase):
         self.assertIn('if (action !in AllowedActions.items)', code)
         self.assertIn('waitFor(timeout, TimeUnit.SECONDS)', code)
         self.assertNotIn('Runtime.getRuntime().exec(user', code)
+    def test_module_version_detection_and_safe_script_output(self):
+        code = (SRC/'ModuleGateway.kt').read_text()
+        self.assertIn('dormos_nfc_actions/dispatcher.sh', code)
+        self.assertIn('fun inspect(): ModuleStatus', code)
+        self.assertIn('fun knownScripts()', code)
+        self.assertIn('if (!status.legacyReady)', code)
+        self.assertIn('result.ok -> Result(true, "模块动作已执行")', code)
+
+    def test_one_scene_action_sheet_instead_of_repeated_buttons(self):
+        code = (SRC/'MainActivity.kt').read_text()
+        self.assertIn('activeScene?.let', code)
+        self.assertIn('ModalBottomSheet(onDismissRequest = { activeScene = null }', code)
+        self.assertIn('SceneRow(s, onManage = { activeScene = s })', code)
+        self.assertNotIn('onWrite = { confirmWrite = s }', code)
+
     def test_no_legacy_webview(self):
         ui = (SRC/'MainActivity.kt').read_text()
         self.assertIn('Scaffold(', ui)
