@@ -3,15 +3,15 @@
 set -eu
 umask 077
 if [ -x /system/bin/sh ]; then SH=/system/bin/sh; else SH=/bin/sh; fi
-if [ "\${DORM_NFC_TESTING:-0}" = "1" ] && [ "$(id -u)" != "0" ]; then
-  BASE="\${DORM_NFC_TEST_ROOT:?}"
+if [ "${DORM_NFC_TESTING:-0}" = "1" ] && [ "$(id -u)" != "0" ]; then
+  BASE="${DORM_NFC_TEST_ROOT:?}"
 else
   BASE=/data/adb/dormos_nfc_bridge
 fi
 SCRIPTS="$BASE/scripts"
 BINDINGS="$BASE/script_bindings.tsv"
 LOG="$BASE/script_events.log"
-die() { echo "DORM_SCRIPT_ERROR=$1"; exit "\${2:-1}"; }
+die() { echo "DORM_SCRIPT_ERROR=$1"; exit "${2:-1}"; }
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 b64() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; }
 [ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] || die unsafe_dir 70
@@ -29,27 +29,27 @@ record() {
   mv "$LOG.tmp" "$LOG"
   chmod 600 "$LOG" 2>/dev/null || :
 }
-case "\${1:-}" in
+case "${1:-}" in
   --list)
     for f in "$SCRIPTS"/*.sh; do
       [ -f "$f" ] && [ ! -L "$f" ] || continue
-      id="\${f##*/}"; id="\${id%.sh}"
+      id="${f##*/}"; id="${id%.sh}"
       uuid "$id" || continue
       [ -f "$SCRIPTS/$id.name64" ] && [ ! -L "$SCRIPTS/$id.name64" ] || continue
       printf '%s|%s|%s\n' "$id" "$(cat "$SCRIPTS/$id.name64")" "$(wc -c < "$f" | tr -d ' ')"
     done ;;
   --read)
-    item "\${2:-}"
+    item "${2:-}"
     [ -f "$FILE" ] && [ -f "$NAME" ] || die not_found 66
     echo "SCRIPT_NAME64=$(cat "$NAME")"
     printf 'SCRIPT_BODY64='
     base64 < "$FILE" | tr -d '\r\n'
     printf '\n' ;;
   --save)
-    item "\${2:-}"
-    title="\${3:-}"; body="\${4:-}"
-    [ -n "$title" ] && [ "\${#title}" -le 360 ] && b64 "$title" || die bad_title 64
-    [ -n "$body" ] && [ "\${#body}" -le 24000 ] && b64 "$body" || die bad_body 64
+    item "${2:-}"
+    title="${3:-}"; body="${4:-}"
+    [ -n "$title" ] && [ "${#title}" -le 360 ] && b64 "$title" || die bad_title 64
+    [ -n "$body" ] && [ "${#body}" -le 24000 ] && b64 "$body" || die bad_body 64
     display=$(printf '%s' "$title" | base64 -d 2>/dev/null) || die bad_title64 65
     [ -n "$display" ] && [ "$(printf '%s' "$display" | wc -c | tr -d ' ')" -le 120 ] || die title_too_long 64
     tmp="$SCRIPTS/.script.$$"
@@ -62,7 +62,7 @@ case "\${1:-}" in
     chmod 600 "$NAME"
     echo "DORM_SCRIPT_SAVED=1" ;;
   --delete)
-    item "\${2:-}"
+    item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
     rm -f "$FILE" "$NAME"
     if [ -f "$BINDINGS" ]; then
@@ -71,7 +71,7 @@ case "\${1:-}" in
     fi
     echo "DORM_SCRIPT_DELETED=1" ;;
   --run)
-    item "\${2:-}"
+    item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
     command -v timeout >/dev/null 2>&1 || die timeout_unavailable 69
     if timeout 20 "$SH" "$FILE"; then
@@ -84,8 +84,8 @@ case "\${1:-}" in
       exit "$code"
     fi ;;
   --bind)
-    uuid "\${2:-}" || die invalid_tag 64
-    item "\${3:-}"
+    uuid "${2:-}" || die invalid_tag 64
+    item "${3:-}"
     [ -f "$FILE" ] || die not_found 66
     tmp="$BINDINGS.tmp.$$"
     if [ -f "$BINDINGS" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$tmp"; else : > "$tmp"; fi
@@ -93,7 +93,7 @@ case "\${1:-}" in
     chmod 600 "$tmp"; mv "$tmp" "$BINDINGS"
     echo "DORM_SCRIPT_BOUND=1" ;;
   --unbind)
-    uuid "\${2:-}" || die invalid_tag 64
+    uuid "${2:-}" || die invalid_tag 64
     if [ -f "$BINDINGS" ]; then
       awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$BINDINGS.tmp"
       mv "$BINDINGS.tmp" "$BINDINGS"
@@ -103,7 +103,7 @@ case "\${1:-}" in
     [ ! -L "$BINDINGS" ] || die unsafe_bindings 70
     [ -f "$BINDINGS" ] && cat "$BINDINGS" || : ;;
   --resolve)
-    uuid "\${2:-}" || die invalid_tag 64
+    uuid "${2:-}" || die invalid_tag 64
     [ -f "$BINDINGS" ] && [ ! -L "$BINDINGS" ] || die unbound 66
     id=$(awk -F '|' -v tag="$2" '$1 == tag {print $2; exit}' "$BINDINGS")
     uuid "$id" || die unbound 66
