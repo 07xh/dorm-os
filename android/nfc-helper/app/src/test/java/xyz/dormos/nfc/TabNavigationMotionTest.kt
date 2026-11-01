@@ -13,6 +13,13 @@ class TabNavigationMotionTest {
     }
 
     @Test
+    fun pagerMapsBackToOriginalTabId() {
+        for (tab in listOf(0, 2, 1)) {
+            assertEquals(tab, tabIdForPage(tabNavigationOrder(tab)))
+        }
+    }
+
+    @Test
     fun directionIsConsistentForEveryAdjacentTabPair() {
         assertTrue(tabNavigationOrder(2) > tabNavigationOrder(0)) // Home → Scenes
         assertTrue(tabNavigationOrder(1) > tabNavigationOrder(2)) // Scenes → Tools
