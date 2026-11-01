@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val releaseKeystorePath = System.getenv("DORMOS_RELEASE_KEYSTORE_PATH")
@@ -14,12 +15,13 @@ val hasReleaseSigning = listOf(
 android {
     namespace = "xyz.dormos.nfc"
     compileSdk = 36
+    buildFeatures { compose = true }
     defaultConfig {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.9.0-preview"
+        versionCode = 11
+        versionName = "1.0.0-preview"
     }
     signingConfigs {
         if (hasReleaseSigning) {
@@ -46,5 +48,10 @@ android {
 }
 
 dependencies {
+    implementation(platform("androidx.compose:compose-bom:2025.06.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
 }

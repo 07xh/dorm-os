@@ -101,16 +101,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Test and build KernelSU WebUI
-        working-directory: modules/dormos-nfc-ksu/webui-src
-        run: |
-          set -euo pipefail
-          npm install --no-package-lock --no-audit --no-fund
-          npm test
-          npm run build
       - name: Validate event-driven module and dispatcher
         shell: bash
         run: |
@@ -123,20 +113,18 @@ jobs:
           test ! -e post-mount.sh
           test ! -e boot-completed.sh
           test ! -e sepolicy.rule
-          test -s webroot/index.html
-          test -s webroot/style.css
-          test -s webroot/app.js
-          node --check webroot/app.js
-          for script in action.sh run.sh dispatcher.sh scripts/*.sh; do sh -n "$script"; done
+          test ! -e webroot
+          for script in action.sh run.sh dispatcher.sh script-manager.sh scripts/*.sh; do sh -n "$script"; done
           bash tests/test-dispatcher.sh
+          bash tests/test-personal-scripts.sh
           test -z "$(find . -name '*.so' -o -name '*.dex')"
       - name: Package optional KernelSU module
         shell: bash
         run: |
           set -euo pipefail
           cd modules/dormos-nfc-ksu
-          chmod 0755 run.sh dispatcher.sh action.sh scripts/*.sh
-          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh action.sh scripts README.md webroot
+          chmod 0755 run.sh dispatcher.sh script-manager.sh action.sh scripts/*.sh
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh script-manager.sh action.sh scripts README.md
           unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
       - uses: actions/upload-artifact@v4
         with:

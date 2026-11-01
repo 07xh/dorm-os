@@ -4,18 +4,22 @@
     <uses-feature android:name="android.hardware.nfc" android:required="true"/>
     <application
         android:allowBackup="false"
-        android:label="DORM NFC Receiver"
+        android:label="DORM NFC Manager"
         android:icon="@drawable/ic_dormos_nfc"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop">
+            android:name=".ManagerActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
                 <category android:name="android.intent.category.DEFAULT"/>

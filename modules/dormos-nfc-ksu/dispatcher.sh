@@ -154,6 +154,24 @@ dispatch_scene() {
   if [ "$_source" = "nfc" ]; then
     [ "$(cat "$ENABLED" 2>/dev/null || printf '0')" = "1" ] || fail "nfc_trigger_disabled" 77
   fi
+  # NFC script binding takes priority over older built-in scene actions.
+  # A cloned tag is never allowed to provide a script path or shell argument.
+  if [ "$_source" = "nfc" ]; then
+    if _script_result=$("$SHELL_BIN" "$MODDIR/script-manager.sh" --resolve "$_id" 2>/dev/null); then
+      _script_id=$(printf '%s\n' "$_script_result" | sed -n 's/^DORM_SCRIPT_ID=//p' | head -n 1)
+      if "$SHELL_BIN" "$MODDIR/script-manager.sh" --run "$_script_id"; then
+        log_event "$_id" "personal-script" success
+        echo "DORM_NFC_RESULT=success"
+        echo "DORM_ACTION=personal-script"
+        return 0
+      else
+        _rc=$?
+        log_event "$_id" "personal-script" failed
+        echo "DORM_NFC_RESULT=failed"
+        exit "$_rc"
+      fi
+    fi
+  fi
   [ -f "$CONFIG" ] || fail "scene_config_missing" 66
   valid_scene_file "$CONFIG" || fail "scene_config_invalid" 65
   _entry=$(awk -F '|' -v id="$_id" '$1 == id { print $2 "|" $3; exit }' "$CONFIG")
@@ -214,6 +232,15 @@ case "${1:-}" in
     log_event "legacy" "ncwu-check" "success"
     echo "DORM_NFC_RESULT=success"
     echo "DORM_ACTION=ncwu-check" ;;
+  --script-list) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --list ;;
+  --script-read) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --read "${2:-}" ;;
+  --script-save) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --save "${2:-}" "${3:-}" "${4:-}" ;;
+  --script-delete) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --delete "${2:-}" ;;
+  --script-run) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --run "${2:-}" ;;
+  --script-bind) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --bind "${2:-}" "${3:-}" ;;
+  --script-unbind) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --unbind "${2:-}" ;;
+  --script-bindings) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --bindings ;;
+  --script-logs) exec "$SHELL_BIN" "$MODDIR/script-manager.sh" --logs ;;
   --write-tag)
     _id="${2:-}"
     valid_id "$_id" || fail "invalid_scene_id" 64
