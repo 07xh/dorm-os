@@ -70,10 +70,12 @@ private data class ManagerSnapshot(
 class ManagerActivity : ComponentActivity() {
     private val bridge = RootModuleClient()
     private lateinit var inlineScanner: NfcInlineScanner
+    private lateinit var inlineWriter: NfcSceneWriteSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         inlineScanner = NfcInlineScanner(this)
+        inlineWriter = NfcSceneWriteSession(this)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -87,6 +89,7 @@ class ManagerActivity : ComponentActivity() {
                 ManagerScreen(
                     bridge = bridge,
                     inlineScanner = inlineScanner,
+                    inlineWriter = inlineWriter,
                     openNdefWriter = { startActivity(Intent(this, NdefWriterActivity::class.java)) },
                     openNfcPreferences = {
                         if (Build.VERSION.SDK_INT >= 36) {
@@ -95,11 +98,6 @@ class ManagerActivity : ComponentActivity() {
                         } else Toast.makeText(this, "仅 Android 16 或更新版本提供此入口", Toast.LENGTH_SHORT).show()
                     },
                     notify = { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() },
-                    tagWriteIntent = { uuid ->
-                        Intent(this, MainActivity::class.java)
-                            .setAction(MainActivity.ACTION_WRITE_TAG)
-                            .putExtra(MainActivity.EXTRA_SCENE_ID, uuid)
-                    },
                     importFile = { uri, callback ->
                         try {
                             val name = contentResolver.query(
@@ -135,10 +133,12 @@ class ManagerActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::inlineScanner.isInitialized) inlineScanner.onResume()
+        if (::inlineWriter.isInitialized) inlineWriter.onResume()
     }
 
     override fun onPause() {
         if (::inlineScanner.isInitialized) inlineScanner.onPause()
+        if (::inlineWriter.isInitialized) inlineWriter.onPause()
         super.onPause()
     }
 }
@@ -147,10 +147,10 @@ class ManagerActivity : ComponentActivity() {
 private fun ManagerScreen(
     bridge: RootModuleClient,
     inlineScanner: NfcInlineScanner,
+    inlineWriter: NfcSceneWriteSession,
     openNdefWriter: () -> Unit,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
-    tagWriteIntent: (String) -> Intent,
     importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -181,11 +181,11 @@ private fun ManagerScreen(
     var sceneNameDraft by rememberSaveable { mutableStateOf("") }
     var sceneScriptDraft by rememberSaveable { mutableStateOf("") }
     var confirmUnbindScene by remember { mutableStateOf<PersonalScene?>(null) }
-    var pendingSceneName by rememberSaveable { mutableStateOf("") }
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLogsSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
     var showInlineScan by remember { mutableStateOf(false) }
+    var pendingSceneWrite by remember { mutableStateOf<SceneWriteRequest?>(null) }
     var selectedTheme by rememberSaveable {
         mutableStateOf(
             context.getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default")
@@ -211,6 +211,10 @@ private fun ManagerScreen(
     var logs by remember { mutableStateOf("") }
 
     fun openInlineScanner() {
+        if (pendingSceneWrite != null) {
+            notify("请先完成或取消场景写卡")
+            return
+        }
         inlineScanner.start()
         showInlineScan = true
     }
@@ -318,42 +322,70 @@ private fun ManagerScreen(
         }
     }
 
-    var pendingTag by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingScript by rememberSaveable { mutableStateOf<String?>(null) }
-    val writeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val tag = pendingTag
-        val script = pendingScript
-        val sceneName = pendingSceneName
-        pendingTag = null
-        pendingScript = null
-        pendingSceneName = ""
-        if (tag != null && script != null &&
-            NfcProfiles.bindingMayCommit(
-                tag, script, result.data?.getStringExtra(MainActivity.EXTRA_SCENE_ID),
-                result.resultCode == Activity.RESULT_OK
-            )) {
-            val previousTag = result.data?.getStringExtra(MainActivity.EXTRA_PREVIOUS_TAG_ID)
-            val oldBinding = NfcProfiles.previousBindingToRemove(previousTag, tag)
-            runRoot({
-                val bound = bridge.bind(tag, script)
-                if (!bound.success) return@runRoot bound
-                val named = bridge.saveScene(tag, sceneName.ifBlank {
-                    entries.firstOrNull { it.id == script }?.name?.removeSuffix(".sh") ?: "NFC 场景"
-                })
-                if (!named.success) {
-                    bridge.unbind(tag)
-                    return@runRoot RootResult(70, "标签已写入，但保存场景名称失败；已撤销本机绑定：" + named.output)
-                }
-                if (oldBinding == null) named
-                else {
-                    val removed = bridge.unbind(oldBinding)
-                    if (removed.success) RootResult(0, "NFC 场景绑定成功，旧标签关联已清理。")
-                    else RootResult(70, "新绑定已建立，但旧标签关联清理失败：" + removed.output)
-                }
-            }) { refresh() }
-        } else {
-            notify("写卡未通过验证，本次没有登记 NFC 绑定。")
+    fun beginSceneWrite(scriptId: String, sceneName: String) {
+        if (pendingSceneWrite != null || loading) {
+            notify("请先完成当前 NFC 操作")
+            return
         }
+        if (!NfcProfiles.validId(scriptId) || sceneName.isBlank()) {
+            notify("请选择有效的 SH 脚本和场景名称")
+            return
+        }
+        // A single Activity can have only one active ReaderMode session.
+        inlineScanner.stop()
+        showInlineScan = false
+        val request = SceneWriteRequest(
+            tagId = bridge.newId(),
+            scriptId = scriptId,
+            sceneName = sceneName
+        )
+        val accepted = inlineWriter.begin(request) { verifiedRequest, outcome ->
+            if (!SceneWritePolicy.mayCommit(outcome.state) ||
+                !NfcProfiles.bindingMayCommit(
+                    verifiedRequest.tagId, verifiedRequest.scriptId,
+                    verifiedRequest.tagId, outcome.verified
+                )) {
+                inlineWriter.markRegistered(false, "回读验证失败，没有登记任何脚本绑定")
+            } else {
+                val previous = NfcProfiles.previousBindingToRemove(
+                    outcome.previousTagId, verifiedRequest.tagId
+                )
+                runRoot({
+                    val bound = bridge.bind(verifiedRequest.tagId, verifiedRequest.scriptId)
+                    if (!bound.success) {
+                        bound
+                    } else {
+                        val named = bridge.saveScene(
+                            verifiedRequest.tagId, verifiedRequest.sceneName
+                        )
+                        if (!named.success) {
+                            val reversed = bridge.unbind(verifiedRequest.tagId)
+                            if (reversed.success) {
+                                RootResult(70, "标签已写入，但保存场景失败。本机绑定已撤销：" + named.output)
+                            } else {
+                                RootResult(70, "标签已写入，但场景登记失败且回滚未成功。请检查绑定：" +
+                                    named.output + " / " + reversed.output)
+                            }
+                        } else if (previous == null) {
+                            RootResult(0, "NFC 标签回读与场景登记全部成功")
+                        } else {
+                            val removed = bridge.unbind(previous)
+                            if (removed.success) RootResult(0, "已建立新场景，旧标签绑定已清理")
+                            else RootResult(70, "新场景已写入，但旧绑定清理失败，请手动处理：" + removed.output)
+                        }
+                    }
+                }) { saved ->
+                    inlineWriter.markRegistered(
+                        saved.success,
+                        if (saved.success) "标签和 KernelSU 场景绑定均已验证"
+                        else "写卡可能已成功，但脚本绑定未完整签收：" + saved.output.take(180)
+                    )
+                    refresh()
+                }
+            }
+        }
+        if (accepted) pendingSceneWrite = request
+        else notify("无法开启本次写卡，请先完成或取消上一项操作")
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -889,6 +921,29 @@ private fun ManagerScreen(
     // Dialogs must inherit the same theme as the main three-tab workspace.
     CompositionLocalProvider(LocalV2Palette provides p) {
         MaterialTheme(colorScheme = scheme) {
+    pendingSceneWrite?.let { request ->
+        val scriptName = entries.firstOrNull { it.id == request.scriptId }?.name
+            ?: "已选择的 SH 脚本"
+        NfcSceneWriteSheet(
+            sceneName = request.sceneName,
+            scriptName = scriptName,
+            session = inlineWriter,
+            onDismiss = {
+                if (inlineWriter.stop()) {
+                    pendingSceneWrite = null
+                    refresh()
+                }
+            },
+            onNfcSettings = {
+                try {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS))
+                } catch (_: Exception) {
+                    notify("未找到系统 NFC 设置入口，请到系统设置手动开启")
+                }
+            }
+        )
+    }
+
     if (showInlineScan) {
         NfcInlineScanSheet(
             scanner = inlineScanner,
@@ -967,18 +1022,7 @@ private fun ManagerScreen(
             busy = loading,
             onConfirm = {
                 confirmBind = null
-                val tag = bridge.newId()
-                pendingTag = tag
-                pendingScript = item.id
-                pendingSceneName = item.name.removeSuffix(".sh")
-                try {
-                    writeLauncher.launch(tagWriteIntent(tag))
-                } catch (error: Exception) {
-                    pendingTag = null
-                    pendingScript = null
-                    pendingSceneName = ""
-                    notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
-                }
+                beginSceneWrite(item.id, item.name.removeSuffix(".sh"))
             },
             onDismiss = { confirmBind = null }
         )
@@ -1099,19 +1143,8 @@ private fun ManagerScreen(
             onSave = { name, scriptId ->
                 val existing = editingScene
                 if (existing == null) {
-                    val tag = bridge.newId()
-                    pendingTag = tag
-                    pendingScript = scriptId
-                    pendingSceneName = name
                     sceneEditorOpen = false
-                    try {
-                        writeLauncher.launch(tagWriteIntent(tag))
-                    } catch (error: Exception) {
-                        pendingTag = null
-                        pendingScript = null
-                        pendingSceneName = ""
-                        notify("无法启动 NFC 写卡：" + (error.message ?: "请检查 NFC 是否开启"))
-                    }
+                    beginSceneWrite(scriptId, name)
                 } else {
                     runRoot({
                         val rebound = if (scriptId == existing.scriptId)
