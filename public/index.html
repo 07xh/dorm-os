@@ -199,9 +199,12 @@ const CAMPUSES = Object.freeze({
   jianghuai: { name: '江淮校区', city: '罗山', lat: 32.20, lon: 114.53 },
   huayuan: { name: '花园校区', city: '郑州', lat: 34.78, lon: 113.65 }
 });
+const HOME_WIDGETS=Object.freeze([{"id":"timetable","label":"今日课表","description":"今天的课程、教室和下一节安排"},{"id":"tasks","label":"我的待办","description":"待完成任务、截止日期和逾期数量"},{"id":"focus","label":"专注计时","description":"15、25、45 分钟专注计时"},{"id":"life","label":"个人生活","description":"生活提醒、个人物品和 NFC 标签数量"},{"id":"devices","label":"我的设备","description":"设备接入状态与 NFC 管理入口"},{"id":"weather","label":"天气","description":"校区实时天气与出门提示"}]);
+function defaultHomeLayout(){return {order:HOME_WIDGETS.map(x=>x.id),hidden:[]};}
+function normalizeHomeLayout(value){const ids=HOME_WIDGETS.map(x=>x.id);const order=[...new Set((Array.isArray(value?.order)?value.order:[]).filter(x=>ids.includes(x)))];for(const id of ids)if(!order.includes(id))order.push(id);let hidden=[...new Set((Array.isArray(value?.hidden)?value.hidden:[]).filter(x=>ids.includes(x)))];if(hidden.length>=ids.length)hidden=[];return {order,hidden};}
 const DEFAULT_STATE = Object.freeze({
   version: 1,
-  settings: { campus: 'jianghuai', theme: 'light' },
+  settings: { campus: 'jianghuai', theme: 'light', homeLayout: defaultHomeLayout() },
   tasks: [], classes: [], calendarEvents: [], campusLinks: [], events: [], nfcTags: [], reminders: [], items: [], sceneLinks: [],
   scene: 'none',
   focusTimer: {duration:25,remaining:1500,running:false,deadline:0},
@@ -239,6 +242,7 @@ function normalizeFocusTimer(source,time=Date.now()){
 function safeState(value){
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1) throw new Error('不是受支持的 DORM OS V1 备份');
   const campus = CAMPUSES[value.settings?.campus] ? value.settings.campus : 'jianghuai';
+  const homeLayout = normalizeHomeLayout(value.settings?.homeLayout);
   const cleanText = (x,max=100) => String(x??'').trim().slice(0,max);
   const dateRE = /^\d{4}-\d{2}-\d{2}$/;
   const timeRE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -257,7 +261,7 @@ function safeState(value){
   const awayChecklist={date:dateRE.test(value.awayChecklist?.date)?value.awayChecklist.date:'',checked:Array.isArray(value.awayChecklist?.checked)?[...new Set(value.awayChecklist.checked.filter(x=>['keys','campusCard','phone','water','studyMaterials','earphones'].includes(x)))]:[]};
   const events = (Array.isArray(value.events)?value.events:[]).slice(-80).filter(x=>x&&typeof x==='object').map(x=>({at:cleanText(x.at,40),text:cleanText(x.text,120)}));
   const amount = value.electricity?.balance;
-  return {version:1,settings:{campus,theme:value.settings?.theme==='dark'?'dark':'light'},tasks,classes,calendarEvents,campusLinks,events,nfcTags,reminders,items,sceneLinks,scene:['none','study','rest','dev','away'].includes(value.scene)?value.scene:'none',awayChecklist,focusTimer:normalizeFocusTimer(value.focusTimer),electricity:{balance:typeof amount==='number' && Number.isFinite(amount) && amount>=0 && amount<100000?amount:null,updatedAt:cleanText(value.electricity?.updatedAt,40)||null}};
+  return {version:1,settings:{campus,theme:value.settings?.theme==='dark'?'dark':'light',homeLayout},tasks,classes,calendarEvents,campusLinks,events,nfcTags,reminders,items,sceneLinks,scene:['none','study','rest','dev','away'].includes(value.scene)?value.scene:'none',awayChecklist,focusTimer:normalizeFocusTimer(value.focusTimer),electricity:{balance:typeof amount==='number' && Number.isFinite(amount) && amount>=0 && amount<100000?amount:null,updatedAt:cleanText(value.electricity?.updatedAt,40)||null}};
 }
 function classForDay(classes, day) {return classes.filter(x=>x.day===day).sort((a,b)=>a.start.localeCompare(b.start));}
 function upcomingClass(classes, day, time) {
@@ -391,6 +395,7 @@ let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
 let page='dashboard',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let deferredInstallPrompt=null;
+let homeLayoutDraft=null;
 let androidSceneSelection='study';
 let pendingEncryptedBackup=null;
 let pendingPlainBackup=null;
