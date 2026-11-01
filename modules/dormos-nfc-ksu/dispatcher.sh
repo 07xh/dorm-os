@@ -33,7 +33,7 @@ decode_b64() { printf '%s' "$1" | base64 -d 2>/dev/null; }
 safe_https_url() {
   _url="$1"
   case "$_url" in https://*) ;; *) return 1 ;; esac
-  case "$_url" in *[!A-Za-z0-9:/?&=._#%+-]*) return 1 ;; esac
+  printf '%s' "$_url" | grep -Eq '^https://[A-Za-z0-9:/?&=._#%+-]+$' || return 1
   _rest="${_url#https://}"
   _host="${_rest%%/*}"
   _host="${_host%%\?*}"
