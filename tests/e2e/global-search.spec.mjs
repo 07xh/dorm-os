@@ -3,7 +3,7 @@ const STORAGE='dorm-os-state-v1';
 test('global search finds personal records across pages and opens edit forms',async({page})=>{
  await page.goto('/');
  await page.evaluate(key=>{
-  const s=JSON.parse(localStorage.getItem(key));
+  const s=JSON.parse(localStorage.getItem(key) || '{"version":1,"tasks":[],"classes":[],"calendarEvents":[],"campusLinks":[],"events":[],"nfcTags":[],"reminders":[],"items":[],"sceneLinks":[]}');
   s.tasks=[{id:'task-math',title:'高数周五作业',category:'高数',due:'2026-11-06',done:false,createdAt:'2026-11-01'}];
   s.classes=[{id:'class-math',day:1,start:'08:00',end:'09:40',subject:'高数',location:'A101'}];
   s.calendarEvents=[{id:'calendar-math',uid:'math-ics',date:'2026-11-02',start:'10:00',end:'11:00',subject:'高数答疑',location:'教学楼'}];
@@ -34,7 +34,7 @@ test('global search finds personal records across pages and opens edit forms',as
 test('global search escapes stored text, handles no matches and leaves data untouched',async({page})=>{
  await page.goto('/');
  await page.evaluate(key=>{
-  const s=JSON.parse(localStorage.getItem(key));
+  const s=JSON.parse(localStorage.getItem(key) || '{"version":1,"tasks":[],"classes":[],"calendarEvents":[],"campusLinks":[],"events":[],"nfcTags":[],"reminders":[],"items":[],"sceneLinks":[]}');
   s.tasks=[{id:'task-xss',title:'<img src=x onerror=alert(1)>',category:'其他',due:'',done:false,createdAt:''}];
   localStorage.setItem(key,JSON.stringify(s));
  },STORAGE);
