@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DORM OS NFC</title><style>
+body{font:16px system-ui;margin:0;padding:20px;background:#f4f8ff;color:#163253}main{max-width:520px;margin:auto}h1{font-size:24px}
+section{background:white;border:1px solid #dce8fa;border-radius:16px;padding:17px;margin:16px 0}button{border:1px solid #aacbf0;background:#edf5ff;color:#145eb3;border-radius:12px;padding:12px;margin:4px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#102541;color:#fff;padding:12px;border-radius:10px}
+</style></head><body><main><h1>🔵 DORM OS NFC</h1><p>事件驱动，零后台轮询 · v0.1.0</p><section><strong>模块测试</strong><p>真正的 NFC 监听由配套 APK 在扫卡时启动；单独安装此 ZIP 不会响应标签。</p>
+<button data-scene="status">状态</button><button data-scene="ncwu-check">校园网诊断</button><button data-scene="study">学习网站</button><button data-scene="dingtalk">钉钉</button><pre id="result">选择操作</pre></section>
+<section>配套 APK 可以把自定义场景 URI 写入 NTAG 标签。校园网登录尚未实现，不储存账号或密码。</section></main><script>
+for(const b of document.querySelectorAll('[data-scene]'))b.onclick=()=>{const o=document.querySelector('#result');
+if(!globalThis.ksu||typeof globalThis.ksu.exec!=='function'){o.textContent='当前 KernelSU 管理器不提供 WebUI 执行接口';return}
+try{const r=globalThis.ksu.exec('/system/bin/sh /data/adb/modules/dormos_nfc/bin/dispatch.sh '+b.dataset.scene);o.textContent=typeof r==='string'?r:JSON.stringify(r,null,2)}catch(e){o.textContent=String(e)}
+};</script></body></html>
