@@ -6,6 +6,12 @@ import org.junit.Test
 
 class TabNavigationMotionTest {
     @Test
+    fun pagerKeepsExactlyThreeTabsInVisualOrder() {
+        assertEquals(3, TAPFLOW_TAB_COUNT)
+        assertEquals(listOf(0, 2, 1), (0 until TAPFLOW_TAB_COUNT).map(::tabIdForPage))
+    }
+
+    @Test
     fun visualOrderMatchesBottomNavigation() {
         assertEquals(0, tabNavigationOrder(0)) // Home
         assertEquals(1, tabNavigationOrder(2)) // Scenes
