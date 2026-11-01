@@ -66,8 +66,22 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                     writing = writing,
                     nfcAvailable = nfcAvailable,
                     nfcEnabled = nfcEnabled,
-                    onBack = { finish() },
-                    onNfcSettings = { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
+                    onBack = {
+                        gate.cancelPending()
+                        inForeground = false
+                        finish()
+                    },
+                    onInspect = {
+                        gate.cancelPending()
+                        startActivity(Intent(this, TagInspectorActivity::class.java))
+                    },
+                    onNfcSettings = {
+                        try { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
+                        catch (_: Exception) {
+                            try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
+                            catch (_: Exception) { status = "系统没有可用的 NFC 设置入口，请手动开启 NFC" }
+                        }
+                    },
                     onDisarm = { disarm() },
                     onArm = { plan, overwrite ->
                         val nfc = adapter
@@ -216,6 +230,7 @@ private fun WriteScreen(
     nfcAvailable: Boolean,
     nfcEnabled: Boolean,
     onBack: () -> Unit,
+    onInspect: () -> Unit,
     onNfcSettings: () -> Unit,
     onDisarm: () -> Unit,
     onArm: (PreparedNdefWrite, Boolean) -> Unit
@@ -334,8 +349,18 @@ private fun WriteScreen(
             Spacer(Modifier.height(14.dp))
             Surface(color = if (resultVerified == true) Color(0xFFE9F4ED) else Color(0xFFFFF3E8),
                 shape = RoundedCornerShape(18.dp)) {
-                Text(result, modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    fontSize = 14.sp, color = Color(0xFF26334C))
+                Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                    Text(result, fontSize = 14.sp, color = Color(0xFF26334C))
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onInspect,
+                        enabled = !writing,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("打开只读页面再次核对")
+                    }
+                }
             }
         }
         Spacer(Modifier.height(24.dp))
