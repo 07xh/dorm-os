@@ -400,6 +400,99 @@ internal fun V2ToolsHeading(onScan: () -> Unit, onWrite: () -> Unit) {
     Spacer(Modifier.height(22.dp))
 }
 
+/** Fine-stroke management glyphs; each row uses the same 24dp optical grid. */
+@Composable
+internal fun V2ManagementIcon(which: Int, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val c = Offset(w * .5f, h * .5f)
+        val stroke = (w * .075f).coerceAtLeast(1.25f)
+        val outline = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        when (which) {
+            // Run history: restrained clock face and two precise hands.
+            0 -> {
+                drawCircle(color, w * .34f, c, style = outline)
+                drawLine(color, Offset(c.x, h * .28f), Offset(c.x, c.y),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, c, Offset(w * .69f, h * .61f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawArc(color, 205f, 55f, false,
+                    Offset(w * .07f, h * .07f), Size(w * .86f, h * .86f),
+                    style = Stroke(stroke * .7f, cap = StrokeCap.Round))
+            }
+            // Backup: file outline with a clear export arrow.
+            1 -> {
+                val page = Path().apply {
+                    moveTo(w * .27f, h * .12f)
+                    lineTo(w * .62f, h * .12f)
+                    lineTo(w * .77f, h * .27f)
+                    lineTo(w * .77f, h * .87f)
+                    lineTo(w * .27f, h * .87f)
+                    close()
+                }
+                drawPath(page, color, style = outline)
+                drawLine(color, Offset(w * .62f, h * .13f), Offset(w * .62f, h * .28f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * .62f, h * .28f), Offset(w * .77f, h * .28f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * .52f, h * .72f), Offset(w * .52f, h * .45f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * .39f, h * .57f), Offset(w * .52f, h * .43f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * .65f, h * .57f), Offset(w * .52f, h * .43f),
+                    strokeWidth = stroke, cap = StrokeCap.Round)
+            }
+            // Appearance: an even gear, not a text glyph.
+            2 -> {
+                val outer = w * .29f
+                drawCircle(color, outer, c, style = outline)
+                drawCircle(color, w * .105f, c, style = outline)
+                for (i in 0 until 8) {
+                    val angle = i * Math.PI / 4.0
+                    val dx = kotlin.math.cos(angle).toFloat()
+                    val dy = kotlin.math.sin(angle).toFloat()
+                    drawLine(
+                        color,
+                        Offset(c.x + dx * outer * 1.08f, c.y + dy * outer * 1.08f),
+                        Offset(c.x + dx * outer * 1.42f, c.y + dy * outer * 1.42f),
+                        strokeWidth = stroke, cap = StrokeCap.Round
+                    )
+                }
+            }
+            // Root status: shield with a small verification tick.
+            3 -> {
+                val shield = Path().apply {
+                    moveTo(w * .5f, h * .09f)
+                    lineTo(w * .82f, h * .22f)
+                    lineTo(w * .78f, h * .57f)
+                    cubicTo(w * .74f, h * .73f, w * .61f, h * .84f, w * .5f, h * .91f)
+                    cubicTo(w * .39f, h * .84f, w * .26f, h * .73f, w * .22f, h * .57f)
+                    lineTo(w * .18f, h * .22f)
+                    close()
+                }
+                drawPath(shield, color, style = outline)
+                val check = Path().apply {
+                    moveTo(w * .35f, h * .5f)
+                    lineTo(w * .46f, h * .61f)
+                    lineTo(w * .67f, h * .39f)
+                }
+                drawPath(check, color, style = outline)
+            }
+            // NFC settings: two balanced radio arcs and a contact point.
+            else -> {
+                drawArc(color, 222f, 96f, false,
+                    Offset(w * .12f, h * .12f), Size(w * .76f, h * .70f),
+                    style = outline)
+                drawArc(color, 222f, 96f, false,
+                    Offset(w * .29f, h * .30f), Size(w * .42f, h * .39f),
+                    style = outline)
+                drawCircle(color, w * .055f, Offset(c.x, h * .79f))
+            }
+        }
+    }
+}
+
 /** Lightweight vector icons so the real APK matches the prototype's outlined navigation. */
 @Composable
 internal fun V2NavIcon(which: Int, color: Color, modifier: Modifier = Modifier) {
