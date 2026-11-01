@@ -1,16 +1,9 @@
 package xyz.dormos.nfc
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TabNavigationMotionTest {
-    @Test
-    fun pagerKeepsExactlyThreeTabsInVisualOrder() {
-        assertEquals(3, TAPFLOW_TAB_COUNT)
-        assertEquals(listOf(0, 2, 1), (0 until TAPFLOW_TAB_COUNT).map(::tabIdForPage))
-    }
-
     @Test
     fun visualOrderMatchesBottomNavigation() {
         assertEquals(0, tabNavigationOrder(0)) // Home
@@ -19,17 +12,23 @@ class TabNavigationMotionTest {
     }
 
     @Test
-    fun pagerMapsBackToOriginalTabId() {
-        for (tab in listOf(0, 2, 1)) {
-            assertEquals(tab, tabIdForPage(tabNavigationOrder(tab)))
-        }
+    fun movingToTheRightTabEntersFromTheRight() {
+        assertEquals(1, tabTransitionDirection(0, 2)) // Home -> Scenes
+        assertEquals(1, tabTransitionDirection(2, 1)) // Scenes -> Tools
+        assertEquals(1, tabTransitionDirection(0, 1)) // Home -> Tools
     }
 
     @Test
-    fun directionIsConsistentForEveryAdjacentTabPair() {
-        assertTrue(tabNavigationOrder(2) > tabNavigationOrder(0)) // Home → Scenes
-        assertTrue(tabNavigationOrder(1) > tabNavigationOrder(2)) // Scenes → Tools
-        assertTrue(tabNavigationOrder(0) < tabNavigationOrder(2)) // Scenes → Home
-        assertTrue(tabNavigationOrder(2) < tabNavigationOrder(1)) // Tools → Scenes
+    fun movingToTheLeftTabEntersFromTheLeft() {
+        assertEquals(-1, tabTransitionDirection(2, 0)) // Scenes -> Home
+        assertEquals(-1, tabTransitionDirection(1, 2)) // Tools -> Scenes
+        assertEquals(-1, tabTransitionDirection(1, 0)) // Tools -> Home
+    }
+
+    @Test
+    fun selectingCurrentTabDoesNotAnimate() {
+        assertEquals(0, tabTransitionDirection(0, 0))
+        assertEquals(0, tabTransitionDirection(2, 2))
+        assertEquals(0, tabTransitionDirection(1, 1))
     }
 }
