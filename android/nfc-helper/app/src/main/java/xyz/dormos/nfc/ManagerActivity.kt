@@ -11,14 +11,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -29,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -178,6 +171,7 @@ private fun ManagerScreen(
     val homeScroll = rememberScrollState()
     val scenesScroll = rememberScrollState()
     val toolsScroll = rememberScrollState()
+    val pageStateHolder = rememberSaveableStateHolder()
     var entries by remember { mutableStateOf(emptyList<PersonalScript>()) }
     var folders by remember { mutableStateOf(emptyList<PersonalFolder>()) }
     var scriptLocations by remember { mutableStateOf(emptyMap<String, String>()) }
@@ -610,24 +604,10 @@ private fun ManagerScreen(
                      folderNames[location]?.contains(query, ignoreCase = true) == true)
             }
         }
-        AnimatedContent(
-            targetState = current,
+        TapFlowMainTransition(
+            currentTab = current,
             modifier = Modifier.weight(1f),
-            transitionSpec = {
-                val direction = tabTransitionDirection(initialState, targetState)
-                (
-                    slideInHorizontally(
-                        initialOffsetX = { width -> if (direction > 0) width else -width },
-                        animationSpec = tween(320, easing = FastOutSlowInEasing)
-                    ) + fadeIn(animationSpec = tween(180))
-                ) togetherWith (
-                    slideOutHorizontally(
-                        targetOffsetX = { width -> if (direction > 0) -width else width },
-                        animationSpec = tween(320, easing = FastOutSlowInEasing)
-                    ) + fadeOut(animationSpec = tween(160))
-                )
-            },
-            label = "TapFlow bottom navigation transition"
+            stateHolder = pageStateHolder
         ) { visibleTab ->
         Column(
             Modifier.fillMaxSize()
@@ -961,45 +941,11 @@ private fun ManagerScreen(
             }
         }
         }
-        NavigationBar(
-                containerColor = p.surface,
-                tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                listOf(
-                    Triple(0, "⌂", "首页"),
-                    Triple(2, "▦", "场景"),
-                    Triple(1, "⚒", "工具")
-                ).forEach { entry ->
-                    NavigationBarItem(
-                        selected = current == entry.first,
-                        onClick = { navigateToTab(entry.first) },
-                        icon = {
-                            val selected = current == entry.first
-                            V2NavIcon(
-                                which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
-                                color = if (selected) p.blue else p.muted
-                            )
-                        },
-                        label = {
-                            Text(
-                                entry.third,
-                                fontSize = 11.sp,
-                                fontWeight = if (current == entry.first) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = p.blue,
-                            selectedTextColor = p.blue,
-                            indicatorColor = p.accentLow,
-                            unselectedIconColor = p.muted,
-                            unselectedTextColor = p.muted
-                        )
-                    )
-                }
-            }
-    }
+        TapFlowBottomNavigation(
+            currentTab = current,
+            palette = p,
+            onSelect = ::navigateToTab
+        )
 
     // Dialogs must inherit the same theme as the main three-tab workspace.
     CompositionLocalProvider(LocalV2Palette provides p) {
