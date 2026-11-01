@@ -6,6 +6,7 @@ import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
+import android.nfc.tech.NdefFormatable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,11 +37,15 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     )
     private val armedFlag = AtomicBoolean(false)
     private val writingInFlight = AtomicBoolean(false)
+    @Volatile private var inForeground = false
+    @Volatile private var writeIssued = false
     @Volatile private var pending: WriteRequest? = null
     private var adapter: NfcAdapter? = null
     private var ready by mutableStateOf(false)
     private var status by mutableStateOf("选择内容并确认，才会开始写卡")
     private var result by mutableStateOf<String?>(null)
+    private var resultVerified by mutableStateOf<Boolean?>(null)
+    private var writing by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +61,8 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                     status = status,
                     ready = ready,
                     result = result,
+                    resultVerified = resultVerified,
+                    writing = writing,
                     onBack = { finish() },
                     onDisarm = { disarm() },
                     onArm = { plan, overwrite ->
@@ -65,6 +72,8 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                         } else {
                             pending = WriteRequest(plan, overwrite)
                             result = null
+                            resultVerified = null
+                            writeIssued = false
                             ready = true
                             armedFlag.set(true)
                             status = "请将可写 NFC 标签贴近手机背部"
@@ -88,6 +97,7 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
 
     override fun onResume() {
         super.onResume()
+        inForeground = true
         val nfc = adapter
         if (nfc == null || !nfc.isEnabled) {
             status = "NFC 未开启或当前设备不支持 NFC"
@@ -106,9 +116,11 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     }
 
     override fun onPause() {
+        inForeground = false
         armedFlag.set(false)
         pending = null
         ready = false
+        if (writingInFlight.get()) status = "写卡过程被中断显示，结果未知。请重新读取标签确认。"
         try { adapter?.disableReaderMode(this) } catch (_: Exception) {}
         super.onPause()
     }
@@ -118,16 +130,24 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         val request = pending ?: return
         pending = null
         writingInFlight.set(true)
+        runOnUiThread {
+            if (inForeground && !isFinishing && !isDestroyed) {
+                writing = true
+                status = "正在检查标签、写入并回读，请保持标签贴近"
+            }
+        }
         val outcome = try { writeAndVerify(tag, request.draft, request.overwriteConfirmed) }
         catch (e: Exception) {
-            WriteOutcome(false, "写入未通过验证：" + (e.message?.take(90) ?: "标签连接中断"))
+            WriteOutcome(false, NfcFailureFeedback.writeFailure(e, writeIssued))
         }
         runOnUiThread {
             writingInFlight.set(false)
-            if (!isFinishing && !isDestroyed) {
+            writing = false
+            if (inForeground && !isFinishing && !isDestroyed) {
                 ready = false
                 result = outcome.message
-                status = if (outcome.verified) "写入成功 · 已回读验证" else "写卡未完成"
+                resultVerified = outcome.verified
+                status = if (outcome.verified) "写入成功 · 已回读验证" else "未验证成功 · 查看下方说明"
             }
         }
     }
@@ -144,7 +164,7 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         val message = NdefMessage(arrayOf(record))
         val bytes = message.toByteArray()
         val ndef = Ndef.get(tag)
-            ?: return WriteOutcome(false, "此标签不支持标准 NDEF 写入；未修改标签")
+            ?: return WriteOutcome(false, NfcFailureFeedback.noNdef(NdefFormatable.get(tag) != null))
         ndef.connect()
         return try {
             val previous = ndef.ndefMessage
@@ -160,14 +180,18 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
             if (deny != null) return WriteOutcome(false, deny)
             if (!ndef.isWritable) return WriteOutcome(false, "标签只读；未修改任何数据")
             if (ndef.maxSize < bytes.size) {
-                return WriteOutcome(false, "标签空间不足：需要 " + bytes.size + " B，容量 " + ndef.maxSize + " B")
+                return WriteOutcome(false, NfcFailureFeedback.insufficientCapacity(bytes.size, ndef.maxSize))
             }
 
-            // Never auto-retry a write. Re-read from the physical tag before reporting success.
+            // Do not begin a new write after leaving the foreground session.
+            if (!inForeground) return WriteOutcome(false, "写卡页面已离开，没有开始写入。")
+            // An interruption after the write begins makes success unknown until a new read.
+            writeIssued = true
             ndef.writeNdefMessage(message)
             val actual = ndef.ndefMessage
-            if (actual == null || !bytes.contentEquals(actual.toByteArray())) {
-                return WriteOutcome(false, "写入后回读不一致；不要把这个标签视为成功")
+            if (actual == null) return WriteOutcome(false, NfcFailureFeedback.readbackUnavailable())
+            if (!bytes.contentEquals(actual.toByteArray())) {
+                return WriteOutcome(false, NfcFailureFeedback.readbackMismatch())
             }
             WriteOutcome(true, "写入并回读成功 · " + bytes.size + " 字节。未执行任何自动化脚本。")
         } finally {
@@ -181,6 +205,8 @@ private fun WriteScreen(
     status: String,
     ready: Boolean,
     result: String?,
+    resultVerified: Boolean?,
+    writing: Boolean,
     onBack: () -> Unit,
     onDisarm: () -> Unit,
     onArm: (PreparedNdefWrite, Boolean) -> Unit
@@ -208,8 +234,12 @@ private fun WriteScreen(
                 Text("◎", color = blue, fontSize = 43.sp)
                 Text(status, color = Color(0xFF26334C), fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
-                Text("前台单次写入 · 写后回读 · 不调用 Root", color = muted, fontSize = 12.sp)
-                if (ready) {
+                Text("只在当前页面执行一次，成功后核对标签内容", color = muted, fontSize = 12.sp)
+                if (writing) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                if (ready && !writing) {
                     Spacer(Modifier.height(12.dp))
                     OutlinedButton(onClick = onDisarm) { Text("取消等待") }
                 }
@@ -242,7 +272,12 @@ private fun WriteScreen(
                 }
                 OutlinedTextField(
                     value = input,
-                    onValueChange = { input = it; error = null },
+                    onValueChange = {
+                        if (it.length <= 4096) {
+                            input = it
+                            error = null
+                        } else error = "输入过长，请控制在 4096 字符以内"
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !ready,
                     placeholder = {
@@ -253,7 +288,7 @@ private fun WriteScreen(
                     label = { Text(if (kind == NdefWriteKind.TEXT) "标签文本" else "网页地址") }
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("写入会替换原有 NDEF 内容；已有标签需额外确认。",
+                Text("输入：" + input.toByteArray(Charsets.UTF_8).size + " B · 标签容量将在贴卡时验证",
                     color = muted, fontSize = 12.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
@@ -263,7 +298,7 @@ private fun WriteScreen(
                     )
                     Text("允许覆盖已有的普通 NDEF 数据", fontSize = 13.sp)
                 }
-                Text("DORM 脚本绑定标签始终禁止在这里覆盖。",
+                Text("已绑定的 DORM 自动化标签不会被此页面覆盖。",
                     color = Color(0xFF99602E), fontSize = 12.sp)
                 error?.let {
                     Spacer(Modifier.height(8.dp))
@@ -271,7 +306,7 @@ private fun WriteScreen(
                 }
                 Spacer(Modifier.height(16.dp))
                 Button(
-                    enabled = !ready && input.isNotBlank(),
+                    enabled = !ready && !writing && input.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     onClick = {
@@ -284,7 +319,8 @@ private fun WriteScreen(
         }
         if (result != null) {
             Spacer(Modifier.height(14.dp))
-            Surface(color = Color.White, shape = RoundedCornerShape(18.dp)) {
+            Surface(color = if (resultVerified == true) Color(0xFFE9F4ED) else Color(0xFFFFF3E8),
+                shape = RoundedCornerShape(18.dp)) {
                 Text(result, modifier = Modifier.fillMaxWidth().padding(18.dp),
                     fontSize = 14.sp, color = Color(0xFF26334C))
             }
