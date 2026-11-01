@@ -63,8 +63,7 @@ internal class NdefWriteSession(
     val canDismiss: Boolean get() = !isWorking
 
     fun start(): Boolean {
-        if (isWorking) return false
-        stop()
+        if (!stop()) return false
         active = true
         phase = NdefWritePhase.EDITING
         status = "选择文本或网址，确认后等待贴近实体标签"
