@@ -117,3 +117,33 @@
 - Android Debug APK 构建使用 CI 的临时调试签名；不同运行产生的 APK **可能无法直接覆盖安装**。换签名前请导出 NFC 配置，避免卸载后绑定丢失。正式可连续升级的发行版需要独立管理稳定签名密钥，不能把签名私钥提交到公开仓库。
 
 所有实现仍需在一加 Ace 6 Android 16 真机逐项验证；Ncwu 自动登录接口仍未完整确认，当前仅网络检测。严禁上传账号密码、Cookie 或原始 HAR。
+
+## V0.8 · 备份回归测试与稳定签名发布
+
+### 新增自动化测试
+- 对本地 NFC 备份 JSON 执行往返测试，验证 UUID、动作和目标地址保持一致。
+- 拒绝错误文件类型/版本、非法 JSON、重复 UUID、未知 Shell 动作、含凭据参数的 HTTPS 地址。
+- 验证最多 32 个标签、64 KiB 文件上限，以及导出时拒绝重复编号或无效配置。
+- JVM 测试使用独立 `org.json` 实现，避免依赖 Android SDK mockable jar 的空方法桩。
+
+### 稳定签名的安全配置（由仓库所有者手动完成）
+Debug APK 由 CI 临时生成调试签名，不承诺跨运行覆盖安装。要获得可长期升级的 APK：
+
+1. 在自己可信的电脑上生成专用发布密钥，并离线保留至少一份安全备份：
+   ```bash
+   keytool -genkeypair -v -keystore dormos-release.jks -alias dormos-nfc -keyalg RSA -keysize 4096 -validity 10000
+   base64 -w 0 dormos-release.jks
+   ```
+   macOS 可使用 `base64 < dormos-release.jks | tr -d '\\n'`。不要把 JKS 文件、Base64 内容或密码提交到仓库、Issue、聊天或 APK。
+2. 在 GitHub 仓库 Settings → Secrets and variables → Actions → Secrets 中分别建立：
+   - `DORMOS_RELEASE_KEYSTORE_BASE64`：上一步输出的单行 Base64；
+   - `DORMOS_RELEASE_STORE_PASSWORD`：keystore 密码；
+   - `DORMOS_RELEASE_KEY_ALIAS`：`dormos-nfc`；
+   - `DORMOS_RELEASE_KEY_PASSWORD`：密钥密码。
+3. 在同一页面的 Variables 中设置 `DORMOS_RELEASE_ENABLED=true`。
+4. 手动运行 `Build DORM OS NFC helper debug APK` workflow。仅当启用变量和四项 Secret 均已配置时，才会额外执行签名 Release 构建；该 job 仅运行于 workflow_dispatch，不会在 PR 构建中暴露密钥。
+5. 下载 `dorm-os-nfc-release-signed` artifact。未来所有 Release 必须继续使用同一 keystore/alias，并递增 versionCode。丢失密钥会导致无法对现有稳定签名安装包做原位升级。
+
+首次从 Debug APK 切换到 Release 签名时，Android 会因签名不同拒绝覆盖。先在旧版导出标签配置，卸载 Debug 测试版，再安装稳定签名 Release 并恢复配置。后续同一密钥签署的版本可正常覆盖升级。
+
+**当前仓库没有任何发布私钥或密码。** 稳定签名流程只是已实现的可选构建路径；在所有者完成上述 Secrets/Variable 配置之前，不会产出稳定签名 APK，也不应声称已完成首次签名发行。
