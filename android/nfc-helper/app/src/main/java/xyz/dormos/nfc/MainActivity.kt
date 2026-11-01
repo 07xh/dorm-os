@@ -63,6 +63,23 @@ class MainActivity : Activity() {
         handleNfc(intent)
     }
 
+    @Deprecated("Android runtime permission callback")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_WIFI_NAME_PERMISSION) {
+            show(
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+                    "已授权读取 Wi-Fi 名称。助手只在本机判断是否为 Ncwu。"
+                else
+                    "未授权读取 Wi-Fi 名称；标签管理和网页动作仍可使用，Ncwu 诊断将安全停止。"
+            )
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (::nfcCounter.isInitialized && ::rootCounter.isInitialized) refreshIndicators()
@@ -190,8 +207,19 @@ class MainActivity : Activity() {
             }
             "location" -> {
                 if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7)
-                } else show("已有读取 Wi-Fi 名称的权限，请确认系统定位开关已开启。")
+                    AlertDialog.Builder(this)
+                        .setTitle("为什么需要此权限？")
+                        .setMessage(
+                            "Android 会保护当前 Wi-Fi 名称（SSID），读取它需要位置权限。\\n" +
+                            "DORM OS 只在本机比较网络是否为 Ncwu，不读取 GPS 坐标，也不保存或上传 SSID。\\n" +
+                            "如果拒绝，仍可使用自定义标签和网页功能，但 Ncwu 网络诊断无法确认网络名称。"
+                        )
+                        .setNegativeButton("暂不", null)
+                        .setPositiveButton("继续授权") { _, _ ->
+                            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_WIFI_NAME_PERMISSION)
+                        }
+                        .show()
+                } else show("已有读取 Wi-Fi 名称的权限；助手只在本机判断是否为 Ncwu。")
             }
             "wifi-settings" -> startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
             "cancel-write" -> {
@@ -494,6 +522,7 @@ class MainActivity : Activity() {
     companion object {
         const val MIME = "application/vnd.dormos.ncwu"
         const val PAYLOAD = "v1:ncwu"
+        private const val REQUEST_WIFI_NAME_PERMISSION = 7
         private const val REQUEST_EXPORT = 701
         private const val REQUEST_IMPORT = 702
     }
