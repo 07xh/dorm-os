@@ -32,6 +32,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 private val canvas = Color(0xFFF7F8FC)
 private val panel = Color.White
@@ -124,6 +128,7 @@ private fun ManagerScreen(
     importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var current by rememberSaveable { mutableIntStateOf(0) }
     var entries by remember { mutableStateOf(emptyList<PersonalScript>()) }
     var folders by remember { mutableStateOf(emptyList<PersonalFolder>()) }
@@ -148,6 +153,7 @@ private fun ManagerScreen(
     var pendingSceneName by rememberSaveable { mutableStateOf("") }
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLogsSheet by remember { mutableStateOf(false) }
+    var showBackupSheet by remember { mutableStateOf(false) }
     var selectedTheme by rememberSaveable { mutableStateOf("default") }
     var confirmClearLogs by remember { mutableStateOf(false) }
     var editingNew by remember { mutableStateOf(true) }
