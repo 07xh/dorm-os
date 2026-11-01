@@ -72,11 +72,13 @@ class ManagerActivity : ComponentActivity() {
     private val bridge = RootModuleClient()
     private lateinit var inlineScanner: NfcInlineScanner
     private lateinit var inlineWriter: NfcSceneWriteSession
+    private lateinit var inlineNdefWriter: NdefWriteSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         inlineScanner = NfcInlineScanner(this)
         inlineWriter = NfcSceneWriteSession(this)
+        inlineNdefWriter = NdefWriteSession(this)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -91,7 +93,7 @@ class ManagerActivity : ComponentActivity() {
                     bridge = bridge,
                     inlineScanner = inlineScanner,
                     inlineWriter = inlineWriter,
-                    openNdefWriter = { startActivity(Intent(this, NdefWriterActivity::class.java)) },
+                    inlineNdefWriter = inlineNdefWriter,
                     openNfcPreferences = {
                         if (Build.VERSION.SDK_INT >= 36) {
                             try { startActivity(Intent(NfcAdapter.ACTION_CHANGE_TAG_INTENT_PREFERENCE)) }
@@ -135,11 +137,13 @@ class ManagerActivity : ComponentActivity() {
         super.onResume()
         if (::inlineScanner.isInitialized) inlineScanner.onResume()
         if (::inlineWriter.isInitialized) inlineWriter.onResume()
+        if (::inlineNdefWriter.isInitialized) inlineNdefWriter.onResume()
     }
 
     override fun onPause() {
         if (::inlineScanner.isInitialized) inlineScanner.onPause()
         if (::inlineWriter.isInitialized) inlineWriter.onPause()
+        if (::inlineNdefWriter.isInitialized) inlineNdefWriter.onPause()
         super.onPause()
     }
 }
@@ -149,7 +153,7 @@ private fun ManagerScreen(
     bridge: RootModuleClient,
     inlineScanner: NfcInlineScanner,
     inlineWriter: NfcSceneWriteSession,
-    openNdefWriter: () -> Unit,
+    inlineNdefWriter: NdefWriteSession,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
     importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
@@ -186,6 +190,7 @@ private fun ManagerScreen(
     var showLogsSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
     var showInlineScan by remember { mutableStateOf(false) }
+    var showNdefWrite by remember { mutableStateOf(false) }
     var pendingSceneWrite by remember { mutableStateOf<SceneWriteRequest?>(null) }
     var selectedTheme by rememberSaveable {
         mutableStateOf(
@@ -212,12 +217,21 @@ private fun ManagerScreen(
     var logs by remember { mutableStateOf("") }
 
     fun openInlineScanner() {
-        if (pendingSceneWrite != null) {
-            notify("请先完成或取消场景写卡")
+        if (pendingSceneWrite != null || showNdefWrite) {
+            notify("请先完成或关闭当前 NFC 操作")
             return
         }
         inlineScanner.start()
         showInlineScan = true
+    }
+
+    fun openNdefWriter() {
+        if (pendingSceneWrite != null || showInlineScan) {
+            notify("请先完成或关闭当前 NFC 操作")
+            return
+        }
+        if (inlineNdefWriter.start()) showNdefWrite = true
+        else notify("上一项 NFC 写入仍在处理中，请先确认标签状态")
     }
 
     fun refresh() {
@@ -333,6 +347,13 @@ private fun ManagerScreen(
             return
         }
         // A single Activity can have only one active ReaderMode session.
+        if (showNdefWrite) {
+            if (!inlineNdefWriter.stop()) {
+                notify("普通 NFC 写入仍在处理中，暂不能切换到场景绑定")
+                return
+            }
+            showNdefWrite = false
+        }
         inlineScanner.stop()
         showInlineScan = false
         val request = SceneWriteRequest(
@@ -868,7 +889,7 @@ private fun ManagerScreen(
                         }
                     }
                     Spacer(Modifier.height(18.dp))
-                    V2ToolsHeading(onScan = { openInlineScanner() }, onWrite = openNdefWriter)
+                    V2ToolsHeading(onScan = { openInlineScanner() }, onWrite = { openNdefWriter() })
                 }
                 2 -> {
                     V2Scenes(
@@ -938,6 +959,23 @@ private fun ManagerScreen(
                     pendingSceneWrite = null
                     refresh()
                 }
+            },
+            onNfcSettings = {
+                try {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS))
+                } catch (_: Exception) {
+                    notify("未找到系统 NFC 设置入口，请到系统设置手动开启")
+                }
+            }
+        )
+    }
+
+    if (showNdefWrite) {
+        NdefWriteSheet(
+            session = inlineNdefWriter,
+            onDismiss = {
+                if (inlineNdefWriter.stop()) showNdefWrite = false
+                else notify("写入或回读尚未结束，暂不能关闭")
             },
             onNfcSettings = {
                 try {
