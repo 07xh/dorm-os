@@ -248,13 +248,32 @@ private fun ManagerScreen(
         }
     }
 
+    fun openSceneEditor(scene: PersonalScene? = null) {
+        editingScene = scene
+        sceneNameDraft = scene?.name ?: ""
+        sceneScriptDraft = scene?.scriptId ?: entries.firstOrNull()?.id.orEmpty()
+        sceneEditorOpen = true
+    }
+
+    fun beginSceneCreation() {
+        if (entries.isEmpty()) {
+            current = 1
+            openEditor(null)
+            notify("先创建或导入一个 SH 脚本，再回来绑定 NFC 场景。")
+        } else {
+            openSceneEditor(null)
+        }
+    }
+
     var pendingTag by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingScript by rememberSaveable { mutableStateOf<String?>(null) }
     val writeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val tag = pendingTag
         val script = pendingScript
+        val sceneName = pendingSceneName
         pendingTag = null
         pendingScript = null
+        pendingSceneName = ""
         if (tag != null && script != null &&
             NfcProfiles.bindingMayCommit(
                 tag, script, result.data?.getStringExtra(MainActivity.EXTRA_SCENE_ID),
@@ -264,10 +283,18 @@ private fun ManagerScreen(
             val oldBinding = NfcProfiles.previousBindingToRemove(previousTag, tag)
             runRoot({
                 val bound = bridge.bind(tag, script)
-                if (!bound.success || oldBinding == null) bound
+                if (!bound.success) return@runRoot bound
+                val named = bridge.saveScene(tag, sceneName.ifBlank {
+                    entries.firstOrNull { it.id == script }?.name?.removeSuffix(".sh") ?: "NFC 场景"
+                })
+                if (!named.success) {
+                    bridge.unbind(tag)
+                    return@runRoot RootResult(70, "标签已写入，但保存场景名称失败；已撤销本机绑定：" + named.output)
+                }
+                if (oldBinding == null) named
                 else {
                     val removed = bridge.unbind(oldBinding)
-                    if (removed.success) RootResult(0, "新绑定成功，旧标签关联已清理。")
+                    if (removed.success) RootResult(0, "NFC 场景绑定成功，旧标签关联已清理。")
                     else RootResult(70, "新绑定已建立，但旧标签关联清理失败：" + removed.output)
                 }
             }) { refresh() }
