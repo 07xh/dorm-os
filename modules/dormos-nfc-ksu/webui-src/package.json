@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "esbuild main.js --bundle --format=iife --target=es2020 --outfile=../webroot/app.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "kernelsu": "3.3.0"
+  }
+}

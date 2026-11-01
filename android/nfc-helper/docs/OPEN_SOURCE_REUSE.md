@@ -45,3 +45,19 @@
 - Root 执行固定路径模块内的只读脚本、固定动作 wifi-status，拒绝从 NFC 标签/网页/用户文本直接生成命令。
 - 模块包不包含 service.sh、post-fs-data.sh、system.prop 或 sepolicy.rule；只有 NFC 触发时 APK 才主动申请 su 启动脚本，最多等待 12 秒后请求终止。
 - 开源项目的其他校园网登录适配器仍不能证明 Ncwu 的真实登录接口。脚本当前不提交账号密码。
+
+
+## 2026-11-01 · TagSH / nfc-switcher 源码级复核
+
+| 项目 | 许可证 | 源码核验结果 | 本项目决定 |
+| --- | --- | --- | --- |
+| [tytydraco/TagSH](https://github.com/tytydraco/TagSH) | BSD-2-Clause | Nfc.kt 读取 NDEF 第一条记录并解压 payload；MainActivity.onNewIntent 将标签内容直接交给脚本执行器；AndroidManifest 注册 NDEF/TAG 事件，Activity 前台时另启用 foreground dispatch。README 通过脚本自我重启 su 来提权。build.gradle 仍为 compileSdk 29 / targetSdk 29。 | 只借鉴 NDEF 接收与压缩格式研究；不把可执行脚本放入标签、不直接采用旧 APK。标签只保存场景 ID，脚本留在受控模块目录。 |
+| [1321B54/nfc-switcher](https://github.com/1321B54/nfc-switcher) | GPL-3.0 | README 的架构说明称 inotify 事件驱动，但当前 ksu/service.sh 同时启动 inotifyd 和 while true + sleep 0.1 的轮询循环；LSPosed 部分 hook Google Wallet Activity 生命周期，不接收实体 NFC 标签。 | 只参考“应用事件写信号、Root 端处理”的分层思想；不复制其服务脚本，不引入常驻轮询。直接复制 GPL 代码前必须单独完成许可证评估。 |
+
+### 结论
+
+1. TagSH 证明 Android Activity 可以接收 NDEF 并启动一次脚本，但它把脚本本身放在标签上，且工程目标 SDK 较旧，不符合本项目的标签可信边界。
+2. nfc-switcher 不是实体标签接收器；其当前 KSU 服务存在 100ms 轮询，不符合“空闲不驻留、不轮询”的目标。
+3. Android 16 继续使用专用 MIME NDEF 记录；首次 NFC 启动需要用户允许应用的 NFC 标签启动权限。网页 URL 标签与本项目自定义 MIME 标签分开处理。
+4. KernelSU 官方 WebUI 使用模块 webroot/index.html 和 JavaScript exec API，可承载模块状态、固定动作和日志界面；它不能代替 Android NFC Activity 接收系统 NFC Intent。
+5. 本项目继续采用“短生命周期 NFC Activity → 固定场景 ID → KernelSU 白名单 dispatcher”，模块不安装 service.sh、post-fs-data.sh 或后台守护进程。

@@ -103,7 +103,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate no-resident script-only KSU module
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build KernelSU WebUI bundle
+        working-directory: modules/dormos-nfc-ksu/webui-src
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --no-audit --no-fund
+          npm run build
+      - name: Validate no-resident KSU module and WebUI
         shell: bash
         run: |
           set -euo pipefail
@@ -113,6 +122,10 @@ jobs:
           test ! -e service.sh
           test ! -e post-fs-data.sh
           test ! -e sepolicy.rule
+          test -s webroot/index.html
+          test -s webroot/style.css
+          test -s webroot/app.js
+          node --check webroot/app.js
           sh -n action.sh run.sh scripts/wifi-status.sh
           if sh run.sh unexpected 2>/dev/null; then
             echo "Unknown KSU action must be denied"
@@ -125,7 +138,7 @@ jobs:
           set -euo pipefail
           cd modules/dormos-nfc-ksu
           chmod 0755 run.sh action.sh scripts/wifi-status.sh
-          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh action.sh scripts README.md
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh action.sh scripts README.md webroot
           unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
       - uses: actions/upload-artifact@v4
         with:
