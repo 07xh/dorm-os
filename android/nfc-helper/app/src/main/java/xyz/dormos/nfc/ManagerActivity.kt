@@ -852,6 +852,9 @@ private fun ManagerScreen(
         }
     }
 
+    // Dialogs must inherit the same theme as the main three-tab workspace.
+    CompositionLocalProvider(LocalV2Palette provides p) {
+        MaterialTheme(colorScheme = scheme) {
     if (editing) {
         V2ScriptEditorSheet(
             name = editName,
@@ -1162,7 +1165,9 @@ private fun ManagerScreen(
     }
 
     }
+    }        }
     }
+
 }
 
 
