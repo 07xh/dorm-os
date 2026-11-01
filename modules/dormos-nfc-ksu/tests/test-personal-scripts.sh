@@ -19,6 +19,7 @@ out=$(sh "$R" --script-list)
 out=$(sh "$R" --script-read "$ID")
 [[ "$out" == *SCRIPT_BODY64=* ]]
 sh "$R" --script-bind "$TAG" "$ID" | grep -q DORM_SCRIPT_BOUND
+sh "$R" --enable 1 >/dev/null
 SCENE_NAME=$(printf '回到宿舍' | base64 -w0)
 sh "$R" --scene-save "$TAG" "$SCENE_NAME" | grep -q DORM_SCENE_SAVED
 out=$(sh "$R" --scene-list)
@@ -30,7 +31,6 @@ if sh "$R" --nfc "$TAG" > "$TMP/disabled-scene.out" 2>&1; then
 fi
 grep -q 'DORM_SCRIPT_ERROR=scene_disabled' "$TMP/disabled-scene.out"
 sh "$R" --scene-enable "$TAG" 1 | grep -q DORM_SCENE_ENABLED=1
-sh "$R" --enable 1 >/dev/null
 out=$(sh "$R" --nfc "$TAG")
 [[ "$out" == *test-script-ok* ]]
 [[ "$out" == *DORM_NFC_RESULT=success* ]]
