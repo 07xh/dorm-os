@@ -11,6 +11,7 @@ else
 fi
 SCRIPTS="$BASE/scripts"
 BINDINGS="$BASE/script_bindings.tsv"
+SCENES="$BASE/scenes.tsv"
 LOG="$BASE/script_events.log"
 LOCK="$BASE/script-run.lock"
 LOCK_DIR="$BASE/script-run.lock.d"
@@ -19,7 +20,7 @@ die() { echo "DORM_SCRIPT_ERROR=$1"; exit "${2:-1}"; }
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 b64() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; }
 
-[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$LOG" ] && [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_dir 70
+[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$SCENES" ] && [ ! -L "$LOG" ] && [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_dir 70
 mkdir -p "$SCRIPTS"
 chmod 700 "$BASE" "$SCRIPTS" 2>/dev/null || :
 
@@ -28,6 +29,25 @@ item() {
   FILE="$SCRIPTS/$1.sh"
   NAME="$SCRIPTS/$1.name64"
   [ ! -L "$FILE" ] && [ ! -L "$NAME" ] || die symlink_refused 70
+}
+scene_active() {
+  value=1
+  if [ -f "$SCENES" ] && [ ! -L "$SCENES" ]; then
+    value=$(awk -F '|' -v tag="$1" '$1 == tag {print $3; exit}' "$SCENES")
+  fi
+  case "$value" in 0|1) printf '%s' "$value" ;; *) printf '1' ;; esac
+}
+scene_name64() {
+  if [ -f "$SCENES" ] && [ ! -L "$SCENES" ]; then
+    awk -F '|' -v tag="$1" '$1 == tag {print $2; exit}' "$SCENES"
+  fi
+}
+valid_scene_name() {
+  value=$(printf '%s' "$1" | base64 -d 2>/dev/null) || return 1
+  [ -n "$value" ] || return 1
+  [ "$(printf '%s' "$value" | wc -c | tr -d ' ')" -le 120 ] || return 1
+  case "$value" in *'|'*|*'/'*|*'\\'*) return 1 ;; esac
+  ! printf '%s' "$value" | grep -q '[[:cntrl:]]'
 }
 record() {
   printf '%s|%s|%s\n' "$(date +%s)" "$1" "$2" >> "$LOG"
@@ -165,11 +185,18 @@ case "${1:-}" in
     acquire_run_lock
     item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
-    rm -f "$FILE" "$NAME" "$SCRIPTS/$2.folder"
+    if [ -f "$BINDINGS" ] && [ -f "$SCENES" ]; then
+      awk -F '|' -v id="$2" 'FILENAME == ARGV[1] {if ($2 == id) removed[$1]=1; next} !($1 in removed)' \
+        "$BINDINGS" "$SCENES" > "$SCENES.tmp"
+      chmod 600 "$SCENES.tmp"
+      mv "$SCENES.tmp" "$SCENES"
+    fi
     if [ -f "$BINDINGS" ]; then
       awk -F '|' -v id="$2" '$2 != id {print}' "$BINDINGS" > "$BINDINGS.tmp"
+      chmod 600 "$BINDINGS.tmp"
       mv "$BINDINGS.tmp" "$BINDINGS"
     fi
+    rm -f "$FILE" "$NAME" "$SCRIPTS/$2.folder"
     echo "DORM_SCRIPT_DELETED=1"
     ;;
   --run)
@@ -182,6 +209,7 @@ case "${1:-}" in
     [ -f "$BINDINGS" ] && [ ! -L "$BINDINGS" ] || die unbound 66
     script_id=$(awk -F '|' -v tag="$2" '$1 == tag {print $2; exit}' "$BINDINGS")
     uuid "$script_id" || die unbound 66
+    [ "$(scene_active "$2")" = "1" ] || die scene_disabled 77
     item "$script_id"
     [ -f "$FILE" ] || die not_found 66
     run_script "$script_id"
@@ -208,13 +236,67 @@ case "${1:-}" in
     uuid "${2:-}" || die invalid_tag 64
     if [ -f "$BINDINGS" ]; then
       awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$BINDINGS.tmp"
+      chmod 600 "$BINDINGS.tmp"
       mv "$BINDINGS.tmp" "$BINDINGS"
+    fi
+    if [ -f "$SCENES" ]; then
+      awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$SCENES.tmp"
+      chmod 600 "$SCENES.tmp"
+      mv "$SCENES.tmp" "$SCENES"
     fi
     echo "DORM_SCRIPT_UNBOUND=1"
     ;;
   --bindings)
     [ ! -L "$BINDINGS" ] || die unsafe_bindings 70
     [ -f "$BINDINGS" ] && cat "$BINDINGS" || :
+    ;;
+  --scene-list)
+    [ ! -L "$BINDINGS" ] && [ ! -L "$SCENES" ] || die unsafe_scenes 70
+    if [ -f "$BINDINGS" ]; then
+      while IFS='|' read -r tag script_id; do
+        uuid "$tag" && uuid "$script_id" || continue
+        item "$script_id"
+        [ -f "$FILE" ] && [ -f "$NAME" ] || continue
+        display=$(scene_name64 "$tag")
+        [ -n "$display" ] || display=$(cat "$NAME")
+        active=$(scene_active "$tag")
+        printf '%s|%s|%s|%s\n' "$tag" "$script_id" "$display" "$active"
+      done < "$BINDINGS"
+    fi
+    ;;
+  --scene-save)
+    acquire_run_lock
+    uuid "${2:-}" || die invalid_tag 64
+    display64="${3:-}"
+    [ -n "$display64" ] && [ "${#display64}" -le 360 ] && b64 "$display64" && valid_scene_name "$display64" || die invalid_scene_name 64
+    [ -f "$BINDINGS" ] && awk -F '|' -v tag="$2" '$1 == tag {found=1} END {exit !found}' "$BINDINGS" || die unbound 66
+    active=$(scene_active "$2")
+    tmp="$SCENES.tmp.$"
+    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
+    printf '%s|%s|%s\n' "$2" "$display64" "$active" >> "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$SCENES"
+    echo "DORM_SCENE_SAVED=1"
+    ;;
+  --scene-enable)
+    acquire_run_lock
+    uuid "${2:-}" || die invalid_tag 64
+    enabled="${3:-}"
+    case "$enabled" in 0|1) ;; *) die invalid_enabled_value 64 ;; esac
+    [ -f "$BINDINGS" ] && awk -F '|' -v tag="$2" '$1 == tag {found=1} END {exit !found}' "$BINDINGS" || die unbound 66
+    display=$(scene_name64 "$2")
+    if [ -z "$display" ]; then
+      script_id=$(awk -F '|' -v tag="$2" '$1 == tag {print $2; exit}' "$BINDINGS")
+      item "$script_id"
+      [ -f "$NAME" ] || die not_found 66
+      display=$(cat "$NAME")
+    fi
+    tmp="$SCENES.tmp.$"
+    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
+    printf '%s|%s|%s\n' "$2" "$display" "$enabled" >> "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$SCENES"
+    echo "DORM_SCENE_ENABLED=$enabled"
     ;;
   --resolve)
     uuid "${2:-}" || die invalid_tag 64
