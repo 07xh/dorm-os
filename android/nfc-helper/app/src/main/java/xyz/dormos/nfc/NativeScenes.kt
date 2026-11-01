@@ -170,19 +170,33 @@ internal object NativeSceneRunner {
                 NativeKind.CHAT_DRAFT -> {
                     val draft = ChatDraftCodec.decode(a.value)
                     if (draft == null) { done("聊天草稿配置无效"); return }
-                    val intent = context.packageManager.getLaunchIntentForPackage(draft.appPackage)
-                    if (intent == null) { done("未安装指定聊天应用，或应用不可启动"); return }
-                    // Never infer a conversation from a stale window or an unverified UI coordinate.
+                    // Public ACTION_SEND: the chat recipient must still be chosen and verified
+                    // by the person using the phone. No private Activity or auto-send.
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("TapFlow 聊天草稿", draft.message))
-                    Toast.makeText(context, "请核对聊天「" + draft.chatName.take(32) +
-                        "」，粘贴后手动发送", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "目标：" + draft.chatName.take(32) +
+                        "。请核对聊天对象并手动发送", Toast.LENGTH_LONG).show()
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        setPackage(draft.appPackage)
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, draft.message)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
                     try {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                        done("已准备「" + draft.chatName.take(32) +
-                            "」的草稿并启动应用；自动定位尚未通过真机验证")
-                    } catch (_: Exception) { done("无法启动聊天应用，草稿已复制") }
+                        context.startActivity(share)
+                        done("已尝试打开分享界面；请选择「" + draft.chatName.take(32) +
+                            "」并核对内容后手动发送")
+                    } catch (_: Exception) {
+                        // Some chat clients cannot accept plain-text shares. Retain clipboard.
+                        val fallback = context.packageManager.getLaunchIntentForPackage(draft.appPackage)
+                        if (fallback == null) {
+                            done("应用不支持分享或不可启动；草稿已复制")
+                        } else try {
+                            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(fallback)
+                            done("分享入口不可用，已复制草稿并打开应用；请手动找到正确聊天")
+                        } catch (_: Exception) { done("聊天应用启动失败，草稿已复制") }
+                    }
                 }
                 NativeKind.APP, NativeKind.URL -> {
                     // Show instructions before handing foreground control to an external app.
