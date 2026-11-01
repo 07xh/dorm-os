@@ -63,7 +63,7 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 primary = p.blue, onPrimary = Color.White,
                 background = p.background, onBackground = p.ink,
                 surface = p.surface, onSurface = p.ink
-            ) {
+            )) {
                 WriteScreen(
                     status = status,
                     ready = ready,
