@@ -1,5 +1,7 @@
 package xyz.dormos.nfc
 
+internal const val TAPFLOW_TAB_COUNT = 3
+
 /**
  * Visual order of the bottom navigation. Screen IDs are intentionally kept
  * stable for existing state and routing; animation direction uses this order.
