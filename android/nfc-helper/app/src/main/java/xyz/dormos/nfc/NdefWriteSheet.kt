@@ -101,8 +101,9 @@ internal fun NdefWriteSheet(
             }
         }
 
-        if (phase == NdefWritePhase.EDITING || phase == NdefWritePhase.FAILED ||
-            phase == NdefWritePhase.INTERRUPTED) {
+        val mayConfirmPreview = phase == NdefWritePhase.EDITING ||
+            (phase == NdefWritePhase.FAILED && result == null)
+        if (mayConfirmPreview) {
             if (preview == null) {
                 Spacer(Modifier.height(15.dp))
                 Text("内容类型", color = p.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
