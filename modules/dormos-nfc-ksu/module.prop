@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
 name=DORM OS NFC Actions (on-demand)
-version=0.8.0
-versionCode=8
+version=0.8.1
+versionCode=9
 author=07xh / DORM OS
 description=Optional one-shot scripts for DORM OS NFC Helper; no boot service or daemon
