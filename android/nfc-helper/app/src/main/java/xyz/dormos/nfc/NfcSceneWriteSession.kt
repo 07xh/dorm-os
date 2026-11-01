@@ -185,38 +185,46 @@ internal class NfcSceneWriteSession(private val activity: ComponentActivity) : N
             )
         }
         activity.runOnUiThread {
-            // If the Activity left foreground during I/O, never silently register Root binding.
-            if (active && generation.get() == session &&
-                !activity.isFinishing && !activity.isDestroyed) {
-                lastResult = outcome
-                status = outcome.message
-                when (outcome.state) {
-                    SceneWriteState.NEED_OVERWRITE -> {
-                        phase = SceneWritePhase.CONFIRM_OVERWRITE
-                        expectedUid = outcome.tagUid
-                        unregister()
-                    }
-                    SceneWriteState.NEED_FORMAT -> {
-                        phase = SceneWritePhase.CONFIRM_FORMAT
-                        expectedUid = outcome.tagUid
-                        unregister()
-                    }
-                    SceneWriteState.FORMATTED -> {
-                        phase = SceneWritePhase.FORMATTED
-                        unregister()
-                    }
-                    SceneWriteState.VERIFIED -> {
-                        phase = SceneWritePhase.REGISTERING
-                        unregister()
-                        verifiedCallback?.invoke(request, outcome)
-                    }
-                    SceneWriteState.FAILED -> {
-                        phase = SceneWritePhase.FAILED
-                        unregister()
+            try {
+                // Losing foreground while physically writing must never create a Root binding.
+                if (active && generation.get() == session &&
+                    !activity.isFinishing && !activity.isDestroyed) {
+                    lastResult = outcome
+                    status = outcome.message
+                    when (outcome.state) {
+                        SceneWriteState.NEED_OVERWRITE -> {
+                            phase = SceneWritePhase.CONFIRM_OVERWRITE
+                            expectedUid = outcome.tagUid
+                            unregister()
+                        }
+                        SceneWriteState.NEED_FORMAT -> {
+                            phase = SceneWritePhase.CONFIRM_FORMAT
+                            expectedUid = outcome.tagUid
+                            unregister()
+                        }
+                        SceneWriteState.FORMATTED -> {
+                            phase = SceneWritePhase.FORMATTED
+                            unregister()
+                        }
+                        SceneWriteState.VERIFIED -> {
+                            phase = SceneWritePhase.REGISTERING
+                            unregister()
+                            try {
+                                verifiedCallback?.invoke(request, outcome)
+                            } catch (_: Exception) {
+                                phase = SceneWritePhase.FAILED
+                                status = "标签回读通过，但 KernelSU 登记未开始；未确认绑定"
+                            }
+                        }
+                        SceneWriteState.FAILED -> {
+                            phase = SceneWritePhase.FAILED
+                            unregister()
+                        }
                     }
                 }
+            } finally {
+                working.set(false)
             }
-            working.set(false)
         }
     }
 }
