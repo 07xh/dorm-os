@@ -9,6 +9,9 @@
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
+            android:name=".TagInspectorActivity"
+            android:exported="false"/>
+        <activity
             android:name=".ManagerActivity"
             android:exported="true">
             <intent-filter>
