@@ -449,3 +449,81 @@ internal fun V2BackupSheet(
         ) { Text("导入 SH 脚本备份") }
     }
 }
+
+/**
+ * Prototype-like small first step: name and starting template only.
+ * The real full-screen-height source editor appears only after Continue.
+ * This sheet never creates a fake script entry on its own.
+ */
+@Composable
+internal fun V2CreateScriptSheet(
+    onContinue: (String, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val p = LocalV2Palette.current
+    var name by remember { mutableStateOf("新建脚本.sh") }
+    var template by remember { mutableStateOf("blank") }
+    V2BottomSheet(
+        title = "新建脚本",
+        subtitle = "先创建脚本，再编辑内容",
+        onDismiss = onDismiss
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { if (it.length <= 80) name = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("脚本名称") },
+            shape = RoundedCornerShape(14.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("开始方式", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            Triple("blank", "空白 Shell", "从一份最小脚本开始"),
+            Triple("device", "设备检查", "使用安全的只读设备信息示例")
+        ).forEach { (id, title, subtitle) ->
+            val chosen = template == id
+            Surface(
+                onClick = { template = id },
+                shape = RoundedCornerShape(15.dp),
+                color = if (chosen) p.accentLow else p.surface,
+                border = BorderStroke(1.dp, if (chosen) p.blue else p.line)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(title, color = p.ink, fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold)
+                        Text(subtitle, color = p.muted, fontSize = 11.sp)
+                    }
+                    RadioButton(
+                        selected = chosen,
+                        onClick = { template = id }
+                    )
+                }
+            }
+            Spacer(Modifier.height(9.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "下一步才进入完整脚本编辑器；编辑并保存后，脚本才真正写入 KernelSU 模块。",
+            color = p.muted, fontSize = 11.sp, lineHeight = 17.sp
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { onContinue(name.trim(), template) },
+            enabled = name.trim().endsWith(".sh") && name.trim().length > 3 &&
+                !name.contains('/') && !name.contains('\\') && !name.contains('|'),
+            modifier = Modifier.fillMaxWidth().height(49.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text("继续编辑") }
+        OutlinedButton(
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth().height(47.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text("取消") }
+    }
+}
