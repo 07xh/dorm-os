@@ -3,7 +3,7 @@ const STORAGE='dorm-os-state-v1';
 test('NFC status filtering uses real registry records and does not alter data',async({page})=>{
  await page.goto('/#nfc');
  await page.evaluate(key=>{
-  const s=JSON.parse(localStorage.getItem(key));
+  const s=JSON.parse(localStorage.getItem(key) || '{"nfcTags":[],"events":[]}');
   s.nfcTags=[
    {id:'new1',name:'空白新标签',scene:'study'},
    {id:'waiting',name:'写入待验证',scene:'rest',writtenScene:'rest'},
@@ -30,6 +30,9 @@ test('NFC status filtering uses real registry records and does not alter data',a
 });
 test('mobile NFC empty-state filtering never causes horizontal overflow',async({page})=>{
  await page.goto('/#nfc');
+ await page.locator('[data-action="tag-add"]').click();
+ await page.locator('#modalForm [name="name"]').fill('新建未写标签');
+ await page.locator('#modalForm [type="submit"]').click();
  await page.locator('[data-nfc-filter="verified"]').click();
  await expect(page.locator('#app')).toContainText('这个状态下暂无标签');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth)).toBeLessThanOrEqual(2);
