@@ -66,7 +66,9 @@ console.log('DORM OS NFC link, local rebinding, backup compatibility and URL ori
 let fakeClock = 1_000_000;
 const focusCtx = {
   Date:{now:()=>fakeClock},
-  timer:{remaining:25*60,running:false,interval:null,deadline:0},
+  timer:{duration:25,remaining:25*60,running:false,interval:null,deadline:0},
+  state:{focusTimer:{duration:25,remaining:1500,running:false,deadline:0}},
+  persist:()=>true,
   setInterval:()=>1,clearInterval:()=>{},
   render:()=>{},tick:()=>{},toast:()=>{},
 };
@@ -194,3 +196,27 @@ assert.ok(html.includes('data-action="android-copy-scene"'));
 assert.ok(html.includes('data-action="android-share-scene"'));
 assert.ok(html.includes('MacroDroid 会将标签写成自己的专用识别格式'));
 console.log('Android NFC handoff URLs and setup controls passed');
+
+// Focus continuity: validate persisted deadline, expiration, duration, and legacy state.
+runInNewContext(sourceBetween('function normalizeFocusTimer(', 'function safeState('),focusCtx);
+const future=focusCtx.normalizeFocusTimer({duration:15,remaining:900,running:true,deadline:fakeClock+240000},fakeClock);
+assert.equal(future.remaining,240);
+assert.equal(future.running,true);
+assert.equal(focusCtx.normalizeFocusTimer({duration:15,remaining:750,running:true,deadline:fakeClock-1},fakeClock).remaining,0);
+assert.equal(focusCtx.normalizeFocusTimer({duration:999,remaining:Infinity,running:true,deadline:fakeClock+999999999},fakeClock).duration,25);
+assert.equal(focusCtx.normalizeFocusTimer(null,fakeClock).remaining,1500);
+focusCtx.timerSetDuration(15);
+assert.equal(focusCtx.timer.remaining,900);
+assert.equal(focusCtx.state.focusTimer.duration,15);
+focusCtx.timerStart();
+assert.equal(focusCtx.state.focusTimer.running,true);
+assert.equal(focusCtx.state.focusTimer.deadline,fakeClock+900000);
+fakeClock+=20000;
+focusCtx.timerStop();
+assert.equal(focusCtx.state.focusTimer.running,false);
+assert.equal(focusCtx.state.focusTimer.remaining,880);
+const focusState=ctx.safeState({...base,focusTimer:{duration:45,remaining:1700,running:false,deadline:0}});
+assert.equal(focusState.focusTimer.duration,45);
+assert.equal(focusState.focusTimer.remaining,1700);
+assert.equal(ctx.safeState(base).focusTimer.duration,25);
+console.log('Focus timer persist, restoration, duration, expiry and legacy backup checks passed');

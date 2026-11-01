@@ -136,3 +136,32 @@ test('offline PWA shell opens after first successful installation',async({page,c
     await expect(page.locator('#offlineBanner')).toBeVisible();
   }finally{await context.setOffline(false);}
 });
+
+
+test('focus session survives reload, saves pause and allows switching duration',async({page})=>{
+  await page.goto('/#scenes');
+  await page.locator('[data-scene="study"]').first().click();
+  await page.locator('[data-timer-duration="15"]').click();
+  await expect(page.locator('#timerDisplay')).toHaveText('15:00');
+  await page.locator('[data-action="timer-toggle"]').click();
+  const initial=await saved(page);
+  expect(initial.focusTimer.running).toBe(true);
+  expect(initial.focusTimer.duration).toBe(15);
+  expect(initial.focusTimer.deadline).toBeGreaterThan(Date.now());
+  await page.waitForTimeout(1200);
+  await page.reload();
+  await expect(page.locator('#timerDisplay')).toBeVisible();
+  expect((await saved(page)).focusTimer.running).toBe(true);
+  await expect(page.locator('#timerDisplay')).not.toHaveText('15:00');
+  await page.locator('[data-action="timer-toggle"]').click();
+  const paused=(await saved(page)).focusTimer;
+  expect(paused.running).toBe(false);
+  expect(paused.remaining).toBeGreaterThan(0);
+  expect(paused.remaining).toBeLessThan(900);
+  await page.reload();
+  await expect(page.locator('#timerDisplay')).toHaveText(new RegExp('^14:'));
+  expect((await saved(page)).focusTimer.remaining).toBe(paused.remaining);
+  await page.locator('[data-timer-duration="45"]').click();
+  await expect(page.locator('#timerDisplay')).toHaveText('45:00');
+  expect((await saved(page)).focusTimer.duration).toBe(45);
+});
