@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -580,7 +581,7 @@ private fun ManagerScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         when (current) {
-                            0 -> "触序 · TapFlow"
+                            0 -> stringResource(R.string.app_brand)
                             1 -> "脚本、标签读写集中管理"
                             2 -> "按 NFC 标签组织你的 SH 自动化"
                             else -> "按触发方式组织你的 NFC 自动化"
