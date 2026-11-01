@@ -221,102 +221,111 @@ private fun ReadScreen(
     nfcAvailable: Boolean, nfcEnabled: Boolean,
     onBack: () -> Unit, onNfcSettings: () -> Unit, onReset: () -> Unit
 ) {
-    val blue = Color(0xFF4769B5)
-    val dim = Color(0xFF6E7B91)
-    Column(
-        Modifier.fillMaxSize().background(Color(0xFFF3F6FC))
-            .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)
+    V2BottomSheet(
+        title = "NFC 标签",
+        subtitle = "实体标签只读扫描 · 不写入、不执行脚本",
+        onDismiss = onBack
     ) {
-        Spacer(Modifier.height(22.dp))
-        NfcPageHeader("读取标签", "扫描信息 · 安全只读 · 不执行脚本", onBack)
-        Spacer(Modifier.height(16.dp))
-        NfcSessionPanel(
-            mood = when {
-                reading -> NfcPanelMood.ACTIVE
-                report == null -> NfcPanelMood.IDLE
-                report.error == null -> NfcPanelMood.VERIFIED
-                else -> NfcPanelMood.NEEDS_ATTENTION
-            },
-            title = status,
-            subtitle = if (report == null) "将标签贴近手机背部 NFC 感应区域"
-                else if (report.error == null) "已从实体标签读取信息" else "查看下方原因及建议",
-            working = reading
-        ) {
-            if (nfcAvailable && !nfcEnabled) {
-                Button(onClick = onNfcSettings, modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)) { Text("打开 NFC 设置") }
-            } else if (nfcEnabled) {
-                Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(if (report == null) "重新开始扫描" else "扫描另一张标签")
+        Surface(color = Color(0xFFF3F6FC), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.fillMaxWidth().padding(17.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.size(88.dp).background(Color(0xFFE8EFFF), RoundedCornerShape(26.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    V2NfcMark(Modifier.size(48.dp), Color(0xFF2F65E8))
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(status, color = Color(0xFF172234), fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when {
+                        reading -> "正在读取实体标签，请保持手机与标签贴合"
+                        report == null -> "将标签靠近手机背部 NFC 感应区域"
+                        report.error == null -> "已从实体标签读取信息"
+                        else -> "已识别标签 · 查看下方失败原因"
+                    },
+                    color = Color(0xFF7A8798), fontSize = 12.sp
+                )
+                if (reading) {
+                    Spacer(Modifier.height(14.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
         if (report == null) {
-            InfoSurface("使用提示") {
-                Text(
-                    "适合检查普通 NDEF 标签、链接与文本。受保护的校园卡或门禁数据不会被解密或改写。",
-                    color = dim, fontSize = 14.sp
-                )
-            }
+            Spacer(Modifier.height(13.dp))
+            Text(
+                "支持查看普通 NDEF 文本、网址、记录数量、容量和技术类型。不会尝试解密门禁或校园卡数据。",
+                color = Color(0xFF7A8798), fontSize = 12.sp, lineHeight = 18.sp
+            )
         } else {
-            InfoSurface("标签详情") {
-                DetailLine("技术类型", report.technologies.ifBlank { "未知" })
-                DetailLine("NDEF 格式", report.ndefType)
-                DetailLine("可写入", when (report.writable) {
-                    true -> "是"; false -> "否"; null -> "未知"
-                })
-                DetailLine("最大容量", report.capacity?.let { it.toString() + " B" } ?: "未知")
-                if (report.usedBytes != null) {
-                    DetailLine("已用空间", report.usedBytes.toString() + " B")
-                }
-                DetailLine("记录数量", report.totalRecords.toString())
-                if (report.totalRecords > report.records.size) {
-                    Text("只展示前 " + report.records.size + " 条，避免页面过长。",
-                        color = dim, fontSize = 12.sp)
-                }
-                report.error?.let {
-                    HorizontalDivider(Modifier.padding(vertical = 10.dp))
-                    Text(it, color = Color(0xFF9B5F38), fontSize = 13.sp)
+            Spacer(Modifier.height(13.dp))
+            Surface(color = Color.White, shape = RoundedCornerShape(17.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8EDF4))) {
+                Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                    Text("标签详情", color = Color(0xFF172234), fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    ReadDetailLine("技术类型", report.technologies.ifBlank { "未知" })
+                    ReadDetailLine("NDEF 格式", report.ndefType)
+                    ReadDetailLine("可写入", when (report.writable) {
+                        true -> "是"; false -> "否"; null -> "未知"
+                    })
+                    ReadDetailLine("最大容量", report.capacity?.let { "${it} B" } ?: "未知")
+                    report.usedBytes?.let { ReadDetailLine("已用空间", "${it} B") }
+                    ReadDetailLine("记录数量", report.totalRecords.toString())
+                    report.error?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = Color(0xFF9B5F38), fontSize = 12.sp)
+                    }
                 }
             }
             if (report.records.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                InfoSurface("NDEF 内容") {
-                    report.records.forEach { record ->
-                        Text("记录 " + record.number.toString() + " · " + record.type,
-                            color = blue, fontWeight = FontWeight.Medium)
-                        Text(
-                            record.preview ?: "未显示原始二进制 · " + record.payloadBytes.toString() + " 字节",
-                            color = dim, fontSize = 13.sp
-                        )
-                        Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
+                Surface(color = Color.White, shape = RoundedCornerShape(17.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8EDF4))) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("NDEF 内容", color = Color(0xFF172234), fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(10.dp))
+                        report.records.forEach { record ->
+                            Text("记录 ${record.number} · ${record.type}",
+                                color = Color(0xFF2F65E8), fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                record.preview ?: "未显示原始二进制 · ${record.payloadBytes} 字节",
+                                color = Color(0xFF65748A), fontSize = 12.sp, lineHeight = 18.sp
+                            )
+                            Spacer(Modifier.height(10.dp))
+                        }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(28.dp))
-    }
-}
-
-@Composable
-private fun InfoSurface(title: String, body: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
-        Column(Modifier.fillMaxWidth().padding(19.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(12.dp))
-            body()
+        Spacer(Modifier.height(14.dp))
+        if (nfcAvailable && !nfcEnabled) {
+            Button(onClick = onNfcSettings, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)) { Text("打开 NFC 设置") }
+        } else if (nfcEnabled) {
+            Button(onClick = onReset, enabled = !reading, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)) {
+                Text(if (report == null) "重新开始扫描" else "扫描另一张标签")
+            }
         }
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp)) { Text("完成") }
     }
 }
 
 @Composable
-private fun DetailLine(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(label, color = Color(0xFF6E7B91), fontSize = 13.sp,
+private fun ReadDetailLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, color = Color(0xFF7A8798), fontSize = 12.sp,
             modifier = Modifier.width(88.dp))
-        Text(value, color = Color(0xFF26334C), fontSize = 13.sp,
+        Text(value, color = Color(0xFF172234), fontSize = 12.sp,
             modifier = Modifier.weight(1f))
     }
 }
