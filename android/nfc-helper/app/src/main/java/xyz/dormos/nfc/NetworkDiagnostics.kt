@@ -21,11 +21,14 @@ class NetworkDiagnostics(private val context: Context) {
             ?: return "系统当前没有默认网络。请连接 Ncwu 后再检测。"
         val capabilities = manager.getNetworkCapabilities(network)
             ?: return "默认网络状态已变化，请重新检测。"
-        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            return "系统当前默认网络不是 Wi-Fi（可能启用了 VPN 或移动网络）。\\n为避免绕过系统路由，本次停止。"
-        }
-        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-            return "当前 Wi-Fi 未声明互联网能力，停止公网检测；不会切换移动数据。"
+        val isWifi = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        if (!NcwuRules.mayProbeActiveNetwork(isWifi, hasInternet)) {
+            return if (!isWifi) {
+                "系统当前默认网络不是 Wi-Fi（可能启用了 VPN 或移动网络）。\\n为避免绕过系统路由，本次停止。"
+            } else {
+                "当前 Wi-Fi 未声明互联网能力，停止公网检测；不会切换移动数据。"
+            }
         }
 
         if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
