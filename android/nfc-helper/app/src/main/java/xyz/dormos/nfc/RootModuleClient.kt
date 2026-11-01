@@ -184,6 +184,6 @@ object ExecutionLogFormatter {
             val result = when (fields[2]) { "ok" -> "成功"; "failed" -> "失败"; else -> "未知" }
             "$time  $name  $result"
         }.toList()
-        return lines.ifEmpty { "暂无有效记录" }.joinToString("\n")
+        return if (lines.isEmpty()) "暂无有效记录" else lines.joinToString("\n")
     }
 }
