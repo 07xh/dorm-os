@@ -629,7 +629,6 @@ private fun ManagerScreen(
             },
             label = "TapFlow bottom navigation transition"
         ) { visibleTab ->
-        val visibleTab = tabIdForPage(page)
         Column(
             Modifier.fillMaxSize()
                 .verticalScroll(when (visibleTab) {
