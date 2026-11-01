@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     private var confirmRun by mutableStateOf<Scene?>(null)
     private var confirmWrite by mutableStateOf<Scene?>(null)
     private var showLogs by mutableStateOf(false)
+    private var activeScene by mutableStateOf<Scene?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,6 +127,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable private fun AppUi() {
         Scaffold(
             containerColor = Cloud,
@@ -185,6 +187,23 @@ class MainActivity : ComponentActivity() {
             }) { Text("开始写入") } },
             dismissButton = { TextButton(onClick = { confirmWrite = null }) { Text("取消") } }
         ) }
+        activeScene?.let { scene ->
+            ModalBottomSheet(onDismissRequest = { activeScene = null }, containerColor = Color.White) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text(scene.name, color = Ink, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                    Text(AllowedActions.items[scene.action].orEmpty(), color = Muted, fontSize = 13.sp)
+                    Button(
+                        onClick = { activeScene = null; confirmRun = scene },
+                        enabled = scene.enabled && moduleStatus?.legacyReady == true && !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("执行场景", Modifier.padding(vertical = 5.dp)) }
+                    OutlinedButton(onClick = { activeScene = null; editScene = scene }, modifier = Modifier.fillMaxWidth()) { Text("编辑场景") }
+                    TextButton(onClick = { activeScene = null; confirmWrite = scene }, enabled = scene.enabled, modifier = Modifier.fillMaxWidth()) { Text("写入 NFC 标签") }
+                    if (moduleStatus?.legacyReady != true) Text("当前无法执行模块动作：请在「工具」查看安装状态", color = Muted, fontSize = 12.sp)
+                }
+            }
+        }
         if (showLogs) AlertDialog(onDismissRequest = { showLogs = false },
             title = { Text("运行记录") },
             text = { Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
@@ -224,7 +243,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             SectionTitle("常用场景", "全部", onClick = { page = 1 })
-            scenes.take(3).forEach { s -> SceneRow(s, onOpen = { confirmRun = s }, onEdit = { editScene = s }, onWrite = { confirmWrite = s }) }
+            scenes.take(3).forEach { s -> SceneRow(s, onManage = { activeScene = s }) }
             Spacer(Modifier.height(12.dp))
         }
     }
@@ -236,7 +255,7 @@ class MainActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(6.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-                items(scenes, key = { it.id }) { s -> SceneRow(s, onOpen = { confirmRun = s }, onEdit = { editScene = s }, onWrite = { confirmWrite = s }) }
+                items(scenes, key = { it.id }) { s -> SceneRow(s, onManage = { activeScene = s }) }
                 item { Text("场景名和动作可修改。写入过的标签保留场景 ID，无需每次重写。", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(12.dp)) }
             }
         }
@@ -281,25 +300,21 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    @Composable private fun SceneRow(s: Scene, onOpen: () -> Unit, onEdit: () -> Unit, onWrite: () -> Unit) {
+    @Composable private fun SceneRow(s: Scene, onManage: () -> Unit) {
         Surface(shape = RoundedCornerShape(19.dp), color = Color.White, border = BorderStroke(1.dp, Line)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(39.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Text("◇", color = Blue, fontSize = 23.sp) }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(s.name, fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(AllowedActions.items[s.action].orEmpty(), color = Muted, fontSize = 12.sp)
-                    }
-                    Switch(checked = s.enabled, onCheckedChange = { checked -> saveScenes(scenes.map { if (it.id == s.id) it.copy(enabled = checked) else it }) }, modifier = Modifier.height(30.dp))
+            Row(Modifier.fillMaxWidth().clickable(onClick = onManage).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(39.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text("◇", color = Blue, fontSize = 23.sp)
                 }
-                Spacer(Modifier.height(10.dp))
-                HorizontalDivider(color = Line)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = onEdit) { Text("编辑") }
-                    TextButton(onClick = onWrite, enabled = s.enabled) { Text("写入标签") }
-                    TextButton(onClick = onOpen, enabled = s.enabled && !busy) { Text("运行") }
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(s.name, fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(AllowedActions.items[s.action].orEmpty(), color = Muted, fontSize = 12.sp)
+                    Text("点击管理", color = Blue, fontSize = 11.sp)
                 }
+                Switch(checked = s.enabled, onCheckedChange = { checked ->
+                    saveScenes(scenes.map { if (it.id == s.id) it.copy(enabled = checked) else it })
+                })
             }
         }
     }
