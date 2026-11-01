@@ -26,9 +26,15 @@ class TabNavigationMotionTest {
     }
 
     @Test
-    fun selectingCurrentTabDoesNotAnimate() {
+    fun selectingCurrentTabDoesNotCreateDirection() {
         assertEquals(0, tabTransitionDirection(0, 0))
         assertEquals(0, tabTransitionDirection(2, 2))
         assertEquals(0, tabTransitionDirection(1, 1))
+    }
+
+    @Test
+    fun referenceMotionUsesShortBoundedDurations() {
+        assertEquals(280, TAPFLOW_PAGE_TRANSITION_MS)
+        assertEquals(250, TAPFLOW_BUTTON_TRANSITION_MS)
     }
 }
