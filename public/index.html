@@ -335,6 +335,38 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 @media(max-width:790px){.v42-week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v42-schedule-toolbar,.v42-life-toolbar{gap:8px}.v42-life-panel{padding:6px 14px}.v42-day-content .v42-day-card{padding:16px}}
 @media(max-width:480px){.v42-week-grid{grid-template-columns:1fr}.v42-day-picker{gap:3px}.v42-day-picker button{min-width:0;padding:8px 0;font-size:12px}.v42-life-edit{padding:7px 9px}.v42-life-row{gap:9px}.v42-life-copy strong{font-size:13px}.v42-segments button{padding:9px 11px}}
 
+
+/* V4.3 unified dialog ergonomics: content scrolls, primary actions stay visible */
+.editor.form-editor{padding:0;max-width:min(500px,calc(100vw - 32px));width:100%;overflow:hidden;border-radius:20px;background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.editor.form-editor .dorm-form{display:flex;flex-direction:column;min-height:0;max-height:min(740px,calc(100dvh - 54px));overflow:hidden}
+.editor.form-editor .dorm-form-header{flex:none;padding:23px 24px 15px;border-bottom:1px solid var(--border)}
+.editor.form-editor .dorm-form-header h2{font-size:20px;line-height:1.4;margin:0;color:var(--text);letter-spacing:-.02em}
+.editor.form-editor .dorm-form-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:21px 24px 12px;scrollbar-width:thin}
+.editor.form-editor .dorm-form-actions{flex:none;margin:0;padding:13px 24px 18px;display:grid;grid-template-columns:1fr 1.25fr;gap:10px;background:var(--surface);border-top:1px solid var(--border)}
+.editor.form-editor .dorm-form-actions button{min-height:46px;border-radius:12px;font-size:14px;font-weight:700}
+.editor.form-editor .form-field{min-width:0;margin-bottom:18px}
+.editor.form-editor .form-field label{font-size:13px;line-height:1.45;font-weight:650;color:var(--text)}
+.editor.form-editor .form-field input,.editor.form-editor .form-field select,.editor.form-editor .form-field textarea{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:12px;min-height:46px;padding:11px 13px;font-size:16px;min-width:0}
+.editor.form-editor .form-field input:focus,.editor.form-editor .form-field select:focus,.editor.form-editor .form-field textarea:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
+.editor.form-editor .form-field :is(input,select,textarea):invalid:not(:focus){border-color:var(--border)}
+.editor.form-editor .dorm-form-body p.small{font-size:12px;line-height:1.65}
+.editor.form-editor .grid-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.editor.form-editor::backdrop{background:rgba(8,21,43,.58);backdrop-filter:blur(3px)}
+@media(max-width:790px){
+ .editor.form-editor{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:100%;max-height:calc(100dvh - 12px);border-radius:23px 23px 0 0;border-bottom:0;box-shadow:0 -16px 60px #07182c40}
+ .editor.form-editor .dorm-form{max-height:calc(100dvh - 12px)}
+ .editor.form-editor .dorm-form-header{padding:19px 20px 14px}
+ .editor.form-editor .dorm-form-body{padding:18px 20px 10px}
+ .editor.form-editor .dorm-form-actions{padding:13px 20px calc(14px + env(safe-area-inset-bottom,0px))}
+ .editor.form-editor .grid-fields{grid-template-columns:1fr;gap:0}
+}
+@media(max-width:390px){
+ .editor.form-editor .dorm-form-header{padding-inline:16px}
+ .editor.form-editor .dorm-form-body{padding-inline:16px}
+ .editor.form-editor .dorm-form-actions{padding-inline:16px}
+}
+@media(prefers-reduced-motion:reduce){.editor.form-editor::backdrop{backdrop-filter:none}}
+
 </style>
   <title>DORM OS · 个人生活与 NFC 场景</title>
 </head>
@@ -618,7 +650,7 @@ function openGlobalSearch(){
  const dialog=$('editor');
  if(dialog.open){if(dialog.classList.contains('search-editor'))$('globalSearchInput')?.focus();else toast('请先保存或关闭当前编辑窗口');return;}
  $('editorContent').innerHTML=`<section class='search-panel' aria-label='全站搜索'><div class='search-heading'><div><span class='eyebrow'>DORM OS · LOCAL SEARCH</span><h2>全站搜索</h2><p class='small muted'>在你的个人资料中快速定位内容</p></div><button type='button' class='secondary' data-action='close-modal'>关闭</button></div><label class='search-label' for='globalSearchInput'>搜索关键词</label><input id='globalSearchInput' type='search' maxlength='80' autocomplete='off' placeholder='例如：高数、耳机、书桌、学习标签'><div class='search-hint'><span>输入关键词即时筛选</span><kbd>Ctrl K / ⌘ K</kbd></div><div id='globalSearchResults' class='search-results' aria-live='polite'></div></section>`;
- dialog.classList.add('search-editor');dialog.showModal();
+ dialog.classList.remove('form-editor');dialog.classList.add('search-editor');dialog.setAttribute('aria-label','全站搜索');dialog.showModal();
  const input=$('globalSearchInput');input.addEventListener('input',()=>renderGlobalSearchResults(input.value));
  renderGlobalSearchResults('');input.focus();
 }
@@ -946,7 +978,7 @@ function nfcPage(){
  <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
 </div></details><details class="v4-nfc-details"><summary>浏览器兼容性与权限</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div></div></details><details class="v4-nfc-details"><summary>最近操作记录</summary><div class="v4-nfc-details-content">${nfcRecentActivity()}</div></details><details class="v4-nfc-details"><summary>Android 自动化配置说明</summary><div class="v4-nfc-details-content">${androidAutomationGuide(androidSceneSelection)}</div></details>` ;
 }
-function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label>标签名称</label><input name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label>绑定的网站场景</label><select name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「测试网页链接」检查跳转；这并不测试 NFC 硬件。修改绑定后需重新写入实体 NFC 标签。</p>`,'tag'));}
+function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label for="tagName">标签名称</label><input id="tagName" name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label for="tagScene">绑定的网站场景</label><select id="tagScene" name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「测试网页链接」检查跳转；这并不测试 NFC 硬件。修改绑定后需重新写入实体 NFC 标签。</p>`,'tag'));}
 function stopNfcScan({silent=false}={}){nfc.scanAttempt++;nfc.controller?.abort();nfc.controller=null;nfc.reader=null;nfc.phase='stopped';nfc.message='扫描已停止。';if(!silent&&page==='nfc')render();}
 function getSceneFromNdef(message){
  for(const rec of message?.records||[]){
@@ -1056,8 +1088,8 @@ function lifePage(){
  </div>`).join(''):'<div class="friendly-empty">尚未记录物品。点击“添加物品”填写存放位置。</div>')}
  </section><p class="v42-life-note">仅保存在当前浏览器。提醒不会在网页关闭后发送系统通知。</p>`;
 }
-function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label>提醒内容</label><input name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label>日期（可选）</label><input type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
-function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label>物品名称</label><input name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label>存放位置（可选）</label><input name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
+function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="reminderText">提醒内容</label><input id="reminderText" name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label for="reminderDue">日期（可选）</label><input id="reminderDue" type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
+function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="itemName">物品名称</label><input id="itemName" name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label for="itemPlace">存放位置（可选）</label><input id="itemPlace" name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
 function render(){const pages={dashboard,study:studyPage,timetable,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({timetable:'study',tasks:'study',campus:'study',scenes:'dashboard',devices:'profile',settings:'profile'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
 
 function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
@@ -1095,8 +1127,8 @@ function timerSetDuration(minutes){
  timerStop();timer.duration=minutes;timer.remaining=minutes*60;saveTimerState();render();
 }
 
-function openDialog(html){$('editor').classList.remove('search-editor','home-layout-dialog');$('editorContent').innerHTML=html;const form=$('modalForm');if(form)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();processForm(form);});$('editor').showModal();}
-function formFrame(title,body,kind=""){return `<form id="modalForm" ${kind?`data-form="${esc(kind)}"`:""}><h2>${esc(title)}</h2>${body}<div class="modal-actions"><button type="button" class="secondary" data-action="close-modal">取消</button><button type="submit" class="primary">保存</button></div></form>`;}
+function openDialog(html){const dialog=$('editor');dialog.classList.remove('search-editor','home-layout-dialog','form-editor');$('editorContent').innerHTML=html;const form=$('modalForm');dialog.classList.toggle('form-editor',!!form);dialog.setAttribute('aria-label',dialog.querySelector('h2')?.textContent||'DORM OS 操作窗口');if(form)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();processForm(form);});dialog.showModal();}
+function formFrame(title,body,kind=""){return `<form id="modalForm" class="dorm-form" ${kind?`data-form="${esc(kind)}"`:""}><header class="dorm-form-header"><h2>${esc(title)}</h2></header><div class="dorm-form-body">${body}</div><div class="modal-actions dorm-form-actions"><button type="button" class="secondary" data-action="close-modal">取消</button><button type="submit" class="primary">保存</button></div></form>`;}
 function taskDialog(id){const t=state.tasks.find(x=>x.id===id);openDialog(formFrame(t?'编辑任务':'新增任务',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label for="taskTitle">任务名称 *</label><input id="taskTitle" name="title" maxlength="100" required placeholder="例如：完成高数作业" value="${esc(t?.title||'')}"></div><div class="grid-fields"><div class="form-field"><label for="taskCategory">类别</label><select name="category" id="taskCategory">${CATEGORIES.map(c=>`<option ${t?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><div class="form-field"><label for="taskDue">截止日期（可选）</label><input id="taskDue" type="date" name="due" value="${esc(t?.due||'')}"></div></div>`));$('modalForm').dataset.form='task';$('taskTitle').focus();}
 function classDialog(id){const c=state.classes.find(x=>x.id===id);openDialog(formFrame(c?'编辑课程':'添加课程',`<input name="id" type="hidden" value="${esc(c?.id||'')}"><div class="form-field"><label for="classSubject">课程名称 *</label><input id="classSubject" name="subject" maxlength="80" placeholder="例如：高等数学" required value="${esc(c?.subject||'')}"></div><div class="grid-fields"><div class="form-field"><label>星期</label><select name="day">${[1,2,3,4,5,6,0].map(d=>`<option value="${d}" ${c?.day===d?'selected':''}>${WEEKDAYS[d]}</option>`).join('')}</select></div><div class="form-field"><label>教室</label><input name="location" maxlength="60" placeholder="如教学楼 A201" value="${esc(c?.location||'')}"></div></div><div class="grid-fields"><div class="form-field"><label>开始时间</label><input name="start" type="time" required value="${esc(c?.start||'08:00')}"></div><div class="form-field"><label>结束时间</label><input name="end" type="time" required value="${esc(c?.end||'09:40')}"></div></div>`));$('modalForm').dataset.form='class';$('classSubject').focus();}
 function balanceDialog(){openDialog(formFrame('手动记录宿舍电费',`<p class="small muted">这里只保存你主动输入的数值，不连接学校收费系统。</p><div class="form-field"><label>电费余额（人民币）</label><input name="balance" type="number" min="0" max="99999" step="0.01" required value="${state.electricity.balance??''}" placeholder="例如 35.50"></div>`));$('modalForm').dataset.form='balance';}
