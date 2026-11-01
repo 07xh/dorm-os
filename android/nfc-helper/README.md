@@ -1,6 +1,6 @@
-# DORM NFC Manager — KernelSU personal SH manager
+# 触序 · TapFlow — NFC 场景与 KernelSU 个人 SH 管理
 
-This project contains one standalone Android Compose app and one KernelSU module. The app manages a personal library of Shell scripts; the module stores and executes them with Root when explicitly requested.
+TapFlow（触序）是个人 Android NFC 场景与 Shell 脚本管理工具，可联动 DORM OS。项目包含原生 Android Compose 应用与 KernelSU 模块。 The app manages a personal library of Shell scripts; the module stores and executes them with Root when explicitly requested.
 
 ## Responsibilities
 
