@@ -64,7 +64,7 @@ class ManagerActivity : ComponentActivity() {
                             )?.use { cursor ->
                                 if (cursor.moveToFirst()) cursor.getString(0) else null
                             } ?: throw IllegalArgumentException("无法读取文件名")
-                            if (!name.endsWith(".sh", ignoreCase = true) ||
+                            if (!name.endsWith(".sh") ||
                                 name.contains('/') || name.contains('\\')) {
                                 throw IllegalArgumentException("只允许导入 .sh 文件")
                             }
@@ -355,7 +355,7 @@ private fun ManagerScreen(
         AlertDialog(
             onDismissRequest = { confirmBind = null },
             title = { Text("绑定 NFC") },
-            text = { Text("将「${item.name}」绑定到你自己的 NFC 标签。以后碰此标签将以 Root 权限执行该脚本，确认继续？") },
+            text = { Text("将「${item.name}」绑定到你自己的 NFC 标签。碰卡会以 Root 权限执行脚本。注意：NFC 标签内容可被复制，不是身份认证；请只绑定你已检查且可重复安全运行的脚本。确认继续？") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmBind = null

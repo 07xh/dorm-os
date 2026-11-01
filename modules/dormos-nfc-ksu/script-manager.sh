@@ -17,7 +17,7 @@ die() { echo "DORM_SCRIPT_ERROR=$1"; exit "${2:-1}"; }
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 b64() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; }
 
-[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] || die unsafe_dir 70
+[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$LOG" ] || die unsafe_dir 70
 mkdir -p "$SCRIPTS"
 chmod 700 "$BASE" "$SCRIPTS" 2>/dev/null || :
 
@@ -60,7 +60,7 @@ case "${1:-}" in
     display=$(printf '%s' "$title" | base64 -d 2>/dev/null) || die bad_title64 65
     [ -n "$display" ] && [ "$(printf '%s' "$display" | wc -c | tr -d ' ')" -le 120 ] || die title_too_long 64
     case "$display" in
-      *.sh) ;;
+      *.sh|*.SH|*.Sh|*.sH) ;;
       *) die invalid_script_name 64 ;;
     esac
     case "$display" in
@@ -91,6 +91,7 @@ case "${1:-}" in
     item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
     command -v timeout >/dev/null 2>&1 || die timeout_unavailable 69
+    "$SH" -n "$FILE" || die syntax_error 65
     if timeout 20 "$SH" "$FILE"; then
       record "$2" ok
       echo "DORM_SCRIPT_RESULT=success"
