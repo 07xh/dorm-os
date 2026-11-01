@@ -19,6 +19,17 @@ out=$(sh "$R" --script-list)
 out=$(sh "$R" --script-read "$ID")
 [[ "$out" == *SCRIPT_BODY64=* ]]
 sh "$R" --script-bind "$TAG" "$ID" | grep -q DORM_SCRIPT_BOUND
+SCENE_NAME=$(printf '回到宿舍' | base64 -w0)
+sh "$R" --scene-save "$TAG" "$SCENE_NAME" | grep -q DORM_SCENE_SAVED
+out=$(sh "$R" --scene-list)
+[[ "$out" == *"$TAG|$ID|$SCENE_NAME|1"* ]]
+sh "$R" --scene-enable "$TAG" 0 | grep -q DORM_SCENE_ENABLED=0
+if sh "$R" --nfc "$TAG" > "$TMP/disabled-scene.out" 2>&1; then
+  echo "Disabled scene unexpectedly executed" >&2
+  exit 1
+fi
+grep -q 'DORM_SCRIPT_ERROR=scene_disabled' "$TMP/disabled-scene.out"
+sh "$R" --scene-enable "$TAG" 1 | grep -q DORM_SCENE_ENABLED=1
 sh "$R" --enable 1 >/dev/null
 out=$(sh "$R" --nfc "$TAG")
 [[ "$out" == *test-script-ok* ]]
@@ -43,6 +54,7 @@ fi
 sh "$R" --script-clear-logs | grep -q DORM_SCRIPT_LOGS=CLEARED
 [[ -z "$(sh "$R" --script-logs)" ]]
 sh "$R" --script-unbind "$TAG" | grep -q DORM_SCRIPT_UNBOUND
+[[ -z "$(sh "$R" --scene-list)" ]]
 if sh "$R" --nfc "$TAG" >/dev/null 2>&1; then
   echo "Unbound NFC tag ran a script" >&2
   exit 1
