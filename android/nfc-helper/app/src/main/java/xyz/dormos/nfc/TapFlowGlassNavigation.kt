@@ -2,10 +2,10 @@ package xyz.dormos.nfc
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,11 +33,13 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun TapFlowGlassNavigation(
     selected: Int,
+    swipePosition: Float,
     palette: V2Palette,
     night: Boolean,
     onSelect: (Int) -> Unit
 ) {
     val shape = RoundedCornerShape(26.dp)
+    val clampedPosition = swipePosition.coerceIn(0f, 2f)
     val background = if (night)
         listOf(Color(0xF0273B57), Color(0xE51C2C44))
     else listOf(Color(0xF7FFFFFF), Color(0xEBE9F2FF), Color(0xF5FAFCFF))
@@ -54,20 +56,19 @@ internal fun TapFlowGlassNavigation(
                 .shadow(9.dp, shape)
                 .clip(shape)
                 .background(Brush.verticalGradient(background))
+                .border(1.dp, if (night) Color(0x889FBDE8) else Color(0xFAFFFFFF), shape)
         ) {
             val slot = maxWidth / 3
-            val offset by animateDpAsState(
-                targetValue = slot * tabNavigationOrder(selected),
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                ), label = "Glass selected capsule"
-            )
+            // Following PagerState fraction makes the capsule track the finger
+            // during a drag; spring-to-tab animations would lag the gesture.
+            val offset = slot * clampedPosition
             Box(
                 Modifier.offset(x = offset).width(slot).fillMaxHeight()
                     .padding(horizontal = 5.dp, vertical = 5.dp)
                     .clip(RoundedCornerShape(21.dp))
                     .background(Brush.verticalGradient(capsule))
+                    .border(1.dp, if (night) Color(0x886BA5EB) else Color.White.copy(alpha = 0.85f),
+                        RoundedCornerShape(21.dp))
             )
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 listOf(Triple(0, "首页", 0), Triple(2, "场景", 1), Triple(1, "工具", 2))
