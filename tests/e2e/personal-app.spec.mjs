@@ -220,3 +220,18 @@ test('V4 scene quick actions and extended home cards remain accessible',async({p
  await expect(page).toHaveURL(/#scenes$/);
  await expect(page.locator('#app')).toContainText('个人快捷场景');
 });
+
+test('V4 unique secondary actions and NFC progressive help',async({page})=>{
+ await page.goto('/#nfc');
+ await expect(page.locator('[data-action="tag-add"]')).toHaveCount(1);
+ await expect(page.locator('.v4-nfc-details')).toHaveCount(4);
+ await expect(page.locator('.v4-nfc-details').first()).not.toHaveAttribute('open','');
+ await page.locator('.v4-nfc-details summary').first().click();
+ await expect(page.locator('.v4-nfc-details').first()).toHaveAttribute('open','');
+ await page.goto('/#timetable');
+ await expect(page.locator('[data-action="add-class"]')).toHaveCount(1);
+ await page.locator('.v4-import-tools summary').click();
+ await expect(page.locator('[data-action="ics-import"]')).toBeVisible();
+ await page.goto('/#life');
+ await expect(page.locator('[data-action="reminder-add"]')).toHaveCount(1);
+});
