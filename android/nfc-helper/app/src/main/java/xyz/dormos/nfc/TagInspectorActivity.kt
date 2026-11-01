@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.nio.charset.StandardCharsets
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -59,7 +61,13 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
             )) {
                 ReadScreen(status, report, reading, nfcAvailable, nfcEnabled,
                     onBack = { finish() },
-                    onNfcSettings = { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
+                    onNfcSettings = {
+                        try { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
+                        catch (_: Exception) {
+                            try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
+                            catch (_: Exception) { status = "系统没有可用的 NFC 设置入口，请手动开启 NFC" }
+                        }
+                    },
                     onReset = {
                     sessionGeneration.incrementAndGet()
                     finishedScan = false
@@ -184,8 +192,15 @@ internal object NdefTextPayload {
         val offset = 1 + (status and 0x3f)
         if (offset > payload.size) return null
         val charset = if ((status and 0x80) == 0) StandardCharsets.UTF_8 else StandardCharsets.UTF_16
-        return try { String(payload, offset, payload.size - offset, charset) }
-        catch (_: Exception) { null }
+        return try {
+            charset.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(payload, offset, payload.size - offset))
+                .toString()
+        } catch (_: Exception) {
+            null
+        }
     }
 }
 
