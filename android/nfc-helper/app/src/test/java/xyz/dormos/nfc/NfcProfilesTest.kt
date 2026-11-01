@@ -11,6 +11,15 @@ class NfcProfilesTest {
         assertEquals(id, NfcProfiles.decodeId("v3:scene:$id"))
     }
 
+    @Test fun onlySupportedMimeAndBoundedUuidPayloadsAreAccepted() {
+        val id = "123e4567-e89b-12d3-a456-426614174000"
+        assertEquals(id, NfcProfiles.decodeRecord(NfcProfiles.MIME, "v2:tag:$id".toByteArray()))
+        assertEquals(id, NfcProfiles.decodeRecord(NfcProfiles.LEGACY_MIME, "v2:tag:$id".toByteArray()))
+        assertNull(NfcProfiles.decodeRecord("text/plain", "v2:tag:$id".toByteArray()))
+        assertNull(NfcProfiles.decodeRecord(NfcProfiles.MIME, ByteArray(81) { 65 }))
+        assertNull(NfcProfiles.decodeRecord(NfcProfiles.MIME, "not-a-tag".toByteArray()))
+    }
+
     @Test fun malformedAndLegacyCampusPayloadsAreRejected() {
         assertNull(NfcProfiles.decodeId(null))
         assertNull(NfcProfiles.decodeId("v1:ncwu"))

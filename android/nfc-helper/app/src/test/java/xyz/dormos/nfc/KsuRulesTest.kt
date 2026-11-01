@@ -19,6 +19,6 @@ class KsuRulesTest {
         assertTrue(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\nDORM_ACTION=personal-script\n"))
         assertFalse(KsuRules.succeeded(1, "DORM_NFC_RESULT=success"))
         assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=failed"))
-        assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\n" + "x".repeat(4097)))
+        assertTrue(KsuRules.succeeded(0, "x".repeat(10000) + "\nDORM_NFC_RESULT=success\n"))
     }
 }

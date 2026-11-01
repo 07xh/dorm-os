@@ -20,6 +20,11 @@ object NfcProfiles {
         return "v2:tag:$id"
     }
 
+    fun decodeRecord(type: String, payload: ByteArray?): String? {
+        if (!isSupportedMime(type) || payload == null || payload.size !in 1..80) return null
+        return decodeId(String(payload, Charsets.UTF_8))
+    }
+
     fun decodeId(payload: String?): String? {
         if (payload == null) return null
         val id = when {

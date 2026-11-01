@@ -201,19 +201,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         }
 
         @Suppress("DEPRECATION")
-        val messages = source.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
-        val payload = messages
-            ?.filterIsInstance<NdefMessage>()
-            ?.asSequence()
-            ?.flatMap { it.records.asSequence() }
-            ?.firstOrNull { record ->
-                record.tnf == NdefRecord.TNF_MIME_MEDIA &&
-                    NfcProfiles.isSupportedMime(String(record.type, StandardCharsets.US_ASCII)) &&
-                    record.payload.size in 1..80
-            }
-            ?.let { String(it.payload, StandardCharsets.UTF_8) }
-
-        val id = NfcProfiles.decodeId(payload)
+        val id = readPhysicalTagId(actualTag)
         if (id == null) {
             showAndFinish("未知或无效 NFC 标签，未执行任何操作。")
             return
@@ -223,6 +211,30 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             return
         }
         runScene(id)
+    }
+
+    /**
+     * Do not trust EXTRA_NDEF_MESSAGES: another app can explicitly launch this exported
+     * NFC activity with forged extras. Read the NDEF payload back from the physical Tag.
+     */
+    private fun readPhysicalTagId(tag: Tag): String? {
+        val ndef = try { Ndef.get(tag) } catch (_: Exception) { null } ?: return null
+        return try {
+            ndef.connect()
+            ndef.ndefMessage?.records
+                ?.asSequence()
+                ?.mapNotNull { record ->
+                    NfcProfiles.decodeRecord(
+                        String(record.type, StandardCharsets.US_ASCII),
+                        record.payload
+                    )
+                }
+                ?.firstOrNull()
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { ndef.close() } catch (_: Exception) { }
+        }
     }
 
     private fun runScene(id: String) {

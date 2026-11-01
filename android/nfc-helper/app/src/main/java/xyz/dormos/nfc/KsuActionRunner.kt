@@ -12,8 +12,7 @@ object KsuRules {
     }
 
     fun succeeded(exitCode: Int, output: String): Boolean =
-        exitCode == 0 && output.length <= 4096 &&
-            output.lineSequence().any { it == "DORM_NFC_RESULT=success" }
+        exitCode == 0 && output.lineSequence().any { it == "DORM_NFC_RESULT=success" }
 }
 
 class KsuActionRunner(

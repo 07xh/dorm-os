@@ -70,9 +70,10 @@ class RootModuleClient {
                 while (true) {
                     val count = reader.read(buf)
                     if (count < 0) break
-                    if (result.length < 42000) {
-                        result.append(buf, 0, minOf(count, 42000 - result.length))
-                    }
+                    // Keep the tail: a verbose user script must not hide the dispatcher's
+                    // final success/failure marker from the NFC receiver.
+                    result.append(buf, 0, count)
+                    if (result.length > 42000) result.delete(0, result.length - 42000)
                 }
                 result.toString()
             }

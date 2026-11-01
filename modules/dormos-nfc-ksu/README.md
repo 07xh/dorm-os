@@ -31,3 +31,14 @@ CI checks Shell syntax, import/save/read/delete, invalid names and UUIDs, syntax
 ## V1.3 NFC safe-binding protocol
 
 The native app writes a new NDEF tag and verifies the read-back **before** it records a Root script binding. Canceling a write, presenting a read-only tag, or receiving a mismatched read-back leaves the tag unbound. A newly formatted tag without confirmed read-back must be presented again for verification. New tags use `application/vnd.dormos.nfc-script`; the receiver still accepts the legacy `application/vnd.dormos.ncwu` tag MIME for migration. This is a compatibility mechanism, not a dedicated campus-login feature. NFC IDs are not security tokens: copied tags may trigger the same approved script.
+
+
+## V1.4 NFC trigger hardening
+
+- The exported NFC activity no longer trusts `EXTRA_NDEF_MESSAGES` supplied by the launching Intent. It reads the NDEF message from the discovered physical `Tag` via `Ndef.get(tag)`, then validates the MIME type, payload length, version prefix and UUID.
+- Supports the new DORM NFC MIME and the legacy MIME for already written tags.
+- Root command output is kept as a bounded 42 KiB tail rather than the first 42 KiB, so verbose user-script output cannot hide the dispatcher's final success marker.
+- NFC execution success is determined by exit code plus the exact dispatcher marker, not by an arbitrary output-size limit.
+- Added unit tests for MIME/payload validation and verbose-output success-marker handling.
+
+This hardens forged-Intent handling but does not make NFC tags secret or unclonable. A copied tag still acts as a bearer trigger for its bound script.
