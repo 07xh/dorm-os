@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Short launcher label avoids ellipsis under the Android home-screen icon. -->
+    <string name="app_name">触序</string>
+    <string name="app_brand">触序 · TapFlow</string>
+    <string name="app_description">NFC 场景与个人 SH 脚本</string>
+</resources>
