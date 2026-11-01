@@ -19,6 +19,7 @@ const ctx = {
   sceneDefs: ['study','rest','dev','away'].map(id=>({id})),
 };
 runInNewContext(
+  sourceBetween('function normalizeHomeLayout(value){','const DEFAULT_STATE') +
   sourceBetween('function validSceneLinkUrl(raw) {','function classForDay(') +
   sourceBetween('function tagLink(tag){','async function copyTagLink(') +
   sourceBetween('function getSceneFromNdef(message){','async function startNfcScan('),
