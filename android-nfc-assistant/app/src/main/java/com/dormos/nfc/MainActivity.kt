@@ -37,6 +37,14 @@ private val Mint = Color(0xFF13765A)
 class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private lateinit var store: SceneStore
+    private lateinit var scriptLibrary: LocalScriptLibrary
+    private val localScriptFiles = mutableStateListOf<LocalScriptLibrary.Entry>()
+    private var scriptEditorOpen by mutableStateOf(false)
+    private var scriptExisting by mutableStateOf(false)
+    private var scriptName by mutableStateOf("")
+    private var scriptBody by mutableStateOf("")
+    private var scriptError by mutableStateOf("")
+    private var scriptPendingDelete by mutableStateOf<String?>(null)
     private lateinit var nfc: NfcEngine
     private val scenes = mutableStateListOf<Scene>()
     private val logs = mutableStateListOf<String>()
@@ -57,6 +65,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = SceneStore(this)
+        scriptLibrary = LocalScriptLibrary(this)
+        reloadLocalScripts()
         scenes.addAll(store.all())
         val p = getSharedPreferences("dorm_history_v2", MODE_PRIVATE)
         logs.addAll(p.getString("recent", "")!!.lines().filter { it.isNotBlank() }.take(30))
@@ -90,6 +100,37 @@ class MainActivity : ComponentActivity() {
     override fun onPause() { if (::nfc.isInitialized) nfc.onPause(); super.onPause() }
     override fun onDestroy() { if (::nfc.isInitialized) nfc.stop(); worker.shutdownNow(); super.onDestroy() }
 
+    private fun reloadLocalScripts() {
+        localScriptFiles.clear()
+        localScriptFiles.addAll(scriptLibrary.list())
+    }
+    private fun openScriptEditor(name: String?) {
+        scriptError = ""
+        scriptExisting = name != null
+        scriptName = name ?: ""
+        scriptBody = if (name == null) "#!/system/bin/sh\n" else try {
+            scriptLibrary.read(name)
+        } catch (_: Exception) {
+            scriptError = "无法读取脚本文件"
+            ""
+        }
+        scriptEditorOpen = true
+    }
+    private fun saveScriptEditor() {
+        val name = scriptName
+        val body = scriptBody
+        worker.execute {
+            val error = try { scriptLibrary.save(name, body); null } catch (ex: Exception) { ex.message ?: "保存失败" }
+            runOnUiThread {
+                if (error == null) {
+                    scriptEditorOpen = false
+                    scriptError = ""
+                    reloadLocalScripts()
+                    stateText = "已保存脚本文件（未执行）"
+                } else scriptError = error
+            }
+        }
+    }
     private fun refreshDiagnostics() {
         worker.execute {
             val status = ModuleGateway.inspect()
@@ -204,6 +245,51 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        if (scriptEditorOpen) {
+            ModalBottomSheet(onDismissRequest = { scriptEditorOpen = false }, containerColor = Color.White) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)
+                        .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(if (scriptExisting) "编辑本地脚本" else "新建本地脚本", fontSize = 22.sp, color = Ink, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = scriptName, onValueChange = { if (!scriptExisting) scriptName = it.take(60) },
+                        enabled = !scriptExisting, modifier = Modifier.fillMaxWidth(),
+                        label = { Text("文件名，例如 study.sh") }, singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = scriptBody, onValueChange = { if (it.length <= 65536) scriptBody = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 360.dp),
+                        minLines = 8, label = { Text("脚本内容（仅编辑，不执行）") }
+                    )
+                    if (scriptError.isNotBlank()) Text(scriptError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    Text("文件仅存于应用私有目录。不会写入 KernelSU 系统目录，也不会自动获得 Root 权限。", color = Muted, fontSize = 12.sp)
+                    Button(onClick = { saveScriptEditor() }, modifier = Modifier.fillMaxWidth()) { Text("保存文件") }
+                    if (scriptExisting) TextButton(onClick = { scriptPendingDelete = scriptName }, modifier = Modifier.fillMaxWidth()) { Text("删除文件") }
+                }
+            }
+        }
+        scriptPendingDelete?.let { fileName ->
+            AlertDialog(
+                onDismissRequest = { scriptPendingDelete = null },
+                title = { Text("删除这个脚本文件？") },
+                text = { Text("仅删除本应用私有目录中的文件，不影响 KernelSU 模块。") },
+                confirmButton = { TextButton(onClick = {
+                    scriptPendingDelete = null
+                    worker.execute {
+                        val error = try { scriptLibrary.remove(fileName); null } catch (ex: Exception) { ex.message ?: "删除失败" }
+                        runOnUiThread {
+                            if (error == null) {
+                                scriptEditorOpen = false
+                                reloadLocalScripts()
+                                stateText = "已删除本地脚本文件"
+                            } else scriptError = error
+                        }
+                    }
+                }) { Text("确认删除") } },
+                dismissButton = { TextButton(onClick = { scriptPendingDelete = null }) { Text("取消") } }
+            )
+        }
         if (showLogs) AlertDialog(onDismissRequest = { showLogs = false },
             title = { Text("运行记录") },
             text = { Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
@@ -277,6 +363,20 @@ class MainActivity : ComponentActivity() {
                             Text(entry.module, color = Muted, fontSize = 11.sp)
                         }
                         Text(if (entry.installed) "已检测" else "未检测到", color = if (entry.installed) Mint else Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+            UiPanel("我的本地 SH 文件", "参考 ScriptRepository 的文件管理思路，仅编辑私有文件，不直接执行 Root") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("共 " + localScriptFiles.size + " 个脚本", color = Muted, fontSize = 12.sp)
+                    TextButton(onClick = { openScriptEditor(null) }) { Text("＋ 新建") }
+                }
+                if (localScriptFiles.isEmpty()) Text("还没有脚本文件", color = Muted, fontSize = 13.sp)
+                localScriptFiles.forEach { entry ->
+                    HorizontalDivider(color = Line)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(entry.name, Modifier.weight(1f), color = Ink, fontSize = 14.sp)
+                        TextButton(onClick = { openScriptEditor(entry.name) }) { Text("打开") }
                     }
                 }
             }
