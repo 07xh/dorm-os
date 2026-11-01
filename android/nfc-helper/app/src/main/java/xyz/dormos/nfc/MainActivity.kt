@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets
 
 /**
  * Minimal one-shot NFC bridge.
- * Script management and tag-to-script bindings live in the DORM NFC Manager app.
+ * Script management and tag-to-script bindings live in the 触序 · TapFlow app.
  * This exported receiver validates a physical NFC tag and calls the fixed KernelSU
  * dispatcher entry point. Tag writing is exclusively an inline ManagerActivity session.
  * No services or polling.
@@ -46,7 +46,7 @@ class MainActivity : Activity() {
         status = TextView(this).apply {
             val nfcState = if (adapter?.isEnabled == true) "已开启" else "未开启/不可用"
             val launchState = if (Build.VERSION.SDK_INT >= 36 && adapter?.isTagIntentAllowed == false) "系统尚未允许通过 NFC 启动本应用" else "系统 NFC 启动权限未发现明确阻断"
-            text = "DORM NFC 接收器\n\nNFC：$nfcState\n$launchState\n\n请打开 DORM NFC Manager 管理脚本与 NFC 标签。\n\n本接收器只负责 NFC 标签触发，不显示脚本编辑页，不运行后台服务。"
+            text = "触序 · TapFlow 接收器\n\nNFC：$nfcState\n$launchState\n\n请打开「触序」管理脚本与 NFC 标签。\n\n本接收器只负责 NFC 标签触发，不显示脚本编辑页，不运行后台服务。"
             textSize = 16f
             setTextColor(0xFF183252.toInt())
             gravity = Gravity.CENTER
