@@ -143,6 +143,11 @@ private fun ManagerScreen(
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     var current by rememberSaveable { mutableIntStateOf(0) }
+    // Each tab owns its scroll position: leaving a long tools list must not
+    // reopen the short home page halfway down or apparently empty.
+    val homeScroll = rememberScrollState()
+    val scenesScroll = rememberScrollState()
+    val toolsScroll = rememberScrollState()
     var entries by remember { mutableStateOf(emptyList<PersonalScript>()) }
     var folders by remember { mutableStateOf(emptyList<PersonalFolder>()) }
     var scriptLocations by remember { mutableStateOf(emptyMap<String, String>()) }
@@ -484,7 +489,12 @@ private fun ManagerScreen(
     MaterialTheme(colorScheme = scheme) {
     Column(Modifier.fillMaxSize().background(pageCanvas)) {
         Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState())
+            Modifier.weight(1f)
+                .verticalScroll(when (current) {
+                    0 -> homeScroll
+                    2 -> scenesScroll
+                    else -> toolsScroll
+                })
                 .padding(horizontal = 24.dp)
         ) {
             Spacer(Modifier.height(22.dp))
