@@ -19,7 +19,7 @@
 1. 实际 loadConfig 响应中的 login_method、en_perceive 以及必要的页面标识。
 2. a40.js 中登录相关调用和最终提交请求的路径、方法、字段及必要会话状态。
 3. 一次成功登录后的服务端状态变化、通过 Ncwu Wi-Fi 的独立公网验证。
-4. 密码是否通过安全传输提交；曾保存的页面源代码 enableHttps=0，不能把旧源码当成当前 HTTPS 保证。
+4. 当前门户是否全程 HTTPS 且证书可信。已保存的 a41 快照明确设置 enableHttps=0，并选择 HTTP:801；这只能证明该快照配置，不能代表当前实时门户。详细接口证据见 [NCWU_PORTAL_EVIDENCE.md](docs/NCWU_PORTAL_EVIDENCE.md)。
 
 使用抓包或 HAR 时须先隐藏账号、密码、Cookie、Token 和其他标识符。未经证据闭合不应猜测参数发送请求。
 
@@ -122,6 +122,7 @@
 
 ### 新增自动化测试
 - 网络诊断仅探测系统 active default network；VPN/移动网络或无 INTERNET 能力时停止，避免为了探测而绕过用户路由策略。
+- Android 报告 `NET_CAPABILITY_CAPTIVE_PORTAL` 时，助手提示使用系统门户通知/浏览器手动认证，不继续公网探测。
 - KernelSU 固定 SH 合并 stdout/stderr，仅读取最多 2049 字符并对超过 2048 字符的输出判失败；不会把任意命令输出直接显示到界面。
 - Android 16 状态栏使用 WindowInsetsController；CI 同时构建 Debug 与无签名 Release 变体，验证 Release Gradle 配置。
 - 对本地 NFC 备份 JSON 执行往返测试，验证 UUID、动作和目标地址保持一致。
