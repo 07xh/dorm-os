@@ -360,8 +360,6 @@ internal fun V2ToolsHeading(onScan: () -> Unit, onWrite: () -> Unit) {
         }
     }
     Spacer(Modifier.height(22.dp))
-    V2SectionHeading("脚本文件")
-    Spacer(Modifier.height(12.dp))
 }
 
 /** Lightweight vector icons so the real APK matches the prototype's outlined navigation. */
