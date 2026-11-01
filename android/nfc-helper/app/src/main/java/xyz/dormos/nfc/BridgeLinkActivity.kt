@@ -35,7 +35,7 @@ class BridgeLinkActivity : Activity() {
             setBackgroundColor(0xfff6f8fc.toInt())
         }
         val title = TextView(this).apply {
-            text = if (scene == null) "无法确认网站链接" else "打开 DORM NFC Manager"
+            text = if (scene == null) "无法确认网站链接" else "打开触序 · TapFlow"
             textSize = 23f
             setTextColor(0xff183252.toInt())
         }
@@ -52,7 +52,7 @@ class BridgeLinkActivity : Activity() {
             setPadding(0, 20, 0, 24)
         }
         val continueButton = Button(this).apply {
-            text = "确认打开管理器"
+            text = "打开触序"
             isEnabled = scene != null
             setOnClickListener {
                 startActivity(Intent(this@BridgeLinkActivity, ManagerActivity::class.java))
