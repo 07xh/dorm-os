@@ -24,7 +24,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -942,13 +941,6 @@ private fun RoundedIcon(symbol: String) {
         Text(symbol, fontSize = 23.sp, color = actionBlue,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
     }
-}
-
-@Composable
-private fun MiniAction(symbol: String, onClick: () -> Unit) {
-    Text(symbol, color = actionBlue, fontSize = 18.sp, modifier = Modifier
-        .padding(start = 4.dp).background(Color(0xffe7eafa), RoundedCornerShape(20.dp))
-        .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp))
 }
 
 @Composable
