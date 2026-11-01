@@ -140,9 +140,8 @@ jobs:
           name: dorm-os-nfc-ksu-module
           path: dormos-nfc-ksu.zip
 
-  # One-off, explicitly requested public download channel. Only commits with
-  # release-preview: prefix trigger publication, and only after BOTH jobs pass.
-  # No main merge and no stable/release signing is implied.
+  # Public preview download, explicitly enabled by a release-preview commit.
+  # Publishes the exact APK from this run only after APK tests/build and KSU checks pass.
   publish-preview:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/ncwu-nfc-one-shot-v1' && startsWith(github.event.head_commit.message, 'release-preview:') }}
     needs: [debug-apk, ksu-zip]
@@ -155,12 +154,7 @@ jobs:
         with:
           name: dorm-os-nfc-receiver-debug
           path: preview/apk
-      - name: Download verified KernelSU module
-        uses: actions/download-artifact@v4
-        with:
-          name: dorm-os-nfc-ksu-module
-          path: preview/ksu
-      - name: Publish APK and KernelSU ZIP as GitHub prerelease
+      - name: Publish TapFlow V1.22.0 preview APK
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -168,19 +162,17 @@ jobs:
         run: |
           set -euo pipefail
           test -s preview/apk/app-debug.apk
-          test -s preview/ksu/dormos-nfc-ksu.zip
           mkdir -p public
-          cp preview/apk/app-debug.apk public/TapFlow-V1.16.1-preview-debug.apk
-          cp preview/ksu/dormos-nfc-ksu.zip public/TapFlow-KernelSU-V1.10-preview.zip
-          sha256sum public/*
-          TAG="tapflow-v1.16.1-preview"
+          cp preview/apk/app-debug.apk public/TapFlow-V1.22.0-reference-motion-debug.apk
+          (cd public && sha256sum TapFlow-V1.22.0-reference-motion-debug.apk > SHA256SUMS.txt)
+          TAG="tapflow-v1.22.0-reference-motion-preview"
           if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
             echo "Refusing to overwrite the previously published preview: $TAG"
             exit 1
           fi
           gh release create "$TAG" \
-            public/TapFlow-V1.16.1-preview-debug.apk \
-            public/TapFlow-KernelSU-V1.10-preview.zip \
+            public/TapFlow-V1.22.0-reference-motion-debug.apk \
+            public/SHA256SUMS.txt \
             --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
-            --title "触序 · TapFlow V1.16.1 · 原位 NDEF 写卡与生命周期保护" \
-            --notes "对应通过 Android 单元测试、Debug APK 构建、KernelSU 模块测试的同一提交 $GITHUB_SHA。触序 TapFlow V1.16.1 将普通 NDEF 文本/网址写入并入工具页底部弹层，删除独立写卡 Activity；管理区图标统一为细线矢量，整行使用单一点击 Surface。修复 NFC 回调领取标签与 Activity 切后台之间的竞态；保留普通 NDEF 覆盖授权、DORM 自动化标签保护和字节级回读。未完成实体 NFC 和 Android 16 锁屏实测。Debug 签名不是稳定签名。"
+            --title "触序 · TapFlow V1.22.0 · 白秋然雨式流畅转场" \
+            --notes "TapFlow V1.22.0 reference-motion preview. Built from commit $GITHUB_SHA after Android debug APK build, unit tests, and KernelSU module validation succeeded. Includes click-only directional screen transitions, a fixed bottom navigation bar, a single animated selection indicator, and per-tab saveable UI state. Liquid-glass navigation and swipe-to-change-page are removed. This is a DEBUG APK and is not signed with the stable release key. Real-device animation performance still requires verification on the target Android device."
