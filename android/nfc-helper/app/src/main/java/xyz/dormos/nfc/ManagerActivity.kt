@@ -458,7 +458,7 @@ private fun ManagerScreen(
                             val manifest = zip.nextEntry
                                 ?: throw IllegalArgumentException("备份文件为空")
                             if (manifest.name != "manifest.txt") {
-                                throw IllegalArgumentException("不是 DORM NFC SH 备份")
+                                throw IllegalArgumentException("不是触序 SH 脚本备份")
                             }
                             val header = String(readZipEntryLimited(zip, 1024), Charsets.UTF_8).trim()
                             zip.closeEntry()
@@ -580,7 +580,7 @@ private fun ManagerScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         when (current) {
-                            0 -> "DORM OS · NFC 助手"
+                            0 -> "触序 · TapFlow"
                             1 -> "脚本、标签读写集中管理"
                             2 -> "按 NFC 标签组织你的 SH 自动化"
                             else -> "按触发方式组织你的 NFC 自动化"
