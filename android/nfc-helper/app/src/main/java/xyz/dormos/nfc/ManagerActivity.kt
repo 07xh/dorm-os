@@ -535,7 +535,11 @@ private fun ManagerScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true, shape = RoundedCornerShape(18.dp)
                         )
-                        Spacer(Modifier.width(9.dp))
+                        Spacer(Modifier.width(5.dp))
+                        TextButton(
+                            onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
+                            enabled = !loading
+                        ) { Text("导入") }
                         Button(onClick = { openEditor(null) }, enabled = !loading,
                             shape = RoundedCornerShape(14.dp)) { Text("+ 新建") }
                     }
@@ -680,8 +684,8 @@ private fun ManagerScreen(
                             showLogsSheet = true
                         }
                         HorizontalDivider(color = canvas)
-                        SummaryRow("⇧", "导入脚本", "从本机导入 .sh 文件", "›") {
-                            importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
+                        SummaryRow("⇧", "配置与备份", "导出或恢复本机 SH 脚本", "›") {
+                            showBackupSheet = true
                         }
                         HorizontalDivider(color = canvas)
                         SummaryRow("⚙", "外观与交互", "主题与界面设置", "›") {
@@ -1013,6 +1017,20 @@ private fun ManagerScreen(
         )
     }
 
+    if (showBackupSheet) {
+        V2BackupSheet(
+            busy = loading,
+            onExport = {
+                showBackupSheet = false
+                backupExportLauncher.launch("dorm-nfc-sh-scripts.zip")
+            },
+            onImport = {
+                showBackupSheet = false
+                backupImportLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed"))
+            },
+            onDismiss = { if (!loading) showBackupSheet = false }
+        )
+    }
     if (showLogsSheet) {
         V2LogsSheet(
             logs = ExecutionLogFormatter.format(logs, entries),
