@@ -123,6 +123,7 @@
 ### 新增自动化测试
 - 网络诊断仅探测系统 active default network；VPN/移动网络或无 INTERNET 能力时停止，避免为了探测而绕过用户路由策略。
 - Android 报告 `NET_CAPABILITY_CAPTIVE_PORTAL` 时，助手提示使用系统门户通知/浏览器手动认证，不继续公网探测。
+- Wi-Fi SSID 受 Android 位置权限保护；助手先解释用途再请求权限，只读取 SSID 作本地 Ncwu 比对，不调用 GPS/后台定位 API，也不上传 SSID。用户拒绝后仍可使用标签管理和网页动作。参考 [WifiInfo.getSSID](https://developer.android.com/reference/android/net/wifi/WifiInfo#getSSID())。
 - KernelSU 固定 SH 合并 stdout/stderr，仅读取最多 2049 字符并对超过 2048 字符的输出判失败；不会把任意命令输出直接显示到界面。
 - Android 16 状态栏使用 WindowInsetsController；CI 同时构建 Debug 与无签名 Release 变体，验证 Release Gradle 配置。
 - 对本地 NFC 备份 JSON 执行往返测试，验证 UUID、动作和目标地址保持一致。
