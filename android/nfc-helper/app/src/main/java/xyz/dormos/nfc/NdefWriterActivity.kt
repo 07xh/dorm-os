@@ -52,12 +52,18 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         super.onCreate(savedInstanceState)
         adapter = NfcAdapter.getDefaultAdapter(this)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(
-                primary = Color(0xFF4769B5),
-                background = Color(0xFFF3F6FC),
-                surface = Color.White,
-                onSurface = Color(0xFF26334C)
-            )) {
+            val theme = getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default") ?: "default"
+            val p = v2Palette(theme)
+            CompositionLocalProvider(LocalV2Palette provides p) {
+            MaterialTheme(colorScheme = if (theme == "night") darkColorScheme(
+                primary = p.blue, onPrimary = Color(0xFF102135),
+                surface = p.surface, onSurface = p.ink,
+                background = p.background, onBackground = p.ink
+            ) else lightColorScheme(
+                primary = p.blue, onPrimary = Color.White,
+                background = p.background, onBackground = p.ink,
+                surface = p.surface, onSurface = p.ink
+            ) {
                 WriteScreen(
                     status = status,
                     ready = ready,
@@ -104,6 +110,7 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                         }
                     }
                 )
+            }
             }
         }
     }
