@@ -402,6 +402,7 @@ private fun ManagerScreen(
                             }
                             var imported = 0
                             var skipped = 0
+                            val pending = mutableListOf<Pair<String, String>>()
                             var totalBytes = 0
                             var processed = 0
                             var entry = zip.nextEntry
@@ -426,14 +427,21 @@ private fun ManagerScreen(
                                         if (totalBytes > 2 * 1024 * 1024) {
                                             throw IllegalArgumentException("备份总大小超过 2 MiB")
                                         }
-                                        val saved = bridge.saveScript(
-                                            bridge.newId(), name, String(bytes, Charsets.UTF_8)
-                                        )
-                                        if (saved.success) imported++ else skipped++
+                                        val body = Charsets.UTF_8.newDecoder()
+                                            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                                            .decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+                                        pending.add(name to body)
                                     }
                                 }
                                 zip.closeEntry()
                                 entry = zip.nextEntry
+                            }
+                            // Validate the complete archive before changing the Root script library.
+                            // Malformed/truncated ZIP data must never produce an unnoticed partial restore.
+                            pending.forEach { (name, body) ->
+                                val saved = bridge.saveScript(bridge.newId(), name, body)
+                                if (saved.success) imported++ else skipped++
                             }
                             "已导入 ${imported} 个脚本，跳过 ${skipped} 个无效条目"
                         }
