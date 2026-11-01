@@ -139,9 +139,11 @@ internal class NdefWriteSession(
     fun onPause() {
         generation.incrementAndGet()
         unregister()
-        if (phase == NdefWritePhase.WRITING) {
+        if (phase == NdefWritePhase.WRITING || working.get()) {
+            // Also covers the tiny race where the NFC callback has claimed the tag
+            // but its main-thread "writing" state update has not run yet.
             phase = NdefWritePhase.INTERRUPTED
-            status = "写卡过程离开前台，结果尚未确认。请先重新读取标签，不要直接重复写入。"
+            status = "写卡会话离开前台，结果尚未确认。请先重新读取标签，不要直接重复写入。"
         } else if (phase == NdefWritePhase.ARMED) {
             status = "等待贴卡已暂停；返回本页面后会继续等待"
         }
