@@ -35,6 +35,7 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         val overwriteConfirmed: Boolean
     )
     private val armedFlag = AtomicBoolean(false)
+    private val writingInFlight = AtomicBoolean(false)
     @Volatile private var pending: WriteRequest? = null
     private var adapter: NfcAdapter? = null
     private var ready by mutableStateOf(false)
@@ -75,6 +76,10 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     }
 
     private fun disarm() {
+        if (writingInFlight.get()) {
+            status = "标签写入或回读中，操作不能中途撤销"
+            return
+        }
         armedFlag.set(false)
         pending = null
         ready = false
@@ -112,11 +117,13 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         if (!armedFlag.compareAndSet(true, false)) return
         val request = pending ?: return
         pending = null
+        writingInFlight.set(true)
         val outcome = try { writeAndVerify(tag, request.draft, request.overwriteConfirmed) }
         catch (e: Exception) {
             WriteOutcome(false, "写入未通过验证：" + (e.message?.take(90) ?: "标签连接中断"))
         }
         runOnUiThread {
+            writingInFlight.set(false)
             if (!isFinishing && !isDestroyed) {
                 ready = false
                 result = outcome.message
