@@ -66,7 +66,7 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 primary = p.blue, onPrimary = Color.White,
                 background = p.background, onBackground = p.ink,
                 surface = p.surface, onSurface = p.ink
-            ) {
+            )) {
                 ReadScreen(status, report, reading, nfcAvailable, nfcEnabled,
                     onBack = { finish() },
                     onNfcSettings = {
