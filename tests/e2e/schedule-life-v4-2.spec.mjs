@@ -19,6 +19,9 @@ test('schedule day and week views preserve editable course', async({page})=>{
  await expect(page.locator('.v42-week-grid .v42-day-card')).toHaveCount(7);
  expect((await saved(page)).classes).toHaveLength(1);
  await page.reload();
+ // Phone starts from today's day on reload; navigate to the recorded weekday explicitly.
+ await page.locator('[data-timetable-mode="day"]').click();
+ await page.locator('[data-timetable-day="1"]').click();
  await expect(page.locator('#app')).toContainText('高等数学');
  expect((await saved(page)).classes[0].location).toBe('A203');
 });
