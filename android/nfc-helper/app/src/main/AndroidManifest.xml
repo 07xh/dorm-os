@@ -9,9 +9,6 @@
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
-            android:name=".NdefWriterActivity"
-            android:exported="false"/>
-        <activity
             android:name=".TagInspectorActivity"
             android:exported="false"/>
         <activity
