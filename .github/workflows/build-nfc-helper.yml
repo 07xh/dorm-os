@@ -170,17 +170,17 @@ jobs:
           test -s preview/apk/app-debug.apk
           test -s preview/ksu/dormos-nfc-ksu.zip
           mkdir -p public
-          cp preview/apk/app-debug.apk public/DORM-NFC-V1.14.2-UI-preview-debug.apk
+          cp preview/apk/app-debug.apk public/DORM-NFC-V1.14.3-Inline-Write-debug.apk
           cp preview/ksu/dormos-nfc-ksu.zip public/DORM-NFC-V1.10-KernelSU-preview.zip
           sha256sum public/*
-          TAG="dorm-nfc-v1.14.2-preview"
+          TAG="dorm-nfc-v1.14.3-preview"
           if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
             echo "Refusing to overwrite the previously published preview: $TAG"
             exit 1
           fi
           gh release create "$TAG" \
-            public/DORM-NFC-V1.14.2-UI-preview-debug.apk \
+            public/DORM-NFC-V1.14.3-Inline-Write-debug.apk \
             public/DORM-NFC-V1.10-KernelSU-preview.zip \
             --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
-            --title "DORM NFC V1.14.2 · V2 交互优化预览" \
-            --notes "对应通过 Android 单元测试、Debug APK 构建、KernelSU 模块测试的同一提交 $GITHUB_SHA。V2-3 原型 UI 优化：窄屏脚本管理、文件夹菜单、独立滚动位置、完整主题弹窗和输入法适配。仅供设备 UI 与功能验证，未完成实体 NFC 和锁屏实测。Debug 签名不是稳定签名。"
+            --title "DORM NFC V1.14.3 · NFC 场景原位写卡预览" \
+            --notes "对应通过 Android 单元测试、Debug APK 构建、KernelSU 模块测试的同一提交 $GITHUB_SHA。V2-3 原型交互：首页/工具读卡与场景写卡均为原位底部弹层，写卡保留回读、旧内容确认、格式化后复验和 KSU 登记门禁。仅供设备 UI 与功能验证，未完成实体 NFC 和锁屏实测。Debug 签名不是稳定签名。"
