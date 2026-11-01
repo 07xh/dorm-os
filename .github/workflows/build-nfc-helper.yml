@@ -1,0 +1,133 @@
+name: Build DORM OS NFC receiver and KernelSU bridge
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android/nfc-helper/**'
+      - 'modules/dormos-nfc-ksu/**'
+      - '.github/workflows/build-nfc-helper.yml'
+
+jobs:
+  debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" || test "${PIPESTATUS[1]}" -eq 0
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Test minimal NFC receiver and build APKs
+        working-directory: android/nfc-helper
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-nfc-test-report
+          path: |
+            android/nfc-helper/app/build/reports/tests/
+            android/nfc-helper/app/build/test-results/testDebugUnitTest/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-nfc-receiver-debug
+          path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
+
+  signed-release-apk:
+    if: github.event_name == 'workflow_dispatch' && vars.DORMOS_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" || test "${PIPESTATUS[1]}" -eq 0
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Materialize protected release keystore
+        shell: bash
+        env:
+          DORMOS_RELEASE_KEYSTORE_BASE64: ${{ secrets.DORMOS_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$DORMOS_RELEASE_KEYSTORE_BASE64" || { echo "Missing DORMOS_RELEASE_KEYSTORE_BASE64"; exit 1; }
+          KEYSTORE_PATH="$RUNNER_TEMP/dormos-release.jks"
+          umask 077
+          printf '%s' "$DORMOS_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          echo "DORMOS_RELEASE_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+      - name: Build and verify stable-signed release APK
+        working-directory: android/nfc-helper
+        env:
+          DORMOS_RELEASE_STORE_PASSWORD: ${{ secrets.DORMOS_RELEASE_STORE_PASSWORD }}
+          DORMOS_RELEASE_KEY_ALIAS: ${{ secrets.DORMOS_RELEASE_KEY_ALIAS }}
+          DORMOS_RELEASE_KEY_PASSWORD: ${{ secrets.DORMOS_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$DORMOS_RELEASE_STORE_PASSWORD"
+          test -n "$DORMOS_RELEASE_KEY_ALIAS"
+          test -n "$DORMOS_RELEASE_KEY_PASSWORD"
+          gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-nfc-receiver-release-signed
+          path: android/nfc-helper/app/build/outputs/apk/release/app-release.apk
+
+  ksu-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate event-driven module and dispatcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/dormos-nfc-ksu
+          grep -qx 'id=dormos_nfc_actions' module.prop
+          test -f skip_mount
+          test ! -e service.sh
+          test ! -e post-fs-data.sh
+          test ! -e post-mount.sh
+          test ! -e boot-completed.sh
+          test ! -e sepolicy.rule
+          test ! -e webroot
+          for script in action.sh run.sh dispatcher.sh script-manager.sh folder-manager.sh; do sh -n "$script"; done
+          bash tests/test-dispatcher.sh
+          bash tests/test-personal-scripts.sh
+          bash tests/test-folders.sh
+          test -z "$(find . -name '*.so' -o -name '*.dex')"
+      - name: Package optional KernelSU module
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/dormos-nfc-ksu
+          chmod 0755 run.sh dispatcher.sh script-manager.sh folder-manager.sh action.sh
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh script-manager.sh folder-manager.sh action.sh README.md
+          unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorm-os-nfc-ksu-module
+          path: dormos-nfc-ksu.zip
