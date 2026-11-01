@@ -558,31 +558,59 @@ private fun ManagerScreen(
                     )
                 }
                 1 -> {
-                    V2SectionHeading("脚本文件")
-                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = query, onValueChange = { query = it },
-                            placeholder = { Text("搜索脚本") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true, shape = RoundedCornerShape(18.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
+                        Text("脚本文件", modifier = Modifier.weight(1f),
+                            color = p.ink, fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold)
                         TextButton(
                             onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
                             enabled = !loading
                         ) { Text("导入") }
+                        Spacer(Modifier.width(7.dp))
                         Button(onClick = { openEditor(null) }, enabled = !loading,
                             shape = RoundedCornerShape(14.dp)) { Text("+ 新建") }
                     }
                     Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = query, onValueChange = { query = it },
+                        placeholder = { Text("搜索脚本名称或文件夹") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = {
+                            if (query.isNotBlank()) {
+                                TextButton(onClick = { query = "" }) { Text("清空") }
+                            }
+                        },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("我的脚本", modifier = Modifier.weight(1f), color = p.ink,
-                            fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text("${entries.size} 个", color = p.muted, fontSize = 12.sp)
+                        Text("共 ${entries.size} 个 SH", modifier = Modifier.weight(1f),
+                            color = p.muted, fontSize = 12.sp)
                         TextButton(onClick = { showFolders = !showFolders }) {
                             Text(if (showFolders) "收起文件夹" else "文件夹管理")
                         }
+                    }
+                    if (!installed) {
+                        Surface(
+                            color = p.accentLow,
+                            shape = RoundedCornerShape(15.dp),
+                            border = BorderStroke(1.dp, p.line)
+                        ) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("KernelSU 尚未连接", color = p.ink,
+                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text("先在 KernelSU 授权 App 并安装模块，才能保存或运行脚本。",
+                                        color = p.muted, fontSize = 11.sp, lineHeight = 16.sp)
+                                }
+                                TextButton(onClick = { refresh() }, enabled = !loading) {
+                                    Text("重试")
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(9.dp))
                     }
                     if (showFolders) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -595,15 +623,51 @@ private fun ManagerScreen(
                         }
                         folders.filter { it.parent == activeFolder }
                             .sortedBy { it.name }.forEach { dir ->
-                                Section(null) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("📁 ${dir.name}", modifier = Modifier.weight(1f)
-                                            .clickable { activeFolder = dir.id }, color = p.ink)
-                                        TextButton(onClick = {
-                                            folderName = dir.name; folderDialog = "rename:${dir.id}"
-                                        }) { Text("改名") }
-                                        TextButton(onClick = { movingFolder = dir }) { Text("移动") }
-                                        TextButton(onClick = { folderDialog = "delete:${dir.id}" }) { Text("删除") }
+                                var folderMenu by remember(dir.id) { mutableStateOf(false) }
+                                Surface(color = p.surface, shape = RoundedCornerShape(17.dp),
+                                    border = BorderStroke(1.dp, p.line)) {
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                                        .padding(start = 13.dp, end = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text("▣", color = p.blue, fontSize = 20.sp)
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(
+                                            dir.name,
+                                            modifier = Modifier.weight(1f)
+                                                .clickable { activeFolder = dir.id }
+                                                .padding(vertical = 15.dp),
+                                            color = p.ink,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                                        )
+                                        Box {
+                                            TextButton(onClick = { folderMenu = true },
+                                                modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                                                contentPadding = PaddingValues(0.dp)) {
+                                                Text("⋯", color = p.muted, fontSize = 22.sp)
+                                            }
+                                            DropdownMenu(
+                                                expanded = folderMenu,
+                                                onDismissRequest = { folderMenu = false }
+                                            ) {
+                                                DropdownMenuItem(text = { Text("重命名") }, onClick = {
+                                                    folderMenu = false
+                                                    folderName = dir.name
+                                                    folderDialog = "rename:${dir.id}"
+                                                })
+                                                DropdownMenuItem(text = { Text("移动文件夹") }, onClick = {
+                                                    folderMenu = false
+                                                    movingFolder = dir
+                                                })
+                                                HorizontalDivider(color = p.line)
+                                                DropdownMenuItem(
+                                                    text = { Text("删除文件夹", color = Color(0xFFBD5360)) },
+                                                    onClick = {
+                                                        folderMenu = false
+                                                        folderDialog = "delete:${dir.id}"
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                                 Spacer(Modifier.height(8.dp))
@@ -715,19 +779,19 @@ private fun ManagerScreen(
                         SummaryRow("◷", "运行记录", "查看真实触发与执行结果", "›") {
                             showLogsSheet = true
                         }
-                        HorizontalDivider(color = canvas)
+                        HorizontalDivider(color = p.line)
                         SummaryRow("⇧", "配置与备份", "导出或恢复本机 SH 脚本", "›") {
                             showBackupSheet = true
                         }
-                        HorizontalDivider(color = canvas)
+                        HorizontalDivider(color = p.line)
                         SummaryRow("⚙", "外观与交互", "主题与界面设置", "›") {
                             showThemeSheet = true
                         }
-                        HorizontalDivider(color = canvas)
+                        HorizontalDivider(color = p.line)
                         SummaryRow("◇", "KernelSU 状态", "检查 Root 模块与授权", if (installed) "正常" else "检查") {
                             refresh()
                         }
-                        HorizontalDivider(color = canvas)
+                        HorizontalDivider(color = p.line)
                         SummaryRow("⌁", "NFC 系统设置", "管理 Android NFC 开关与权限", "›") {
                             openNfcPreferences()
                         }
@@ -779,7 +843,7 @@ private fun ManagerScreen(
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = p.blue,
                         selectedTextColor = p.blue,
-                        indicatorColor = Color(0xFFE9F0FF),
+                        indicatorColor = p.accentLow,
                         unselectedIconColor = p.muted,
                         unselectedTextColor = p.muted
                     )
