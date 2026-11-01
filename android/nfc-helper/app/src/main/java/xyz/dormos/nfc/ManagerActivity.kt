@@ -167,7 +167,12 @@ private fun ManagerScreen(
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLogsSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
-    var selectedTheme by rememberSaveable { mutableStateOf("default") }
+    var selectedTheme by rememberSaveable {
+        mutableStateOf(
+            context.getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default")
+                ?.takeIf { it in setOf("default", "night", "editorial") } ?: "default"
+        )
+    }
     var confirmClearLogs by remember { mutableStateOf(false) }
     var editingNew by remember { mutableStateOf(true) }
     var installed by remember { mutableStateOf(false) }
@@ -443,13 +448,29 @@ private fun ManagerScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
-    val pageCanvas = when (selectedTheme) {
-        "night" -> Color(0xFF182235)
-        "editorial" -> Color(0xFFF1EDE5)
-        else -> canvas
+    val p = v2Palette(selectedTheme)
+    val pageCanvas = p.background
+    val headerInk = p.ink
+    val headerMuted = p.muted
+    val scheme = if (selectedTheme == "night") {
+        darkColorScheme(
+            primary = p.blue, onPrimary = Color(0xFF102135),
+            background = p.background, onBackground = p.ink,
+            surface = p.surface, onSurface = p.ink,
+            surfaceVariant = p.accentLow, onSurfaceVariant = p.muted,
+            outline = p.line
+        )
+    } else {
+        lightColorScheme(
+            primary = p.blue, onPrimary = Color.White,
+            background = p.background, onBackground = p.ink,
+            surface = p.surface, onSurface = p.ink,
+            surfaceVariant = p.accentLow, onSurfaceVariant = p.muted,
+            outline = p.line
+        )
     }
-    val headerInk = if (selectedTheme == "night") Color(0xFFEAF0F8) else ink
-    val headerMuted = if (selectedTheme == "night") Color(0xFFB2BED0) else dim
+    CompositionLocalProvider(LocalV2Palette provides p) {
+    MaterialTheme(colorScheme = scheme) {
     Column(Modifier.fillMaxSize().background(pageCanvas)) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -494,15 +515,15 @@ private fun ManagerScreen(
                             2 -> beginSceneCreation()
                         }
                     },
-                    color = Color.White,
+                    color = p.surface,
                     shape = RoundedCornerShape(15.dp),
-                    border = BorderStroke(1.dp, paleBorder)
+                    border = BorderStroke(1.dp, p.line)
                 ) {
                     Box(Modifier.size(43.dp), contentAlignment = Alignment.Center) {
                         when (current) {
-                            0 -> V2SettingsIcon(ink)
-                            1 -> Text("☷", color = ink, fontSize = 22.sp)
-                            else -> Text("+", color = ink, fontSize = 25.sp)
+                            0 -> V2SettingsIcon(p.ink)
+                            1 -> Text("☷", color = p.ink, fontSize = 22.sp)
+                            else -> Text("+", color = p.ink, fontSize = 25.sp)
                         }
                     }
                 }
@@ -545,9 +566,9 @@ private fun ManagerScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("我的脚本", modifier = Modifier.weight(1f), color = ink,
+                        Text("我的脚本", modifier = Modifier.weight(1f), color = p.ink,
                             fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text("${entries.size} 个", color = dim, fontSize = 12.sp)
+                        Text("${entries.size} 个", color = p.muted, fontSize = 12.sp)
                         TextButton(onClick = { showFolders = !showFolders }) {
                             Text(if (showFolders) "收起文件夹" else "文件夹管理")
                         }
@@ -558,7 +579,7 @@ private fun ManagerScreen(
                             TextButton(onClick = {
                                 activeFolder = folders.firstOrNull { it.id == activeFolder }?.parent ?: "root"
                             }, enabled = activeFolder != "root") { Text("← 返回") }
-                            Text("当前位置：$folderTitle", modifier = Modifier.weight(1f), color = dim, maxLines = 1)
+                            Text("当前位置：$folderTitle", modifier = Modifier.weight(1f), color = p.muted, maxLines = 1)
                             TextButton(onClick = { folderName = ""; folderDialog = "create" }) { Text("+ 文件夹") }
                         }
                         folders.filter { it.parent == activeFolder }
@@ -566,7 +587,7 @@ private fun ManagerScreen(
                                 Section(null) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text("📁 ${dir.name}", modifier = Modifier.weight(1f)
-                                            .clickable { activeFolder = dir.id }, color = ink)
+                                            .clickable { activeFolder = dir.id }, color = p.ink)
                                         TextButton(onClick = {
                                             folderName = dir.name; folderDialog = "rename:${dir.id}"
                                         }) { Text("改名") }
@@ -585,59 +606,59 @@ private fun ManagerScreen(
                              (folders.firstOrNull { it.id == location }?.name?.contains(query, ignoreCase = true) == true))
                     }
                     Surface(
-                        color = Color.White,
+                        color = p.surface,
                         shape = RoundedCornerShape(19.dp),
-                        border = BorderStroke(1.dp, paleBorder)
+                        border = BorderStroke(1.dp, p.line)
                     ) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
                             if (shown.isEmpty()) {
                                 Column(Modifier.padding(vertical = 19.dp)) {
-                                    Text("暂无脚本", color = ink, fontSize = 14.sp,
+                                    Text("暂无脚本", color = p.ink, fontSize = 14.sp,
                                         fontWeight = FontWeight.SemiBold)
                                     Spacer(Modifier.height(5.dp))
                                     Text("新建或导入自己的 .sh 文件后，可在这里运行或绑定 NFC。",
-                                        color = dim, fontSize = 12.sp, lineHeight = 18.sp)
+                                        color = p.muted, fontSize = 12.sp, lineHeight = 18.sp)
                                 }
                             } else {
                                 shown.forEachIndexed { index, item ->
                                     var moreOpen by remember(item.id) { mutableStateOf(false) }
-                                    if (index > 0) HorizontalDivider(color = paleBorder)
+                                    if (index > 0) HorizontalDivider(color = p.line)
                                     Row(
                                         Modifier.fillMaxWidth().heightIn(min = 72.dp)
                                             .padding(vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(
-                                            Modifier.size(42.dp).background(tint, RoundedCornerShape(14.dp)),
+                                            Modifier.size(42.dp).background(p.iconBackground, RoundedCornerShape(14.dp)),
                                             contentAlignment = Alignment.Center
-                                        ) { Text("▤", color = actionBlue, fontSize = 22.sp) }
+                                        ) { Text("▤", color = p.blue, fontSize = 22.sp) }
                                         Spacer(Modifier.width(12.dp))
                                         Column(Modifier.weight(1f)) {
-                                            Text(item.name, color = ink, fontSize = 14.sp,
+                                            Text(item.name, color = p.ink, fontSize = 14.sp,
                                                 fontWeight = FontWeight.SemiBold, maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis)
                                             Spacer(Modifier.height(4.dp))
                                             val folder = folders.firstOrNull { it.id == (scriptLocations[item.id] ?: "root") }?.name
                                             Text(
                                                 "/${folder ?: "根目录"}/${item.name} · ${item.bytes} B",
-                                                color = dim, fontSize = 11.sp, maxLines = 1,
+                                                color = p.muted, fontSize = 11.sp, maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                         Surface(
                                             onClick = { confirmRun = item },
-                                            color = Color(0xFFEAF0FF),
+                                            color = p.accentLow,
                                             shape = RoundedCornerShape(13.dp),
                                             enabled = !loading
                                         ) {
                                             Box(Modifier.size(39.dp), contentAlignment = Alignment.Center) {
-                                                Text("⚡", color = actionBlue, fontSize = 19.sp)
+                                                Text("⚡", color = p.blue, fontSize = 19.sp)
                                             }
                                         }
                                         Box {
                                             TextButton(onClick = { moreOpen = true },
                                                 contentPadding = PaddingValues(horizontal = 7.dp)) {
-                                                Text("⋯", color = dim, fontSize = 21.sp)
+                                                Text("⋯", color = p.muted, fontSize = 21.sp)
                                             }
                                             DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
                                                 DropdownMenuItem(text = { Text("绑定 NFC") }, onClick = {
@@ -666,7 +687,7 @@ private fun ManagerScreen(
                                                     moreOpen = false
                                                     movingScript = item
                                                 })
-                                                HorizontalDivider(color = paleBorder)
+                                                HorizontalDivider(color = p.line)
                                                 DropdownMenuItem(text = { Text("删除脚本", color = Color(0xFFBD5360)) }, onClick = {
                                                     moreOpen = false
                                                     confirmDelete = item
@@ -724,7 +745,7 @@ private fun ManagerScreen(
             }
         }
         NavigationBar(
-            containerColor = Color.White,
+            containerColor = p.surface,
             tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -739,17 +760,17 @@ private fun ManagerScreen(
                     icon = {
                         V2NavIcon(
                             which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
-                            color = if (current == entry.first) actionBlue else dim
+                            color = if (current == entry.first) p.blue else p.muted
                         )
                     },
                     label = { Text(entry.third, fontSize = 11.sp) },
                     alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = actionBlue,
-                        selectedTextColor = actionBlue,
+                        selectedIconColor = p.blue,
+                        selectedTextColor = p.blue,
                         indicatorColor = Color(0xFFE9F0FF),
-                        unselectedIconColor = dim,
-                        unselectedTextColor = dim
+                        unselectedIconColor = p.muted,
+                        unselectedTextColor = p.muted
                     )
                 )
             }
@@ -902,7 +923,7 @@ private fun ManagerScreen(
                                 }
                             }) { Text("📁 ${destination.name}") }
                         }
-                    Text("不允许移动到自身或自己的子文件夹。", fontSize = 11.sp, color = dim)
+                    Text("不允许移动到自身或自己的子文件夹。", fontSize = 11.sp, color = p.muted)
                 }
             },
             confirmButton = {},
@@ -916,9 +937,9 @@ private fun ManagerScreen(
             title = { Text("预览：${item.name}") },
             text = {
                 Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                    Text("只读预览 · ${item.bytes} B · 不执行", fontSize = 12.sp, color = dim)
+                    Text("只读预览 · ${item.bytes} B · 不执行", fontSize = 12.sp, color = p.muted)
                     HorizontalDivider()
-                    Text(previewContent.take(16384), fontSize = 12.sp, color = ink)
+                    Text(previewContent.take(16384), fontSize = 12.sp, color = p.ink)
                 }
             },
             confirmButton = { TextButton(onClick = { previewScript = null; openEditor(item) }) { Text("编辑") } },
@@ -1043,7 +1064,11 @@ private fun ManagerScreen(
     if (showThemeSheet) {
         V2ThemeSheet(
             selected = selectedTheme,
-            onSelect = { selectedTheme = it },
+            onSelect = {
+                selectedTheme = it
+                context.getSharedPreferences("dorm_nfc_view", 0).edit()
+                    .putString("theme", it).apply()
+            },
             onDismiss = { showThemeSheet = false }
         )
     }
@@ -1061,19 +1086,22 @@ private fun ManagerScreen(
         )
     }
 
+    }
+    }
 }
 
 
 @Composable
 private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit) {
+    val p = LocalV2Palette.current
     if (title != null) {
-        Text(title, color = actionBlue, fontWeight = FontWeight.Medium,
+        Text(title, color = p.blue, fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 10.dp, bottom = 11.dp), fontSize = 15.sp)
     }
     Surface(
-        shape = RoundedCornerShape(20.dp), color = panel,
+        shape = RoundedCornerShape(20.dp), color = p.surface,
         modifier = Modifier.fillMaxWidth(),
-        border = BorderStroke(1.dp, paleBorder)
+        border = BorderStroke(1.dp, p.line)
     ) {
         Column(Modifier.padding(17.dp), content = content)
     }
@@ -1081,22 +1109,24 @@ private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit)
 
 @Composable
 private fun RoundedIcon(symbol: String) {
-    Surface(shape = RoundedCornerShape(15.dp), color = tint) {
-        Text(symbol, fontSize = 23.sp, color = actionBlue,
+    val p = LocalV2Palette.current
+    Surface(shape = RoundedCornerShape(15.dp), color = p.iconBackground) {
+        Text(symbol, fontSize = 23.sp, color = p.blue,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
     }
 }
 
 @Composable
 private fun SummaryRow(icon: String, title: String, subtitle: String, trailing: String, onClick: () -> Unit) {
+    val p = LocalV2Palette.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         RoundedIcon(icon)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = dim, fontSize = 12.sp, maxLines = 2)
+            Text(title, color = p.ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = p.muted, fontSize = 12.sp, maxLines = 2)
         }
-        Text(trailing, color = actionBlue)
+        Text(trailing, color = p.blue)
     }
 }
