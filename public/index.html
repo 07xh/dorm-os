@@ -426,6 +426,22 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
  #app .v42-day-picker{gap:3px}
  #app .v42-day-picker button{font-size:12px;min-width:0}
 }
+
+/* V4.5 mobile ergonomics: bottom-safe feedback, upward menus, native scrolling */
+@media(max-width:790px){
+ html{scroll-behavior:auto;scroll-padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+ .workspace main{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+ .dorm-form-body,.search-results,.home-layout-list{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+ .toast{left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));max-width:none;width:auto;z-index:200}
+ #app .v41-tag-more[open],#app .v42-row-more[open],#app .v4-import-tools[open],#app .v42-life-more.is-open{z-index:80}
+ #app .v41-tag-menu,#app .v42-row-menu,#app .v42-menu{top:auto;bottom:calc(100% + 6px);z-index:80}
+ #app .v41-tag-menu button,#app .v42-row-menu button,#app .v42-menu button{min-height:44px}
+ #app .v42-life-more.is-open{position:relative}
+}
+@media(max-width:480px){
+ .toast{left:10px;right:10px;padding:12px 14px;font-size:13px}
+}
+
 </style>
   <title>DORM OS · 个人生活与 NFC 场景</title>
 </head>
@@ -1138,13 +1154,13 @@ function lifePage(){
  <input type="checkbox" aria-label="完成 ${esc(r.text)}" data-reminder-toggle="${esc(r.id)}" ${r.done?'checked':''}>
  <div class="v42-life-copy"><strong class="${r.done?'done':''}">${esc(r.text)}</strong><small>${r.due?esc(r.due):'未设置日期'}${r.done?' · 已完成':''}</small></div>
  <button type="button" class="v42-life-edit" data-reminder-edit="${esc(r.id)}">编辑</button>
- <div class="v42-life-more"><button type="button" class="v42-more-toggle" data-life-more="${esc(r.id)}" aria-expanded="${expandedLifeMenu===r.id}" aria-label="更多 ${esc(r.text)} 操作">⋯</button>${expandedLifeMenu===r.id?`<div class="v42-menu"><button type="button" class="danger-btn" data-reminder-delete="${esc(r.id)}">删除提醒</button></div>`:''}</div>
+ <div class="v42-life-more ${expandedLifeMenu===r.id?'is-open':''}"><button type="button" class="v42-more-toggle" data-life-more="${esc(r.id)}" aria-expanded="${expandedLifeMenu===r.id}" aria-label="更多 ${esc(r.text)} 操作">⋯</button>${expandedLifeMenu===r.id?`<div class="v42-menu"><button type="button" class="danger-btn" data-reminder-delete="${esc(r.id)}">删除提醒</button></div>`:''}</div>
  </div>`).join(''):'<div class="friendly-empty">目前没有个人提醒。点击“新增提醒”记录一件待办。</div>'):
  (items.length?items.map(r=>`<div class="v42-life-row" data-life-item="${esc(r.id)}">
  <span class="v42-item-symbol" aria-hidden="true">□</span>
  <div class="v42-life-copy"><strong>${esc(r.name)}</strong><small>${esc(r.place||'未设置位置')}</small></div>
  <button type="button" class="v42-life-edit" data-item-edit="${esc(r.id)}">编辑</button>
- <div class="v42-life-more"><button type="button" class="v42-more-toggle" data-life-more="${esc(r.id)}" aria-expanded="${expandedLifeMenu===r.id}" aria-label="更多 ${esc(r.name)} 操作">⋯</button>${expandedLifeMenu===r.id?`<div class="v42-menu"><button type="button" class="danger-btn" data-item-delete="${esc(r.id)}">删除物品</button></div>`:''}</div>
+ <div class="v42-life-more ${expandedLifeMenu===r.id?'is-open':''}"><button type="button" class="v42-more-toggle" data-life-more="${esc(r.id)}" aria-expanded="${expandedLifeMenu===r.id}" aria-label="更多 ${esc(r.name)} 操作">⋯</button>${expandedLifeMenu===r.id?`<div class="v42-menu"><button type="button" class="danger-btn" data-item-delete="${esc(r.id)}">删除物品</button></div>`:''}</div>
  </div>`).join(''):'<div class="friendly-empty">尚未记录物品。点击“添加物品”填写存放位置。</div>')}
  </section><p class="v42-life-note">仅保存在当前浏览器。提醒不会在网页关闭后发送系统通知。</p>`;
 }
