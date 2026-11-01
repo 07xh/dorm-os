@@ -38,6 +38,18 @@ class StructureTests(unittest.TestCase):
         self.assertIn('SceneRow(s, onManage = { activeScene = s })', code)
         self.assertNotIn('onWrite = { confirmWrite = s }', code)
 
+    def test_local_script_library_is_private_and_not_root_executable(self):
+        code = (SRC/'LocalScriptLibrary.kt').read_text()
+        self.assertIn('context.getDir("scripts", Context.MODE_PRIVATE)', code)
+        self.assertIn('candidate.parentFile == root', code)
+        self.assertIn('file.length() <= 65536', code)
+        self.assertNotIn('ProcessBuilder(', code)
+        self.assertNotIn('su -c', code)
+        ui = (SRC/'MainActivity.kt').read_text()
+        self.assertIn('openScriptEditor', ui)
+        self.assertIn('scriptLibrary.save(name, body)', ui)
+        self.assertIn('scriptLibrary.remove(fileName)', ui)
+
     def test_no_legacy_webview(self):
         ui = (SRC/'MainActivity.kt').read_text()
         self.assertIn('Scaffold(', ui)
