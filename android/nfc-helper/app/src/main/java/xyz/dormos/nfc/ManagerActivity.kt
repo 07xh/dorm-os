@@ -946,6 +946,7 @@ private fun ManagerScreen(
             palette = p,
             onSelect = ::navigateToTab
         )
+    }
 
     // Dialogs must inherit the same theme as the main three-tab workspace.
     CompositionLocalProvider(LocalV2Palette provides p) {
