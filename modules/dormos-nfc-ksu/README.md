@@ -1,4 +1,4 @@
-# DORM NFC Manager 1.3.0 Preview — KernelSU only
+# DORM NFC Manager 1.9.0 Preview — KernelSU only
 
 One dedicated Android Compose app + one minimal KernelSU module. This is a personal SH manager, not a campus-network product.
 
@@ -44,9 +44,10 @@ The native app writes a new NDEF tag and verifies the read-back **before** it re
 This hardens forged-Intent handling but does not make NFC tags secret or unclonable. A copied tag still acts as a bearer trigger for its bound script.
 
 
-## V1.5 concurrent Root execution guard
+## V1.5 concurrent Root execution guard (superseded)
 
-The module now uses an atomic per-device run lock so an NFC tap and an in-app Run action cannot launch two registered Root scripts at the same time. A second request receives `DORM_SCRIPT_ERROR=script_busy` and does not run. The lock records both the manager PID and active timeout PID, cleans up on normal exit/signals, and can recover a stale lock after both owners have exited. Log rotation uses unique temporary files. The personal-script test suite includes a concurrent-run positive/negative case.
+V1.5 introduced the first per-device execution lock. Its PID-based stale-lock recovery was later replaced in V1.9 because the reclamation path could race with a newly created lock owner. See the V1.9 section for current behavior.
+
 
 
 ## V1.6 manager reliability and readable logs
@@ -62,6 +63,18 @@ The module now uses an atomic per-device run lock so an NFC tap and an in-app Ru
 When overwriting a previously DORM-managed NDEF tag, the app reads and validates the old DORM UUID from the physical tag before writing. It writes and verifies the new UUID, commits the new Root binding, and then removes the old UUID mapping. Unrelated NDEF records are ignored. If old-binding cleanup fails, the app reports that the new binding was created but cleanup needs attention; it does not silently claim a clean replacement.
 
 
-## V1.8 stale run-lock recovery
+## V1.8 stale run-lock recovery (superseded)
 
-Stale run-lock recovery now atomically renames the old lock directory before creating a replacement. This closes a race where two simultaneous requests could both observe a stale lock and both delete/recreate it. The shell test now verifies stale-owner recovery in addition to rejecting a second active Root run.
+V1.8 attempted to reclaim stale PID-based locks by renaming the lock directory. Further review found that a second contender could rename a replacement lock created by the first contender. V1.9 replaces this with kernel-managed `flock` where available and a fail-closed `mkdir` fallback.
+
+
+
+
+
+## V1.9 Root execution serialization and binding consistency
+
+- Prefer a kernel-managed `flock` lock after probing that the device command supports file-descriptor locking.
+- Fall back to an atomic `mkdir` lock when `flock` is unavailable or incompatible. This fallback fails closed on an existing lock; after a force-kill or reboot, remove `/data/adb/dormos_nfc_bridge/script-run.lock.d` only after confirming no DORM script or child process remains.
+- Manual runs, NFC runs, script saves/renames/deletes, binding changes and log clearing share the same exclusive lock.
+- NFC resolves the tag-to-script binding and executes the script under one lock, preventing a rebind/delete race between lookup and execution.
+- Log rotation and clearing use unique temporary files. Device-specific `flock` behavior still requires Ace 6 / Android 16 verification.

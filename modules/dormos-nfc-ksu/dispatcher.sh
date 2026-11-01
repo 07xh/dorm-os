@@ -54,13 +54,9 @@ case "${1:-}" in
     tag_id="${2:-}"
     valid_id "$tag_id" || die invalid_tag_id 64
     [ "$(enabled_value)" = "1" ] || die nfc_trigger_disabled 77
-    resolved=$("$SH" "$MODDIR/script-manager.sh" --resolve "$tag_id" 2>/dev/null) || die unbound_tag 66
-    script_id=$(printf '%s\n' "$resolved" | sed -n 's/^DORM_SCRIPT_ID=//p' | head -n 1)
-    valid_id "$script_id" || die invalid_script_binding 65
-    if "$SH" "$MODDIR/script-manager.sh" --run "$script_id"; then
+    if "$SH" "$MODDIR/script-manager.sh" --run-bound "$tag_id"; then
       echo "DORM_NFC_RESULT=success"
       echo "DORM_ACTION=personal-script"
-      echo "DORM_SCRIPT_ID=$script_id"
     else
       code=$?
       echo "DORM_NFC_RESULT=failed"

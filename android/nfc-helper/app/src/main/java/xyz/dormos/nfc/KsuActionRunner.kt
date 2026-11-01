@@ -29,7 +29,7 @@ class KsuActionRunner(
                 (detail.ifBlank { result.output.ifBlank { "检查模块安装、NFC 开关和 Root 授权。" } })
         }
         val scriptId = result.output.lineSequence()
-            .firstOrNull { it.startsWith("DORM_SCRIPT_ID=") }
+            .lastOrNull { it.startsWith("DORM_SCRIPT_ID=") }
             ?.substringAfter("=") ?: "unknown"
         return "KernelSU 脚本执行完成。\n脚本 ID：$scriptId"
     }
