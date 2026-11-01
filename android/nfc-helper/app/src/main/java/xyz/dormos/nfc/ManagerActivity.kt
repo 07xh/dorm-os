@@ -431,11 +431,11 @@ private fun ManagerScreen(
                         }
                     }
                     notify(summary)
-                    refresh()
                 } catch (error: Exception) {
                     notify("备份导入失败：" + (error.message ?: error.javaClass.simpleName))
                 } finally {
                     loading = false
+                    refresh()
                 }
             }
         }
