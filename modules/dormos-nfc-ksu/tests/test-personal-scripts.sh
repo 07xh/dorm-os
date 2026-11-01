@@ -31,6 +31,8 @@ if sh "$R" --nfc "$TAG" > "$TMP/disabled-scene.out" 2>&1; then
 fi
 grep -q 'DORM_SCRIPT_ERROR=scene_disabled' "$TMP/disabled-scene.out"
 sh "$R" --scene-enable "$TAG" 1 | grep -q DORM_SCENE_ENABLED=1
+# Save/rename must share the documented case-insensitive .sh validation.
+sh "$R" --script-rename "$ID" "$(printf '大写扩展名.SH' | base64 -w0)" | grep -q DORM_SCRIPT_RENAMED
 out=$(sh "$R" --nfc "$TAG")
 [[ "$out" == *test-script-ok* ]]
 [[ "$out" == *DORM_NFC_RESULT=success* ]]

@@ -16,7 +16,8 @@ BINDINGS="$DATA_DIR/script_bindings.tsv"
 die() { echo "DORM_NFC_RESULT=failed"; echo "DORM_NFC_ERROR=$1"; exit "${2:-1}"; }
 valid_id() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 ensure_data() {
-  [ ! -L "$DATA_DIR" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$DATA_DIR/scenes.tsv" ] || die unsafe_storage 70
+  [ ! -L "$DATA_DIR" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && \
+    [ ! -L "$ENABLED" ] && [ ! -L "$DATA_DIR/scenes.tsv" ] || die unsafe_storage 70
   mkdir -p "$SCRIPTS" || die storage_unavailable 73
   chmod 700 "$DATA_DIR" "$SCRIPTS" 2>/dev/null || :
 }
@@ -26,13 +27,24 @@ enabled_value() {
 }
 set_enabled() {
   case "${1:-}" in 0|1) ;; *) die invalid_enabled_value 64 ;; esac
-  printf '%s\n' "$1" > "$ENABLED.tmp"
-  chmod 600 "$ENABLED.tmp"
-  mv "$ENABLED.tmp" "$ENABLED"
+  _enabled_tmp=$(mktemp "$ENABLED.tmp.XXXXXX") || die storage_unavailable 73
+  printf '%s\n' "$1" > "$_enabled_tmp"
+  chmod 600 "$_enabled_tmp"
+  mv "$_enabled_tmp" "$ENABLED"
   echo "NFC_ENABLED=$1"
 }
 script_count() {
-  "$SH" "$MODDIR/script-manager.sh" --list 2>/dev/null | awk -F '|' 'NF == 3 {n++} END {print n+0}'
+  # Status is a hot path. Count valid local entries without starting another
+  # manager process and awk just for a UI badge.
+  _count=0
+  for _script in "$SCRIPTS"/*.sh; do
+    [ -f "$_script" ] && [ ! -L "$_script" ] || continue
+    _id="${_script##*/}"; _id="${_id%.sh}"
+    valid_id "$_id" || continue
+    [ -f "$SCRIPTS/$_id.name64" ] && [ ! -L "$SCRIPTS/$_id.name64" ] || continue
+    _count=$((_count + 1))
+  done
+  printf '%s\n' "$_count"
 }
 binding_count() {
   [ -f "$BINDINGS" ] || { echo 0; return; }
@@ -63,12 +75,6 @@ case "${1:-}" in
       echo "DORM_ACTION=personal-script"
       exit "$code"
     fi
-    ;;
-  --write-tag)
-    tag_id="${2:-}"
-    valid_id "$tag_id" || die invalid_tag_id 64
-    command -v pm >/dev/null 2>&1 && pm path xyz.dormos.nfc 2>/dev/null | grep -q '^package:' || die manager_app_missing 69
-    am start -n xyz.dormos.nfc/.MainActivity -a xyz.dormos.nfc.action.WRITE_TAG --es scene_id "$tag_id"
     ;;
   --folder-list) exec "$SH" "$MODDIR/folder-manager.sh" --list ;;
   --folder-create) exec "$SH" "$MODDIR/folder-manager.sh" --create "${2:-}" "${3:-}" "${4:-}" ;;

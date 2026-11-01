@@ -22,6 +22,8 @@ if sh "$RUN" --nfc "$TAG_ID" >/dev/null 2>&1; then
 fi
 
 sh "$MANAGER" --save "$SCRIPT_ID" "$NAME_B64" "$BODY_B64" | grep -q DORM_SCRIPT_SAVED
+OUT="$(sh "$RUN" --status)"
+[[ "$OUT" == *SCRIPT_COUNT=1* ]]
 sh "$RUN" --script-bind "$TAG_ID" "$SCRIPT_ID" | grep -q DORM_SCRIPT_BOUND
 sh "$RUN" --enable 1 | grep -q NFC_ENABLED=1
 OUT="$(sh "$RUN" --nfc "$TAG_ID")"
@@ -45,4 +47,15 @@ if sh "$RUN" --nfc "$TAG_ID" >/dev/null 2>&1; then
 fi
 OUT="$(sh "$RUN" --script-logs)"
 [[ "$OUT" == *"$SCRIPT_ID"* ]]
+# A malicious/stale link must not redirect the enable flag into another file.
+mv "$DORM_NFC_TEST_ROOT/nfc_enabled" "$TMP/original-enable"
+ln -s "$TMP/unrelated" "$DORM_NFC_TEST_ROOT/nfc_enabled"
+if sh "$RUN" --enable 1 > "$TMP/unsafe-enable.out" 2>&1; then
+  echo "Symlinked NFC enable state was accepted" >&2
+  exit 1
+fi
+grep -q 'DORM_NFC_ERROR=unsafe_storage' "$TMP/unsafe-enable.out"
+[[ ! -e "$TMP/unrelated" ]]
+rm "$DORM_NFC_TEST_ROOT/nfc_enabled"
+mv "$TMP/original-enable" "$DORM_NFC_TEST_ROOT/nfc_enabled"
 echo "generic NFC dispatcher tests passed"

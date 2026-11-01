@@ -174,7 +174,7 @@ case "${1:-}" in
     [ -n "$title" ] && [ "${#title}" -le 360 ] && b64 "$title" || die bad_title 64
     display=$(printf '%s' "$title" | base64 -d 2>/dev/null) || die bad_title64 65
     [ -n "$display" ] && [ "$(printf '%s' "$display" | wc -c | tr -d ' ')" -le 120 ] || die bad_title 64
-    case "$display" in *.sh) ;; *) die invalid_script_name 64 ;; esac
+    case "$display" in *.sh|*.SH|*.Sh|*.sH) ;; *) die invalid_script_name 64 ;; esac
     case "$display" in */*|*\\*|*'|'*) die invalid_script_name 64 ;; esac
     if printf '%s' "$display" | grep -q '[[:cntrl:]]'; then die invalid_script_name 64; fi
     printf '%s\n' "$title" > "$NAME.tmp"
@@ -271,7 +271,7 @@ case "${1:-}" in
     [ -n "$display64" ] && [ "${#display64}" -le 360 ] && b64 "$display64" && valid_scene_name "$display64" || die invalid_scene_name 64
     [ -f "$BINDINGS" ] && awk -F '|' -v tag="$2" '$1 == tag {found=1} END {exit !found}' "$BINDINGS" || die unbound 66
     active=$(scene_active "$2")
-    tmp="$SCENES.tmp.$"
+    tmp="$SCENES.tmp.$$"
     if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
     printf '%s|%s|%s\n' "$2" "$display64" "$active" >> "$tmp"
     chmod 600 "$tmp"
@@ -291,7 +291,7 @@ case "${1:-}" in
       [ -f "$NAME" ] || die not_found 66
       display=$(cat "$NAME")
     fi
-    tmp="$SCENES.tmp.$"
+    tmp="$SCENES.tmp.$$"
     if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
     printf '%s|%s|%s\n' "$2" "$display" "$enabled" >> "$tmp"
     chmod 600 "$tmp"

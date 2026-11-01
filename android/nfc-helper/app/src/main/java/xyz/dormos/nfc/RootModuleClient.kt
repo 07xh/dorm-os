@@ -48,7 +48,7 @@ object ScriptRules {
 }
 
 class RootModuleClient {
-    private val module = "/data/adb/modules/dormos_nfc_actions/run.sh"
+    private val module = KsuRules.MODULE
 
     private fun encode(input: String) =
         Base64.encodeToString(input.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
@@ -62,8 +62,12 @@ class RootModuleClient {
         val cmd = "/system/bin/sh $module " + list.joinToString(" ")
         val process = try {
             ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
+        } catch (_: java.io.IOException) {
+            return RootResult(69, "无法调用 su：请检查 KernelSU 是否安装及 Root 授权")
+        } catch (_: SecurityException) {
+            return RootResult(77, "Root 请求被系统拒绝，请检查 KernelSU 的应用授权")
         } catch (_: Exception) {
-            return RootResult(69, "无法启动 KernelSU Root，请确认已授权本应用")
+            return RootResult(70, "Root 进程启动异常，请检查 KernelSU 状态")
         }
         val readerPool = Executors.newSingleThreadExecutor()
         val outputJob = readerPool.submit<String> {
