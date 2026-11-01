@@ -1,4 +1,4 @@
-name: Build DORM OS NFC helper debug APK
+name: Build DORM OS NFC helper APKs
 
 on:
   workflow_dispatch:
