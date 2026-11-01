@@ -318,3 +318,96 @@ internal fun V2ThemeSheet(
             shape = RoundedCornerShape(14.dp)) { Text("完成") }
     }
 }
+
+@Composable
+internal fun V2ScriptEditorSheet(
+    name: String,
+    code: String,
+    isNew: Boolean,
+    busy: Boolean,
+    onNameChange: (String) -> Unit,
+    onCodeChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    V2BottomSheet(
+        title = if (isNew) "新建 SH 脚本" else "编辑 SH 脚本",
+        subtitle = "保存在 KernelSU 保护目录 · 最大 16 KiB",
+        onDismiss = onDismiss
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { if (it.length <= 80) onNameChange(it) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("脚本名称（.sh）") },
+            shape = RoundedCornerShape(14.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = code,
+            onValueChange = { if (it.toByteArray().size <= 16384) onCodeChange(it) },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 230.dp, max = 340.dp),
+            label = { Text("Shell 内容") },
+            minLines = 12,
+            maxLines = 18,
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            ),
+            shape = RoundedCornerShape(14.dp)
+        )
+        Spacer(Modifier.height(7.dp))
+        Text(
+            "行数 ${code.lineSequence().count()} · ${code.toByteArray().size} / 16384 B",
+            color = sheetMuted, fontSize = 11.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "保存前会由 KernelSU 模块执行 Shell 语法检查。运行前仍需明确确认。",
+            color = sheetMuted, fontSize = 11.sp, lineHeight = 17.sp
+        )
+        Spacer(Modifier.height(15.dp))
+        Button(
+            onClick = onSave,
+            enabled = !busy && name.trim().endsWith(".sh") && code.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().height(49.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text(if (busy) "正在保存…" else "保存脚本") }
+        OutlinedButton(
+            onClick = onDismiss, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(47.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text("取消") }
+    }
+}
+
+@Composable
+internal fun V2BindConfirmSheet(
+    scriptName: String,
+    busy: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    V2BottomSheet("绑定 NFC 标签", "将实体标签关联到本机 SH 脚本", onDismiss) {
+        Surface(color = Color(0xFFFFF6E9), shape = RoundedCornerShape(15.dp)) {
+            Text(
+                "绑定「$scriptName」后，碰触该标签会以 KernelSU Root 权限执行脚本。NFC 标签内容可被复制，不是身份认证。只绑定你已检查、可重复安全运行的脚本。",
+                modifier = Modifier.padding(14.dp), color = Color(0xFF80572D),
+                fontSize = 12.sp, lineHeight = 18.sp
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onConfirm, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(49.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text(if (busy) "正在准备…" else "继续并写入标签") }
+        OutlinedButton(
+            onClick = onDismiss, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(47.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text("取消") }
+    }
+}
