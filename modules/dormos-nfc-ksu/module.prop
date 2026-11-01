@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
-name=DORM NFC Manager
+name=触序 · TapFlow（KernelSU）
 version=1.10.0-scene-state-preview
 versionCode=21
 author=07xh / DORM OS
-description=Personal KernelSU SH library and one-shot NFC-to-script dispatcher; no WebUI or daemon
+description=TapFlow local SH script storage and NFC scene dispatcher; no WebUI or daemon
