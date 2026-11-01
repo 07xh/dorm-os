@@ -25,9 +25,19 @@ object NcwuRules {
     fun redactDiagnostic(text: String): String =
         text.replace(Regex("当前 Wi-Fi 为 [^\\n]*?， ?不是 Ncwu"), "当前 Wi-Fi 不是 Ncwu").take(800)
 
-    /** Never bypass the active system route: only the default Wi-Fi with internet capability is probed. */
-    fun mayProbeActiveNetwork(isWifiTransport: Boolean, hasInternetCapability: Boolean): Boolean =
-        isWifiTransport && hasInternetCapability
+    enum class ProbeDecision { STOP_NOT_WIFI, STOP_NO_INTERNET, MANUAL_PORTAL, PROBE_HTTPS }
+
+    /** Central fail-closed decision for the active default route and Android captive-portal signal. */
+    fun probeDecision(
+        isWifiTransport: Boolean,
+        hasInternetCapability: Boolean,
+        hasCaptivePortalCapability: Boolean
+    ): ProbeDecision = when {
+        !isWifiTransport -> ProbeDecision.STOP_NOT_WIFI
+        !hasInternetCapability -> ProbeDecision.STOP_NO_INTERNET
+        hasCaptivePortalCapability -> ProbeDecision.MANUAL_PORTAL
+        else -> ProbeDecision.PROBE_HTTPS
+    }
 
     /** HTTPS 30x is not treated as internet success: captive portals can redirect. */
     fun isHttpsSuccess(status: Int): Boolean = status in 200..299
