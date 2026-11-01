@@ -2,8 +2,8 @@ package xyz.dormos.nfc
 
 import android.app.Activity
 import android.content.Intent
-import android.nfc.Ndef
-import android.nfc.NdefFormatable
+import android.nfc.tech.Ndef
+import android.nfc.tech.NdefFormatable
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
