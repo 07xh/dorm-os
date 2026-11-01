@@ -1,6 +1,7 @@
 package xyz.dormos.nfc
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,16 +30,20 @@ internal fun V2BottomSheet(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Box(
-            Modifier.fillMaxSize().background(Color(0x660D1728)),
+            Modifier.fillMaxSize().imePadding(),
             contentAlignment = Alignment.BottomCenter
         ) {
+            // A dedicated scrim handles outside taps without intercepting sheet controls.
+            Box(Modifier.fillMaxSize()
+                .background(Color(0x660D1728))
+                .clickable(onClick = onDismiss))
             Surface(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
                 color = p.surface,
                 shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
             ) {
                 Column(
-                    Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                    Modifier.fillMaxWidth().navigationBarsPadding()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 21.dp, vertical = 13.dp)
                 ) {
