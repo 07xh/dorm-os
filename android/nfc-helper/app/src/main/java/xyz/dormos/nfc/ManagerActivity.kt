@@ -686,7 +686,7 @@ private fun ManagerScreen(
                     Spacer(Modifier.height(10.dp))
                     val shown = entries.filter { item ->
                         val location = scriptLocations[item.id] ?: "root"
-                        (query.isNotBlank() || location == activeFolder) &&
+                        (!showFolders || query.isNotBlank() || location == activeFolder) &&
                             (item.name.contains(query, ignoreCase = true) ||
                              (folders.firstOrNull { it.id == location }?.name?.contains(query, ignoreCase = true) == true))
                     }
