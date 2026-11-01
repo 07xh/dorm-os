@@ -453,75 +453,106 @@ private fun ManagerScreen(
                             (item.name.contains(query, ignoreCase = true) ||
                              (folders.firstOrNull { it.id == location }?.name?.contains(query, ignoreCase = true) == true))
                     }
-                    if (shown.isEmpty()) Section("脚本列表") { Text("暂无脚本。可新建或导入自己的 .sh 文件。", color = dim) }
-                    shown.forEach { item ->
-                        var moreOpen by remember(item.id) { mutableStateOf(false) }
-                        Section(null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RoundedIcon("▤")
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(item.name, color = ink, fontSize = 16.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text("${item.bytes} B  ·  个人 SH", color = dim, fontSize = 12.sp)
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(19.dp),
+                        border = BorderStroke(1.dp, paleBorder)
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                            if (shown.isEmpty()) {
+                                Column(Modifier.padding(vertical = 19.dp)) {
+                                    Text("暂无脚本", color = ink, fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold)
+                                    Spacer(Modifier.height(5.dp))
+                                    Text("新建或导入自己的 .sh 文件后，可在这里运行或绑定 NFC。",
+                                        color = dim, fontSize = 12.sp, lineHeight = 18.sp)
                                 }
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { confirmRun = item },
-                                    modifier = Modifier.weight(1f), enabled = !loading,
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
-                                    Text("运行", fontSize = 13.sp)
-                                }
-                                Button(onClick = { confirmBind = item },
-                                    modifier = Modifier.weight(1f), enabled = !loading,
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)) {
-                                    Text("绑 NFC", fontSize = 13.sp)
-                                }
-                                Box {
-                                    OutlinedButton(onClick = { moreOpen = true },
-                                        shape = RoundedCornerShape(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                                        Text("更多", fontSize = 13.sp)
-                                    }
-                                    DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
-                                        DropdownMenuItem(text = { Text("编辑脚本") }, onClick = {
-                                            moreOpen = false
-                                            openEditor(item)
-                                        })
-                                        DropdownMenuItem(text = { Text("查看内容") }, onClick = {
-                                            moreOpen = false
-                                            previewScript = item
-                                            previewContent = "正在读取…"
-                                            scope.launch {
-                                                val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
-                                                previewContent = data.first ?: data.second.output
+                            } else {
+                                shown.forEachIndexed { index, item ->
+                                    var moreOpen by remember(item.id) { mutableStateOf(false) }
+                                    if (index > 0) HorizontalDivider(color = paleBorder)
+                                    Row(
+                                        Modifier.fillMaxWidth().heightIn(min = 72.dp)
+                                            .clickable {
+                                                previewScript = item
+                                                previewContent = "正在读取…"
+                                                scope.launch {
+                                                    val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
+                                                    previewContent = data.first ?: data.second.output
+                                                }
+                                            }.padding(vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            Modifier.size(42.dp).background(tint, RoundedCornerShape(14.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) { Text("▤", color = actionBlue, fontSize = 22.sp) }
+                                        Spacer(Modifier.width(12.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(item.name, color = ink, fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis)
+                                            Spacer(Modifier.height(4.dp))
+                                            val folder = folders.firstOrNull { it.id == (scriptLocations[item.id] ?: "root") }?.name
+                                            Text(
+                                                "/${folder ?: "根目录"}/${item.name} · ${item.bytes} B",
+                                                color = dim, fontSize = 11.sp, maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Surface(
+                                            onClick = { confirmRun = item },
+                                            color = Color(0xFFEAF0FF),
+                                            shape = RoundedCornerShape(13.dp),
+                                            enabled = !loading
+                                        ) {
+                                            Box(Modifier.size(39.dp), contentAlignment = Alignment.Center) {
+                                                Text("⚡", color = actionBlue, fontSize = 19.sp)
                                             }
-                                        })
-                                        DropdownMenuItem(text = { Text("重命名") }, onClick = {
-                                            moreOpen = false
-                                            renamingScript = item
-                                            folderName = item.name
-                                        })
-                                        DropdownMenuItem(text = { Text("移动到文件夹") }, onClick = {
-                                            moreOpen = false
-                                            movingScript = item
-                                        })
-                                        HorizontalDivider(color = paleBorder)
-                                        DropdownMenuItem(text = { Text("删除脚本", color = Color(0xFFBD5360)) }, onClick = {
-                                            moreOpen = false
-                                            confirmDelete = item
-                                        })
+                                        }
+                                        Box {
+                                            TextButton(onClick = { moreOpen = true },
+                                                contentPadding = PaddingValues(horizontal = 7.dp)) {
+                                                Text("⋯", color = dim, fontSize = 21.sp)
+                                            }
+                                            DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
+                                                DropdownMenuItem(text = { Text("绑定 NFC") }, onClick = {
+                                                    moreOpen = false
+                                                    confirmBind = item
+                                                })
+                                                DropdownMenuItem(text = { Text("编辑脚本") }, onClick = {
+                                                    moreOpen = false
+                                                    openEditor(item)
+                                                })
+                                                DropdownMenuItem(text = { Text("查看内容") }, onClick = {
+                                                    moreOpen = false
+                                                    previewScript = item
+                                                    previewContent = "正在读取…"
+                                                    scope.launch {
+                                                        val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
+                                                        previewContent = data.first ?: data.second.output
+                                                    }
+                                                })
+                                                DropdownMenuItem(text = { Text("重命名") }, onClick = {
+                                                    moreOpen = false
+                                                    renamingScript = item
+                                                    folderName = item.name
+                                                })
+                                                DropdownMenuItem(text = { Text("移动到文件夹") }, onClick = {
+                                                    moreOpen = false
+                                                    movingScript = item
+                                                })
+                                                HorizontalDivider(color = paleBorder)
+                                                DropdownMenuItem(text = { Text("删除脚本", color = Color(0xFFBD5360)) }, onClick = {
+                                                    moreOpen = false
+                                                    confirmDelete = item
+                                                })
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
                     }
                     Spacer(Modifier.height(18.dp))
                     Section("管理") {
