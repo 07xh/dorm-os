@@ -164,7 +164,7 @@ internal fun V2Home(
             HorizontalDivider(color = p.line)
             V2StatusRow(
                 symbol = "◇", title = "KernelSU",
-                detail = if (rootReady) "已连接 DORM SH 执行模块"
+                detail = if (rootReady) "已连接 TapFlow SH 执行模块"
                     else rootHint.take(48).ifBlank { "未检测到 Root 模块" },
                 good = rootReady, state = if (rootReady) "已连接" else "未连接"
             )
