@@ -74,6 +74,14 @@ case "${1:-}" in
     command -v pm >/dev/null 2>&1 && pm path xyz.dormos.nfc 2>/dev/null | grep -q '^package:' || die manager_app_missing 69
     am start -n xyz.dormos.nfc/.MainActivity -a xyz.dormos.nfc.action.WRITE_TAG --es scene_id "$tag_id"
     ;;
+  --folder-list) exec "$SH" "$MODDIR/folder-manager.sh" --list ;;
+  --folder-create) exec "$SH" "$MODDIR/folder-manager.sh" --create "${2:-}" "${3:-}" "${4:-}" ;;
+  --folder-rename) exec "$SH" "$MODDIR/folder-manager.sh" --rename "${2:-}" "${3:-}" ;;
+  --folder-move) exec "$SH" "$MODDIR/folder-manager.sh" --move "${2:-}" "${3:-}" ;;
+  --folder-delete) exec "$SH" "$MODDIR/folder-manager.sh" --delete "${2:-}" ;;
+  --script-folders) exec "$SH" "$MODDIR/folder-manager.sh" --script-folders ;;
+  --script-move) exec "$SH" "$MODDIR/folder-manager.sh" --script-move "${2:-}" "${3:-}" ;;
+  --script-rename) exec "$SH" "$MODDIR/script-manager.sh" --rename "${2:-}" "${3:-}" ;;
   --script-list) exec "$SH" "$MODDIR/script-manager.sh" --list ;;
   --script-read) exec "$SH" "$MODDIR/script-manager.sh" --read "${2:-}" ;;
   --script-save) exec "$SH" "$MODDIR/script-manager.sh" --save "${2:-}" "${3:-}" "${4:-}" ;;

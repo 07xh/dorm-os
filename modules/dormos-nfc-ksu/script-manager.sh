@@ -77,10 +77,24 @@ case "${1:-}" in
     chmod 600 "$NAME"
     echo "DORM_SCRIPT_SAVED=1"
     ;;
+  --rename)
+    item "${2:-}"
+    [ -f "$FILE" ] && [ -f "$NAME" ] || die not_found 66
+    title="${3:-}"
+    [ -n "$title" ] && [ "${#title}" -le 360 ] && b64 "$title" || die bad_title 64
+    display=$(printf '%s' "$title" | base64 -d 2>/dev/null) || die bad_title64 65
+    [ -n "$display" ] && [ "$(printf '%s' "$display" | wc -c | tr -d ' ')" -le 120 ] || die bad_title 64
+    case "$display" in *.sh) ;; *) die invalid_script_name 64 ;; esac
+    case "$display" in */*|*\\*|*'|'*) die invalid_script_name 64 ;; esac
+    if printf '%s' "$display" | grep -q '[[:cntrl:]]'; then die invalid_script_name 64; fi
+    printf '%s\n' "$title" > "$NAME.tmp"
+    chmod 600 "$NAME.tmp"; mv "$NAME.tmp" "$NAME"
+    echo "DORM_SCRIPT_RENAMED=1"
+    ;;
   --delete)
     item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
-    rm -f "$FILE" "$NAME"
+    rm -f "$FILE" "$NAME" "$SCRIPTS/$2.folder"
     if [ -f "$BINDINGS" ]; then
       awk -F '|' -v id="$2" '$2 != id {print}' "$BINDINGS" > "$BINDINGS.tmp"
       mv "$BINDINGS.tmp" "$BINDINGS"

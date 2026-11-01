@@ -2,6 +2,8 @@ package xyz.dormos.nfc
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
+import android.nfc.NfcAdapter
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -51,6 +53,12 @@ class ManagerActivity : ComponentActivity() {
             ) {
                 ManagerScreen(
                     bridge = bridge,
+                    openNfcPreferences = {
+                        if (Build.VERSION.SDK_INT >= 36) {
+                            try { startActivity(Intent(NfcAdapter.ACTION_CHANGE_TAG_INTENT_PREFERENCE)) }
+                            catch (_: Exception) { Toast.makeText(this, "请到系统设置 → 应用 → 特殊应用权限 → 通过 NFC 启动", Toast.LENGTH_LONG).show() }
+                        } else Toast.makeText(this, "仅 Android 16 或更新版本提供此入口", Toast.LENGTH_SHORT).show()
+                    },
                     notify = { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() },
                     writeTag = { uuid ->
                         startActivity(Intent(this, MainActivity::class.java)
@@ -93,6 +101,7 @@ class ManagerActivity : ComponentActivity() {
 @Composable
 private fun ManagerScreen(
     bridge: RootModuleClient,
+    openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
     writeTag: (String) -> Unit,
     importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
@@ -100,6 +109,18 @@ private fun ManagerScreen(
     val scope = rememberCoroutineScope()
     var current by rememberSaveable { mutableIntStateOf(0) }
     var entries by remember { mutableStateOf(emptyList<PersonalScript>()) }
+    var folders by remember { mutableStateOf(emptyList<PersonalFolder>()) }
+    var scriptLocations by remember { mutableStateOf(emptyMap<String, String>()) }
+    var activeFolder by rememberSaveable { mutableStateOf("root") }
+    var folderDialog by remember { mutableStateOf("") }
+    var folderName by remember { mutableStateOf("") }
+    var movingScript by remember { mutableStateOf<PersonalScript?>(null) }
+    var renamingScript by remember { mutableStateOf<PersonalScript?>(null) }
+    var previewScript by remember { mutableStateOf<PersonalScript?>(null) }
+    var previewContent by remember { mutableStateOf("") }
+    var selectedTag by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var confirmClearLogs by remember { mutableStateOf(false) }
+    var editingNew by remember { mutableStateOf(true) }
     var installed by remember { mutableStateOf(false) }
     var receiverEnabled by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("正在检查模块…") }
@@ -125,13 +146,16 @@ private fun ManagerScreen(
                 val list = bridge.listScripts()
                 val links = bridge.listBindings()
                 val history = bridge.logs()
-                listOf(info, list.second, links, history) to list.first
+                Triple(listOf(info, list.second, links, history), list.first,
+                    Pair(bridge.listFolders(), bridge.scriptFolders()))
             }
             val info = result.first[0]
             status = info.output
             installed = info.success && info.output.contains("DORM_MODULE=ready")
             receiverEnabled = info.output.contains("NFC_ENABLED=1")
             entries = result.second
+            folders = result.third.first
+            scriptLocations = result.third.second
             bindings = result.first[2].output
             logs = result.first[3].output
             loading = false
@@ -153,11 +177,13 @@ private fun ManagerScreen(
     fun openEditor(item: PersonalScript?) {
         if (item == null) {
             editId = bridge.newId()
+            editingNew = true
             editName = "新建脚本.sh"
             editCode = "#!/system/bin/sh\n"
             editing = true
         } else {
             editId = item.id
+            editingNew = false
             editName = item.name
             scope.launch {
                 val pair = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
@@ -173,6 +199,7 @@ private fun ManagerScreen(
         if (uri != null) {
             importFile(uri) { name, code ->
                 editId = bridge.newId()
+                editingNew = true
                 editName = name
                 editCode = code
                 editing = true
@@ -225,12 +252,40 @@ private fun ManagerScreen(
                         Button(onClick = { openEditor(null) }, enabled = !loading) { Text("+ 新建") }
                     }
                     Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val folderTitle = folders.firstOrNull { it.id == activeFolder }?.name ?: "根目录"
+                        TextButton(onClick = {
+                            activeFolder = folders.firstOrNull { it.id == activeFolder }?.parent ?: "root"
+                        }, enabled = activeFolder != "root") { Text("← 返回") }
+                        Text("当前位置：$folderTitle", modifier = Modifier.weight(1f), color = dim, maxLines = 1)
+                        TextButton(onClick = { folderName = ""; folderDialog = "create" }) { Text("+ 文件夹") }
+                    }
+                    folders.filter { it.parent == activeFolder }
+                        .sortedBy { it.name }.forEach { dir ->
+                            Section(null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("📁 ${dir.name}", modifier = Modifier.weight(1f)
+                                        .clickable { activeFolder = dir.id }, color = ink)
+                                    TextButton(onClick = {
+                                        folderName = dir.name; folderDialog = "rename:${dir.id}"
+                                    }) { Text("改名") }
+                                    TextButton(onClick = { folderDialog = "delete:${dir.id}" }) { Text("删除") }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    Spacer(Modifier.height(10.dp))
                     Button(onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
                         enabled = !loading, modifier = Modifier.fillMaxWidth()) {
                         Text("从文件导入 SH")
                     }
                     Spacer(Modifier.height(12.dp))
-                    val shown = entries.filter { it.name.contains(query, ignoreCase = true) }
+                    val shown = entries.filter { item ->
+                        val location = scriptLocations[item.id] ?: "root"
+                        (query.isNotBlank() || location == activeFolder) &&
+                            (item.name.contains(query, ignoreCase = true) ||
+                             (folders.firstOrNull { it.id == location }?.name?.contains(query, ignoreCase = true) == true))
+                    }
                     if (shown.isEmpty()) Section("脚本列表") { Text("暂无脚本。可新建或导入自己的 .sh 文件。", color = dim) }
                     shown.forEach { item ->
                         Section(null) {
@@ -246,8 +301,18 @@ private fun ManagerScreen(
                                 MiniAction("×") { confirmDelete = item }
                             }
                             Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { confirmBind = item }, enabled = !loading) {
-                                Text("绑定 NFC 标签")
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                TextButton(onClick = {
+                                    previewScript = item
+                                    previewContent = "正在读取…"
+                                    scope.launch {
+                                        val data = withContext(Dispatchers.IO) { bridge.readScript(item.id) }
+                                        previewContent = data.first ?: data.second.output
+                                    }
+                                }) { Text("预览") }
+                                TextButton(onClick = { renamingScript = item; folderName = item.name }) { Text("改名") }
+                                TextButton(onClick = { movingScript = item }) { Text("移动") }
+                                TextButton(onClick = { confirmBind = item }, enabled = !loading) { Text("绑 NFC") }
                             }
                         }
                         Spacer(Modifier.height(9.dp))
@@ -270,8 +335,8 @@ private fun ManagerScreen(
                         else bindings.lineSequence().filter { it.contains('|') }.forEach { line ->
                             val parts = line.split('|')
                             val name = entries.firstOrNull { it.id == parts.getOrNull(1) }?.name ?: "未知脚本"
-                            SummaryRow("◉", name, parts[0].take(18) + "…", "×") {
-                                runRoot({ bridge.unbind(parts[0]) }) { refresh() }
+                            SummaryRow("◉", name, parts[0].take(18) + "…", "查看") {
+                                selectedTag = parts[0] to name
                             }
                         }
                     }
@@ -285,7 +350,19 @@ private fun ManagerScreen(
                         SummaryRow("▤", "执行记录", "只保留时间、脚本 ID 和结果", "›") { output = logs.ifBlank { "暂无记录" } }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Section("命令输出") { Text(output.take(9000), color = dim, fontSize = 12.sp) }
+                    Section("最近执行输出") { Text(output.takeLast(9000), color = dim, fontSize = 12.sp) }
+                    Spacer(Modifier.height(12.dp))
+                    Section("执行日志（最近 80 条）") {
+                        Text(logs.ifBlank { "暂无记录" }.lineSequence().toList().takeLast(80).joinToString("\n"),
+                            color = dim, fontSize = 12.sp)
+                        TextButton(onClick = { confirmClearLogs = true }, enabled = !loading) { Text("清空日志") }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Section("Android 16 / 耗电验证") {
+                        Text("事件驱动，无模块后台轮询；本机待机耗电尚未测量。", color = dim, fontSize = 13.sp)
+                        Text("请检查系统特殊应用权限中的「通过 NFC 启动」，并分别实测锁屏与息屏触发。", color = dim, fontSize = 12.sp)
+                        TextButton(onClick = openNfcPreferences) { Text("打开 NFC 启动权限设置") }
+                    }
                     Spacer(Modifier.height(12.dp))
                     OutlinedButton(onClick = { refresh() }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
                         Text("刷新模块状态")
@@ -323,9 +400,13 @@ private fun ManagerScreen(
             },
             confirmButton = {
                 TextButton(enabled = !loading, onClick = {
-                    runRoot({ bridge.saveScript(editId, editName, editCode) }) {
-                        if (it.success) { editing = false; refresh() }
-                    }
+                    val creating = editingNew
+                    val folder = activeFolder
+                    runRoot({
+                        val saved = bridge.saveScript(editId, editName, editCode)
+                        if (saved.success && creating && folder != "root") bridge.moveScript(editId, folder)
+                        else saved
+                    }) { if (it.success) { editing = false; refresh() } }
                 }) { Text("保存") }
             },
             dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } }
@@ -368,6 +449,113 @@ private fun ManagerScreen(
         )
     }
 }
+
+    if (folderDialog.isNotBlank()) {
+        val action = folderDialog.substringBefore(':')
+        val id = folderDialog.substringAfter(':', "")
+        AlertDialog(
+            onDismissRequest = { folderDialog = "" },
+            title = { Text(when (action) { "create" -> "新建文件夹"; "rename" -> "重命名文件夹"; else -> "删除文件夹" }) },
+            text = {
+                Column {
+                    if (action != "delete") {
+                        OutlinedTextField(value = folderName, onValueChange = { folderName = it },
+                            label = { Text("名称") }, singleLine = true)
+                    } else {
+                        Text("仅允许删除空文件夹。请先移动其中的脚本和子文件夹。")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val name = folderName.trim()
+                    val parent = activeFolder
+                    folderDialog = ""
+                    runRoot({
+                        when (action) {
+                            "create" -> bridge.createFolder(bridge.newId(), parent, name)
+                            "rename" -> bridge.renameFolder(id, name)
+                            else -> bridge.deleteFolder(id)
+                        }
+                    }) { if (it.success) refresh() }
+                }, enabled = !loading) { Text(if (action == "delete") "删除" else "保存") }
+            },
+            dismissButton = { TextButton(onClick = { folderDialog = "" }) { Text("取消") } }
+        )
+    }
+    renamingScript?.let { item ->
+        AlertDialog(
+            onDismissRequest = { renamingScript = null },
+            title = { Text("脚本改名") },
+            text = { OutlinedTextField(value = folderName, onValueChange = { folderName = it },
+                label = { Text("新名称（.sh）") }, singleLine = true) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val name = folderName.trim()
+                    renamingScript = null
+                    runRoot({ bridge.renameScript(item.id, name) }) { if (it.success) refresh() }
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { renamingScript = null }) { Text("取消") } }
+        )
+    }
+    movingScript?.let { item ->
+        AlertDialog(
+            onDismissRequest = { movingScript = null },
+            title = { Text("移动「${item.name}」") },
+            text = {
+                Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                    (listOf(PersonalFolder("root", "", "根目录")) + folders).forEach { folder ->
+                        TextButton(onClick = {
+                            movingScript = null
+                            runRoot({ bridge.moveScript(item.id, folder.id) }) { if (it.success) refresh() }
+                        }) { Text("📁 ${folder.name}") }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { movingScript = null }) { Text("取消") } }
+        )
+    }
+    previewScript?.let { item ->
+        AlertDialog(
+            onDismissRequest = { previewScript = null },
+            title = { Text("预览：${item.name}") },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    Text("只读预览 · ${item.bytes} B · 不执行", fontSize = 12.sp, color = dim)
+                    HorizontalDivider()
+                    Text(previewContent.take(16384), fontSize = 12.sp, color = ink)
+                }
+            },
+            confirmButton = { TextButton(onClick = { previewScript = null; openEditor(item) }) { Text("编辑") } },
+            dismissButton = { TextButton(onClick = { previewScript = null }) { Text("关闭") } }
+        )
+    }
+    selectedTag?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { selectedTag = null },
+            title = { Text("NFC 标签详情") },
+            text = { Text("关联脚本：${selected.second}\n标签 ID：${selected.first}\n\n标签可被复制，不是身份认证；请勿绑定高风险脚本。") },
+            confirmButton = { TextButton(onClick = {
+                selectedTag = null
+                runRoot({ bridge.unbind(selected.first) }) { if (it.success) refresh() }
+            }) { Text("解除绑定") } },
+            dismissButton = { TextButton(onClick = { selectedTag = null }) { Text("关闭") } }
+        )
+    }
+    if (confirmClearLogs) {
+        AlertDialog(
+            onDismissRequest = { confirmClearLogs = false },
+            title = { Text("清空执行日志") },
+            text = { Text("仅清空日志，不删除任何脚本或标签绑定。") },
+            confirmButton = { TextButton(onClick = {
+                confirmClearLogs = false
+                runRoot({ bridge.clearLogs() }) { if (it.success) refresh() }
+            }) { Text("清空") } },
+            dismissButton = { TextButton(onClick = { confirmClearLogs = false }) { Text("取消") } }
+        )
+    }
 
 @Composable
 private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit) {

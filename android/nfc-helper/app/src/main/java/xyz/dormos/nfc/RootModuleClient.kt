@@ -7,18 +7,31 @@ import java.util.concurrent.TimeUnit
 
 /** Personal script registry shared by the native app and NFC handler. KernelSU only. */
 data class PersonalScript(val id: String, val name: String, val bytes: Int)
+data class PersonalFolder(val id: String, val parent: String, val name: String)
 data class RootResult(val code: Int, val output: String) {
     val success: Boolean get() = code == 0
 }
 
 object ScriptRules {
     private val uuid = Regex("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
+    private val folderId = Regex("^(root|[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12})$")
+    fun folderValid(value: String) = folderId.matches(value)
     private val b64 = Regex("^[A-Za-z0-9+/]+={0,2}$")
     fun idValid(value: String) = uuid.matches(value)
     fun safeArguments(args: List<String>): Boolean {
         val head = args.firstOrNull() ?: return false
         return when {
-            args.size == 1 && head in setOf("--status", "--script-list", "--script-bindings", "--script-logs") -> true
+            args.size == 1 && head in setOf("--status", "--script-list", "--script-bindings", "--script-logs", "--folder-list", "--script-folders", "--script-clear-logs") -> true
+            args.size == 3 && head in setOf("--script-move", "--folder-move") ->
+                idValid(args[1]) && folderValid(args[2])
+            args.size == 3 && head == "--folder-rename" ->
+                idValid(args[1]) && args[2].length <= 360 && b64.matches(args[2])
+            args.size == 3 && head == "--script-rename" ->
+                idValid(args[1]) && args[2].length <= 360 && b64.matches(args[2])
+            args.size == 2 && head == "--folder-delete" -> idValid(args[1])
+            args.size == 4 && head == "--folder-create" ->
+                idValid(args[1]) && folderValid(args[2]) &&
+                    args[3].length <= 360 && b64.matches(args[3])
             args.size == 2 && head == "--enable" -> args[1] in setOf("0", "1")
             args.size == 2 && head == "--nfc" -> idValid(args[1])
             args.size == 2 && head in setOf("--script-read", "--script-run", "--script-delete", "--script-unbind") -> idValid(args[1])
@@ -119,5 +132,35 @@ class RootModuleClient {
     fun enableNfc(value: Boolean) = invoke("--enable", if (value) "1" else "0")
     fun logs() = invoke("--script-logs")
     fun triggerNfc(tagId: String) = invoke("--nfc", tagId)
+    fun clearLogs() = invoke("--script-clear-logs")
+    fun createFolder(id: String, parent: String, name: String) =
+        invoke("--folder-create", id, parent, encode(name))
+    fun renameFolder(id: String, name: String) =
+        invoke("--folder-rename", id, encode(name))
+    fun moveFolder(id: String, target: String) =
+        invoke("--folder-move", id, target)
+    fun deleteFolder(id: String) = invoke("--folder-delete", id)
+    fun moveScript(id: String, target: String) = invoke("--script-move", id, target)
+    fun renameScript(id: String, name: String) = invoke("--script-rename", id, encode(name))
+
+    fun listFolders(): List<PersonalFolder> {
+        val result = invoke("--folder-list")
+        if (!result.success) return emptyList()
+        return result.output.lineSequence().mapNotNull { line ->
+            val f = line.split('|')
+            if (f.size != 3 || !ScriptRules.idValid(f[0]) || !ScriptRules.folderValid(f[1]))
+                return@mapNotNull null
+            try { PersonalFolder(f[0], f[1], decode(f[2])) } catch (_: Exception) { null }
+        }.toList()
+    }
+    fun scriptFolders(): Map<String, String> {
+        val result = invoke("--script-folders")
+        if (!result.success) return emptyMap()
+        return result.output.lineSequence().mapNotNull { line ->
+            val f = line.split('|')
+            if (f.size == 2 && ScriptRules.idValid(f[0]) && ScriptRules.folderValid(f[1]))
+                f[0] to f[1] else null
+        }.toMap()
+    }
     fun newId(): String = UUID.randomUUID().toString()
 }
