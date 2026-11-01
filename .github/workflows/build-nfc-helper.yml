@@ -154,7 +154,7 @@ jobs:
         with:
           name: dorm-os-nfc-receiver-debug
           path: preview/apk
-      - name: Publish TapFlow V1.22.0 preview APK
+      - name: Publish TapFlow V1.22.1 preview APK
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -163,16 +163,16 @@ jobs:
           set -euo pipefail
           test -s preview/apk/app-debug.apk
           mkdir -p public
-          cp preview/apk/app-debug.apk public/TapFlow-V1.22.0-reference-motion-debug.apk
-          (cd public && sha256sum TapFlow-V1.22.0-reference-motion-debug.apk > SHA256SUMS.txt)
-          TAG="tapflow-v1.22.0-reference-motion-preview"
+          cp preview/apk/app-debug.apk public/TapFlow-V1.22.1-navigation-fix-debug.apk
+          (cd public && sha256sum TapFlow-V1.22.1-navigation-fix-debug.apk > SHA256SUMS.txt)
+          TAG="tapflow-v1.22.1-navigation-fix-preview"
           if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
             echo "Refusing to overwrite the previously published preview: $TAG"
             exit 1
           fi
           gh release create "$TAG" \
-            public/TapFlow-V1.22.0-reference-motion-debug.apk \
+            public/TapFlow-V1.22.1-navigation-fix-debug.apk \
             public/SHA256SUMS.txt \
             --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
-            --title "触序 · TapFlow V1.22.0 · 白秋然雨式流畅转场" \
-            --notes "TapFlow V1.22.0 reference-motion preview. Built from commit $GITHUB_SHA after Android debug APK build, unit tests, and KernelSU module validation succeeded. Includes click-only directional screen transitions, a fixed bottom navigation bar, a single animated selection indicator, and per-tab saveable UI state. Liquid-glass navigation and swipe-to-change-page are removed. This is a DEBUG APK and is not signed with the stable release key. Real-device animation performance still requires verification on the target Android device."
+            --title "触序 · TapFlow V1.22.1 · 导航按压反馈修复与自然转场" \
+            --notes "TapFlow V1.22.1 navigation-fix preview. Built from commit $GITHUB_SHA after Android unit tests, APK build, and KernelSU checks pass. Removes the oversized rectangular tab press effect and extra Material3 NavigationBar nesting. Uses a compact 64dp fixed bottom bar, one 185ms selected capsule, and smaller 210ms directional page transitions. Preserves tap-only three-tab navigation, scroll position, NFC ReaderMode/write-back, and independent KernelSU installation. This is a DEBUG-signed preview APK, not a stable signed release; real-device frame pacing still needs validation."
