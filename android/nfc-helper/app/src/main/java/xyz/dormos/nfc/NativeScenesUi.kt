@@ -167,18 +167,59 @@ private fun NativeSceneEditorSheet(
                             Text("×")
                         }
                     }
-                    OutlinedTextField(
-                        value = action.value,
-                        onValueChange = { value ->
-                            if (value.length <= 2000) actions = actions.toMutableList().apply {
-                                set(index, action.copy(value = value))
+                    if (action.kind == NativeKind.CHAT_DRAFT) {
+                        // Split without validation so fields stay editable while partially empty.
+                        val parts = action.value.split('\n', limit = 3)
+                        val currentDraft = ChatDraft(
+                            parts.getOrElse(0) { "com.tencent.mm" },
+                            parts.getOrElse(1) { "" },
+                            parts.getOrElse(2) { "" }
+                        )
+                        fun changeDraft(updated: ChatDraft) {
+                            actions = actions.toMutableList().apply {
+                                set(index, action.copy(value = ChatDraftCodec.encode(updated)))
                             }
-                        },
-                        label = { Text(if (action.kind == NativeKind.SH) "已保存脚本 UUID" else "动作内容") },
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
-                        maxLines = 3
-                    )
+                        }
+                        OutlinedTextField(
+                            value = currentDraft.appPackage,
+                            onValueChange = { if (it.length <= 130) changeDraft(currentDraft.copy(appPackage = it)) },
+                            label = { Text("聊天应用包名") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = currentDraft.chatName,
+                            onValueChange = { if (it.length <= 80) changeDraft(currentDraft.copy(chatName = it)) },
+                            label = { Text("群聊或联系人名称") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = currentDraft.message,
+                            onValueChange = { if (it.length <= 1700) changeDraft(currentDraft.copy(message = it)) },
+                            label = { Text("消息草稿（仅准备，不自动发送）") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            maxLines = 4
+                        )
+                        Text("当前将复制草稿并尝试交给聊天应用；自动识别聊天窗口仍需真机验收。",
+                            fontSize = 11.sp, color = p.muted)
+                    } else {
+                        OutlinedTextField(
+                            value = action.value,
+                            onValueChange = { value ->
+                                if (value.length <= 2000) actions = actions.toMutableList().apply {
+                                    set(index, action.copy(value = value))
+                                }
+                            },
+                            label = { Text(if (action.kind == NativeKind.SH) "已保存脚本 UUID" else "动作内容") },
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
+                            maxLines = 3
+                        )
+                    }
                     if (action.kind == NativeKind.SH && scripts.isNotEmpty()) {
                         Text("已保存脚本：", color = p.muted, fontSize = 11.sp)
                         scripts.take(8).forEach { script ->
@@ -227,6 +268,7 @@ private fun NativeSceneEditorSheet(
                                     NativeKind.APP -> "com.tencent.mm"
                                     NativeKind.URL -> "https://example.com"
                                     NativeKind.SH -> scripts.firstOrNull()?.id ?: ""
+                                    NativeKind.CHAT_DRAFT -> ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "目标群聊名称", "请输入消息"))
                                     NativeKind.MANUAL -> "检查内容并手动确认"
                                 }
                                 val list = actions.toMutableList()
