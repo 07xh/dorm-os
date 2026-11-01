@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,12 +35,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val canvas = Color(0xffefeff7)
-private val panel = Color(0xfffbfaff)
-private val tint = Color(0xffb4c5f3)
-private val ink = Color(0xff35394b)
-private val dim = Color(0xff6c748a)
-private val actionBlue = Color(0xff51689d)
+private val canvas = Color(0xFFF5F7FC)
+private val panel = Color.White
+private val tint = Color(0xFFE2EBFF)
+private val ink = Color(0xFF19263D)
+private val dim = Color(0xFF718099)
+private val actionBlue = Color(0xFF3A61BE)
+private val paleBorder = Color(0xFFE7ECF5)
 
 class ManagerActivity : ComponentActivity() {
     private val bridge = RootModuleClient()
@@ -262,37 +265,74 @@ private fun ManagerScreen(
     LaunchedEffect(Unit) { refresh() }
 
     Column(Modifier.fillMaxSize().background(canvas)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(17.dp)) {
-            Text(
-                when (current) { 0 -> "DORM NFC"; 1 -> "脚本管理"; 2 -> "NFC 标签"; else -> "设置" },
-                color = ink, fontSize = 29.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 22.dp, bottom = 22.dp)
-            )
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            Spacer(Modifier.height(26.dp))
+            Text("D O R M   /   N F C", color = actionBlue, fontSize = 11.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when (current) {
+                        0 -> "工作台"
+                        1 -> "脚本库"
+                        2 -> "NFC 标签"
+                        else -> "设置与记录"
+                    },
+                    color = ink, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    onClick = { refresh() },
+                    enabled = !loading,
+                    shape = RoundedCornerShape(14.dp),
+                    color = panel, border = BorderStroke(1.dp, paleBorder)
+                ) {
+                    Text(if (loading) "更新中" else "↻ 刷新",
+                        color = actionBlue, fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                }
+            }
+            Spacer(Modifier.height(20.dp))
             when (current) {
                 0 -> {
-                    Section("运行状态") {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            RoundedIcon("◉")
-                            Spacer(Modifier.width(13.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("KernelSU 模块", color = ink, fontWeight = FontWeight.Medium, fontSize = 18.sp)
-                                Text(if (installed) "已连接 · 无常驻脚本服务" else
-                                    "未连接 · " + status.take(60).ifBlank { "检查 KernelSU 模块与 Root 授权" },
-                                    color = dim, maxLines = 2)
-                            }
-                            Text(if (installed) "正常" else "检查", color = actionBlue)
+                    DashboardHero(
+                        installed = installed,
+                        enabled = receiverEnabled,
+                        detail = status,
+                        scripts = entries.size,
+                        bound = bindings.lineSequence().count { it.contains('|') },
+                        onOpenSettings = { current = 3 }
+                    )
+                    Spacer(Modifier.height(26.dp))
+                    Text("快捷操作", color = ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        HomeAction("⌁", "读取标签", "检查标签信息",
+                            modifier = Modifier.weight(1f), onClick = openTagInspector)
+                        HomeAction("＋", "写入内容", "文本或网址",
+                            modifier = Modifier.weight(1f), onClick = openNdefWriter)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        HomeAction("▤", "管理 SH", "新建和绑定脚本",
+                            modifier = Modifier.weight(1f), onClick = { current = 1 })
+                        HomeAction("◎", "我的绑定", "查看 NFC 场景",
+                            modifier = Modifier.weight(1f), onClick = { current = 2 })
+                    }
+                    Spacer(Modifier.height(26.dp))
+                    Text("最近操作", color = ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    Section(null) {
+                        Text(output.takeLast(380).ifBlank { "暂无执行记录" },
+                            color = dim, fontSize = 13.sp, maxLines = 5)
+                        Spacer(Modifier.height(6.dp))
+                        TextButton(onClick = { current = 3 }, contentPadding = PaddingValues(0.dp)) {
+                            Text("查看全部日志", color = actionBlue)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Section("配置概览") {
-                        SummaryRow("▦", "脚本库", "已登记 ${entries.size} 个个人 SH", "${entries.size}") { current = 1 }
-                        HorizontalDivider(color = canvas)
-                        SummaryRow("◉", "NFC 读写与场景", "读取、写入、绑定与自动化", "›") { current = 2 }
-                        HorizontalDivider(color = canvas)
-                        SummaryRow("▤", "最近结果", "点击查看执行反馈", "›") { current = 3 }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Section("最近结果") { Text(output.takeLast(1200), color = dim, fontSize = 13.sp) }
                 }
                 1 -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -438,16 +478,27 @@ private fun ManagerScreen(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().background(canvas).padding(bottom = 12.dp, top = 4.dp)) {
-            listOf("⌂" to "首页", "▦" to "脚本", "◉" to "NFC", "⚙" to "设置")
-                .forEachIndexed { i, entry ->
-                    Column(Modifier.weight(1f).clickable { current = i }.padding(7.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Surface(color = if (current == i) tint else canvas, shape = RoundedCornerShape(19.dp)) {
-                            Text(entry.first, fontSize = 22.sp, color = actionBlue, modifier = Modifier.padding(horizontal = 18.dp, vertical = 3.dp))
-                        }
-                        Text(entry.second, fontSize = 11.sp, color = if (current == i) actionBlue else dim)
-                    }
+        NavigationBar(
+            containerColor = panel,
+            tonalElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf("⌂" to "工作台", "▤" to "脚本", "⌁" to "NFC", "⚙" to "设置")
+                .forEachIndexed { i, item ->
+                    NavigationBarItem(
+                        selected = current == i,
+                        onClick = { current = i },
+                        icon = { Text(item.first, fontSize = 23.sp) },
+                        label = { Text(item.second, fontSize = 11.sp) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = actionBlue,
+                            selectedTextColor = actionBlue,
+                            indicatorColor = tint,
+                            unselectedIconColor = dim,
+                            unselectedTextColor = dim
+                        )
+                    )
                 }
         }
     }
@@ -658,14 +709,107 @@ private fun ManagerScreen(
 
 }
 
+
+@Composable
+private fun DashboardHero(
+    installed: Boolean,
+    enabled: Boolean,
+    detail: String,
+    scripts: Int,
+    bound: Int,
+    onOpenSettings: () -> Unit
+) {
+    Surface(shape = RoundedCornerShape(26.dp), color = Color(0xFF274B99)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF274B99), Color(0xFF5978C6))
+                    )
+                ).padding(22.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = Color.White.copy(alpha = 0.17f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("⌁", fontSize = 28.sp, color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("DORM NFC MANAGER", color = Color.White.copy(alpha = 0.78f),
+                        fontSize = 11.sp, letterSpacing = 1.sp)
+                    Text(if (installed) "设备已连接" else "等待连接 KernelSU",
+                        color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(if (installed) "●" else "○", color = Color.White, fontSize = 20.sp)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                if (installed) "Root 桥已就绪 · NFC 触发${if (enabled) "已开启" else "未开启"}"
+                else detail.take(90).ifBlank { "请检查模块安装和 Root 授权" },
+                color = Color.White.copy(alpha = 0.84f), fontSize = 12.sp, maxLines = 3
+            )
+            Spacer(Modifier.height(22.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.20f))
+            Spacer(Modifier.height(16.dp))
+            Row {
+                Column(Modifier.weight(1f)) {
+                    Text(scripts.toString(), color = Color.White, fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text("SH 脚本", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(bound.toString(), color = Color.White, fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text("NFC 绑定", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
+                }
+                TextButton(onClick = onOpenSettings) {
+                    Text("设备详情 ›", color = Color.White, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeAction(
+    symbol: String, title: String, subtitle: String,
+    modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(123.dp),
+        color = panel,
+        shape = RoundedCornerShape(21.dp),
+        border = BorderStroke(1.dp, paleBorder)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Surface(color = tint, shape = RoundedCornerShape(13.dp)) {
+                Text(symbol, color = actionBlue, fontSize = 22.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+            }
+            Column {
+                Text(title, color = ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = dim, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit) {
     if (title != null) {
         Text(title, color = actionBlue, fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 10.dp, bottom = 11.dp), fontSize = 15.sp)
     }
-    Surface(shape = RoundedCornerShape(22.dp), color = panel, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), content = content)
+    Surface(
+        shape = RoundedCornerShape(20.dp), color = panel,
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, paleBorder)
+    ) {
+        Column(Modifier.padding(17.dp), content = content)
     }
 }
 
