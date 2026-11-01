@@ -1,6 +1,7 @@
 package xyz.dormos.nfc
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TabNavigationMotionTest {
@@ -13,7 +14,7 @@ class TabNavigationMotionTest {
 
     @Test
     fun directionIsConsistentForEveryAdjacentTabPair() {
-        assert(tabNavigationOrder(2) > tabNavigationOrder(0)) // Home → Scenes
+        assertTrue(tabNavigationOrder(2) > tabNavigationOrder(0)) // Home → Scenes
         assert(tabNavigationOrder(1) > tabNavigationOrder(2)) // Scenes → Tools
         assert(tabNavigationOrder(0) < tabNavigationOrder(2)) // Scenes → Home
         assert(tabNavigationOrder(2) < tabNavigationOrder(1)) // Tools → Scenes
