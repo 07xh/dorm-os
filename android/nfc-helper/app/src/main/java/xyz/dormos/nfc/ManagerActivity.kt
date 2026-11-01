@@ -168,7 +168,7 @@ private fun ManagerScreen(
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     // Pager owns both gesture and button navigation, avoiding desynchronized tabs.
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { TAPFLOW_TAB_COUNT })
     val current = tabIdForPage(pagerState.currentPage)
     fun navigateToTab(tabId: Int) {
         val page = tabNavigationOrder(tabId)
