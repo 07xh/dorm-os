@@ -16,17 +16,18 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -36,14 +37,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 
 /**
- * Motion timings measured from the supplied White Autumn Rain 2.1 interaction
- * recording. These are deliberately short, fixed transitions: no spring tail,
+ * Short, low-cost timing inspired by the supplied interaction recording.
+ * This is a visual approximation, not measured original APK parameters:
+ * no spring tail,
  * overshoot, blur, glass layer, or gesture-driven page movement.
  */
-internal const val TAPFLOW_PAGE_TRANSITION_MS = 280
-internal const val TAPFLOW_BUTTON_TRANSITION_MS = 250
-private const val TAPFLOW_PAGE_FADE_IN_MS = 180
-private const val TAPFLOW_PAGE_FADE_OUT_MS = 145
+internal const val TAPFLOW_PAGE_TRANSITION_MS = 210
+internal const val TAPFLOW_BUTTON_TRANSITION_MS = 185
+internal const val TAPFLOW_BOTTOM_NAV_HEIGHT_DP = 64
+private const val TAPFLOW_PAGE_FADE_IN_MS = 155
+private const val TAPFLOW_PAGE_FADE_OUT_MS = 120
 
 /**
  * The main shell owns tab changes. SaveableStateHolder keeps each tab's local
@@ -58,16 +61,14 @@ internal fun TapFlowMainTransition(
 ) {
     AnimatedContent(
         targetState = currentTab,
-        modifier = modifier,
+        modifier = modifier.clipToBounds(),
         contentAlignment = Alignment.TopStart,
         transitionSpec = { tapFlowScreenTransition() },
         contentKey = { it },
         label = "TapFlow.MainTransition"
     ) { tab ->
         stateHolder.SaveableStateProvider("tapflow-tab-$tab") {
-            key(tab) {
-                content(tab)
-            }
+            content(tab)
         }
     }
 }
@@ -81,7 +82,7 @@ internal fun TapFlowMainTransition(
 internal fun AnimatedContentTransitionScope<Int>.tapFlowScreenTransition(): ContentTransform {
     val direction = tabTransitionDirection(initialState, targetState)
     val enter = slideInHorizontally(
-        initialOffsetX = { width -> width * direction },
+        initialOffsetX = { width -> (width / 9) * direction },
         animationSpec = tween(
             durationMillis = TAPFLOW_PAGE_TRANSITION_MS,
             easing = FastOutSlowInEasing
@@ -93,7 +94,7 @@ internal fun AnimatedContentTransitionScope<Int>.tapFlowScreenTransition(): Cont
         )
     )
     val exit = slideOutHorizontally(
-        targetOffsetX = { width -> -width * direction },
+        targetOffsetX = { width -> -(width / 16) * direction },
         animationSpec = tween(
             durationMillis = TAPFLOW_PAGE_TRANSITION_MS,
             easing = FastOutLinearInEasing
@@ -133,18 +134,22 @@ internal fun TapFlowBottomNavigation(
     val selectedIndex = tapFlowNavEntries.indexOfFirst { it.tabId == currentTab }
         .coerceAtLeast(0)
 
-    NavigationBar(
-        containerColor = palette.surface,
-        tonalElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
+    // Avoid Material NavigationBar's extra insets/elevation and the oversized
+    // rectangular press-state overlay. A single plain background owns the bar.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(palette.surface)
+            .navigationBarsPadding()
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(TAPFLOW_BOTTOM_NAV_HEIGHT_DP.dp)
+                .clipToBounds()
         ) {
             val itemWidth = maxWidth / tapFlowNavEntries.size
-            val indicatorWidth = 42.dp
+            val indicatorWidth = 54.dp
             val targetOffset = itemWidth * selectedIndex +
                 (itemWidth - indicatorWidth) / 2
             val indicatorOffset by animateDpAsState(
@@ -164,7 +169,7 @@ internal fun TapFlowBottomNavigation(
                             y = 5.dp.roundToPx()
                         )
                     }
-                    .size(width = indicatorWidth, height = 28.dp)
+                    .size(width = indicatorWidth, height = 29.dp)
                     .clip(RoundedCornerShape(50))
                     .background(palette.accentLow)
             )
@@ -197,7 +202,7 @@ private fun RowScope.TapFlowButtonTransition(
     val tint by animateColorAsState(
         targetValue = if (selected) palette.blue else palette.muted,
         animationSpec = tween(
-            durationMillis = 170,
+            durationMillis = 130,
             easing = FastOutSlowInEasing
         ),
         label = "TapFlow.ButtonTransition.color-${entry.tabId}"
@@ -207,9 +212,17 @@ private fun RowScope.TapFlowButtonTransition(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .clickable(role = Role.Tab, onClick = onClick)
-            .semantics { this.selected = selected }
-            .padding(top = 4.dp),
+            .padding(horizontal = 5.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(16.dp))
+            // Selection is already communicated by the capsule and tint.
+            // Suppress the full-cell rectangular ripple seen in the screenshot.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Tab,
+                onClick = onClick
+            )
+            .semantics { this.selected = selected },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -220,7 +233,7 @@ private fun RowScope.TapFlowButtonTransition(
         ) {
             V2NavIcon(which = entry.icon, color = tint)
         }
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(1.dp))
         Text(
             text = entry.label,
             color = tint,

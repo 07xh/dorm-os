@@ -34,7 +34,8 @@ class TabNavigationMotionTest {
 
     @Test
     fun referenceMotionUsesShortBoundedDurations() {
-        assertEquals(280, TAPFLOW_PAGE_TRANSITION_MS)
-        assertEquals(250, TAPFLOW_BUTTON_TRANSITION_MS)
+        assertEquals(210, TAPFLOW_PAGE_TRANSITION_MS)
+        assertEquals(185, TAPFLOW_BUTTON_TRANSITION_MS)
+        assertEquals(64, TAPFLOW_BOTTOM_NAV_HEIGHT_DP)
     }
 }

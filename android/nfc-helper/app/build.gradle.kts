@@ -20,8 +20,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 38
-        versionName = "1.22.0-reference-motion"
+        versionCode = 39
+        versionName = "1.22.1-navigation-fix"
     }
     signingConfigs {
         if (hasReleaseSigning) {
