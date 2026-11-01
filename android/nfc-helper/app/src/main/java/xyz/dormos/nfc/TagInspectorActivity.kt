@@ -13,6 +13,8 @@ import android.nfc.NdefRecord
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
 import android.os.Bundle
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -43,6 +45,8 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     private var status by mutableStateOf("将 NFC 标签靠近手机背部")
     private var report by mutableStateOf<ReadReport?>(null)
     private var reading by mutableStateOf(false)
+    private var nfcAvailable by mutableStateOf(false)
+    private var nfcEnabled by mutableStateOf(false)
     private var adapter: NfcAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,7 +57,10 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 primary = Color(0xFF4769B5), background = Color(0xFFF3F6FC),
                 surface = Color.White, onSurface = Color(0xFF26334C)
             )) {
-                ReadScreen(status, report, reading, onBack = { finish() }, onReset = {
+                ReadScreen(status, report, reading, nfcAvailable, nfcEnabled,
+                    onBack = { finish() },
+                    onNfcSettings = { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
+                    onReset = {
                     sessionGeneration.incrementAndGet()
                     finishedScan = false
                     reading = false
@@ -68,6 +75,8 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         super.onResume()
         inForeground = true
         val nfc = adapter
+        nfcAvailable = nfc != null
+        nfcEnabled = nfc?.isEnabled == true
         if (nfc == null) {
             status = "此设备没有可用的 NFC 硬件"
             return
@@ -188,7 +197,8 @@ internal data class ReadReport(
 @Composable
 private fun ReadScreen(
     status: String, report: ReadReport?, reading: Boolean,
-    onBack: () -> Unit, onReset: () -> Unit
+    nfcAvailable: Boolean, nfcEnabled: Boolean,
+    onBack: () -> Unit, onNfcSettings: () -> Unit, onReset: () -> Unit
 ) {
     val blue = Color(0xFF4769B5)
     val dim = Color(0xFF6E7B91)
@@ -211,9 +221,14 @@ private fun ReadScreen(
                 else if (report.error == null) "已从实体标签读取信息" else "查看下方原因及建议",
             working = reading
         ) {
-            Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()) {
-                Text(if (report == null) "重新开始扫描" else "扫描另一张标签")
+            if (nfcAvailable && !nfcEnabled) {
+                Button(onClick = onNfcSettings, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)) { Text("打开 NFC 设置") }
+            } else if (nfcEnabled) {
+                Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (report == null) "重新开始扫描" else "扫描另一张标签")
+                }
             }
         }
         Spacer(Modifier.height(16.dp))
