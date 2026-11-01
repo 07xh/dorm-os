@@ -25,8 +25,8 @@ internal object NdefWriteRules {
     fun prepare(kind: NdefWriteKind, raw: String): NdefPreparation {
         val input = raw.trim()
         if (input.isBlank()) return NdefPreparation(error = "请先输入要写入的内容")
-        if (input.any { it == '\u0000' || it == '\r' || it == '\n' }) {
-            return NdefPreparation(error = "不支持换行或控制字符")
+        if (input.any { it == '\u0000' }) {
+            return NdefPreparation(error = "不支持 NUL 控制字符")
         }
 
         val content = when (kind) {
