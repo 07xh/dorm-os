@@ -15,6 +15,24 @@
             android:name=".TagInspectorActivity"
             android:exported="false"/>
         <activity
+            android:name=".BridgeLinkActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="dorm-os-dk9.pages.dev" android:path="/assistant/"/>
+                <data android:scheme="https" android:host="dorm.0701000.xyz" android:path="/assistant/"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="dormos" android:host="assistant" android:path="/open"/>
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".ManagerActivity"
             android:exported="true">
             <intent-filter>

@@ -1,5 +1,5 @@
-const CACHE='dorm-os-shell-v3.4-png1';
-const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE='dorm-os-shell-v3.7-assistant';
+const ASSETS=['/','/assistant/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
 self.addEventListener('fetch',e=>{
@@ -8,7 +8,7 @@ self.addEventListener('fetch',e=>{
   const u=new URL(r.url);
   if(u.origin!==self.location.origin)return;
   if(r.mode==='navigate'){
-    e.respondWith(fetch(r).then(resp=>{if(resp.ok){const clone=resp.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put('/',clone)));}return resp;}).catch(()=>caches.match('/')));
+    e.respondWith(fetch(r).then(resp=>{if(resp.ok){const clone=resp.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put(u.pathname==='/assistant/'?'/assistant/':'/',clone)));}return resp;}).catch(()=>caches.match(u.pathname==='/assistant/'?'/assistant/':'/')));
     return;
   }
   if(ASSETS.includes(u.pathname))e.respondWith(caches.match(r).then(hit=>hit||fetch(r)));

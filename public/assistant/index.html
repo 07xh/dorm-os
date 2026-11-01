@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fc">
+  <title>打开 DORM NFC Manager · DORM OS</title>
+  <style>
+    :root{font:16px/1.55 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;color:#1e293b;background:#f6f8fc}
+    *{box-sizing:border-box}body{min-height:100vh;display:grid;place-items:center;margin:0;padding:20px}
+    main{max-width:420px;width:100%;border:1px solid #e2e8f0;border-radius:20px;background:white;padding:26px;box-shadow:0 16px 45px #0f172a0a}
+    h1{font-size:22px;margin:0 0 8px}p{color:#64748b;margin:0 0 18px}
+    a{display:block;padding:13px 16px;border-radius:12px;text-align:center;text-decoration:none;font-weight:600}
+    #launch{background:#2563eb;color:white;margin:18px 0 10px}.secondary{color:#334155;background:#f1f5f9}
+    .small{font-size:13px;margin-top:16px}.error{color:#b91c1c}
+    a:focus-visible{outline:3px solid #60a5fa;outline-offset:3px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>打开 DORM NFC Manager</h1>
+    <p id="description">从 DORM OS 网站继续管理本机 NFC 与 KernelSU 脚本。</p>
+    <a id="launch" href="#" hidden>手动打开 Android 助手</a>
+    <a class="secondary" href="/#devices">返回 DORM OS</a>
+    <p class="small" id="hint">需要在已安装 DORM NFC Manager 的 Android 手机上操作。网站不会执行 Root 脚本。</p>
+  </main>
+  <script>
+    const params=new URLSearchParams(location.search);
+    const values=['none','study','rest','dev','away'];
+    const scene=params.get('scene');
+    const valid=params.size===1 && scene!==null && values.includes(scene);
+    const launch=document.getElementById('launch');
+    if(valid){
+      const labels={none:'管理',study:'学习',rest:'休息',dev:'开发',away:'出门'};
+      document.getElementById('description').textContent='准备打开本机助手 · '+labels[scene]+'场景。需在 App 内确认，不会自动执行 Root 脚本。';
+      launch.href='dormos://assistant/open?scene='+encodeURIComponent(scene);
+      launch.hidden=false;
+    }else{
+      document.getElementById('description').textContent='场景链接无效，已拒绝自动唤起。';
+      document.getElementById('description').className='error';
+      document.getElementById('hint').textContent='请从 DORM OS 网站重新选择场景进入。';
+    }
+  </script>
+</body>
+</html>
