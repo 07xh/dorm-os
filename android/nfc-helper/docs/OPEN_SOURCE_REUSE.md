@@ -28,7 +28,7 @@
 
 登录功能仍需要校内真实 `loadConfig` 响应、`a40.js` 以及本人正常认证过程的脱敏成功请求；同时验证认证状态与通过 Ncwu Wi-Fi 的公网连接，并确认密码传输方式符合安全要求。
 
-## V0.8 测试依赖补充
+## V0.8.1 测试依赖补充
 
 - `org.json:json:20240303` 仅为 JVM 单元测试提供真实 JSON 实现，许可证为 Public Domain；应用运行时使用 Android 平台自带 `org.json`，不会把该 Maven 依赖打进 APK。
 - 依赖声明位于 `android/nfc-helper/app/build.gradle.kts` 的 `testImplementation`，不是 `implementation`。
