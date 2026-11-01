@@ -338,7 +338,7 @@ private fun ManagerScreen(
                             }
                             1 -> "实用工具"
                             2 -> "我的场景"
-                            else -> "设备设置"
+                            else -> "我的场景"
                         },
                         color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold
                     )
@@ -348,22 +348,28 @@ private fun ManagerScreen(
                             0 -> "DORM OS · NFC 助手"
                             1 -> "脚本、标签读写集中管理"
                             2 -> "按 NFC 标签组织你的 SH 自动化"
-                            else -> "权限、执行记录与配置"
+                            else -> "按触发方式组织你的 NFC 自动化"
                         },
                         color = dim, fontSize = 12.sp
                     )
                 }
                 Surface(
-                    onClick = { if (current == 3) current = 0 else current = 3 },
+                    onClick = {
+                        when (current) {
+                            0 -> showThemeSheet = true
+                            1 -> showLogsSheet = true
+                            2 -> beginSceneCreation()
+                        }
+                    },
                     color = Color.White,
                     shape = RoundedCornerShape(15.dp),
                     border = BorderStroke(1.dp, paleBorder)
                 ) {
                     Box(Modifier.size(43.dp), contentAlignment = Alignment.Center) {
-                        if (current == 3) {
-                            Text("‹", color = ink, fontSize = 26.sp)
-                        } else {
-                            V2SettingsIcon(ink)
+                        when (current) {
+                            0 -> V2SettingsIcon(ink)
+                            1 -> Text("☷", color = ink, fontSize = 22.sp)
+                            else -> Text("+", color = ink, fontSize = 25.sp)
                         }
                     }
                 }
@@ -372,21 +378,18 @@ private fun ManagerScreen(
             val nfcEnabledNow =
                 NfcAdapter.getDefaultAdapter(androidx.compose.ui.platform.LocalContext.current)
                     ?.isEnabled == true
-            val sceneBindings = bindings.lineSequence().mapNotNull { line ->
-                val parts = line.split('|')
-                if (parts.size != 2 || !NfcProfiles.validId(parts[0])) null
-                else parts[0] to (entries.firstOrNull { it.id == parts[1] }?.name ?: "未知脚本")
-            }.toList()
+            val scriptNames = entries.associate { it.id to it.name }
+            val homeScenes = scenes.filter { it.enabled }.map { it.tagId to it.name }
             when (current) {
                 0 -> {
                     V2Home(
                         nfcOn = nfcEnabledNow,
                         rootReady = installed,
                         rootHint = status,
-                        scenes = sceneBindings,
+                        scenes = homeScenes,
                         onScan = openTagInspector,
                         onScenes = { current = 2 },
-                        onScene = { tagId, scriptName -> selectedTag = tagId to scriptName }
+                        onScene = { tagId, _ -> selectedScene = scenes.firstOrNull { it.tagId == tagId } }
                     )
                 }
                 1 -> {
@@ -518,7 +521,10 @@ private fun ManagerScreen(
                 }
                 2 -> {
                     V2Scenes(
-                        scenes = sceneBindings,
+                        scenes = scenes,
+                        scriptNames = scriptNames,
+                        filter = sceneFilter,
+                        onFilter = { sceneFilter = it },
                         enabled = receiverEnabled,
                         rootReady = installed,
                         busy = loading,
@@ -527,43 +533,9 @@ private fun ManagerScreen(
                                 if (it.success) { receiverEnabled = on; refresh() }
                             }
                         },
-                        onNew = {
-                            if (entries.isEmpty()) {
-                                current = 1
-                                openEditor(null)
-                            } else {
-                                chooseSceneScript = true
-                            }
-                        },
-                        onOpen = { tagId, scriptName -> selectedTag = tagId to scriptName }
+                        onNew = { beginSceneCreation() },
+                        onOpen = { scene, _ -> selectedScene = scene }
                     )
-                }
-                else -> {
-                    Section("个人配置") {
-                        SummaryRow("⌘", "Root 框架", "仅支持 KernelSU", if (installed) "正常" else "未连接") { refresh() }
-                        HorizontalDivider(color = canvas)
-                        SummaryRow("◉", "NFC 状态", "由 Android NFC 系统分发", if (receiverEnabled) "已开启" else "已关闭") { current = 2 }
-                        HorizontalDivider(color = canvas)
-                        SummaryRow("▤", "执行记录", "只保留时间、脚本 ID 和结果", "›") { output = logs.ifBlank { "暂无记录" } }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Section("最近执行输出") { Text(output.takeLast(9000), color = dim, fontSize = 12.sp) }
-                    Spacer(Modifier.height(12.dp))
-                    Section("执行日志（最近 80 条）") {
-                        Text(ExecutionLogFormatter.format(logs, entries),
-                            color = dim, fontSize = 12.sp)
-                        TextButton(onClick = { confirmClearLogs = true }, enabled = !loading) { Text("清空日志") }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Section("Android 16 / 耗电验证") {
-                        Text("事件驱动，无模块后台轮询；本机待机耗电尚未测量。", color = dim, fontSize = 13.sp)
-                        Text("请检查系统特殊应用权限中的「通过 NFC 启动」，并分别实测锁屏与息屏触发。", color = dim, fontSize = 12.sp)
-                        TextButton(onClick = openNfcPreferences) { Text("打开 NFC 启动权限设置") }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = { refresh() }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                        Text("刷新模块状态")
-                    }
                 }
             }
         }
