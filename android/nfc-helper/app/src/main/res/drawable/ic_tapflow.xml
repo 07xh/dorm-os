@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Compact blue / white NFC + T brand mark; no gradients or tiny lettering. -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M0,0H108V108H0Z"/>
+    <!-- T / Tap: a strong silhouette at launcher icon sizes. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M26,32 H65 Q69,32 69,36 V40 Q69,44 65,44 H52 V77 Q52,81 48,81 H44 Q40,81 40,77 V44 H26 Q22,44 22,40 V36 Q22,32 26,32 Z"/>
+    <!-- Contactless signal, deliberately only two arcs. -->
+    <path
+        android:pathData="M69,53 Q75,58 75,65"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M73,38 Q87,48 87,65"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"/>
+</vector>
