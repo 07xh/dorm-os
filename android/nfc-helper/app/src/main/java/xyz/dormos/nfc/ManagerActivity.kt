@@ -16,8 +16,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
@@ -39,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -160,13 +159,6 @@ class ManagerActivity : ComponentActivity() {
         if (::inlineNdefWriter.isInitialized) inlineNdefWriter.onPause()
         super.onPause()
     }
-}
-
-private fun tabNavigationOrder(tab: Int): Int = when (tab) {
-    0 -> 0 // Home
-    2 -> 1 // Scenes
-    1 -> 2 // Tools
-    else -> tab
 }
 
 @Composable
@@ -600,28 +592,44 @@ private fun ManagerScreen(
         }
     }
     Column(Modifier.fillMaxSize().background(pageCanvas).statusBarsPadding()) {
+        // Resolve page data once per state change, not once for each outgoing
+        // and incoming AnimatedContent instance during a rapid tab switch.
+        val nfcAdapter = remember(context) { NfcAdapter.getDefaultAdapter(context) }
+        val nfcEnabledNow = nfcAdapter?.isEnabled == true
+        val scriptNames = remember(entries) { entries.associate { it.id to it.name } }
+        val homeScenes = remember(scenes, scriptNames) {
+            scenes.filter { it.enabled }.map { scene ->
+                Triple(scene.tagId, scene.name, scriptNames[scene.scriptId] ?: "未知脚本")
+            }
+        }
+        val shownScripts = remember(entries, scriptLocations, showFolders, query, activeFolder, folders) {
+            val folderNames = folders.associate { it.id to it.name }
+            entries.filter { item ->
+                val location = scriptLocations[item.id] ?: "root"
+                (!showFolders || query.isNotBlank() || location == activeFolder) &&
+                    (item.name.contains(query, ignoreCase = true) ||
+                     folderNames[location]?.contains(query, ignoreCase = true) == true)
+            }
+        }
         AnimatedContent(
             targetState = current,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).clipToBounds(),
+            contentAlignment = Alignment.TopStart,
+            contentKey = { it },
             transitionSpec = {
-                // Use visible order (Home → Scenes → Tools), not internal IDs (0, 2, 1).
+                // Short, interruptible motion: avoid a scale layer on the full
+                // screen so quick taps stay light on mid-range Android devices.
                 val forwards = tabNavigationOrder(targetState) > tabNavigationOrder(initialState)
                 val easing = FastOutSlowInEasing
-                val enter = fadeIn(tween(220, easing = easing)) +
+                val enter = fadeIn(tween(175, easing = easing)) +
                     slideInHorizontally(
-                        initialOffsetX = { width -> if (forwards) width / 5 else -width / 5 },
-                        animationSpec = tween(260, easing = easing)
-                    ) + scaleIn(
-                        initialScale = 0.985f,
-                        animationSpec = tween(260, easing = easing)
+                        initialOffsetX = { width -> if (forwards) width / 6 else -width / 6 },
+                        animationSpec = tween(215, easing = easing)
                     )
-                val exit = fadeOut(tween(170, easing = easing)) +
+                val exit = fadeOut(tween(135, easing = easing)) +
                     slideOutHorizontally(
-                        targetOffsetX = { width -> if (forwards) -width / 12 else width / 12 },
-                        animationSpec = tween(220, easing = easing)
-                    ) + scaleOut(
-                        targetScale = 0.995f,
-                        animationSpec = tween(220, easing = easing)
+                        targetOffsetX = { width -> if (forwards) -width / 14 else width / 14 },
+                        animationSpec = tween(185, easing = easing)
                     )
                 enter togetherWith exit
             },
@@ -689,15 +697,6 @@ private fun ManagerScreen(
                 }
             }
             Spacer(Modifier.height(24.dp))
-            val nfcEnabledNow =
-                NfcAdapter.getDefaultAdapter(androidx.compose.ui.platform.LocalContext.current)
-                    ?.isEnabled == true
-            val scriptNames = remember(entries) { entries.associate { it.id to it.name } }
-            val homeScenes = remember(scenes, scriptNames) {
-                scenes.filter { it.enabled }.map { scene ->
-                    Triple(scene.tagId, scene.name, scriptNames[scene.scriptId] ?: "未知脚本")
-                }
-            }
             when (visibleTab) {
                 0 -> {
                     V2Home(
@@ -827,15 +826,7 @@ private fun ManagerScreen(
                             }
                     }
                     Spacer(Modifier.height(10.dp))
-                    val shown = remember(entries, scriptLocations, showFolders, query, activeFolder, folders) {
-                        val folderNames = folders.associate { it.id to it.name }
-                        entries.filter { item ->
-                            val location = scriptLocations[item.id] ?: "root"
-                            (!showFolders || query.isNotBlank() || location == activeFolder) &&
-                                (item.name.contains(query, ignoreCase = true) ||
-                                 folderNames[location]?.contains(query, ignoreCase = true) == true)
-                        }
-                    }
+                    val shown = shownScripts
                     Surface(
                         color = p.surface,
                         shape = RoundedCornerShape(19.dp),
