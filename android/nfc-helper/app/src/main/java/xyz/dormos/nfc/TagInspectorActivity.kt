@@ -131,7 +131,7 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 status = "已感应标签，正在读取 NDEF 内容"
             }
         }
-        val scanned = try { inspect(tag) } catch (e: Exception) {
+        val scanned = try { NfcTagReader.inspect(tag) } catch (e: Exception) {
             ReadReport(
                 tag.techList.map { it.substringAfterLast('.') }.joinToString(" / "),
                 "读取失败", null, null, emptyList(),
@@ -149,47 +149,7 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         }
     }
 
-    private fun inspect(tag: Tag): ReadReport {
-        val technologies = tag.techList.map { it.substringAfterLast('.') }
-            .take(12).joinToString(" / ")
-        val ndef = Ndef.get(tag) ?: return ReadReport(
-            technologies, "无 NDEF", null, null, emptyList(),
-            NfcFailureFeedback.noNdef(NdefFormatable.get(tag) != null)
-        )
-        ndef.connect()
-        return try {
-            val message = ndef.ndefMessage
-            val usedBytes = message?.toByteArray()?.size
-            val allRecords = message?.records ?: emptyArray()
-            val items = allRecords.take(24).mapIndexed { index, record ->
-                val uri = try { record.toUri()?.toString() } catch (_: Exception) { null }
-                val isText = record.tnf == NdefRecord.TNF_WELL_KNOWN &&
-                    record.type.contentEquals(NdefRecord.RTD_TEXT)
-                val preview = when {
-                    isText -> NdefTextPayload.decode(record.payload)
-                    uri != null -> uri
-                    else -> null
-                }?.take(400)
-                val type = when {
-                    isText -> "文本"
-                    uri != null -> "链接 / URI"
-                    record.tnf == NdefRecord.TNF_MIME_MEDIA -> {
-                        val mime = String(record.type, StandardCharsets.US_ASCII)
-                        if (NfcProfiles.isSupportedMime(mime)) "DORM 自动化标签"
-                        else mime.take(90)
-                    }
-                    else -> "记录类型 " + record.tnf.toString()
-                }
-                ReadRecord(index + 1, type, preview, record.payload.size)
-            }
-            ReadReport(
-                technologies, ndef.type ?: "NDEF", ndef.isWritable,
-                ndef.maxSize, items, null, allRecords.size, usedBytes
-            )
-        } finally {
-            try { ndef.close() } catch (_: Exception) {}
-        }
-    }
+
 }
 
 internal object NdefTextPayload {
