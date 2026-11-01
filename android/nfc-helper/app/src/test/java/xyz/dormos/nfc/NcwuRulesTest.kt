@@ -38,11 +38,23 @@ class NcwuRulesTest {
         assertFalse(NcwuRules.isSingleTargetWifi("Ncwu", 2))
     }
 
-    @Test fun diagnosticsNeverBypassVpnOrMobileDefaultRoute() {
-        assertTrue(NcwuRules.mayProbeActiveNetwork(isWifiTransport = true, hasInternetCapability = true))
-        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = false, hasInternetCapability = true))
-        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = true, hasInternetCapability = false))
-        assertFalse(NcwuRules.mayProbeActiveNetwork(isWifiTransport = false, hasInternetCapability = false))
+    @Test fun networkProbeDecisionIsFailClosedForVpnMobileAndCaptivePortal() {
+        assertEquals(
+            NcwuRules.ProbeDecision.STOP_NOT_WIFI,
+            NcwuRules.probeDecision(false, true, true)
+        )
+        assertEquals(
+            NcwuRules.ProbeDecision.STOP_NO_INTERNET,
+            NcwuRules.probeDecision(true, false, true)
+        )
+        assertEquals(
+            NcwuRules.ProbeDecision.MANUAL_PORTAL,
+            NcwuRules.probeDecision(true, true, true)
+        )
+        assertEquals(
+            NcwuRules.ProbeDecision.PROBE_HTTPS,
+            NcwuRules.probeDecision(true, true, false)
+        )
     }
 
     @Test fun captiveRedirectIsNeverHttpsSuccess() {
