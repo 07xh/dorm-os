@@ -239,6 +239,50 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 .v4-nfc-details{max-width:100%;margin:13px 0}.v4-nfc-details .v4-nfc-details-content{padding:14px;background:var(--surface2)}.v4-nfc-details-content .card{box-shadow:none;margin:0}.v4-nfc-details-content>.card{width:100%}.v4-nfc-details-content .nfc-guide{padding:15px}
 @media(max-width:790px){.v4-import-panel{right:0;left:auto}.v4-nfc-details-content .nfc-guide{padding:14px}}
 
+
+/* V4.1 UI: five consistent areas, mobile-first action layouts */
+.header-action[hidden]{display:none!important}
+.v41-study-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px}
+.v41-study-head h1{font-size:clamp(24px,3vw,31px);margin:0 0 5px;color:var(--text)}
+.v41-study-head p{margin:0;color:var(--muted);font-size:13px}
+.v41-study-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.v41-study-panel{min-width:0}.v41-study-panel .card-header{display:flex;align-items:center;gap:8px}
+.v41-study-panel .card-title small{color:var(--muted);font-weight:500}
+.v41-study-panel .task-item{padding:10px 0}
+.v41-study-foot{font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin:14px 0 0}
+.v41-study-more{margin-top:17px;border:1px solid var(--border);border-radius:17px;background:var(--surface);overflow:hidden;display:grid}
+.v41-more-link{display:flex;align-items:center;gap:14px;min-height:68px;background:transparent;color:var(--text);border:0;border-bottom:1px solid var(--border);text-align:left;padding:12px 17px}
+.v41-more-link:last-child{border-bottom:0}.v41-more-link>span:first-child{font-size:24px;color:var(--blue);min-width:31px;text-align:center}
+.v41-more-link>span:nth-child(2){display:grid;gap:3px;flex:1}.v41-more-link strong{font-size:14px}.v41-more-link small{color:var(--muted);font-size:12px}
+.v41-more-link b{font-size:24px;color:var(--muted);font-weight:400}.v41-more-link:hover{background:var(--surface2)}
+.v41-nfc-scan{padding:24px;margin-bottom:14px;background:var(--surface);border:1px solid var(--border)}
+.v41-nfc-scan-head{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.v41-nfc-scan h2{font-size:19px;color:var(--text);margin:0 0 7px}.v41-nfc-scan p{margin:0}
+.v41-nfc-scan-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:16px 0 12px}
+.v41-scan-button{min-width:156px;font-weight:760;font-size:14px;min-height:45px}
+.v41-scan-feedback{font-size:13px;color:var(--muted);padding:10px 13px;background:var(--surface2);border-radius:11px;min-height:40px;overflow-wrap:anywhere}
+.v41-nfc-list .card-header{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.v41-nfc-list .tag-entry{padding:15px 0;border-bottom:1px solid var(--border)}.v41-nfc-list .tag-entry:last-child{border-bottom:0}
+.v41-tag-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.v41-tag-actions>.primary,.v41-tag-actions>.secondary{min-height:41px}
+.v41-tag-more{position:relative}.v41-tag-more summary{list-style:none;cursor:pointer;min-height:41px;display:grid;place-items:center;border-radius:10px;padding:8px 11px;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:650}
+.v41-tag-more summary::-webkit-details-marker{display:none}.v41-tag-more[open] summary{background:var(--surface2)}
+.v41-tag-menu{position:absolute;z-index:12;right:0;top:calc(100% + 6px);min-width:168px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:7px;display:grid;gap:5px;box-shadow:0 14px 35px #12305522}
+.v41-tag-menu button{width:100%;min-height:39px;text-align:left;font-size:12px}
+.v41-nfc-link{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted);margin:12px 2px 17px}
+.nfc-overview{padding:13px 18px!important;margin:0 0 14px!important;box-shadow:none!important}
+.nfc-overview .nfc-overview-title{margin-bottom:6px}.nfc-overview .nfc-overview-title .small,.nfc-overview-foot{display:none}
+.nfc-overview .nfc-stats{gap:8px}.nfc-overview .nfc-stat{min-height:55px;padding:8px}.nfc-overview .nfc-stat b{font-size:19px}
+.v4-hero{min-height:178px;padding:19px 25px}.v4-hero h1{font-size:22px}.v4-hero-clock{font-size:36px;margin:6px 0 8px}
+@media(max-width:790px){
+ .v41-study-grid{grid-template-columns:1fr;gap:12px}.v41-study-head{align-items:flex-start}.v41-study-head .primary{white-space:nowrap;padding:11px}
+ .v41-nfc-scan{padding:18px}.v41-nfc-scan-actions{gap:7px}.v41-scan-button{flex:1;min-width:120px}.v41-nfc-scan-actions .secondary{padding:10px}
+ .v41-nfc-list{padding:14px}.v41-nfc-list .tag-entry{display:grid;grid-template-columns:auto 1fr;gap:8px 12px}.v41-tag-actions{grid-column:1/-1}
+ .v41-tag-menu{right:0;max-width:min(220px,75vw)}
+ .v4-hero{min-height:170px;padding:19px}.v4-hero-orbit{opacity:.5}
+ .v41-nfc-link{align-items:flex-start}
+}
+@media(max-width:380px){.v41-study-head .primary{font-size:12px;padding:10px}.v41-nfc-scan-head{align-items:flex-start}.v41-nfc-list .card-header .primary{padding:10px;font-size:12px}}
+
 </style>
   <title>DORM OS · 个人生活与 NFC 场景</title>
 </head>
@@ -249,12 +293,12 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
     <div class="side-caption">WORKSPACE</div>
     <nav class="main-nav" id="sidebarNav" aria-label="主导航">
       <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol" aria-hidden="true">⌂</span> 首页</button>
-      <button type="button" data-page="timetable" class="nav-link"><span class="nav-symbol" aria-hidden="true">▦</span> 课表</button>
-      <button type="button" data-page="tasks" class="nav-link"><span class="nav-symbol" aria-hidden="true">☑</span> 任务</button>
-      <button type="button" data-page="scenes" class="nav-link"><span class="nav-symbol" aria-hidden="true">◇</span> 场景</button>
+      <button type="button" data-page="study" class="nav-link"><span class="nav-symbol" aria-hidden="true">▦</span> 学习</button>
+      <button type="button" data-page="nfc" class="nav-link"><span class="nav-symbol" aria-hidden="true">◉</span> NFC</button>
+      <button type="button" data-page="life" class="nav-link"><span class="nav-symbol" aria-hidden="true">✦</span> 生活</button>
       <button type="button" data-page="profile" class="nav-link"><span class="nav-symbol" aria-hidden="true">♙</span> 我的</button>
     </nav>
-<div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先 · 无账号上传</span></div><p>课程和任务保存在当前浏览器。<br>不同设备尚未自动同步。</p><span class="version">DORM OS V4 · PERSONAL</span></div>
+<div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先</span></div><p>数据保存在此浏览器</p><span class="version">DORM OS V4 · PERSONAL</span></div>
   </aside>
   <div class="workspace">
     <header class="topbar">
@@ -265,9 +309,9 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
     <main id="app" tabindex="-1"></main>
     <nav class="mobile-tabs" aria-label="手机主导航">
       <button type="button" data-page="dashboard"><span aria-hidden="true">⌂</span>首页</button>
-      <button type="button" data-page="timetable"><span aria-hidden="true">▦</span>课表</button>
-      <button type="button" data-page="tasks"><span aria-hidden="true">☑</span>任务</button>
-      <button type="button" data-page="scenes"><span aria-hidden="true">◇</span>场景</button>
+      <button type="button" data-page="study"><span aria-hidden="true">▦</span>学习</button>
+      <button type="button" data-page="nfc"><span aria-hidden="true">◉</span>NFC</button>
+      <button type="button" data-page="life"><span aria-hidden="true">✦</span>生活</button>
       <button type="button" data-page="profile"><span aria-hidden="true">♙</span>我的</button>
     </nav>
   </div>
@@ -489,7 +533,7 @@ function log(text){state.events.push({at:new Date().toISOString(),text});state.e
 function toast(message){const node=$('toast');node.textContent=message;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),3400);}
 function download(name,content,type='application/json'){const blob=new Blob([content],{type:`${type};charset=utf-8`});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 const now=()=>chinaParts();
-const nameMap={dashboard:'首页',timetable:'课表',campus:'校园服务',tasks:'任务',scenes:'场景',profile:'我的',devices:'设备',settings:'设置与备份',nfc:'NFC 标签',life:'生活'};
+const nameMap={dashboard:'首页',study:'学习',timetable:'课表',campus:'校园服务',tasks:'任务',scenes:'场景',profile:'我的',devices:'设备',settings:'设置与备份',nfc:'NFC 标签',life:'生活'};
 function globalSearchIndex(){
  const rows=[];
  const add=(type,id,title,detail,pageName,extra='',editable=false)=>{const searchable=[title,detail,extra].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN');rows.push({type,id:String(id),title,detail,pageName,searchable,editable});};
@@ -644,6 +688,23 @@ function saveSceneLinkForm(d) {
   $('editor').close();render();toast('快捷入口已保存');
 }
 function sceneButtons(){return `<div class="scene-row v4-scene-grid">${sceneDefs.map(x=>`<button type="button" class="scene-btn ${state.scene===x.id?'selected':''}" data-scene="${x.id}" aria-pressed="${state.scene===x.id}"><b aria-hidden="true">${x.icon}</b><span>${esc(x.label.replace('模式',''))}</span></button>`).join('')}</div>`;}
+function studyPage(){
+ const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time);
+ const pending=state.tasks.filter(item=>!item.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+ return `<div class="v41-study-head"><div><h1>学习中心</h1><p>今天的课程与任务</p></div><button type="button" class="primary" data-action="add-task">＋ 新增任务</button></div>
+ <div class="v41-study-grid">
+  <section class="card v41-study-panel"><div class="card-header"><span class="card-title">今日课程</span><button type="button" class="action-link" data-page="timetable">完整课表 ›</button></div>
+   ${today.length?today.slice(0,4).map(classRow).join(''):'<div class="friendly-empty">今天还没有登记课程。</div>'}
+   ${next?`<p class="v41-study-foot">下一节：${esc(next.subject)} · ${esc(next.start)}</p>`:''}
+  </section>
+  <section class="card v41-study-panel"><div class="card-header"><span class="card-title">待完成任务 <small>${pending.length} 项</small></span><button type="button" class="action-link" data-page="tasks">全部任务 ›</button></div>
+   ${pending.length?pending.slice(0,4).map(t=>taskRow(t,false)).join(''):'<div class="friendly-empty">待办已清空，可添加新的学习任务。</div>'}
+  </section>
+ </div>
+ <section class="v41-study-more"><button type="button" class="v41-more-link" data-page="timetable"><span aria-hidden="true">▦</span><span><strong>课表管理</strong><small>课程编辑、CSV / ICS 导入</small></span><b aria-hidden="true">›</b></button>
+ <button type="button" class="v41-more-link" data-page="tasks"><span aria-hidden="true">☑</span><span><strong>任务中心</strong><small>截止日、完成状态和日历导出</small></span><b aria-hidden="true">›</b></button>
+ <button type="button" class="v41-more-link" data-page="campus"><span aria-hidden="true">🎓</span><span><strong>校园服务</strong><small>已收藏的学校服务入口</small></span><b aria-hidden="true">›</b></button></section>`;
+}
 function timetable(){const p=now();return `${titleBlock('YOUR WEEKLY SCHEDULE','我的课表','先建立真实的课程与教室信息；没有课程时不做假排课。')}<div class="toolbar"><div class="small muted">按周重复 · 当前校区：${esc(CAMPUSES[state.settings.campus].name)}</div><div class="button-row"><details class="v4-import-tools"><summary>导入课表 ›</summary><div class="v4-import-panel"><button type="button" data-action="csv-template" class="secondary">CSV 模板</button><button type="button" data-action="csv-import" class="secondary">导入 CSV</button><button type="button" data-action="ics-import" class="secondary">导入 .ics</button></div></details></div></div><div class="weekday-grid">${[1,2,3,4,5,6,0].map(d=>{const arr=classForDay(state.classes,d);return `<section class="weekday ${p.day===d?'today':''}"><div class="weekday-title">${WEEKDAYS[d]} ${p.day===d?badge('今天','green'):''}</div>${arr.length?arr.map(c=>`<div class="class-card"><strong>${esc(c.subject)}</strong><div class="class-time">${esc(c.start)}–${esc(c.end)}</div><div class="tiny">${esc(c.location||'未填教室')}</div><button type="button" data-class-edit="${esc(c.id)}">编辑</button> · <button type="button" data-class-delete="${esc(c.id)}">删除</button></div>`).join(''):'<span class="week-empty">暂无课程</span>'}</section>`;}).join('')}</div><section class="card" style="margin-top:18px"><div class="card-header"><span class="card-title">来自教务助手的日期课程</span>${badge(`${state.calendarEvents.length} 条 · 精确日期`)}</div>${calendarPreview(12)}<p class="tiny muted">这些是按具体日期导入的事件，不会自动推断为每周固定课程。</p></section><div class="notice neutral" style="margin-top:18px">说明：可导入本网站提供的标准 CSV（星期、课程、开始、结束、教室）。这不是 SleepDown 原生备份解析器，暂不保证直接读取 .sleepdown 文件。</div>`;}
 function calendarPreview(limit=8){
   const t=now();const entries=upcomingCalendar(state.calendarEvents,t.date,t.time,limit);
@@ -792,28 +853,24 @@ function renderNfcTagList(){
  if(!state.nfcTags.length)return `<div class='friendly-empty'>还没有注册标签。<span>点击「添加标签」，为自己的 NFC 贴纸起个名字。</span></div>`;
  const tags=state.nfcTags.filter(t=>nfcTagFilter==='all'||nfcTagHealth(t).key===nfcTagFilter);
  if(!tags.length)return `<div class='friendly-empty'>这个状态下暂无标签。<span>选择「全部」查看其他已登记标签。</span></div>`;
- return tags.map(t=>{const s=nfcTagHealth(t);return `<div class='tag-entry' data-tag-status='${s.key}'><div class='tag-icon' aria-hidden='true'>◉</div><div class='tag-info'><strong>${esc(t.name)}</strong><span class='tag-scene'>${esc(sceneLabel(t.scene))} · ${badge(s.label,s.tone)}</span><small>${esc(s.detail)}</small></div><div class='tag-operations'><button class='secondary' type='button' data-tag-edit='${esc(t.id)}'>编辑</button><button class='secondary' type='button' data-tag-write='${esc(t.id)}' ${nfc.writeController||nfc.controller?'disabled':''}>${s.key==='rewrite'?'重新写入':'写入'}</button><button class='secondary' type='button' data-tag-copy='${esc(t.id)}'>复制链接</button><button class='secondary' type='button' data-tag-test='${esc(t.id)}'>测试网页链接</button><button class='action-link danger-btn' type='button' data-tag-delete='${esc(t.id)}' aria-label='删除 ${esc(t.name)}'>删除</button></div></div>`;}).join('');}
+ return tags.map(t=>{const s=nfcTagHealth(t);return `<div class='tag-entry' data-tag-status='${s.key}'><div class='tag-icon' aria-hidden='true'>◉</div><div class='tag-info'><strong>${esc(t.name)}</strong><span class='tag-scene'>${esc(sceneLabel(t.scene))} · ${badge(s.label,s.tone)}</span><small>${esc(s.detail)}</small></div><div class='tag-operations v41-tag-actions'><button class='primary' type='button' data-tag-write='${esc(t.id)}' ${nfc.writeController||nfc.controller?'disabled':''}>${s.key==='rewrite'?'重新写入':'写入标签'}</button><button class='secondary' type='button' data-tag-edit='${esc(t.id)}'>编辑</button><details class='v41-tag-more'><summary aria-label='更多 ${esc(t.name)} 操作'>更多 ›</summary><div class='v41-tag-menu'><button class='secondary' type='button' data-tag-copy='${esc(t.id)}'>复制链接</button><button class='secondary' type='button' data-tag-test='${esc(t.id)}'>测试网页链接</button><button class='secondary danger-btn' type='button' data-tag-delete='${esc(t.id)}' aria-label='删除 ${esc(t.name)}'>删除标签</button></div></details></div></div>`;}).join('');}
 function nfcRecentActivity(){const entries=state.events.filter(e=>/NFC|标签/.test(e.text)).slice(-6).reverse();
  return `<section class='card nfc-guide' aria-label='NFC 本地操作记录'><div class='card-header'><span class='card-title'>最近操作记录</span>${badge('当前浏览器')}</div>${entries.length?`<ol class='nfc-activity'>${entries.map(e=>`<li><time>${esc(e.at.slice(0,16).replace('T',' '))}</time><span>${esc(e.text)}</span></li>`).join('')}</ol>`:`<p class='small muted'>暂无 NFC 操作记录。登记、改绑、写入和读取后会显示相应记录。</p>`}<p class='tiny muted'>这些是网站记录，不代表 Android 系统或第三方应用已执行动作。可在设置中导出备份。</p></section>`;}
 function nfcPage(){
  const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
  const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
- return `${titleBlock('NFC / PERSONAL AUTOMATION','我的 NFC 标签','用自己的 NFC 标签触发学习、休息或出门场景。网页绑定与手机系统自动化是两回事。',badge(state.nfcTags.length+' 枚标签'))}
+ return `${titleBlock('','NFC 标签','',badge(state.nfcTags.length+' 枚'))}
  
+ <section class="card v41-nfc-scan"><div class="v41-nfc-scan-head"><div><h2>读取 NFC 标签</h2><p class="small muted">手机浏览器前台授权后，将标签靠近手机背面。</p></div>${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</div>
+  <div class="v41-nfc-scan-actions"><button type="button" class="primary v41-scan-button" data-action="nfc-start" ${supported.ok&&!nfc.controller&&!nfc.writeController?'':'disabled'}>◉ 开始扫描</button><button class="secondary" type="button" data-action="nfc-stop" ${nfc.controller?'':'disabled'}>停止</button><button class="secondary" type="button" data-action="nfc-cancel-write" ${nfc.writeController?'':'disabled'}>取消写入</button></div>
+  <div class="v41-scan-feedback" role="status" aria-live="polite">${esc(nfc.message)}</div>
+  ${supported.ok?'':`<p class="small muted">当前环境：${esc(supported.reason)}</p>`}
+ </section>
  ${nfcOverview()}
- <div class="nfc-grid">
-  <section class="card nfc-card"><div class="card-header"><span class="card-title">我的标签</span></div>
-    ${nfcFilterBar()}
-    ${renderNfcTagList()}
-   
-  </section>
-  <section class="card nfc-card"><div class="card-header"><span class="card-title">网页 NFC 扫描与验证</span>${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</div>
-   <p class="small muted">${esc(supported.reason)}。扫描必须从按钮主动开始，保持网页在前台。</p>
-   <div class="button-row"><button type="button" class="primary" data-action="nfc-start" ${supported.ok&&!nfc.controller&&!nfc.writeController?'':'disabled'}>◉ 开始扫描</button><button class="secondary" type="button" data-action="nfc-stop" ${nfc.controller?'':'disabled'}>停止扫描</button><button class="secondary" type="button" data-action="nfc-cancel-write" ${nfc.writeController?'':'disabled'}>取消写入</button></div>
-   <div class="notice neutral" role="status" aria-live="polite">${esc(nfc.message)}</div>
-
-  </section>
- </div>
+ <section class="card v41-nfc-list"><div class="card-header"><span class="card-title">我的标签</span><button class="primary" type="button" data-action="tag-add">＋ 新增标签</button></div>
+ ${nfcFilterBar()}
+ ${renderNfcTagList()}</section>
+ <div class="v41-nfc-link"><span>场景设置和 NFC 标签分开管理</span><button type="button" class="action-link" data-page="scenes">查看场景 ›</button></div>
  <details class="v4-nfc-details"><summary>如何使用 NFC</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">三步绑定 · 真实使用</span></div><div class="guide-steps"><div><b>01</b><strong>注册标签</strong><small>名称和位置只保存在网站本地</small></div><div><b>02</b><strong>选择场景并写入</strong><small>把 DORM OS 链接写入可写 NDEF 标签</small></div><div><b>03</b><strong>手机触碰标签</strong><small>系统打开网页后切换网站场景</small></div></div>
  <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
 </div></details><details class="v4-nfc-details"><summary>浏览器兼容性与权限</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div></div></details><details class="v4-nfc-details"><summary>最近操作记录</summary><div class="v4-nfc-details-content">${nfcRecentActivity()}</div></details><details class="v4-nfc-details"><summary>Android 自动化配置说明</summary><div class="v4-nfc-details-content">${androidAutomationGuide(androidSceneSelection)}</div></details>` ;
@@ -911,7 +968,7 @@ function lifePage(){return `${titleBlock('DAILY / PERSONAL','我的生活','日�
  <section class="card wide"><div class="card-header"><span class="card-title">学习与日常</span></div><div class="button-row"><button class="secondary" data-page="timetable">我的课表 →</button><button class="secondary" data-page="tasks">学习任务 →</button><button class="secondary" type="button" data-action="export-deadlines">导出截止日 .ics</button><button class="secondary" data-page="campus">校园服务 →</button></div></section></div>`;}
 function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label>提醒内容</label><input name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label>日期（可选）</label><input type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
 function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label>物品名称</label><input name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label>存放位置（可选）</label><input name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
-function render(){const pages={dashboard,timetable,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===page;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class',nfc:'tag-add',life:'reminder-add'})[page]||'quick-add';quick.dataset.action=action;quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程',nfc:'添加 NFC 标签',life:'添加提醒'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
+function render(){const pages={dashboard,study:studyPage,timetable,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({timetable:'study',tasks:'study',campus:'study',scenes:'dashboard',devices:'profile',settings:'profile'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class',life:'reminder-add'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程',life:'添加提醒'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
 
 function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
 function tick(){const p=now();$('dateChip').textContent=`${p.month}月${p.dateNumber}日 · ${WEEKDAYS[p.day]}`;document.querySelectorAll('[data-clock]').forEach(x=>x.textContent=p.time);if($('timerDisplay'))$('timerDisplay').textContent=timerText();}

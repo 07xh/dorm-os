@@ -57,6 +57,7 @@ test('register NFC tag and follow its website scene URL',async({page})=>{
   expect(data.nfcTags).toHaveLength(1);
   expect(data.nfcTags[0].scene).toBe('study');
   await expect(page.locator('#app')).toContainText('未验证实体标签');
+  await page.locator('.tag-entry .v41-tag-more summary').click();
   await page.locator('[data-tag-test]').click();
   await expect(page).toHaveURL(/#scenes$/);
   expect((await saved(page)).scene).toBe('study');
