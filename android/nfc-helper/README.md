@@ -7,7 +7,7 @@
 - 原生 NFC NDEF MIME: application/vnd.dormos.ncwu，消息内容 v1:ncwu。扫描时只运行一次检查，不常驻。
 - 在用户明确确认覆盖后，可向自己的可写 NDEF 标签写入专用动作。标签不包含任何账号密码。
 - Android 网络 API 确认有 Wi-Fi 连接，读取 SSID，严格要求为 Ncwu；无法读取时停止。
-- 公网连通性请求使用该 Wi-Fi Network.openConnection，不会经移动数据假装成功。
+- 公网连通性请求只在 Android 当前 active default network 确认为 Ncwu Wi-Fi 时使用该 Network.openConnection；若系统默认路由为 VPN 或移动网络则停止，不主动绕过系统路由策略。
 - 网络不匹配、无权限、检测失败则安全退出；原生功能无需 Root。可选 KernelSU 脚本需手动启用，不存在开机服务、轮询或自动重试。
 - 不读取也不存储认证密码。压缩业务 JS 中的登录请求没有完成真实验证，暂不提供自动认证。
 
@@ -121,6 +121,9 @@
 ## V0.8 · 备份回归测试与稳定签名发布
 
 ### 新增自动化测试
+- 网络诊断仅探测系统 active default network；VPN/移动网络或无 INTERNET 能力时停止，避免为了探测而绕过用户路由策略。
+- KernelSU 固定 SH 合并 stdout/stderr，仅读取最多 2049 字符并对超过 2048 字符的输出判失败；不会把任意命令输出直接显示到界面。
+- Android 16 状态栏使用 WindowInsetsController；CI 同时构建 Debug 与无签名 Release 变体，验证 Release Gradle 配置。
 - 对本地 NFC 备份 JSON 执行往返测试，验证 UUID、动作和目标地址保持一致。
 - 拒绝错误文件类型/版本、非法 JSON、重复 UUID、未知 Shell 动作、含凭据参数的 HTTPS 地址。
 - 验证最多 32 个标签、64 KiB 文件上限，以及导出时拒绝重复编号或无效配置。
