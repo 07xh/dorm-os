@@ -57,6 +57,7 @@ class ManagerActivity : ComponentActivity() {
                 ManagerScreen(
                     bridge = bridge,
                     openTagInspector = { startActivity(Intent(this, TagInspectorActivity::class.java)) },
+                    openNdefWriter = { startActivity(Intent(this, NdefWriterActivity::class.java)) },
                     openNfcPreferences = {
                         if (Build.VERSION.SDK_INT >= 36) {
                             try { startActivity(Intent(NfcAdapter.ACTION_CHANGE_TAG_INTENT_PREFERENCE)) }
@@ -106,6 +107,7 @@ class ManagerActivity : ComponentActivity() {
 private fun ManagerScreen(
     bridge: RootModuleClient,
     openTagInspector: () -> Unit,
+    openNdefWriter: () -> Unit,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
     tagWriteIntent: (String) -> Intent,
@@ -285,9 +287,7 @@ private fun ManagerScreen(
                     Section("配置概览") {
                         SummaryRow("▦", "脚本库", "已登记 ${entries.size} 个个人 SH", "${entries.size}") { current = 1 }
                         HorizontalDivider(color = canvas)
-                        SummaryRow("◉", "NFC 触发", if (receiverEnabled) "已启用" else "已关闭", "›") { current = 2 }
-                        HorizontalDivider(color = canvas)
-                        SummaryRow("⌁", "读取 NFC 标签", "只读查看 NDEF 内容，不触发 Root", "扫描") { openTagInspector() }
+                        SummaryRow("◉", "NFC 读写与场景", "读取、写入、绑定与自动化", "›") { current = 2 }
                         HorizontalDivider(color = canvas)
                         SummaryRow("▤", "最近结果", "点击查看执行反馈", "›") { current = 3 }
                     }
@@ -374,11 +374,16 @@ private fun ManagerScreen(
                     }
                 }
                 2 -> {
-                    Section("NFC 读取") {
-                        Text("检查标签格式、容量、文本和链接。只读扫描与自动化执行完全隔离。", color = dim, fontSize = 13.sp)
+                    Section("NFC 读写工具") {
+                        Text("读取 NFC 信息，或将文字、网址安全写入标签。普通写卡不触发 Root。", color = dim, fontSize = 13.sp)
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = openTagInspector, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp)) {
-                            Text("开始扫描标签")
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(onClick = openTagInspector, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) {
+                                Text("读取标签")
+                            }
+                            OutlinedButton(onClick = openNdefWriter, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) {
+                                Text("写入内容")
+                            }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
