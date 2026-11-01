@@ -871,19 +871,19 @@ private fun ManagerScreen(
                         SummaryRow(0, "运行记录", "查看真实触发与执行结果", "›") {
                             showLogsSheet = true
                         }
-                        HorizontalDivider(color = p.line)
+                        HorizontalDivider(color = p.line, modifier = Modifier.padding(start = 66.dp))
                         SummaryRow(1, "配置与备份", "导出或恢复本机 SH 脚本", "›") {
                             showBackupSheet = true
                         }
-                        HorizontalDivider(color = p.line)
+                        HorizontalDivider(color = p.line, modifier = Modifier.padding(start = 66.dp))
                         SummaryRow(2, "外观与交互", "主题与界面设置", "›") {
                             showThemeSheet = true
                         }
-                        HorizontalDivider(color = p.line)
+                        HorizontalDivider(color = p.line, modifier = Modifier.padding(start = 66.dp))
                         SummaryRow(3, "KernelSU 状态", "检查 Root 模块与授权", if (installed) "正常" else "检查") {
                             refresh()
                         }
-                        HorizontalDivider(color = p.line)
+                        HorizontalDivider(color = p.line, modifier = Modifier.padding(start = 66.dp))
                         SummaryRow(4, "NFC 系统设置", "管理 Android NFC 开关与权限", "›") {
                             openNfcPreferences()
                         }
