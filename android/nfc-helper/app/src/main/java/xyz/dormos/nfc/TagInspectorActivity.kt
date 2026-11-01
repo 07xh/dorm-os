@@ -11,6 +11,7 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.NdefRecord
 import android.nfc.tech.Ndef
+import android.nfc.tech.NdefFormatable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,15 +30,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Explicit, foreground-only read session. Never writes tags or invokes KernelSU.
  */
 class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     private val busy = AtomicBoolean(false)
+    private val sessionGeneration = AtomicInteger(0)
+    @Volatile private var inForeground = false
     @Volatile private var finishedScan = false
     private var status by mutableStateOf("将 NFC 标签靠近手机背部")
     private var report by mutableStateOf<ReadReport?>(null)
+    private var reading by mutableStateOf(false)
     private var adapter: NfcAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,10 +53,12 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 primary = Color(0xFF4769B5), background = Color(0xFFF3F6FC),
                 surface = Color.White, onSurface = Color(0xFF26334C)
             )) {
-                ReadScreen(status, report, onBack = { finish() }, onReset = {
+                ReadScreen(status, report, reading, onBack = { finish() }, onReset = {
+                    sessionGeneration.incrementAndGet()
                     finishedScan = false
+                    reading = false
                     report = null
-                    status = "请移开标签后再次贴近"
+                    status = "准备重新读取 · 请先移开标签，再贴近"
                 })
             }
         }
@@ -59,6 +66,7 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
 
     override fun onResume() {
         super.onResume()
+        inForeground = true
         val nfc = adapter
         if (nfc == null) {
             status = "此设备没有可用的 NFC 硬件"
@@ -81,23 +89,34 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     }
 
     override fun onPause() {
+        inForeground = false
+        sessionGeneration.incrementAndGet()
+        reading = false
         try { adapter?.disableReaderMode(this) } catch (_: Exception) {}
         super.onPause()
     }
 
     override fun onTagDiscovered(tag: Tag) {
-        if (finishedScan || !busy.compareAndSet(false, true)) return
+        if (!inForeground || finishedScan || !busy.compareAndSet(false, true)) return
+        val session = sessionGeneration.get()
+        runOnUiThread {
+            if (inForeground && sessionGeneration.get() == session) {
+                reading = true
+                status = "已感应标签，正在读取 NDEF 内容"
+            }
+        }
         val scanned = try { inspect(tag) } catch (e: Exception) {
             ReadReport(
                 tag.techList.map { it.substringAfterLast('.') }.joinToString(" / "),
                 "读取失败", null, null, emptyList(),
-                e.message?.take(120) ?: "无法读取标签"
+                NfcFailureFeedback.readFailure(e)
             )
         }
         runOnUiThread {
-            if (!isFinishing && !isDestroyed) {
+            if (inForeground && sessionGeneration.get() == session && !isFinishing && !isDestroyed) {
+                reading = false
                 report = scanned
-                status = if (scanned.error == null) "读取成功 · 仅展示信息" else "已识别标签，部分信息不可读"
+                status = if (scanned.error == null) "读取完成" else "已识别标签 · 查看提示"
                 finishedScan = true
             }
             busy.set(false)
@@ -109,11 +128,12 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
             .take(12).joinToString(" / ")
         val ndef = Ndef.get(tag) ?: return ReadReport(
             technologies, "无 NDEF", null, null, emptyList(),
-            "已检测到标签，但不提供标准 NDEF 消息；不会读取受保护扇区。"
+            NfcFailureFeedback.noNdef(NdefFormatable.get(tag) != null)
         )
         ndef.connect()
         return try {
-            val items = ndef.ndefMessage?.records?.take(24)?.mapIndexed { index, record ->
+            val allRecords = ndef.ndefMessage?.records ?: emptyArray()
+            val items = allRecords.take(24).mapIndexed { index, record ->
                 val uri = try { record.toUri()?.toString() } catch (_: Exception) { null }
                 val isText = record.tnf == NdefRecord.TNF_WELL_KNOWN &&
                     record.type.contentEquals(NdefRecord.RTD_TEXT)
@@ -130,10 +150,10 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                     else -> "记录类型 " + record.tnf.toString()
                 }
                 ReadRecord(index + 1, type, preview, record.payload.size)
-            } ?: emptyList()
+            }
             ReadReport(
                 technologies, ndef.type ?: "NDEF", ndef.isWritable,
-                ndef.maxSize, items, null
+                ndef.maxSize, items, null, allRecords.size
             )
         } finally {
             try { ndef.close() } catch (_: Exception) {}
@@ -161,12 +181,14 @@ internal data class ReadRecord(
 
 internal data class ReadReport(
     val technologies: String, val ndefType: String, val writable: Boolean?,
-    val capacity: Int?, val records: List<ReadRecord>, val error: String?
+    val capacity: Int?, val records: List<ReadRecord>, val error: String?,
+    val totalRecords: Int = records.size
 )
 
 @Composable
 private fun ReadScreen(
-    status: String, report: ReadReport?, onBack: () -> Unit, onReset: () -> Unit
+    status: String, report: ReadReport?, reading: Boolean,
+    onBack: () -> Unit, onReset: () -> Unit
 ) {
     val blue = Color(0xFF4769B5)
     val dim = Color(0xFF6E7B91)
@@ -186,13 +208,18 @@ private fun ReadScreen(
                 Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("◎", fontSize = 58.sp, color = blue)
+                Text(if (report == null) "◎" else if (report.error == null) "✓" else "!",
+                    fontSize = 53.sp, color = blue)
                 Spacer(Modifier.height(8.dp))
                 Text(status, fontSize = 17.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(8.dp))
-                Text("只读 · 不写入 · 不执行脚本", color = dim, fontSize = 12.sp)
+                Text("前台只读扫描，不执行自动化", color = dim, fontSize = 12.sp)
+                if (reading) {
+                    Spacer(Modifier.height(10.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 Spacer(Modifier.height(18.dp))
-                Button(onClick = onReset, shape = RoundedCornerShape(14.dp)) {
+                Button(onClick = onReset, enabled = !reading, shape = RoundedCornerShape(14.dp)) {
                     Text("重新扫描")
                 }
             }
@@ -213,7 +240,11 @@ private fun ReadScreen(
                     true -> "是"; false -> "否"; null -> "未知"
                 })
                 DetailLine("最大容量", report.capacity?.let { it.toString() + " B" } ?: "未知")
-                DetailLine("记录数量", report.records.size.toString())
+                DetailLine("记录数量", report.totalRecords.toString())
+                if (report.totalRecords > report.records.size) {
+                    Text("只展示前 " + report.records.size + " 条，避免页面过长。",
+                        color = dim, fontSize = 12.sp)
+                }
                 report.error?.let {
                     HorizontalDivider(Modifier.padding(vertical = 10.dp))
                     Text(it, color = Color(0xFF9B5F38), fontSize = 13.sp)
