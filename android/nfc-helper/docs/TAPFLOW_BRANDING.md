@@ -17,8 +17,16 @@
 - DORM OS 既有 `dormos://assistant/open` 和 HTTPS App Link 不变，以免网站打开 App 失效。
 - `versionCode` 单调增加；新品牌 APK 仍由 CI 编译成套发布，PR 保持 Draft 至实体 NFC 和 OnePlus 实机验收。
 
-## 下一轮 UI 待办（独立于本次品牌发布）
+## UI 验收与后续待办
 
-1. 普通 NDEF 文本/URL 写入仍使用独立 `NdefWriterActivity`；可逐步合并到工具页的统一原位写卡弹层，但必须保留防覆盖及回读验证。
+1. 普通 NDEF 文本/URL 写入已合并到工具页当前工作台底部弹层；独立 `NdefWriterActivity` 路由与源码已删除，保留明确覆盖授权、DORM 标签保护、容量检查及完整 NDEF 回读。
 2. 在真实手机上核查主题色、输入法避让、底部导航触控区域、过长脚本名与零脚本空状态。
 3. 标签到货后验证读卡、格式化、写入、回读、取消、锁屏分发与 KSU 实际执行；自动构建不能替代实体测试。
+
+
+## V1.16.0 · 工具页交互收敛
+
+- 普通 NDEF 文本/URL 写入由 `NdefWriteSession` + `NdefWriteSheet` 在 `ManagerActivity` 内完成，与只读扫描和场景写卡共用同一个工作台，不再启动独立 Activity。
+- 单次前台 ReaderMode；离开前台会暂停。若写入已发出但回读未确认，界面明确要求先读卡，不提供直接重复写入按钮。
+- 工具页管理五项图标统一为 24dp 细线矢量，运行记录/备份/外观/Root/NFC 设置各自有明确语义；每行由单个 Material Surface 提供完整点击区域与 ripple。
+- 普通标签已有内容需显式勾选允许覆盖；`application/vnd.dormos.*` 自动化标签始终拒绝普通写入；未格式化标签不自动格式化。
