@@ -334,6 +334,113 @@ private fun ManagerScreen(
         }
     }
 
+    val backupExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                loading = true
+                try {
+                    val scripts = withContext(Dispatchers.IO) {
+                        entries.mapNotNull { script ->
+                            val body = bridge.readScript(script.id).first
+                            if (body == null) null else script to body
+                        }
+                    }
+                    withContext(Dispatchers.IO) {
+                        val stream = context.contentResolver.openOutputStream(uri)
+                            ?: throw IllegalStateException("无法创建备份文件")
+                        ZipOutputStream(stream).use { zip ->
+                            zip.putNextEntry(ZipEntry("manifest.txt"))
+                            zip.write("DORMOS-NFC-SH-BACKUP/1\n".toByteArray(Charsets.UTF_8))
+                            zip.closeEntry()
+                            scripts.forEach { (script, body) ->
+                                zip.putNextEntry(ZipEntry("scripts/${script.id}__${script.name}"))
+                                zip.write(body.toByteArray(Charsets.UTF_8))
+                                zip.closeEntry()
+                            }
+                        }
+                    }
+                    notify("已导出 ${scripts.size} 个 SH 脚本。")
+                } catch (error: Exception) {
+                    notify("备份导出失败：" + (error.message ?: error.javaClass.simpleName))
+                } finally {
+                    loading = false
+                }
+            }
+        }
+    }
+
+    val backupImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                loading = true
+                try {
+                    val summary = withContext(Dispatchers.IO) {
+                        val input = context.contentResolver.openInputStream(uri)
+                            ?: throw IllegalStateException("无法打开备份文件")
+                        ZipInputStream(input).use { zip ->
+                            val manifest = zip.nextEntry
+                                ?: throw IllegalArgumentException("备份文件为空")
+                            if (manifest.name != "manifest.txt") {
+                                throw IllegalArgumentException("不是 DORM NFC SH 备份")
+                            }
+                            val header = String(readZipEntryLimited(zip, 1024), Charsets.UTF_8).trim()
+                            zip.closeEntry()
+                            if (header != "DORMOS-NFC-SH-BACKUP/1") {
+                                throw IllegalArgumentException("备份版本不受支持")
+                            }
+                            var imported = 0
+                            var skipped = 0
+                            var totalBytes = 0
+                            var processed = 0
+                            var entry = zip.nextEntry
+                            while (entry != null) {
+                                processed++
+                                if (processed > 100) throw IllegalArgumentException("备份条目超过 100 个")
+                                if (!entry.isDirectory) {
+                                    val path = entry.name
+                                    val fileName = path.removePrefix("scripts/")
+                                    val validPath = path.startsWith("scripts/") &&
+                                        !path.contains("..") && !path.contains('\\\\') &&
+                                        fileName.contains("__")
+                                    val name = if (validPath) fileName.substringAfter("__") else ""
+                                    val idPart = if (validPath) fileName.substringBefore("__") else ""
+                                    if (!validPath || !ScriptRules.idValid(idPart) || !name.endsWith(".sh") ||
+                                        name.contains('/') || name.contains('\\\\') || name.contains('|')) {
+                                        skipped++
+                                        readZipEntryLimited(zip, 16384)
+                                    } else {
+                                        val bytes = readZipEntryLimited(zip, 16384)
+                                        totalBytes += bytes.size
+                                        if (totalBytes > 2 * 1024 * 1024) {
+                                            throw IllegalArgumentException("备份总大小超过 2 MiB")
+                                        }
+                                        val saved = bridge.saveScript(
+                                            bridge.newId(), name, String(bytes, Charsets.UTF_8)
+                                        )
+                                        if (saved.success) imported++ else skipped++
+                                    }
+                                }
+                                zip.closeEntry()
+                                entry = zip.nextEntry
+                            }
+                            "已导入 ${imported} 个脚本，跳过 ${skipped} 个无效条目"
+                        }
+                    }
+                    notify(summary)
+                    refresh()
+                } catch (error: Exception) {
+                    notify("备份导入失败：" + (error.message ?: error.javaClass.simpleName))
+                } finally {
+                    loading = false
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) { refresh() }
 
     val pageCanvas = when (selectedTheme) {
