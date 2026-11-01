@@ -18,8 +18,9 @@ for (const old of ['REDMI Book 14 2025', 'XIAOMI_CONNECT_TYPE', '小米互联 ex
 }
 if (!html.includes("theme: 'light'")) throw new Error('V3.3 default light theme missing');
 if (!html.includes('noopener noreferrer')) throw new Error('Safe external links missing');
-for (const feature of ["function homeWidgetContent(id)","function homeLayoutDialog()","homeLayout: defaultHomeLayout()","data-home-widget-up","class=\"home-widget-grid\""]) if (!html.includes(feature)) throw new Error('Missing V3.6 dashboard feature: '+feature);
-console.log('DORM OS V3.6 source syntax, baseline IDs and personal feature checks passed');
+for (const feature of ["function homeWidgetContent(id)","function homeLayoutDialog()","homeLayout: defaultHomeLayout()","data-home-widget-up","class=\"home-widget-grid v4-main-widgets\""]) if (!html.includes(feature)) throw new Error('Missing V3.6 dashboard feature: '+feature);
+for(const feature of ['function profilePage()', 'class="v4-hero"', 'data-page="profile"', 'v4-scene-grid'])if(!html.includes(feature))throw new Error('Missing V4 UX: '+feature);
+console.log('DORM OS V4 source syntax, baseline IDs and personal feature checks passed');
 
 import {statSync} from 'node:fs';
 for(const size of [192,512]){
