@@ -1,0 +1,45 @@
+import {test,expect} from '@playwright/test';
+const STORAGE='dorm-os-state-v1';
+test('home layout can hide, reorder, persist and restore dashboard modules',async({page})=>{
+ await page.goto('/');
+ await page.evaluate(key=>{
+  const s=JSON.parse(localStorage.getItem(key)||'null')||{version:1,settings:{campus:'jianghuai',theme:'light'},tasks:[],classes:[],calendarEvents:[],campusLinks:[],events:[],nfcTags:[],reminders:[],items:[],sceneLinks:[],scene:'none',focusTimer:{duration:25,remaining:1500,running:false,deadline:0},awayChecklist:{date:'',checked:[]},electricity:{balance:null,updatedAt:null}};
+  s.tasks=[{id:'task-home',title:'保留原有高数作业',category:'高数',due:'2026-11-06',done:false,createdAt:'2026-11-01'}];
+  localStorage.setItem(key,JSON.stringify(s));
+ },STORAGE);
+ await page.reload();
+ await expect(page.locator('[data-home-widget]')).toHaveCount(6);
+ await page.locator('[data-action="home-layout"]').click();
+ await expect(page.locator('.home-layout-editor')).toBeVisible();
+ await page.locator('[data-home-widget-toggle="weather"]').click();
+ await page.locator('[data-home-widget-up="tasks"]').click();
+ await page.locator('[data-action="home-layout-save"]').click();
+ const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),STORAGE);
+ expect(saved.settings.homeLayout.order[0]).toBe('tasks');
+ expect(saved.settings.homeLayout.hidden).toContain('weather');
+ await expect(page.locator('[data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
+ await expect(page.locator('[data-home-widget="weather"]')).toHaveCount(0);
+ await expect(page.locator('#app')).toContainText('保留原有高数作业');
+ await page.reload();
+ await expect(page.locator('[data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
+ await page.locator('[data-action="home-layout"]').click();
+ await page.locator('[data-action="home-layout-reset"]').click();
+ await page.locator('[data-action="home-layout-save"]').click();
+ const restored=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),STORAGE);
+ expect(restored.settings.homeLayout.order).toEqual(['timetable','tasks','focus','life','devices','weather']);
+ expect(restored.settings.homeLayout.hidden).toEqual([]);
+ await expect(page.locator('[data-home-widget]')).toHaveCount(6);
+});
+test('home layout enforces one visible module and is accessible from settings',async({page})=>{
+ await page.goto('/');
+ await page.locator('[data-action="home-layout"]').click();
+ for(const id of ['timetable','focus','life','devices','weather'])await page.locator('[data-home-widget-toggle="'+id+'"]').click();
+ await page.locator('[data-home-widget-toggle="tasks"]').click();
+ await expect(page.locator('.toast')).toContainText('至少保留一个首页模块');
+ await expect(page.locator('[data-home-widget-toggle="tasks"]')).toHaveText('隐藏');
+ await page.locator('[data-action="close-modal"]').click();
+ await page.goto('/#settings');
+ await expect(page.locator('[data-action="home-layout"]')).toBeVisible();
+ await page.locator('[data-action="home-layout"]').click();
+ await expect(page.locator('.home-layout-editor')).toBeVisible();
+});
