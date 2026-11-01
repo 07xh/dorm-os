@@ -386,7 +386,7 @@ private fun ManagerScreen(
                 NfcAdapter.getDefaultAdapter(androidx.compose.ui.platform.LocalContext.current)
                     ?.isEnabled == true
             val scriptNames = entries.associate { it.id to it.name }
-            val homeScenes = scenes.filter { it.enabled }.map { it.tagId to it.name }
+            val homeScenes = scenes.filter { it.enabled }.map { scene -> Triple(scene.tagId, scene.name, scriptNames[scene.scriptId] ?: "未知脚本") }
             when (current) {
                 0 -> {
                     V2Home(
