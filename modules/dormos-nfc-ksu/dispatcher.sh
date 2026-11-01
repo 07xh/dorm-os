@@ -16,7 +16,7 @@ BINDINGS="$DATA_DIR/script_bindings.tsv"
 die() { echo "DORM_NFC_RESULT=failed"; echo "DORM_NFC_ERROR=$1"; exit "${2:-1}"; }
 valid_id() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 ensure_data() {
-  [ ! -L "$DATA_DIR" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] || die unsafe_storage 70
+  [ ! -L "$DATA_DIR" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$DATA_DIR/scenes.tsv" ] || die unsafe_storage 70
   mkdir -p "$SCRIPTS" || die storage_unavailable 73
   chmod 700 "$DATA_DIR" "$SCRIPTS" 2>/dev/null || :
 }
@@ -86,6 +86,9 @@ case "${1:-}" in
   --script-bind) exec "$SH" "$MODDIR/script-manager.sh" --bind "${2:-}" "${3:-}" ;;
   --script-unbind) exec "$SH" "$MODDIR/script-manager.sh" --unbind "${2:-}" ;;
   --script-bindings) exec "$SH" "$MODDIR/script-manager.sh" --bindings ;;
+  --scene-list) exec "$SH" "$MODDIR/script-manager.sh" --scene-list ;;
+  --scene-save) exec "$SH" "$MODDIR/script-manager.sh" --scene-save "${2:-}" "${3:-}" ;;
+  --scene-enable) exec "$SH" "$MODDIR/script-manager.sh" --scene-enable "${2:-}" "${3:-}" ;;
   --script-logs) exec "$SH" "$MODDIR/script-manager.sh" --logs ;;
   --script-clear-logs) exec "$SH" "$MODDIR/script-manager.sh" --clear-logs ;;
   *)
