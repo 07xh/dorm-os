@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -115,6 +116,7 @@ private fun ManagerScreen(
     var folderDialog by remember { mutableStateOf("") }
     var folderName by remember { mutableStateOf("") }
     var movingScript by remember { mutableStateOf<PersonalScript?>(null) }
+    var movingFolder by remember { mutableStateOf<PersonalFolder?>(null) }
     var renamingScript by remember { mutableStateOf<PersonalScript?>(null) }
     var previewScript by remember { mutableStateOf<PersonalScript?>(null) }
     var previewContent by remember { mutableStateOf("") }
@@ -269,6 +271,7 @@ private fun ManagerScreen(
                                     TextButton(onClick = {
                                         folderName = dir.name; folderDialog = "rename:${dir.id}"
                                     }) { Text("改名") }
+                                    TextButton(onClick = { movingFolder = dir }) { Text("移动") }
                                     TextButton(onClick = { folderDialog = "delete:${dir.id}" }) { Text("删除") }
                                 }
                             }
@@ -394,7 +397,10 @@ private fun ManagerScreen(
                         label = { Text("名称") }, singleLine = true)
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(value = editCode, onValueChange = { editCode = it },
-                        label = { Text("脚本内容") }, minLines = 8, maxLines = 15)
+                        label = { Text("脚本内容") }, minLines = 10, maxLines = 17,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp))
+                    Text("行数 ${editCode.lineSequence().count()} · ${editCode.toByteArray().size} B / 16384 B",
+                        fontSize = 11.sp, color = dim)
                     Text("脚本将以 KernelSU Root 权限执行。请仅保存自己检查过的内容。", fontSize = 11.sp, color = dim)
                 }
             },
@@ -448,7 +454,6 @@ private fun ManagerScreen(
             }, dismissButton = { TextButton(onClick = { confirmBind = null }) { Text("取消") } }
         )
     }
-}
 
     if (folderDialog.isNotBlank()) {
         val action = folderDialog.substringBefore(':')
@@ -517,6 +522,29 @@ private fun ManagerScreen(
             dismissButton = { TextButton(onClick = { movingScript = null }) { Text("取消") } }
         )
     }
+    movingFolder?.let { item ->
+        AlertDialog(
+            onDismissRequest = { movingFolder = null },
+            title = { Text("移动文件夹「${item.name}」") },
+            text = {
+                Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                    (listOf(PersonalFolder("root", "", "根目录")) + folders)
+                        .filter { it.id != item.id }.forEach { destination ->
+                            TextButton(onClick = {
+                                movingFolder = null
+                                runRoot({ bridge.moveFolder(item.id, destination.id) }) {
+                                    if (it.success) { activeFolder = "root"; refresh() }
+                                }
+                            }) { Text("📁 ${destination.name}") }
+                        }
+                    Text("不允许移动到自身或自己的子文件夹。", fontSize = 11.sp, color = dim)
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { movingFolder = null }) { Text("取消") } }
+        )
+    }
+
     previewScript?.let { item ->
         AlertDialog(
             onDismissRequest = { previewScript = null },
@@ -556,6 +584,8 @@ private fun ManagerScreen(
             dismissButton = { TextButton(onClick = { confirmClearLogs = false }) { Text("取消") } }
         )
     }
+
+}
 
 @Composable
 private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit) {
