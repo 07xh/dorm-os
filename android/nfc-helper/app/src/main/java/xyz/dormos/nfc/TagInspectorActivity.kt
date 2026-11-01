@@ -141,7 +141,9 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         )
         ndef.connect()
         return try {
-            val allRecords = ndef.ndefMessage?.records ?: emptyArray()
+            val message = ndef.ndefMessage
+            val usedBytes = message?.toByteArray()?.size
+            val allRecords = message?.records ?: emptyArray()
             val items = allRecords.take(24).mapIndexed { index, record ->
                 val uri = try { record.toUri()?.toString() } catch (_: Exception) { null }
                 val isText = record.tnf == NdefRecord.TNF_WELL_KNOWN &&
@@ -154,15 +156,18 @@ class TagInspectorActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                 val type = when {
                     isText -> "文本"
                     uri != null -> "链接 / URI"
-                    record.tnf == NdefRecord.TNF_MIME_MEDIA ->
-                        String(record.type, StandardCharsets.US_ASCII).take(90)
+                    record.tnf == NdefRecord.TNF_MIME_MEDIA -> {
+                        val mime = String(record.type, StandardCharsets.US_ASCII)
+                        if (NfcProfiles.isSupportedMime(mime)) "DORM 自动化标签"
+                        else mime.take(90)
+                    }
                     else -> "记录类型 " + record.tnf.toString()
                 }
                 ReadRecord(index + 1, type, preview, record.payload.size)
             }
             ReadReport(
                 technologies, ndef.type ?: "NDEF", ndef.isWritable,
-                ndef.maxSize, items, null, allRecords.size
+                ndef.maxSize, items, null, allRecords.size, usedBytes
             )
         } finally {
             try { ndef.close() } catch (_: Exception) {}
@@ -191,7 +196,8 @@ internal data class ReadRecord(
 internal data class ReadReport(
     val technologies: String, val ndefType: String, val writable: Boolean?,
     val capacity: Int?, val records: List<ReadRecord>, val error: String?,
-    val totalRecords: Int = records.size
+    val totalRecords: Int = records.size,
+    val usedBytes: Int? = null
 )
 
 @Composable
@@ -247,6 +253,9 @@ private fun ReadScreen(
                     true -> "是"; false -> "否"; null -> "未知"
                 })
                 DetailLine("最大容量", report.capacity?.let { it.toString() + " B" } ?: "未知")
+                if (report.usedBytes != null) {
+                    DetailLine("已用空间", report.usedBytes.toString() + " B")
+                }
                 DetailLine("记录数量", report.totalRecords.toString())
                 if (report.totalRecords > report.records.size) {
                     Text("只展示前 " + report.records.size + " 条，避免页面过长。",
