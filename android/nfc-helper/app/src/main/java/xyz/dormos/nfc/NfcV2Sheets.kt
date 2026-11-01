@@ -303,7 +303,7 @@ internal fun V2ThemeSheet(
     onDismiss: () -> Unit
 ) {
     val p = LocalV2Palette.current
-    V2BottomSheet("外观与交互", "选择 DORM NFC 的显示风格", onDismiss) {
+    V2BottomSheet("外观与交互", "选择触序 · TapFlow 的显示风格", onDismiss) {
         listOf(
             Triple("default", "一加简约", "蓝白配色 · 清晰主操作"),
             Triple("night", "深色控制台", "低光环境 · 深色背景"),
