@@ -18,6 +18,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -307,4 +310,78 @@ internal fun V2ToolsHeading(onScan: () -> Unit, onWrite: () -> Unit) {
     Spacer(Modifier.height(22.dp))
     V2SectionHeading("脚本文件")
     Spacer(Modifier.height(12.dp))
+}
+
+/** Lightweight vector icons so the real APK matches the prototype's outlined navigation. */
+@Composable
+internal fun V2NavIcon(which: Int, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val line = w * .075f
+        when (which) {
+            0 -> {
+                val outline = Path().apply {
+                    moveTo(.13f * w, .46f * h)
+                    lineTo(.50f * w, .13f * h)
+                    lineTo(.87f * w, .46f * h)
+                    lineTo(.87f * w, .87f * h)
+                    lineTo(.60f * w, .87f * h)
+                    lineTo(.60f * w, .61f * h)
+                    lineTo(.40f * w, .61f * h)
+                    lineTo(.40f * w, .87f * h)
+                    lineTo(.13f * w, .87f * h)
+                    close()
+                }
+                drawPath(outline, color, style = Stroke(line, join = StrokeJoin.Round,
+                    cap = StrokeCap.Round))
+            }
+            1 -> {
+                val d = w * .29f
+                for (row in 0..1) for (col in 0..1) {
+                    drawRoundRect(
+                        color,
+                        topLeft = Offset(w * (.13f + col * .44f), h * (.13f + row * .44f)),
+                        size = Size(d, d),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * .065f),
+                        style = Stroke(line * .9f)
+                    )
+                }
+            }
+            else -> {
+                val outline = Path().apply {
+                    moveTo(w * .67f, h * .12f)
+                    cubicTo(w * .52f, h * .12f, w * .47f, h * .28f, w * .52f, h * .41f)
+                    lineTo(w * .18f, h * .72f)
+                    cubicTo(w * .07f, h * .87f, w * .24f, h * .98f, w * .37f, h * .83f)
+                    lineTo(w * .64f, h * .51f)
+                    cubicTo(w * .81f, h * .56f, w * .96f, h * .39f, w * .86f, h * .22f)
+                    lineTo(w * .71f, h * .39f)
+                    lineTo(w * .60f, h * .32f)
+                    close()
+                }
+                drawPath(outline, color, style = Stroke(line * .9f,
+                    join = StrokeJoin.Round, cap = StrokeCap.Round))
+            }
+        }
+    }
+}
+
+@Composable
+internal fun V2SettingsIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(23.dp)) {
+        val c = Offset(size.width * .5f, size.height * .5f)
+        val radius = size.width * .30f
+        val thickness = size.width * .082f
+        drawCircle(color, radius, c, style = Stroke(thickness))
+        drawCircle(color, size.width * .10f, c, style = Stroke(thickness))
+        for (index in 0..7) {
+            val angle = index * kotlin.math.PI / 4
+            val dx = kotlin.math.cos(angle).toFloat()
+            val dy = kotlin.math.sin(angle).toFloat()
+            drawLine(color, c + Offset(dx * radius * 1.05f, dy * radius * 1.05f),
+                c + Offset(dx * radius * 1.40f, dy * radius * 1.40f),
+                strokeWidth = thickness, cap = StrokeCap.Round)
+        }
+    }
 }
