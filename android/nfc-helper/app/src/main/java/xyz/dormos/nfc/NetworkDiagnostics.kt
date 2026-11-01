@@ -15,16 +15,17 @@ import java.net.URL
 class NetworkDiagnostics(private val context: Context) {
     fun run(): String {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val wifiNetworks = manager.allNetworks.filter { candidate ->
-            manager.getNetworkCapabilities(candidate)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        }
-        if (wifiNetworks.isEmpty()) return "未找到已连接的 Wi-Fi。\n请在系统设置连接 Ncwu 后再碰卡。"
-        if (wifiNetworks.size != 1) return "发现多个 Wi-Fi Network，无法可靠确认目标路由；已停止，不会尝试认证。"
-        val network = wifiNetworks.single()
+        // Probe only the system's active default network. If a VPN or mobile network
+        // is active, do not open a secondary Wi-Fi Network behind the user's routing policy.
+        val network = manager.activeNetwork
+            ?: return "系统当前没有默认网络。请连接 Ncwu 后再检测。"
         val capabilities = manager.getNetworkCapabilities(network)
-            ?: return "Wi-Fi 网络状态已变化，请重新检测。"
+            ?: return "默认网络状态已变化，请重新检测。"
+        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            return "系统当前默认网络不是 Wi-Fi（可能启用了 VPN 或移动网络）。\\n为避免绕过系统路由，本次停止。"
+        }
         if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-            return "此 Wi-Fi 未声明互联网能力，停止公网检测；不会使用移动数据。"
+            return "当前 Wi-Fi 未声明互联网能力，停止公网检测；不会切换移动数据。"
         }
 
         if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -42,7 +43,7 @@ class NetworkDiagnostics(private val context: Context) {
         } catch (_: SecurityException) {
             ""
         }
-        if (!NcwuRules.isSingleTargetWifi(ssid, wifiNetworks.size)) {
+        if (!NcwuRules.isSingleTargetWifi(ssid, 1)) {
             return if (ssid.isBlank() || ssid == WifiManager.UNKNOWN_SSID) {
                 "无法识别当前 Wi-Fi 名称。请打开系统定位开关并确认连接 Ncwu。\n为安全起见停止。"
             } else {
