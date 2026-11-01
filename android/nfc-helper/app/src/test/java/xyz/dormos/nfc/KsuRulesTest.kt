@@ -15,15 +15,8 @@ class KsuRulesTest {
         )
     }
 
-    @Test fun commandIsImmutableAndLegacyPathIsFixed() {
-        assertEquals(
-            "/system/bin/sh /data/adb/modules/dormos_nfc_actions/run.sh --legacy-ncwu",
-            KsuRules.LEGACY_NCWU_COMMAND
-        )
-    }
-
     @Test fun successRequiresDispatcherMarkerAndZeroExit() {
-        assertTrue(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\nDORM_ACTION=ncwu-check\n"))
+        assertTrue(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\nDORM_ACTION=personal-script\n"))
         assertFalse(KsuRules.succeeded(1, "DORM_NFC_RESULT=success"))
         assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=failed"))
         assertFalse(KsuRules.succeeded(0, "DORM_NFC_RESULT=success\n" + "x".repeat(4097)))

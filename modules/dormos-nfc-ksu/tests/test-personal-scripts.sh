@@ -27,6 +27,10 @@ out=$(sh "$R" --script-run "$ID")
 [[ "$out" == *DORM_SCRIPT_RESULT=success* ]]
 out=$(sh "$R" --script-logs)
 [[ "$out" == *"$ID"* ]]
+if sh "$R" --script-save "$ID" "$(printf 'not-shell.txt' | base64 -w0)" "$BODY" >/dev/null 2>&1; then
+  echo "Non-SH file name was accepted" >&2
+  exit 1
+fi
 if sh "$R" --script-bind "$TAG" '../bad'; then
   echo "Bad script id was accepted" >&2
   exit 1
@@ -36,6 +40,8 @@ if sh "$R" --script-save "$ID" "$NAME" "$BAD_BODY" >/dev/null 2>&1; then
   echo "Bad script syntax was accepted" >&2
   exit 1
 fi
+sh "$R" --script-clear-logs | grep -q DORM_SCRIPT_LOGS=CLEARED
+[[ -z "$(sh "$R" --script-logs)" ]]
 sh "$R" --script-unbind "$TAG" | grep -q DORM_SCRIPT_UNBOUND
 if sh "$R" --nfc "$TAG" >/dev/null 2>&1; then
   echo "Unbound NFC tag ran a script" >&2

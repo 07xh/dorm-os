@@ -20,6 +20,7 @@ object ScriptRules {
         return when {
             args.size == 1 && head in setOf("--status", "--script-list", "--script-bindings", "--script-logs") -> true
             args.size == 2 && head == "--enable" -> args[1] in setOf("0", "1")
+            args.size == 2 && head == "--nfc" -> idValid(args[1])
             args.size == 2 && head in setOf("--script-read", "--script-run", "--script-delete", "--script-unbind") -> idValid(args[1])
             args.size == 3 && head == "--script-bind" -> idValid(args[1]) && idValid(args[2])
             args.size == 4 && head == "--script-save" ->
@@ -117,5 +118,6 @@ class RootModuleClient {
     fun status() = invoke("--status")
     fun enableNfc(value: Boolean) = invoke("--enable", if (value) "1" else "0")
     fun logs() = invoke("--script-logs")
+    fun triggerNfc(tagId: String) = invoke("--nfc", tagId)
     fun newId(): String = UUID.randomUUID().toString()
 }

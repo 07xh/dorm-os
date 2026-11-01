@@ -52,6 +52,73 @@ case "${1:-}" in
     [ -n "$body" ] && [ "${#body}" -le 24000 ] && b64 "$body" || die bad_body 64
     display=$(printf '%s' "$title" | base64 -d 2>/dev/null) || die bad_title64 65
     [ -n "$display" ] && [ "$(printf '%s' "$display" | wc -c | tr -d ' ')" -le 120 ] || die title_too_long 64
+    printf '%s' "$display" | grep -Eq '^[^/\\|[:cntrl:]]+\.sh    tmp="$SCRIPTS/.script.$$"
+    printf '%s' "$body" | base64 -d > "$tmp" 2>/dev/null || { rm -f "$tmp"; die bad_body64 65; }
+    [ "$(wc -c < "$tmp" | tr -d ' ')" -le 16384 ] || { rm -f "$tmp"; die body_too_large 64; }
+    "$SH" -n "$tmp" || { rm -f "$tmp"; die syntax_error 65; }
+    chmod 600 "$tmp"
+    mv "$tmp" "$FILE"
+    printf '%s\n' "$title" > "$NAME"
+    chmod 600 "$NAME"
+    echo "DORM_SCRIPT_SAVED=1" ;;
+  --delete)
+    item "${2:-}"
+    [ -f "$FILE" ] || die not_found 66
+    rm -f "$FILE" "$NAME"
+    if [ -f "$BINDINGS" ]; then
+      awk -F '|' -v id="$2" '$2 != id {print}' "$BINDINGS" > "$BINDINGS.tmp"
+      mv "$BINDINGS.tmp" "$BINDINGS"
+    fi
+    echo "DORM_SCRIPT_DELETED=1" ;;
+  --run)
+    item "${2:-}"
+    [ -f "$FILE" ] || die not_found 66
+    command -v timeout >/dev/null 2>&1 || die timeout_unavailable 69
+    if timeout 20 "$SH" "$FILE"; then
+      record "$2" ok
+      echo "DORM_SCRIPT_RESULT=success"
+    else
+      code=$?
+      record "$2" failed
+      echo "DORM_SCRIPT_RESULT=failed"
+      exit "$code"
+    fi ;;
+  --bind)
+    uuid "${2:-}" || die invalid_tag 64
+    item "${3:-}"
+    [ -f "$FILE" ] || die not_found 66
+    tmp="$BINDINGS.tmp.$$"
+    if [ -f "$BINDINGS" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$tmp"; else : > "$tmp"; fi
+    printf '%s|%s\n' "$2" "$3" >> "$tmp"
+    chmod 600 "$tmp"; mv "$tmp" "$BINDINGS"
+    echo "DORM_SCRIPT_BOUND=1" ;;
+  --unbind)
+    uuid "${2:-}" || die invalid_tag 64
+    if [ -f "$BINDINGS" ]; then
+      awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$BINDINGS.tmp"
+      mv "$BINDINGS.tmp" "$BINDINGS"
+    fi
+    echo "DORM_SCRIPT_UNBOUND=1" ;;
+  --bindings)
+    [ ! -L "$BINDINGS" ] || die unsafe_bindings 70
+    [ -f "$BINDINGS" ] && cat "$BINDINGS" || : ;;
+  --resolve)
+    uuid "${2:-}" || die invalid_tag 64
+    [ -f "$BINDINGS" ] && [ ! -L "$BINDINGS" ] || die unbound 66
+    id=$(awk -F '|' -v tag="$2" '$1 == tag {print $2; exit}' "$BINDINGS")
+    uuid "$id" || die unbound 66
+    item "$id"
+    [ -f "$FILE" ] || die not_found 66
+    echo "DORM_SCRIPT_ID=$id" ;;
+  --logs)
+    [ -f "$LOG" ] && tail -n 80 "$LOG" || : ;;
+  --clear-logs)
+    : > "$LOG"
+    chmod 600 "$LOG" 2>/dev/null || :
+    echo "DORM_SCRIPT_LOGS=CLEARED" ;;
+  *) die unknown_action 64 ;;
+esac
+ || die invalid_script_name 64
     tmp="$SCRIPTS/.script.$$"
     printf '%s' "$body" | base64 -d > "$tmp" 2>/dev/null || { rm -f "$tmp"; die bad_body64 65; }
     [ "$(wc -c < "$tmp" | tr -d ' ')" -le 16384 ] || { rm -f "$tmp"; die body_too_large 64; }

@@ -2,15 +2,13 @@ package xyz.dormos.nfc
 
 import java.util.UUID
 
-/** Shared NDEF contract. The tag contains only an opaque scene UUID, never commands. */
+/** Shared NDEF contract. The tag contains only an opaque script-binding UUID, never commands. */
 object NfcProfiles {
     const val MIME = "application/vnd.dormos.ncwu"
-    const val LEGACY_NCWU = "v1:ncwu"
     private val uuidPattern = Regex("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
 
     fun makeId(): String = UUID.randomUUID().toString()
 
-    /** Keep v2 payloads so existing UUID-based tags remain readable after migration. */
     fun payload(id: String): String {
         require(validId(id))
         return "v2:tag:$id"

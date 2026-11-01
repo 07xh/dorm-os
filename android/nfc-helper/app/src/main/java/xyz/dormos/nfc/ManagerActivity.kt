@@ -2,6 +2,7 @@ package xyz.dormos.nfc
 
 import android.content.Intent
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -58,6 +59,15 @@ class ManagerActivity : ComponentActivity() {
                     },
                     importFile = { uri, callback ->
                         try {
+                            val name = contentResolver.query(
+                                uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+                            )?.use { cursor ->
+                                if (cursor.moveToFirst()) cursor.getString(0) else null
+                            } ?: throw IllegalArgumentException("无法读取文件名")
+                            if (!name.endsWith(".sh", ignoreCase = true) ||
+                                name.contains('/') || name.contains('\\')) {
+                                throw IllegalArgumentException("只允许导入 .sh 文件")
+                            }
                             val bytes = contentResolver.openInputStream(uri)?.use { input ->
                                 val result = java.io.ByteArrayOutputStream()
                                 val buffer = ByteArray(4096)
@@ -69,9 +79,9 @@ class ManagerActivity : ComponentActivity() {
                                 result.toByteArray()
                             } ?: throw IllegalStateException("无法打开文件")
                             if (bytes.size > 16384) throw IllegalArgumentException("脚本超过 16 KiB")
-                            callback(String(bytes, Charsets.UTF_8))
+                            callback(name, String(bytes, Charsets.UTF_8))
                         } catch (e: Exception) {
-                            callback("# 导入失败：${e.message ?: "未知错误"}")
+                            Toast.makeText(this, "导入失败：${e.message ?: "未知错误"}", Toast.LENGTH_LONG).show()
                         }
                     }
                 )
@@ -85,7 +95,7 @@ private fun ManagerScreen(
     bridge: RootModuleClient,
     notify: (String) -> Unit,
     writeTag: (String) -> Unit,
-    importFile: (android.net.Uri, (String) -> Unit) -> Unit
+    importFile: (android.net.Uri, (String, String) -> Unit) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var current by rememberSaveable { mutableIntStateOf(0) }
@@ -161,9 +171,9 @@ private fun ManagerScreen(
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            importFile(uri) { code ->
+            importFile(uri) { name, code ->
                 editId = bridge.newId()
-                editName = "导入脚本.sh"
+                editName = name
                 editCode = code
                 editing = true
             }

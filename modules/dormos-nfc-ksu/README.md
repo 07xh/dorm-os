@@ -1,11 +1,29 @@
-# DORM NFC Manager V1.0 Preview (KernelSU only)
+# DORM NFC Manager 1.1.0 Preview — KernelSU only
 
-One dedicated Android app + one KernelSU module. The app uses a native Compose UI: script list, search, editor, SAF import, root execution, NFC tag binding, settings and logs.
+One dedicated Android Compose app + one minimal KernelSU module. This is a personal SH manager, not a campus-network product.
 
-The module has no WebUI, no service.sh, no boot-time startup and no NFC polling. Android receives tags, the app passes a validated UUID, and KernelSU dispatches only the user's registered script. No Magisk/LSPosed compatibility is targeted.
+## App
 
-Personal scripts are stored outside the module at /data/adb/dormos_nfc_bridge/scripts/<UUID>.sh with owner-only permissions; the original filename is saved as Base64 metadata. Scripts are limited to 16 KiB and syntax-checked before saving. The app asks for explicit confirmation before Root execution or NFC binding. Files are not executed during import.
+- Four compact areas: home/status, SH library, NFC bindings, settings/logs.
+- Create, edit, import, search, execute and delete personal `.sh` files.
+- Import uses Android's Storage Access Framework; no broad all-files permission.
+- Save performs Shell syntax validation. Import never executes a script.
+- Run and NFC binding both require an explicit confirmation.
+- NFC tags contain only an opaque UUID; the actual script remains in protected local storage.
 
-Existing UUID-based v2 tags still work after binding; old built-in scene handling is retained for migration. There is no special campus-network screen: any privately managed script is a normal SH file. Logs store only a timestamp, script ID and result; script output is displayed in the app.
+## KernelSU module
 
-This is a preview, not Ace 6 Android 16 device-tested. Verify Root approval, NFC app launch permissions, write/re-read and module installation before real use. Imported scripts run with full Root privileges; only use code you have reviewed.
+- KernelSU only. No Magisk, LSPosed or KernelSU WebUI.
+- No `service.sh`, boot receiver, daemon, polling loop or permanent wake lock.
+- Scripts live outside the module at `/data/adb/dormos_nfc_bridge/scripts/<UUID>.sh`; module updates do not overwrite them.
+- Metadata, bindings and logs are root-only. Script size is limited to 16 KiB.
+- NFC is disabled by default. When enabled, only a previously bound UUID can resolve to a script ID and execute it.
+- No dedicated campus-network action, screen or hard-coded login logic. A campus script is simply another user-owned `校园网.sh` in the library.
+
+## Safety
+
+Imported scripts execute with Root only after explicit user action or a deliberately bound NFC tap. Review each script before running or binding it. The module does not fetch remote scripts or install APKs.
+
+## Verification
+
+CI checks Shell syntax, import/save/read/delete, invalid names and UUIDs, syntax errors, disabled/unbound NFC rejection, generic script dispatch and Android unit tests. Ace 6 / Android 16 real-device NFC, Root permission and idle-power checks are still required before stable release.

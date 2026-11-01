@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
-name=DORM OS NFC Bridge
-version=1.0.0
-versionCode=12
+name=DORM NFC Manager
+version=1.1.0-preview
+versionCode=13
 author=07xh / DORM OS
-description=Personal KernelSU-only SH manager + NFC dispatcher; native Android UI, no service
+description=Personal KernelSU SH library and one-shot NFC-to-script dispatcher; no WebUI or daemon

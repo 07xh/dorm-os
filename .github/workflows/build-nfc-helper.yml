@@ -114,7 +114,7 @@ jobs:
           test ! -e boot-completed.sh
           test ! -e sepolicy.rule
           test ! -e webroot
-          for script in action.sh run.sh dispatcher.sh script-manager.sh scripts/*.sh; do sh -n "$script"; done
+          for script in action.sh run.sh dispatcher.sh script-manager.sh; do sh -n "$script"; done
           bash tests/test-dispatcher.sh
           bash tests/test-personal-scripts.sh
           test -z "$(find . -name '*.so' -o -name '*.dex')"
@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           cd modules/dormos-nfc-ksu
           chmod 0755 run.sh dispatcher.sh script-manager.sh action.sh scripts/*.sh
-          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh script-manager.sh action.sh scripts README.md
+          zip -q -r "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip" module.prop skip_mount run.sh dispatcher.sh script-manager.sh action.sh README.md
           unzip -l "$GITHUB_WORKSPACE/dormos-nfc-ksu.zip"
       - uses: actions/upload-artifact@v4
         with:

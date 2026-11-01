@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Minimal one-shot NFC bridge.
- * Scene management, action mapping, configuration and logs live in the KernelSU WebUI.
+ * Script management and tag-to-script bindings live in the DORM NFC Manager app.
  * This Activity only receives a tag, writes an opaque scene ID when explicitly requested,
  * and calls one fixed KernelSU dispatcher entry point. No services, receivers or polling.
  */
@@ -67,7 +67,7 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         if (source?.action == ACTION_WRITE_TAG) {
             val id = source.getStringExtra(EXTRA_SCENE_ID)
             if (!NfcProfiles.validId(id)) {
-                showAndFinish("写卡请求无效。请返回 KernelSU WebUI 重新发起。")
+                showAndFinish("写卡请求无效。请返回 DORM NFC Manager 重新发起。")
                 return
             }
             writeSceneId = id
@@ -207,11 +207,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             }
             ?.let { String(it.payload, StandardCharsets.UTF_8) }
 
-        if (payload == NfcProfiles.LEGACY_NCWU) {
-            runLegacyNcwu()
-            return
-        }
-
         val id = NfcProfiles.decodeId(payload)
         if (id == null) {
             showAndFinish("未知或无效 NFC 标签，未执行任何操作。")
@@ -228,19 +223,6 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         status.text = "已识别 NFC 场景。\n正在请求 KernelSU 执行固定动作……"
         Thread {
             val result = KsuActionRunner().runScene(id)
-            runOnUiThread {
-                if (!isFinishing) {
-                    status.text = result
-                    finishSoon()
-                }
-            }
-        }.start()
-    }
-
-    private fun runLegacyNcwu() {
-        status.text = "识别到旧版 Ncwu 标签。\n正在执行只读网络识别……"
-        Thread {
-            val result = KsuActionRunner().runLegacyNcwu()
             runOnUiThread {
                 if (!isFinishing) {
                     status.text = result
