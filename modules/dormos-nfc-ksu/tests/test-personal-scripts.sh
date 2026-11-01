@@ -89,10 +89,37 @@ grep -Eq 'DORM_SCRIPT_ERROR=(script_busy|script_busy_or_stale_lock)' "$TMP/concu
 wait "$FIRST_PID"
 grep -q 'DORM_SCRIPT_RESULT=success' "$TMP/first-run.out"
 
+# Folder mutations and global NFC disable share the script execution lock.
+BUSY_TAG=123e4567-e89b-12d3-a456-426614174005
+BUSY_FOLDER=123e4567-e89b-12d3-a456-426614174006
+sh "$R" --script-bind "$BUSY_TAG" "$BUSY_ID" | grep -q DORM_SCRIPT_BOUND
+sh "$R" --enable 1 | grep -q NFC_ENABLED=1
+sh "$R" --nfc "$BUSY_TAG" > "$TMP/nfc-run.out" 2>&1 &
+NFC_PID=$!
+sleep 0.25
+if sh "$R" --enable 0 > "$TMP/disable-during-nfc.out" 2>&1; then
+  echo "NFC disable was allowed during an active NFC script" >&2
+  exit 1
+fi
+grep -Eq 'DORM_SCRIPT_ERROR=(script_busy|script_busy_or_stale_lock)' "$TMP/disable-during-nfc.out"
+if sh "$R" --folder-create "$BUSY_FOLDER" root "$(printf '并发文件夹' | base64 -w0)" > "$TMP/folder-during-nfc.out" 2>&1; then
+  echo "Folder mutation was allowed during NFC execution" >&2
+  exit 1
+fi
+grep -Eq 'DORM_FOLDER_ERROR=(folder_busy|folder_busy_or_stale_lock)' "$TMP/folder-during-nfc.out"
+wait "$NFC_PID"
+grep -q 'DORM_NFC_RESULT=success' "$TMP/nfc-run.out"
+sh "$R" --enable 0 | grep -q NFC_ENABLED=0
+
 # Exercise the portable mkdir fallback and its fail-closed stale-lock behavior.
 DORM_NFC_FORCE_MKDIR_LOCK=1 sh "$R" --script-run "$BUSY_ID" > "$TMP/fallback-run.out" 2>&1 &
 FALLBACK_PID=$!
 sleep 0.25
+if DORM_NFC_FORCE_MKDIR_LOCK=1 sh "$R" --folder-create 123e4567-e89b-12d3-a456-426614174007 root "$(printf '锁测试' | base64 -w0)" > "$TMP/fallback-folder.out" 2>&1; then
+  echo "Folder mutation ignored the shared mkdir lock" >&2
+  exit 1
+fi
+grep -q 'DORM_FOLDER_ERROR=folder_busy_or_stale_lock' "$TMP/fallback-folder.out"
 if DORM_NFC_FORCE_MKDIR_LOCK=1 sh "$R" --script-run "$BUSY_ID" > "$TMP/fallback-second.out" 2>&1; then
   echo "Concurrent fallback lock execution was not blocked" >&2
   exit 1
@@ -109,6 +136,11 @@ if DORM_NFC_FORCE_MKDIR_LOCK=1 sh "$R" --script-run "$BUSY_ID" > "$TMP/stale-loc
 fi
 grep -q 'DORM_SCRIPT_ERROR=script_busy_or_stale_lock' "$TMP/stale-lock.out"
 rm -rf "$DORM_NFC_TEST_ROOT/script-run.lock.d"
+if DORM_NFC_FORCE_MKDIR_LOCK=1 sh "$R" --folder-create 123e4567-e89b-12d3-a456-426614174008 root "$(printf '陈旧锁测试' | base64 -w0)" > "$TMP/stale-folder.out" 2>&1; then
+  echo "Folder mutation ignored a stale shared mkdir lock" >&2
+  exit 1
+fi
+grep -q 'DORM_FOLDER_ERROR=folder_busy_or_stale_lock' "$TMP/stale-folder.out"
 sh "$R" --script-delete "$BUSY_ID" | grep -q DORM_SCRIPT_DELETED
 
 echo "personal script manager tests passed"

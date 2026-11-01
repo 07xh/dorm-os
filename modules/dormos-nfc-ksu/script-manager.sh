@@ -13,6 +13,7 @@ SCRIPTS="$BASE/scripts"
 BINDINGS="$BASE/script_bindings.tsv"
 SCENES="$BASE/scenes.tsv"
 LOG="$BASE/script_events.log"
+ENABLED="$BASE/nfc_enabled"
 LOCK="$BASE/script-run.lock"
 LOCK_DIR="$BASE/script-run.lock.d"
 
@@ -20,9 +21,9 @@ die() { echo "DORM_SCRIPT_ERROR=$1"; exit "${2:-1}"; }
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 b64() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'; }
 
-[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$SCENES" ] && [ ! -L "$LOG" ] && [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_dir 70
-mkdir -p "$SCRIPTS"
-chmod 700 "$BASE" "$SCRIPTS" 2>/dev/null || :
+[ ! -L "$BASE" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && [ ! -L "$SCENES" ] && [ ! -L "$LOG" ] && [ ! -L "$ENABLED" ] && [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_dir 70
+mkdir -p "$SCRIPTS" || die storage_unavailable 73
+chmod 700 "$BASE" "$SCRIPTS" 2>/dev/null || die storage_permissions_failed 73
 
 item() {
   uuid "$1" || die invalid_id 64
@@ -41,6 +42,19 @@ scene_name64() {
   if [ -f "$SCENES" ] && [ ! -L "$SCENES" ]; then
     awk -F '|' -v tag="$1" '$1 == tag {print $2; exit}' "$SCENES"
   fi
+}
+enabled_value() {
+  value=$(cat "$ENABLED" 2>/dev/null || printf '0')
+  case "$value" in 0|1) printf '%s' "$value" ;; *) printf '0' ;; esac
+}
+set_enabled() {
+  value="${1:-}"
+  case "$value" in 0|1) ;; *) die invalid_enabled_value 64 ;; esac
+  tmp=$(mktemp "$ENABLED.tmp.XXXXXX") || die storage_unavailable 73
+  printf '%s\n' "$value" > "$tmp"
+  chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+  mv "$tmp" "$ENABLED" || { rm -f "$tmp"; die storage_unavailable 73; }
+  echo "NFC_ENABLED=$value"
 }
 valid_scene_name() {
   value=$(printf '%s' "$1" | base64 -d 2>/dev/null) || return 1
@@ -82,7 +96,7 @@ cleanup_run_lock() {
   fi
 }
 acquire_run_lock() {
-  [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_run_lock 70
+  [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] && [ ! -L "$ENABLED" ] || die unsafe_run_lock 70
   if [ "${DORM_NFC_FORCE_MKDIR_LOCK:-0}" != "1" ] && flock_supported; then
     : >> "$LOCK"
     chmod 600 "$LOCK"
@@ -123,6 +137,10 @@ run_script() {
   fi
 }
 case "${1:-}" in
+  --enable)
+    acquire_run_lock
+    set_enabled "${2:-}"
+    ;;
   --list)
     for f in "$SCRIPTS"/*.sh; do
       [ -f "$f" ] && [ ! -L "$f" ] || continue
@@ -156,7 +174,7 @@ case "${1:-}" in
       */*|*\\*|*'|'*) die invalid_script_name 64 ;;
     esac
     if printf '%s' "$display" | grep -q '[[:cntrl:]]'; then die invalid_script_name 64; fi
-    tmp="$SCRIPTS/.script.$$"
+    tmp="$(mktemp "$SCRIPTS/.script.XXXXXX")" || die script_temp_failed 73
     printf '%s' "$body" | base64 -d > "$tmp" 2>/dev/null || { rm -f "$tmp"; die bad_body64 65; }
     [ "$(wc -c < "$tmp" | tr -d ' ')" -le 16384 ] || { rm -f "$tmp"; die body_too_large 64; }
     "$SH" -n "$tmp" || { rm -f "$tmp"; die syntax_error 65; }
@@ -177,8 +195,10 @@ case "${1:-}" in
     case "$display" in *.sh|*.SH|*.Sh|*.sH) ;; *) die invalid_script_name 64 ;; esac
     case "$display" in */*|*\\*|*'|'*) die invalid_script_name 64 ;; esac
     if printf '%s' "$display" | grep -q '[[:cntrl:]]'; then die invalid_script_name 64; fi
-    printf '%s\n' "$title" > "$NAME.tmp"
-    chmod 600 "$NAME.tmp"; mv "$NAME.tmp" "$NAME"
+    tmp="$(mktemp "$SCRIPTS/.name.XXXXXX")" || die name_temp_failed 73
+    printf '%s\n' "$title" > "$tmp"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$NAME" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_SCRIPT_RENAMED=1"
     ;;
   --delete)
@@ -186,15 +206,17 @@ case "${1:-}" in
     item "${2:-}"
     [ -f "$FILE" ] || die not_found 66
     if [ -f "$BINDINGS" ] && [ -f "$SCENES" ]; then
+      tmp="$(mktemp "$SCENES.tmp.XXXXXX")" || die scene_temp_failed 73
       awk -F '|' -v id="$2" 'FILENAME == ARGV[1] {if ($2 == id) removed[$1]=1; next} !($1 in removed)' \
-        "$BINDINGS" "$SCENES" > "$SCENES.tmp"
-      chmod 600 "$SCENES.tmp"
-      mv "$SCENES.tmp" "$SCENES"
+        "$BINDINGS" "$SCENES" > "$tmp" || { rm -f "$tmp"; die scene_update_failed 73; }
+      chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+      mv "$tmp" "$SCENES" || { rm -f "$tmp"; die storage_unavailable 73; }
     fi
     if [ -f "$BINDINGS" ]; then
-      awk -F '|' -v id="$2" '$2 != id {print}' "$BINDINGS" > "$BINDINGS.tmp"
-      chmod 600 "$BINDINGS.tmp"
-      mv "$BINDINGS.tmp" "$BINDINGS"
+      tmp="$(mktemp "$BINDINGS.tmp.XXXXXX")" || die binding_temp_failed 73
+      awk -F '|' -v id="$2" '$2 != id {print}' "$BINDINGS" > "$tmp" || { rm -f "$tmp"; die binding_update_failed 73; }
+      chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+      mv "$tmp" "$BINDINGS" || { rm -f "$tmp"; die storage_unavailable 73; }
     fi
     rm -f "$FILE" "$NAME" "$SCRIPTS/$2.folder"
     echo "DORM_SCRIPT_DELETED=1"
@@ -206,6 +228,7 @@ case "${1:-}" in
   --run-bound)
     acquire_run_lock
     uuid "${2:-}" || die invalid_tag 64
+    [ "$(enabled_value)" = "1" ] || die nfc_trigger_disabled 77
     [ -f "$BINDINGS" ] && [ ! -L "$BINDINGS" ] || die unbound 66
     script_id=$(awk -F '|' -v tag="$2" '$1 == tag {print $2; exit}' "$BINDINGS")
     uuid "$script_id" || die unbound 66
@@ -220,29 +243,31 @@ case "${1:-}" in
     uuid "${2:-}" || die invalid_tag 64
     item "${3:-}"
     [ -f "$FILE" ] || die not_found 66
-    tmp="$BINDINGS.tmp.$$"
+    tmp="$(mktemp "$BINDINGS.tmp.XXXXXX")" || die binding_temp_failed 73
     if [ -f "$BINDINGS" ]; then
-      awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$tmp"
+      awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$tmp" || { rm -f "$tmp"; die binding_update_failed 73; }
     else
       : > "$tmp"
     fi
     printf '%s|%s\n' "$2" "$3" >> "$tmp"
-    chmod 600 "$tmp"
-    mv "$tmp" "$BINDINGS"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$BINDINGS" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_SCRIPT_BOUND=1"
     ;;
   --unbind)
     acquire_run_lock
     uuid "${2:-}" || die invalid_tag 64
     if [ -f "$BINDINGS" ]; then
-      awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$BINDINGS.tmp"
-      chmod 600 "$BINDINGS.tmp"
-      mv "$BINDINGS.tmp" "$BINDINGS"
+      tmp="$(mktemp "$BINDINGS.tmp.XXXXXX")" || die binding_temp_failed 73
+      awk -F '|' -v tag="$2" '$1 != tag {print}' "$BINDINGS" > "$tmp" || { rm -f "$tmp"; die binding_update_failed 73; }
+      chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+      mv "$tmp" "$BINDINGS" || { rm -f "$tmp"; die storage_unavailable 73; }
     fi
     if [ -f "$SCENES" ]; then
-      awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$SCENES.tmp"
-      chmod 600 "$SCENES.tmp"
-      mv "$SCENES.tmp" "$SCENES"
+      tmp="$(mktemp "$SCENES.tmp.XXXXXX")" || die scene_temp_failed 73
+      awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp" || { rm -f "$tmp"; die scene_update_failed 73; }
+      chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+      mv "$tmp" "$SCENES" || { rm -f "$tmp"; die storage_unavailable 73; }
     fi
     echo "DORM_SCRIPT_UNBOUND=1"
     ;;
@@ -271,11 +296,11 @@ case "${1:-}" in
     [ -n "$display64" ] && [ "${#display64}" -le 360 ] && b64 "$display64" && valid_scene_name "$display64" || die invalid_scene_name 64
     [ -f "$BINDINGS" ] && awk -F '|' -v tag="$2" '$1 == tag {found=1} END {exit !found}' "$BINDINGS" || die unbound 66
     active=$(scene_active "$2")
-    tmp="$SCENES.tmp.$$"
-    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
+    tmp="$(mktemp "$SCENES.tmp.XXXXXX")" || die scene_temp_failed 73
+    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp" || { rm -f "$tmp"; die scene_update_failed 73; }; else : > "$tmp"; fi
     printf '%s|%s|%s\n' "$2" "$display64" "$active" >> "$tmp"
-    chmod 600 "$tmp"
-    mv "$tmp" "$SCENES"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$SCENES" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_SCENE_SAVED=1"
     ;;
   --scene-enable)
@@ -291,11 +316,11 @@ case "${1:-}" in
       [ -f "$NAME" ] || die not_found 66
       display=$(cat "$NAME")
     fi
-    tmp="$SCENES.tmp.$$"
-    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp"; else : > "$tmp"; fi
+    tmp="$(mktemp "$SCENES.tmp.XXXXXX")" || die scene_temp_failed 73
+    if [ -f "$SCENES" ]; then awk -F '|' -v tag="$2" '$1 != tag {print}' "$SCENES" > "$tmp" || { rm -f "$tmp"; die scene_update_failed 73; }; else : > "$tmp"; fi
     printf '%s|%s|%s\n' "$2" "$display" "$enabled" >> "$tmp"
-    chmod 600 "$tmp"
-    mv "$tmp" "$SCENES"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$SCENES" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_SCENE_ENABLED=$enabled"
     ;;
   --resolve)
@@ -314,8 +339,8 @@ case "${1:-}" in
     acquire_run_lock
     tmp="$(mktemp "$LOG.clear.XXXXXX")" || die log_temp_failed 73
     : > "$tmp"
-    chmod 600 "$tmp"
-    mv "$tmp" "$LOG"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$LOG" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_SCRIPT_LOGS=CLEARED"
     ;;
   *)

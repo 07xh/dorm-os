@@ -1,6 +1,6 @@
 id=dormos_nfc_actions
 name=触序 · TapFlow（KernelSU）
-version=1.11.0-module-cleanup
-versionCode=22
+version=1.22.1
+versionCode=23
 author=07xh / DORM OS
 description=TapFlow local SH script storage and NFC scene dispatcher; no WebUI or daemon

@@ -1,80 +1,51 @@
-# DORM NFC Manager 1.9.0 Preview — KernelSU only
+# 触序 · TapFlow KernelSU 模块 V1.22.1
 
-One dedicated Android Compose app + one minimal KernelSU module. This is a personal SH manager, not a campus-network product.
+本模块只服务于个人 Android 设备上的本地 SH 脚本管理与 NFC 场景触发。配套 App 独立安装；模块不内置 APK，也不使用 KernelSU WebUI。
 
-## App
+## 兼容与定位
 
-- Four compact areas: home/status, SH library, NFC bindings, settings/logs.
-- Create, edit, import, search, execute and delete personal `.sh` files.
-- Import uses Android's Storage Access Framework; no broad all-files permission.
-- Save performs Shell syntax validation. Import never executes a script.
-- Run and NFC binding both require an explicit confirmation.
-- NFC tags contain only an opaque UUID; the actual script remains in protected local storage.
+- 目标：KernelSU / KernelSU Next 提供的标准 `su` 授权环境。
+- 不承诺 Magisk、APatch 或 LSPosed 兼容。
+- 模块 ID：`dormos_nfc_actions`；App 固定调用路径：`/data/adb/modules/dormos_nfc_actions/run.sh`。
+- NFC 触发默认关闭；必须在 App 内启用、绑定标签并确认写卡回读。
+- 标签只保存 UUID/MIME，不保存脚本和账号密码。UUID 标签可被复制，不是安全凭证。
 
-## KernelSU module
+## 低耗电设计
 
-- KernelSU only. No Magisk, LSPosed or KernelSU WebUI.
-- No `service.sh`, boot receiver, daemon, polling loop or permanent wake lock.
-- Scripts live outside the module at `/data/adb/dormos_nfc_bridge/scripts/<UUID>.sh`; module updates do not overwrite them.
-- Metadata, bindings and logs are root-only. Script size is limited to 16 KiB.
-- NFC is disabled by default. When enabled, only a previously bound UUID can resolve to a script ID and execute it.
-- No dedicated campus-network action, screen or hard-coded login logic. A campus script is simply another user-owned `校园网.sh` in the library.
+- 不安装 `service.sh`、`post-fs-data.sh`、开机广播、守护进程或轮询任务。
+- 不申请常驻唤醒锁；只有 App 操作或 NFC 触发时执行一次 Shell 入口。
+- `action.sh` 仅用于 KernelSU 手动运行一次健康检查。
+- 不内置校园网逻辑、自动登录服务、远程下载器或 APK 安装器。个人脚本由用户自己导入和审核。
 
-## Safety
+## 数据与备份
 
-Imported scripts execute with Root only after explicit user action or a deliberately bound NFC tap. Review each script before running or binding it. The module does not fetch remote scripts or install APKs.
+脚本、绑定、场景、文件夹、启用状态和执行日志保存在：
 
-## Verification
+```
+/data/adb/dormos_nfc_bridge/
+```
 
-CI checks Shell syntax, import/save/read/delete, invalid names and UUIDs, syntax errors, disabled/unbound NFC rejection, generic script dispatch and Android unit tests. Ace 6 / Android 16 real-device NFC, Root permission and idle-power checks are still required before stable release.
+数据位于模块目录之外，升级模块不会覆盖个人资料。**卸载模块不会自动删除这份数据**，以避免误删个人脚本；重新安装同 ID 模块后可继续使用。卸载前请在 App 的“配置与备份”中导出备份，并妥善保管。不要手工删除上述目录，除非确认不再需要其中数据。
 
-## V1.3 NFC safe-binding protocol
+## 执行与安全边界
 
-The native app writes a new NDEF tag and verifies the read-back **before** it records a Root script binding. Canceling a write, presenting a read-only tag, or receiving a mismatched read-back leaves the tag unbound. A newly formatted tag without confirmed read-back must be presented again for verification. New tags use `application/vnd.dormos.nfc-script`; the receiver still accepts the legacy `application/vnd.dormos.ncwu` tag MIME for migration. This is a compatibility mechanism, not a dedicated campus-login feature. NFC IDs are not security tokens: copied tags may trigger the same approved script.
+- 脚本以 Root 权限执行，单个脚本最大 16 KiB，单次执行最多 20 秒。
+- App 仅向固定 dispatcher 传递白名单参数；UUID、Base64 参数在进入 Shell 前校验，拒绝拼接任意命令。
+- 导入和保存只做 Shell 语法检查，不代表脚本安全。语法正确的脚本仍可能修改系统、删除数据或访问网络。运行或绑定 NFC 前必须自行审阅脚本。
+- NFC 关闭状态、未绑定 UUID、禁用场景、错误 UUID、脚本缺失或并发操作均应拒绝执行。
+- NFC 绑定解析、脚本执行、脚本编辑、标签绑定、全局 NFC 开关和文件夹修改使用同一执行锁；优先使用可用的 `flock`，否则使用 fail-closed 的 `mkdir` 锁。陈旧 fallback 锁不会被自动抢占。
 
+## 安装与升级
 
-## V1.4 NFC trigger hardening
+1. 在 KernelSU 管理器中安装 `TapFlow-KernelSU-V1.22.1.zip` 并按提示重启（若管理器要求）。
+2. 单独安装配套 TapFlow APK。
+3. 在 KernelSU 管理器中仅向 TapFlow 授予 Root 权限。
+4. 打开 App 检查模块状态；确认脚本、NFC 绑定和备份数据后再启用 NFC。
 
-- The exported NFC activity no longer trusts `EXTRA_NDEF_MESSAGES` supplied by the launching Intent. It reads the NDEF message from the discovered physical `Tag` via `Ndef.get(tag)`, then validates the MIME type, payload length, version prefix and UUID.
-- Supports the new DORM NFC MIME and the legacy MIME for already written tags.
-- Root command output is kept as a bounded 42 KiB tail rather than the first 42 KiB, so verbose user-script output cannot hide the dispatcher's final success marker.
-- NFC execution success is determined by exit code plus the exact dispatcher marker, not by an arbitrary output-size limit.
-- Added unit tests for MIME/payload validation and verbose-output success-marker handling.
+升级时保持模块 ID 不变，直接通过 KernelSU 安装新 ZIP。不要先卸载旧模块；模块更新保留外部数据目录。
 
-This hardens forged-Intent handling but does not make NFC tags secret or unclonable. A copied tag still acts as a bearer trigger for its bound script.
+## 自动化验证
 
+CI 检查 Shell 语法、模块 ID/版本元数据、默认关闭、启用/禁用、NFC 绑定和场景、脚本保存/读取/重命名/删除、16 KiB 限制、语法错误拒绝、并发执行、共享锁、文件夹层级和锁回退行为。
 
-## V1.5 concurrent Root execution guard (superseded)
-
-V1.5 introduced the first per-device execution lock. Its PID-based stale-lock recovery was later replaced in V1.9 because the reclamation path could race with a newly created lock owner. See the V1.9 section for current behavior.
-
-
-
-## V1.6 manager reliability and readable logs
-
-- Module refresh and Root actions now recover from unexpected exceptions instead of leaving the UI permanently busy; coroutine cancellation is still propagated correctly.
-- Recent execution output displays its tail so the final result is visible.
-- Execution history converts Unix timestamps into local time and script IDs into script names, skips malformed rows, and shows at most the latest 80 valid events.
-- The home page surfaces the actual module/Root status message when connection fails.
-
-
-## V1.7 NFC tag rebinding cleanup
-
-When overwriting a previously DORM-managed NDEF tag, the app reads and validates the old DORM UUID from the physical tag before writing. It writes and verifies the new UUID, commits the new Root binding, and then removes the old UUID mapping. Unrelated NDEF records are ignored. If old-binding cleanup fails, the app reports that the new binding was created but cleanup needs attention; it does not silently claim a clean replacement.
-
-
-## V1.8 stale run-lock recovery (superseded)
-
-V1.8 attempted to reclaim stale PID-based locks by renaming the lock directory. Further review found that a second contender could rename a replacement lock created by the first contender. V1.9 replaces this with kernel-managed `flock` where available and a fail-closed `mkdir` fallback.
-
-
-
-
-
-## V1.9 Root execution serialization and binding consistency
-
-- Prefer a kernel-managed `flock` lock after probing that the device command supports file-descriptor locking.
-- Fall back to an atomic `mkdir` lock when `flock` is unavailable or incompatible. This fallback fails closed on an existing lock; after a force-kill or reboot, remove `/data/adb/dormos_nfc_bridge/script-run.lock.d` only after confirming no DORM script or child process remains.
-- Manual runs, NFC runs, script saves/renames/deletes, binding changes and log clearing share the same exclusive lock.
-- NFC resolves the tag-to-script binding and executes the script under one lock, preventing a rebind/delete race between lookup and execution.
-- Log rotation and clearing use unique temporary files. Device-specific `flock` behavior still requires Ace 6 / Android 16 verification.
+CI 不等于真机验收。Ace 6 / Android 16 仍需确认 KernelSU 授权弹窗、实际 `flock` 能力、NFC 前后台/锁屏触发、ColorOS 后台限制、耗电和脚本超时后的子进程退出。

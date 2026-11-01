@@ -10,7 +10,51 @@ else
 fi
 FOLDERS="$BASE/folders"
 SCRIPTS="$BASE/scripts"
+LOCK="$BASE/script-run.lock"
+LOCK_DIR="$BASE/script-run.lock.d"
 die() { echo "DORM_FOLDER_ERROR=$1"; exit "${2:-1}"; }
+LOCK_MODE=""
+LOCK_HELD=0
+flock_supported() {
+  [ "${DORM_NFC_FORCE_MKDIR_LOCK:-0}" != "1" ] || return 1
+  command -v flock >/dev/null 2>&1 || return 1
+  probe="$(mktemp "$BASE/.folder-flock-probe.XXXXXX")" || return 1
+  if ( exec 8>"$probe"; flock -n 8 ) 2>/dev/null; then
+    rm -f "$probe"
+    return 0
+  fi
+  rm -f "$probe"
+  return 1
+}
+cleanup_folder_lock() {
+  if [ "$LOCK_HELD" = "1" ]; then
+    case "$LOCK_MODE" in
+      flock) exec 9>&- ;;
+      mkdir) rmdir "$LOCK_DIR" 2>/dev/null || : ;;
+    esac
+  fi
+}
+acquire_folder_lock() {
+  [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_run_lock 70
+  if flock_supported; then
+    : >> "$LOCK"
+    chmod 600 "$LOCK" || die storage_permissions_failed 73
+    exec 9>>"$LOCK"
+    if ! flock -n 9 2>/dev/null; then
+      exec 9>&-
+      die folder_busy 75
+    fi
+    LOCK_MODE=flock
+  else
+    if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+      die folder_busy_or_stale_lock 75
+    fi
+    LOCK_MODE=mkdir
+  fi
+  LOCK_HELD=1
+  trap 'cleanup_folder_lock' EXIT
+  trap 'exit 143' HUP INT TERM
+}
 uuid() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$'; }
 valid_folder_id() { [ "$1" = root ] || uuid "$1"; }
 check_folder() {
@@ -52,9 +96,12 @@ no_cycle() {
     check_folder "$target"
   done
 }
-[ ! -L "$BASE" ] && [ ! -L "$FOLDERS" ] && [ ! -L "$SCRIPTS" ] || die unsafe_storage 70
-mkdir -p "$FOLDERS" "$SCRIPTS"
-chmod 700 "$BASE" "$FOLDERS" "$SCRIPTS" 2>/dev/null || :
+[ ! -L "$BASE" ] && [ ! -L "$FOLDERS" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$LOCK" ] && [ ! -L "$LOCK_DIR" ] || die unsafe_storage 70
+mkdir -p "$FOLDERS" "$SCRIPTS" || die storage_unavailable 73
+chmod 700 "$BASE" "$FOLDERS" "$SCRIPTS" 2>/dev/null || die storage_permissions_failed 73
+case "${1:-}" in
+  --create|--rename|--move|--delete|--script-move) acquire_folder_lock ;;
+esac
 case "${1:-}" in
   --list)
     for meta in "$FOLDERS"/*.meta; do
@@ -82,8 +129,10 @@ case "${1:-}" in
     check_folder "$id"; valid_name64 "$title"
     parent=$(folder_parent "$id")
     no_duplicate "$parent" "$title" "$id"
-    printf '%s|%s\n' "$parent" "$title" > "$FOLDERS/$id.tmp"
-    chmod 600 "$FOLDERS/$id.tmp"; mv "$FOLDERS/$id.tmp" "$FOLDERS/$id.meta"
+    tmp="$(mktemp "$FOLDERS/$id.tmp.XXXXXX")" || die folder_temp_failed 73
+    printf '%s|%s\n' "$parent" "$title" > "$tmp"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$FOLDERS/$id.meta" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_FOLDER_RENAMED=1"
     ;;
   --move)
@@ -92,8 +141,10 @@ case "${1:-}" in
     check_folder "$id"; check_folder "$parent"; no_cycle "$id" "$parent"
     IFS='|' read -r _ title < "$FOLDERS/$id.meta" || :
     no_duplicate "$parent" "$title" "$id"
-    printf '%s|%s\n' "$parent" "$title" > "$FOLDERS/$id.tmp"
-    chmod 600 "$FOLDERS/$id.tmp"; mv "$FOLDERS/$id.tmp" "$FOLDERS/$id.meta"
+    tmp="$(mktemp "$FOLDERS/$id.tmp.XXXXXX")" || die folder_temp_failed 73
+    printf '%s|%s\n' "$parent" "$title" > "$tmp"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$FOLDERS/$id.meta" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_FOLDER_MOVED=1"
     ;;
   --delete)
@@ -106,6 +157,7 @@ case "${1:-}" in
       [ "$parent" != "$id" ] || die folder_not_empty 65
     done
     for link in "$SCRIPTS"/*.folder; do
+      [ ! -L "$link" ] || die unsafe_storage 70
       [ -f "$link" ] || continue
       [ "$(cat "$link")" != "$id" ] || die folder_not_empty 65
     done
@@ -130,9 +182,10 @@ case "${1:-}" in
     check_folder "$target"
     [ ! -L "$SCRIPTS/$id.folder" ] || die unsafe_storage 70
     if [ "$target" = root ]; then rm -f "$SCRIPTS/$id.folder"; else
-      printf '%s\n' "$target" > "$SCRIPTS/$id.folder.tmp"
-      chmod 600 "$SCRIPTS/$id.folder.tmp"
-      mv "$SCRIPTS/$id.folder.tmp" "$SCRIPTS/$id.folder"
+      tmp="$(mktemp "$SCRIPTS/$id.folder.tmp.XXXXXX")" || die folder_temp_failed 73
+      printf '%s\n' "$target" > "$tmp"
+      chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+      mv "$tmp" "$SCRIPTS/$id.folder" || { rm -f "$tmp"; die storage_unavailable 73; }
     fi
     echo "DORM_SCRIPT_MOVED=1"
     ;;

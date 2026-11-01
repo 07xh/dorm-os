@@ -115,6 +115,9 @@ jobs:
           set -euo pipefail
           cd modules/dormos-nfc-ksu
           grep -qx 'id=dormos_nfc_actions' module.prop
+          grep -qx 'version=1.22.1' module.prop
+          grep -qx 'versionCode=23' module.prop
+          test -s README.md
           test -f skip_mount
           test ! -e service.sh
           test ! -e post-fs-data.sh
@@ -176,3 +179,40 @@ jobs:
             --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
             --title "触序 · TapFlow V1.22.1 · 导航按压反馈修复与自然转场" \
             --notes "TapFlow V1.22.1 navigation-fix preview. Built from commit $GITHUB_SHA after Android unit tests, APK build, and KernelSU checks pass. Removes the oversized rectangular tab press effect and extra Material3 NavigationBar nesting. Uses a compact 64dp fixed bottom bar, one 185ms selected capsule, and smaller 210ms directional page transitions. Preserves tap-only three-tab navigation, scroll position, NFC ReaderMode/write-back, and independent KernelSU installation. This is a DEBUG-signed preview APK, not a stable signed release; real-device frame pacing still needs validation."
+
+  # Publish the independently installable KernelSU ZIP after its module-only
+  # regression suite passes. The Android app remains a separate APK install.
+  publish-ksu-preview:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/ncwu-nfc-one-shot-v1' && startsWith(github.event.head_commit.message, 'release-ksu-preview:') }}
+    needs: [ksu-zip]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified KernelSU ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: dorm-os-nfc-ksu-module
+          path: preview/ksu
+      - name: Publish TapFlow KernelSU V1.22.1 module
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -s preview/ksu/dormos-nfc-ksu.zip
+          mkdir -p public
+          cp preview/ksu/dormos-nfc-ksu.zip public/TapFlow-KernelSU-V1.22.1.zip
+          (cd public && sha256sum TapFlow-KernelSU-V1.22.1.zip > TapFlow-KernelSU-V1.22.1.zip.sha256)
+          TAG="tapflow-ksu-v1.22.1-audit-preview"
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing module release: $TAG"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            public/TapFlow-KernelSU-V1.22.1.zip \
+            public/TapFlow-KernelSU-V1.22.1.zip.sha256 \
+            --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
+            --title "触序 · TapFlow KernelSU V1.22.1 · 模块审计版" \
+            --notes "KernelSU-only module for TapFlow V1.22.1. Built after shell syntax, metadata, dispatcher, personal-script, folder, shared-lock, NFC enable/disable race, and fallback-lock checks passed. No service.sh, boot receiver, daemon, polling loop, WebUI, or bundled APK. Personal data remains in /data/adb/dormos_nfc_bridge across module updates and is intentionally not deleted on uninstall. Target-device KernelSU/Android 16 validation is still required."

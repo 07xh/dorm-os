@@ -19,19 +19,11 @@ ensure_data() {
   [ ! -L "$DATA_DIR" ] && [ ! -L "$SCRIPTS" ] && [ ! -L "$BINDINGS" ] && \
     [ ! -L "$ENABLED" ] && [ ! -L "$DATA_DIR/scenes.tsv" ] || die unsafe_storage 70
   mkdir -p "$SCRIPTS" || die storage_unavailable 73
-  chmod 700 "$DATA_DIR" "$SCRIPTS" 2>/dev/null || :
+  chmod 700 "$DATA_DIR" "$SCRIPTS" 2>/dev/null || die storage_permissions_failed 73
 }
 enabled_value() {
   _value=$(cat "$ENABLED" 2>/dev/null || printf '0')
   case "$_value" in 0|1) printf '%s' "$_value" ;; *) printf '0' ;; esac
-}
-set_enabled() {
-  case "${1:-}" in 0|1) ;; *) die invalid_enabled_value 64 ;; esac
-  _enabled_tmp=$(mktemp "$ENABLED.tmp.XXXXXX") || die storage_unavailable 73
-  printf '%s\n' "$1" > "$_enabled_tmp"
-  chmod 600 "$_enabled_tmp"
-  mv "$_enabled_tmp" "$ENABLED"
-  echo "NFC_ENABLED=$1"
 }
 script_count() {
   # Status is a hot path. Count valid local entries without starting another
@@ -59,9 +51,7 @@ case "${1:-}" in
     echo "BINDING_COUNT=$(binding_count)"
     echo "BACKGROUND_SERVICE=none"
     ;;
-  --enable)
-    set_enabled "${2:-}"
-    ;;
+  --enable) exec "$SH" "$MODDIR/script-manager.sh" --enable "${2:-}" ;;
   --nfc)
     tag_id="${2:-}"
     valid_id "$tag_id" || die invalid_tag_id 64
