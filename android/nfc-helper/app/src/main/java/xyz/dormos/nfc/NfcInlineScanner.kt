@@ -2,7 +2,6 @@ package xyz.dormos.nfc
 
 import android.nfc.NfcAdapter
 import android.nfc.Tag
-import android.nfc.tech.NdefFormatable
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -42,7 +41,6 @@ internal class NfcInlineScanner(private val activity: ComponentActivity) : NfcAd
 
     val available get() = adapter != null
     val enabled get() = adapter?.isEnabled == true
-    val open get() = active
 
     fun start() {
         active = true
