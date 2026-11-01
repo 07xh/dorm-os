@@ -346,6 +346,10 @@ private fun ManagerScreen(
                     verifiedRequest.tagId, outcome.verified
                 )) {
                 inlineWriter.markRegistered(false, "回读验证失败，没有登记任何脚本绑定")
+            } else if (loading) {
+                inlineWriter.markRegistered(
+                    false, "KernelSU 正在处理其他操作；标签已回读，但尚未登记绑定，请重新贴卡验证"
+                )
             } else {
                 val previous = NfcProfiles.previousBindingToRemove(
                     outcome.previousTagId, verifiedRequest.tagId
