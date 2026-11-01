@@ -47,3 +47,11 @@ This hardens forged-Intent handling but does not make NFC tags secret or unclona
 ## V1.5 concurrent Root execution guard
 
 The module now uses an atomic per-device run lock so an NFC tap and an in-app Run action cannot launch two registered Root scripts at the same time. A second request receives `DORM_SCRIPT_ERROR=script_busy` and does not run. The lock records both the manager PID and active timeout PID, cleans up on normal exit/signals, and can recover a stale lock after both owners have exited. Log rotation uses unique temporary files. The personal-script test suite includes a concurrent-run positive/negative case.
+
+
+## V1.6 manager reliability and readable logs
+
+- Module refresh and Root actions now recover from unexpected exceptions instead of leaving the UI permanently busy; coroutine cancellation is still propagated correctly.
+- Recent execution output displays its tail so the final result is visible.
+- Execution history converts Unix timestamps into local time and script IDs into script names, skips malformed rows, and shows at most the latest 80 valid events.
+- The home page surfaces the actual module/Root status message when connection fails.

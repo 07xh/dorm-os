@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -144,24 +145,32 @@ private fun ManagerScreen(
         if (loading) return
         scope.launch {
             loading = true
-            val result = withContext(Dispatchers.IO) {
-                val info = bridge.status()
-                val list = bridge.listScripts()
-                val links = bridge.listBindings()
-                val history = bridge.logs()
-                Triple(listOf(info, list.second, links, history), list.first,
-                    Pair(bridge.listFolders(), bridge.scriptFolders()))
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val info = bridge.status()
+                    val list = bridge.listScripts()
+                    val links = bridge.listBindings()
+                    val history = bridge.logs()
+                    Triple(listOf(info, list.second, links, history), list.first,
+                        Pair(bridge.listFolders(), bridge.scriptFolders()))
+                }
+                val info = result.first[0]
+                status = info.output
+                installed = info.success && info.output.contains("DORM_MODULE=ready")
+                receiverEnabled = info.output.contains("NFC_ENABLED=1")
+                entries = result.second
+                folders = result.third.first
+                scriptLocations = result.third.second
+                bindings = result.first[2].output
+                logs = result.first[3].output
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                status = "模块检查失败：" + (error.message ?: error.javaClass.simpleName)
+                notify(status)
+            } finally {
+                loading = false
             }
-            val info = result.first[0]
-            status = info.output
-            installed = info.success && info.output.contains("DORM_MODULE=ready")
-            receiverEnabled = info.output.contains("NFC_ENABLED=1")
-            entries = result.second
-            folders = result.third.first
-            scriptLocations = result.third.second
-            bindings = result.first[2].output
-            logs = result.first[3].output
-            loading = false
         }
     }
 
@@ -169,9 +178,17 @@ private fun ManagerScreen(
         if (loading) return
         scope.launch {
             loading = true
-            val result = withContext(Dispatchers.IO) { action() }
+            val result = try {
+                withContext(Dispatchers.IO) { action() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                RootResult(70, "Root 操作异常：" + (error.message ?: error.javaClass.simpleName))
+            }
             output = result.output.ifBlank { if (result.success) "执行完成" else "执行失败（${result.code}）" }
-            notify(if (result.success) "操作成功" else "执行失败（${result.code}）")
+            val detail = result.output.lineSequence().firstOrNull { it.startsWith("DORM_") }
+                ?: result.output.take(100).ifBlank { "执行失败（${result.code}）" }
+            notify(if (result.success) "操作成功" else detail)
             loading = false
             after(result)
         }
@@ -245,7 +262,9 @@ private fun ManagerScreen(
                             Spacer(Modifier.width(13.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("KernelSU 模块", color = ink, fontWeight = FontWeight.Medium, fontSize = 18.sp)
-                                Text(if (installed) "已连接 · 无常驻脚本服务" else "未连接 · 检查 Root 授权", color = dim)
+                                Text(if (installed) "已连接 · 无常驻脚本服务" else
+                                    "未连接 · " + status.take(60).ifBlank { "检查 KernelSU 模块与 Root 授权" },
+                                    color = dim, maxLines = 2)
                             }
                             Text(if (installed) "正常" else "检查", color = actionBlue)
                         }
@@ -259,7 +278,7 @@ private fun ManagerScreen(
                         SummaryRow("▤", "最近结果", "点击查看执行反馈", "›") { current = 3 }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Section("最近结果") { Text(output.take(500), color = dim, fontSize = 13.sp) }
+                    Section("最近结果") { Text(output.takeLast(1200), color = dim, fontSize = 13.sp) }
                 }
                 1 -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -375,7 +394,7 @@ private fun ManagerScreen(
                     Section("最近执行输出") { Text(output.takeLast(9000), color = dim, fontSize = 12.sp) }
                     Spacer(Modifier.height(12.dp))
                     Section("执行日志（最近 80 条）") {
-                        Text(logs.ifBlank { "暂无记录" }.lineSequence().toList().takeLast(80).joinToString("\n"),
+                        Text(ExecutionLogFormatter.format(logs, entries),
                             color = dim, fontSize = 12.sp)
                         TextButton(onClick = { confirmClearLogs = true }, enabled = !loading) { Text("清空日志") }
                     }

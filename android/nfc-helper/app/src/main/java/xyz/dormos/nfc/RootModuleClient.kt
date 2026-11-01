@@ -165,3 +165,25 @@ class RootModuleClient {
     }
     fun newId(): String = UUID.randomUUID().toString()
 }
+
+object ExecutionLogFormatter {
+    private val timeFormat = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
+
+    fun format(raw: String, scripts: List<PersonalScript>): String {
+        if (raw.isBlank()) return "暂无记录"
+        val names = scripts.associate { it.id to it.name }
+        val lines = raw.lineSequence().filter { it.isNotBlank() }.toList().takeLast(80).mapNotNull { line ->
+            val fields = line.split('|')
+            if (fields.size != 3 || !ScriptRules.idValid(fields[1])) return@mapNotNull null
+            val seconds = fields[0].toLongOrNull() ?: return@mapNotNull null
+            val time = try {
+                java.time.Instant.ofEpochSecond(seconds)
+                    .atZone(java.time.ZoneId.systemDefault()).format(timeFormat)
+            } catch (_: Exception) { "--:--:--" }
+            val name = names[fields[1]] ?: fields[1].take(8)
+            val result = when (fields[2]) { "ok" -> "成功"; "failed" -> "失败"; else -> "未知" }
+            "$time  $name  $result"
+        }.toList()
+        return lines.ifEmpty { "暂无有效记录" }.joinToString("\n")
+    }
+}
