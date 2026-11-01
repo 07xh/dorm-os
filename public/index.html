@@ -650,7 +650,7 @@ function openGlobalSearch(){
  const dialog=$('editor');
  if(dialog.open){if(dialog.classList.contains('search-editor'))$('globalSearchInput')?.focus();else toast('请先保存或关闭当前编辑窗口');return;}
  $('editorContent').innerHTML=`<section class='search-panel' aria-label='全站搜索'><div class='search-heading'><div><span class='eyebrow'>DORM OS · LOCAL SEARCH</span><h2>全站搜索</h2><p class='small muted'>在你的个人资料中快速定位内容</p></div><button type='button' class='secondary' data-action='close-modal'>关闭</button></div><label class='search-label' for='globalSearchInput'>搜索关键词</label><input id='globalSearchInput' type='search' maxlength='80' autocomplete='off' placeholder='例如：高数、耳机、书桌、学习标签'><div class='search-hint'><span>输入关键词即时筛选</span><kbd>Ctrl K / ⌘ K</kbd></div><div id='globalSearchResults' class='search-results' aria-live='polite'></div></section>`;
- dialog.classList.add('search-editor');dialog.showModal();
+ dialog.classList.remove('form-editor');dialog.classList.add('search-editor');dialog.setAttribute('aria-label','全站搜索');dialog.showModal();
  const input=$('globalSearchInput');input.addEventListener('input',()=>renderGlobalSearchResults(input.value));
  renderGlobalSearchResults('');input.focus();
 }

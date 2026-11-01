@@ -68,3 +68,15 @@ test('long editable forms keep footer visible and fit a small mobile viewport',a
   await expect(dialog).not.toBeVisible();
  }
 });
+
+test('global search no longer inherits previous bottom-sheet editor state',async({page})=>{
+ await page.goto('/#tasks');
+ await page.locator('#quickAdd').click();
+ await expect(page.locator('#editor')).toHaveClass(/form-editor/);
+ await page.locator('[data-action="close-modal"]').click();
+ await page.locator('[data-action="global-search"]').click();
+ await expect(page.locator('#editor')).toHaveClass(/search-editor/);
+ await expect(page.locator('#editor')).not.toHaveClass(/form-editor/);
+ await expect(page.locator('#editor')).toHaveAttribute('aria-label','全站搜索');
+ await expect(page.locator('#globalSearchInput')).toBeFocused();
+});
