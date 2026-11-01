@@ -22,7 +22,7 @@ test('global search finds personal records across pages and opens edit forms',as
  await expect(page.locator('.search-results')).toContainText('高数周五作业');
  await expect(page.locator('.search-results')).toContainText('高数答疑');
  await page.locator('[data-search-open="class"][data-search-id="class-math"]').click();
- await expect(page.locator('#breadcrumb')).toContainText('我的课表');
+ await expect(page.locator('#breadcrumb')).toContainText('课表');
  await page.locator('[data-action="global-search"]').click();
  await page.locator('#globalSearchInput').fill('耳机');
  await expect(page.locator('.search-result')).toHaveCount(2);
