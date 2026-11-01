@@ -347,9 +347,12 @@ private fun ManagerScreen(
                 loading = true
                 try {
                     val scripts = withContext(Dispatchers.IO) {
-                        entries.mapNotNull { script ->
-                            val body = bridge.readScript(script.id).first
-                            if (body == null) null else script to body
+                        entries.map { script ->
+                            val (body, response) = bridge.readScript(script.id)
+                            if (!response.success || body == null) {
+                                throw IllegalStateException("无法读取脚本「${script.name}」，备份已停止。")
+                            }
+                            script to body
                         }
                     }
                     withContext(Dispatchers.IO) {
