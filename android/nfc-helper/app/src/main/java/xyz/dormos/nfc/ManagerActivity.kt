@@ -69,8 +69,11 @@ private data class ManagerSnapshot(
 
 class ManagerActivity : ComponentActivity() {
     private val bridge = RootModuleClient()
+    private lateinit var inlineScanner: NfcInlineScanner
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        inlineScanner = NfcInlineScanner(this)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -83,7 +86,7 @@ class ManagerActivity : ComponentActivity() {
             ) {
                 ManagerScreen(
                     bridge = bridge,
-                    openTagInspector = { startActivity(Intent(this, TagInspectorActivity::class.java)) },
+                    inlineScanner = inlineScanner,
                     openNdefWriter = { startActivity(Intent(this, NdefWriterActivity::class.java)) },
                     openNfcPreferences = {
                         if (Build.VERSION.SDK_INT >= 36) {
@@ -128,12 +131,22 @@ class ManagerActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (::inlineScanner.isInitialized) inlineScanner.onResume()
+    }
+
+    override fun onPause() {
+        if (::inlineScanner.isInitialized) inlineScanner.onPause()
+        super.onPause()
+    }
 }
 
 @Composable
 private fun ManagerScreen(
     bridge: RootModuleClient,
-    openTagInspector: () -> Unit,
+    inlineScanner: NfcInlineScanner,
     openNdefWriter: () -> Unit,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
@@ -172,6 +185,7 @@ private fun ManagerScreen(
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLogsSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
+    var showInlineScan by remember { mutableStateOf(false) }
     var selectedTheme by rememberSaveable {
         mutableStateOf(
             context.getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default")
@@ -194,6 +208,11 @@ private fun ManagerScreen(
     var confirmRun by remember { mutableStateOf<PersonalScript?>(null) }
     var confirmBind by remember { mutableStateOf<PersonalScript?>(null) }
     var logs by remember { mutableStateOf("") }
+
+    fun openInlineScanner() {
+        inlineScanner.start()
+        showInlineScan = true
+    }
 
     fun refresh() {
         if (loading) return
@@ -562,7 +581,7 @@ private fun ManagerScreen(
                         rootReady = installed,
                         rootHint = status,
                         scenes = homeScenes,
-                        onScan = openTagInspector,
+                        onScan = { openInlineScanner() },
                         onScenes = { current = 2 },
                         onScene = { tagId, _ -> selectedScene = scenes.firstOrNull { it.tagId == tagId } }
                     )
@@ -807,7 +826,7 @@ private fun ManagerScreen(
                         }
                     }
                     Spacer(Modifier.height(18.dp))
-                    V2ToolsHeading(onScan = openTagInspector, onWrite = openNdefWriter)
+                    V2ToolsHeading(onScan = { openInlineScanner() }, onWrite = openNdefWriter)
                 }
                 2 -> {
                     V2Scenes(
@@ -865,6 +884,23 @@ private fun ManagerScreen(
     // Dialogs must inherit the same theme as the main three-tab workspace.
     CompositionLocalProvider(LocalV2Palette provides p) {
         MaterialTheme(colorScheme = scheme) {
+    if (showInlineScan) {
+        NfcInlineScanSheet(
+            scanner = inlineScanner,
+            onDismiss = {
+                inlineScanner.stop()
+                showInlineScan = false
+            },
+            onNfcSettings = {
+                try {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS))
+                } catch (_: Exception) {
+                    notify("找不到 NFC 设置入口，请到系统设置中手动开启 NFC")
+                }
+            }
+        )
+    }
+
     if (editing) {
         V2ScriptEditorSheet(
             name = editName,
