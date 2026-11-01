@@ -2,6 +2,14 @@ name: Build DORM OS NFC receiver and KernelSU bridge
 
 on:
   workflow_dispatch:
+  # Build the exact APK for this preview branch even if draft-PR events are delayed.
+  push:
+    branches:
+      - feature/ncwu-nfc-one-shot-v1
+    paths:
+      - 'android/nfc-helper/**'
+      - 'modules/dormos-nfc-ksu/**'
+      - '.github/workflows/build-nfc-helper.yml'
   pull_request:
     paths:
       - 'android/nfc-helper/**'
