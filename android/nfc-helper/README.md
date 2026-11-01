@@ -1,4 +1,4 @@
-# DORM OS · Ncwu NFC 一次性助手 (0.1 验证原型)
+# DORM OS NFC Assistant · V0.8 Preview
 
 **当前不是已经成功的校园网自动登录器。** 它是一个可以构建和上手机测试的原生 Android 项目；现阶段验证 NFC 调起、联网检查和安全失败行为。
 
