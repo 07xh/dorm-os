@@ -3,7 +3,6 @@ package xyz.dormos.nfc
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,9 +12,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -23,6 +22,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -94,6 +94,53 @@ internal fun V2NfcMark(
     }
 }
 
+/** Compact Canvas-only tag art, placed beside rather than behind the copy. */
+@Composable
+private fun V2HeroTagArt(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val blue = Color(0xFFBFD9FF)
+        val stroke = 2.dp.toPx()
+        drawCircle(Color.White.copy(alpha = 0.06f),
+            radius = w * 0.46f, center = Offset(w * 0.5f, h * 0.53f))
+        rotate(degrees = 12f, pivot = Offset(w * 0.50f, h * 0.52f)) {
+            drawRoundRect(
+                color = blue.copy(alpha = 0.12f),
+                topLeft = Offset(w * 0.20f, h * 0.22f),
+                size = Size(w * 0.64f, h * 0.60f),
+                cornerRadius = CornerRadius(15.dp.toPx())
+            )
+            drawRoundRect(
+                color = blue, topLeft = Offset(w * 0.20f, h * 0.22f),
+                size = Size(w * 0.64f, h * 0.60f),
+                cornerRadius = CornerRadius(15.dp.toPx()),
+                style = Stroke(width = stroke)
+            )
+            drawCircle(blue, radius = 3.dp.toPx(),
+                center = Offset(w * 0.31f, h * 0.31f))
+            drawLine(blue.copy(alpha = 0.62f),
+                start = Offset(w * 0.33f, h * 0.70f),
+                end = Offset(w * 0.66f, h * 0.70f),
+                strokeWidth = 1.4.dp.toPx(), cap = StrokeCap.Round)
+        }
+        drawArc(
+            color = blue, startAngle = 225f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(w * 0.37f, h * 0.04f),
+            size = Size(w * 0.44f, w * 0.44f),
+            style = Stroke(width = stroke, cap = StrokeCap.Round)
+        )
+        drawArc(
+            color = blue, startAngle = 225f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(w * 0.47f, h * 0.13f),
+            size = Size(w * 0.24f, w * 0.24f),
+            style = Stroke(width = stroke, cap = StrokeCap.Round)
+        )
+        drawCircle(blue, radius = 2.dp.toPx(),
+            center = Offset(w * 0.59f, h * 0.22f))
+    }
+}
+
 @Composable
 internal fun V2Home(
     nfcOn: Boolean,
@@ -105,48 +152,46 @@ internal fun V2Home(
     onScene: (String, String) -> Unit
 ) {
     val p = LocalV2Palette.current
-    Box(
-        Modifier.fillMaxWidth().heightIn(min = 245.dp)
-            .clip(RoundedCornerShape(27.dp))
-            .background(Brush.horizontalGradient(listOf(p.dark, p.dark.copy(alpha = 0.92f))))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = p.dark,
+        shape = RoundedCornerShape(25.dp)
     ) {
-        Box(
-            Modifier.align(Alignment.BottomEnd).padding(end = 25.dp, bottom = 64.dp)
-                .rotate(13f).size(width = 72.dp, height = 83.dp)
-                .border(2.dp, Color(0xFF9AB9EE), RoundedCornerShape(17.dp))
-        ) {
-            V2NfcMark(
-                Modifier.align(Alignment.TopStart).offset(x = (-15).dp, y = (-19).dp)
-                    .size(45.dp),
-                Color(0xFFD6E5FF)
-            )
-        }
-        Column(Modifier.fillMaxWidth().padding(21.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                V2NfcMark(Modifier.size(17.dp), Color(0xFFBCD5FF))
-                Spacer(Modifier.width(7.dp))
-                Text("NFC 场景控制", color = Color(0xFFBED1EF), fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(15.dp))
-            Text("轻触标签，\n立即执行。", color = Color.White,
-                fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 38.sp)
-            Spacer(Modifier.height(10.dp))
-            Text("为常用操作创建快捷入口，减少手动步骤。",
-                modifier = Modifier.widthIn(max = 205.dp),
-                color = Color(0xFFD1DBE9), fontSize = 12.sp, lineHeight = 20.sp)
-            Spacer(Modifier.height(22.dp))
-            Button(
-                onClick = onScan,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF8FBFF), contentColor = Color(0xFF194179)
-                ),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(horizontal = 17.dp, vertical = 10.dp),
-                modifier = Modifier.heightIn(min = 47.dp)
-            ) {
-                V2NfcMark(Modifier.size(18.dp), Color(0xFF194179))
-                Spacer(Modifier.width(10.dp))
-                Text("扫描 NFC 标签", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Box(Modifier.fillMaxWidth()
+            .background(Brush.horizontalGradient(listOf(p.dark, p.dark.copy(alpha = 0.93f))))) {
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    V2NfcMark(Modifier.size(16.dp), Color(0xFFBFD9FF))
+                    Spacer(Modifier.width(7.dp))
+                    Text("NFC 场景", color = Color(0xFFC9D9F2), fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("轻触标签\n即刻执行", color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 27.sp, lineHeight = 35.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("一碰触发已绑定脚本", color = Color(0xFFD1DFF3),
+                            fontSize = 12.sp, lineHeight = 18.sp, maxLines = 2)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    V2HeroTagArt(Modifier.size(width = 93.dp, height = 111.dp))
+                }
+                Spacer(Modifier.height(15.dp))
+                Button(
+                    onClick = onScan,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF8FBFF),
+                        contentColor = Color(0xFF194179)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    V2NfcMark(Modifier.size(18.dp), Color(0xFF194179))
+                    Spacer(Modifier.width(10.dp))
+                    Text("扫描 NFC 标签", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -157,13 +202,13 @@ internal fun V2Home(
         border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
             V2StatusRow(
-                symbol = "⌁", title = "NFC",
+                isNfc = true, title = "NFC",
                 detail = if (nfcOn) "系统 NFC 已开启" else "请在系统设置中开启 NFC",
                 good = nfcOn, state = if (nfcOn) "已开启" else "未开启"
             )
             HorizontalDivider(color = p.line)
             V2StatusRow(
-                symbol = "◇", title = "KernelSU",
+                isNfc = false, title = "KernelSU",
                 detail = if (rootReady) "已连接 TapFlow SH 执行模块"
                     else rootHint.take(48).ifBlank { "未检测到 Root 模块" },
                 good = rootReady, state = if (rootReady) "已连接" else "未连接"
@@ -207,7 +252,7 @@ internal fun V2Home(
 }
 
 @Composable
-private fun V2StatusRow(symbol: String, title: String, detail: String, good: Boolean, state: String) {
+private fun V2StatusRow(isNfc: Boolean, title: String, detail: String, good: Boolean, state: String) {
     val p = LocalV2Palette.current
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -216,7 +261,8 @@ private fun V2StatusRow(symbol: String, title: String, detail: String, good: Boo
                 .background(p.iconBackground),
             contentAlignment = Alignment.Center
         ) {
-            Text(symbol, color = p.blue, fontSize = 22.sp)
+            if (isNfc) V2NfcMark(Modifier.size(23.dp), p.blue)
+            else V2NavIcon(which = 2, color = p.blue, modifier = Modifier.size(23.dp))
         }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {

@@ -576,7 +576,16 @@ private fun ManagerScreen(
     }
     CompositionLocalProvider(LocalV2Palette provides p) {
     MaterialTheme(colorScheme = scheme) {
-    Column(Modifier.fillMaxSize().background(pageCanvas)) {
+    // Android 16 edge-to-edge: keep the clock and network icons above our title.
+    SideEffect {
+        if (Build.VERSION.SDK_INT >= 30) {
+            val mask = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+            (context as? Activity)?.window?.insetsController?.setSystemBarsAppearance(
+                if (selectedTheme == "night") 0 else mask, mask
+            )
+        }
+    }
+    Column(Modifier.fillMaxSize().background(pageCanvas).statusBarsPadding()) {
         AnimatedContent(
             targetState = current,
             modifier = Modifier.weight(1f),
