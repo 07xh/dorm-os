@@ -17,13 +17,14 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun NdefWriteSheet(
     session: NdefWriteSession,
+    initialContent: String = "",
     onDismiss: () -> Unit,
     onReadTag: () -> Unit,
     onNfcSettings: () -> Unit
 ) {
     val p = LocalV2Palette.current
-    var kind by remember { mutableStateOf(NdefWriteKind.TEXT) }
-    var input by remember { mutableStateOf("") }
+    var kind by remember(initialContent) { mutableStateOf(if (initialContent.startsWith("tapflow://")) NdefWriteKind.WEB_URL else NdefWriteKind.TEXT) }
+    var input by remember(initialContent) { mutableStateOf(initialContent) }
     var allowOverwrite by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<PreparedNdefWrite?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -35,7 +36,7 @@ internal fun NdefWriteSheet(
 
     V2BottomSheet(
         title = "写入 NFC 标签",
-        subtitle = "普通 NDEF 文本与网址 · 不调用 KernelSU",
+        subtitle = "普通 NDEF 文本、网址和 TapFlow 场景 URI · 不调用 KernelSU",
         onDismiss = { if (!session.isWorking) onDismiss() }
     ) {
         Surface(
@@ -132,7 +133,7 @@ internal fun NdefWriteSheet(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = {
-                        Text(if (kind == NdefWriteKind.TEXT) "输入需要写入的文字" else "https://example.com")
+                        Text(if (kind == NdefWriteKind.TEXT) "输入需要写入的文字" else "https://example.com 或 tapflow://scene/...")
                     },
                     label = { Text(if (kind == NdefWriteKind.TEXT) "标签文本" else "网页地址") },
                     minLines = if (kind == NdefWriteKind.TEXT) 3 else 1,

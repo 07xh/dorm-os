@@ -197,6 +197,7 @@ private fun ManagerScreen(
     var showBackupSheet by remember { mutableStateOf(false) }
     var showInlineScan by remember { mutableStateOf(false) }
     var showNdefWrite by remember { mutableStateOf(false) }
+    var nativeWriteUriDraft by remember { mutableStateOf("") }
     var pendingSceneWrite by remember { mutableStateOf<SceneWriteRequest?>(null) }
     var selectedTheme by rememberSaveable {
         mutableStateOf(
@@ -945,6 +946,14 @@ private fun ManagerScreen(
                         onNew = { beginSceneCreation() },
                         onOpen = { scene, _ -> selectedScene = scene }
                     )
+                    NativeScenesSection(
+                        scripts = entries,
+                        onWriteNfc = { uri ->
+                            nativeWriteUriDraft = uri
+                            openNdefWriter()
+                        },
+                        notify = notify
+                    )
                 }
             }
         }
@@ -992,13 +1001,18 @@ private fun ManagerScreen(
     if (showNdefWrite) {
         NdefWriteSheet(
             session = inlineNdefWriter,
+            initialContent = nativeWriteUriDraft,
             onDismiss = {
-                if (inlineNdefWriter.stop()) showNdefWrite = false
+                if (inlineNdefWriter.stop()) {
+                    showNdefWrite = false
+                    nativeWriteUriDraft = ""
+                }
                 else notify("写入或回读尚未结束，暂不能关闭")
             },
             onReadTag = {
                 if (inlineNdefWriter.stop()) {
                     showNdefWrite = false
+                    nativeWriteUriDraft = ""
                     inlineScanner.start()
                     showInlineScan = true
                 } else notify("写入或回读尚未结束，请先保持标签贴合")

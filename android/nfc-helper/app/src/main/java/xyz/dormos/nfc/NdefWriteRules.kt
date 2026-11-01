@@ -37,11 +37,12 @@ internal object NdefWriteRules {
                 }
                 val address = if (input.contains("://")) input else "https://$input"
                 val uri = try { URI(address) } catch (_: Exception) { null }
-                if (uri == null ||
+                val localScene = NativeSceneRules.sceneId(address) != null
+                if (!localScene && (uri == null ||
                     uri.scheme?.lowercase() !in setOf("http", "https") ||
                     uri.host.isNullOrBlank() ||
                     uri.rawUserInfo != null ||
-                    uri.port > 65535
+                    uri.port > 65535)
                 ) {
                     return NdefPreparation(error = "请输入有效的 HTTP 或 HTTPS 网址，且不能包含账号信息")
                 }
