@@ -1,6 +1,6 @@
 # DORM OS NFC 助手 · 开源复用审计
 
-审计日期：2026-11-01。目标：一加 Ace 6，Android 16，NFC 一次性触发 Ncwu Wi-Fi 认证诊断。仅复用经过审查的设计思想及 Android 公共 API；**本次未复制第三方项目的源码文本或资产**，因此不增加第三方库及运行时许可依赖。
+审计日期：2026-11-01。目标：一加 Ace 6，Android 16，NFC 一次性触发 Ncwu Wi-Fi 认证诊断。仅复用经过审查的设计思想及 Android 公共 API；**本次未复制第三方项目的源码文本或资产**。Android 运行时不增加第三方依赖；JVM 测试额外使用 test-only `org.json:json:20240303`（Public Domain）实现 JSON 编解码，不打包进 APK。
 
 ## 已检查的开源参考
 
@@ -18,7 +18,7 @@
 1. NFC 读取采用私有 MIME 标签 `application/vnd.dormos.ncwu`，避免 Android 16 网页 URL NDEF 自动路由到浏览器。
 2. Android 16 检查 `NfcAdapter.isTagIntentAllowed`，给出系统“通过 NFC 启动”设置提示。
 3. 原有 NDEF 写卡逻辑新增 `NdefFormatable`：仅在用户明确同意覆盖后，对未格式化的可写标签尝试格式化；已格式化标签仍走 `Ndef`，并做写后回读。
-4. 网络检测继续将访问绑定到 Wi-Fi `Network`，拒绝把移动数据可联网算作校园网认证成功。
+4. 网络检测只使用 Android 当前 active default Wi-Fi Network；若默认路由为 VPN/移动网络、无 INTERNET 能力或系统已标记 captive portal，则安全停止/提示手动认证，不绕过系统路由。
 5. 原生 NFC 默认无 Root。V0.5 另提供可选 KernelSU 固定只读 SH：需本机明确启用且 KernelSU 单独授权；无常驻进程、开机执行或自动重试。
 6. 在缺少 Ncwu 真正登录接口的情况下，禁止提交任何账号密码。
 
@@ -27,6 +27,11 @@
 已保存的学校网页 `a41.js` 只说明 `/drcom/chkstatus`、`/eportal/portal/page/loadConfig`、`/eportal/portal/perceive` 和 `a40.js` 业务脚本加载路径。**其他学校同为 Dr.COM/ePortal 也不能据此推断 Ncwu 的真实参数。**
 
 登录功能仍需要校内真实 `loadConfig` 响应、`a40.js` 以及本人正常认证过程的脱敏成功请求；同时验证认证状态与通过 Ncwu Wi-Fi 的公网连接，并确认密码传输方式符合安全要求。
+
+## V0.8 测试依赖补充
+
+- `org.json:json:20240303` 仅为 JVM 单元测试提供真实 JSON 实现，许可证为 Public Domain；应用运行时使用 Android 平台自带 `org.json`，不会把该 Maven 依赖打进 APK。
+- 依赖声明位于 `android/nfc-helper/app/build.gradle.kts` 的 `testImplementation`，不是 `implementation`。
 
 ## 许可证规则
 
