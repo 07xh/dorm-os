@@ -48,6 +48,24 @@ class NdefWriteRulesTest {
         ))
     }
 
+    @Test fun uncertainWritesRequireSeparateReadOnlyReview() {
+        assertTrue(NdefWriteRecoveryPolicy.needsReadOnlyReview(
+            NdefWritePhase.INTERRUPTED, null
+        ))
+        assertTrue(NdefWriteRecoveryPolicy.needsReadOnlyReview(
+            NdefWritePhase.FAILED,
+            NdefWriteOutcome(false, "回读中断", requiresReadback = true)
+        ))
+        assertFalse(NdefWriteRecoveryPolicy.needsReadOnlyReview(
+            NdefWritePhase.FAILED,
+            NdefWriteOutcome(false, "没有开始写入")
+        ))
+        assertFalse(NdefWriteRecoveryPolicy.needsReadOnlyReview(
+            NdefWritePhase.VERIFIED,
+            NdefWriteOutcome(true, "完整回读成功")
+        ))
+    }
+
     @Test fun normalExistingTagRequiresExplicitConsent() {
         assertNotNull(NdefWriteRules.replacementError(
             1, emptyList(), false

@@ -73,7 +73,9 @@ internal class NfcSceneWriteSession(private val activity: ComponentActivity) : N
     }
 
     fun retry() {
-        if (!active || isWorking) return
+        // Only a finished NDEF formatting pass may be continued in-place.
+        // Failure/interruption requires independent read-only inspection first.
+        if (!active || isWorking || phase != SceneWritePhase.FORMATTED) return
         generation.incrementAndGet()
         overwriteAllowed = false
         formatAllowed = false

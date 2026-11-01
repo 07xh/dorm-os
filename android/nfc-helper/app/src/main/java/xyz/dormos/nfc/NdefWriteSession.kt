@@ -21,7 +21,8 @@ internal enum class NdefWritePhase { IDLE, EDITING, ARMED, WRITING, VERIFIED, FA
 internal data class NdefWriteOutcome(
     val verified: Boolean,
     val message: String,
-    val bytes: Int = 0
+    val bytes: Int = 0,
+    val requiresReadback: Boolean = false
 )
 
 /**
@@ -73,7 +74,7 @@ internal class NdefWriteSession(
     }
 
     fun arm(draft: PreparedNdefWrite, overwriteConfirmed: Boolean): Boolean {
-        if (!active || isWorking) return false
+        if (!active || isWorking || NdefWriteRecoveryPolicy.needsReadOnlyReview(phase, lastResult)) return false
         refreshDeviceState()
         if (adapter == null) {
             status = "当前设备不支持 NFC"
@@ -109,7 +110,7 @@ internal class NdefWriteSession(
     }
 
     fun returnToEdit(): Boolean {
-        if (isWorking) return false
+        if (isWorking || NdefWriteRecoveryPolicy.needsReadOnlyReview(phase, lastResult)) return false
         gate.cancelPending()
         armed = false
         unregister()
@@ -212,7 +213,8 @@ internal class NdefWriteSession(
         val outcome = try {
             writeAndVerify(tag, request, session) { writeIssued = true }
         } catch (error: Exception) {
-            NdefWriteOutcome(false, NfcFailureFeedback.writeFailure(error, writeIssued))
+            NdefWriteOutcome(false, NfcFailureFeedback.writeFailure(error, writeIssued),
+                requiresReadback = writeIssued)
         }
         gate.finish()
         activity.runOnUiThread {
@@ -272,9 +274,11 @@ internal class NdefWriteSession(
             onWriteIssued()
             ndef.writeNdefMessage(intended)
             val actual = ndef.ndefMessage
-                ?: return NdefWriteOutcome(false, NfcFailureFeedback.readbackUnavailable())
+                ?: return NdefWriteOutcome(false, NfcFailureFeedback.readbackUnavailable(),
+                    requiresReadback = true)
             if (!bytes.contentEquals(actual.toByteArray())) {
-                return NdefWriteOutcome(false, NfcFailureFeedback.readbackMismatch())
+                return NdefWriteOutcome(false, NfcFailureFeedback.readbackMismatch(),
+                    requiresReadback = true)
             }
             NdefWriteOutcome(
                 true,

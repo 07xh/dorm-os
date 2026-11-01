@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 internal fun NdefWriteSheet(
     session: NdefWriteSession,
     onDismiss: () -> Unit,
+    onReadTag: () -> Unit,
     onNfcSettings: () -> Unit
 ) {
     val p = LocalV2Palette.current
@@ -30,6 +31,7 @@ internal fun NdefWriteSheet(
     val phase = session.phase
     val locked = phase == NdefWritePhase.ARMED || phase == NdefWritePhase.WRITING
     val result = session.lastResult
+    val requiresReview = NdefWriteRecoveryPolicy.needsReadOnlyReview(phase, result)
 
     V2BottomSheet(
         title = "写入 NFC 标签",
@@ -278,11 +280,25 @@ internal fun NdefWriteSheet(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = { session.returnToEdit(); preview = null; error = null },
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) { Text("返回编辑") }
+            if (requiresReview) {
+                Button(
+                    onClick = onReadTag,
+                    enabled = !session.isWorking,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("只读核对标签") }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        if (session.returnToEdit()) {
+                            preview = null
+                            error = null
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("返回编辑") }
+            }
         }
     }
 }

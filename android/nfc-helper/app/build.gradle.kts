@@ -20,8 +20,8 @@ android {
         applicationId = "xyz.dormos.nfc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.16.1-inline-ndef-sheet-lifecycle"
+        versionCode = 30
+        versionName = "1.16.2-inline-safe-recovery"
     }
     signingConfigs {
         if (hasReleaseSigning) {

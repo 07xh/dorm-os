@@ -24,6 +24,7 @@ internal fun NfcSceneWriteSheet(
     scriptName: String,
     session: NfcSceneWriteSession,
     onDismiss: () -> Unit,
+    onReadTag: () -> Unit,
     onNfcSettings: () -> Unit
 ) {
     val p = LocalV2Palette.current
@@ -135,13 +136,21 @@ internal fun NfcSceneWriteSheet(
                         "确认覆盖并重新贴卡" else "确认格式化并重新贴卡")
                 }
             }
-            SceneWritePhase.FORMATTED, SceneWritePhase.FAILED, SceneWritePhase.INTERRUPTED -> {
+            SceneWritePhase.FORMATTED -> {
                 Button(
                     onClick = { session.retry() },
                     modifier = Modifier.fillMaxWidth().height(49.dp),
                     enabled = !session.isWorking,
                     shape = RoundedCornerShape(15.dp)
-                ) { Text("重新贴卡验证") }
+                ) { Text("继续写卡并回读") }
+            }
+            SceneWritePhase.FAILED, SceneWritePhase.INTERRUPTED -> {
+                Button(
+                    onClick = onReadTag,
+                    modifier = Modifier.fillMaxWidth().height(49.dp),
+                    enabled = !session.isWorking,
+                    shape = RoundedCornerShape(15.dp)
+                ) { Text("只读核对标签") }
             }
             SceneWritePhase.DONE -> {
                 Button(

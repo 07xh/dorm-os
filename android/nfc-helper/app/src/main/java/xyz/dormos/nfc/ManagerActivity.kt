@@ -960,6 +960,13 @@ private fun ManagerScreen(
                     refresh()
                 }
             },
+            onReadTag = {
+                if (inlineWriter.stop()) {
+                    pendingSceneWrite = null
+                    inlineScanner.start()
+                    showInlineScan = true
+                } else notify("写卡尚未结束，请保留标签并核对结果")
+            },
             onNfcSettings = {
                 try {
                     context.startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS))
@@ -976,6 +983,13 @@ private fun ManagerScreen(
             onDismiss = {
                 if (inlineNdefWriter.stop()) showNdefWrite = false
                 else notify("写入或回读尚未结束，暂不能关闭")
+            },
+            onReadTag = {
+                if (inlineNdefWriter.stop()) {
+                    showNdefWrite = false
+                    inlineScanner.start()
+                    showInlineScan = true
+                } else notify("写入或回读尚未结束，请先保持标签贴合")
             },
             onNfcSettings = {
                 try {

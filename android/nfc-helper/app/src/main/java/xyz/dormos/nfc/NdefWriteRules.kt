@@ -73,3 +73,9 @@ internal object NdefWriteRules {
         return null
     }
 }
+
+/** Never offer immediate rewriting after an unknown physical write outcome. */
+internal object NdefWriteRecoveryPolicy {
+    fun needsReadOnlyReview(phase: NdefWritePhase, outcome: NdefWriteOutcome?): Boolean =
+        phase == NdefWritePhase.INTERRUPTED || outcome?.requiresReadback == true
+}
