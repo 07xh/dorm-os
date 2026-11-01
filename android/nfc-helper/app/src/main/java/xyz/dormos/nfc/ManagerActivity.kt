@@ -11,18 +11,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +33,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -167,13 +168,10 @@ private fun ManagerScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
-    // Pager owns both gesture and button navigation, avoiding desynchronized tabs.
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { TAPFLOW_TAB_COUNT })
-    val current = tabIdForPage(pagerState.currentPage)
+    // Bottom navigation is tap-only. All page changes share this one state.
+    var current by rememberSaveable { mutableIntStateOf(0) }
     fun navigateToTab(tabId: Int) {
-        val page = tabNavigationOrder(tabId)
-        if (pagerState.targetPage == page && !pagerState.isScrollInProgress) return
-        scope.launch { pagerState.animateScrollToPage(page) }
+        if (current != tabId) current = tabId
     }
     // Each tab owns its scroll position: leaving a long tools list must not
     // reopen the short home page halfway down or apparently empty.
@@ -210,13 +208,6 @@ private fun ManagerScreen(
         mutableStateOf(
             context.getSharedPreferences("dorm_nfc_view", 0).getString("theme", "default")
                 ?.takeIf { it in setOf("default", "night", "editorial") } ?: "default"
-        )
-    }
-    var navStyle by rememberSaveable {
-        mutableStateOf(
-            context.getSharedPreferences("dorm_nfc_view", 0)
-                .getString("nav_style", "classic")
-                ?.takeIf { it in setOf("classic", "glass") } ?: "classic"
         )
     }
     var confirmClearLogs by remember { mutableStateOf(false) }
@@ -619,18 +610,25 @@ private fun ManagerScreen(
                      folderNames[location]?.contains(query, ignoreCase = true) == true)
             }
         }
-        HorizontalPager(
-            state = pagerState,
+        AnimatedContent(
+            targetState = current,
             modifier = Modifier.weight(1f),
-            userScrollEnabled = true,
-            // There are only three top-level tabs. Keep the adjacent pages
-            // composed before the gesture starts so their first composition
-            // and measurement do not land on the swipe's animation frames.
-            // This trades a small, bounded amount of idle memory for a
-            // consistently warm page transition.
-            beyondViewportPageCount = 1,
-            key = { page -> tabIdForPage(page) }
-        ) { page ->
+            transitionSpec = {
+                val direction = tabTransitionDirection(initialState, targetState)
+                (
+                    slideInHorizontally(
+                        initialOffsetX = { width -> if (direction > 0) width else -width },
+                        animationSpec = tween(320, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(180))
+                ) togetherWith (
+                    slideOutHorizontally(
+                        targetOffsetX = { width -> if (direction > 0) -width else width },
+                        animationSpec = tween(320, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(160))
+                )
+            },
+            label = "TapFlow bottom navigation transition"
+        ) { visibleTab ->
         val visibleTab = tabIdForPage(page)
         Column(
             Modifier.fillMaxSize()
@@ -964,16 +962,7 @@ private fun ManagerScreen(
             }
         }
         }
-        if (navStyle == "glass") {
-            TapFlowGlassNavigation(
-                selected = current,
-                pagerState = pagerState,
-                palette = p,
-                night = selectedTheme == "night",
-                onSelect = { navigateToTab(it) }
-            )
-        } else {
-            NavigationBar(
+        NavigationBar(
                 containerColor = p.surface,
                 tonalElevation = 0.dp,
                 modifier = Modifier.fillMaxWidth()
@@ -988,21 +977,9 @@ private fun ManagerScreen(
                         onClick = { navigateToTab(entry.first) },
                         icon = {
                             val selected = current == entry.first
-                            val iconScale by animateFloatAsState(
-                                targetValue = if (selected) 1.08f else 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "TapFlow selected navigation icon"
-                            )
                             V2NavIcon(
                                 which = when (entry.first) { 0 -> 0; 2 -> 1; else -> 2 },
-                                color = if (selected) p.blue else p.muted,
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = iconScale
-                                    scaleY = iconScale
-                                }
+                                color = if (selected) p.blue else p.muted
                             )
                         },
                         label = {
@@ -1023,7 +1000,6 @@ private fun ManagerScreen(
                     )
                 }
             }
-        }
     }
 
     // Dialogs must inherit the same theme as the main three-tab workspace.
@@ -1383,12 +1359,6 @@ private fun ManagerScreen(
                 selectedTheme = it
                 context.getSharedPreferences("dorm_nfc_view", 0).edit()
                     .putString("theme", it).apply()
-            },
-            navStyle = navStyle,
-            onNavStyle = {
-                navStyle = it
-                context.getSharedPreferences("dorm_nfc_view", 0).edit()
-                    .putString("nav_style", it).apply()
             },
             onDismiss = { showThemeSheet = false }
         )
