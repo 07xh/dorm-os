@@ -56,6 +56,7 @@ class ManagerActivity : ComponentActivity() {
             ) {
                 ManagerScreen(
                     bridge = bridge,
+                    openTagInspector = { startActivity(Intent(this, TagInspectorActivity::class.java)) },
                     openNfcPreferences = {
                         if (Build.VERSION.SDK_INT >= 36) {
                             try { startActivity(Intent(NfcAdapter.ACTION_CHANGE_TAG_INTENT_PREFERENCE)) }
@@ -104,6 +105,7 @@ class ManagerActivity : ComponentActivity() {
 @Composable
 private fun ManagerScreen(
     bridge: RootModuleClient,
+    openTagInspector: () -> Unit,
     openNfcPreferences: () -> Unit,
     notify: (String) -> Unit,
     tagWriteIntent: (String) -> Intent,
@@ -285,6 +287,8 @@ private fun ManagerScreen(
                         HorizontalDivider(color = canvas)
                         SummaryRow("◉", "NFC 触发", if (receiverEnabled) "已启用" else "已关闭", "›") { current = 2 }
                         HorizontalDivider(color = canvas)
+                        SummaryRow("⌁", "读取 NFC 标签", "只读查看 NDEF 内容，不触发 Root", "扫描") { openTagInspector() }
+                        HorizontalDivider(color = canvas)
                         SummaryRow("▤", "最近结果", "点击查看执行反馈", "›") { current = 3 }
                     }
                     Spacer(Modifier.height(12.dp))
@@ -370,6 +374,14 @@ private fun ManagerScreen(
                     }
                 }
                 2 -> {
+                    Section("NFC 读取") {
+                        Text("检查标签格式、容量、文本和链接。只读扫描与自动化执行完全隔离。", color = dim, fontSize = 13.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = openTagInspector, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp)) {
+                            Text("开始扫描标签")
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Section("NFC 标签绑定") {
                         Text("NFC 只写入随机场景 ID，脚本留在手机的受保护目录。", color = dim, fontSize = 13.sp)
                         Spacer(Modifier.height(12.dp))
