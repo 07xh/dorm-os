@@ -17,11 +17,11 @@ test('home layout can hide, reorder, persist and restore dashboard modules',asyn
  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),STORAGE);
  expect(saved.settings.homeLayout.order[0]).toBe('tasks');
  expect(saved.settings.homeLayout.hidden).toContain('weather');
- await expect(page.locator('[data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
+ await expect(page.locator('.v4-main-widgets [data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
  await expect(page.locator('[data-home-widget="weather"]')).toHaveCount(0);
  await expect(page.locator('#app')).toContainText('保留原有高数作业');
  await page.reload();
- await expect(page.locator('[data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
+ await expect(page.locator('.v4-main-widgets [data-home-widget]').first()).toHaveAttribute('data-home-widget','tasks');
  await page.locator('[data-action="home-layout"]').click();
  await page.locator('[data-action="home-layout-reset"]').click();
  await page.locator('[data-action="home-layout-save"]').click();

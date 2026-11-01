@@ -11,7 +11,7 @@ const errors = page => {
 test('homepage, navigation and responsive mobile viewport',async({page},info)=>{
   const caught=errors(page);
   await page.goto('/');
-  await expect(page.locator('#app')).toContainText('让今天有条不紊');
+  await expect(page.locator('.v4-hero')).toBeVisible();
   await page.goto('/#scenes');
   await expect(page.locator('#app')).toContainText('个人快捷场景');
   await page.goto('/#nfc');
@@ -132,7 +132,7 @@ test('offline PWA shell opens after first successful installation',async({page,c
   await context.setOffline(true);
   try{
     await page.reload();
-    await expect(page.locator('#app')).toContainText('让今天有条不紊');
+    await expect(page.locator('.v4-hero')).toBeVisible();
     await expect(page.locator('#offlineBanner')).toBeVisible();
   }finally{await context.setOffline(false);}
 });
