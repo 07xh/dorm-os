@@ -13,7 +13,8 @@ test('NFC on a 360px screen has scan status, clear controls and large tag action
  await page.setViewportSize({width:360,height:780});
  await page.goto('/#nfc');
  await expect(page.locator('[data-action="nfc-start"]')).toBeVisible();
- await expect(page.locator('[data-action="nfc-stop"],[data-action="nfc-cancel-write"]')).toBeHidden();
+ await expect(page.locator('[data-action="nfc-stop"]')).toBeHidden();
+ await expect(page.locator('[data-action="nfc-cancel-write"]')).toBeHidden();
  await expect(page.locator('.v44-nfc-live')).toBeVisible();
  await page.locator('[data-action="tag-add"]').click();
  await page.locator('#modalForm [name="name"]').fill('学习标签');
