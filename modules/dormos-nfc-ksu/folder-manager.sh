@@ -119,8 +119,10 @@ case "${1:-}" in
     check_folder "$parent"; valid_name64 "$title"
     [ ! -e "$FOLDERS/$id.meta" ] && [ ! -L "$FOLDERS/$id.meta" ] || die folder_exists 65
     no_duplicate "$parent" "$title" ""
-    printf '%s|%s\n' "$parent" "$title" > "$FOLDERS/$id.meta"
-    chmod 600 "$FOLDERS/$id.meta"
+    tmp="$(mktemp "$FOLDERS/$id.meta.tmp.XXXXXX")" || die folder_temp_failed 73
+    printf '%s|%s\n' "$parent" "$title" > "$tmp"
+    chmod 600 "$tmp" || { rm -f "$tmp"; die storage_permissions_failed 73; }
+    mv "$tmp" "$FOLDERS/$id.meta" || { rm -f "$tmp"; die storage_unavailable 73; }
     echo "DORM_FOLDER_CREATED=1"
     ;;
   --rename)
