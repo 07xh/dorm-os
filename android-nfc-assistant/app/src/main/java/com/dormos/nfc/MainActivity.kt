@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var nfc: NfcEngine
     private val scenes = mutableStateListOf<Scene>()
     private val logs = mutableStateListOf<String>()
+    private val knownScripts = mutableStateListOf<ModuleGateway.ScriptEntry>()
+    private var moduleStatus by mutableStateOf<ModuleGateway.ModuleStatus?>(null)
     private var page by mutableIntStateOf(0)
     private var stateText by mutableStateOf("正在检查设备")
     private var rootOk by mutableStateOf<Boolean?>(null)
@@ -76,13 +78,7 @@ class MainActivity : ComponentActivity() {
         } }
         setContent { DormTheme { AppUi() } }
         nfc.dispatch(intent)
-        worker.execute {
-            val result = ModuleGateway.check()
-            runOnUiThread {
-                rootOk = result.ok
-                stateText = if (!nfc.available()) "NFC 未开启或不受支持" else "NFC 就绪 · ${if (result.ok) "Root 已授权" else "Root 尚未授权"}"
-            }
-        }
+        refreshDiagnostics()
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -93,6 +89,19 @@ class MainActivity : ComponentActivity() {
     override fun onPause() { if (::nfc.isInitialized) nfc.onPause(); super.onPause() }
     override fun onDestroy() { if (::nfc.isInitialized) nfc.stop(); worker.shutdownNow(); super.onDestroy() }
 
+    private fun refreshDiagnostics() {
+        worker.execute {
+            val status = ModuleGateway.inspect()
+            val scripts = ModuleGateway.knownScripts()
+            runOnUiThread {
+                rootOk = status.rootGranted
+                moduleStatus = status
+                knownScripts.clear()
+                knownScripts.addAll(scripts)
+                stateText = if (!nfc.available()) "NFC 未开启或不受支持" else status.message
+            }
+        }
+    }
     private fun addLog(message: String) {
         val stamp = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         logs.add(0, "$stamp  ${message.replace('\n', ' ').take(140)}")
@@ -235,17 +244,32 @@ class MainActivity : ComponentActivity() {
     @Composable private fun Tools() {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(13.dp)) {
             Text("脚本与诊断集中管理，校园网不再单独建页。", color = Muted, fontSize = 13.sp)
-            UiPanel("KernelSU 模块", "固定模块 dormos_nfc · Root 必须明确授权") {
-                TextButton(onClick = {
-                    worker.execute { val v = ModuleGateway.check(); runOnUiThread { rootOk = v.ok; stateText = if (v.ok) "Root 已授权" else "Root 检查失败：${v.message}"; addLog(stateText) } }
-                }) { Text("重新检测权限") }
+            UiPanel("KernelSU 与模块状态", "只检测本机模块；不自动执行脚本") {
+                Text(moduleStatus?.message ?: "正在检查模块…", color = Ink, fontSize = 13.sp)
+                TextButton(onClick = { refreshDiagnostics() }) { Text("重新检测") }
             }
-            UiPanel("模块预设动作", "从白名单执行，不允许拼接任意 Shell 命令") {
+            UiPanel("脚本清单", "参考你提供的模块脚本管理方式，当前仅展示已知脚本是否存在") {
+                if (knownScripts.isEmpty()) Text("检查中或尚未授权 Root", color = Muted, fontSize = 13.sp)
+                knownScripts.forEach { entry ->
+                    HorizontalDivider(color = Line)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.title, color = Ink, fontSize = 14.sp)
+                            Text(entry.module, color = Muted, fontSize = 11.sp)
+                        }
+                        Text(if (entry.installed) "已检测" else "未检测到", color = if (entry.installed) Mint else Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+            UiPanel("固定场景动作", "仅旧版模块可以执行以下动作；新版 Bridge 不允许误调用") {
+                if (moduleStatus?.legacyReady != true) {
+                    Text("模块尚未就绪，操作已禁用", color = Muted, fontSize = 12.sp)
+                }
                 AllowedActions.items.forEach { (id, label) ->
                     HorizontalDivider(color = Line)
                     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(label, Modifier.weight(1f), fontSize = 14.sp, color = Ink)
-                        TextButton(onClick = { confirmRun = Scene(id, label, id) }) { Text("运行") }
+                        TextButton(onClick = { confirmRun = Scene(id, label, id) }, enabled = moduleStatus?.legacyReady == true && !busy) { Text("运行") }
                     }
                 }
             }
