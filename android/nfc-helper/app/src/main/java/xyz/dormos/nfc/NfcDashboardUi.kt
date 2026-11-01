@@ -6,10 +6,12 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -77,9 +79,16 @@ class NfcDashboardUi(
     }
 
     fun build(nfcEnabled: Boolean, rootOption: Boolean, profileCount: Int): Content {
-        activity.window.statusBarColor = Color.rgb(244, 248, 255)
-        @Suppress("DEPRECATION")
-        activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        activity.window.decorView.setBackgroundColor(pale)
+        if (Build.VERSION.SDK_INT >= 30) {
+            activity.window.insetsController?.setSystemBarsAppearance(
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
 
         val scroll = ScrollView(activity).apply {
             isFillViewport = true
