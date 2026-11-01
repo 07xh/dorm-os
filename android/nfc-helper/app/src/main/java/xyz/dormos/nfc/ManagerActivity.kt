@@ -24,7 +24,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -771,94 +770,6 @@ private fun ManagerScreen(
 
 }
 
-
-@Composable
-private fun DashboardHero(
-    installed: Boolean,
-    enabled: Boolean,
-    detail: String,
-    scripts: Int,
-    bound: Int,
-    onOpenSettings: () -> Unit
-) {
-    Surface(shape = RoundedCornerShape(26.dp), color = Color(0xFF274B99)) {
-        Column(
-            Modifier.fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF274B99), Color(0xFF5978C6))
-                    )
-                ).padding(22.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = Color.White.copy(alpha = 0.17f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("⌁", fontSize = 28.sp, color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("DORM NFC MANAGER", color = Color.White.copy(alpha = 0.78f),
-                        fontSize = 11.sp, letterSpacing = 1.sp)
-                    Text(if (installed) "设备已连接" else "等待连接 KernelSU",
-                        color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                }
-                Text(if (installed) "●" else "○", color = Color.White, fontSize = 20.sp)
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                if (installed) "Root 桥已就绪 · NFC 触发${if (enabled) "已开启" else "未开启"}"
-                else detail.take(90).ifBlank { "请检查模块安装和 Root 授权" },
-                color = Color.White.copy(alpha = 0.84f), fontSize = 12.sp, maxLines = 3
-            )
-            Spacer(Modifier.height(22.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.20f))
-            Spacer(Modifier.height(16.dp))
-            Row {
-                Column(Modifier.weight(1f)) {
-                    Text(scripts.toString(), color = Color.White, fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold)
-                    Text("SH 脚本", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(bound.toString(), color = Color.White, fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold)
-                    Text("NFC 绑定", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
-                }
-                TextButton(onClick = onOpenSettings) {
-                    Text("设备详情 ›", color = Color.White, fontSize = 13.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeAction(
-    symbol: String, title: String, subtitle: String,
-    modifier: Modifier = Modifier, onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(123.dp),
-        color = panel,
-        shape = RoundedCornerShape(21.dp),
-        border = BorderStroke(1.dp, paleBorder)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Surface(color = tint, shape = RoundedCornerShape(13.dp)) {
-                Text(symbol, color = actionBlue, fontSize = 22.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
-            }
-            Column {
-                Text(title, color = ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, color = dim, fontSize = 11.sp)
-            }
-        }
-    }
-}
 
 @Composable
 private fun Section(title: String?, content: @Composable ColumnScope.() -> Unit) {
