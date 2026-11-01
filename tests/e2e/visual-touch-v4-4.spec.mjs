@@ -21,7 +21,9 @@ test('NFC on a 360px screen has scan status, clear controls and large tag action
  await page.locator('#modalForm [type="submit"]').click();
  const tag=page.locator('.tag-entry');
  for(const selector of ['[data-tag-write]','[data-tag-edit]','.v41-tag-more summary']){
-  const rect=await tag.locator(selector).boundingBox();
+  const control=tag.locator(selector);
+  await expect(control).toBeVisible();
+  const rect=await control.boundingBox();
   expect(rect).not.toBeNull();
   expect(rect.height).toBeGreaterThanOrEqual(44);
  }
