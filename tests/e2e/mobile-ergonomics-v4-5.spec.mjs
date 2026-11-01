@@ -55,7 +55,10 @@ test('NFC overflow menu opens above the tag and bottom navigation',async({page})
 test('timetable row menu opens above its course and remains tappable',async({page})=>{
  await page.setViewportSize({width:360,height:780});
  await page.goto('/#timetable');
- const day=await page.evaluate(()=>Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Sun'?0:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Mon'?1:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Tue'?2:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Wed'?3:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Thu'?4:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).formatToParts(new Date()).find(x=>x.type==='weekday').value==='Fri'?5:6));
+ const day=await page.evaluate(()=>{
+  const name=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',weekday:'short'}).format(new Date());
+  return ({Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6})[name];
+ });
  await page.locator('#quickAdd').click();
  await page.locator('#classSubject').fill('移动端菜单验收');
  await page.locator('#modalForm [name="day"]').selectOption(String(day));
