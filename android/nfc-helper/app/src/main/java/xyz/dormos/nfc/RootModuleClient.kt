@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 /** Personal script registry shared by the native app and NFC handler. KernelSU only. */
 data class PersonalScript(val id: String, val name: String, val bytes: Int)
 data class PersonalFolder(val id: String, val parent: String, val name: String)
+data class PersonalScene(val tagId: String, val scriptId: String, val name: String, val enabled: Boolean)
 data class RootResult(val code: Int, val output: String) {
     val success: Boolean get() = code == 0
 }
@@ -21,7 +22,7 @@ object ScriptRules {
     fun safeArguments(args: List<String>): Boolean {
         val head = args.firstOrNull() ?: return false
         return when {
-            args.size == 1 && head in setOf("--status", "--script-list", "--script-bindings", "--script-logs", "--folder-list", "--script-folders", "--script-clear-logs") -> true
+            args.size == 1 && head in setOf("--status", "--script-list", "--script-bindings", "--scene-list", "--script-logs", "--folder-list", "--script-folders", "--script-clear-logs") -> true
             args.size == 3 && head in setOf("--script-move", "--folder-move") ->
                 idValid(args[1]) && folderValid(args[2])
             args.size == 3 && head == "--folder-rename" ->
@@ -33,6 +34,8 @@ object ScriptRules {
                 idValid(args[1]) && folderValid(args[2]) &&
                     args[3].length <= 360 && b64.matches(args[3])
             args.size == 2 && head == "--enable" -> args[1] in setOf("0", "1")
+            args.size == 3 && head == "--scene-enable" -> idValid(args[1]) && args[2] in setOf("0", "1")
+            args.size == 3 && head == "--scene-save" -> idValid(args[1]) && args[2].length <= 360 && b64.matches(args[2])
             args.size == 2 && head == "--nfc" -> idValid(args[1])
             args.size == 2 && head in setOf("--script-read", "--script-run", "--script-delete", "--script-unbind") -> idValid(args[1])
             args.size == 3 && head == "--script-bind" -> idValid(args[1]) && idValid(args[2])
@@ -129,6 +132,27 @@ class RootModuleClient {
     fun bind(tagId: String, scriptId: String) = invoke("--script-bind", tagId, scriptId)
     fun unbind(tagId: String) = invoke("--script-unbind", tagId)
     fun listBindings() = invoke("--script-bindings")
+    fun listScenes(): Pair<List<PersonalScene>, RootResult> {
+        val result = invoke("--scene-list")
+        if (!result.success) return emptyList<PersonalScene>() to result
+        val scenes = result.output.lineSequence().mapNotNull { line ->
+            val fields = line.split("|")
+            if (fields.size != 4 || !ScriptRules.idValid(fields[0]) ||
+                !ScriptRules.idValid(fields[1]) || fields[3] !in setOf("0", "1"))
+                return@mapNotNull null
+            try {
+                PersonalScene(fields[0], fields[1], decode(fields[2]), fields[3] == "1")
+            } catch (_: Exception) { null }
+        }.toList()
+        return scenes to result
+    }
+    fun saveScene(tagId: String, name: String): RootResult {
+        if (!ScriptRules.idValid(tagId) || name.isBlank() || name.toByteArray().size > 120)
+            return RootResult(64, "场景名称无效")
+        return invoke("--scene-save", tagId, encode(name))
+    }
+    fun setSceneEnabled(tagId: String, enabled: Boolean): RootResult =
+        invoke("--scene-enable", tagId, if (enabled) "1" else "0")
     fun status() = invoke("--status")
     fun enableNfc(value: Boolean) = invoke("--enable", if (value) "1" else "0")
     fun logs() = invoke("--script-logs")
