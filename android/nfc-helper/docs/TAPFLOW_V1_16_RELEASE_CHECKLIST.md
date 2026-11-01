@@ -20,7 +20,7 @@
 - Previous same-code preview build: GitHub Actions run 41304988631, commit 78e217ce15fd1ae9f2f9d86fe3e9399995447960.
 - Android testDebugUnitTest, assembleDebug, assembleRelease: passed.
 - KernelSU dispatcher, personal script and folder tests: passed.
-- This release commit triggers a fresh exact-HEAD verification; the GitHub prerelease job runs only after both APK and KernelSU jobs succeed.
+- This release-preview commit triggers a fresh exact-HEAD verification; the GitHub prerelease job runs only after both APK and KernelSU jobs succeed. The prior V1.16.0 build remains a separate preview; V1.16.1 includes the additional callback/lifecycle race guard.
 
 ## Still requires physical device verification
 
