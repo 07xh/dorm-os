@@ -411,3 +411,32 @@ internal fun V2BindConfirmSheet(
         ) { Text("取消") }
     }
 }
+
+@Composable
+internal fun V2BackupSheet(
+    busy: Boolean,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    V2BottomSheet("配置与备份", "只备份本机 SH 脚本，不包含账号、密码或 Root 授权", onDismiss) {
+        Surface(color = Color(0xFFF3F6FC), shape = RoundedCornerShape(15.dp)) {
+            Text(
+                "备份文件使用 ZIP 格式。导入时会为脚本生成新的本机编号；原 NFC 标签绑定不会自动迁移，需要重新写卡绑定。",
+                modifier = Modifier.padding(14.dp), color = sheetMuted,
+                fontSize = 12.sp, lineHeight = 18.sp
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Button(
+            onClick = onExport, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(49.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text(if (busy) "正在处理…" else "导出 SH 脚本备份") }
+        OutlinedButton(
+            onClick = onImport, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(47.dp),
+            shape = RoundedCornerShape(15.dp)
+        ) { Text("导入 SH 脚本备份") }
+    }
+}
