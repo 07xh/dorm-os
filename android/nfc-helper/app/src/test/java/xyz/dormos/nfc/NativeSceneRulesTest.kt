@@ -44,4 +44,23 @@ class NativeSceneRulesTest {
             NativeStep(NativeKind.URL, "javascript:alert(1)")
         ))))
     }
+    @Test fun genericChatDraftRoundTrip() {
+        val original = ChatDraft("com.tencent.mm", "26电气日常查寝", "8624均在寝\n请核对")
+        assertEquals(original, ChatDraftCodec.decode(ChatDraftCodec.encode(original)))
+        assertNull(ChatDraftCodec.decode("com.tencent.mm\n\nhello"))
+        assertNull(ChatDraftCodec.decode("not a package\n群聊\nhello"))
+    }
+    @Test fun chatDraftMustEndInHumanConfirmation() {
+        val encoded = ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "测试群", "准备发送的文字"))
+        val valid = NativeScene("chat-test", "聊天", listOf(
+            NativeStep(NativeKind.CHAT_DRAFT, encoded),
+            NativeStep(NativeKind.MANUAL, "请核实目标群并手动点击发送")
+        ))
+        assertTrue(NativeSceneRules.valid(valid))
+        assertFalse(NativeSceneRules.valid(valid.copy(actions=listOf(
+            NativeStep(NativeKind.CHAT_DRAFT, encoded),
+            NativeStep(NativeKind.SH, "00000000-0000-0000-0000-000000000000")
+        ))))
+    }
+
 }
