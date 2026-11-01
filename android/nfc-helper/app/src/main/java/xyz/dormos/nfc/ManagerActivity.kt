@@ -42,6 +42,15 @@ private val dim = Color(0xFF718099)
 private val actionBlue = Color(0xFF2865D8)
 private val paleBorder = Color(0xFFE7ECF5)
 
+private data class ManagerSnapshot(
+    val status: RootResult,
+    val scripts: List<PersonalScript>,
+    val scenes: List<PersonalScene>,
+    val logs: RootResult,
+    val folders: List<PersonalFolder>,
+    val scriptFolders: Map<String, String>
+)
+
 class ManagerActivity : ComponentActivity() {
     private val bridge = RootModuleClient()
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,7 +137,18 @@ private fun ManagerScreen(
     var renamingScript by remember { mutableStateOf<PersonalScript?>(null) }
     var previewScript by remember { mutableStateOf<PersonalScript?>(null) }
     var previewContent by remember { mutableStateOf("") }
-    var selectedTag by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var scenes by remember { mutableStateOf(emptyList<PersonalScene>()) }
+    var selectedScene by remember { mutableStateOf<PersonalScene?>(null) }
+    var sceneFilter by rememberSaveable { mutableStateOf("全部") }
+    var sceneEditorOpen by remember { mutableStateOf(false) }
+    var editingScene by remember { mutableStateOf<PersonalScene?>(null) }
+    var sceneNameDraft by rememberSaveable { mutableStateOf("") }
+    var sceneScriptDraft by rememberSaveable { mutableStateOf("") }
+    var confirmUnbindScene by remember { mutableStateOf<PersonalScene?>(null) }
+    var pendingSceneName by rememberSaveable { mutableStateOf("") }
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var showLogsSheet by remember { mutableStateOf(false) }
+    var selectedTheme by rememberSaveable { mutableStateOf("default") }
     var confirmClearLogs by remember { mutableStateOf(false) }
     var editingNew by remember { mutableStateOf(true) }
     var installed by remember { mutableStateOf(false) }
@@ -144,32 +164,38 @@ private fun ManagerScreen(
     var confirmDelete by remember { mutableStateOf<PersonalScript?>(null) }
     var confirmRun by remember { mutableStateOf<PersonalScript?>(null) }
     var confirmBind by remember { mutableStateOf<PersonalScript?>(null) }
-    var bindings by remember { mutableStateOf("") }
     var logs by remember { mutableStateOf("") }
-    var chooseSceneScript by remember { mutableStateOf(false) }
 
     fun refresh() {
         if (loading) return
         scope.launch {
             loading = true
             try {
-                val result = withContext(Dispatchers.IO) {
+                val snapshot = withContext(Dispatchers.IO) {
                     val info = bridge.status()
                     val list = bridge.listScripts()
-                    val links = bridge.listBindings()
+                    val sceneList = bridge.listScenes()
                     val history = bridge.logs()
-                    Triple(listOf(info, list.second, links, history), list.first,
-                        Pair(bridge.listFolders(), bridge.scriptFolders()))
+                    ManagerSnapshot(
+                        status = info,
+                        scripts = list.first,
+                        scenes = sceneList.first,
+                        logs = history,
+                        folders = bridge.listFolders(),
+                        scriptFolders = bridge.scriptFolders()
+                    )
                 }
-                val info = result.first[0]
-                status = info.output
-                installed = info.success && info.output.contains("DORM_MODULE=ready")
-                receiverEnabled = info.output.contains("NFC_ENABLED=1")
-                entries = result.second
-                folders = result.third.first
-                scriptLocations = result.third.second
-                bindings = result.first[2].output
-                logs = result.first[3].output
+                status = snapshot.status.output
+                installed = snapshot.status.success && snapshot.status.output.contains("DORM_MODULE=ready")
+                receiverEnabled = snapshot.status.output.contains("NFC_ENABLED=1")
+                entries = snapshot.scripts
+                scenes = snapshot.scenes
+                folders = snapshot.folders
+                scriptLocations = snapshot.scriptFolders
+                logs = snapshot.logs.output
+                selectedScene?.let { currentScene ->
+                    selectedScene = scenes.firstOrNull { it.tagId == currentScene.tagId }
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
