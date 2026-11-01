@@ -130,6 +130,7 @@ private fun ManagerScreen(
     var folders by remember { mutableStateOf(emptyList<PersonalFolder>()) }
     var scriptLocations by remember { mutableStateOf(emptyMap<String, String>()) }
     var activeFolder by rememberSaveable { mutableStateOf("root") }
+    var showFolders by rememberSaveable { mutableStateOf(false) }
     var folderDialog by remember { mutableStateOf("") }
     var folderName by remember { mutableStateOf("") }
     var movingScript by remember { mutableStateOf<PersonalScript?>(null) }
@@ -393,7 +394,8 @@ private fun ManagerScreen(
                     )
                 }
                 1 -> {
-                    V2ToolsHeading(onScan = openTagInspector, onWrite = openNdefWriter)
+                    V2SectionHeading("脚本文件")
+                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = query, onValueChange = { query = it },
@@ -407,39 +409,42 @@ private fun ManagerScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val folderTitle = folders.firstOrNull { it.id == activeFolder }?.name ?: "根目录"
-                        TextButton(onClick = {
-                            activeFolder = folders.firstOrNull { it.id == activeFolder }?.parent ?: "root"
-                        }, enabled = activeFolder != "root") { Text("← 返回") }
-                        Text("当前位置：$folderTitle", modifier = Modifier.weight(1f), color = dim, maxLines = 1)
-                        TextButton(onClick = { folderName = ""; folderDialog = "create" }) { Text("+ 文件夹") }
-                    }
-                    folders.filter { it.parent == activeFolder }
-                        .sortedBy { it.name }.forEach { dir ->
-                            Section(null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("📁 ${dir.name}", modifier = Modifier.weight(1f)
-                                        .clickable { activeFolder = dir.id }, color = ink)
-                                    TextButton(onClick = {
-                                        folderName = dir.name; folderDialog = "rename:${dir.id}"
-                                    }) { Text("改名") }
-                                    TextButton(onClick = { movingFolder = dir }) { Text("移动") }
-                                    TextButton(onClick = { folderDialog = "delete:${dir.id}" }) { Text("删除") }
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
-                        enabled = !loading, modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("↓ 导入本机 .sh 脚本") }
-                    Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("我的脚本", modifier = Modifier.weight(1f), color = ink,
-                            fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                            fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                         Text("${entries.size} 个", color = dim, fontSize = 12.sp)
+                        TextButton(onClick = { showFolders = !showFolders }) {
+                            Text(if (showFolders) "收起文件夹" else "文件夹管理")
+                        }
+                    }
+                    if (showFolders) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val folderTitle = folders.firstOrNull { it.id == activeFolder }?.name ?: "根目录"
+                            TextButton(onClick = {
+                                activeFolder = folders.firstOrNull { it.id == activeFolder }?.parent ?: "root"
+                            }, enabled = activeFolder != "root") { Text("← 返回") }
+                            Text("当前位置：$folderTitle", modifier = Modifier.weight(1f), color = dim, maxLines = 1)
+                            TextButton(onClick = { folderName = ""; folderDialog = "create" }) { Text("+ 文件夹") }
+                        }
+                        folders.filter { it.parent == activeFolder }
+                            .sortedBy { it.name }.forEach { dir ->
+                                Section(null) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("📁 ${dir.name}", modifier = Modifier.weight(1f)
+                                            .clickable { activeFolder = dir.id }, color = ink)
+                                        TextButton(onClick = {
+                                            folderName = dir.name; folderDialog = "rename:${dir.id}"
+                                        }) { Text("改名") }
+                                        TextButton(onClick = { movingFolder = dir }) { Text("移动") }
+                                        TextButton(onClick = { folderDialog = "delete:${dir.id}" }) { Text("删除") }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        OutlinedButton(
+                            onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
+                            enabled = !loading, modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("↓ 导入本机 .sh 脚本") }
                     }
                     Spacer(Modifier.height(10.dp))
                     val shown = entries.filter { item ->
@@ -518,6 +523,27 @@ private fun ManagerScreen(
                         }
                         Spacer(Modifier.height(10.dp))
                     }
+                    Spacer(Modifier.height(18.dp))
+                    Section("管理") {
+                        SummaryRow("◷", "运行记录", "查看真实触发与执行结果", "›") {
+                            showLogsSheet = true
+                        }
+                        HorizontalDivider(color = canvas)
+                        SummaryRow("⇧", "导入脚本", "从本机导入 .sh 文件", "›") {
+                            importLauncher.launch(arrayOf("text/*", "application/octet-stream"))
+                        }
+                        HorizontalDivider(color = canvas)
+                        SummaryRow("⚙", "外观与交互", "主题与界面设置", "›") {
+                            showThemeSheet = true
+                        }
+                        HorizontalDivider(color = canvas)
+                        SummaryRow("◇", "KernelSU 状态", "Root 授权与 NFC 触发权限", if (installed) "正常" else "检查") {
+                            refresh()
+                            openNfcPreferences()
+                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    V2ToolsHeading(onScan = openTagInspector, onWrite = openNdefWriter)
                 }
                 2 -> {
                     V2Scenes(
