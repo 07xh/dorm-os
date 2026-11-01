@@ -72,8 +72,12 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                         finish()
                     },
                     onInspect = {
-                        gate.cancelPending()
-                        startActivity(Intent(this, TagInspectorActivity::class.java))
+                        if (gate.isProcessing()) {
+                            status = "NFC 操作仍在进行，不能同时启动另一项扫描"
+                        } else {
+                            gate.cancelPending()
+                            startActivity(Intent(this, TagInspectorActivity::class.java))
+                        }
                     },
                     onNfcSettings = {
                         try { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
