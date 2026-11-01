@@ -181,3 +181,42 @@ test('study deadline exports standards-shaped all-day iCalendar event',async({pa
  expect(ics).toContain('DTEND;VALUE=DATE:20270101');
  expect(ics).toContain('END:VCALENDAR\r\n');
 });
+
+
+test('V4 has one five-item navigation and all legacy features in My',async({page},info)=>{
+ await page.goto('/');
+ const primary=['dashboard','timetable','tasks','scenes','profile'];
+ const nav=info.project.name==='mobile-chromium'?page.locator('.mobile-tabs'):page.locator('#sidebarNav');
+ await expect(nav.locator('[data-page]')).toHaveCount(5);
+ for(const id of primary)await expect(nav.locator('[data-page="'+id+'"]')).toHaveCount(1);
+ await nav.locator('[data-page="profile"]').click();
+ await expect(page.locator('#app')).toContainText('我的空间');
+ for(const id of ['life','campus','nfc','devices','settings'])await expect(page.locator('#app .v4-profile-link[data-page="'+id+'"]')).toBeVisible();
+ await page.locator('#app [data-page="nfc"]').click();
+ await expect(page.locator('#app')).toContainText('我的 NFC 标签');
+});
+
+test('V4 contextual add avoids duplicated task and schedule actions',async({page})=>{
+ await page.goto('/#tasks');
+ await expect(page.locator('#quickAdd')).toHaveAttribute('data-action','add-task');
+ await expect(page.locator('#app [data-action="add-task"]')).toHaveCount(0);
+ await page.locator('#quickAdd').click();
+ await expect(page.locator('#taskTitle')).toBeVisible();
+ await page.locator('[data-action="close-modal"]').click();
+ await page.goto('/#timetable');
+ await expect(page.locator('#quickAdd')).toHaveAttribute('data-action','add-class');
+ await page.locator('#quickAdd').click();
+ await expect(page.locator('#classSubject')).toBeVisible();
+});
+
+test('V4 scene quick actions and extended home cards remain accessible',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.v4-hero')).toBeVisible();
+ await expect(page.locator('.v4-scene-grid [data-scene]')).toHaveCount(4);
+ await expect(page.locator('.v4-main-widgets [data-home-widget]')).toHaveCount(2);
+ await page.locator('.v4-expansion summary').first().click();
+ await expect(page.locator('.v4-extra-widgets [data-home-widget="weather"]')).toBeVisible();
+ await page.locator('.v4-scene-grid [data-scene="study"]').click();
+ await expect(page).toHaveURL(/#scenes$/);
+ await expect(page.locator('#app')).toContainText('个人快捷场景');
+});
