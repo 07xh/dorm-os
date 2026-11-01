@@ -8,6 +8,8 @@ import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
 import android.os.Bundle
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -46,6 +48,8 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
     private var result by mutableStateOf<String?>(null)
     private var resultVerified by mutableStateOf<Boolean?>(null)
     private var writing by mutableStateOf(false)
+    private var nfcAvailable by mutableStateOf(false)
+    private var nfcEnabled by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +67,10 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
                     result = result,
                     resultVerified = resultVerified,
                     writing = writing,
+                    nfcAvailable = nfcAvailable,
+                    nfcEnabled = nfcEnabled,
                     onBack = { finish() },
+                    onNfcSettings = { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
                     onDisarm = { disarm() },
                     onArm = { plan, overwrite ->
                         val nfc = adapter
@@ -99,6 +106,8 @@ class NdefWriterActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         super.onResume()
         inForeground = true
         val nfc = adapter
+        nfcAvailable = nfc != null
+        nfcEnabled = nfc?.isEnabled == true
         if (nfc == null || !nfc.isEnabled) {
             status = "NFC 未开启或当前设备不支持 NFC"
             return
@@ -207,7 +216,10 @@ private fun WriteScreen(
     result: String?,
     resultVerified: Boolean?,
     writing: Boolean,
+    nfcAvailable: Boolean,
+    nfcEnabled: Boolean,
     onBack: () -> Unit,
+    onNfcSettings: () -> Unit,
     onDisarm: () -> Unit,
     onArm: (PreparedNdefWrite, Boolean) -> Unit
 ) {
@@ -239,7 +251,10 @@ private fun WriteScreen(
                 else "普通写卡与 DORM Root 自动化分离",
             working = writing
         ) {
-            if (ready && !writing) {
+            if (nfcAvailable && !nfcEnabled) {
+                Button(onClick = onNfcSettings, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)) { Text("打开 NFC 设置") }
+            } else if (ready && !writing) {
                 OutlinedButton(onClick = onDisarm, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp)) { Text("取消等待贴卡") }
             } else if (!ready && !writing && resultVerified == null) {
@@ -307,7 +322,7 @@ private fun WriteScreen(
                 }
                 Spacer(Modifier.height(16.dp))
                 Button(
-                    enabled = !ready && !writing && input.isNotBlank(),
+                    enabled = nfcEnabled && !ready && !writing && input.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
                     onClick = {
