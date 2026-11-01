@@ -223,26 +223,27 @@ private fun WriteScreen(
             .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)
     ) {
         Spacer(Modifier.height(22.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("‹ 返回") }
-            Spacer(Modifier.width(6.dp))
-            Text("NFC 写入", fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Spacer(Modifier.height(12.dp))
-        Surface(color = Color(0xFFDFE9FC), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                Text("◎", color = blue, fontSize = 43.sp)
-                Text(status, color = Color(0xFF26334C), fontSize = 16.sp)
-                Spacer(Modifier.height(6.dp))
-                Text("只在当前页面执行一次，成功后核对标签内容", color = muted, fontSize = 12.sp)
-                if (writing) {
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-                if (ready && !writing) {
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = onDisarm) { Text("取消等待") }
-                }
+        NfcPageHeader("写入标签", "编辑内容 → 确认 → 贴卡验证", onBack)
+        Spacer(Modifier.height(16.dp))
+        NfcSessionPanel(
+            mood = when {
+                resultVerified == true -> NfcPanelMood.VERIFIED
+                resultVerified == false -> NfcPanelMood.NEEDS_ATTENTION
+                ready || writing -> NfcPanelMood.ACTIVE
+                else -> NfcPanelMood.IDLE
+            },
+            title = status,
+            subtitle = if (writing) "正在处理实体标签，请保持贴合"
+                else if (ready) "等待单张可写 NDEF 标签"
+                else if (resultVerified == true) "读取结果与写入数据一致"
+                else "普通写卡与 DORM Root 自动化分离",
+            working = writing
+        ) {
+            if (ready && !writing) {
+                OutlinedButton(onClick = onDisarm, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)) { Text("取消等待贴卡") }
+            } else if (!ready && !writing && resultVerified == null) {
+                Text("填写下方内容后确认写卡", color = muted, fontSize = 12.sp)
             }
         }
         Spacer(Modifier.height(16.dp))
