@@ -4,7 +4,7 @@
   "version": "0.3.3",
   "description": "校序 · 华水个人校园生活中心（保留 DORM OS 存储与链接兼容）",
   "scripts": {
-    "check": "node scripts/check.mjs && node scripts/logic-tests.mjs && node scripts/xiaoxu-task-import-tests.mjs && node scripts/xiaoxu-chaoxing-cli-tests.mjs && node scripts/academic-notices-tests.mjs && node scripts/xiaoxu-notice-inbox-tests.cjs && node scripts/xiaoxu-academic-bridge-tests.mjs && node scripts/xiaoxu-academic-db-tests.mjs && node scripts/xiaoxu-academic-legacy-tests.mjs && node scripts/xiaoxu-academic-private-tests.mjs && node scripts/xiaoxu-academic-sync-tests.mjs && node scripts/academic-source-readiness-tests.mjs && node scripts/xiaoxu-academic-workspace-tests.mjs && npm run notices:test",
+    "check": "node scripts/check.mjs && node scripts/logic-tests.mjs && node scripts/xiaoxu-task-import-tests.mjs && node scripts/xiaoxu-chaoxing-cli-tests.mjs && node scripts/academic-notices-tests.mjs && node scripts/xiaoxu-notice-inbox-tests.cjs && node scripts/xiaoxu-academic-bridge-tests.mjs && node scripts/xiaoxu-academic-db-tests.mjs && node scripts/xiaoxu-academic-legacy-tests.mjs && node scripts/xiaoxu-academic-private-tests.mjs && node scripts/xiaoxu-academic-sync-tests.mjs && node scripts/academic-source-readiness-tests.mjs && node scripts/xiaoxu-academic-workspace-tests.mjs && node scripts/xiaoxu-cloud-tasks-tests.mjs && npm run notices:test",
     "test": "node scripts/check.mjs && node scripts/logic-tests.mjs",
     "test:e2e": "playwright test",
     "test:all": "npm run check && npm run test:e2e",
