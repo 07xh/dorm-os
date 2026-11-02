@@ -32,4 +32,26 @@ const importer=await readRoute('/xiaoxu-task-import.js');
 assert.ok(importer.includes('xiaoxu-task-batch-v1'),'Task import module missing from production');
 const sw=await readRoute('/sw.js');
 assert.ok(sw.includes('dorm-os-shell-'),'PWA service worker missing');
+// Do not confuse a successful static release with a deployed, functioning Pages API.
+// An unreachable NCWU upstream may produce a valid 503 JSON; that is not live data success.
+const noticeResp=await fetch(base+'/api/notices',{
+ signal:AbortSignal.timeout(27000),cache:'no-store',headers:{accept:'application/json'}
+});
+assert.match(noticeResp.headers.get('content-type')||'',/application\/json/i,
+ 'Official notices endpoint is missing: expected Pages Function JSON, not SPA fallback');
+assert.equal(noticeResp.headers.get('x-xiaoxu-public-notices'),'1',
+ 'Official notice request did not reach the Pages Function handler');
+const noticeData=await noticeResp.json();
+assert.equal(typeof noticeData.success,'boolean');
+assert.ok(Array.isArray(noticeData.items),'Notices response missing item list');
+if(noticeData.success){
+ assert.equal(noticeResp.status,200);
+ assert.ok(noticeData.items.length>=2,'A successful notice fetch must include real school items');
+ console.log('NCWU notices API verified: '+noticeData.items.length+' items; source '+noticeData.source);
+}else{
+ assert.equal(noticeResp.status,503);
+ assert.equal(noticeData.items.length,0,'Failure must not fabricate school notices');
+ console.log('NCWU notices API handler verified; official upstream unavailable (503). No live data claimed.');
+}
+
 console.log('Verified live published release '+sha+' at '+base);
