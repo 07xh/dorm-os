@@ -6,6 +6,8 @@ const match = html.match(/<script>([\s\S]*?)<\/script>/i);
 if (!match) throw new Error('Missing inline application script');
 new Script(match[1], { filename: 'dorm-os-inline-app.js' });
 new Script(readFileSync(new URL('../public/xiaoxu-task-import.js', import.meta.url), 'utf8'), {filename:'xiaoxu-task-import.js'});
+new Script(readFileSync(new URL('../public/xiaoxu-chaoxing-cli.js', import.meta.url), 'utf8'), {filename:'xiaoxu-chaoxing-cli.js'});
+if(!html.includes('<script src="/xiaoxu-chaoxing-cli.js"></script>'))throw Error('Missing Chaoxing CLI source');
 if(!html.includes('<script src="/xiaoxu-task-import.js"></script>'))throw Error('Missing task import source');
 
 const requiredElements = ['shell', 'app', 'editor', 'toast', 'icsInput', 'importInput', 'taskImportInput'];

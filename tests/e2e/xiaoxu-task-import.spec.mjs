@@ -13,7 +13,7 @@ async function upload(page,doc){
 test('local read-only task snapshot import is idempotent and retains personal completion',async({page})=>{
  const issues=[];page.on('pageerror',err=>issues.push(err.message));
  await page.goto('/#tasks');
- await expect(page.getByRole('button',{name:'导入任务 JSON'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'导入学习通 / 任务 JSON'})).toBeVisible();
  const first=batch([item('course-9/work-2','第一次发布的高数作业')]);
  page.once('dialog',d=>d.accept());
  await upload(page,first);
