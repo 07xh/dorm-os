@@ -45,9 +45,27 @@ if(publicArchive.mode === 'auto'){
 console.log('NCWU archive deployed: '+publicArchive.items.length+' items; mode '+publicArchive.mode);
 // Do not confuse a successful static release with a deployed, functioning Pages API.
 // An unreachable NCWU upstream may produce a valid 503 JSON; that is not live data success.
-const noticeResp=await fetch(base+'/api/notices',{
- signal:AbortSignal.timeout(27000),cache:'no-store',headers:{accept:'application/json'}
-});
+// A newly deployed Pages Function may lag static assets by a few seconds.
+// Retry readiness on wrong handler/content-type only. Do not accept SPA HTML
+// or fabricate successful school notices; a valid 503 JSON is a real API response.
+async function waitForNoticeFunction(){
+ let last='unknown';
+ for(let attempt=1;attempt<=8;attempt++){
+  try{
+   const resp=await fetch(base+'/api/notices',{
+    signal:AbortSignal.timeout(27000),cache:'no-store',headers:{accept:'application/json'}
+   });
+   const type=resp.headers.get('content-type')||'';
+   const marker=resp.headers.get('x-xiaoxu-public-notices');
+   if(/application\/json/i.test(type)&&marker==='1')return resp;
+   last='HTTP '+resp.status+', content-type '+type+', function marker '+(marker||'missing');
+  }catch(error){last=String(error?.message||error);}
+  console.warn('Pages notice Function not ready: '+last+' (attempt '+attempt+'/8)');
+  if(attempt<8)await sleep(2500);
+ }
+ throw new Error('Pages notice Function failed readiness check: '+last);
+}
+const noticeResp=await waitForNoticeFunction();
 assert.match(noticeResp.headers.get('content-type')||'',/application\/json/i,
  'Official notices endpoint is missing: expected Pages Function JSON, not SPA fallback');
 assert.equal(noticeResp.headers.get('x-xiaoxu-public-notices'),'1',
