@@ -73,6 +73,42 @@
      (done?'恢复待办':'标记完成')+'</button></div>';
    }).join('');
  }
+
+ function deadlineSummary(localTasks=[],now=Date.now()){
+  if(!online)return '';
+  const localIds=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now));
+  const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  const today=values.year+'-'+values.month+'-'+values.day;
+  const dayIndex=date=>Date.parse(date+'T00:00:00Z')/86400000;
+  const buckets={overdue:0,h6:0,h24:0,d3:0,later:0,unknown:0};
+  for(const r of items){
+   if(r.local_status==='done'||(r.legacy_id&&localIds.has(r.legacy_id)))continue;
+   if(r.due_precision==='exact'&&Number.isFinite(Date.parse(r.due_at_utc))){
+    const delta=Date.parse(r.due_at_utc)-now;
+    if(delta<0)buckets.overdue++;
+    else if(delta<=6*3600000)buckets.h6++;
+    else if(delta<=24*3600000)buckets.h24++;
+    else if(delta<=3*86400000)buckets.d3++;
+    else buckets.later++;
+   }else if(r.due_local_date&&/^\d{4}-\d{2}-\d{2}$/.test(r.due_local_date)){
+    const days=dayIndex(r.due_local_date)-dayIndex(today);
+    if(days<0)buckets.overdue++;
+    else if(days===0)buckets.h24++;
+    else if(days<=3)buckets.d3++;
+    else buckets.later++;
+   }else buckets.unknown++;
+  }
+  const row=[
+   ['逾期',buckets.overdue],['6小时内',buckets.h6],['今天/24小时',buckets.h24],
+   ['3天内',buckets.d3],['以后',buckets.later],['日期未知',buckets.unknown]
+  ].map(([name,value])=>'<span><strong>'+value+'</strong> '+name+'</span>').join('');
+  return '<section class="card xu-cloud-deadline" aria-label="云端作业截止日概览">'+
+   '<div class="card-header"><span class="card-title">云端作业截止日</span></div>'+
+   '<div class="xu-cloud-metrics">'+row+'</div>'+
+   '<p class="tiny muted">只知道截止日期的作业按自然日分类，不推断精确截止时刻；历史平台记录不代表实时同步。</p></section>';
+ }
  function sourcePanel(){
   if(!online)return '<p class="small muted">云端工作台尚未连接。请在上方完成本人授权读取；本地任务仍可独立使用。</p>';
   const records=(health?.connections||[]).map(s=>
@@ -165,6 +201,6 @@
   }catch(e){if(e.status===409)await refresh().catch(()=>{});throw e;}
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,isReady,taskCount,taskRows,panel,previewLegacy,commitLegacy,toggle
+  connect,disconnect,refresh,isReady,taskCount,taskRows,deadlineSummary,panel,previewLegacy,commitLegacy,toggle
  });
 })(globalThis);
