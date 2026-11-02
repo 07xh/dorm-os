@@ -15,19 +15,21 @@ CREATE TABLE IF NOT EXISTS academic_connections (
   last_attempt_at TEXT,
   last_success_at TEXT,
   last_error_code TEXT,
-  UNIQUE(user_id,provider,profile_key)
+  UNIQUE(user_id,provider,profile_key),
+  UNIQUE(id,user_id)
 );
 CREATE TABLE IF NOT EXISTS academic_courses (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES academic_users(id),
   semester TEXT,
   title TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  UNIQUE(id,user_id)
 );
 CREATE TABLE IF NOT EXISTS academic_assignments (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES academic_users(id),
-  course_id TEXT REFERENCES academic_courses(id),
+  course_id TEXT,
   title TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'manual' CHECK(kind IN ('manual','platform')),
   due_at_utc TEXT,
@@ -40,6 +42,8 @@ CREATE TABLE IF NOT EXISTS academic_assignments (
     CHECK(local_status IN ('todo','in_progress','done')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  FOREIGN KEY(course_id,user_id) REFERENCES academic_courses(id,user_id),
+  UNIQUE(id,user_id),
   CHECK (
     (due_precision='unknown' AND due_at_utc IS NULL AND due_local_date IS NULL)
     OR (due_precision='date' AND due_at_utc IS NULL AND due_local_date IS NOT NULL)
@@ -51,14 +55,17 @@ CREATE INDEX IF NOT EXISTS idx_academic_assignments_owner_due
 CREATE INDEX IF NOT EXISTS idx_academic_assignments_owner_updated
   ON academic_assignments(user_id,updated_at,id);
 CREATE TABLE IF NOT EXISTS academic_assignment_sources (
-  assignment_id TEXT NOT NULL REFERENCES academic_assignments(id),
-  connection_id TEXT NOT NULL REFERENCES academic_connections(id),
+  assignment_id TEXT NOT NULL,
+  connection_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
   external_id TEXT NOT NULL,
   platform_status TEXT NOT NULL DEFAULT 'unknown'
     CHECK(platform_status IN ('todo','submitted','graded','returned','unknown')),
   last_seen_at TEXT,
   PRIMARY KEY(connection_id,external_id),
-  UNIQUE(assignment_id,connection_id)
+  UNIQUE(assignment_id,connection_id),
+  FOREIGN KEY(assignment_id,user_id) REFERENCES academic_assignments(id,user_id),
+  FOREIGN KEY(connection_id,user_id) REFERENCES academic_connections(id,user_id)
 );
 CREATE TABLE IF NOT EXISTS academic_sync_runs (
   id TEXT PRIMARY KEY,
