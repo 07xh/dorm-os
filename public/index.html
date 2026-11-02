@@ -455,24 +455,94 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
  .toast{left:10px;right:10px;padding:12px 14px;font-size:13px}
 }
 
+
+/* 校序 V7：唯一顶部导航 + 教务二级导航（旧 NFC/备份逻辑保持不变） */
+.shell{display:block!important;min-height:100vh}
+.x-v7-header{position:sticky;top:0;z-index:55;border-bottom:1px solid var(--border);
+ background:var(--surface,#fff);color:var(--text);backdrop-filter:blur(12px)}
+.x-v7-header-inner{max-width:1500px;margin:0 auto;min-height:68px;padding:0 24px;
+ display:flex;align-items:center;gap:clamp(18px,4vw,65px)}
+.x-v7-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);
+ white-space:nowrap;font-weight:800;font-size:20px}
+.x-v7-brand-mark{display:grid;place-items:center;background:#326de6;color:#fff;
+ width:35px;height:35px;border-radius:11px;font-size:17px}
+.x-v7-header .main-nav{display:flex!important;flex:1;gap:5px;overflow-x:auto;
+ scrollbar-width:none;padding:5px 0}
+.x-v7-header .main-nav::-webkit-scrollbar{display:none}
+.x-v7-header .nav-link{min-width:62px;justify-content:center;text-align:center;
+ color:var(--muted);padding:12px 13px;font-size:14px;font-weight:630;
+ white-space:nowrap;border-radius:10px;box-shadow:none!important}
+.x-v7-header .nav-link.active{color:#326de6;background:rgba(50,109,230,.10)}
+.x-v7-header .nav-link:hover{color:#326de6;background:rgba(50,109,230,.07)}
+.workspace{min-width:0;width:100%}
+.workspace .topbar{min-height:48px;justify-content:flex-end;padding:5px clamp(16px,3vw,45px);
+ border-bottom:0;background:transparent}
+.workspace .topbar .top-left{display:none}
+.workspace main{max-width:1250px;padding:12px clamp(16px,3vw,36px) 70px}
+.mobile-tabs{display:none!important}
+.x-v7-overline{font-size:12px;color:var(--muted);font-weight:640}
+.x-v7-home-intro{min-height:0!important;border-radius:19px;padding:28px!important;margin-bottom:18px}
+.x-v7-home-intro::before,.x-v7-home-intro::after{display:none!important}
+.x-v7-home-intro h1{font-size:clamp(27px,4vw,35px);margin:9px 0;color:var(--text)}
+.x-v7-home-date{color:var(--muted);font-size:13px}
+.x-v7-next-lesson{display:flex;flex-direction:column;gap:6px;margin:22px 0 10px}
+.x-v7-next-lesson strong{font-size:17px}
+.x-v7-next-lesson span{font-size:13px;color:var(--muted)}
+.x-v7-home-link{display:inline-flex;align-items:center;min-height:44px;font-weight:630;color:#326de6;
+ border:0;background:none;cursor:pointer}
+.x-v7-home-grid{margin:16px 0 18px}
+.x-v7-home-notices{margin-top:12px}
+.x-v7-secondary{display:flex;gap:5px;overflow-x:auto;border-bottom:1px solid var(--border);
+ scrollbar-width:none;padding:0 0 9px;margin:0 0 18px}
+.x-v7-secondary button{appearance:none;background:transparent;border:0;border-radius:10px;
+ color:var(--muted);font-size:14px;font-weight:650;white-space:nowrap;padding:11px 16px;
+ min-height:44px}
+.x-v7-secondary button.selected{color:#326de6;background:rgba(50,109,230,.10)}
+.x-v7-academic-content{max-width:980px}
+.x-v7-academic-card h2{font-size:18px;margin:0 0 13px}
+.x-v7-academic-card p{line-height:1.65}
+.x-v7-not-connected{border:1px dashed var(--border);color:var(--muted);
+ padding:20px 15px;border-radius:12px;text-align:center;margin-top:20px;font-size:13px}
+.x-v7-services-head{display:flex;justify-content:space-between;align-items:center;
+ padding-top:16px;margin-top:16px;border-top:1px solid var(--border)}
+.x-v7-legacy-links{margin-top:16px;border-top:1px solid var(--border);padding:17px 0 0}
+.x-v7-legacy-links summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.x-v7-legacy-list{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.x-v7-legacy-list button{min-height:44px;border-radius:9px;background:var(--surface2);
+ border:1px solid var(--border);color:var(--text);padding:10px 13px}
+@media(max-width:790px){
+ .x-v7-header-inner{padding:6px 12px;min-height:60px;gap:10px}
+ .x-v7-brand{font-size:16px;gap:6px}
+ .x-v7-brand-mark{width:29px;height:29px;font-size:15px;border-radius:9px}
+ .x-v7-header .main-nav{padding:0;gap:0;min-width:0}
+ .x-v7-header .nav-link{font-size:12px;min-width:54px;padding:13px 8px}
+ .workspace main{padding:14px 14px 60px}
+ .workspace .topbar{padding:4px 14px;min-height:44px}
+ .x-v7-home-intro{padding:21px!important}
+ .x-v7-secondary button{font-size:12px;padding:11px 13px}
+ .toast{bottom:25px!important}
+}
+@media(max-width:360px){.x-v7-brand{font-size:14px}.x-v7-header .nav-link{min-width:48px;padding:12px 5px}}
+@media(prefers-reduced-motion:reduce){.x-v7-header .nav-link,.x-v7-secondary button{transition:none!important}}
+
 </style>
   <title>校序 · 个人校园生活中心</title>
 </head>
 <body>
 <svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
 <div id="shell" class="shell">
-  <aside class="sidebar" aria-label="主导航">
-    <a class="brand" href="#dashboard" aria-label="校序首页"><span class="brand-icon">◈</span><span><strong>校序</strong><small>PERSONAL CAMPUS</small></span></a>
-    <div class="side-caption">WORKSPACE</div>
-    <nav class="main-nav" id="sidebarNav" aria-label="主导航">
-      <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span> 首页</button>
-      <button type="button" data-page="study" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-study"></use></svg></span> 学习</button>
-      <button type="button" data-page="nfc" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-nfc"></use></svg></span> NFC</button>
-      <button type="button" data-page="life" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-life"></use></svg></span> 生活</button>
-      <button type="button" data-page="profile" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-profile"></use></svg></span> 我的</button>
-    </nav>
-<div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先</span></div><p>数据保存在此浏览器</p><span class="version">校序 · V4.5.1 基线</span></div>
-  </aside>
+  <header class="x-v7-header">
+    <div class="x-v7-header-inner">
+      <a class="x-v7-brand" href="#dashboard" aria-label="校序总览"><span class="x-v7-brand-mark" aria-hidden="true">序</span><span>校序</span></a>
+      <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="顶部主导航">
+        <button type="button" data-page="dashboard" class="nav-link active">总览</button>
+        <button type="button" data-page="timetable" class="nav-link">课表</button>
+        <button type="button" data-page="academic" class="nav-link">教务</button>
+        <button type="button" data-page="tasks" class="nav-link">任务</button>
+        <button type="button" data-page="profile" class="nav-link">我的</button>
+      </nav>
+    </div>
+  </header>
   <div class="workspace">
     <header class="topbar">
       <div class="top-left"><span class="breadcrumb">PERSONAL / <strong id="breadcrumb">总览面板</strong></span></div>
@@ -480,13 +550,7 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
     </header>
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>当前离线：已保存的课程、任务和个人场景仍可使用；天气与外部服务暂不可用。</div>
     <main id="app" tabindex="-1"></main>
-    <nav class="mobile-tabs" aria-label="手机主导航">
-      <button type="button" data-page="dashboard"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span>首页</button>
-      <button type="button" data-page="study"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-study"></use></svg></span>学习</button>
-      <button type="button" data-page="nfc"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-nfc"></use></svg></span>NFC</button>
-      <button type="button" data-page="life"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-life"></use></svg></span>生活</button>
-      <button type="button" data-page="profile"><span aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-profile"></use></svg></span>我的</button>
-    </nav>
+
   </div>
 </div>
 <dialog id="editor" class="editor"><div id="editorContent"></div></dialog>
@@ -696,7 +760,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'未设置日期';
 let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
-let page='dashboard',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
+let page='dashboard',academicTab='notices',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
 let androidSceneSelection='study';
@@ -714,7 +778,7 @@ function log(text){state.events.push({at:new Date().toISOString(),text});state.e
 function toast(message){const node=$('toast');node.textContent=message;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),3400);}
 function download(name,content,type='application/json'){const blob=new Blob([content],{type:`${type};charset=utf-8`});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 const now=()=>chinaParts();
-const nameMap={dashboard:'首页',study:'学习',timetable:'课表',campus:'校园服务',tasks:'任务',scenes:'场景',profile:'我的',devices:'设备',settings:'设置与备份',nfc:'NFC 标签',life:'生活'};
+const nameMap={dashboard:'总览',study:'学习',timetable:'课表',academic:'教务',campus:'校园服务',tasks:'任务',scenes:'场景',profile:'我的',devices:'设备',settings:'设置与备份',nfc:'NFC 标签',life:'生活'};
 function globalSearchIndex(){
  const rows=[];
  const add=(type,id,title,detail,pageName,extra='',editable=false)=>{const searchable=[title,detail,extra].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN');rows.push({type,id:String(id),title,detail,pageName,searchable,editable});};
@@ -815,15 +879,17 @@ function v4Hero(showFocus,p){
   </section>`;
 }
 function dashboard(){
- const p=now(),layout=normalizeHomeLayout(state.settings.homeLayout);
- const available=layout.order.filter(id=>!layout.hidden.includes(id));
- const essentials=available.filter(id=>['tasks','timetable'].includes(id));
- const extras=available.filter(id=>!['tasks','timetable','focus'].includes(id));
- return `${v4Hero(available.includes('focus'),p)}
- <section class="v4-section"><div class="v4-section-title"><h2>快捷场景</h2><button class="action-link" type="button" data-page="scenes">管理场景 ›</button></div>${sceneButtons()}</section>
- <section class="v4-section"><div class="v4-section-title"><h2>今天</h2><button class="action-link" type="button" data-action="home-layout" aria-label="调整首页布局">自定义 ›</button></div>
- <div class="home-widget-grid v4-main-widgets">${essentials.map(homeWidgetContent).join('')||'<div class="friendly-empty">当前没有显示今日模块，可通过「自定义」恢复。</div>'}</div></section>
- ${extras.length?`<details class="v4-expansion"><summary>更多个人信息 <span>${extras.length} 项</span></summary><div class="home-widget-grid v4-extra-widgets">${extras.map(homeWidgetContent).join('')}</div></details>`:''}`;
+ const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time);
+ const nextInfo=next?'<strong>'+esc(next.subject)+'</strong><span>'+esc(next.start)+' · '+esc(next.location||'教室未填写')+'</span>':
+ '<strong>暂无下一节课程</strong><span>课表中的真实课程会显示在这里。</span>';
+ return '<section class="v4-hero x-v7-home-intro"><span class="x-v7-overline">华北水利水电大学 · 江淮校区</span>'
+  +'<h1>今日安排</h1><div class="x-v7-home-date">'+p.month+' 月 '+p.dateNumber+' 日 · '+WEEKDAYS[p.day]+'</div>'
+  +'<div class="x-v7-next-lesson">'+nextInfo+'</div>'
+  +'<button type="button" class="x-v7-home-link" data-page="timetable">查看课表 ›</button></section>'
+  +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+homeWidgetContent('timetable')+homeWidgetContent('tasks')+'</div>'
+  +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
+  +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
+  +'<p class="small muted">公开教务通知自动同步尚未接入；请以教务处官方通知为准。</p></section>';
 }
 
 const sceneDefs=[{id:'study',icon:'📘',label:'学习模式',desc:'任务看板 + 专注计时器'},{id:'rest',icon:'🌙',label:'休息模式',desc:'休息提示 + 低干扰'},{id:'dev',icon:'💻',label:'开发模式',desc:'开发项目快捷入口'},{id:'away',icon:'🎒',label:'出门模式',desc:'天气 + 上课物品清单'}];
@@ -920,6 +986,41 @@ function calendarPreview(limit=8){
 function safeLink(name,url,hint=''){
   return `<a class="campus-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(name)}</strong>${hint?`<span>${esc(hint)}</span>`:''}</div><span aria-hidden="true">↗</span></a>`;
 }
+
+const ACADEMIC_TABS=Object.freeze([
+ {id:'notices',label:'通知'},{id:'grades',label:'成绩'},
+ {id:'exams',label:'考试'},{id:'second',label:'第二课堂'},
+ {id:'services',label:'校园服务'}
+]);
+function academicPage(){
+ let content='';
+ if(academicTab==='notices'){
+  content='<section class="card x-v7-academic-card"><h2>教务处官方通知</h2><p class="small muted">当前提供学校原文入口；自动采集和已读提醒将在独立的真实数据服务通过验收后启用。</p>'
+   +safeLink('教务处通知公告','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm','公开通知 · 以学校原文为准')
+   +safeLink('教务处考试安排','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','公开考试公告及附件 · 非个人考场')
+   +'</section>';
+ }else if(academicTab==='grades'){
+  content='<section class="card x-v7-academic-card"><h2>我的成绩</h2><p class="small muted">尚未连接华水青果本人账号。成绩、学分、绩点均以学校原始记录为准；未连接时不显示模拟成绩。</p><div class="x-v7-not-connected">未连接青果成绩查询</div></section>';
+ }else if(academicTab==='exams'){
+  content='<section class="card x-v7-academic-card"><h2>考试安排</h2><p class="small muted">个人考试安排尚未连接；公开考试安排可通过教务处官方栏目核对。</p>'
+  +safeLink('查看教务处考试公告','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','考试计划与附件可能按校区分别发布')+'</section>';
+ }else if(academicTab==='second'){
+  content='<section class="card x-v7-academic-card"><h2>第二课堂</h2><p class="small muted">正在规划活动、成长记录、学时和学分的统一查看。真实二课账号尚未连接，因此不显示虚构积分和报名结果。</p>'
+  +safeLink('打开学校第二课堂','https://dekt.ncwu.edu.cn/','官方入口 · 活动与积分')+'</section>';
+ }else{
+  const links=state.campusLinks.map(l=>'<div class="campus-custom-link">'+safeLink(l.name,l.url)
+    +'<button type="button" class="icon-btn" data-campus-link-delete="'+esc(l.id)+'" aria-label="删除 '+esc(l.name)+'">×</button></div>').join('');
+  content='<section class="card x-v7-academic-card"><h2>校园服务</h2>'
+  +safeLink('华水学堂','https://ncwu.fanya.chaoxing.com/portal','学校学习平台 · 作业将在任务页统一展示')
+  +'<div class="x-v7-services-head"><strong>我的常用入口</strong><button type="button" class="action-link" data-action="add-campus-link">＋ 添加</button></div>'
+  +(links||'<p class="small muted">暂未添加常用入口。</p>')+'</section>';
+ }
+ const tabs='<nav class="x-v7-secondary" aria-label="教务二级导航" role="tablist">'+ACADEMIC_TABS.map(t=>
+  '<button type="button" role="tab" data-academic-tab="'+t.id+'" aria-selected="'+(academicTab===t.id)+'" class="'+(academicTab===t.id?'selected':'')+'">'+t.label+'</button>'
+ ).join('')+'</nav>';
+ return titleBlock('','教务中心')+tabs+'<div class="x-v7-academic-content">'+content+'</div>';
+}
+
 function campusPage(){
  const found=state.campusLinks.length;
  return `${titleBlock('','校园服务')}
@@ -965,14 +1066,17 @@ function scenesPage(){
 const devices=[['📱','一加 Ace 6','Android 自动化 · 未来通过授权客户端接入'],['▤','一加 Pad 2 Pro','平板学习面板 · 网页访问'],['💻','个人电脑','本地开发 · 后续可运行数据服务']];
 function devicesPage(){return `${titleBlock('HARDWARE INTEGRATION','设备中心','已知你的设备类别，但还没有获取任何真实在线状态。')}<div class="device-grid">${devices.map(d=>`<section class="card device-card"><div class="device-icon">${d[0]}</div><div class="device-name">${d[1]}</div><div class="small muted">${d[2]}</div><div class="device-status"><span class="status-line">未连接到网站</span>${badge('待接入')}</div></section>`).join('')}</div><div class="notice neutral" style="margin-top:16px">预留协议：<span class="kbd">dorm-os/eink-v1</span>，可在设置中导出 JSON 样例。静态 V1 网站不能对外提供实时硬件 API；后续需增加带身份验证的服务端。</div>`;}
 function profilePage(){
- const sections=[
-  ['设备中心','连接状态与本机助手','devices','▤'],
-  ['设置与备份','主题、导入与导出','settings','⚙']
- ];
- return `${titleBlock('','我的')}
- <section class="card v4-profile-card"><div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">校</span><div><strong>我的空间</strong><span>仅此浏览器保存个人数据</span></div></div>
- <div class="v4-profile-links">${sections.map(([name,detail,target,icon])=>`<button type="button" class="v4-profile-link" data-page="${target}"><span class="v4-profile-symbol" aria-hidden="true">${icon}</span><span><strong>${name}</strong><small>${detail}</small></span><b aria-hidden="true">›</b></button>`).join('')}</div></section>`;
+ return titleBlock('','我的')+'<section class="card v4-profile-card">'
+ +'<div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">校</span>'
+ +'<div><strong>个人设置与数据连接</strong><span>目前资料保存在当前浏览器 · 未启用跨设备同步</span></div></div>'
+ +'<div class="v4-profile-links"><button type="button" class="v4-profile-link" data-page="settings">'
+ +'<span class="v4-profile-symbol" aria-hidden="true">⚙</span><span><strong>数据连接与备份</strong><small>平台连接状态、数据迁移、外观</small></span><b>›</b></button></div>'
+ +'<details class="x-v7-legacy-links"><summary>原有个人功能（教务整合后再联动）</summary>'
+ +'<div class="x-v7-legacy-list"><button type="button" data-page="nfc">NFC 标签管理</button>'
+ +'<button type="button" data-page="scenes">个人场景</button><button type="button" data-page="life">生活管理</button>'
+ +'<button type="button" data-page="devices">设备中心</button></div></details></section>';
 }
+
 function settingsPage(){const c=state.settings.campus;return `${titleBlock('PREFERENCES & DATA','设置与备份','第一版是本地优先网站；你的资料只保存在当前浏览器。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">基本设置</span></div><div class="config-row"><div><strong>使用校区</strong><div class="detail">切换天气地点和界面标签，不会改动课程</div></div><select id="campusSelect" aria-label="使用校区"><option value="jianghuai" ${c==='jianghuai'?'selected':''}>江淮校区</option><option value="huayuan" ${c==='huayuan'?'selected':''}>花园校区</option></select></div><div class="config-row"><div><strong>界面主题</strong><div class="detail">适配电脑、平板和手机</div></div><select id="themeSelect" aria-label="界面主题"><option value="dark" ${state.settings.theme==='dark'?'selected':''}>深色</option><option value="light" ${state.settings.theme==='light'?'selected':''}>浅色</option></select></div><div class="config-row"><div><strong>首页布局</strong><div class="detail">调整首页模块的显示状态和排列顺序</div></div><button type="button" class="secondary" data-action="home-layout">自定义布局</button></div><div class="config-row"><div><strong>宿舍电费余额</strong><div class="detail">手动填写 · ${state.electricity.updatedAt?`更新于 ${esc(new Date(state.electricity.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}`:'尚未录入'}</div></div><div style="text-align:right"><strong>${state.electricity.balance===null?'未录入':`¥${state.electricity.balance.toFixed(2)}`}</strong><br><button data-action="balance" class="action-link">更新余额</button></div></div></section><section class="card"><div class="card-header"><span class="card-title">数据管理</span></div><div class="notice neutral">当前没有云端同步。可导出加密备份，手动传到手机或平板。导入时默认合并保留本机数据，也可明确选择覆盖；密码遗失无法恢复，浏览器本地数据仍为明文。</div><div class="button-row" style="margin-top:14px"><button type="button" class="primary" data-action="export-encrypted">导出加密备份</button><button type="button" class="secondary" data-action="export">导出普通 JSON</button><button type="button" class="secondary" data-action="import">恢复备份</button><button type="button" class="secondary" data-action="eink-export">导出墨水屏 JSON</button></div><div style="margin-top:20px"><button type="button" class="secondary danger-btn" data-action="reset">清空本地数据</button></div></section><section class="card"><div class="card-header"><span class="card-title">课程数据连接</span></div>
  <div class="config-row"><div><strong>学习通作业</strong><div class="detail">尚未完成授权自动同步。已保存的记录仍可在「任务」查看。</div></div><span class="task-connection-dot">未连接</span></div>
  <details class="task-advanced-tools"><summary>数据迁移与手动导入</summary><p class="small muted">仅用于兼容已有备份和学习通开源工具的导出文件。日常查看作业不需要使用这里的工具；目前无法自动从学习通获取新作业。</p><button type="button" class="secondary" data-action="import-task-batch">导入任务文件</button></details></section><section class="card"><div class="card-header"><span class="card-title">安装到手机桌面</span></div><p class="small muted">校序可以作为个人网页应用安装，首次联网打开后可在离线时使用已保存的基本功能。浏览器不支持安装提示时，请从浏览器菜单选择「添加到主屏幕」。</p><div class="button-row"><button type="button" class="secondary" data-action="pwa-install">安装校序</button></div><p class="tiny muted">天气更新和外部链接仍需网络；设备 NFC 支持由浏览器及系统决定。</p></section><section class="card wide"><div class="card-header"><span class="card-title">安全与功能边界</span></div><div class="split"><div><div class="entry-title">✓ 已实现</div><p class="small muted">课表增删改、任务增删改、场景状态记录、本地 JSON 导入导出、标准课表 CSV 导入、联网天气和缓存、校区切换、墨水屏数据导出。</p></div><div><div class="entry-title">○ 尚未实现</div><p class="small muted">真实手机勿扰控制、传感器采集、智能灯控制、SleepDown 原生备份解析、云端登录、多设备同步与实时设备 API。</p></div></div></section></div>`;}
@@ -1189,7 +1293,7 @@ function lifePage(){
 }
 function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="reminderText">提醒内容</label><input id="reminderText" name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label for="reminderDue">日期（可选）</label><input id="reminderDue" type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
 function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="itemName">物品名称</label><input id="itemName" name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label for="itemPlace">存放位置（可选）</label><input id="itemPlace" name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
-function render(){const pages={dashboard,study:studyPage,timetable,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({timetable:'study',tasks:'study',campus:'study',scenes:'dashboard',devices:'profile',settings:'profile'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
+function render(){const pages={dashboard,study:studyPage,timetable,academic:academicPage,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',devices:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings'||page==='devices';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
 
 function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
 function tick(){const p=now();$('dateChip').textContent=`${p.month}月${p.dateNumber}日 · ${WEEKDAYS[p.day]}`;document.querySelectorAll('[data-clock]').forEach(x=>x.textContent=p.time);if($('timerDisplay'))$('timerDisplay').textContent=timerText();}
@@ -1388,8 +1492,8 @@ function chooseQuickAdd(kind){
 }
 function clickAction(action){if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
-document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
-  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
+document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-academic-tab], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
+  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
 document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
