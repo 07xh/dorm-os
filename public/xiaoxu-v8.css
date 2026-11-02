@@ -213,3 +213,105 @@ html:not(.theme-light) #app .x-v8-connection-state{background:#52391f;color:#ffe
 }
 @media(prefers-reduced-motion:reduce){.x-v7-header .nav-link,#app button{transition:none!important}
  #app > :first-child{animation:none!important}}
+
+/* V8.1 academic workspace · native progressively-enhanced components.
+ * Reuses the semantics of headless tab/panel design (no CDN required offline).
+ */
+#app .x-v8-academic-intro{display:flex;align-items:center;justify-content:space-between;gap:15px;
+ margin:0 0 16px;min-height:72px;padding:18px 22px;background:var(--xu-surface);
+ border:1px solid var(--xu-line);border-radius:var(--xu-radius);box-shadow:var(--xu-shadow)}
+#app .x-v8-academic-intro-copy{min-width:0}
+#app .x-v8-academic-eyebrow{font-size:10px;letter-spacing:.9px;text-transform:uppercase;
+ color:var(--xu-brand);font-weight:800}
+#app .x-v8-academic-intro h2{font-size:17px;font-weight:820;margin:5px 0;color:var(--xu-ink)}
+#app .x-v8-academic-intro p{font-size:12px;line-height:1.6;color:var(--xu-muted);margin:0}
+#app .x-v8-academic-pill{white-space:nowrap;border-radius:999px;display:inline-flex;align-items:center;
+ gap:7px;background:var(--xu-soft);border:1px solid var(--xu-line);
+ color:var(--xu-muted);font-size:11px;font-weight:700;padding:8px 11px}
+#app .x-v8-academic-pill:before{content:"";height:7px;width:7px;flex:none;
+ background:#d6a24b;border-radius:50%}
+#app .x-v8-academic-pill.is-public:before{background:#4c88ed}
+#app .x-v7-secondary{margin:0 0 18px!important;gap:6px!important;
+ border:0!important;padding:5px!important;border-radius:13px;
+ background:var(--xu-surface);border:1px solid var(--xu-line)!important;
+ width:max-content;max-width:100%;box-shadow:var(--xu-shadow)}
+#app .x-v7-secondary button{min-height:44px!important;padding:9px 17px!important;
+ border:1px solid transparent!important;border-radius:10px!important;color:var(--xu-muted);
+ background:transparent;font-size:13px!important}
+#app .x-v7-secondary button.selected{background:#ebf2ff!important;
+ border-color:#d9e6ff!important;color:#2861d5!important}
+html:not(.theme-light) #app .x-v7-secondary button.selected{background:#27426b!important;
+ border-color:#3e5682!important;color:#e4ecff!important}
+#app .x-v7-academic-content{max-width:none!important}
+#app .x-v7-academic-card{padding:24px!important;min-height:230px}
+#app .x-v7-academic-card h2{font-size:17px;font-weight:820;color:var(--xu-ink)}
+#app .x-v7-academic-card .small.muted{max-width:670px;font-size:13px;line-height:1.75}
+#app .x-v8-academic-empty{display:flex;align-items:center;gap:16px;
+ min-height:128px;padding:23px 19px;border-radius:15px;border:1px dashed var(--xu-line);
+ background:var(--xu-soft);margin:17px 0;color:var(--xu-ink)}
+#app .x-v8-academic-empty-icon{flex:none;height:45px;width:45px;border-radius:14px;
+ display:grid;place-items:center;background:#e3edff;color:#3268ed}
+#app .x-v8-academic-empty-icon .dorm-ui-icon{width:24px;height:24px}
+#app .x-v8-academic-empty strong{font-size:14px;font-weight:780}
+#app .x-v8-academic-empty p{font-size:12px;line-height:1.65;color:var(--xu-muted);margin:6px 0 0}
+#app .x-v8-academic-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:15px}
+#app .x-v8-academic-actions .secondary,#app .x-v8-academic-actions .primary{min-height:41px;font-size:12px}
+#app .x-v8-academic-note{font-size:11px;color:var(--xu-muted);
+ margin-top:14px;line-height:1.65}
+#app .x-v8-source-label{display:inline-flex;align-items:center;border-radius:7px;
+ color:var(--xu-brand);font-weight:720;background:var(--xu-soft);padding:6px 10px;font-size:11px}
+#app .x-v7-notice-meta{color:var(--xu-muted);font-size:12px;line-height:1.6}
+#app .x-v7-notice-filters{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0 9px}
+#app .x-v7-notice-filters button{min-height:44px;border-radius:9px;padding:8px 13px;
+ border:1px solid var(--xu-line);background:var(--xu-soft);color:var(--xu-muted)}
+#app .x-v7-notice-filters button.selected{background:#e8f0ff;border-color:#bcd3fc;
+ color:#2863d7;font-weight:750}
+#app .x-v7-notice-feed{display:grid;gap:7px}
+#app .x-v7-notice-item{display:flex;align-items:center;min-height:62px;
+ border:1px solid var(--xu-line)!important;border-radius:11px;
+ padding:10px 13px!important;background:var(--xu-surface)!important}
+#app .x-v7-notice-item:hover{border-color:#c5d7f6!important;background:var(--xu-soft)!important}
+#app .x-v7-notice-footer{padding-top:13px;margin-top:16px;border-top:1px solid var(--xu-line)}
+#app .x-v7-notice-footer .campus-link{box-shadow:none}
+#app .v42-schedule-toolbar{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+#app .v42-segments{background:var(--xu-surface);border:1px solid var(--xu-line);
+ border-radius:12px;padding:4px;box-shadow:var(--xu-shadow)}
+#app .v42-segments button{border:0;border-radius:8px!important;min-height:44px;
+ padding:9px 14px;color:var(--xu-muted);background:transparent;font-weight:690}
+#app .v42-segments button.active{background:#e8f0ff;color:#255bc9}
+#app .weekday.v42-day-card{background:var(--xu-surface);
+ border:1px solid var(--xu-line);box-shadow:var(--xu-shadow);border-radius:15px}
+#app .weekday.v42-day-card.today{border-color:#90b5ff;
+ box-shadow:0 0 0 2px rgba(50,104,237,.07)}
+#app .v42-day-picker{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;
+ background:var(--xu-surface);border:1px solid var(--xu-line);
+ padding:5px;border-radius:13px;scrollbar-width:none}
+#app .v42-day-picker button{min-width:37px;flex:1;min-height:44px;border-radius:9px}
+#app .v42-day-picker button.selected{background:#e9f1ff;color:#2961d0}
+#app .v4-task-toolbar{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between}
+#app .v4-filters{display:inline-flex;gap:5px;background:var(--xu-surface);
+ border:1px solid var(--xu-line);border-radius:12px;padding:4px}
+#app .v4-filters button{min-height:44px;border:0;border-radius:9px!important;background:transparent;
+ padding:8px 14px;color:var(--xu-muted)}
+#app .v4-filters button.active{background:#e9f1ff;color:#2861d7}
+#app .v4-task-list .task-item{border-radius:12px;margin-bottom:8px}
+#app .v4-task-list .task-item:last-child{margin-bottom:0}
+@media(max-width:790px){
+ #app .x-v8-academic-intro{padding:15px;min-height:0;align-items:flex-start}
+ #app .x-v8-academic-intro h2{font-size:15px}
+ #app .x-v8-academic-intro p{font-size:11px}
+ #app .x-v8-academic-pill{font-size:10px;padding:7px}
+ #app .x-v7-secondary{width:100%;overflow-x:auto}
+ #app .x-v7-secondary button{flex:1;min-width:max-content;padding:9px 12px!important;font-size:12px!important}
+ #app .x-v7-academic-card{padding:17px!important;min-height:0}
+ #app .x-v8-academic-empty{padding:14px;gap:12px;min-height:115px}
+ #app .x-v8-academic-empty-icon{width:36px;height:36px;border-radius:11px}
+ #app .x-v8-academic-empty strong{font-size:13px}
+ #app .x-v7-notice-item{padding:9px!important}
+ #app .v42-schedule-toolbar{align-items:stretch}
+}
+@media(max-width:380px){
+ #app .x-v8-academic-intro{gap:8px}
+ #app .x-v8-academic-pill{padding:6px;font-size:9px}
+ #app .x-v8-academic-intro h2{font-size:14px}
+}
