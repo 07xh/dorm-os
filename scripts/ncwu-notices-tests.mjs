@@ -33,7 +33,8 @@ assert.equal(result.sources[1].status,'error');
 assert.equal(result.items.find(n=>n.url.endsWith('/23333.htm')).date,'2026-10-29','preserve archive on partial failures');
 assert.ok(result.items.some(n=>n.url.endsWith('/23285.htm')));
 assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,'seed-jwc-23331','seed IDs remain stable');
-assert.equal(seed.lastSuccessAt,null,'fixture must not lie about auto success');
+if (seed.mode === 'seed') assert.equal(seed.lastSuccessAt, null, 'Initial snapshot cannot claim auto success');
+else { assert.equal(seed.mode, 'auto'); assert.ok(/^20\d\d-\d\d-\d\dT/.test(seed.lastSuccessAt), 'Live archive must contain a real update timestamp'); }
 const loaded=await collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),at:'2026-11-03T02:00:00.000Z'});
 assert.equal(loaded.mode,'auto');
 await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('JavaScript challenge',{status:202})}),/所有公开通知源均失败/);
