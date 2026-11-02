@@ -12,6 +12,7 @@ const notices=[
 ];
 const response={success:true,partial:false,items:notices,failedSources:[],
  source:'华北水利水电大学教务处官网',fetchedAt:'2026-11-03T08:00:00.000Z',warnings:[]};
+test.beforeEach(async({page})=>{await page.route('**/data/notices.json',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({schema:'xiaoxu/notices-v1',mode:'seed',items:[]})}));});
 test('real academic notice UI consumes live API response with source, filters and official links',async({page})=>{
  let count=0;
  await page.route('**/api/notices',async route=>{
