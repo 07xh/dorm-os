@@ -526,8 +526,112 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 @media(max-width:360px){.x-v7-brand{font-size:14px}.x-v7-header .nav-link{min-width:48px;padding:12px 5px}}
 @media(prefers-reduced-motion:reduce){.x-v7-header .nav-link,.x-v7-secondary button{transition:none!important}}
 
+
+/* 校序 V7.1：首页移动端排版与原位交互；高优先级覆盖旧 V4 复合 Hero 样式 */
+.v4-hero.x-v7-home-intro{
+ display:block!important;width:100%!important;min-width:0!important;
+ box-sizing:border-box!important;min-height:0!important;max-height:none!important;
+ padding:22px 24px!important;margin:0 0 18px!important;
+ background:linear-gradient(125deg,#f2f7ff 0%,#e7f1ff 100%)!important;
+ border:1px solid #d8e6fb!important;border-radius:18px!important;color:#203455!important;
+ box-shadow:0 7px 22px rgba(37,90,165,.045)!important;
+ text-align:left!important;white-space:normal!important;word-break:normal!important;
+ overflow:hidden!important;writing-mode:horizontal-tb!important;
+}
+.v4-hero.x-v7-home-intro *{box-sizing:border-box;min-width:0;writing-mode:horizontal-tb}
+.v4-hero.x-v7-home-intro h1{font-size:clamp(23px,3.4vw,29px)!important;line-height:1.3!important;letter-spacing:-.6px!important;
+ margin:6px 0 5px!important;color:#132d53!important;white-space:nowrap!important}
+.x-v7-home-top{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap}
+.x-v7-home-head{flex:1 1 155px;min-width:0}
+.x-v7-overline{color:#53739c!important;font-size:11px!important}
+.x-v7-home-date{font-size:12px!important;color:#557196!important;margin:0!important;line-height:1.5}
+.x-v7-day-selector{display:inline-flex;align-items:center;gap:4px;border-radius:11px;background:#dbe9ff;padding:4px;flex:0 0 auto}
+.x-v7-day-chip{font:inherit;font-size:12px;font-weight:700;border:0;border-radius:8px;padding:8px 10px;
+ min-height:34px;color:#42648f;background:transparent;cursor:pointer;white-space:nowrap;transition:background .16s ease,color .16s ease}
+.x-v7-day-chip.selected{background:#fff;color:#215dcc;box-shadow:0 1px 4px #1a4e8f18}
+.x-v7-day-chip:focus-visible,.x-v7-task-detail button:focus-visible,.x-v7-home-link:focus-visible{outline:2px solid #3778de;outline-offset:2px}
+.x-v7-today-stats{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-top:19px;color:#4b668a;font-size:12px}
+.x-v7-today-stats span{display:inline-flex;align-items:baseline;gap:5px}
+.x-v7-today-stats strong{font-size:20px;color:#245fce;font-weight:790}
+.x-v7-home-courses{margin-top:15px;background:#fff;border:1px solid #dfebfa;border-radius:13px;padding:12px 14px;min-width:0}
+.x-v7-home-courses-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.x-v7-home-courses-title strong{font-size:13px;color:#253c5e}
+.x-v7-home-courses-title span{font-size:11px;color:#6881a2}
+.x-v7-course-preview{display:grid;grid-template-columns:auto minmax(0,1fr) auto 10px;gap:8px;align-items:center;
+ width:100%;border:0;border-top:1px solid #e8eff9;background:transparent;color:#233859;min-height:45px;
+ padding:9px 0;text-align:left;cursor:pointer;font:inherit}
+.x-v7-course-preview:hover{background:#f5f9ff}
+.x-v7-course-time{font-size:11px;color:#56739b;font-variant-numeric:tabular-nums;white-space:nowrap}
+.x-v7-course-name{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x-v7-course-room{font-size:11px;color:#647c9b;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x-v7-course-arrow{font-size:18px;color:#527cba}
+.x-v7-course-empty{display:flex;gap:5px;flex-direction:column;padding:12px 0 8px;min-height:0}
+.x-v7-course-empty strong{font-size:13px;color:#2d466b;font-weight:700}
+.x-v7-course-empty span{font-size:12px;color:#6a81a0;line-height:1.5}
+.x-v7-home-footer{display:flex;gap:12px;margin-top:11px;flex-wrap:wrap}
+.x-v7-home-link{display:inline-flex!important;align-items:center;justify-content:center;gap:4px;
+ min-height:40px!important;color:#225fc7!important;background:#ffffff9c!important;border:1px solid #cbdef7!important;
+ border-radius:10px!important;padding:7px 12px!important;font-size:12px!important;font-weight:750!important;cursor:pointer}
+.x-v7-home-link:hover{background:#fff!important}
+.x-v7-home-grid .home-widget{min-height:0!important;padding:16px 17px!important;box-shadow:none!important}
+.x-v7-home-grid .friendly-empty,.x-v7-home-grid .empty{min-height:0!important;padding:15px 5px!important;font-size:12px!important;line-height:1.7!important}
+.x-v7-home-grid .card-header{margin-bottom:10px!important}
+.x-v7-home-grid .panel-stat{margin:5px 0 9px!important}
+.x-v7-home-notices{box-shadow:none!important;padding:16px 17px!important}
+.x-v7-home-notices .card-header{margin-bottom:7px!important}
+.x-v7-task-preview{display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding:12px 1px;min-height:49px}
+.x-v7-task-preview input{flex:none;width:18px;height:18px;accent-color:#326de6;cursor:pointer}
+.x-v7-task-detail{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.x-v7-task-detail button{display:block;border:0;background:none;color:var(--text);cursor:pointer;text-align:left;
+ padding:0;font:inherit;font-size:13px;font-weight:720;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x-v7-task-detail span{font-size:11px;color:var(--muted)}
+.x-v7-task-urgent{color:#ad5b17;font-size:11px;white-space:nowrap}
+.x-v7-mini-empty{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0}
+.x-v7-mini-empty span{font-size:12px;color:var(--muted)}
+.x-v7-mini-empty button{border:0;background:none;color:#326de6;font-weight:720;min-height:40px;cursor:pointer}
+.workspace .topbar .header-action{width:39px!important;height:39px!important;min-height:39px!important;
+ padding:0!important;border-radius:12px!important;font-size:20px!important;box-shadow:none!important}
+.workspace .topbar .top-right{gap:8px!important}
+html:not(.theme-light) .v4-hero.x-v7-home-intro{background:linear-gradient(130deg,#1a3050,#15283e)!important;
+ color:#e6efff!important;border-color:#345174!important}
+html:not(.theme-light) .v4-hero.x-v7-home-intro h1{color:#f6faff!important}
+html:not(.theme-light) .x-v7-home-date,html:not(.theme-light) .x-v7-overline{color:#a9c0e3!important}
+html:not(.theme-light) .x-v7-home-courses{background:#203955;border-color:#3d5676}
+html:not(.theme-light) .x-v7-home-courses-title strong,html:not(.theme-light) .x-v7-course-name,html:not(.theme-light) .x-v7-course-empty strong{color:#f0f5ff}
+html:not(.theme-light) .x-v7-course-preview{border-color:#36516b}
+html:not(.theme-light) .x-v7-course-time,html:not(.theme-light) .x-v7-course-room,html:not(.theme-light) .x-v7-course-empty span{color:#bdd0e9}
+html:not(.theme-light) .x-v7-day-selector{background:#294568}
+html:not(.theme-light) .x-v7-day-chip{color:#c9dbf6}
+html:not(.theme-light) .x-v7-day-chip.selected{background:#e8f1ff;color:#255bb2}
+html:not(.theme-light) .x-v7-home-link{background:#284468!important;border-color:#44638d!important;color:#deecff!important}
+html:not(.theme-light) .x-v7-today-stats{color:#bbcee9}
+html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
+@media(max-width:790px){
+ .workspace .topbar{min-height:42px!important;padding:2px 14px!important}
+ .v4-hero.x-v7-home-intro{padding:18px 15px!important;border-radius:15px!important}
+ .x-v7-home-top{gap:12px}
+ .x-v7-home-head{flex-basis:125px}
+ .x-v7-day-selector{gap:1px}
+ .x-v7-day-chip{padding:8px 8px;min-height:34px;font-size:11px}
+ .x-v7-today-stats{margin-top:12px}
+ .x-v7-home-courses{margin-top:11px;padding:10px 12px}
+ .x-v7-home-footer{margin-top:8px}
+ .x-v7-home-grid{margin:10px 0 15px!important}
+ .x-v7-home-grid .home-widget{padding:15px!important}
+ .x-v7-home-grid .friendly-empty,.x-v7-home-grid .empty{padding:10px 4px!important}
+}
+@media(max-width:360px){
+ .x-v7-day-selector{width:100%;justify-content:space-between}
+ .x-v7-day-chip{flex:1}
+ .x-v7-course-preview{grid-template-columns:auto minmax(0,1fr) 10px}
+ .x-v7-course-room{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+ .x-v7-day-chip,.x-v7-course-preview{transition:none!important}
+}
+
 </style>
-  <title>校序 · 个人校园生活中心</title>
+  <title>校序 · 华水教务整合</title>
 </head>
 <body>
 <svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
@@ -761,7 +865,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'未设置日期';
 let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
-let page='dashboard',academicTab='notices',taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
+let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
 let androidSceneSelection='study';
@@ -830,7 +934,19 @@ function taskRow(t,actions=true){
  const status=t.source&&t.source!=='manual'?(platformStates[t.sourceStatus]||platformStates.unknown):'';
  return `<div class="task-item"><input type="checkbox" data-task-toggle="${esc(t.id)}" ${t.done?'checked':''} aria-label="标记 ${esc(t.title)} 本地完成"><div class="task-main ${t.done?'done':''}"><div class="entry-title">${esc(t.title)}</div><div class="entry-sub">${esc(detail)}${status?`<span class="task-platform-status"> · ${esc(status)}</span>`:''}</div></div>${t.done?badge('本地完成','green'):status==='已退回'?badge('需处理','orange'):overdue?badge('已逾期','orange'):t.due===p.date?badge('今天截止'):''}${actions?`<div class="task-actions"><button type="button" data-task-edit="${esc(t.id)}" class="icon-btn" aria-label="编辑任务">✎</button><button type="button" data-task-delete="${esc(t.id)}" class="icon-btn" aria-label="删除任务">×</button></div>`:''}</div>`;
 }
-function compactTasks(){const p=now();const data=state.tasks.filter(x=>!x.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')).slice(0,4);return data.length?data.map(t=>`<div class="entry"><div class="entry-info"><div class="entry-title">${esc(t.title)}</div><div class="entry-sub">${esc(t.category)} · ${t.due?fmtDate(t.due)+(t.dueAt?' '+t.dueAt.slice(11,16):''):'未设截止'}</div></div>${t.due===p.date?badge('今天','orange'):t.due&&t.due<p.date?badge('逾期','orange'):badge('待完成')}</div>`).join(''):'<div class="empty">还没有待办任务。添加一项真实作业，开始整理日程。</div>';}
+function compactTasks(){
+ const p=now(),data=state.tasks.filter(t=>!t.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')).slice(0,3);
+ return data.length?data.map(t=>{
+  const origin=({chaoxing:'学习通',ncwu:'教务',second_class:'第二课堂'})[t.source]||'个人';
+  const when=t.due?fmtDate(t.due)+(t.dueAt?' '+t.dueAt.slice(11,16):''):'无截止日期';
+  return '<div class="x-v7-task-preview"><input type="checkbox" data-task-toggle="'+esc(t.id)+'" aria-label="完成任务：'+esc(t.title)+'">'
+   +'<div class="x-v7-task-detail"><button type="button" data-task-edit="'+esc(t.id)+'">'+esc(t.title)+'</button>'
+   +'<span>'+origin+' · '+esc(when)+'</span></div>'
+   +(t.due&&t.due<p.date?'<span class="x-v7-task-urgent">已逾期</span>':t.due===p.date?'<span class="x-v7-task-urgent">今天</span>':'')
+   +'</div>';
+ }).join(''):'<div class="x-v7-mini-empty"><span>还没有待完成任务。</span><button type="button" data-action="add-task">新增任务 ›</button></div>';
+}
+
 function weatherCard(){const loc=CAMPUSES[state.settings.campus];let body;
 if(weather){const info=weatherInfo(weather.code),stale=Date.now()-new Date(weather.fetchedAt).getTime()>60*60*1000;
   body=`<div class="weather-top"><div><div class="weather-temp">${Math.round(weather.temp)}°</div><div class="small muted">${esc(info.name)} · 体感 ${Math.round(weather.feels)}°</div></div><div class="weather-emoji" aria-hidden="true">${info.icon}</div></div><div class="weather-sub"><span>💧 降雨概率 ${Math.round(weather.rainChance)}%</span><span>🌡️ 最高 ${Math.round(weather.max)}° / 最低 ${Math.round(weather.min)}°</span></div><div class="notice ${stale?'warn':''}">${esc(weatherAdvice(weather))}</div><p class="tiny muted">${stale?'缓存数据 · ':''}最后同步：${new Date(weather.fetchedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}（北京时间）</p>`;
@@ -840,7 +956,7 @@ return `<section class="card home-panel home-widget" data-home-widget="weather">
 function homeWidgetContent(id){
  const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time),sum=taskSummary(state.tasks,p.date);
  const rem=state.reminders.filter(x=>!x.done).length;
- if(id==='timetable')return `<section class="card home-panel home-widget" data-home-widget="timetable"><div class="card-header"><span class="card-title">▦ 今日课表</span><button class="action-link" data-page="timetable">完整课表 →</button></div>${today.length?today.slice(0,3).map(classRow).join(''):'<div class="friendly-empty">尚未登记今天的课程。<br><span>添加课程后，这里会自动更新。</span></div>'}${next?`<p class="panel-foot">下一节：${esc(next.subject)} · ${esc(next.start)}</p>`:''}</section>`;
+ if(id==='timetable')return `<section class="card home-panel home-widget" data-home-widget="timetable"><div class="card-header"><span class="card-title">▦ 今日课表</span><button class="action-link" data-page="timetable">完整课表 →</button></div>${today.length?today.slice(0,3).map(classRow).join(''):'<div class="friendly-empty">本地课表尚无今日课程。<br><span>课程同步尚未连接，可先手动添加。</span></div>'}${next?`<p class="panel-foot">下一节：${esc(next.subject)} · ${esc(next.start)}</p>`:''}</section>`;
  if(id==='tasks')return `<section class="card home-panel home-widget" data-home-widget="tasks"><div class="card-header"><span class="card-title">☑ 我的待办</span><button class="action-link" data-page="tasks">全部任务 →</button></div><div class="panel-stat"><strong>${sum.remaining}</strong><span>待完成${sum.overdue?` · ${sum.overdue} 逾期`:''}</span></div>${compactTasks()}</section>`;
  if(id==='focus')return `<section class="card home-panel home-widget focus-widget" data-home-widget="focus"><div class="card-header"><span class="card-title">◷ 专注计时</span><button class="action-link" data-page="scenes">场景设置 →</button></div><p class="small muted">选择一个适合当前任务的专注时长。</p><div class="focus-widget-time" id="timerDisplay" role="timer" aria-live="off">${timerText()}</div><div class="button-row focus-widget-durations" role="group" aria-label="专注时长">${[15,25,45].map(n=>`<button type="button" class="secondary" data-timer-duration="${n}" aria-pressed="${timer.duration===n}">${n} 分钟</button>`).join('')}</div><div class="button-row"><button type="button" class="primary" data-action="timer-toggle">${timer.running?'暂停专注':'开始专注'}</button><button type="button" class="secondary" data-action="timer-reset">重置</button></div></section>`;
  if(id==='life')return `<section class="card home-panel home-widget" data-home-widget="life"><div class="card-header"><span class="card-title">✦ 个人生活</span><button class="action-link" data-page="life">管理生活 →</button></div><div class="life-preview"><div><b>${rem}</b><span>待办提醒</span></div><div><b>${state.items.length}</b><span>我的物品</span></div><div><b>${state.nfcTags.length}</b><span>NFC 标签</span></div></div></section>`;
@@ -880,25 +996,36 @@ function v4Hero(showFocus,p){
   </section>`;
 }
 function dashboard(){
- const p=now(),next=upcomingClass(state.classes,p.day,p.time);
- const layout=normalizeHomeLayout(state.settings.homeLayout);
- const active=layout.order.filter(id=>!layout.hidden.includes(id));
- const essential=active.filter(id=>id==='timetable'||id==='tasks');
- const extra=active.filter(id=>id!=='timetable'&&id!=='tasks');
- const nextInfo=next?'<strong>'+esc(next.subject)+'</strong><span>'+esc(next.start)+' · '+esc(next.location||'教室未填写')+'</span>':
- '<strong>暂无下一节课程</strong><span>课表中的真实课程会显示在这里。</span>';
- return '<section class="v4-hero x-v7-home-intro"><span class="x-v7-overline">华北水利水电大学 · 江淮校区</span>'
-  +'<h1>今日安排</h1><div class="x-v7-home-date">'+p.month+' 月 '+p.dateNumber+' 日 · '+WEEKDAYS[p.day]+'</div>'
-  +'<div class="x-v7-next-lesson">'+nextInfo+'</div>'
-  +'<button type="button" class="x-v7-home-link" data-page="timetable">查看课表 ›</button></section>'
-  +'<div class="x-v7-home-section-title"><h2>学习进度</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></div>'
-  +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'
-  +(essential.length?essential.map(homeWidgetContent).join(''):'<div class="friendly-empty">课表与任务模块当前已隐藏，可以调整首页布局恢复。</div>')+'</div>'
+ const p=now(),layout=normalizeHomeLayout(state.settings.homeLayout);
+ const available=layout.order.filter(id=>!layout.hidden.includes(id));
+ const essentials=available.filter(id=>id==='timetable'||id==='tasks');
+ const extras=available.filter(id=>id!=='timetable'&&id!=='tasks');
+ const date=addDays(p.date,homeDayOffset),day=weekday(date);
+ const courses=classForDay(state.classes,day);
+ const readable=homeDayOffset===0?'今天':homeDayOffset===1?'明天':'后天';
+ const next=courses.find(c=>homeDayOffset!==0||c.end>p.time);
+ const due=state.tasks.filter(t=>!t.done&&(t.due===date||homeDayOffset===0&&t.due&&t.due<date));
+ const coursePreview=courses.length?courses.slice(0,2).map(c=>'<button type="button" class="x-v7-course-preview" data-page="timetable" aria-label="查看课表中的'+esc(c.subject)+'">'
+  +'<span class="x-v7-course-time">'+esc(c.start)+'–'+esc(c.end)+'</span><span class="x-v7-course-name">'+esc(c.subject)+'</span>'
+  +'<span class="x-v7-course-room">'+esc(c.location||'未填写教室')+'</span><span class="x-v7-course-arrow" aria-hidden="true">›</span></button>').join(''):
+  '<div class="x-v7-course-empty"><strong>尚未登记'+readable+'的课程</strong><span>添加本地课表后，这里会自动显示。</span></div>';
+ const tabs=[0,1,2].map(n=>'<button type="button" class="x-v7-day-chip '+(homeDayOffset===n?'selected':'')+'" data-home-day="'+n+'" aria-pressed="'+(homeDayOffset===n)+'">'+['今天','明天','后天'][n]+'</button>').join('');
+ const hero='<section class="v4-hero x-v7-home-intro" aria-label="课程与任务概览">'
+  +'<div class="x-v7-home-top"><div class="x-v7-home-head"><span class="x-v7-overline">校序 · 江淮校区</span><h1>今日安排</h1><p class="x-v7-home-date">'+esc(fmtDate(date))+' · '+WEEKDAYS[day]+'</p></div>'
+  +'<div class="x-v7-day-selector" role="group" aria-label="选择日程日期">'+tabs+'</div></div>'
+  +'<div class="x-v7-today-stats"><span><strong>'+courses.length+'</strong> 门本地课程</span><span><strong>'+due.length+'</strong> 项'+(homeDayOffset===0?'待处理':'截止任务')+'</span></div>'
+  +'<div class="x-v7-home-courses"><div class="x-v7-home-courses-title"><strong>'+readable+'课程</strong>'
+  +(next?'<span>接下来：'+esc(next.start)+'</span>':'<span>本地课表</span>')+'</div>'+coursePreview+'</div>'
+  +'<div class="x-v7-home-footer"><button type="button" class="x-v7-home-link" data-page="timetable">查看完整课表 <span aria-hidden="true">›</span></button>'
+  +'<button type="button" class="x-v7-home-link x-v7-task-shortcut" data-page="tasks">查看任务 <span aria-hidden="true">›</span></button></div></section>';
+ return hero
+  +'<section class="x-v7-home-section-title"><h2>学习进度</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></section>'
+  +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+(essentials.length?essentials.map(homeWidgetContent).join(''):'<div class="friendly-empty">已隐藏课表和任务模块，可通过「调整布局」恢复。</div>')+'</div>'
   +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
-  +'<p class="small muted">公开教务通知自动同步尚未接入；请以教务处官方通知为准。</p></section>'
-  +(extra.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extra.length+' 项</span></summary>'
-   +'<div class="home-widget-grid v4-extra-widgets">'+extra.map(homeWidgetContent).join('')+'</div></details>':'');
+  +'<p class="small muted">官方公告自动同步尚未连接。可进入教务查看华水教务处官方发布入口。</p></section>'
+  +(extras.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extras.length+' 项</span></summary>'
+    +'<div class="home-widget-grid v4-extra-widgets">'+extras.map(homeWidgetContent).join('')+'</div></details>':'');
 }
 
 const sceneDefs=[{id:'study',icon:'📘',label:'学习模式',desc:'任务看板 + 专注计时器'},{id:'rest',icon:'🌙',label:'休息模式',desc:'休息提示 + 低干扰'},{id:'dev',icon:'💻',label:'开发模式',desc:'开发项目快捷入口'},{id:'away',icon:'🎒',label:'出门模式',desc:'天气 + 上课物品清单'}];
@@ -1501,8 +1628,8 @@ function chooseQuickAdd(kind){
 }
 function clickAction(action){if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
-document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-academic-tab], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
-  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
+document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-home-day], [data-academic-tab], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
+  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
 document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
