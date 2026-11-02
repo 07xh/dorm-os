@@ -128,6 +128,8 @@ export async function fetchPublicHtml(url, fetcher = fetch) {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
+  const finalUrl = new URL(res.url || url);
+  if(finalUrl.protocol !== 'https:' || finalUrl.hostname !== new URL(url).hostname) throw new Error('非华水官方源的重定向已拒绝');
   if (+(res.headers.get('content-length') || 0) > MAX_BYTES) throw new Error('响应体超出限制');
   const buffer = Buffer.from(await res.arrayBuffer());
   if (buffer.length > MAX_BYTES) throw new Error('响应体超出限制');
