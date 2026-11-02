@@ -23,7 +23,7 @@
       const course = text(entry.course, 80);
       const due = entry.due == null || entry.due === '' ? '' : entry.due;
       const dueAt = entry.dueAt == null || entry.dueAt === '' ? '' : entry.dueAt;
-      const instant=/^(\\d{4}-\\d{2}-\\d{2})T(?:[01]\\d|2[0-3]):[0-5]\\d:00\\+08:00$/.exec(dueAt);
+      const instant=/^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:00\+08:00$/.exec(dueAt);
       if (!externalId || externalId.length > 80 || !title || typeof due !== 'string' ||
           (due && !validDate(due)) || typeof dueAt !== 'string' || (dueAt && (!instant || !validDate(due) || instant[1]!==due)) || !STATUSES.includes(entry.status))
         throw new Error('第 ' + (index + 1) + ' 条任务缺少 ID/标题，或日期、状态不合法');
