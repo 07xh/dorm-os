@@ -99,16 +99,37 @@ internal object ChatDraftCodec {
 internal class NativeSceneStore(context: Context) {
     private val prefs = context.getSharedPreferences("tapflow_native_scenes", Context.MODE_PRIVATE)
     init {
+        // Fresh installations start empty. Neither WeChat nor a specific chat is built in.
         if (!prefs.getBoolean("initialized", false)) {
-            if (!prefs.contains("scenes")) {
-                val welcome = NativeScene("wechat-group-01", "26电气日常查寝", listOf(
-                    NativeStep(NativeKind.CHAT_DRAFT,
-                        ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "26电气日常查寝", "8624均在寝"))),
-                    NativeStep(NativeKind.MANUAL, "选择正确的群聊并手动确认发送")
-                ))
-                prefs.edit().putString("scenes", JSONArray().put(encode(welcome)).toString())
-                    .putBoolean("initialized", true).apply()
-            } else prefs.edit().putBoolean("initialized", true).apply()
+            val editor = prefs.edit()
+            if (!prefs.contains("scenes")) editor.putString("scenes", "[]")
+            editor.putBoolean("initialized", true).apply()
+        }
+        // One-time migration: remove only the *unchanged* sample shipped by old
+        // RC builds. Keep user-created and user-edited scenes, even if they use
+        // the same NFC scene id.
+        if (!prefs.getBoolean("sample_cleanup_v1", false)) {
+            val untouchedSampleV1 = NativeScene("wechat-group-01", "26电气日常查寝", listOf(
+                NativeStep(NativeKind.COPY, "8624均在寝"),
+                NativeStep(NativeKind.APP, "com.tencent.mm"),
+                NativeStep(NativeKind.MANUAL, "进入「26电气日常查寝」群，粘贴并手动确认发送")
+            ))
+            val untouchedSampleV2 = NativeScene("wechat-group-01", "26电气日常查寝", listOf(
+                NativeStep(NativeKind.CHAT_DRAFT,
+                    ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "26电气日常查寝", "8624均在寝"))),
+                NativeStep(NativeKind.MANUAL, "选择正确的群聊并手动确认发送")
+            ))
+            val original = list()
+            val preserved = original.filterNot {
+                it == untouchedSampleV1 || it == untouchedSampleV2
+            }
+            val editor = prefs.edit()
+            if (original.size != preserved.size) {
+                val encoded = JSONArray()
+                preserved.forEach { encoded.put(encode(it)) }
+                editor.putString("scenes", encoded.toString())
+            }
+            editor.putBoolean("sample_cleanup_v1", true).commit()
         }
     }
     private fun encode(scene: NativeScene): JSONObject = JSONObject()
