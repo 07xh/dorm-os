@@ -2027,7 +2027,7 @@ async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});
 window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);});
 window.addEventListener('offline',updateOfflineBanner);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='tasks'||page==='settings')render();}).catch(()=>{});}});
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
 window.addEventListener('storage',event=>{
  if(event.key===NOTICE_ALERT_PREF){
