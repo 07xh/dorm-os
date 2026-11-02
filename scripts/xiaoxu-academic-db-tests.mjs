@@ -10,8 +10,9 @@ import {onRequestGet,onRequestPost} from '../functions/api/v1/assignments.js';
 
 const database = new DatabaseSync(':memory:');
 database.exec('PRAGMA foreign_keys=ON');
-const migration = readFileSync(new URL('../migrations/0001_academic_core.sql',import.meta.url),'utf8');
-database.exec(migration);
+for(const file of ['0001_academic_core.sql','0002_academic_legacy_links.sql','0003_academic_verified_snapshots.sql','0004_academic_source_course.sql','0005_academic_workspace.sql']) {
+  database.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+}
 const table = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?");
 for(const name of ['academic_users','academic_connections','academic_courses',
   'academic_assignments','academic_assignment_sources','academic_sync_runs',

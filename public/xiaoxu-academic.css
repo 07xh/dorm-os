@@ -27,3 +27,16 @@
  #app .xu-private-connect-row button{min-height:40px}
  #app .xu-private-sources{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* 个人云端作业：在现有 V8 组件体系中复用卡片，不新增重复页面。 */
+.xu-cloud-panel .button-row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.xu-cloud-panel .button-row button{min-height:42px}
+.xu-cloud-panel .xu-private-status{white-space:nowrap}
+.xu-cloud-task .task-main{min-width:0}
+.xu-cloud-task .task-main .entry-sub{overflow-wrap:anywhere}
+.xu-cloud-task button{white-space:nowrap;min-height:40px;align-self:center}
+.xu-cloud-deadline{margin:12px 0}
+.xu-cloud-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.xu-cloud-metrics span{min-width:0;overflow-wrap:anywhere;padding:10px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--muted)}
+.xu-cloud-metrics strong{color:var(--text);font-variant-numeric:tabular-nums;font-size:16px}
+@media(max-width:540px){.xu-cloud-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.xu-cloud-panel .button-row button{flex:1 1 140px}}

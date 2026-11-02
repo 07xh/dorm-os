@@ -14,8 +14,8 @@
  const stamp=value=>value?new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'未取得';
  const statusLabel=k=>{
   const s=state(k);
-  return s.status==='ready'?'快照已获取 · '+stamp(s.lastSuccessAt):
-   s.status==='stale'?'历史记录 · '+stamp(s.lastSuccessAt):
+  return s.status==='ready'?'个人快照 · '+stamp(s.lastSuccessAt):
+   s.status==='stale'?'过期个人快照 · '+stamp(s.lastSuccessAt):
    s.status==='error'?'连接失败':s.status==='loading'?'正在读取':'未连接';
  };
  function disconnect(){
@@ -62,9 +62,9 @@
   const active=connected;
   const entries=TYPES.map(kind=>'<div class="xu-private-source"><span>'+escapeHtml(SOURCE[kind])+'</span><small>'+escapeHtml(statusLabel(kind))+'</small></div>').join('');
   return '<section class="card xu-private-panel" aria-label="个人学业数据连接">'+
-   '<div class="card-header"><span class="card-title">个人学业数据 · 授权连接</span><span class="xu-private-status '+(active?'is-ready':'')+'">'+(active?'本页已加载本人数据':'尚未授权')+'</span></div>'+
-   '<p class="small muted">成绩、课表、考试、学习通作业和二课共用一个受保护的后端。仅在本人授权并完成真实数据核验后展示，已有本地课表和任务不会被覆盖。</p>'+
-   (!active?'<div class="xu-private-connect"><p class="small muted">通过 Cloudflare Access 登录本人账户后，读取已核验的个人学业快照；不需要在校序填写学校密码。</p><button type="button" class="primary" data-action="academic-connect">读取授权数据</button></div>':
+   '<div class="card-header"><span class="card-title">个人学业数据 · 私人快照</span><span class="xu-private-status '+(active?'is-ready':'')+'">'+(active?'本页已加载本人数据':'尚未授权')+'</span></div>'+
+   '<p class="small muted">成绩、课表、考试、作业和二课可保存到受保护的个人后端。手动上传的数据只表示个人快照，不证明学校平台已自动连接；原有本地数据不会被覆盖。</p>'+
+   (!active?'<div class="xu-private-connect"><p class="small muted">通过 Cloudflare Access 登录后读取个人存储的学业快照；这不是学校自动同步，也不需要在校序填写学校密码。</p><button type="button" class="primary" data-action="academic-connect">读取授权数据</button></div>':
    '<div class="button-row"><button type="button" class="secondary" data-action="academic-refresh">重新读取</button><button type="button" class="secondary" data-action="academic-disconnect">断开连接</button></div>')+
    (error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
    '<div class="xu-private-sources">'+entries+'</div>'+
@@ -93,9 +93,9 @@
      '</span></div>';
    }
    return item(record);
-  }).join(''):'<div class="friendly-empty">本次已核验的完整同步结果为空，没有编造记录。</div>';
-  return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'快照已过期':'已核验快照')+'</span></div>'+
-   '<p class="tiny muted">来源：已核验的本人'+escapeHtml(SOURCE[kind])+'快照 · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
+  }).join(''):'<div class="friendly-empty">本次保存的快照为空；不代表真实平台目前没有任务。</div>';
+  return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'快照已过期':'个人快照')+'</span></div>'+
+   '<p class="tiny muted">来源：本人保存的'+escapeHtml(SOURCE[kind])+'快照 · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
    (s.status==='stale'?' · 请重新同步':'')+'</p><div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all'){
@@ -107,7 +107,7 @@
    '<div class="entry-sub">学习通 · '+escapeHtml(r.course||'')+
    (r.dueAt?' · 截止 '+escapeHtml(stamp(r.dueAt)):' · 截止时间未核实')+
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
-   '</div></div><span class="pill">只读同步</span></div>').join('');
+   '</div></div><span class="pill">个人快照</span></div>').join('');
  }
  root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);
