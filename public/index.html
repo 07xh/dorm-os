@@ -1063,7 +1063,7 @@ function dashboard(){
   +'<div class="x-v7-home-notice-preview">'+(noticeFeed&&noticeFeed.length?publicNoticeList(3):'<p class="small muted">'+esc(publicNoticeState())+'</p>')+'</div></section>'
   +'<section class="card x-v8-connection"><div class="card-header"><span class="card-title">数据连接状态</span></div>'
   +'<div class="x-v8-connect-row"><div><strong>华水青果教务</strong><small>成绩、考试及选课尚未接入</small></div><span class="x-v8-connection-state">未连接</span></div>'
-  +'<div class="x-v8-connect-row"><div><strong>学校公开通知</strong><small>'+esc(publicNoticeState())+'</small></div><button type="button" class="action-link" data-page="academic">详情 ›</button></div>'
+  +'<div class="x-v8-connect-row"><div><strong>学校公开通知</strong><small>'+esc(publicNoticeState())+'</small></div></div>'
   +'</section></div></div>'
   +(extras.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extras.length+' 项</span></summary>'
     +'<div class="home-widget-grid v4-extra-widgets">'+extras.map(homeWidgetContent).join('')+'</div></details>':'');
