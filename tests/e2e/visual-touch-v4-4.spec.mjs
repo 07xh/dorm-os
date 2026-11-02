@@ -1,14 +1,21 @@
 import { test, expect } from '@playwright/test';
 
-test('desktop and mobile navigation use the same five line icons',async({page})=>{
+test('V7 top-only navigation is accessible at desktop and mobile sizes',async({page})=>{
  await page.goto('/');
- for(const [index,name] of ['home','study','nfc','life','profile'].entries()){
-  await expect(page.locator('#sidebarNav button').nth(index).locator('svg use')).toHaveAttribute('href','#dicon-'+name);
-  await expect(page.locator('.mobile-tabs button').nth(index).locator('svg use')).toHaveAttribute('href','#dicon-'+name);
- }
+ const nav=page.locator('#sidebarNav');
+ await expect(nav).toBeVisible();
+ await expect(nav.locator('button')).toHaveCount(5);
+ await expect(page.locator('.sidebar,.mobile-tabs')).toHaveCount(0);
+ for(const name of ['总览','课表','教务','任务','我的'])
+  await expect(nav.getByRole('button',{name})).toBeVisible();
  await expect(page.locator('.dorm-icon-sprite symbol')).toHaveCount(7);
+ await page.setViewportSize({width:360,height:780});
+ const metrics=await nav.evaluate(el=>({
+  nav:el.getBoundingClientRect().toJSON(),vw:window.innerWidth,
+  scrollWidth:document.documentElement.scrollWidth
+ }));
+ expect(metrics.scrollWidth-metrics.vw).toBeLessThanOrEqual(2);
 });
-
 test('NFC on a 360px screen has scan status, clear controls and large tag actions',async({page})=>{
  await page.setViewportSize({width:360,height:780});
  await page.goto('/#nfc');
