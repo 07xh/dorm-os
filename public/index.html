@@ -1747,6 +1747,18 @@ document.addEventListener('click',e=>{const target=e.target.closest('[data-actio
 document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
+document.addEventListener('keydown', e=>{
+ const tab=e.target.closest?.('[data-academic-tab]');
+ if(!tab || !['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;
+ const ids=ACADEMIC_TABS.map(t=>t.id);
+ const index=ids.indexOf(tab.dataset.academicTab);if(index<0)return;
+ e.preventDefault();
+ const next=e.key==='Home'?0:e.key==='End'?ids.length-1:
+  (index+(e.key==='ArrowRight'?1:-1)+ids.length)%ids.length;
+ academicTab=ids[next];
+ render();
+ document.getElementById('xu-tab-'+academicTab)?.focus();
+});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openGlobalSearch();}});
 $('taskImportInput').addEventListener('change',async e=>{
  const file=e.target.files?.[0];if(!file)return;
