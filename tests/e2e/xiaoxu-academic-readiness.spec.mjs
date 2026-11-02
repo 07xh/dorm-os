@@ -31,5 +31,5 @@ test('cannot present unverified or failed readiness response as authenticated ac
  await page.goto('/#settings');
  await expect(page.locator('.x-v84-source-health')).toContainText('网络检测暂不可用');
  await expect(page.locator('.x-v84-source-health')).not.toContainText('官网有响应');
- await expect(page.locator('body')).toContainText('尚未获得本人青果');
+ await expect(page.locator('body')).toContainText('公开入口检测不代表本人已授权');
 });
