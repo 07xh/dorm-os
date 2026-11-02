@@ -668,6 +668,11 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 .x-v7-home-new-count{color:#285eb6;font-size:12px;font-weight:700;margin:4px 0}
 @media(max-width:500px){.x-v7-mark-read{padding:6px 7px}}
 
+
+.x-v7-alert-pref{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.x-v7-alert-pref .x-v7-mark-all{margin:0;white-space:nowrap}
+.x-v7-alert-pref span{font-size:11px;line-height:1.5;color:var(--muted)}
+
 </style>
   <link rel="stylesheet" href="/xiaoxu-v8.css">
   <link rel="stylesheet" href="/xiaoxu-v83.css">
@@ -910,6 +915,9 @@ try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)
 let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let noticeFeed=null,noticeStatus='idle',noticeUpdatedAt='',noticeFilter='all',noticeQuery='',noticePartial=false,noticeFailure='';
 let noticeReading=XiaoxuNotices.normalizeReading(null),noticeArchiveTime='',noticeApiTime='',noticeArchiveUsed=false,noticeApiUsed=false;
+const NOTICE_ALERT_PREF='xiaoxu-notice-browser-alert-v1';
+let noticeAlertsEnabled=false;
+try{noticeAlertsEnabled=localStorage.getItem(NOTICE_ALERT_PREF)==='1';}catch{}
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
 let androidSceneSelection='study';
@@ -1230,6 +1238,38 @@ function publicNoticeList(limit=18){
  }).join('')+'</div>':
  '<p class="small muted">'+(noticeQuery?'没有匹配的已核验通知，请调整关键词。':noticeFilter==='unread'?'没有未读新通知。':'没有该分类的已验证公告，请以学校官网为准。')+'</p>';
 }
+// An explicit user gesture is required to request Notification permission.
+// This is a foreground page-check alert, NOT a server push subscription.
+function canShowSchoolAlerts(){
+ return isSecureContext&&'Notification' in window&&'serviceWorker' in navigator;
+}
+async function toggleNoticeBrowserAlerts(){
+ if(noticeAlertsEnabled){
+  noticeAlertsEnabled=false;
+  try{localStorage.removeItem(NOTICE_ALERT_PREF);}catch{}
+  render();toast('已关闭浏览器通知提醒');return;
+ }
+ if(!canShowSchoolAlerts()){toast('当前浏览器不支持安全的系统通知，请继续使用站内提醒');return;}
+ let permission=Notification.permission;
+ if(permission==='default')permission=await Notification.requestPermission();
+ if(permission!=='granted'){toast('浏览器未授权通知，请在浏览器设置中开启权限');return;}
+ noticeAlertsEnabled=true;
+ try{localStorage.setItem(NOTICE_ALERT_PREF,'1');}catch{}
+ render();toast('已开启：仅在校序页面检查到新公告时提醒');
+}
+async function showNewSchoolAlert(count){
+ if(!noticeAlertsEnabled||!canShowSchoolAlerts()||Notification.permission!=='granted'||count<1)return;
+ try{
+  const worker=await navigator.serviceWorker.ready;
+  await worker.showNotification('校序 · 教务有新通知',{
+   body:'新发现 '+count+' 条学校公开通知，点击前往校序查看',
+   tag:'xiaoxu-ncwu-new-notices',renotify:false,
+   icon:'/icons/icon-192.png',
+   data:{url:location.origin+'/#academic'}
+  });
+ }catch(error){console.warn('系统通知暂不可用，站内提醒仍有效',error);}
+}
+
 function publicNoticeState(){
  if(noticeStatus==='loading'&&!noticeFeed)return '正在核验官网实时公告和定时归档…';
  if(noticeStatus==='error')return noticeFeed?
@@ -1270,7 +1310,7 @@ async function loadPublicNotices(force=false){
   noticeStatus='ready';
   try{localStorage.setItem(NOTICE_CACHE_KEY,JSON.stringify({items:noticeFeed,fetchedAt:noticeUpdatedAt,
     apiTime:noticeApiTime,archiveTime:noticeArchiveTime,apiUsed:noticeApiUsed,archiveUsed:noticeArchiveUsed}));}catch{}
-  if(update.added>0)toast('发现 '+update.added+' 条新的华水公开通知');
+  if(update.added>0){toast('发现 '+update.added+' 条新的华水公开通知');void showNewSchoolAlert(update.added);}
  }catch(err) {
   noticeStatus='error';noticeFailure=String(err?.message||'不可用');
   // Only trusted previously cached data survives a network outage.
@@ -1302,6 +1342,7 @@ function academicPage(){
   content='<section class="card x-v7-academic-card"><div class="card-header"><span class="card-title">教务处官方通知</span>'
    +'<button type="button" class="action-link" data-action="refresh-notices">刷新</button></div>'
    +'<p class="x-v7-notice-meta" role="status">'+esc(publicNoticeState())+'</p>'
+   +'<div class="x-v7-alert-pref"><button type="button" class="x-v7-mark-all" data-action="notice-alert-toggle">'+(noticeAlertsEnabled&&canShowSchoolAlerts()&&Notification.permission==='granted'?'关闭浏览器提醒':'开启浏览器提醒')+'</button><span>网页打开且检查到新公告时提醒；关闭网页后不会后台推送。</span></div>'
    +(publicUnread()?'<button type="button" class="x-v7-mark-all" data-action="notice-mark-all">全部标记已读（'+publicUnread()+'）</button>':'')
    +(noticeFeed?'<div class="x-v83-notice-tools"><label class="x-v83-notice-search" for="noticeSearch"><svg class="dorm-ui-icon" aria-hidden="true"><use href="#dicon-search"></use></svg><input id="noticeSearch" type="search" maxlength="80" autocomplete="off" aria-label="搜索公开通知标题、来源、日期" placeholder="搜索已加载的官方通知" value="'+esc(noticeQuery)+'"></label><nav class="x-v7-notice-filters" aria-label="公告类型筛选">'+buttons+'</nav></div><div id="publicNoticeList" aria-live="polite">'+publicNoticeList()+'</div>':
     '<div class="x-v7-notice-empty">'+esc(publicNoticeState())+'</div>')
@@ -1802,7 +1843,7 @@ function chooseQuickAdd(kind){
  else if(kind==='reminder')reminderDialog();
  else if(kind==='nfc')tagDialog();
 }
-function clickAction(action){if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();render();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
+function clickAction(action){if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();render();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-alert-toggle')toggleNoticeBrowserAlerts();else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
 document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-home-day], [data-academic-tab], [data-notice-filter], [data-notice-read], [data-notice-open], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
   if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeRead){markNoticeRead(target.dataset.noticeRead);}else if(target.dataset.noticeOpen){markNoticeRead(target.dataset.noticeOpen,true);}else if(target.dataset.noticeFilter){if(['all','unread','notice','exam'].includes(target.dataset.noticeFilter)){noticeFilter=target.dataset.noticeFilter;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
@@ -1873,7 +1914,19 @@ window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(no
 window.addEventListener('offline',updateOfflineBanner);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);}});
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
-window.addEventListener('storage',event=>{if(event.key!==STORAGE||!event.newValue)return;try{state=safeState(JSON.parse(event.newValue));restoreTimerState();if($('editor').open)$('editor').close();render();toast('已同步此浏览器另一标签页的修改');}catch(err){console.warn('其他标签页数据无法解析',err);}});
+window.addEventListener('storage',event=>{
+ if(event.key===NOTICE_ALERT_PREF){
+  noticeAlertsEnabled=event.newValue==='1';
+  if(page==='academic'&&academicTab==='notices')render();return;
+ }
+ if(event.key===XiaoxuNotices.READ_STORAGE){
+  try{noticeReading=XiaoxuNotices.normalizeReading(JSON.parse(event.newValue||'null'));if(page==='academic'||page==='dashboard')render();}catch{}
+  return;
+ }
+ if(event.key!==STORAGE||!event.newValue)return;
+ try{state=safeState(JSON.parse(event.newValue));restoreTimerState();if($('editor').open)$('editor').close();render();toast('已同步此浏览器另一标签页的修改');}
+ catch(err){console.warn('其他标签页数据无法解析',err);}
+});
 const deepLink=new URLSearchParams(location.search);
 const requestedTag=deepLink.get('dormTag');
 const linkedTag=state.nfcTags.find(t=>t.id===requestedTag);
