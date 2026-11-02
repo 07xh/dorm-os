@@ -19,7 +19,7 @@ test('homepage, navigation and responsive mobile viewport',async({page},info)=>{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
   expect(caught).toEqual([]);
-  if(info.project.name==='mobile-chromium')await expect(page.locator('.mobile-tabs')).toBeVisible();
+  if(info.project.name==='mobile-chromium')await expect(page.locator('#sidebarNav')).toBeVisible();
   await info.attach('nfc-page',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
 
@@ -184,21 +184,22 @@ test('study deadline exports standards-shaped all-day iCalendar event',async({pa
 });
 
 
-test('V4.1 has five navigation areas and keeps legacy management pages accessible',async({page},info)=>{
+test('V7 academic navigation retains legacy management entry points',async({page})=>{
  await page.goto('/');
- const primary=['dashboard','study','nfc','life','profile'];
- const nav=info.project.name==='mobile-chromium'?page.locator('.mobile-tabs'):page.locator('#sidebarNav');
+ const nav=page.locator('#sidebarNav');
  await expect(nav.locator('[data-page]')).toHaveCount(5);
- for(const id of primary)await expect(nav.locator('[data-page="'+id+'"]')).toHaveCount(1);
  await nav.locator('[data-page="profile"]').click();
- await expect(page.locator('#app')).toContainText('我的空间');
- for(const id of ['devices','settings'])await expect(page.locator('#app .v4-profile-link[data-page="'+id+'"]')).toBeVisible();
- await expect(page.locator('#app .v4-profile-link')).toHaveCount(2);
- await nav.locator('[data-page="study"]').click();
- await expect(page.locator('#app')).toContainText('学习中心');
- await page.locator('#app [data-page="campus"]').first().click();
- await expect(page).toHaveURL(/#campus$/);
- await nav.locator('[data-page="nfc"]').click();
+ await expect(page.locator('#app')).toContainText('个人设置与数据连接');
+ await page.locator('.x-v7-legacy-links summary').click();
+ for(const id of ['nfc','scenes','life','devices'])
+  await expect(page.locator('.x-v7-legacy-list [data-page="'+id+'"]')).toBeVisible();
+ await nav.locator('[data-page="academic"]').click();
+ await page.locator('[data-academic-tab="services"]').click();
+ await expect(page.locator('#app')).toContainText('校园服务');
+ await page.locator('#app [data-action="add-campus-link"]').click();
+ await expect(page.locator('#modalForm')).toBeVisible();
+ await page.locator('[data-action="close-modal"]').click();
+ await page.goto('/#nfc');
  await expect(page.locator('#app h1')).toHaveText('NFC 标签');
 });
 
@@ -215,15 +216,15 @@ test('V4 contextual add avoids duplicated task and schedule actions',async({page
  await expect(page.locator('#classSubject')).toBeVisible();
 });
 
-test('V4 scene quick actions and extended home cards remain accessible',async({page})=>{
+test('V7 home prioritizes courses, tasks and official notice entry without showing NFC scenes',async({page})=>{
  await page.goto('/');
  await expect(page.locator('.v4-hero')).toBeVisible();
- await expect(page.locator('.v4-scene-grid [data-scene]')).toHaveCount(4);
  await expect(page.locator('.v4-main-widgets [data-home-widget]')).toHaveCount(2);
- await page.locator('.v4-expansion summary').first().click();
+ await expect(page.locator('#app [data-page="academic"]')).toBeVisible();
+ await expect(page.locator('#app .v4-scene-grid')).toHaveCount(0);
+ await page.locator('.x-v7-optional-widgets summary').click();
  await expect(page.locator('.v4-extra-widgets [data-home-widget="weather"]')).toBeVisible();
- await page.locator('.v4-scene-grid [data-scene="study"]').click();
- await expect(page).toHaveURL(/#scenes$/);
+ await page.goto('/#scenes');
  await expect(page.locator('#app')).toContainText('个人快捷场景');
 });
 
