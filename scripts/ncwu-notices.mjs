@@ -6,6 +6,7 @@
  * 不接入其 PWA/UI，也不抓取登录页面。
  */
 import { load } from 'cheerio';
+import dns from 'node:dns';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -122,6 +123,9 @@ export function mergeArchive(previous, batches, at = new Date().toISOString()) {
   };
 }
 export async function fetchPublicHtml(url, fetcher = fetch) {
+  // 和 notice-radar 一致：国内学校的 CERNET2 IPv6 在海外 CI 中可能无路由。
+  // IPv4 优先只改变 DNS 地址顺序，不绕过学校反爬或登录控制。
+  dns.setDefaultResultOrder('ipv4first');
   // 尊重站点负载。超时、失败后由下一次定时任务恢复，不进行高频重试。
   const res = await fetcher(url, {
     headers: { 'user-agent': 'XiaoxuNoticeCollector/1.0 (+https://github.com/07xh/dorm-os)', 'accept': 'text/html' },
@@ -160,7 +164,7 @@ export async function collect({ fetcher = fetch, config = null, previous = null,
       console.log(source.id + ': ' + items.length + ' 条真实文章链接');
     } catch (error) {
       batches.push({ source, error: String(error.message || error) });
-      console.warn(source.id + ': 抓取失败（保留旧记录）' + String(error.message || error));
+      console.warn(source.id + ': 抓取失败（保留旧记录）' + String(error.message || error) + (error?.cause?.code ? ' [' + error.cause.code + ']' : ''));
     }
   }
   if (!batches.some(b => b.items?.length >= 2)) {
