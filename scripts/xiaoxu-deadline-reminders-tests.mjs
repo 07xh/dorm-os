@@ -19,7 +19,7 @@ const html=a.panel(tasks,now);
 assert.match(html,/工程制图/);
 assert.ok(!html.includes('<img'));
 assert.ok(!html.includes('已交平台作业'));
-assert.ok(!html.includes('onerror='));
+assert.ok(html.includes('&lt;img'),'Malicious HTML must be displayed only as escaped text');
 assert.ok(a.ack(plan[0].id));
 assert.equal(Object.keys(JSON.parse(store.get('xiaoxu-deadline-ack-v1'))).length,1);
 assert.ok(!store.get('xiaoxu-deadline-ack-v1').includes('工程制图'));
