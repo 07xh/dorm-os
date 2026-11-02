@@ -60,6 +60,18 @@ await assert.rejects(()=>createManualAssignment(db,'user-b',{title:'T',courseId:
 await createManualAssignment(db,'user-a',{title:'仅日期',deadline:{precision:'date',date:'2026-11-21'}},{
   id:()=> 'a-2',now:()=> '2026-11-03T03:00:00.000Z'
 });
+database.prepare("INSERT INTO academic_users(id,created_at) VALUES (?,?)")
+  .run('user-b','2026-11-03T00:00:00Z');
+assert.throws(()=>database.prepare(`INSERT INTO academic_assignments
+  (id,user_id,course_id,title,created_at,updated_at)
+  VALUES ('cross-owner','user-b','course-a','unauthorized','t','t')`
+).run(),/FOREIGN KEY constraint/,'database itself blocks cross-owner course linkage');
+database.prepare(`INSERT INTO academic_connections
+  (id,user_id,provider,profile_key,mode) VALUES ('conn-b','user-b','chaoxing','default','readonly')`).run();
+assert.throws(()=>database.prepare(`INSERT INTO academic_assignment_sources
+  (assignment_id,connection_id,user_id,external_id)
+  VALUES ('a-1','conn-b','user-b','external-work')`
+).run(),/FOREIGN KEY constraint/,'database itself blocks cross-owner source linkage');
 assert.equal((await listAssignments(db,'user-a',{status:'todo'})).length,2);
 await assert.rejects(()=>listAssignments(db,'user-a',{limit:101}),AcademicInputError);
 assert.throws(()=>database.prepare(
