@@ -2,7 +2,7 @@
   "name": "dorm-os",
   "private": true,
   "version": "0.3.3",
-  "description": "DORM OS V3.3 personal dashboard with local tasks, timetable and NFC scene registry",
+  "description": "校序 · 华水个人校园生活中心（保留 DORM OS 存储与链接兼容）",
   "scripts": {
     "check": "node scripts/check.mjs && node scripts/logic-tests.mjs && node scripts/xiaoxu-task-import-tests.mjs",
     "test": "node scripts/check.mjs && node scripts/logic-tests.mjs",
