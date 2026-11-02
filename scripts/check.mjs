@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+const match = html.match(/<script>([\s\S]*?)<\/script>/i);
 if (!match) throw new Error('Missing inline application script');
 new Script(match[1], { filename: 'dorm-os-inline-app.js' });
 new Script(readFileSync(new URL('../public/xiaoxu-task-import.js', import.meta.url), 'utf8'), {filename:'xiaoxu-task-import.js'});
