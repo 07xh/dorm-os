@@ -5,7 +5,7 @@ async function seed(page) {
  await page.goto('/');
  await page.evaluate(()=>{
   const d=now().day, after=(d+1)%7;
-  const s=JSON.parse(localStorage.getItem('dorm-os-state-v1'));
+  const s=JSON.parse(localStorage.getItem('dorm-os-state-v1')||'null')||structuredClone(state);
   s.tasks=[
    {id:'ux-t1',title:'真实本地作业一',due:'2026-11-20',category:'高数',done:false,createdAt:'2026-11-02'},
    {id:'ux-t2',title:'真实本地作业二',due:'2026-11-22',category:'Python',done:false,createdAt:'2026-11-02'},
