@@ -73,8 +73,10 @@ export function parseHtmlList(html, source) {
       }
       if (!date) date = dateFromText(item.text().slice(0, 240));
     }
+    // 同一篇文章出现多个链接时保留已找到的发布日期。
+    const prior = output.get(url);
     output.set(url, {
-      id: stableId(url), title, url, date, sourceId: source.id,
+      id: stableId(url), title: prior?.title || title, url, date: date || prior?.date || null, sourceId: source.id,
       sourceName: source.name, category: source.category,
     });
   });
