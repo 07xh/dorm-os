@@ -17,7 +17,7 @@ const archivePath = resolve(root, 'public/data/notices.json');
 export const SCHEMA = 'xiaoxu/notices-v1';
 export const SCHOOL_ID = '4141010078';
 const ALLOWED = new Set(['www.ncwu.edu.cn', 'www2.ncwu.edu.cn']);
-const ARTICLE_PATH = /^\/(?:xsc\/)?info\/\d+\/\d+\.htm$/i;
+const ARTICLE_PATH = /^\/(?:(?:xsc|jiaowu)\/)?info\/\d+\/\d+\.htm$/i;
 const MAX_ITEMS = 240;
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_BYTES = 1024 * 1024;
@@ -143,6 +143,53 @@ export async function fetchPublicHtml(url, fetcher = fetch) {
   try { return new TextDecoder(encoding).decode(buffer); }
   catch { return new TextDecoder('utf-8').decode(buffer); }
 }
+
+// Official school feed already successfully checked in the Cloudflare release
+// verifier. GitHub-hosted runners may not be able to reach NCWU directly.
+const EDGE_FEED_URL='https://dorm-os-dk9.pages.dev/api/notices';
+export function validatePagesFeed(data){
+ if(!data||data.success!==true||!Array.isArray(data.items)||
+    data.items.length<2||data.items.length>45||
+    typeof data.fetchedAt!=='string'||!Number.isFinite(Date.parse(data.fetchedAt)))
+   throw new Error('Cloudflare official notice feed is invalid');
+ const batches=new Map();
+ for(const item of data.items){
+  if(!item||!['notice','exam'].includes(item.category)||typeof item.title!=='string'||
+     typeof item.url!=='string')throw new Error('Invalid official notice record');
+  const official=new URL(item.url);
+  const expectPath=item.category==='exam'?/^\/jiaowu\/info\/1034\/\d{1,8}\.htm$/:
+    /^\/jiaowu\/info\/1008\/\d{1,8}\.htm$/;
+  if(official.hostname!=='www2.ncwu.edu.cn'||official.protocol!=='https:'||
+     official.search||official.hash||!expectPath.test(official.pathname))
+   throw new Error('Official notice URL rejected');
+  const title=normalizeTitle(item.title);
+  if(title.length<8||title.length>160||!canonicalLink(item.url,item.url))
+    throw new Error('Invalid official notice title or URL');
+  const key=item.category==='exam'?'exam-edge':'jwc-edge';
+  const name=item.category==='exam'?'教务处考试公告（云端备用）':'教务处通知（云端备用）';
+  if(!batches.has(key))batches.set(key,{source:{id:key,name,category:item.category==='exam'?'考试':'教学'},items:[]});
+  batches.get(key).items.push({
+   id:stableId(official.origin+official.pathname),
+   title,url:official.origin+official.pathname,
+   // An MM-DD label is not a trustworthy complete publication date.
+   date:typeof item.publishedAt==='string'?dateFromText(item.publishedAt):null,
+   sourceId:key,sourceName:name,category:item.category==='exam'?'考试':'教学'
+  });
+ }
+ return [...batches.values()];
+}
+export async function fetchPagesFallback(fetcher=fetch){
+ const resp=await fetcher(EDGE_FEED_URL,{
+  headers:{accept:'application/json'},signal:AbortSignal.timeout(25000)
+ });
+ if(!resp.ok||new URL(resp.url||EDGE_FEED_URL).origin!=='https://dorm-os-dk9.pages.dev'||
+    !/application\/json/i.test(resp.headers.get('content-type')||'')||
+    resp.headers.get('x-xiaoxu-public-notices')!=='1')
+   throw new Error('Cloudflare verification or origin rejected');
+ const data=await resp.json();
+ return validatePagesFeed(data);
+}
+
 export async function collect({ fetcher = fetch, config = null, previous = null, at = new Date().toISOString() } = {}) {
   const cfg = config || JSON.parse(await readFile(configPath, 'utf8'));
   const old = previous || JSON.parse(await readFile(archivePath, 'utf8'));
@@ -164,7 +211,15 @@ export async function collect({ fetcher = fetch, config = null, previous = null,
     }
   }
   if (!batches.some(b => b.items?.length >= 2)) {
-    throw new Error('所有公开通知源均失败，不覆盖已有档案');
+    try {
+      const fallback=await fetchPagesFallback(fetcher);
+      if(fallback.reduce((count,b)=>count+b.items.length,0)<2)throw new Error('备用源文章过少');
+      batches.push(...fallback);
+      console.log('Cloudflare 官方公告备用通道成功：'+fallback.reduce((sum,b)=>sum+b.items.length,0)+' 条');
+    }catch(error){
+      console.warn('Cloudflare 备用通道不可用：'+String(error.message||error));
+      throw new Error('公开官网和经验证的 Cloudflare 官方公告源均不可达，不覆盖已有档案');
+    }
   }
   return mergeArchive(old, batches, at);
 }
