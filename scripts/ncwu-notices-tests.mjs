@@ -9,7 +9,7 @@ assert.equal(seed.school, SCHOOL_ID);
 assert.ok(seed.items.length >= 4);
 for (const item of seed.items) {
   assert.ok(canonicalLink(item.url,item.url), 'must be a verified official HTTPS article');
-  assert.ok(/^\d{4}-\d\d-\d\d$/.test(item.date));
+  assert.ok(item.date === null || /^\d{4}-\d\d-\d\d$/.test(item.date), 'Unknown publication dates must remain null, not invented');
 }
 assert.equal(dateFromText('发布日期：2026年11月2日'), '2026-11-02');
 assert.equal(dateFromText('发布日期：2026-02-30'), null);
