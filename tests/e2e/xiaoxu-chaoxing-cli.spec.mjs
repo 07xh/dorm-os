@@ -1,0 +1,48 @@
+import {test,expect} from '@playwright/test';
+const saved=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('dorm-os-state-v1')).tasks);
+const link=(enc='opaque')=>'https://mooc1.chaoxing.com/mooc2/work/task?workId=345&courseId=789&enc='+enc;
+async function upload(page,data){
+ await page.locator('#taskImportInput').setInputFiles({name:'upstream.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
+}
+test('import original xuexitong-cli hw JSON and keep deadline time without persisting signed URL',async({page})=>{
+ const errors=[];page.on('pageerror',err=>errors.push(err.message));
+ await page.goto('/#tasks');
+ const cli=[{course:'高等数学',title:'学习通课程作业',status:'未提交',deadline:'2026-11-20 23:59',url:link('private-value')}];
+ page.once('dialog',d=>d.accept());
+ await upload(page,cli);
+ await expect(page.locator('#app')).toContainText('学习通课程作业');
+ await expect(page.locator('#app')).toContainText('23:59');
+ let items=await saved(page);
+ expect(items).toHaveLength(1);
+ expect(items[0].sourceId).toBe('work:345:789');
+ expect(items[0].dueAt).toBe('2026-11-20T23:59:00+08:00');
+ expect(JSON.stringify(items)).not.toContain('private-value');
+ await page.locator('[data-task-toggle]').check();
+ page.once('dialog',d=>d.accept());
+ await upload(page,[{...cli[0],url:link('changed-private-value'),deadline:'2026-11-22 19:30',status:'待批阅'}]);
+ items=await saved(page);
+ expect(items).toHaveLength(1);
+ expect(items[0].done).toBe(true);
+ expect(items[0].sourceStatus).toBe('submitted');
+ expect(items[0].dueAt).toBe('2026-11-22T19:30:00+08:00');
+ await page.reload();
+ await expect(page.locator('#app')).toContainText('19:30');
+ expect(errors).toEqual([]);
+});
+test('hw-ls without due date does not delete previously recorded deadline; missing work ID fails atomically',async({page})=>{
+ await page.goto('/#tasks');
+ page.once('dialog',d=>d.accept());
+ await upload(page,[{course:'高等数学',title:'课程作业',status:'未交',deadline:'2026-11-20 12:00',url:link()}]);
+ const original=(await saved(page))[0];
+ page.once('dialog',d=>d.accept());
+ await upload(page,{course:'高等数学',progress:{done:0,total:1},items:[{index:1,title:'课程作业',status:'已提交',url:link('new-enc')}]});
+ let items=await saved(page);
+ expect(items[0].due).toBe('2026-11-20');
+ expect(items[0].dueAt).toBe('2026-11-20T12:00:00+08:00');
+ expect(items[0].sourceStatus).toBe('submitted');
+ const before=JSON.stringify(items);
+ await upload(page,[{course:'高等数学',title:'不可信作业',status:'未交',deadline:'2026-11-21 18:00',url:'https://mooc1.chaoxing.com/task?enc=only'}]);
+ await expect(page.locator('#toast')).toContainText('失败');
+ expect(JSON.stringify(await saved(page))).toBe(before);
+ expect(original.id).toBe(items[0].id);
+});
