@@ -1,4 +1,23 @@
-# 校序 · 个人校园生活中心
+# 校序 · Academic OS（个人学业操作系统）
+
+> 当前定位：真实动态 Web/PWA，个人单用户使用。历史产品 DORM OS 的 NFC、备份与旧数据仍兼容。**公开通知已实际动态运行；学校个人数据只有本人合法授权并验收后才能宣布接入。**
+
+## 当前正式开发与验收状态（2026-11-03）
+
+- **已实现：**总览、课表、教务、任务、我的；公开华水教务通知实时查询与归档/已读；本地课程、任务、NFC、备份；学习通 xuexitong-cli 本机安全只读桥接；云端个人任务 CRUD/历史/冲突控制和显式旧数据迁移。
+- **已有代码但需配置：**Cloudflare Access 个人身份隔离、D1 学业库 0001–0006、个人五域快照、M4 受信任只读连接器、M5 默认关闭的调度器、前台作业截止提醒、青果及二课候选字段转换。自动化合成/SQLite/Playwright 验收不等于实际学校账号联通。
+- **尚未验收：**生产 D1 绑定与迁移、Access 本人授权、真实华水青果课表/成绩/考试、学习通自动后台会话、二课积分与活动、关闭网站后的主动系统推送、手机实体 NFC/TapFlow 硬件联动。
+
+## 当前开发/部署入口
+
+- 网站： https://dorm-os-dk9.pages.dev
+- 源码： https://github.com/07xh/dorm-os
+- 一次性本地质量检查： `npm run check`（含 SQLite 0001–0006 迁移预演），完整浏览器： `npm run test:e2e`。
+- 部署：合并到 `main` 后 GitHub Actions 验证并使用 Wrangler 上传 Cloudflare Pages，随后自动核对生产 commit、公开 API 和私有 API 未授权拒绝。
+- 明天真实授权接入与生产 D1 配置： `docs/XIAOXU-TOMORROW-REAL-DATA-CHECKLIST.md`；连接器： `docs/XIAOXU-TRUSTED-CONNECTOR-M4.md`。勿上传账号密码、Cookie、学校个人数据或 Access JWT 到 GitHub。
+
+## 以下章节为旧 DORM OS 版本开发历史
+### 历史项目介绍
 
 > 历史产品名：DORM OS。本次保留旧仓库、网站域名和数据/备份兼容协议。校序网站作为核心产品，后续 Android App 复用同一业务逻辑。
 
