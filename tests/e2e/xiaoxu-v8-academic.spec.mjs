@@ -6,7 +6,7 @@ test('V8.1 academic tabs expose accessible panel and do not invent records',asyn
  await expect(tabs).toHaveCount(5);
  await expect(page.locator('.x-v8-academic-intro')).toContainText('校园官方通知');
  await expect(page.locator('[role="tabpanel"]')).toHaveAttribute('aria-labelledby','xu-tab-notices');
- await tabs.locator('[data-academic-tab="grades"]').click();
+ await page.locator('[data-academic-tab="grades"]').click();
  await expect(page.locator('[role="tabpanel"]')).toHaveAttribute('aria-labelledby','xu-tab-grades');
  await expect(page.locator('[role="tabpanel"]')).toContainText('未连接青果成绩查询');
  await expect(page.locator('[role="tabpanel"]')).not.toContainText('4.0');
