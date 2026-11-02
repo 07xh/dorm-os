@@ -111,4 +111,40 @@ assert.deepEqual(readiness.sources.map(x=>x.id),['kingo','chaoxing','second']);
 assert.ok(readiness.sources.every(x=>x.accountStatus==='not-connected'));
 console.log('Public academic source diagnostics verified: '+readiness.sources.map(x=>x.id+'='+x.reachability).join(', ')+'. Account remains unconnected.');
 
+
+// Anonymous access must NEVER return personal data, regardless of whether
+// Cloudflare Access is configured or the private D1 binding is missing.
+for(const path of ['/api/v1/assignments','/api/v1/sources','/api/v1/verified/connections']){
+ let response,lastError;
+ for(let attempt=0;attempt<5;attempt++){
+  try{
+   response=await fetch(base+path,{redirect:'manual',cache:'no-store',
+    signal:AbortSignal.timeout(16000),headers:{accept:'application/json'}});
+   break;
+  }catch(error){lastError=error;if(attempt<4)await sleep(1100);}
+ }
+ if(!response)throw Error('Private API anonymous safety check unreachable: '+path+' '+String(lastError));
+ if([302,303,307,308].includes(response.status)){
+  const location=response.headers.get('location')||'';
+  const target=new URL(location,base);
+  const expected=target.hostname.endsWith('.cloudflareaccess.com')||
+   (target.origin===new URL(base).origin&&target.pathname.startsWith('/cdn-cgi/access/'));
+  assert.ok(expected,'Private API unexpectedly redirected outside Access login: '+path);
+ }else{
+  assert.ok([401,403,503].includes(response.status),
+   'Private API allowed anonymous access or route missing: '+path+' HTTP '+response.status);
+  const type=response.headers.get('content-type')||'';
+  if(/application\/json/i.test(type)){
+   assert.match(response.headers.get('cache-control')||'',/no-store/,
+    'Private API error response is cacheable: '+path);
+   const body=await response.json();
+   assert.ok(body&&typeof body==='object'&&!Array.isArray(body),
+    'Private API error must not reveal personal records');
+   assert.ok(!('items' in body)&&!('records' in body),'Private data exposed in anonymous error');
+  }else assert.ok(response.status===401||response.status===403,
+    'Server 503 without private JSON handler: '+path);
+ }
+ console.log('Private API anonymous read correctly blocked: '+path+' ('+response.status+')');
+}
+
 console.log('Verified live published release '+sha+' at '+base);
