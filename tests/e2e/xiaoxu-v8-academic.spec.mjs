@@ -33,3 +33,22 @@ test('V8.1 academic, timetable and tasks maintain mobile no-overflow and active 
   }
  }
 });
+
+test('V8.1 preserves open menus when incoming live data re-renders the current view',async({page})=>{
+ await page.goto('/#profile');
+ await page.locator('.x-v7-legacy-links summary').click();
+ await expect(page.locator('.x-v7-legacy-list [data-page="scenes"]')).toBeVisible();
+ await page.evaluate(()=>render());
+ await expect(page.locator('.x-v7-legacy-list [data-page="scenes"]')).toBeVisible();
+ await page.goto('/#timetable');
+ await page.evaluate(()=>{
+  const day=now().day;
+  state.classes=[{id:'ux-v8-class',subject:'线下绘图课',day,start:'08:00',end:'09:40',location:'B301'}];
+  timetableMode='day';timetableDay=day;persist();render();
+ });
+ const row=page.locator('.v42-class-card').first();
+ await row.locator('.v42-row-more summary').click();
+ await expect(row.locator('[data-class-delete]')).toBeVisible();
+ await page.evaluate(()=>render());
+ await expect(row.locator('[data-class-delete]')).toBeVisible();
+});
