@@ -670,7 +670,9 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 
 
 .x-v7-alert-pref{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
-.x-v7-alert-pref .x-v7-mark-all{margin:0;white-space:nowrap}
+.x-v7-alert-pref .x-v7-alert-toggle{margin:0;white-space:nowrap;min-height:38px;
+ border:1px solid var(--border);border-radius:9px;background:transparent;color:#326de6;
+ padding:7px 12px;font-size:12px;font-weight:650;cursor:pointer}
 .x-v7-alert-pref span{font-size:11px;line-height:1.5;color:var(--muted)}
 
 </style>
@@ -1342,7 +1344,7 @@ function academicPage(){
   content='<section class="card x-v7-academic-card"><div class="card-header"><span class="card-title">教务处官方通知</span>'
    +'<button type="button" class="action-link" data-action="refresh-notices">刷新</button></div>'
    +'<p class="x-v7-notice-meta" role="status">'+esc(publicNoticeState())+'</p>'
-   +'<div class="x-v7-alert-pref"><button type="button" class="x-v7-mark-all" data-action="notice-alert-toggle">'+(noticeAlertsEnabled&&canShowSchoolAlerts()&&Notification.permission==='granted'?'关闭浏览器提醒':'开启浏览器提醒')+'</button><span>网页打开且检查到新公告时提醒；关闭网页后不会后台推送。</span></div>'
+   +'<div class="x-v7-alert-pref"><button type="button" class="x-v7-alert-toggle" data-action="notice-alert-toggle">'+(noticeAlertsEnabled&&canShowSchoolAlerts()&&Notification.permission==='granted'?'关闭浏览器提醒':'开启浏览器提醒')+'</button><span>网页打开且检查到新公告时提醒；关闭网页后不会后台推送。</span></div>'
    +(publicUnread()?'<button type="button" class="x-v7-mark-all" data-action="notice-mark-all">全部标记已读（'+publicUnread()+'）</button>':'')
    +(noticeFeed?'<div class="x-v83-notice-tools"><label class="x-v83-notice-search" for="noticeSearch"><svg class="dorm-ui-icon" aria-hidden="true"><use href="#dicon-search"></use></svg><input id="noticeSearch" type="search" maxlength="80" autocomplete="off" aria-label="搜索公开通知标题、来源、日期" placeholder="搜索已加载的官方通知" value="'+esc(noticeQuery)+'"></label><nav class="x-v7-notice-filters" aria-label="公告类型筛选">'+buttons+'</nav></div><div id="publicNoticeList" aria-live="polite">'+publicNoticeList()+'</div>':
     '<div class="x-v7-notice-empty">'+esc(publicNoticeState())+'</div>')
