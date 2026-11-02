@@ -12,7 +12,7 @@ const noticeHTML='<html><title>华水</title><ul>'+
 '</ul></html>';
 const examHTML='<html><ul>'+
 '<li><a href="https://www2.ncwu.edu.cn/jiaowu/info/1034/2990.htm">2026-2027学年第一学期9-12周考试安排表</a><span>10-19</span></li>'+
-'<li><a href="../info/1034/2888.htm" title="2026级新生入学测试安排">入学测试</a><span>09-01</span></li>'+
+'<li><a href="info/1034/2888.htm" title="2026级新生入学测试安排">入学测试</a><span>09-01</span></li>'+
 '</ul></html>';
 const notices=parseNotices(noticeHTML);
 assert.equal(notices.length,2);
