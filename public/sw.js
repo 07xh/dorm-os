@@ -1,5 +1,5 @@
-const CACHE='dorm-os-shell-v7-home-mobile-layout-v2';
-const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js'];
+const CACHE='dorm-os-shell-v7-ncwu-notices-v1';
+const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/ncwu-notice-ui.js','/ncwu-notices.css'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
 self.addEventListener('fetch',e=>{
