@@ -21,13 +21,15 @@ async function readRoute(path){
 const revision=JSON.parse(await readRoute('/revision.json'));
 assert.equal(revision.commit,sha,'Published release revision does not match deployed commit');
 const html=await readRoute('/');
-assert.ok(html.includes('DORM OS'),'Published site is missing app marker');
+assert.ok(html.includes('校序'),'Published site is missing the 校序 brand marker');
 assert.ok(html.includes('id="app"'),'Published site is missing app root');
 const manifest=JSON.parse(await readRoute('/manifest.webmanifest'));
-assert.ok(manifest.name.includes('DORM OS'),'PWA manifest missing');
+assert.ok(manifest.name.includes('校序') && manifest.short_name==='校序','PWA manifest has the wrong brand');
 for(const size of [192,512]){
   assert.ok(manifest.icons.some(x=>x.sizes===size+'x'+size),'Missing '+size+'px manifest icon');
 }
+const importer=await readRoute('/xiaoxu-task-import.js');
+assert.ok(importer.includes('xiaoxu-task-batch-v1'),'Task import module missing from production');
 const sw=await readRoute('/sw.js');
 assert.ok(sw.includes('dorm-os-shell-'),'PWA service worker missing');
 console.log('Verified live published release '+sha+' at '+base);
