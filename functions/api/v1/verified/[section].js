@@ -25,7 +25,7 @@ export async function onRequestGet(context){
     .bind(userId).all();
    const map=new Map((results||[]).map(r=>[r.kind,r]));
    return respond({status:'ready',sources:KINDS.map(k=>({
-    kind:k,source:KIND_SOURCES[k],state:map.has(k)?'snapshot_verified':'not_connected',
+    kind:k,source:KIND_SOURCES[k],state:map.has(k)?'personal_snapshot':'not_connected',
     lastSuccessAt:map.get(k)?.last_success_at||null
    }))});
   }
@@ -37,7 +37,7 @@ export async function onRequestGet(context){
   const stale=Date.now()-Date.parse(batch.last_success_at)>36*3600_000;
   return respond({kind,source:batch.source,status:stale?'stale':'ready',
    records:(results||[]).map(r=>JSON.parse(r.payload)),
-   lastSuccessAt:batch.last_success_at});
+   lastSuccessAt:batch.last_success_at,provenance:'user_import'});
  }catch{return respond({status:'database_unavailable'},503);}
 }
 export async function onRequestPost(context){
@@ -73,6 +73,6 @@ export async function onRequestPost(context){
   statements.push(db.prepare('INSERT INTO academic_verified_ingests(id,user_id,kind,source,captured_at,accepted_at,count) VALUES(?,?,?,?,?,?,?)')
     .bind(crypto.randomUUID(),userId,batch.kind,batch.source,batch.capturedAt,now,batch.records.length));
   await db.batch(statements);
-  return respond({status:'accepted',kind:batch.kind,count:batch.records.length,lastSuccessAt:batch.capturedAt},202);
+  return respond({status:'accepted',kind:batch.kind,count:batch.records.length,lastSuccessAt:batch.capturedAt,provenance:'user_import'},202);
  }catch{return respond({status:'database_unavailable'},503);}
 }
