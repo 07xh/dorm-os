@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f8fc">
-  <meta name="description" content="DORM OS：个人宿舍学习、课表、任务和智能设备信息中心。">
+  <meta name="description" content="校序：华水个人课表、学习任务、校园生活与 NFC 场景中心。">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/dorm-os.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -443,13 +443,13 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 }
 
 </style>
-  <title>DORM OS · 个人生活与 NFC 场景</title>
+  <title>校序 · 个人校园生活中心</title>
 </head>
 <body>
 <svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
 <div id="shell" class="shell">
   <aside class="sidebar" aria-label="主导航">
-    <a class="brand" href="#dashboard" aria-label="DORM OS 首页"><span class="brand-icon">◈</span><span><strong>DORM <em>OS</em></strong><small>PERSONAL · V4</small></span></a>
+    <a class="brand" href="#dashboard" aria-label="校序首页"><span class="brand-icon">◈</span><span><strong>校序</strong><small>PERSONAL CAMPUS</small></span></a>
     <div class="side-caption">WORKSPACE</div>
     <nav class="main-nav" id="sidebarNav" aria-label="主导航">
       <button type="button" data-page="dashboard" class="nav-link active"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span> 首页</button>
@@ -458,7 +458,7 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
       <button type="button" data-page="life" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-life"></use></svg></span> 生活</button>
       <button type="button" data-page="profile" class="nav-link"><span class="nav-symbol" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-profile"></use></svg></span> 我的</button>
     </nav>
-<div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先</span></div><p>数据保存在此浏览器</p><span class="version">DORM OS V4 · PERSONAL</span></div>
+<div class="sidebar-bottom"><div class="secure-chip">● <span>本地优先</span></div><p>数据保存在此浏览器</p><span class="version">校序 · V4.5.1 基线</span></div>
   </aside>
   <div class="workspace">
     <header class="topbar">
@@ -727,7 +727,7 @@ function renderGlobalSearchResults(raw){
 function openGlobalSearch(){
  const dialog=$('editor');
  if(dialog.open){if(dialog.classList.contains('search-editor'))$('globalSearchInput')?.focus();else toast('请先保存或关闭当前编辑窗口');return;}
- $('editorContent').innerHTML=`<section class='search-panel' aria-label='全站搜索'><div class='search-heading'><div><span class='eyebrow'>DORM OS · LOCAL SEARCH</span><h2>全站搜索</h2><p class='small muted'>在你的个人资料中快速定位内容</p></div><button type='button' class='secondary' data-action='close-modal'>关闭</button></div><label class='search-label' for='globalSearchInput'>搜索关键词</label><input id='globalSearchInput' type='search' maxlength='80' autocomplete='off' placeholder='例如：高数、耳机、书桌、学习标签'><div class='search-hint'><span>输入关键词即时筛选</span><kbd>Ctrl K / ⌘ K</kbd></div><div id='globalSearchResults' class='search-results' aria-live='polite'></div></section>`;
+ $('editorContent').innerHTML=`<section class='search-panel' aria-label='全站搜索'><div class='search-heading'><div><span class='eyebrow'>校序 · LOCAL SEARCH</span><h2>全站搜索</h2><p class='small muted'>在你的个人资料中快速定位内容</p></div><button type='button' class='secondary' data-action='close-modal'>关闭</button></div><label class='search-label' for='globalSearchInput'>搜索关键词</label><input id='globalSearchInput' type='search' maxlength='80' autocomplete='off' placeholder='例如：高数、耳机、书桌、学习标签'><div class='search-hint'><span>输入关键词即时筛选</span><kbd>Ctrl K / ⌘ K</kbd></div><div id='globalSearchResults' class='search-results' aria-live='polite'></div></section>`;
  dialog.classList.remove('form-editor');dialog.classList.add('search-editor');dialog.setAttribute('aria-label','全站搜索');dialog.showModal();
  const input=$('globalSearchInput');input.addEventListener('input',()=>renderGlobalSearchResults(input.value));
  renderGlobalSearchResults('');input.focus();
@@ -791,7 +791,7 @@ function saveHomeLayout(){
 function v4Hero(showFocus,p){
   const greeting=p.hour<11?'早上好':p.hour<18?'下午好':'晚上好';
   return `<section class="v4-hero" aria-label="今日专注" ${showFocus?'data-home-widget="focus"':''}>
-    <div class="v4-hero-content"><span class="v4-hero-kicker">DORM OS · MY SPACE</span>
+    <div class="v4-hero-content"><span class="v4-hero-kicker">校序 · MY SPACE</span>
     <h1>${greeting} <span aria-hidden="true">✦</span></h1>
     ${showFocus?`<p>专注学习</p><div class="v4-hero-clock" id="timerDisplay" role="timer" aria-live="off">${timerText()}</div>
     <button type="button" class="v4-hero-start" data-action="timer-toggle">${timer.running?'Ⅱ 暂停专注':'▶ 开始专注'}</button>`:`<p>今天也有新的进展。</p><button type="button" class="v4-hero-start" data-page="scenes">查看场景</button>`}
@@ -914,7 +914,7 @@ function safeLink(name,url,hint=''){
 function campusPage(){
  const found=state.campusLinks.length;
  return `${titleBlock('CAMPUS INTEGRATION / LOCAL FIRST','校园助手','以原版开源教务助手为基础打通数据入口：网页集中查看课程和校园服务，暂不代管教务账号。',badge('导入式对接 · 非教务实时同步'))}
- <div class="campus-banner"><div><span class="eyebrow">OPEN SOURCE COMPANION</span><h2>教务助手 × DORM OS</h2><p>原生 App 负责学校教务与插件；DORM OS 网站管理个人日历、学习任务、宿舍设备和快捷入口。</p></div><div class="campus-signal">▦</div></div>
+ <div class="campus-banner"><div><span class="eyebrow">OPEN SOURCE COMPANION</span><h2>校园教务 × 校序</h2><p>原生 App 负责学校教务与插件；校序管理个人日历、学习任务、宿舍设备和快捷入口。</p></div><div class="campus-signal">▦</div></div>
  <div class="metric-row"><div class="metric"><div class="metric-label">教务日历课程</div><div class="metric-num">${state.calendarEvents.length}</div><div class="metric-note">保存在本浏览器 · 按实际日期</div></div><div class="metric"><div class="metric-label">已收藏校园服务</div><div class="metric-num">${found}</div><div class="metric-note">手动指定真实服务网址</div></div><div class="metric"><div class="metric-label">教务账号连接</div><div class="metric-num">—</div><div class="metric-note">未接入 · 不采集密码</div></div></div>
  <div class="page-grid">
  <section class="card"><div class="card-header"><span class="card-title">① 从开源教务助手导入课程</span>${badge('已实现','green')}</div><p class="small muted">在原版 App 中将课表导出为 iCalendar（.ics），再导入本站。系统解析具体日期、时间和地点；支持常见每周重复规则与重复导入去重。</p><div class="button-row"><button type="button" data-action="ics-import" class="primary">＋ 导入 .ics 日历</button><button type="button" data-action="clear-calendar" class="secondary">清空日历课程</button></div><div class="notice neutral" style="margin-top:14px">只读取你主动选择的本地文件，不上传教务密码。特殊时区、复杂周期规则会明确提示，避免产生错误课表。</div></section>
@@ -942,7 +942,7 @@ function scenesPage(){
  const p=now();
  const study=`<div class="v4-focus-controls"><div class="v4-duration-choices" role="group" aria-label="专注时长">${[15,25,45].map(n=>`<button type="button" class="secondary" data-timer-duration="${n}" aria-pressed="${timer.duration===n}">${n} 分钟</button>`).join('')}</div><div class="v4-focus-time" id="timerDisplay" role="timer" aria-live="off">${timerText()}</div><div class="button-row"><button type="button" class="primary" data-action="timer-toggle">${timer.running?'暂停专注':'开始专注'}</button><button type="button" class="secondary" data-action="timer-reset">重置</button></div></div>`;
  const rest='<div class="v4-scene-hint">享受安静时间。系统勿扰需在手机设置中开启。</div>';
- const dev=`<div class="button-row v4-link-buttons"><a class="secondary" href="https://github.com/07xh/dorm-os" target="_blank" rel="noopener noreferrer">DORM OS ↗</a><a class="secondary" href="https://drawing.0701000.xyz" target="_blank" rel="noopener noreferrer">DraftAI ↗</a><a class="secondary" href="https://0701000.xyz" target="_blank" rel="noopener noreferrer">博客 ↗</a></div>`;
+ const dev=`<div class="button-row v4-link-buttons"><a class="secondary" href="https://github.com/07xh/dorm-os" target="_blank" rel="noopener noreferrer">校序 ↗</a><a class="secondary" href="https://drawing.0701000.xyz" target="_blank" rel="noopener noreferrer">DraftAI ↗</a><a class="secondary" href="https://0701000.xyz" target="_blank" rel="noopener noreferrer">博客 ↗</a></div>`;
  const away=`${awayChecklistPanel()}<p class="small muted">${esc(weatherAdvice(weather))} · 今日已登记 ${classForDay(state.classes,p.day).length} 节课程</p>`;
  return `${titleBlock('','个人快捷场景')}<div class="v4-section"><div class="v4-section-title"><h2>切换场景</h2>${badge(sceneLabel(state.scene))}</div>${sceneButtons()}</div>
  <section class="card v4-active-scene"><div class="card-header"><span class="card-title">${esc(sceneLabel(state.scene))}</span><button type="button" class="action-link" data-action="scene-copy" ${state.scene==='none'?'disabled':''}>复制链接</button></div>
@@ -962,7 +962,7 @@ function profilePage(){
  <section class="card v4-profile-card"><div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">D</span><div><strong>我的空间</strong><span>仅此浏览器保存个人数据</span></div></div>
  <div class="v4-profile-links">${sections.map(([name,detail,target,icon])=>`<button type="button" class="v4-profile-link" data-page="${target}"><span class="v4-profile-symbol" aria-hidden="true">${icon}</span><span><strong>${name}</strong><small>${detail}</small></span><b aria-hidden="true">›</b></button>`).join('')}</div></section>`;
 }
-function settingsPage(){const c=state.settings.campus;return `${titleBlock('PREFERENCES & DATA','设置与备份','第一版是本地优先网站；你的资料只保存在当前浏览器。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">基本设置</span></div><div class="config-row"><div><strong>使用校区</strong><div class="detail">切换天气地点和界面标签，不会改动课程</div></div><select id="campusSelect" aria-label="使用校区"><option value="jianghuai" ${c==='jianghuai'?'selected':''}>江淮校区</option><option value="huayuan" ${c==='huayuan'?'selected':''}>花园校区</option></select></div><div class="config-row"><div><strong>界面主题</strong><div class="detail">适配电脑、平板和手机</div></div><select id="themeSelect" aria-label="界面主题"><option value="dark" ${state.settings.theme==='dark'?'selected':''}>深色</option><option value="light" ${state.settings.theme==='light'?'selected':''}>浅色</option></select></div><div class="config-row"><div><strong>首页布局</strong><div class="detail">调整首页模块的显示状态和排列顺序</div></div><button type="button" class="secondary" data-action="home-layout">自定义布局</button></div><div class="config-row"><div><strong>宿舍电费余额</strong><div class="detail">手动填写 · ${state.electricity.updatedAt?`更新于 ${esc(new Date(state.electricity.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}`:'尚未录入'}</div></div><div style="text-align:right"><strong>${state.electricity.balance===null?'未录入':`¥${state.electricity.balance.toFixed(2)}`}</strong><br><button data-action="balance" class="action-link">更新余额</button></div></div></section><section class="card"><div class="card-header"><span class="card-title">数据管理</span></div><div class="notice neutral">当前没有云端同步。可导出加密备份，手动传到手机或平板。导入时默认合并保留本机数据，也可明确选择覆盖；密码遗失无法恢复，浏览器本地数据仍为明文。</div><div class="button-row" style="margin-top:14px"><button type="button" class="primary" data-action="export-encrypted">导出加密备份</button><button type="button" class="secondary" data-action="export">导出普通 JSON</button><button type="button" class="secondary" data-action="import">恢复备份</button><button type="button" class="secondary" data-action="eink-export">导出墨水屏 JSON</button></div><div style="margin-top:20px"><button type="button" class="secondary danger-btn" data-action="reset">清空本地数据</button></div></section><section class="card"><div class="card-header"><span class="card-title">安装到手机桌面</span></div><p class="small muted">DORM OS 可以作为个人网页应用安装，首次联网打开后可在离线时使用已保存的基本功能。浏览器不支持安装提示时，请从浏览器菜单选择「添加到主屏幕」。</p><div class="button-row"><button type="button" class="secondary" data-action="pwa-install">安装 DORM OS</button></div><p class="tiny muted">天气更新和外部链接仍需网络；设备 NFC 支持由浏览器及系统决定。</p></section><section class="card wide"><div class="card-header"><span class="card-title">安全与功能边界</span></div><div class="split"><div><div class="entry-title">✓ 已实现</div><p class="small muted">课表增删改、任务增删改、场景状态记录、本地 JSON 导入导出、标准课表 CSV 导入、联网天气和缓存、校区切换、墨水屏数据导出。</p></div><div><div class="entry-title">○ 尚未实现</div><p class="small muted">真实手机勿扰控制、传感器采集、智能灯控制、SleepDown 原生备份解析、云端登录、多设备同步与实时设备 API。</p></div></div></section></div>`;}
+function settingsPage(){const c=state.settings.campus;return `${titleBlock('PREFERENCES & DATA','设置与备份','第一版是本地优先网站；你的资料只保存在当前浏览器。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">基本设置</span></div><div class="config-row"><div><strong>使用校区</strong><div class="detail">切换天气地点和界面标签，不会改动课程</div></div><select id="campusSelect" aria-label="使用校区"><option value="jianghuai" ${c==='jianghuai'?'selected':''}>江淮校区</option><option value="huayuan" ${c==='huayuan'?'selected':''}>花园校区</option></select></div><div class="config-row"><div><strong>界面主题</strong><div class="detail">适配电脑、平板和手机</div></div><select id="themeSelect" aria-label="界面主题"><option value="dark" ${state.settings.theme==='dark'?'selected':''}>深色</option><option value="light" ${state.settings.theme==='light'?'selected':''}>浅色</option></select></div><div class="config-row"><div><strong>首页布局</strong><div class="detail">调整首页模块的显示状态和排列顺序</div></div><button type="button" class="secondary" data-action="home-layout">自定义布局</button></div><div class="config-row"><div><strong>宿舍电费余额</strong><div class="detail">手动填写 · ${state.electricity.updatedAt?`更新于 ${esc(new Date(state.electricity.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}`:'尚未录入'}</div></div><div style="text-align:right"><strong>${state.electricity.balance===null?'未录入':`¥${state.electricity.balance.toFixed(2)}`}</strong><br><button data-action="balance" class="action-link">更新余额</button></div></div></section><section class="card"><div class="card-header"><span class="card-title">数据管理</span></div><div class="notice neutral">当前没有云端同步。可导出加密备份，手动传到手机或平板。导入时默认合并保留本机数据，也可明确选择覆盖；密码遗失无法恢复，浏览器本地数据仍为明文。</div><div class="button-row" style="margin-top:14px"><button type="button" class="primary" data-action="export-encrypted">导出加密备份</button><button type="button" class="secondary" data-action="export">导出普通 JSON</button><button type="button" class="secondary" data-action="import">恢复备份</button><button type="button" class="secondary" data-action="eink-export">导出墨水屏 JSON</button></div><div style="margin-top:20px"><button type="button" class="secondary danger-btn" data-action="reset">清空本地数据</button></div></section><section class="card"><div class="card-header"><span class="card-title">安装到手机桌面</span></div><p class="small muted">校序可以作为个人网页应用安装，首次联网打开后可在离线时使用已保存的基本功能。浏览器不支持安装提示时，请从浏览器菜单选择「添加到主屏幕」。</p><div class="button-row"><button type="button" class="secondary" data-action="pwa-install">安装校序</button></div><p class="tiny muted">天气更新和外部链接仍需网络；设备 NFC 支持由浏览器及系统决定。</p></section><section class="card wide"><div class="card-header"><span class="card-title">安全与功能边界</span></div><div class="split"><div><div class="entry-title">✓ 已实现</div><p class="small muted">课表增删改、任务增删改、场景状态记录、本地 JSON 导入导出、标准课表 CSV 导入、联网天气和缓存、校区切换、墨水屏数据导出。</p></div><div><div class="entry-title">○ 尚未实现</div><p class="small muted">真实手机勿扰控制、传感器采集、智能灯控制、SleepDown 原生备份解析、云端登录、多设备同步与实时设备 API。</p></div></div></section></div>`;}
 function nfcSceneOptions(value='study') {return sceneDefs.map(x=>`<option value="${x.id}" ${x.id===value?'selected':''}>${esc(x.label)}</option>`).join('');}
 function tagLink(tag){const url=new URL(location.pathname,location.origin);url.searchParams.set('dormTag',tag.id);url.searchParams.set('dormScene',tag.scene);return url.href;}
 async function copyTagLink(id){const t=state.nfcTags.find(x=>x.id===id);if(!t)return;const url=tagLink(t);try{await navigator.clipboard.writeText(url);toast('NFC 场景链接已复制，可使用受信任的 NDEF 写入工具');}catch{window.prompt('复制这个 NFC 场景链接：',url);}}
@@ -1007,7 +1007,7 @@ function androidSceneLink() {
 async function androidCopyScene() {
   const url=androidSceneLink();
   if(!url){toast('请先选择有效场景');return;}
-  try{await navigator.clipboard.writeText(url);toast('已复制 DORM OS 场景链接');}
+  try{await navigator.clipboard.writeText(url);toast('已复制校序场景链接');}
   catch{window.prompt('复制这个场景链接：',url);}
 }
 async function androidShareScene() {
@@ -1015,7 +1015,7 @@ async function androidShareScene() {
   if(!url){toast('请先选择有效场景');return;}
   if(typeof navigator.share==='function'){
     try{
-      await navigator.share({title:'DORM OS 场景',text:sceneLabel(androidSceneSelection),url});
+      await navigator.share({title:'校序场景',text:sceneLabel(androidSceneSelection),url});
       return;
     }catch(e){
       if(e?.name==='AbortError')return;
@@ -1288,7 +1288,7 @@ function exportPersonalCalendar(data,at=new Date()){
  for(const task of data.tasks||[])if(!task.done)add('task',task.id,'学习任务：'+task.title,task.due);
  for(const reminder of data.reminders||[])if(!reminder.done)add('reminder',reminder.id,'生活提醒：'+reminder.text,reminder.due);
  events.sort((a,b)=>a.due.localeCompare(b.due)||a.title.localeCompare(b.title));
- const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//DORM OS//Personal Deadlines//ZH','CALSCALE:GREGORIAN','X-WR-CALNAME:'+escapeIcsText('DORM OS 待办与截止日期'),...events.flatMap(e=>e.lines),'END:VCALENDAR'];
+ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//DORM OS//Personal Deadlines//ZH','CALSCALE:GREGORIAN','X-WR-CALNAME:'+escapeIcsText('校序待办与截止日期'),...events.flatMap(e=>e.lines),'END:VCALENDAR'];
  return {count:events.length,content:lines.map(foldIcsLine).join('\r\n')+'\r\n'};
 }
 function exportPersonalCalendarFile(){
