@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "DORM OS · 个人生活",
-  "short_name": "DORM OS",
-  "description": "个人课表、任务、生活与 NFC 场景",
+  "name": "校序 · 个人校园生活中心",
+  "short_name": "校序",
+  "description": "华北水利水电大学个人课表、任务、生活与 NFC 场景",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
