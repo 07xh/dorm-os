@@ -5,14 +5,14 @@ import {
   AcademicInputError,createManualAssignment,listAssignments
 } from '../../../lib/academic-assignments.mjs';
 
-const json = (body,status=200) => new Response(JSON.stringify(body),{
+export const json = (body,status=200) => new Response(JSON.stringify(body),{
   status,headers:{
     'content-type':'application/json; charset=utf-8',
     'cache-control':'private, no-store',
     'x-content-type-options':'nosniff'
   }
 });
-async function authorize(context) {
+export async function authorize(context) {
   const result = await verifyAcademicAccess(context.request,context.env);
   if (!result.ok) return {response:json({error:result.error},result.status)};
   if (!context.env?.ACADEMIC_DB) return {response:json({error:'database_not_configured'},503)};
