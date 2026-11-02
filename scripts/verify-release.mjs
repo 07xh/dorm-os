@@ -39,7 +39,7 @@ assert.equal(publicArchive.schema,'xiaoxu/notices-v1','Published public archive 
 assert.equal(publicArchive.school,'4141010078','Published public archive has the wrong school code');
 assert.ok(Array.isArray(publicArchive.items) && publicArchive.items.length >= 5,'Published notice archive is missing');
 if(publicArchive.mode === 'auto'){
- assert.match(publicArchive.lastSuccessAt || '',/^20\\d\\d-\\d\\d-\\d\\dT/, 'Auto-collected archive must carry real collection time');
+ assert.match(publicArchive.lastSuccessAt || '',/^20\d\d-\d\d-\d\dT/, 'Auto-collected archive must carry real collection time');
  assert.ok(publicArchive.sources.some(s=>s.status==='ok'),'Auto archive has no successful source');
 }else assert.equal(publicArchive.mode,'seed','Archive provenance status must be explicit');
 console.log('NCWU archive deployed: '+publicArchive.items.length+' items; mode '+publicArchive.mode);
