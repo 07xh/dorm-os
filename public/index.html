@@ -631,6 +631,30 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
  .x-v7-day-chip,.x-v7-course-preview{transition:none!important}
 }
 
+
+/* V7 官方通知读数：真实来源、来源时间、失败保护 */
+.x-v7-notice-meta{font-size:12px;line-height:1.7;color:var(--muted);margin:0 0 12px}
+.x-v7-notice-filters{display:flex;gap:6px;overflow-x:auto;margin:10px 0 15px}
+.x-v7-notice-filters button{min-height:36px;border:1px solid var(--border);border-radius:9px;
+ padding:7px 12px;font-size:12px;font-weight:650;background:transparent;color:var(--muted);white-space:nowrap;cursor:pointer}
+.x-v7-notice-filters button.selected{background:rgba(50,109,230,.10);color:#326de6;border-color:rgba(50,109,230,.14)}
+.x-v7-notice-feed{display:flex;flex-direction:column}
+.x-v7-notice-item{display:grid;grid-template-columns:66px minmax(0,1fr) auto;align-items:center;gap:10px;
+ min-height:53px;padding:12px 0;border-top:1px solid var(--border);text-decoration:none;color:var(--text)}
+.x-v7-notice-topic{color:#326de6;font-size:11px}
+.x-v7-notice-title{font-size:13px;font-weight:600;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+.x-v7-notice-date{font-size:11px;color:var(--muted);white-space:nowrap}
+.x-v7-notice-empty{padding:19px 0;color:var(--muted);font-size:13px}
+.x-v7-notice-footer{border-top:1px solid var(--border);margin-top:12px;padding-top:9px}
+.x-v7-notice-footer .campus-link{padding:10px 0;min-height:38px}
+.x-v7-home-notices .x-v7-notice-item:nth-child(n+3){display:none}
+.x-v7-home-notices .x-v7-notice-item{grid-template-columns:52px minmax(0,1fr);gap:7px;padding:9px 0;min-height:42px}
+.x-v7-home-notices .x-v7-notice-date{display:none}
+@media(max-width:500px){
+ .x-v7-notice-item{grid-template-columns:55px minmax(0,1fr);gap:7px}
+ .x-v7-notice-date{grid-column:2;white-space:normal}
+}
+
 </style>
   <title>校序 · 华水教务整合</title>
 </head>
@@ -867,6 +891,7 @@ const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'�
 let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
 let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
+let noticeFeed=null,noticeStatus='idle',noticeUpdatedAt='',noticeFilter='all',noticePartial=false,noticeFailure='';
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
 let androidSceneSelection='study';
@@ -1024,7 +1049,7 @@ function dashboard(){
   +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+(essentials.length?essentials.map(homeWidgetContent).join(''):'<div class="friendly-empty">已隐藏课表和任务模块，可通过「调整布局」恢复。</div>')+'</div>'
   +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
-  +'<p class="small muted">官方公告自动同步尚未连接。可进入教务查看华水教务处官方发布入口。</p></section>'
+  +'<div class="x-v7-home-notice-preview">'+(noticeFeed&&noticeFeed.length?publicNoticeList(3):'<p class="small muted">'+esc(publicNoticeState())+'</p>')+'</div></section>'
   +(extras.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extras.length+' 项</span></summary>'
     +'<div class="home-widget-grid v4-extra-widgets">'+extras.map(homeWidgetContent).join('')+'</div></details>':'');
 }
@@ -1124,6 +1149,70 @@ function safeLink(name,url,hint=''){
   return `<a class="campus-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(name)}</strong>${hint?`<span>${esc(hint)}</span>`:''}</div><span aria-hidden="true">↗</span></a>`;
 }
 
+
+// 校序官方公开公告：只读取固定 allowlist API，不读取学校登录会话。
+const NOTICE_CACHE_KEY='xiaoxu-official-notice-cache-v1';
+function knownPublicNotice(item){
+ if(!item||typeof item!=='object'||typeof item.title!=='string'||item.title.length<5||item.title.length>220
+  ||!['notice','exam'].includes(item.category)||typeof item.url!=='string')return false;
+ try{const u=new URL(item.url);return u.origin==='https://www2.ncwu.edu.cn'&&
+  /^\/jiaowu\/info\/(?:1008|1034)\/\d{1,8}\.htm$/.test(u.pathname)&&!u.search&&!u.hash;}
+ catch{return false;}
+}
+function restorePublicNotices(){
+ if(noticeFeed)return;
+ try{
+  const cache=JSON.parse(localStorage.getItem(NOTICE_CACHE_KEY)||'null');
+  if(cache&&Array.isArray(cache.items)&&cache.items.length<=45&&cache.items.every(knownPublicNotice)){
+   noticeFeed=cache.items;noticeUpdatedAt=typeof cache.fetchedAt==='string'?cache.fetchedAt:'';
+   noticeStatus='stale';
+  }
+ }catch{}
+}
+function publicNoticeItems(limit=18){
+ return (noticeFeed||[]).filter(item=>noticeFilter==='all'||item.category===noticeFilter).slice(0,limit);
+}
+function publicNoticeList(limit=18){
+ const rows=publicNoticeItems(limit);
+ return rows.length?'<div class="x-v7-notice-feed">'+rows.map(item=>
+  '<a class="x-v7-notice-item" href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">'
+  +'<span class="x-v7-notice-topic">'+(item.category==='exam'?'考试安排':'教务通知')+'</span>'
+  +'<span class="x-v7-notice-title">'+esc(item.title)+'</span>'
+  +'<span class="x-v7-notice-date">'+esc(item.dateLabel||'日期以原文为准')+' <span aria-hidden="true">›</span></span></a>'
+ ).join('')+'</div>':
+ '<p class="small muted">没有该分类的已验证公告。请以学校官网为准。</p>';
+}
+function publicNoticeState(){
+ if(noticeStatus==='loading'&&!noticeFeed)return '正在从学校官网读取公开通知…';
+ if(noticeStatus==='error')return noticeFeed?
+  '目前无法刷新，以下为上次成功取得的缓存通知。':'当前无法读取学校官网，未显示任何模拟公告。';
+ if(noticeStatus==='stale')return '上次成功获取的公开通知缓存；正在核验更新。';
+ if(!noticeFeed)return '尚未获取到官方通知；也可以直接查看学校官网。';
+ return (noticePartial?'部分官方栏目更新失败 · ':'')+'官方公开公告 · 上次取得于 '+(noticeUpdatedAt?new Date(noticeUpdatedAt).toLocaleString('zh-CN'):'时间未知');
+}
+async function loadPublicNotices(force=false){
+ if(noticeStatus==='loading'||(!force&&noticeStatus==='ready'))return;
+ restorePublicNotices();
+ noticeStatus='loading';if(page==='academic'&&academicTab==='notices')render();
+ try{
+  const res=await fetch('/api/notices',{cache:'no-store',headers:{accept:'application/json'},signal:AbortSignal.timeout(18000)});
+  if(!res.ok)throw Error('公告服务暂不可用');
+  const data=await res.json();
+  if(!data.success||!Array.isArray(data.items)||data.items.length<2||data.items.length>45
+    ||!data.items.every(knownPublicNotice))throw Error('公告内容未通过来源验证');
+  noticeFeed=data.items;
+  noticeUpdatedAt=typeof data.fetchedAt==='string'?data.fetchedAt:new Date().toISOString();
+  noticePartial=data.partial===true;noticeFailure='';
+  noticeStatus='ready';
+  try{localStorage.setItem(NOTICE_CACHE_KEY,JSON.stringify({items:noticeFeed,fetchedAt:noticeUpdatedAt}));}catch{}
+ }catch(err){
+  noticeStatus='error';noticeFailure=String(err?.message||'不可用');
+  // 失败绝不清空上次有效内容，也不能把未读取到的通知说成无通知。
+ }finally{
+  if(page==='dashboard'||page==='academic'&&academicTab==='notices')render();
+ }
+}
+
 const ACADEMIC_TABS=Object.freeze([
  {id:'notices',label:'通知'},{id:'grades',label:'成绩'},
  {id:'exams',label:'考试'},{id:'second',label:'第二课堂'},
@@ -1132,10 +1221,15 @@ const ACADEMIC_TABS=Object.freeze([
 function academicPage(){
  let content='';
  if(academicTab==='notices'){
-  content='<section class="card x-v7-academic-card"><h2>教务处官方通知</h2><p class="small muted">当前提供学校原文入口；自动采集和已读提醒将在独立的真实数据服务通过验收后启用。</p>'
-   +safeLink('教务处通知公告','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm','公开通知 · 以学校原文为准')
-   +safeLink('教务处考试安排','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','公开考试公告及附件 · 非个人考场')
-   +'</section>';
+  const buttons=['all','notice','exam'].map((k,i)=>
+   '<button type="button" data-notice-filter="'+k+'" aria-pressed="'+(noticeFilter===k)+'" class="'+(noticeFilter===k?'selected':'')+'">'+['全部','通知','考试公告'][i]+'</button>').join('');
+  content='<section class="card x-v7-academic-card"><div class="card-header"><span class="card-title">教务处官方通知</span>'
+   +'<button type="button" class="action-link" data-action="refresh-notices">刷新</button></div>'
+   +'<p class="x-v7-notice-meta" role="status">'+esc(publicNoticeState())+'</p>'
+   +(noticeFeed?'<nav class="x-v7-notice-filters" aria-label="公告类型筛选">'+buttons+'</nav>'+publicNoticeList():
+    '<div class="x-v7-notice-empty">'+esc(publicNoticeState())+'</div>')
+   +'<div class="x-v7-notice-footer">'+safeLink('教务处通知原文','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm')
+   +safeLink('考试公告原文','https://www2.ncwu.edu.cn/jiaowu/ksap.htm')+'</div></section>';
  }else if(academicTab==='grades'){
   content='<section class="card x-v7-academic-card"><h2>我的成绩</h2><p class="small muted">尚未连接华水青果本人账号。成绩、学分、绩点均以学校原始记录为准；未连接时不显示模拟成绩。</p><div class="x-v7-not-connected">未连接青果成绩查询</div></section>';
  }else if(academicTab==='exams'){
@@ -1430,7 +1524,7 @@ function lifePage(){
 }
 function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="reminderText">提醒内容</label><input id="reminderText" name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label for="reminderDue">日期（可选）</label><input id="reminderDue" type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
 function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="itemName">物品名称</label><input id="itemName" name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label for="itemPlace">存放位置（可选）</label><input id="itemPlace" name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
-function render(){const pages={dashboard,study:studyPage,timetable,academic:academicPage,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',devices:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings'||page==='devices';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();}
+function render(){const pages={dashboard,study:studyPage,timetable,academic:academicPage,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',devices:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings'||page==='devices';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
 
 function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
 function tick(){const p=now();$('dateChip').textContent=`${p.month}月${p.dateNumber}日 · ${WEEKDAYS[p.day]}`;document.querySelectorAll('[data-clock]').forEach(x=>x.textContent=p.time);if($('timerDisplay'))$('timerDisplay').textContent=timerText();}
@@ -1627,10 +1721,10 @@ function chooseQuickAdd(kind){
  else if(kind==='reminder')reminderDialog();
  else if(kind==='nfc')tagDialog();
 }
-function clickAction(action){if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
+function clickAction(action){if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
-document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-home-day], [data-academic-tab], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
-  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
+document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-home-day], [data-academic-tab], [data-notice-filter], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
+  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeFilter){if(['all','notice','exam'].includes(target.dataset.noticeFilter)){noticeFilter=target.dataset.noticeFilter;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
 document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
