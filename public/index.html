@@ -1246,12 +1246,12 @@ function academicPage(){
    +'<div class="x-v7-notice-footer">'+safeLink('教务处通知原文','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm')
    +safeLink('考试公告原文','https://www2.ncwu.edu.cn/jiaowu/ksap.htm')+'</div></section>';
  }else if(academicTab==='grades'){
-  content='<section class="card x-v7-academic-card"><h2>我的成绩</h2><p class="small muted">尚未连接华水青果本人账号。成绩、学分、绩点均以学校原始记录为准；未连接时不显示模拟成绩。</p><div class="x-v7-not-connected">未连接青果成绩查询</div></section>';
+  content='<section class="card x-v7-academic-card"><h2>我的成绩</h2><p class="small muted">尚未连接华水青果本人账号。成绩、学分、绩点均以学校原始记录为准；未连接时不显示模拟成绩。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>未连接青果成绩查询</strong><p>建立合法的数据连接前，校序不会填入任何虚构成绩或绩点。</p></div></div><div class="x-v8-academic-actions"><button type="button" class="secondary" data-page="settings">查看数据连接状态</button></div></section>';
  }else if(academicTab==='exams'){
-  content='<section class="card x-v7-academic-card"><h2>考试安排</h2><p class="small muted">个人考试安排尚未连接；公开考试安排可通过教务处官方栏目核对。</p>'
+  content='<section class="card x-v7-academic-card"><h2>考试安排</h2><p class="small muted">个人考试安排尚未连接；公开考试安排可通过教务处官方栏目核对。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>暂无可验证的个人考试安排</strong><p>不把公开考试公告等同于你的个人考场和考试时间。</p></div></div>'
   +safeLink('查看教务处考试公告','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','考试计划与附件可能按校区分别发布')+'</section>';
  }else if(academicTab==='second'){
-  content='<section class="card x-v7-academic-card"><h2>第二课堂</h2><p class="small muted">正在规划活动、成长记录、学时和学分的统一查看。真实二课账号尚未连接，因此不显示虚构积分和报名结果。</p>'
+  content='<section class="card x-v7-academic-card"><h2>第二课堂</h2><p class="small muted">正在规划活动、成长记录、学时和学分的统一查看。真实二课账号尚未连接，因此不显示虚构积分和报名结果。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>第二课堂数据未连接</strong><p>官方平台的报名、活动状态、积分以本人账号中的记录为准。</p></div></div>'
   +safeLink('打开学校第二课堂','https://dekt.ncwu.edu.cn/','官方入口 · 活动与积分')+'</section>';
  }else{
   const links=state.campusLinks.map(l=>'<div class="campus-custom-link">'+safeLink(l.name,l.url)
@@ -1262,9 +1262,13 @@ function academicPage(){
   +(links||'<p class="small muted">暂未添加常用入口。</p>')+'</section>';
  }
  const tabs='<nav class="x-v7-secondary" aria-label="教务二级导航" role="tablist">'+ACADEMIC_TABS.map(t=>
-  '<button type="button" role="tab" data-academic-tab="'+t.id+'" aria-selected="'+(academicTab===t.id)+'" class="'+(academicTab===t.id?'selected':'')+'">'+t.label+'</button>'
+  '<button type="button" role="tab" id="xu-tab-'+t.id+'" data-academic-tab="'+t.id+'" aria-controls="xu-academic-panel" aria-selected="'+(academicTab===t.id)+'" tabindex="'+(academicTab===t.id?'0':'-1')+'" class="'+(academicTab===t.id?'selected':'')+'">'+t.label+'</button>'
  ).join('')+'</nav>';
- return titleBlock('','教务中心')+tabs+'<div class="x-v7-academic-content">'+content+'</div>';
+ const metadata={notices:['校园官方通知','来自公开教务栏目，内容与时间以获取结果为准'],grades:['成绩与绩点','仅展示本人已授权的数据，当前不使用模拟成绩'],exams:['考试安排','个人考场尚未连接，可核对官方公开考试公告'],second:['第二课堂','活动与成长记录以官方平台为准'],services:['校园服务','整合官方入口与个人收藏的快捷链接']};
+ const [heading,subtitle]=metadata[academicTab]||metadata.notices;
+ const sourceLabel=academicTab==='notices'?'学校公开来源':'个人数据未连接';
+ const intro='<section class="x-v8-academic-intro" aria-label="当前教务分类"><div class="x-v8-academic-intro-copy"><span class="x-v8-academic-eyebrow">ACADEMIC WORKSPACE</span><h2>'+heading+'</h2><p>'+subtitle+'</p></div><span class="x-v8-academic-pill '+(academicTab==='notices'?'is-public':'')+'">'+sourceLabel+'</span></section>';
+ return titleBlock('','教务中心')+intro+tabs+'<div class="x-v7-academic-content" role="tabpanel" id="xu-academic-panel" aria-labelledby="xu-tab-'+academicTab+'">'+content+'</div>';
 }
 
 function campusPage(){
