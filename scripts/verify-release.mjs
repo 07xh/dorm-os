@@ -88,4 +88,27 @@ if(noticeData.success){
  console.log('NCWU notices API handler verified; official upstream unavailable (503). No live data claimed.');
 }
 
+// Check that the new public-entry readiness is an actual Pages Function. These
+// checks cannot prove a student has authenticated or accessed personal data.
+let readinessResponse,readinessLast='unavailable';
+for(let attempt=0;attempt<5;attempt++){
+ try{
+  const candidate=await fetch(base+'/api/academic/status',{
+   cache:'no-store',signal:AbortSignal.timeout(16000),headers:{accept:'application/json'}
+  });
+  const marker=candidate.headers.get('x-xiaoxu-academic-readiness');
+  if(candidate.status===200&&marker==='1'){readinessResponse=candidate;break;}
+  readinessLast='HTTP '+candidate.status+' marker '+(marker||'missing');
+ }catch(error){readinessLast=String(error?.message||error);}
+ if(attempt<4)await sleep(1700);
+}
+assert.ok(readinessResponse,'Academic source readiness API missing: '+readinessLast);
+const readiness=await readinessResponse.json();
+assert.equal(readiness.schema,'xiaoxu/academic-readiness-v1');
+assert.equal(readiness.accountConnected,false,'Public health check cannot authenticate users');
+assert.equal(readiness.personalData,false);
+assert.deepEqual(readiness.sources.map(x=>x.id),['kingo','chaoxing','second']);
+assert.ok(readiness.sources.every(x=>x.accountStatus==='not-connected'));
+console.log('Public academic source diagnostics verified: '+readiness.sources.map(x=>x.id+'='+x.reachability).join(', ')+'. Account remains unconnected.');
+
 console.log('Verified live published release '+sha+' at '+base);

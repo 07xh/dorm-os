@@ -1,4 +1,4 @@
-const CACHE='dorm-os-shell-v84-private-data-ready-v1';
+const CACHE='dorm-os-shell-v85-source-connectivity-v1';
 const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-v8.css','/xiaoxu-v83.css','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-notices.js','/xiaoxu-academic-client.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
