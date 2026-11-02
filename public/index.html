@@ -1388,7 +1388,7 @@ $('taskImportInput').addEventListener('change',async e=>{
    if(file.size>1024*1024)throw new Error('任务快照需小于 1MB');
    const snapshot=JSON.parse(await file.text());
    const converted=snapshot?.format===globalThis.XiaoxuTaskImport.FORMAT ? {batch:snapshot,sourceFormat:'xiaoxu',unknownDeadlines:0} : globalThis.XiaoxuChaoxingCli.adaptCli(snapshot);
-   const plan=globalThis.XiaoxuTaskImport.planImport(state.tasks,converted.batch,newId,new Date().toISOString());
+   const plan=globalThis.XiaoxuTaskImport.planImport(state.tasks,converted.batch,newId,new Date().toISOString(),{preserveUnknownDue:converted.sourceFormat!=='xiaoxu'});
    const titles=plan.changes.slice(0,6).map(x=>(x.type==='added'?'新增：':'更新：')+x.title).join('\n');
    const message='校序任务预览（'+plan.source+' · '+converted.sourceFormat+'）\n'+(converted.unknownDeadlines?'有 '+converted.unknownDeadlines+' 条截止时间无法确定年份，保留为空。\n':'')+'读取 '+plan.inputCount+' 条：新增 '+plan.added+'、更新 '+plan.updated+'、不变 '+plan.unchanged+'。\n'
       +(titles?titles+'\n':'')+'仅更新文件中明确列出的任务；不会删除未列出的任务，也不会自动改动本地完成勾选。\n确认导入？';
