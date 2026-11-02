@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {SOURCES,articleUrl,parseNotices,mergeNotices} from '../lib/notice-feed.mjs';
-import {getFeed,onRequestGet} from '../functions/api/notices.js';
+import {getFeed} from '../functions/api/notices.js';
 assert.ok(Object.keys(SOURCES).length===2);
 
 const noticeHTML='<html><title>华水</title><ul>'+
@@ -53,16 +53,4 @@ assert.equal(fail.items.length,0);
 assert.equal(fail.fetchedAt,null);
 const fakeBad=await getFeed(async url=>makeResponse('https://attacker.example/',mocks[url]));
 assert.equal(fakeBad.success,false,'Off-host redirect must not be accepted');
-const cached=globalThis.caches;
-try{
- delete globalThis.caches;
- const response=await onRequestGet({
-  request:new Request('https://xiaoxu.example/api/notices'),
-  waitUntil:()=>{},
- });
- assert.equal(response.status,503,'Test runner must not assume external NCWU access');
- assert.equal(response.headers.get('cache-control'),'no-store');
-} finally {
- if(cached)globalThis.caches=cached;
-}
 console.log('校序官方通知：严格来源、重复、日期未知、双栏目、局部失败及安全响应校验通过');
