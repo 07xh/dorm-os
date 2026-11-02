@@ -1058,7 +1058,7 @@ function dashboard(){
   +'<section class="x-v7-home-section-title"><h2>学习进度</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></section>'
   +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+(essentials.length?essentials.map(homeWidgetContent).join(''):'<div class="friendly-empty">已隐藏课表和任务模块，可通过「调整布局」恢复。</div>')+'</div>'
   +'</div><div class="x-v8-home-side">'
-  +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">校园官方通知</span>
+  +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">校园官方通知</span>'
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
   +'<div class="x-v7-home-notice-preview">'+(noticeFeed&&noticeFeed.length?publicNoticeList(3):'<p class="small muted">'+esc(publicNoticeState())+'</p>')+'</div></section>'
   +'<section class="card x-v8-connection"><div class="card-header"><span class="card-title">数据连接状态</span></div>'
