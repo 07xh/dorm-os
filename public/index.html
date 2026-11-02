@@ -917,12 +917,6 @@ function calendarPreview(limit=8){
   if(!entries.length)return `<div class="empty">${state.calendarEvents.length?'已导入日历，但当前没有后续课程。':'还没有导入教务日历。可从教务助手导出 .ics 文件后导入。'}</div>`;
   return entries.map(c=>`<div class="entry"><div class="entry-info"><div class="entry-title">${esc(c.subject)}</div><div class="entry-sub">${esc(c.date)} · ${esc(c.start)}–${esc(c.end)} · ${esc(c.location||'未填写教室')}</div></div>${badge('日历')}</div>`).join('');
 }
-const linksOfficial=[
- {title:'教务助手 · 开源项目',hint:'查看原项目源码、许可和使用说明',url:'https://github.com/znjhahaha/zhengfang-apk'},
- {title:'下载 Android APK',hint:'原项目 GitHub 官方 Release，非 DORM OS 发布',url:'https://github.com/znjhahaha/zhengfang-apk/releases/latest'},
- {title:'校园插件中心',hint:'查看学校适配状态；不代表已经支持华水',url:'https://plugins.hidisiwa.xyz/'},
- {title:'插件开发文档',hint:'适配学校教务时参考 SDK 和授权范围',url:'https://plugins.hidisiwa.xyz/developers'}
-];
 function safeLink(name,url,hint=''){
   return `<a class="campus-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(name)}</strong>${hint?`<span>${esc(hint)}</span>`:''}</div><span aria-hidden="true">↗</span></a>`;
 }
@@ -976,7 +970,7 @@ function profilePage(){
   ['设置与备份','主题、导入与导出','settings','⚙']
  ];
  return `${titleBlock('','我的')}
- <section class="card v4-profile-card"><div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">D</span><div><strong>我的空间</strong><span>仅此浏览器保存个人数据</span></div></div>
+ <section class="card v4-profile-card"><div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">校</span><div><strong>我的空间</strong><span>仅此浏览器保存个人数据</span></div></div>
  <div class="v4-profile-links">${sections.map(([name,detail,target,icon])=>`<button type="button" class="v4-profile-link" data-page="${target}"><span class="v4-profile-symbol" aria-hidden="true">${icon}</span><span><strong>${name}</strong><small>${detail}</small></span><b aria-hidden="true">›</b></button>`).join('')}</div></section>`;
 }
 function settingsPage(){const c=state.settings.campus;return `${titleBlock('PREFERENCES & DATA','设置与备份','第一版是本地优先网站；你的资料只保存在当前浏览器。')}<div class="page-grid"><section class="card"><div class="card-header"><span class="card-title">基本设置</span></div><div class="config-row"><div><strong>使用校区</strong><div class="detail">切换天气地点和界面标签，不会改动课程</div></div><select id="campusSelect" aria-label="使用校区"><option value="jianghuai" ${c==='jianghuai'?'selected':''}>江淮校区</option><option value="huayuan" ${c==='huayuan'?'selected':''}>花园校区</option></select></div><div class="config-row"><div><strong>界面主题</strong><div class="detail">适配电脑、平板和手机</div></div><select id="themeSelect" aria-label="界面主题"><option value="dark" ${state.settings.theme==='dark'?'selected':''}>深色</option><option value="light" ${state.settings.theme==='light'?'selected':''}>浅色</option></select></div><div class="config-row"><div><strong>首页布局</strong><div class="detail">调整首页模块的显示状态和排列顺序</div></div><button type="button" class="secondary" data-action="home-layout">自定义布局</button></div><div class="config-row"><div><strong>宿舍电费余额</strong><div class="detail">手动填写 · ${state.electricity.updatedAt?`更新于 ${esc(new Date(state.electricity.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}`:'尚未录入'}</div></div><div style="text-align:right"><strong>${state.electricity.balance===null?'未录入':`¥${state.electricity.balance.toFixed(2)}`}</strong><br><button data-action="balance" class="action-link">更新余额</button></div></div></section><section class="card"><div class="card-header"><span class="card-title">数据管理</span></div><div class="notice neutral">当前没有云端同步。可导出加密备份，手动传到手机或平板。导入时默认合并保留本机数据，也可明确选择覆盖；密码遗失无法恢复，浏览器本地数据仍为明文。</div><div class="button-row" style="margin-top:14px"><button type="button" class="primary" data-action="export-encrypted">导出加密备份</button><button type="button" class="secondary" data-action="export">导出普通 JSON</button><button type="button" class="secondary" data-action="import">恢复备份</button><button type="button" class="secondary" data-action="eink-export">导出墨水屏 JSON</button></div><div style="margin-top:20px"><button type="button" class="secondary danger-btn" data-action="reset">清空本地数据</button></div></section><section class="card"><div class="card-header"><span class="card-title">课程数据连接</span></div>
