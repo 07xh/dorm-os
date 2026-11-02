@@ -9,7 +9,7 @@ assert.equal(seed.school, SCHOOL_ID);
 assert.ok(seed.items.length >= 4);
 for (const item of seed.items) {
   assert.ok(canonicalLink(item.url,item.url), 'must be a verified official HTTPS article');
-  assert.ok(/^\d{4}-\d\d-\d\d$/.test(item.date));
+  assert.ok(item.date===null||/^\d{4}-\d\d-\d\d$/.test(item.date), 'Official list may omit publication date; never infer it');
 }
 assert.equal(dateFromText('发布日期：2026年11月2日'), '2026-11-02');
 assert.equal(dateFromText('发布日期：2026-02-30'), null);
@@ -33,7 +33,13 @@ assert.equal(result.sources[1].status,'error');
 assert.equal(result.items.find(n=>n.url.endsWith('/23333.htm')).date,'2026-10-29','preserve archive on partial failures');
 assert.ok(result.items.some(n=>n.url.endsWith('/23285.htm')));
 assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,'seed-jwc-23331','seed IDs remain stable');
-assert.equal(seed.lastSuccessAt,null,'fixture must not lie about auto success');
+if(seed.mode==='auto'){
+ assert.ok(Number.isFinite(Date.parse(seed.lastSuccessAt)), 'Verified automated archive must record its last success time');
+ assert.ok(seed.sources.some(source=>source.status==='ok'), 'Automated archive requires at least one confirmed source');
+}else{
+ assert.equal(seed.mode,'seed', 'Unknown archive mode must not be accepted');
+ assert.equal(seed.lastSuccessAt,null, 'Seed archive must not claim an automated sync');
+}
 const loaded=await collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),at:'2026-11-03T02:00:00.000Z'});
 assert.equal(loaded.mode,'auto');
 await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('JavaScript challenge',{status:202})}),/所有公开通知源均失败/);
