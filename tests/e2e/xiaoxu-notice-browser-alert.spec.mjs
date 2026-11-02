@@ -8,13 +8,25 @@ const row=id=>({
 });
 const reply=items=>({success:true,partial:false,items,
   fetchedAt:'2026-11-03T08:00:00.000Z',source:'NCWU'});
-test('browser notifications require an explicit opt-in and can be disabled',async({page,context})=>{
- await context.grantPermissions(['notifications']);
+test.beforeEach(async({page})=>{
+ // Headless CI does not always expose the native permission API. Mock the
+ // user-granted browser capability; the production implementation still uses
+ // Notification.requestPermission only from a real user click.
+ await page.addInitScript(()=>{
+  window.__notificationPermissionRequests=0;
+  Object.defineProperty(window,'Notification',{configurable:true,value:class FakeNotification{
+   static permission='granted';
+   static async requestPermission(){window.__notificationPermissionRequests++;return 'granted';}
+  }});
+ });
+});
+test('browser notifications require an explicit opt-in and can be disabled',async({page})=>{
  await page.route('**/api/notices',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(reply([row(3003),row(3004)]))}));
  await page.route('**/data/notices.json',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.goto('/#academic');
  await expect(page.locator('.x-v7-notice-row')).toHaveCount(2);
  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu-notice-browser-alert-v1'))).toBe(null);
+ expect(await page.evaluate(()=>window.__notificationPermissionRequests)).toBe(0);
  const toggle=page.locator('[data-action="notice-alert-toggle"]');
  await expect(toggle).toContainText('开启浏览器提醒');
  await toggle.click();
@@ -27,8 +39,7 @@ test('browser notifications require an explicit opt-in and can be disabled',asyn
  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu-notice-browser-alert-v1'))).toBe(null);
 });
 
-test('browser notification only fires after a real new verified article is discovered',async({page,context})=>{
- await context.grantPermissions(['notifications']);
+test('browser notification only fires after a real new verified article is discovered',async({page})=>{
  let items=[row(3003),row(3004)];
  await page.route('**/api/notices',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(reply(items))}));
  await page.route('**/data/notices.json',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
