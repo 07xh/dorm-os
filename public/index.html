@@ -1033,6 +1033,8 @@ function dashboard(){
  const readable=homeDayOffset===0?'今天':homeDayOffset===1?'明天':'后天';
  const next=courses.find(c=>homeDayOffset!==0||c.end>p.time);
  const due=state.tasks.filter(t=>!t.done&&(t.due===date||homeDayOffset===0&&t.due&&t.due<date));
+ const taskPending=state.tasks.filter(t=>!t.done).length;
+ const publishedCount=Array.isArray(noticeFeed)?noticeFeed.length:null;
  const coursePreview=courses.length?courses.slice(0,2).map(c=>'<button type="button" class="x-v7-course-preview" data-page="timetable" aria-label="查看课表中的'+esc(c.subject)+'">'
   +'<span class="x-v7-course-time">'+esc(c.start)+'–'+esc(c.end)+'</span><span class="x-v7-course-name">'+esc(c.subject)+'</span>'
   +'<span class="x-v7-course-room">'+esc(c.location||'未填写教室')+'</span><span class="x-v7-course-arrow" aria-hidden="true">›</span></button>').join(''):
@@ -1044,14 +1046,25 @@ function dashboard(){
   +'<div class="x-v7-today-stats"><span><strong>'+courses.length+'</strong> 门本地课程</span><span><strong>'+due.length+'</strong> 项'+(homeDayOffset===0?'待处理':'截止任务')+'</span></div>'
   +'<div class="x-v7-home-courses"><div class="x-v7-home-courses-title"><strong>'+readable+'课程</strong>'
   +(next?'<span>接下来：'+esc(next.start)+'</span>':'<span>本地课表</span>')+'</div>'+coursePreview+'</div>'
+  +'<aside class="x-v8-next-card" aria-label="下一节本地课程"><small>下一节 · 本地课表</small><strong>'+(next?esc(next.subject):'暂无已登记的后续课程')+'</strong><span>'+(next?esc(next.start)+' · '+esc(next.location||'未填写教室'):'可在课表中手动添加课程')+'</span><button type="button" data-page="timetable">查看课表 ›</button></aside>'
   +'<div class="x-v7-home-footer"><button type="button" class="x-v7-home-link" data-page="timetable">查看完整课表 <span aria-hidden="true">›</span></button>'
   +'<button type="button" class="x-v7-home-link x-v7-task-shortcut" data-page="tasks">查看任务 <span aria-hidden="true">›</span></button></div></section>';
  return hero
+  +'<section class="x-v8-stat-grid" aria-label="实际数据概览">'
+  +'<article class="card x-v8-stat"><span class="x-v8-stat-icon" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-study"></use></svg></span><div><div class="x-v8-stat-label">本地课表 · 已登记</div><div class="x-v8-stat-value">'+state.classes.length+'<small>节课程记录</small></div></div></article>'
+  +'<article class="card x-v8-stat"><span class="x-v8-stat-icon" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-home"></use></svg></span><div><div class="x-v8-stat-label">个人任务 · 当前浏览器</div><div class="x-v8-stat-value">'+taskPending+'<small>项待完成</small></div></div></article>'
+  +'<article class="card x-v8-stat"><span class="x-v8-stat-icon" aria-hidden="true"><svg class="dorm-ui-icon" viewBox="0 0 24 24"><use href="#dicon-search"></use></svg></span><div><div class="x-v8-stat-label">官方通知 · 已获取</div><div class="x-v8-stat-value">'+(publishedCount===null?'—':publishedCount)+'<small>'+(publishedCount===null?'未取得数据':'条已读取公告')+'</small></div></div></article></section>'
+  +'<div class="x-v8-home-columns"><div class="x-v8-home-primary">'
   +'<section class="x-v7-home-section-title"><h2>学习进度</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></section>'
   +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+(essentials.length?essentials.map(homeWidgetContent).join(''):'<div class="friendly-empty">已隐藏课表和任务模块，可通过「调整布局」恢复。</div>')+'</div>'
-  +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
+  +'</div><div class="x-v8-home-side">'
+  +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">校园官方通知</span>
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
   +'<div class="x-v7-home-notice-preview">'+(noticeFeed&&noticeFeed.length?publicNoticeList(3):'<p class="small muted">'+esc(publicNoticeState())+'</p>')+'</div></section>'
+  +'<section class="card x-v8-connection"><div class="card-header"><span class="card-title">数据连接状态</span></div>'
+  +'<div class="x-v8-connect-row"><div><strong>华水青果教务</strong><small>成绩、考试及选课尚未接入</small></div><span class="x-v8-connection-state">未连接</span></div>'
+  +'<div class="x-v8-connect-row"><div><strong>学校公开通知</strong><small>'+esc(publicNoticeState())+'</small></div><button type="button" class="action-link" data-page="academic">详情 ›</button></div>'
+  +'</section></div></div>'
   +(extras.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extras.length+' 项</span></summary>'
     +'<div class="home-widget-grid v4-extra-widgets">'+extras.map(homeWidgetContent).join('')+'</div></details>':'');
 }
