@@ -13,7 +13,8 @@ async function upload(page,doc){
 test('local read-only task snapshot import is idempotent and retains personal completion',async({page})=>{
  const issues=[];page.on('pageerror',err=>issues.push(err.message));
  await page.goto('/#tasks');
- await expect(page.getByRole('button',{name:'导入学习通 / 任务 JSON'})).toBeVisible();
+ await expect(page.locator('#app [data-action="import-task-batch"]')).toHaveCount(0);
+ await expect(page.locator('#app')).toContainText('学习通未连接自动同步');
  const first=batch([item('course-9/work-2','第一次发布的高数作业')]);
  page.once('dialog',d=>d.accept());
  await upload(page,first);
@@ -30,7 +31,7 @@ test('local read-only task snapshot import is idempotent and retains personal co
  expect(revised[0].done).toBe(true);
  expect(revised[0].due).toBe('2026-11-24');
  expect(revised[0].sourceStatus).toBe('submitted');
- await expect(page.locator('#app')).toContainText('平台已提交');
+ await expect(page.locator('#app')).toContainText('已提交');
  await upload(page,batch([]));
  expect(await tasks(page)).toHaveLength(1);
  await page.reload();
@@ -47,6 +48,6 @@ test('bad task snapshot is rejected without changing existing tasks, second-clas
  await expect(page.locator('#toast')).toContainText('失败');
  expect(await tasks(page)).toEqual(saved);
  await page.goto('/#campus');
- await expect(page.getByRole('link',{name:/华北水利水电大学第二课堂/})).toHaveAttribute('href','https://dekt.ncwu.edu.cn/');
+ await expect(page.getByRole('link',{name:/第二课堂/})).toHaveAttribute('href','https://dekt.ncwu.edu.cn/');
  await expect(page.locator('#app')).toContainText('未连接');
 });
