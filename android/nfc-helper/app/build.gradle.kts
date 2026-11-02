@@ -35,6 +35,11 @@ android {
         }
     }
     buildTypes {
+        // RC debug installs alongside the existing TapFlow app and never overwrites
+        // its package/data. GitHub-hosted debug signing keys need not match.
+        getByName("debug") {
+            applicationIdSuffix = ".rc"
+        }
         getByName("release") {
             isMinifyEnabled = true
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
