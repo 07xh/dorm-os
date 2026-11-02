@@ -23,7 +23,7 @@
  function disconnect(){connected=false;payload=null;error='';}
  async function refresh(){
   if(!connected)throw Error('请先主动加载个人学业数据');
-  try{payload=await api();error='';return payload;}
+  try{const result=await api();if(!connected)return null;payload=result;error='';return payload;}
   catch(e){error=String(e.message||e);throw e;}
  }
  async function connect(){
@@ -32,14 +32,14 @@
  }
  async function settings(enabled){
   if(!connected||!payload)throw Error('尚未连接提醒服务');
-  payload=await api('PATCH',{operation:'settings',enabled,
+  const result=await api('PATCH',{operation:'settings',enabled,
    examLeadDays:payload.preferences.examLeadDays,taskLeadDays:payload.preferences.taskLeadDays});
-  return payload;
+  if(!connected)return null;payload=result;return payload;
  }
  async function mark(key,read=true){
   if(!connected||!payload)throw Error('尚未连接提醒服务');
   if(!payload.items.some(x=>x.key===key))throw Error('提醒不在当前收件箱');
-  payload=await api('PATCH',{operation:'read',key,read});return payload;
+  const result=await api('PATCH',{operation:'read',key,read});if(!connected)return null;payload=result;return payload;
  }
  function panel(context="settings"){
   if(context==="tasks"&&(!connected||!payload))return "";
