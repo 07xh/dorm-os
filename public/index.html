@@ -670,6 +670,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 
 </style>
   <link rel="stylesheet" href="/xiaoxu-v8.css">
+  <link rel="stylesheet" href="/xiaoxu-v83.css">
   <title>校序 · 华水教务整合</title>
 </head>
 <body>
@@ -907,7 +908,7 @@ const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'�
 let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
 let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
-let noticeFeed=null,noticeStatus='idle',noticeUpdatedAt='',noticeFilter='all',noticePartial=false,noticeFailure='';
+let noticeFeed=null,noticeStatus='idle',noticeUpdatedAt='',noticeFilter='all',noticeQuery='',noticePartial=false,noticeFailure='';
 let noticeReading=XiaoxuNotices.normalizeReading(null),noticeArchiveTime='',noticeApiTime='',noticeArchiveUsed=false,noticeApiUsed=false;
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
@@ -938,16 +939,18 @@ function globalSearchIndex(){
  for(const r of state.reminders)add('reminder',r.id,r.text,`${r.due||'未设日期'} · ${r.done?'已完成':'待处理'}`,'life',r.due,true);
  for(const item of state.items)add('item',item.id,item.name,`存放位置：${item.place||'未设置'}`,'life',item.place,true);
  for(const link of state.sceneLinks){let host='';try{host=new URL(link.url).hostname;}catch{}add('sceneLink',link.id,link.name,`${sceneLabel(link.scene)} · ${host}`,'scenes',`${link.url} ${link.scene}`,true);}
+ // The official notice feed is validated on ingestion; search only already loaded records.
+ for(const n of noticeFeed||[])add('notice',n.url,n.title,`${n.group||'华水公开通知'} · ${n.sourceName||'华水官网'} · ${n.dateLabel||''}`,'academic',n.category,false);
  return rows;
 }
 function renderGlobalSearchResults(raw){
  const host=$('globalSearchResults');if(!host)return;
  const query=String(raw||'').trim().normalize('NFKC').toLocaleLowerCase('zh-CN');
- if(!query){host.innerHTML=`<div class='search-empty'><strong>搜索你的个人资料</strong><span>支持任务、每周课程、导入日历、校园服务、生活提醒、物品、NFC 标签和场景入口。</span><small>搜索只读取当前浏览器中的数据，不会上传到服务器。</small></div>`;return;}
+ if(!query){host.innerHTML=`<div class='search-empty'><strong>搜索你的个人资料</strong><span>支持任务、课程、生活资料、NFC 标签、场景入口与已加载的华水公开通知。</span><small>搜索在本地处理已加载内容，不上传关键词；官方通知仍通过现有可信来源获取。</small></div>`;return;}
  const terms=query.split(/\s+/).filter(Boolean);
  const matches=globalSearchIndex().filter(row=>terms.every(term=>row.searchable.includes(term))).sort((a,b)=>Number(b.title.normalize('NFKC').toLocaleLowerCase('zh-CN').startsWith(query))-Number(a.title.normalize('NFKC').toLocaleLowerCase('zh-CN').startsWith(query))||a.title.localeCompare(b.title,'zh-CN'));
  if(!matches.length){host.innerHTML=`<div class='search-empty'><strong>没有找到匹配内容</strong><span>试试更短的关键词，或检查是否已在对应页面登记。</span></div>`;return;}
- const labels={task:'任务',class:'每周课程',calendar:'日期课程',campus:'校园服务',nfc:'NFC 标签',reminder:'生活提醒',item:'个人物品',sceneLink:'场景入口'};
+ const labels={task:'任务',class:'每周课程',calendar:'日期课程',campus:'校园服务',nfc:'NFC 标签',reminder:'生活提醒',item:'个人物品',sceneLink:'场景入口',notice:'公开通知'};
  host.innerHTML=matches.slice(0,40).map(row=>`<article class='search-result'><div class='search-result-main'><div class='search-result-title'>${badge(labels[row.type])}<strong>${esc(row.title)}</strong></div><small>${esc(row.detail)}</small></div><div class='search-result-actions'><button type='button' class='secondary' data-search-open='${row.type}' data-search-id='${esc(row.id)}'>打开</button>${row.editable?`<button type='button' class='action-link' data-search-edit='${row.type}' data-search-id='${esc(row.id)}'>编辑</button>`:''}</div></article>`).join('')+(matches.length>40?`<p class='tiny muted search-limit'>共找到 ${matches.length} 条，当前显示前 40 条。请继续输入缩小范围。</p>`:'');
 }
 function openGlobalSearch(){
@@ -959,8 +962,13 @@ function openGlobalSearch(){
  renderGlobalSearchResults('');input.focus();
 }
 function navigateSearchResult(type,id,edit=false){
- const pages={task:'tasks',class:'timetable',calendar:'timetable',campus:'campus',nfc:'nfc',reminder:'life',item:'life',sceneLink:'scenes'};
+ const pages={task:'tasks',class:'timetable',calendar:'timetable',campus:'campus',nfc:'nfc',reminder:'life',item:'life',sceneLink:'scenes',notice:'academic'};
  const targetPage=pages[type];if(!targetPage)return;
+ if(type==='notice'){
+   const found=(noticeFeed||[]).find(n=>n.url===id);
+   if(!found)return;
+   academicTab='notices';noticeFilter='all';noticeQuery=found.title;
+ }
  $('editor').close();$('editor').classList.remove('search-editor');setPage(targetPage);
  if(!edit)return;
  if(type==='task')taskDialog(id);else if(type==='class')classDialog(id);else if(type==='reminder')reminderDialog(id);else if(type==='item')itemDialog(id);else if(type==='nfc')tagDialog(id);else if(type==='sceneLink')sceneLinkDialog(id);
@@ -1201,11 +1209,15 @@ function persistNoticeReading(){
 }
 function publicUnread(){return noticeReading.unread.filter(url=>noticeFeed?.some(i=>i.url===url)).length;}
 function publicNoticeItems(limit=18){
- return (noticeFeed||[]).filter(item=>noticeFilter==='all'||(noticeFilter==='unread'?noticeReading.unread.includes(item.url):
-   item.category===noticeFilter)).slice(0,limit);
+ const query=noticeQuery.trim().normalize('NFKC').toLocaleLowerCase('zh-CN');
+ return (noticeFeed||[]).filter(item=>{
+  const category=noticeFilter==='all'||(noticeFilter==='unread'?noticeReading.unread.includes(item.url):item.category===noticeFilter);
+  const haystack=[item.title,item.sourceName,item.group,item.dateLabel].join(' ').normalize('NFKC').toLocaleLowerCase('zh-CN');
+  return category&&(!query||haystack.includes(query));
+ }).slice(0,limit);
 }
 function publicNoticeList(limit=18){
- const rows=publicNoticeItems(limit);
+ const rows=publicNoticeItems(noticeQuery?80:limit);
  return rows.length?'<div class="x-v7-notice-feed">'+rows.map(item=>{
   const unread=noticeReading.unread.includes(item.url);
   return '<div class="x-v7-notice-row'+(unread?' is-new':'')+'">'
@@ -1216,7 +1228,7 @@ function publicNoticeList(limit=18){
   +(unread&&limit>3?'<button type="button" class="x-v7-mark-read" data-notice-read="'+esc(item.url)+'">标记已读</button>':'')
   +'</div>';
  }).join('')+'</div>':
- '<p class="small muted">'+(noticeFilter==='unread'?'没有未读新通知。':'没有该分类的已验证公告，请以学校官网为准。')+'</p>';
+ '<p class="small muted">'+(noticeQuery?'没有匹配的已核验通知，请调整关键词。':noticeFilter==='unread'?'没有未读新通知。':'没有该分类的已验证公告，请以学校官网为准。')+'</p>';
 }
 function publicNoticeState(){
  if(noticeStatus==='loading'&&!noticeFeed)return '正在核验官网实时公告和定时归档…';
@@ -1287,7 +1299,7 @@ function academicPage(){
    +'<button type="button" class="action-link" data-action="refresh-notices">刷新</button></div>'
    +'<p class="x-v7-notice-meta" role="status">'+esc(publicNoticeState())+'</p>'
    +(publicUnread()?'<button type="button" class="x-v7-mark-all" data-action="notice-mark-all">全部标记已读（'+publicUnread()+'）</button>':'')
-   +(noticeFeed?'<nav class="x-v7-notice-filters" aria-label="公告类型筛选">'+buttons+'</nav>'+publicNoticeList():
+   +(noticeFeed?'<div class="x-v83-notice-tools"><label class="x-v83-notice-search" for="noticeSearch"><svg class="dorm-ui-icon" aria-hidden="true"><use href="#dicon-search"></use></svg><input id="noticeSearch" type="search" maxlength="80" autocomplete="off" aria-label="搜索公开通知标题、来源、日期" placeholder="搜索已加载的官方通知" value="'+esc(noticeQuery)+'"></label><nav class="x-v7-notice-filters" aria-label="公告类型筛选">'+buttons+'</nav></div><div id="publicNoticeList" aria-live="polite">'+publicNoticeList()+'</div>':
     '<div class="x-v7-notice-empty">'+esc(publicNoticeState())+'</div>')
    +'<div class="x-v7-notice-footer">'+safeLink('教务处通知原文','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm')
    +safeLink('考试公告原文','https://www2.ncwu.edu.cn/jiaowu/ksap.htm')+'</div></section>';
@@ -1789,6 +1801,12 @@ document.addEventListener('click',e=>{const target=e.target.closest('[data-actio
 document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
+document.addEventListener('input',e=>{
+ if(e.target.id!=='noticeSearch')return;
+ noticeQuery=e.target.value.slice(0,80);
+ const results=$('publicNoticeList');
+ if(results)results.innerHTML=publicNoticeList();
+});
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openGlobalSearch();}});
 $('taskImportInput').addEventListener('change',async e=>{
  const file=e.target.files?.[0];if(!file)return;
