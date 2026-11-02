@@ -9,7 +9,7 @@ assert.equal(seed.school, SCHOOL_ID);
 assert.ok(seed.items.length >= 4);
 for (const item of seed.items) {
   assert.ok(canonicalLink(item.url,item.url), 'must be a verified official HTTPS article');
-  assert.ok(/^\d{4}-\d\d-\d\d$/.test(item.date));
+  assert.ok(item.date === null || /^\d{4}-\d\d-\d\d$/.test(item.date), 'Unknown publication dates must remain null, not invented');
 }
 assert.equal(dateFromText('发布日期：2026年11月2日'), '2026-11-02');
 assert.equal(dateFromText('发布日期：2026-02-30'), null);
@@ -33,7 +33,8 @@ assert.equal(result.sources[1].status,'error');
 assert.equal(result.items.find(n=>n.url.endsWith('/23333.htm')).date,'2026-10-29','preserve archive on partial failures');
 assert.ok(result.items.some(n=>n.url.endsWith('/23285.htm')));
 assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,'seed-jwc-23331','seed IDs remain stable');
-assert.equal(seed.lastSuccessAt,null,'fixture must not lie about auto success');
+if (seed.mode === 'seed') assert.equal(seed.lastSuccessAt, null, 'Initial snapshot cannot claim auto success');
+else { assert.equal(seed.mode, 'auto'); assert.ok(/^20\d\d-\d\d-\d\dT/.test(seed.lastSuccessAt), 'Live archive must contain a real update timestamp'); }
 const loaded=await collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),at:'2026-11-03T02:00:00.000Z'});
 assert.equal(loaded.mode,'auto');
 await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('JavaScript challenge',{status:202})}),/所有公开通知源均失败/);
