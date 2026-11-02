@@ -3,6 +3,7 @@ package xyz.dormos.nfc
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,7 +36,7 @@ internal fun NativeScenesSection(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("原生动作场景", color = p.ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text("复制 · 打开应用 · SH · 人工确认", fontSize = 11.sp, color = p.muted)
+            Text("复制 · 打开应用 · 聊天草稿 · SH · 人工确认", fontSize = 11.sp, color = p.muted)
         }
         OutlinedButton(
             onClick = {
@@ -128,6 +129,23 @@ private fun NativeSceneEditorSheet(
     var actions by remember(scene.id) { mutableStateOf(scene.actions) }
     var selecting by remember { mutableIntStateOf(-1) }
     var deletePrompt by remember { mutableStateOf(false) }
+    var choosingChatAppFor by remember { mutableIntStateOf(-1) }
+    val context = LocalContext.current
+    // Discover only installed apps that expose the standard text share target.
+    // The list is dynamic, not a hard-coded WeChat/QQ allowlist.
+    val shareTargets = remember(context) {
+        val pm = context.packageManager
+        val share = Intent(Intent.ACTION_SEND).apply { type = "text/plain" }
+        try {
+            pm.queryIntentActivities(share, 0)
+                .mapNotNull { item ->
+                    val pkg = item.activityInfo?.packageName ?: return@mapNotNull null
+                    pkg to (item.loadLabel(pm)?.toString() ?: pkg)
+                }
+                .distinctBy { it.first }
+                .sortedBy { it.second.lowercase() }
+        } catch (_: Exception) { emptyList() }
+    }
     V2BottomSheet("编辑原生动作", "触碰 NFC 后按顺序执行 · 不需要无障碍", onDismiss) {
         OutlinedTextField(
             value = name, onValueChange = { if (it.length <= 50) name = it },
@@ -171,7 +189,7 @@ private fun NativeSceneEditorSheet(
                         // Split without validation so fields stay editable while partially empty.
                         val parts = action.value.split('\n', limit = 3)
                         val currentDraft = ChatDraft(
-                            parts.getOrElse(0) { "com.tencent.mm" },
+                            parts.getOrElse(0) { "" },
                             parts.getOrElse(1) { "" },
                             parts.getOrElse(2) { "" }
                         )
@@ -187,6 +205,39 @@ private fun NativeSceneEditorSheet(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
+                        Spacer(Modifier.height(6.dp))
+                        Box {
+                            OutlinedButton(
+                                onClick = { choosingChatAppFor = index },
+                                enabled = shareTargets.isNotEmpty(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    if (shareTargets.isEmpty()) "未找到支持文本分享的应用"
+                                    else "从已安装应用中选择",
+                                    fontSize = 12.sp
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = choosingChatAppFor == index,
+                                onDismissRequest = { choosingChatAppFor = -1 }
+                            ) {
+                                shareTargets.forEach { (pkg, label) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(label, fontSize = 13.sp)
+                                                Text(pkg, color = p.muted, fontSize = 10.sp)
+                                            }
+                                        },
+                                        onClick = {
+                                            changeDraft(currentDraft.copy(appPackage = pkg))
+                                            choosingChatAppFor = -1
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(6.dp))
                         OutlinedTextField(
                             value = currentDraft.chatName,
@@ -265,10 +316,10 @@ private fun NativeSceneEditorSheet(
                             Modifier.fillMaxWidth().clickable {
                                 val defaultValue = when (kind) {
                                     NativeKind.COPY -> "请输入文字"
-                                    NativeKind.APP -> "com.tencent.mm"
+                                    NativeKind.APP -> ""
                                     NativeKind.URL -> "https://example.com"
                                     NativeKind.SH -> scripts.firstOrNull()?.id ?: ""
-                                    NativeKind.CHAT_DRAFT -> ChatDraftCodec.encode(ChatDraft("com.tencent.mm", "目标群聊名称", "请输入消息"))
+                                    NativeKind.CHAT_DRAFT -> ChatDraftCodec.encode(ChatDraft("", "", ""))
                                     NativeKind.MANUAL -> "检查内容并手动确认"
                                 }
                                 val list = actions.toMutableList()
