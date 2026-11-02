@@ -10,6 +10,8 @@ new Script(readFileSync(new URL('../public/xiaoxu-chaoxing-cli.js', import.meta.
 if(!html.includes('<script src="/xiaoxu-chaoxing-cli.js"></script>'))throw Error('Missing Chaoxing CLI source');
 if(!html.includes('<script src="/xiaoxu-task-import.js"></script>'))throw Error('Missing task import source');
 
+new Script(readFileSync(new URL('../public/xiaoxu-deadline-reminders.js', import.meta.url), 'utf8'), {filename:'xiaoxu-deadline-reminders.js'});
+if(!html.includes('<script src="/xiaoxu-deadline-reminders.js"></script>'))throw Error('Missing foreground deadline reminders module');
 const requiredElements = ['shell', 'app', 'editor', 'toast', 'icsInput', 'importInput', 'taskImportInput'];
 for (const id of requiredElements) {
   if (!new RegExp('id=["\x27]'+id+'["\x27]').test(html)) throw new Error('Missing element: '+id);
