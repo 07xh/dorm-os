@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, collectFromPublishedApi, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
+import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, collectFromPublishedApi, isVerifiedArchiveItem, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../config/ncwu-notices.json', import.meta.url), 'utf8'));
 const seed = JSON.parse(readFileSync(new URL('../public/data/notices.json', import.meta.url), 'utf8'));
@@ -9,6 +9,7 @@ assert.equal(seed.school, SCHOOL_ID);
 assert.ok(seed.items.length >= 4);
 for (const item of seed.items) {
   assert.ok(canonicalLink(item.url,item.url), 'must be a verified official HTTPS article');
+  assert.ok(isVerifiedArchiveItem(item), 'Published archive must not contain seed or unproven source identifiers');
   assert.ok(item.date === null || /^\d{4}-\d\d-\d\d$/.test(item.date), 'Unknown publication dates must remain null, not invented');
 }
 assert.equal(dateFromText('发布日期：2026年11月2日'), '2026-11-02');
@@ -26,13 +27,20 @@ const found=parseHtmlList(sample,source);
 assert.equal(found.length,2,'must dedupe URL, reject nav and external links');
 assert.equal(found[0].date,'2026-11-02');
 assert.equal(found[0].id,stableId(found[0].url));
-const result=mergeArchive(seed,[{source,items:found},{source:cfg.sources[1],error:'failed'}], '2026-11-03T02:00:00.000Z');
+const contaminated={...seed,items:[...seed.items,{
+ id:'seed-jwc-23331',title:'早期未验证样本通知',url:'https://www.ncwu.edu.cn/info/1063/23331.htm',
+ date:'2026-11-02',sourceId:'school',sourceName:'教学',category:'校园'
+}]};
+const preserved=seed.items.find(item=>item.url!==found[0].url&&item.url!==found[1].url);
+assert.ok(preserved,'Need a real previously verified item for the partial failure assertion');
+const result=mergeArchive(contaminated,[{source,items:found},{source:cfg.sources[1],error:'failed'}], '2026-11-03T02:00:00.000Z');
 assert.equal(result.mode,'auto');
 assert.equal(result.lastSuccessAt,'2026-11-03T02:00:00.000Z');
 assert.equal(result.sources[1].status,'error');
-assert.equal(result.items.find(n=>n.url.endsWith('/23333.htm')).date,'2026-10-29','preserve archive on partial failures');
+assert.equal(result.items.find(n=>n.url===preserved.url)?.id,preserved.id,'preserve genuine history on partial failures');
+assert.equal(result.items.some(n=>n.id.startsWith('seed-')),false,'Never publish initial placeholder records');
 assert.ok(result.items.some(n=>n.url.endsWith('/23285.htm')));
-assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,'seed-jwc-23331','seed IDs remain stable');
+assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,stableId(found[0].url),'Newly fetched real article replaces any seed marker');
 if (seed.mode === 'seed') assert.equal(seed.lastSuccessAt, null, 'Initial snapshot cannot claim auto success');
 else { assert.equal(seed.mode, 'auto'); assert.ok(/^20\d\d-\d\d-\d\dT/.test(seed.lastSuccessAt), 'Live archive must contain a real update timestamp'); }
 const loaded=await collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),at:'2026-11-03T02:00:00.000Z'});

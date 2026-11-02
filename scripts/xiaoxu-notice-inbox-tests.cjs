@@ -16,6 +16,15 @@ const archive={schema:'xiaoxu/notices-v1',mode:'auto',lastSuccessAt:'2026-11-03T
 const api={success:true,partial:false,fetchedAt:'2026-11-03T02:05:00Z',
  items:[article(2995),article(3003,'exam')]};
 assert.equal(lib.fromArchive(archive).items.length,2);
+const tainted={...archive,items:[...archiveItems,{
+ id:'seed-jwc-9888',title:'不是确认真实发布的学校样本',sourceName:'教务处',
+ sourceId:'jwc',category:'教学',date:'2026-11-02',
+ url:'https://www.ncwu.edu.cn/info/1063/9888.htm'
+}]};
+const filtered=lib.fromArchive(tainted);
+assert.equal(filtered.items.length,2,'Historic seed item must not be promoted by mode=auto');
+assert.equal(filtered.items.some(x=>x.title.includes('样本')),false,'Unverified record must never reach the inbox');
+assert.throws(()=>lib.fromArchive({...archive,items:[tainted.items[2],tainted.items[2]]}),/有效条目不足/);
 assert.equal(lib.fromArchive(archive).items[1].dateLabel,'','Unknown date must remain unknown');
 assert.equal(lib.fromApi(api).items.length,2);
 assert.equal(lib.merge(lib.fromApi(api),lib.fromArchive(archive)).length,4);

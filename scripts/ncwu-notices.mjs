@@ -83,12 +83,21 @@ export function parseHtmlList(html, source) {
   });
   return [...output.values()];
 }
+// The initial static snapshot included seed-* placeholders. A later successful
+// run must not retroactively certify those entries as school-verified records.
+export function isVerifiedArchiveItem(item) {
+  return !!item && typeof item === 'object' &&
+    typeof item.id === 'string' && item.id === stableId(item.url || '') &&
+    typeof item.title === 'string' && item.title.trim().length >= 8 &&
+    typeof item.sourceId === 'string' && !item.sourceId.startsWith('seed') &&
+    !!canonicalLink(item.url,item.url);
+}
 export function mergeArchive(previous, batches, at = new Date().toISOString()) {
   const prior = previous && previous.schema === SCHEMA && Array.isArray(previous.items)
     ? previous : { items: [], sources: [] };
   const items = new Map();
   for (const item of prior.items) {
-    if (!item || !canonicalLink(item.url, item.url)) continue;
+    if (!isVerifiedArchiveItem(item)) continue;
     items.set(item.url, item);
   }
   let newCount = 0;
@@ -101,6 +110,7 @@ export function mergeArchive(previous, batches, at = new Date().toISOString()) {
       continue;
     }
     for (const item of batch.items) {
+      if (!isVerifiedArchiveItem(item)) throw new Error('校方文章记录无有效采集来源，拒绝写入公开档案');
       const original = items.get(item.url);
       if (!original) newCount++;
       items.set(item.url, {

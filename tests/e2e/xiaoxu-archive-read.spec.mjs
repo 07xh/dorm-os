@@ -55,3 +55,41 @@ test('failed archive and API never use seed notices as successful live results',
  await expect(page.locator('.x-v7-notice-row')).toHaveCount(0);
  await expect(page.locator('.x-v7-notice-meta')).toContainText('当前无法读取学校官网');
 });
+
+
+test('auto archive never displays initial unverified seed records',async({page})=>{
+ await page.route('**/api/notices',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
+ const mixed=archive([
+  row(23331,'2026-11-02'),row(23332,null),
+  {...row(23333,'2026-11-03'),id:'seed-school-23333',title:'早期演示数据不应展示'}
+ ]);
+ await page.route('**/data/notices.json',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(mixed)}));
+ await page.goto('/#academic');
+ await expect(page.locator('.x-v7-notice-row')).toHaveCount(2);
+ await expect(page.locator('#app')).not.toContainText('早期演示数据不应展示');
+ await expect(page.locator('.x-v7-notice-meta')).toContainText('定时归档');
+ await page.reload();
+ await expect(page.locator('.x-v7-notice-row')).toHaveCount(2);
+});
+
+
+test('opening a real official notice preserves navigation while marking it read',async({page})=>{
+ await page.context().route('https://www.ncwu.edu.cn/info/**',r=>r.fulfill({
+  status:200,contentType:'text/html',body:'<html><title>学校公告正文</title></html>'
+ }));
+ await page.route('**/api/notices',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));
+ let items=[row(23331,'2026-11-02'),row(23332)];
+ await page.route('**/data/notices.json',r=>r.fulfill({status:200,contentType:'application/json',
+  body:JSON.stringify(archive(items))}));
+ await page.goto('/#academic');
+ await expect(page.locator('.x-v7-notice-row')).toHaveCount(2);
+ items=[...items,row(23334,'2026-11-03')];
+ await page.locator('[data-action="refresh-notices"]').click();
+ await expect(page.locator('.x-v7-unread-label')).toHaveCount(1);
+ const popupPromise=page.waitForEvent('popup');
+ await page.locator('.x-v7-notice-item[href$="/23334.htm"]').click();
+ const popup=await popupPromise;
+ await expect(popup).toHaveURL('https://www.ncwu.edu.cn/info/1063/23334.htm');
+ await expect(page.locator('.x-v7-unread-label')).toHaveCount(0);
+ await popup.close();
+});
