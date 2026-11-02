@@ -18,7 +18,7 @@ const archivePath = resolve(root, 'public/data/notices.json');
 export const SCHEMA = 'xiaoxu/notices-v1';
 export const SCHOOL_ID = '4141010078';
 const ALLOWED = new Set(['www.ncwu.edu.cn', 'www2.ncwu.edu.cn']);
-const ARTICLE_PATH = /^\/(?:xsc\/)?info\/\d+\/\d+\.htm$/i;
+const ARTICLE_PATH = /^\/(?:xsc\/|jiaowu\/)?info\/\d+\/\d+\.htm$/i;
 const MAX_ITEMS = 240;
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_BYTES = 1024 * 1024;
@@ -147,7 +147,48 @@ export async function fetchPublicHtml(url, fetcher = fetch) {
   try { return new TextDecoder(encoding).decode(buffer); }
   catch { return new TextDecoder('utf-8').decode(buffer); }
 }
-export async function collect({ fetcher = fetch, config = null, previous = null, at = new Date().toISOString() } = {}) {
+
+// 仅在三条校方源全部不可达时，使用现有 Cloudflare Pages 官方公开数据 API。
+// API 在 /functions/api/notices.js 中自行抓华水官网并严格核对来源。
+// 不读取用户账号或密钥；不可把代理响应的时间冒充学校原文发布日期。
+export const VERIFIED_API_URL = 'https://dorm-os-dk9.pages.dev/api/notices';
+export async function collectFromPublishedApi(fetcher=fetch, at=new Date().toISOString()) {
+  const res=await fetcher(VERIFIED_API_URL,{
+    headers:{'accept':'application/json'},
+    signal:AbortSignal.timeout(27000)
+  });
+  if(!res.ok)throw new Error('官网数据代理 HTTP '+res.status);
+  const final = new URL(res.url||VERIFIED_API_URL);
+  if(final.href!==VERIFIED_API_URL)throw new Error('官网数据代理重定向不可信');
+  if(res.headers.get('x-xiaoxu-public-notices')!=='1')throw new Error('未命中校序公开公告 API');
+  if(+(res.headers.get('content-length')||0)>160000)throw new Error('代理结果超出限制');
+  const body=await res.text();
+  if(body.length>160000)throw new Error('代理结果超出限制');
+  const data=JSON.parse(body);
+  if(data?.success!==true||!Array.isArray(data.items)||data.items.length<2||data.items.length>45)
+    throw new Error('代理没有通过真实官网采集验收');
+  const items=[];
+  for(const row of data.items){
+    const pathPattern=/^\/jiaowu\/info\/(?:1008|1034)\/\d{1,8}\.htm$/;
+    const url=canonicalLink(row?.url,row?.url);
+    const href=url?new URL(url):null;
+    if(!href||href.hostname!=='www2.ncwu.edu.cn'||!pathPattern.test(href.pathname)
+      ||!['notice','exam'].includes(row?.category)||row?.publishedAt!==null
+      ||typeof row?.title!=='string'||normalizeTitle(row.title).length<5)
+      throw new Error('代理返回的数据来源未通过校方文章链接校验');
+    items.push({
+      id:stableId(url),title:normalizeTitle(row.title),url,
+      date:null, // 原 API 只有 MM-DD，年份未知，禁止推测
+      sourceId:'jwc-api',sourceName:'教务处公开公告（校序官方网页代理）',
+      category:row.category==='exam'?'考试':'教学',
+    });
+  }
+  const source={id:'jwc-api',name:'教务处公开公告（代理兜底）',category:'教学',url:VERIFIED_API_URL};
+  console.log('官方公开公告代理兜底：'+items.length+' 条，源站与 API 鉴别已通过');
+  return {source,items};
+}
+
+export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = null, previous = null, at = new Date().toISOString() } = {}) {
   const cfg = config || JSON.parse(await readFile(configPath, 'utf8'));
   const old = previous || JSON.parse(await readFile(archivePath, 'utf8'));
   const batches = [];
@@ -168,7 +209,14 @@ export async function collect({ fetcher = fetch, config = null, previous = null,
     }
   }
   if (!batches.some(b => b.items?.length >= 2)) {
-    throw new Error('所有公开通知源均失败，不覆盖已有档案');
+    try {
+      // 海外 GitHub Runner 偶发全部 ETIMEDOUT：利用已验证的 Cloudflare
+      // Pages 公告 API 提供独立网络出口，不尝试对学校 WAF 做任何绕过。
+      batches.push(await collectFromPublishedApi(apiFetcher,at));
+    }catch(error){
+      console.warn('官方公告代理同样不可用：'+String(error?.message||error));
+      throw new Error('所有公开通知源均失败（可信代理也不可用），不覆盖已有档案');
+    }
   }
   return mergeArchive(old, batches, at);
 }
