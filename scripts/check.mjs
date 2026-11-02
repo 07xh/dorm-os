@@ -5,8 +5,10 @@ const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf
 const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
 if (!match) throw new Error('Missing inline application script');
 new Script(match[1], { filename: 'dorm-os-inline-app.js' });
+new Script(readFileSync(new URL('../public/xiaoxu-task-import.js', import.meta.url), 'utf8'), {filename:'xiaoxu-task-import.js'});
+if(!html.includes('<script src="/xiaoxu-task-import.js"></script>'))throw Error('Missing task import source');
 
-const requiredElements = ['shell', 'app', 'editor', 'toast', 'icsInput', 'importInput'];
+const requiredElements = ['shell', 'app', 'editor', 'toast', 'icsInput', 'importInput', 'taskImportInput'];
 for (const id of requiredElements) {
   if (!new RegExp('id=["\x27]'+id+'["\x27]').test(html)) throw new Error('Missing element: '+id);
 }
