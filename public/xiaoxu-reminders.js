@@ -41,7 +41,8 @@
   if(!payload.items.some(x=>x.key===key))throw Error('提醒不在当前收件箱');
   payload=await api('PATCH',{operation:'read',key,read});return payload;
  }
- function panel(){
+ function panel(context="settings"){
+  if(context==="tasks"&&(!connected||!payload))return "";
   if(!connected||!payload)return '<section class="card xu-reminder-panel" aria-label="个人云端提醒">'+
    '<div class="card-header"><span class="card-title">个人云端提醒</span>'+
    '<span class="xu-private-status">未连接</span></div>'+
