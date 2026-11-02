@@ -1,29 +1,29 @@
 {
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
-  "mode": "seed",
-  "lastSuccessAt": null,
+  "mode": "auto",
+  "lastSuccessAt": "2026-11-02T17:20:09.934Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "seed",
-      "lastSuccessAt": null,
-      "count": 0
+      "status": "ok",
+      "lastSuccessAt": "2026-11-02T17:20:09.934Z",
+      "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "seed",
-      "lastSuccessAt": null,
-      "count": 0
+      "status": "ok",
+      "lastSuccessAt": "2026-11-02T17:20:09.934Z",
+      "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "seed",
-      "lastSuccessAt": null,
-      "count": 0
+      "status": "ok",
+      "lastSuccessAt": "2026-11-02T17:20:09.934Z",
+      "count": 20
     }
   ],
   "items": [
@@ -32,27 +32,27 @@
       "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
       "date": "2026-11-02",
-      "sourceId": "jwc",
-      "sourceName": "教务处通知",
-      "category": "教学"
-    },
-    {
-      "id": "seed-jwc-23333",
-      "title": "关于开展2027届本科毕业生第一次毕业预审核工作的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23333.htm",
-      "date": "2026-10-29",
-      "sourceId": "jwc",
-      "sourceName": "教务处通知",
-      "category": "教学"
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
     },
     {
       "id": "seed-jwc-23332",
       "title": "关于2026-2027学年第二学期教学工作安排的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23332.htm",
       "date": "2026-10-29",
-      "sourceId": "jwc",
-      "sourceName": "教务处通知",
-      "category": "教学"
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "seed-jwc-23333",
+      "title": "关于开展2027届本科毕业生第一次毕业预审核工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23333.htm",
+      "date": "2026-10-29",
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
     },
     {
       "id": "seed-jwc-23285",
@@ -68,6 +68,249 @@
       "title": "关于核对和张贴2026级新生考生电子照片的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4139.htm",
       "date": "2026-09-28",
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-822d53c1ac2d41c7",
+      "title": "关于2025-2026学年学业导师工作考核的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23178.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-7cbcdf58cbbe2f5c",
+      "title": "关于组织申报2026年度“人工智能+”虚拟仿真实验教学项目的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23185.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-0d807b2926efe0ce",
+      "title": "关于举办智慧教学能力提升与教师教学创新大赛专题培训会的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23253.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-da97e83a0852a7e9",
+      "title": "关于2026-2027学年第二学期线下通识选修课程申报工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23334.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-ed4480181922d55a",
+      "title": "关于我校2026年度专业技术二级岗位推荐结果的公示",
+      "url": "https://www.ncwu.edu.cn/info/1065/23322.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-8d8849f32311e181",
+      "title": "关于开展“华北水利水电大学自强教育基金”评选工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1098/23330.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-1d0d1402b2302aed",
+      "title": "关于开展2026年度智库成果登记的通知",
+      "url": "https://www.ncwu.edu.cn/info/1110/23306.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-cdf5e78f406ebd06",
+      "title": "关于报送法治工作负责人和联络员的通知",
+      "url": "https://www.ncwu.edu.cn/info/1111/23308.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-bcfd110e94fc96e1",
+      "title": "关于做好2026年秋季学期本科生校外住宿管理工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4104.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-d659daa50e832f87",
+      "title": "关于加强2026-2027学年第一学期重点关注学生摸排帮扶工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4105.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-53103f8d2018f9ea",
+      "title": "关于2026级新生采集入校图像、参加入学资格审查人像比对的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4106.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-b5c03779b6955c86",
+      "title": "关于做好2026年新生入学期间学生资助工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4107.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-6731948f89462847",
+      "title": "关于做好2026年国家助学贷款工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4111.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-1e591b9aebd090e0",
+      "title": "关于做好2026年度高校国家助学贷款毕业生升学还款计划变更（展期）工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4112.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-3d05c1e8704ae960",
+      "title": "关于办理2026级新生学生证的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4117.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-41f2bd1c8d1198bc",
+      "title": "“以案说纪”学生警示教育（第26期）",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4118.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-a001479450dae020",
+      "title": "关于做好2026-2027学年学生勤工助学固定岗位换岗工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4127.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-9fee6d2f0359c328",
+      "title": "关于举办“赓续百年红色薪火聚力打造社区行走课堂”体验式开学第一课暨建校75周年主题活动的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4130.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-634202c820b115d4",
+      "title": "关于报送2026年度服兵役高校学生国家教育资助等信息的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4131.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-65ce67942c4752b2",
+      "title": "关于2026级新生进行学信网学籍电子注册信息查询核对的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4132.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-4d973ef0bb567128",
+      "title": "关于做好2026年中秋节及国庆节假期学生安全教育管理工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4133.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-47388eb512ca3c62",
+      "title": "关于成立学生资助工作领导小组的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4136.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-9663544c030c7952",
+      "title": "关于成立2026年本科生国家奖学金评审委员会的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4137.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-dac81ace38c08f9c",
+      "title": "关于开展2026年10月大学生思政主题教育活动的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4141.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-3f176c6a87692479",
+      "title": "关于2026-2027学年秋季学期“退役士兵国家助学金”拟资助名单的公示",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4145.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-5a583ae34c68a056",
+      "title": "关于做好我校2026年“潘家铮水电奖学金”评选的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4149.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-c10237416171a13b",
+      "title": "关于开展学生宿舍安全隐患排查和整治工作的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4150.htm",
+      "date": null,
       "sourceId": "student",
       "sourceName": "学生工作处",
       "category": "学生事务"
