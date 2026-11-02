@@ -1,0 +1,101 @@
+/* 校序 V8.3 · 基于现有 V8 设计 Tokens 的渐进式组件增强。
+ * 参考 Web Awesome/Shoelace 的语义控件范式，保持本地 CSS、内联 SVG、
+ * 原生 HTML 与 PWA 离线可用；不需要 CDN、模拟数据或额外 JS 框架。
+ */
+:root{
+ --xu-control-radius:12px;
+ --xu-control-height:42px;
+ --xu-control-outline:color-mix(in srgb,var(--xu-brand) 18%,transparent);
+ --xu-ease:cubic-bezier(.2,.75,.2,1);
+}
+#app .x-v83-notice-tools{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ margin:16px 0 14px;flex-wrap:wrap;min-width:0;
+}
+#app .x-v83-notice-search{
+ flex:1 1 235px;display:flex;align-items:center;gap:10px;min-width:0;
+ height:var(--xu-control-height);border:1px solid var(--xu-line);
+ border-radius:var(--xu-control-radius);padding:0 12px;
+ background:var(--xu-surface);color:var(--xu-muted);
+ transition:border-color .18s var(--xu-ease),box-shadow .18s var(--xu-ease);
+}
+#app .x-v83-notice-search .dorm-ui-icon{width:17px;height:17px;flex:none}
+#app .x-v83-notice-search input{
+ width:100%;min-width:0;background:none;border:0;outline:0!important;
+ box-shadow:none!important;color:var(--xu-ink);font-size:13px;padding:9px 0;
+}
+#app .x-v83-notice-search input::placeholder{color:var(--xu-muted);opacity:.85}
+#app .x-v83-notice-search:focus-within{
+ border-color:var(--xu-brand);box-shadow:0 0 0 3px var(--xu-control-outline);
+}
+#app .x-v7-notice-filters{
+ display:flex;align-items:center;gap:3px;margin:0;padding:3px;
+ background:var(--xu-soft);border:1px solid var(--xu-line);
+ border-radius:var(--xu-control-radius);min-width:0;
+}
+#app .x-v7-notice-filters button{
+ appearance:none;min-height:33px;border:0!important;padding:7px 11px!important;
+ border-radius:9px!important;background:transparent;color:var(--xu-muted);
+ white-space:nowrap;font-size:12px!important;font-weight:650;
+ transition:background-color .17s var(--xu-ease),color .17s var(--xu-ease);
+}
+#app .x-v7-notice-filters button:hover{color:var(--xu-brand);background:color-mix(in srgb,var(--xu-surface) 60%,transparent)}
+#app .x-v7-notice-filters button.selected{
+ background:var(--xu-surface)!important;color:var(--xu-brand)!important;
+ box-shadow:0 2px 7px #1e57af15;
+}
+#app #publicNoticeList{min-width:0}
+#app .x-v7-notice-feed{
+ border:1px solid var(--xu-line);border-radius:14px;overflow:hidden;
+ background:var(--xu-surface);
+}
+#app .x-v7-notice-row{padding:0 12px;border-bottom:1px solid var(--xu-line);min-width:0}
+#app .x-v7-notice-row:last-child{border-bottom:0}
+#app .x-v7-notice-row:hover{background:var(--xu-soft)}
+#app .x-v7-notice-item{border:0;min-height:71px;gap:12px;padding:12px 0}
+#app .x-v7-notice-title{line-height:1.5;overflow-wrap:anywhere}
+#app .x-v7-notice-topic{flex-shrink:0}
+#app .x-v7-notice-date{flex-shrink:0}
+#app .x-v7-notice-meta{line-height:1.65;overflow-wrap:anywhere}
+#app .x-v7-mark-all,#app .x-v7-mark-read{
+ border-radius:10px;min-height:32px;
+ transition:background-color .16s var(--xu-ease),color .16s var(--xu-ease);
+}
+#app .x-v7-academic-card{min-width:0}
+#app .x-v7-academic-card .card-header{align-items:center}
+#app .x-v7-secondary{scroll-snap-type:x proximity}
+#app .x-v7-secondary button{scroll-snap-align:center}
+#app .x-v7-secondary button[aria-selected="true"]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--xu-brand) 22%,transparent)}
+#app .x-v8-stat,#app .x-v7-home-notices,#app .x-v7-home-grid .home-widget{
+ transition:border-color .18s var(--xu-ease),box-shadow .18s var(--xu-ease);
+}
+#app .x-v8-stat:hover,#app .x-v7-home-notices:hover,#app .x-v7-home-grid .home-widget:hover{
+ border-color:color-mix(in srgb,var(--xu-brand) 23%,var(--xu-line))!important;
+}
+#app .search-panel input[type="search"]:focus-visible,
+#app .x-v83-notice-search input:focus-visible{outline:0!important}
+#app .search-result{transition:border-color .15s var(--xu-ease),background-color .15s var(--xu-ease)}
+#app .search-result:hover{background:var(--xu-soft);border-color:var(--xu-brand)}
+#app :is(.primary,.secondary,.filter-btn):active:not(:disabled){transform:scale(.985)}
+#app .x-v7-notice-item:focus-visible{
+ outline:2px solid var(--xu-brand);outline-offset:-2px;border-radius:8px;
+}
+@media(max-width:790px){
+ #app .x-v83-notice-tools{display:grid;gap:10px}
+ #app .x-v83-notice-search{width:100%;flex:auto}
+ #app .x-v7-notice-filters{display:flex;overflow-x:auto;scrollbar-width:none;width:100%}
+ #app .x-v7-notice-filters button{flex:1 0 auto;padding:8px 7px!important}
+ #app .x-v7-notice-row{padding:0 10px}
+ #app .x-v7-notice-item{min-height:73px;gap:9px}
+ #app .x-v7-notice-date{font-size:10px}
+}
+@media(max-width:375px){
+ #app .x-v7-notice-row{padding:0 8px}
+ #app .x-v7-notice-filters button{font-size:11px!important}
+ #app .x-v7-notice-title{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ #app .x-v83-notice-search,#app .x-v7-notice-filters button,
+ #app .search-result,#app .x-v8-stat,#app .x-v7-home-notices,
+ #app .x-v7-home-grid .home-widget{transition:none!important}
+}
