@@ -633,6 +633,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 
 </style>
   <title>校序 · 华水教务整合</title>
+  <link rel="stylesheet" href="/ncwu-notices.css">
 </head>
 <body>
 <svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
@@ -666,6 +667,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 <input id="taskImportInput" type="file" accept="application/json,.json" hidden>
 <script src="/xiaoxu-task-import.js"></script>
 <script src="/xiaoxu-chaoxing-cli.js"></script>
+<script src="/ncwu-notice-ui.js"></script>
 <script>
 const TZ = 'Asia/Shanghai';
 const CAMPUSES = Object.freeze({
@@ -1024,7 +1026,7 @@ function dashboard(){
   +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+(essentials.length?essentials.map(homeWidgetContent).join(''):'<div class="friendly-empty">已隐藏课表和任务模块，可通过「调整布局」恢复。</div>')+'</div>'
   +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
-  +'<p class="small muted">官方公告自动同步尚未连接。可进入教务查看华水教务处官方发布入口。</p></section>'
+  +globalThis.XiaoxuNoticeFeed.home()+'</section>'
   +(extras.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extras.length+' 项</span></summary>'
     +'<div class="home-widget-grid v4-extra-widgets">'+extras.map(homeWidgetContent).join('')+'</div></details>':'');
 }
@@ -1132,10 +1134,7 @@ const ACADEMIC_TABS=Object.freeze([
 function academicPage(){
  let content='';
  if(academicTab==='notices'){
-  content='<section class="card x-v7-academic-card"><h2>教务处官方通知</h2><p class="small muted">当前提供学校原文入口；自动采集和已读提醒将在独立的真实数据服务通过验收后启用。</p>'
-   +safeLink('教务处通知公告','https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm','公开通知 · 以学校原文为准')
-   +safeLink('教务处考试安排','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','公开考试公告及附件 · 非个人考场')
-   +'</section>';
+  content=globalThis.XiaoxuNoticeFeed.academic();
  }else if(academicTab==='grades'){
   content='<section class="card x-v7-academic-card"><h2>我的成绩</h2><p class="small muted">尚未连接华水青果本人账号。成绩、学分、绩点均以学校原始记录为准；未连接时不显示模拟成绩。</p><div class="x-v7-not-connected">未连接青果成绩查询</div></section>';
  }else if(academicTab==='exams'){
@@ -1695,7 +1694,7 @@ if((requestedTag||deepLink.has('dormScene'))&&linkedTag&&encodedScene&&encodedSc
   persist();history.replaceState(null,'',location.pathname+'#scenes');
 }
 page=nameMap[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
-loadWeather();restoreTimerState();render();fetchWeather();setInterval(tick,10000);
+loadWeather();restoreTimerState();render();fetchWeather();globalThis.XiaoxuNoticeFeed.refresh();setInterval(tick,10000);
 updateOfflineBanner();
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')) navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('离线缓存注册失败',e));
 
