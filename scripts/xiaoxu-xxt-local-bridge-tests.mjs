@@ -54,6 +54,9 @@ try{
  assert.equal(exported.tasks[0].externalId,'work:123:456');
  assert.ok(!JSON.stringify(exported).includes('private-token'));
  if(process.platform!=='win32')assert.equal(statSync(output).mode&0o777,0o600);
+ const inRepo=spawnSync(process.execPath,['scripts/xiaoxu-xxt-local-bridge.mjs','--file',input,'--out',join(cwd,'personal-test-export.json')],{cwd,encoding:'utf8'});
+ assert.notEqual(inRepo.status,0,'cannot write personal data inside Git repo');
+ assert.match(inRepo.stderr,/仓库之外/);
  const second=run();
  assert.notEqual(second.status,0,'must not silently overwrite an old export');
  assert.ok(!second.stderr.includes('private-token'));
