@@ -200,7 +200,16 @@
    await refresh();return true;
   }catch(e){if(e.status===409)await refresh().catch(()=>{});throw e;}
  }
+ function reminderCandidates(localTasks=[]){
+  if(!online)return [];
+  const exclude=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
+  return items.filter(x=>!x.legacy_id||!exclude.has(x.legacy_id)).map(x=>({
+   id:'cloud:'+x.id,title:x.title,local_status:x.local_status,
+   platform_status:x.platform_status,due_precision:x.due_precision,
+   due_at_utc:x.due_at_utc,due_local_date:x.due_local_date
+  }));
+ }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,isReady,taskCount,taskRows,deadlineSummary,panel,previewLegacy,commitLegacy,toggle
+  connect,disconnect,refresh,isReady,taskCount,taskRows,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
  });
 })(globalThis);
