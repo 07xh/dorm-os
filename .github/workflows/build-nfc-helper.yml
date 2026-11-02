@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - feature/ncwu-nfc-one-shot-v1
+      - feature/tapflow-native-action-chain-rc1
     paths:
       - 'android/nfc-helper/**'
       - 'modules/dormos-nfc-ksu/**'
@@ -61,6 +62,42 @@ jobs:
         with:
           name: dorm-os-nfc-receiver-debug
           path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
+
+  # One-time public RC delivery; never overwrites previous preview artifacts.
+  publish-chat-preview:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/tapflow-native-action-chain-rc1' && startsWith(github.event.head_commit.message, 'release-chat-preview:')
+    needs: [debug-apk, ksu-zip]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download CI-tested and package-verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: dorm-os-nfc-receiver-debug
+          path: verified-apk
+      - name: Publish independently installable TapFlow RC
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -s verified-apk/app-debug.apk
+          mkdir -p release
+          cp verified-apk/app-debug.apk release/TapFlow-Chat-Config-RC-debug.apk
+          (cd release && sha256sum TapFlow-Chat-Config-RC-debug.apk > SHA256SUMS.txt)
+          TAG="tapflow-chat-config-rc-20261102"
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Refusing to overwrite published release $TAG"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            release/TapFlow-Chat-Config-RC-debug.apk \
+            release/SHA256SUMS.txt \
+            --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
+            --title "触序 TapFlow · 通用聊天配置 RC（独立安装）" \
+            --notes "Debug RC APK from exact CI-verified commit $GITHUB_SHA. Android application ID xyz.dormos.nfc.rc, independent from existing TapFlow. No built-in WeChat/group scene. Chat app selected from installed text-sharing apps; target conversation and message configured in TapFlow. ACTION_SEND plus clipboard fallback; recipient selection and message sending remain manual. Supports old local-scenes migration without deleting edited scenes. KernelSU/physical NFC functionality requires separate device verification."
 
   signed-release-apk:
     if: github.event_name == 'workflow_dispatch' && vars.DORMOS_RELEASE_ENABLED == 'true'
