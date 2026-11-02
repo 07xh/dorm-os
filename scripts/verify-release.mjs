@@ -38,6 +38,11 @@ const publicArchive = JSON.parse(await readRoute('/data/notices.json'));
 assert.equal(publicArchive.schema,'xiaoxu/notices-v1','Published public archive has the wrong schema');
 assert.equal(publicArchive.school,'4141010078','Published public archive has the wrong school code');
 assert.ok(Array.isArray(publicArchive.items) && publicArchive.items.length >= 5,'Published notice archive is missing');
+for(const item of publicArchive.items){
+ assert.match(item.id||'',/^ncwu-[0-9a-f]{16}$/, 'Deployed archive cannot contain unverified seed or synthetic article IDs');
+ assert.ok(typeof item.sourceId==='string'&&item.sourceId&&!item.sourceId.startsWith('seed'), 'Notice source provenance is missing');
+ assert.ok(typeof item.url==='string'&&/^https:\/\/www2?\.ncwu\.edu\.cn\//.test(item.url), 'Non-official article URL rejected');
+}
 if(publicArchive.mode === 'auto'){
  assert.match(publicArchive.lastSuccessAt || '',/^20\d\d-\d\d-\d\dT/, 'Auto-collected archive must carry real collection time');
  assert.ok(publicArchive.sources.some(s=>s.status==='ok'),'Auto archive has no successful source');
