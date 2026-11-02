@@ -32,6 +32,17 @@ const importer=await readRoute('/xiaoxu-task-import.js');
 assert.ok(importer.includes('xiaoxu-task-batch-v1'),'Task import module missing from production');
 const sw=await readRoute('/sw.js');
 assert.ok(sw.includes('dorm-os-shell-'),'PWA service worker missing');
+// Public history is a separately deployed, bot-maintained snapshot: do not mistake
+// a collector-only GitHub commit for a new Cloudflare release.
+const publicArchive = JSON.parse(await readRoute('/data/notices.json'));
+assert.equal(publicArchive.schema,'xiaoxu/notices-v1','Published public archive has the wrong schema');
+assert.equal(publicArchive.school,'4141010078','Published public archive has the wrong school code');
+assert.ok(Array.isArray(publicArchive.items) && publicArchive.items.length >= 5,'Published notice archive is missing');
+if(publicArchive.mode === 'auto'){
+ assert.match(publicArchive.lastSuccessAt || '',/^20\d\d-\d\d-\d\dT/, 'Auto-collected archive must carry real collection time');
+ assert.ok(publicArchive.sources.some(s=>s.status==='ok'),'Auto archive has no successful source');
+}else assert.equal(publicArchive.mode,'seed','Archive provenance status must be explicit');
+console.log('NCWU archive deployed: '+publicArchive.items.length+' items; mode '+publicArchive.mode);
 // Do not confuse a successful static release with a deployed, functioning Pages API.
 // An unreachable NCWU upstream may produce a valid 503 JSON; that is not live data success.
 const noticeResp=await fetch(base+'/api/notices',{
