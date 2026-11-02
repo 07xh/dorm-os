@@ -51,7 +51,7 @@ test('official source outage preserves cached notices and never claims school is
 test('first-time official notices failure shows source fallback instead of fake data',async({page})=>{
  await page.route('**/api/notices',async route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.goto('/#academic');
- await expect(page.locator('.x-v7-notice-meta')).toContainText('无法刷新');
+ await expect(page.locator('.x-v7-notice-meta')).toContainText('当前无法读取学校官网');
  await expect(page.locator('.x-v7-notice-item')).toHaveCount(0);
  await expect(page.locator('a[href="https://www2.ncwu.edu.cn/jiaowu/jwdt/tzgg.htm"]')).toBeVisible();
 });
