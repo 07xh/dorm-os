@@ -73,6 +73,7 @@ await assert.rejects(collectFromPublishedApi(async()=>apiReply({...officialApi,s
 
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 assert.ok(html.includes('function loadPublicNotices('),'preserve existing /api/notices functionality');
-assert.ok(html.includes("fetch('/api/notices'"),'current Cloudflare Pages API stays in use');
+assert.ok(html.includes("getJson('/api/notices')")||html.includes("fetch('/api/notices'"),'current Cloudflare Pages API stays in use');
+assert.ok(html.includes("getJson(NOTICE_ARCHIVE_URL)"),'scheduled notice archive must be read and merged, not only embedded as static UI');
 assert.ok(html.includes('function academicPage()'),'preserve existing academic UI');
 console.log('NCWU notice fixture, source whitelist, stable archive and fail-safe tests passed');
