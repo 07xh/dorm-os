@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
+import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, validatePagesFeed, fetchPagesFallback, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../config/ncwu-notices.json', import.meta.url), 'utf8'));
 const seed = JSON.parse(readFileSync(new URL('../public/data/notices.json', import.meta.url), 'utf8'));
@@ -36,8 +36,37 @@ assert.equal(result.items.find(n=>n.url.endsWith('/23331.htm')).id,'seed-jwc-233
 assert.equal(seed.lastSuccessAt,null,'fixture must not lie about auto success');
 const loaded=await collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),at:'2026-11-03T02:00:00.000Z'});
 assert.equal(loaded.mode,'auto');
-await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('JavaScript challenge',{status:202})}),/所有公开通知源均失败/);
-await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('<html><body>空白</body></html>',{status:200})}),/所有公开通知源均失败/);
+await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('JavaScript challenge',{status:202})}),/均不可达/);
+await assert.rejects(collect({config:{sources:[source]},previous:seed,fetcher:async()=>new Response('<html><body>空白</body></html>',{status:200})}),/均不可达/);
+
+const edgeData={success:true,fetchedAt:'2026-11-03T02:20:00.000Z',items:[
+ {source:'notices',category:'notice',title:'关于开展本学期课程教学评估的通知',
+  url:'https://www2.ncwu.edu.cn/jiaowu/info/1008/3003.htm',dateLabel:'11-03',publishedAt:null},
+ {source:'exams',category:'exam',title:'关于期末考试安排的通知及注意事项',
+  url:'https://www2.ncwu.edu.cn/jiaowu/info/1034/3004.htm',dateLabel:'11-02',publishedAt:null}
+]};
+const verified=validatePagesFeed(edgeData);
+assert.equal(verified.length,2,'two recognized official source types');
+assert.equal(verified[0].items[0].date,null,'MM-DD does not imply an ISO date');
+assert.equal(verified[1].items[0].category,'考试');
+assert.throws(()=>validatePagesFeed({...edgeData,items:[{...edgeData.items[0],url:'https://evil.example/jiaowu/info/1008/3003.htm'},edgeData.items[1]]}),/URL rejected/);
+assert.throws(()=>validatePagesFeed({...edgeData,items:[{...edgeData.items[0],url:'https://www2.ncwu.edu.cn/jiaowu/info/1034/3003.htm'},edgeData.items[1]]}),/URL rejected/);
+assert.throws(()=>validatePagesFeed({...edgeData,success:false}),/invalid/);
+const edgeResponse=()=>new Response(JSON.stringify(edgeData),{status:200,headers:{
+ 'content-type':'application/json','x-xiaoxu-public-notices':'1'
+}});
+const edge=await fetchPagesFallback(async()=>edgeResponse());
+assert.equal(edge.length,2);
+const fallbackUsed=await collect({
+ config:{sources:[source]},previous:seed,at:'2026-11-03T02:25:00.000Z',
+ fetcher:async(url)=>url.includes('/api/notices')?edgeResponse():new Response('JavaScript challenge',{status:202})
+});
+assert.equal(fallbackUsed.mode,'auto');
+assert.equal(fallbackUsed.lastSuccessAt,'2026-11-03T02:25:00.000Z');
+assert.ok(fallbackUsed.items.some(item=>item.url.endsWith('/3003.htm')));
+assert.ok(fallbackUsed.sources.some(x=>x.id==='jwc-edge'&&x.status==='ok'));
+assert.ok(fallbackUsed.sources.some(x=>x.id===source.id&&x.status==='error'));
+
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 assert.ok(html.includes('function loadPublicNotices('),'preserve existing /api/notices functionality');
 assert.ok(html.includes("fetch('/api/notices'"),'current Cloudflare Pages API stays in use');
