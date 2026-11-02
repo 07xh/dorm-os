@@ -214,7 +214,6 @@ html:not(.theme-light) #app .x-v8-connection-state{background:#52391f;color:#ffe
 @media(prefers-reduced-motion:reduce){.x-v7-header .nav-link,#app button{transition:none!important}
  #app > :first-child{animation:none!important}}
 
-
 /* V8.1 academic workspace · native progressively-enhanced components.
  * Reuses the semantics of headless tab/panel design (no CDN required offline).
  */
