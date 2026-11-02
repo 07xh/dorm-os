@@ -108,4 +108,35 @@ const unsigned=await onRequestPost({
   }),env
 });
 assert.equal(unsigned.status,401,'private writes require signed identity');
+assert.throws(()=>normalizeManualAssignment({
+  title:'无效个人时间',personalTargetAt:'2026-02-30T12:00:00+08:00'
+}),AcademicInputError,'impossible local dates must not be silently normalized');
+const oldFetch=globalThis.fetch;
+globalThis.fetch=fetcher;
+try {
+  const payload={title:'来自已验证身份的手动作业',deadline:{
+    precision:'date',date:'2026-11-22'
+  }};
+  const post=await onRequestPost({request:requestFor(jwt,{
+    method:'POST',headers:{'Content-Type':'application/json','Origin':'https://academic.example'},
+    body:JSON.stringify(payload)
+  }),env});
+  assert.equal(post.status,201,'signed request creates a real database row');
+  const saved=await post.json();
+  assert.equal(saved.item.duePrecision,'date');
+  const list=await onRequestGet({request:requestFor(jwt),env});
+  assert.equal(list.status,200);
+  const listed=await list.json();
+  assert.equal(listed.items.length,1);
+  assert.equal(listed.items[0].title,payload.title);
+  const forbidden=await onRequestPost({request:requestFor(jwt,{
+    method:'POST',headers:{'Content-Type':'application/json','Origin':'https://evil.example'},
+    body:JSON.stringify(payload)
+  }),env});
+  assert.equal(forbidden.status,403,'cross-site write rejected');
+  const missingDb=await onRequestGet({request:requestFor(jwt),env:{
+    ACCESS_TEAM_DOMAIN:team,ACCESS_AUD:audience
+  }});
+  assert.equal(missingDb.status,503,'missing D1 binding fails closed');
+} finally {globalThis.fetch=oldFetch;}
 console.log('校序 Academic M1：SQLite 迁移、用户隔离、日期精度、JWT 签名和未配置拒绝测试通过');
