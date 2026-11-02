@@ -1,5 +1,5 @@
-const CACHE='dorm-os-shell-v4-ui5-touch';
-const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE='dorm-os-shell-v4-ui5-touch-task-import';
+const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-task-import.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
 self.addEventListener('fetch',e=>{
