@@ -4,9 +4,25 @@ import {runInNewContext} from 'node:vm';
 import {DatabaseSync} from 'node:sqlite';
 import {webcrypto} from 'node:crypto';
 import {buildReminderInbox,shanghaiDay} from '../lib/academic-reminder-inbox.mjs';
+import {normalizeRecord} from '../lib/academic-contract.mjs';
 import {verifyAcademicAccess} from '../lib/academic-access.mjs';
 import {onRequestGet,onRequestPatch} from '../functions/api/v1/reminders.js';
 
+const second=normalizeRecord('second-class',{
+ externalId:'activity-1',title:'二课合成记录',credit:1.5,hours:2,points:8,
+ activityStatus:'completed'
+});
+assert.equal(second.credit,1.5);
+assert.equal(second.hours,2);
+assert.equal(second.points,8);
+assert.equal(second.activityStatus,'completed');
+assert.throws(()=>normalizeRecord('second-class',{externalId:'x',title:'活动',activityStatus:'secret'}),/未知二课/);
+assert.equal(normalizeRecord('exams',{
+ externalId:'exam-2',term:'2026-1',title:'考试',date:'2026-11-20',startTime:'10:30'
+}).startTime,'10:30');
+assert.throws(()=>normalizeRecord('exams',{
+ externalId:'exam-2',term:'2026-1',title:'考试',date:'2026-11-20',startTime:'25:00'
+}),/无效/);
 const today=shanghaiDay(Date.now());
 const move=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 const exam={externalId:'exam-1',title:'考试（合成测试）',date:move(today,2),term:'test-term'};
