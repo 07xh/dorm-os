@@ -61,6 +61,7 @@
    '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
    (active?'已启用站内提醒':'未订阅站内提醒')+'</span></div>'+
    '<p class="small muted">提醒基于本人云端任务和个人导入考试快照，不代表学校平台已自动连接。已读在同一云端账号下同步；关闭网页后暂不提供系统推送。</p>'+
+   (error?'<p role="alert" class="small xu-private-error">最近刷新失败；以下为上次加载的数据，请核对：'+escapeHtml(error)+'</p>':'')+
    '<div class="button-row"><button type="button" class="'+(active?'secondary':'primary')+'" data-action="'+
    (active?'reminder-disable':'reminder-enable')+'">'+(active?'关闭站内订阅':'开启站内订阅')+'</button>'+
    '<button type="button" class="secondary" data-action="reminder-refresh">刷新</button></div>'+
