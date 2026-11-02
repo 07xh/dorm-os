@@ -1,0 +1,20 @@
+/* 华水官方通知：遵循校序原有蓝白卡片设计 */
+.x-notice-header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.x-notice-header h2{margin-bottom:5px}
+.x-notice-header p{margin:0 0 12px}
+.x-notice-home-items,.x-notice-list{display:grid}
+.x-notice-home-link{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line,#d7e4f3);text-decoration:none;color:inherit;font-size:13px}
+.x-notice-home-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x-notice-home-link small{color:var(--muted);white-space:nowrap}
+.x-notice-toolbar{display:grid;gap:11px;margin:9px 0 14px}
+#xiaoxu-notice-search{width:100%;max-width:460px;min-height:43px;padding:10px 12px;border:1px solid var(--line,#c8d8ec);border-radius:12px;background:var(--surface2,#fff);color:var(--text)}
+.x-notice-filters{display:flex;gap:8px;flex-wrap:wrap}
+.x-notice-filter{padding:7px 12px;border:1px solid var(--line,#c8d8ec);border-radius:100px;background:transparent;color:var(--text);font-size:12px}
+.x-notice-filter.active{border-color:#4680de;background:#eaf2ff;color:#2358a0}
+.x-notice-item{display:grid;gap:5px;padding:13px 0;text-decoration:none;color:inherit;border-top:1px solid var(--line,#d7e4f3)}
+.x-notice-item strong{font-size:14px;font-weight:600;line-height:1.5}
+.x-notice-item small{font-size:12px;color:var(--muted)}
+.x-notice-item:hover strong,.x-notice-home-link:hover{color:#3974d7}
+.x-notice-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:12px}
+.x-notice-footer a{color:#3974d7}
+@media(max-width:600px){.x-notice-home-link{align-items:start;flex-direction:column;gap:3px}.x-notice-home-link span{white-space:normal}}
