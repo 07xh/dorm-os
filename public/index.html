@@ -1189,7 +1189,7 @@ function safeLink(name,url,hint=''){
 
 
 // 校序官方公开公告：只读取固定 allowlist API，不读取学校登录会话。
-const NOTICE_CACHE_KEY='xiaoxu-official-notice-cache-v2';
+const NOTICE_CACHE_KEY='xiaoxu-official-notice-cache-v3-verified-only';
 const NOTICE_ARCHIVE_URL='/data/notices.json';
 function restorePublicNotices(){
  if(noticeFeed)return;
