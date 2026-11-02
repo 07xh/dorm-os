@@ -726,6 +726,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 <script src="/xiaoxu-notices.js"></script>
 <script src="/xiaoxu-academic-client.js"></script>
 <script src="/xiaoxu-cloud-tasks.js"></script>
+<script src="/xiaoxu-deadline-reminders.js"></script>
 <script>
 const TZ = 'Asia/Shanghai';
 const CAMPUSES = Object.freeze({
@@ -1432,6 +1433,7 @@ function tasksPage(){
  <div class="list-controls v4-filters">${[['all','全部'],['open','待完成'],['done','已完成']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}" aria-pressed="${taskFilter===k}">${l}</button>`).join('')}</div>
  <button type="button" class="secondary v4-export" data-action="export-deadlines">添加到日历</button></section>
  ${XiaoxuCloudTasks.deadlineSummary(state.tasks)}
+ ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div class="task-context"><span>${remaining} 项待完成${linked?' · '+linked+' 项学习通记录':''}</span><span class="task-context-source" title="云端任务不代表学校平台自动登录">${XiaoxuCloudTasks.isReady()?'已加载个人云端作业 · 平台会话待核验':'学习通未连接自动同步'}</span></div>
  <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+(XiaoxuCloudTasks.isReady()&&XiaoxuCloudTasks.taskCount()?'':XiaoxuAcademic.taskRows(taskFilter))+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>`;
 }
@@ -1925,6 +1927,7 @@ function chooseQuickAdd(kind){
  else if(kind==='nfc')tagDialog();
 }
 function clickAction(action){
+ if(action.startsWith('deadline-ack:')){if(XiaoxuDeadlineReminders.ack(action.slice(13))){render();toast('已知道：不会改变任务完成状态');}return;}
  if(action==='academic-connect'){
   XiaoxuAcademic.connect().then(async()=>{await XiaoxuCloudTasks.connect().catch(()=>null);render();toast('已读取可用的个人学业数据');}).catch(err=>{render();toast(String(err.message||'尚未完成 Cloudflare Access 授权'));});
   return;
