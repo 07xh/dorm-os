@@ -37,7 +37,7 @@
     });
     return {format: FORMAT, source: input.source, tasks};
   }
-  function planImport(existingTasks, batch, makeId, importedAt) {
+  function planImport(existingTasks, batch, makeId, importedAt, options = {}) {
     if (!Array.isArray(existingTasks) || typeof makeId !== 'function') throw new Error('本地任务状态无效');
     const clean = normalizeBatch(batch);
     const output = existingTasks.map(item => ({...item}));
@@ -47,9 +47,14 @@
       const current = output.find(t => t.source === clean.source && t.sourceId === item.externalId);
       if (current) {
         const changeset = {
-          title: item.title, course: item.course, due: item.due, dueAt: item.dueAt,
+          title: item.title, course: item.course,
           sourceStatus: item.status
         };
+        // CLI hw-ls may omit the deadline entirely; absence is not an official cancellation.
+        if (!(options.preserveUnknownDue && !item.due)) {
+          changeset.due = item.due;
+          changeset.dueAt = item.dueAt;
+        }
         const differs = Object.keys(changeset).some(k => (current[k] || '') !== changeset[k]);
         if (!differs) continue;
         Object.assign(current, changeset, {importedAt});
