@@ -45,3 +45,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+
+## 海外 GitHub Runner 的备用出口
+
+主采集器优先直接访问三条华水公开栏目。若本轮全部失败，则调用已部署的 `https://dorm-os-dk9.pages.dev/api/notices`。该 Cloudflare Pages Function 自行读取华水教务处公开「通知/考试」栏目。
+
+只有 API 响应带 `x-xiaoxu-public-notices: 1`、`success: true`、每条链接通过 `www2.ncwu.edu.cn/jiaowu/info/...` 官方白名单，才允许归档；其余全部失败保留旧数据。只有 MM-DD 的发布日期不推断年份，`date` 保持 null。
+
+兜底源 `jwc-api` 与教务、校级、学工处三个直连源独立记录状态。备用源只覆盖教务/考试，不等于其他栏目已抓取成功，也不涉及需登录的青果个人教务。
