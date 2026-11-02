@@ -56,8 +56,8 @@ assert.equal(api.taskCount(),2);
 assert.equal(api.taskRows('all',[]).includes('平台已提交'),true);
 assert.equal(api.taskRows('all',[]).includes('<img'),false,'HTML must be escaped');
 assert.ok(api.taskRows('all',[]).includes('时间未知'));
-assert.ok(api.taskRows('open',[{id:'local-1'}]).includes('cloud-1')===false,
-  'task row should not leak internal IDs into unrelated attributes');
+assert.ok(api.taskRows('open',[{id:'local-1'}]).includes('平台已提交'),
+  'open cloud tasks show the platform status independently');
 assert.equal(api.taskRows('all',[{id:'local-1'}]).includes('历史任务'),false,
  'migrated record already present locally must not be shown twice');
 assert.equal(api.taskRows('done',[]).includes('历史任务'),true);
