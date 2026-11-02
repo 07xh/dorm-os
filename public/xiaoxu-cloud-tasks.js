@@ -1,0 +1,170 @@
+/* 校序云端任务工作台：只由用户主动连接，保留本地任务与现有备份。
+ * 账号认证由受保护的 Pages API 处理；从不保存会话凭据。
+ */
+(function(root){
+ 'use strict';
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let online=false,items=[],health=null,error='',migration=null,busy=false;
+ async function api(path,method='GET',data){
+  const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
+   redirect:'error',headers:{'Accept':'application/json',...(data?{'Content-Type':'application/json'}:{})},
+   ...(data?{body:JSON.stringify(data)}:{})});
+  if(!(r.headers.get('content-type')||'').includes('application/json'))
+   throw Error('学业接口未返回 JSON，请检查本人 Access 登录与 D1 配置');
+  const body=await r.json();
+  if(!r.ok){
+   const message=r.status===401?'请先完成本人 Access 登录':
+    r.status===503?'私有数据库或接口尚未配置':
+    r.status===409?'数据发生冲突，请重新检查并重试':
+    String(body.error||body.status||'数据请求失败');
+   const e=Error(message);e.status=r.status;e.details=body;throw e;
+  }
+  return body;
+ }
+ function disconnect(){online=false;items=[];health=null;error='';migration=null;busy=false;}
+ async function refresh(){
+  if(!online)throw Error('请先连接本人的学业数据');
+  const next=[];
+  try{
+   for(let page=0;page<50;page++){
+    const data=await api('/api/v1/assignments?limit=100&offset='+page*100);
+    if(!Array.isArray(data.items))throw Error('云端任务格式无效');
+    for(const row of data.items){
+     if(!row||typeof row.id!=='string'||typeof row.title!=='string'||
+        !Number.isSafeInteger(row.revision))throw Error('云端任务字段不完整');
+     next.push(row);
+    }
+    if(data.items.length<100)break;
+    if(page===49)throw Error('任务超过单次安全加载上限，请使用分页管理');
+   }
+   const sources=await api('/api/v1/sources').catch(()=>null);
+   items=next;health=sources;error='';return true;
+  }catch(e){error=String(e.message||'刷新失败');throw e;}
+ }
+ async function connect(){online=true;try{await refresh();return true;}catch(e){disconnect();error=String(e.message);throw e;}}
+ const isReady=()=>online;
+ const taskCount=()=>items.length;
+ function formatDue(r){
+  if(r.due_precision==='exact'&&r.due_at_utc){
+   const ms=Date.parse(r.due_at_utc);
+   if(Number.isFinite(ms))return '截止 '+new Intl.DateTimeFormat('zh-CN',{
+    timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'
+   }).format(new Date(ms));
+  }
+  if(r.due_precision==='date'&&r.due_local_date)return '截止 '+r.due_local_date+'（时间未知）';
+  return '未核实截止时间';
+ }
+ function taskRows(filter='all',localTasks=[]){
+  if(!online)return '';
+  const localIds=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
+  return items.filter(r=>!r.legacy_id||!localIds.has(r.legacy_id))
+   .filter(r=>filter==='open'?r.local_status!=='done':filter==='done'?r.local_status==='done':true)
+   .map(r=>{
+    const done=r.local_status==='done';
+    const platform=r.platform_status;
+    const status=platform?({todo:'平台待交',submitted:'平台已提交',graded:'平台已批阅',returned:'平台已退回',unknown:'平台状态未核实'}[platform]||'平台未核实'):
+      r.kind==='platform'?'历史平台记录 · 尚未验证':'云端个人任务';
+    const action=done?'todo':'done';
+    return '<div class="task-item xu-cloud-task" data-origin="cloud-workspace">'+
+     '<div class="task-main '+(done?'done':'')+'"><div class="entry-title">'+esc(r.title)+'</div>'+
+     '<div class="entry-sub">'+esc(formatDue(r))+' · '+esc(r.source_course||status)+
+     (r.source_course?' · '+esc(status):'')+'</div></div>'+
+     '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(r.id)+':'+action+'">'+
+     (done?'恢复待办':'标记完成')+'</button></div>';
+   }).join('');
+ }
+ function sourcePanel(){
+  if(!online)return '<p class="small muted">云端工作台尚未连接。请在上方完成本人授权读取；本地任务仍可独立使用。</p>';
+  const records=(health?.connections||[]).map(s=>
+   '<div class="config-row"><strong>'+esc(s.provider)+'</strong><span class="small">'+
+   esc(s.status)+' · '+esc(s.last_success_at||'无成功同步记录')+'</span></div>').join('');
+  const imported=(health?.userSnapshots||[]).map(s=>
+   '<div class="config-row"><strong>'+esc(s.kind)+'</strong><span class="small">个人上传快照 · '+esc(s.lastReceivedAt||'未知')+'</span></div>').join('');
+  return (records+imported)||'<p class="small muted">暂无已授权的平台连接或个人快照；云端任务可能仍为空。</p>';
+ }
+ function panel(localTasks=[]){
+  const count=(Array.isArray(localTasks)?localTasks:[]).length;
+  const migrationStatus=migration?
+   '<p class="small" role="status">预览结果：新增 '+migration.toCreate+' 项，已有 '+migration.unchanged+
+   ' 项，冲突 '+migration.conflicts.length+' 项。</p>':'';
+  return '<section class="card xu-cloud-panel" aria-label="云端任务与本地迁移">'+
+   '<div class="card-header"><span class="card-title">云端任务与旧数据迁移</span>'+
+   '<span class="xu-private-status '+(online?'is-ready':'')+'">'+
+   (online?'已载入 '+items.length+' 项':'未连接')+'</span></div>'+
+   '<p class="small muted">云端任务、个人备份及平台原始状态分开保存；不会自动上传或删除本机任务。</p>'+
+   (error?'<p class="small xu-private-error" role="alert">'+esc(error)+'</p>':'')+
+   sourcePanel()+
+   (online?'<div class="button-row"><button type="button" class="secondary" data-action="cloud-refresh" '+(busy?'disabled':'')+'>刷新云端任务</button>'+
+    '<button type="button" class="secondary" data-action="cloud-preview" '+(busy||!count?'disabled':'')+'>预览迁移本机 '+count+' 项</button></div>':'')+
+   migrationStatus+
+   (migration&&online&&!migration.conflicts.length&&migration.toCreate>0?
+    '<button type="button" class="primary" data-action="cloud-commit" '+(busy?'disabled':'')+'>确认上传到私人云端</button>':'')+
+   '<p class="tiny muted">迁移每批不超过 20 项，可安全重试；如果本机数据在预览后修改，必须重新预览。迁移不代表已自动连接学习通。</p></section>';
+ }
+ function normalizeLegacyTask(t){
+  const source=['chaoxing','ncwu','second_class'].includes(t.source)&&t.sourceId?''
+   +t.source:'manual';
+  return {
+   id:t.id,title:t.title,category:t.category||'其他',due:t.due||'',dueAt:t.dueAt||'',
+   done:t.done===true,createdAt:t.createdAt||'',source,
+   sourceId:source==='manual'?'':t.sourceId,sourceStatus:t.sourceStatus||'unknown',
+   course:t.course||''
+  };
+ }
+ function batches(localTasks){
+  if(!Array.isArray(localTasks))throw Error('本地任务状态异常');
+  const rows=localTasks.map(normalizeLegacyTask);
+  const result=[];for(let i=0;i<rows.length;i+=20)result.push(rows.slice(i,i+20));
+  return result;
+ }
+ async function previewLegacy(localTasks){
+  if(!online)throw Error('尚未授权云端任务');
+  if(busy)throw Error('正在执行另一项操作');
+  busy=true;migration=null;
+  try{
+   const chunks=batches(localTasks),plan={toCreate:0,unchanged:0,conflicts:[],
+    key:JSON.stringify(chunks),chunks};
+   for(const chunk of chunks){
+    const response=await api('/api/v1/assignments/legacy-import','POST',{
+     format:'xiaoxu-legacy-tasks-v1',mode:'preview',tasks:chunk
+    });
+    plan.toCreate+=response.toCreate||0;
+    plan.unchanged+=response.unchanged||0;
+    if(Array.isArray(response.conflicts))plan.conflicts.push(...response.conflicts);
+   }
+   migration=plan;error='';return {toCreate:plan.toCreate,unchanged:plan.unchanged,
+    conflicts:[...plan.conflicts]};
+  }catch(e){error=String(e.message);throw e;}finally{busy=false;}
+ }
+ async function commitLegacy(localTasks){
+  if(!online||!migration||migration.conflicts.length)throw Error('请先完成无冲突迁移预览');
+  if(busy)throw Error('上一项操作尚未结束');
+  if(JSON.stringify(batches(localTasks))!==migration.key)
+   throw Error('本地任务已变化，请重新预览');
+  busy=true;let created=0;
+  try{
+   for(const chunk of migration.chunks){
+    const r=await api('/api/v1/assignments/legacy-import','POST',{
+     format:'xiaoxu-legacy-tasks-v1',mode:'commit',tasks:chunk
+    });
+    created+=r.created??0;
+   }
+   migration=null;await refresh();return {created};
+  }catch(e){error='云端迁移未完整结束，已成功批次可幂等重试：'+String(e.message);throw e;}
+  finally{busy=false;}
+ }
+ async function toggle(id,target){
+  if(!online)throw Error('请先连接云端任务');
+  const found=items.find(x=>x.id===id);
+  if(!found||!['todo','done'].includes(target))throw Error('任务已变化，请刷新');
+  try{
+   await api('/api/v1/assignments/'+encodeURIComponent(id),'PATCH',{
+    revision:found.revision,localStatus:target
+   });
+   await refresh();return true;
+  }catch(e){if(e.status===409)await refresh().catch(()=>{});throw e;}
+ }
+ root.XiaoxuCloudTasks=Object.freeze({
+  connect,disconnect,refresh,isReady,taskCount,taskRows,panel,previewLegacy,commitLegacy,toggle
+ });
+})(globalThis);
