@@ -63,4 +63,25 @@ class NativeSceneRulesTest {
         ))))
     }
 
+    @Test fun chatActionConfigurationRequiresExplicitAppChatAndMessage() {
+        val empty = ChatDraftCodec.encode(ChatDraft("", "", ""))
+        val complete = ChatDraftCodec.encode(ChatDraft("com.example.chat", "项目讨论", "请查收"))
+        val base = NativeScene("example-chat", "讨论组", listOf(
+            NativeStep(NativeKind.CHAT_DRAFT, complete),
+            NativeStep(NativeKind.MANUAL, "请检查后手动发送")
+        ))
+        assertTrue(NativeSceneRules.valid(base))
+        assertFalse(NativeSceneRules.valid(base.copy(actions=listOf(
+            NativeStep(NativeKind.CHAT_DRAFT, empty)
+        ))))
+        assertFalse(NativeSceneRules.valid(base.copy(actions=listOf(
+            NativeStep(NativeKind.CHAT_DRAFT,
+                ChatDraftCodec.encode(ChatDraft("com.example.chat", "", "消息")))
+        ))))
+        assertFalse(NativeSceneRules.valid(base.copy(actions=listOf(
+            NativeStep(NativeKind.CHAT_DRAFT,
+                ChatDraftCodec.encode(ChatDraft("com.example.chat", "讨论组", "")))
+        ))))
+    }
+
 }
