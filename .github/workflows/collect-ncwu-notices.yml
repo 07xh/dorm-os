@@ -1,0 +1,50 @@
+name: Collect NCWU official notices
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ncwu-notices.mjs'
+      - 'config/ncwu-notices.json'
+      - '.github/workflows/collect-ncwu-notices.yml'
+  workflow_dispatch:
+  schedule:
+    # 北京时间 10:17、18:17、次日 00:17；低频采集公开栏目
+    - cron: '17 2,10,16 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: ncwu-notice-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install public HTML parsing dependency
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Verify offline parser and safety checks
+        run: npm run notices:test
+      - name: Collect real official notice pages and merge archival JSON
+        run: npm run notices:collect
+      - name: Verify verified live data file
+        run: |
+          node -e "const x=require('./public/data/notices.json'); if(x.mode!=='auto'||!x.lastSuccessAt||x.items.length<2||!x.sources.some(s=>s.status==='ok'))process.exit(1);console.log('Live data accepted:',x.items.length)"
+      - name: Commit only verified public notice archive
+        run: |
+          if git diff --quiet -- public/data/notices.json; then
+            echo 'No changes to publish'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/notices.json
+          git commit -m "data(校序): refresh verified NCWU public notifications"
+          git pull --rebase origin main
+          git push origin HEAD:main
