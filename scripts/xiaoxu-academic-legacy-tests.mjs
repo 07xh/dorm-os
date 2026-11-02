@@ -89,7 +89,7 @@ const before=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').ge
 await assert.rejects(()=>migrateLegacyBatch(db,'user-A',batch([
   task('rollback-1'),task('rollback-2')
 ],'commit'),{
-  id:()=> 'migration-1',
+  id:(()=>{let n=0;return ()=>n++===0?'migration-1':'rollback-new-id';})(),
   now:options.now,subtle:webcrypto.subtle
 }), /UNIQUE constraint/);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,before,
