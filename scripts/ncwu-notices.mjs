@@ -215,7 +215,7 @@ export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = 
       batches.push(await collectFromPublishedApi(apiFetcher,at));
     }catch(error){
       console.warn('官方公告代理同样不可用：'+String(error?.message||error));
-      throw new Error('所有公开通知源与可信代理均失败，不覆盖已有档案');
+      throw new Error('所有公开通知源均失败（可信代理也不可用），不覆盖已有档案');
     }
   }
   return mergeArchive(old, batches, at);
