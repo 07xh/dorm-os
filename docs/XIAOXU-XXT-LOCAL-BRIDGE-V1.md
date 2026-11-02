@@ -7,9 +7,9 @@
 仅在有权限查看本人课程与作业的设备上运行。示例命令：
 
 ~~~bash
-node scripts/xiaoxu-xxt-local-bridge.mjs --run hw --out ./homework-import.json
-node scripts/xiaoxu-xxt-local-bridge.mjs --run hw-ls --course "高等数学" --out ./course-import.json
-node scripts/xiaoxu-xxt-local-bridge.mjs --file ./xxt-hw.json --out ./clean-import.json
+node scripts/xiaoxu-xxt-local-bridge.mjs --run hw --out ../homework-import.json
+node scripts/xiaoxu-xxt-local-bridge.mjs --run hw-ls --course "高等数学" --out ../course-import.json
+node scripts/xiaoxu-xxt-local-bridge.mjs --file ./xxt-hw.json --out ../clean-import.json
 ~~~
 
 然后前往校序「我的 → 数据连接与备份 → 数据迁移与手动导入 → 导入任务文件」，选择生成的 JSON。

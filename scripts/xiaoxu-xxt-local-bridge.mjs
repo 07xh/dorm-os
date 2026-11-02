@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /* Run locally on the owner's device. Never sends credentials to Xiaoxu. */
-import {writeFileSync} from 'node:fs';
+import {writeFileSync,realpathSync} from 'node:fs';
+import {dirname,relative,resolve,isAbsolute,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {readExport,runXxt} from '../lib/xiaoxu-xxt-local-bridge.mjs';
 
 function flagsOf(argv){
@@ -23,6 +25,12 @@ try{
  const clean=args['--file']?readExport(args['--file']):runXxt({
   mode:args['--run'],course:args['--course']||'',clazzid:args['--clazzid']||''
  });
+ // No personal homework export inside the tracked source tree, even in a subfolder.
+ const repoRoot=realpathSync(fileURLToPath(new URL('../',import.meta.url)));
+ const parent=realpathSync(dirname(resolve(args['--out'])));
+ const rel=relative(repoRoot,parent);
+ if(rel===''||(!rel.startsWith('..'+sep)&&rel!=='..'&&!isAbsolute(rel)))
+  throw Error('请将个人作业 JSON 导出到 Git 仓库之外，以免误提交隐私数据');
  // Exclusive creation; never overwrite an existing personal data export.
  writeFileSync(args['--out'],JSON.stringify(clean.batch,null,2)+'\n',{
   encoding:'utf8',flag:'wx',mode:0o600
