@@ -456,6 +456,7 @@ html.theme-light .topbar{background:rgba(255,255,255,.86)!important;border-botto
 }
 
 
+.x-v7-home-section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 10px}.x-v7-home-section-title h2{font-size:18px;margin:0}
 /* 校序 V7：唯一顶部导航 + 教务二级导航（旧 NFC/备份逻辑保持不变） */
 .shell{display:block!important;min-height:100vh}
 .x-v7-header{position:sticky;top:0;z-index:55;border-bottom:1px solid var(--border);
@@ -879,17 +880,25 @@ function v4Hero(showFocus,p){
   </section>`;
 }
 function dashboard(){
- const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time);
+ const p=now(),next=upcomingClass(state.classes,p.day,p.time);
+ const layout=normalizeHomeLayout(state.settings.homeLayout);
+ const active=layout.order.filter(id=>!layout.hidden.includes(id));
+ const essential=active.filter(id=>id==='timetable'||id==='tasks');
+ const extra=active.filter(id=>id!=='timetable'&&id!=='tasks');
  const nextInfo=next?'<strong>'+esc(next.subject)+'</strong><span>'+esc(next.start)+' · '+esc(next.location||'教室未填写')+'</span>':
  '<strong>暂无下一节课程</strong><span>课表中的真实课程会显示在这里。</span>';
  return '<section class="v4-hero x-v7-home-intro"><span class="x-v7-overline">华北水利水电大学 · 江淮校区</span>'
   +'<h1>今日安排</h1><div class="x-v7-home-date">'+p.month+' 月 '+p.dateNumber+' 日 · '+WEEKDAYS[p.day]+'</div>'
   +'<div class="x-v7-next-lesson">'+nextInfo+'</div>'
   +'<button type="button" class="x-v7-home-link" data-page="timetable">查看课表 ›</button></section>'
-  +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+homeWidgetContent('timetable')+homeWidgetContent('tasks')+'</div>'
+  +'<div class="x-v7-home-section-title"><h2>学习进度</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></div>'
+  +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'
+  +(essential.length?essential.map(homeWidgetContent).join(''):'<div class="friendly-empty">课表与任务模块当前已隐藏，可以调整首页布局恢复。</div>')+'</div>'
   +'<section class="card x-v7-home-notices"><div class="card-header"><span class="card-title">教务通知</span>'
   +'<button type="button" class="action-link" data-page="academic">查看官方通知 ›</button></div>'
-  +'<p class="small muted">公开教务通知自动同步尚未接入；请以教务处官方通知为准。</p></section>';
+  +'<p class="small muted">公开教务通知自动同步尚未接入；请以教务处官方通知为准。</p></section>'
+  +(extra.length?'<details class="v4-expansion x-v7-optional-widgets"><summary>其他个人信息 <span>'+extra.length+' 项</span></summary>'
+   +'<div class="home-widget-grid v4-extra-widgets">'+extra.map(homeWidgetContent).join('')+'</div></details>':'');
 }
 
 const sceneDefs=[{id:'study',icon:'📘',label:'学习模式',desc:'任务看板 + 专注计时器'},{id:'rest',icon:'🌙',label:'休息模式',desc:'休息提示 + 低干扰'},{id:'dev',icon:'💻',label:'开发模式',desc:'开发项目快捷入口'},{id:'away',icon:'🎒',label:'出门模式',desc:'天气 + 上课物品清单'}];
