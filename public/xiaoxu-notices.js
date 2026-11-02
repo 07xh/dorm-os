@@ -22,6 +22,8 @@
    !Number.isFinite(Date.parse(data.lastSuccessAt||''))) throw Error('定时归档尚未经过有效采集验收');
   const seen=new Set(),items=[];
   for(const raw of data.items) {
+   // A later archive mode=auto never certifies the original seed-* placeholder rows.
+   if(typeof raw?.id==='string'&&/^seed[-:]/i.test(raw.id))continue;
    const url=officialUrl(raw.url);
    if(!url||!validTitle(raw.title)||!['教学','考试','校园','学生事务'].includes(raw.category))throw Error('通知归档来源或字段异常');
    if(seen.has(url))continue;
