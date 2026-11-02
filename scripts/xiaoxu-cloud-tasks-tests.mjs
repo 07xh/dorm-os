@@ -62,6 +62,10 @@ assert.equal(api.taskRows('all',[{id:'local-1'}]).includes('历史任务'),false
  'migrated record already present locally must not be shown twice');
 assert.equal(api.taskRows('done',[]).includes('历史任务'),true);
 assert.ok(api.panel([]).includes('个人上传快照'));
+const deadline=api.deadlineSummary([],Date.parse('2026-11-22T00:00:00+08:00'));
+assert.match(deadline,/<strong>1<\/strong> 今天\/24小时/,'date-only tasks counted by calendar day, not guessed 23:59');
+assert.match(deadline,/<strong>0<\/strong> 6小时内/,'date-only task must not imply hour precision');
+assert.ok(html.includes('XiaoxuCloudTasks.deadlineSummary(state.tasks)'));
 const local=[{id:'local-1',title:'纸质习题',due:'2026-11-23',done:false,
  source:'manual',sourceId:'',sourceStatus:'unknown',category:'课程'}];
 const preview=await api.previewLegacy(local);
