@@ -27,6 +27,10 @@ test('import original xuexitong-cli hw JSON and keep deadline time without persi
  expect(items[0].dueAt).toBe('2026-11-22T19:30:00+08:00');
  await page.reload();
  await expect(page.locator('#app')).toContainText('19:30');
+ await expect(page.locator('#app [data-action="import-task-batch"]')).toHaveCount(0);
+ await page.goto('/#settings');
+ await page.locator('.task-advanced-tools summary').click();
+ await expect(page.locator('[data-action="import-task-batch"]')).toBeVisible();
  expect(errors).toEqual([]);
 });
 test('hw-ls without due date does not delete previously recorded deadline; missing work ID fails atomically',async({page})=>{
