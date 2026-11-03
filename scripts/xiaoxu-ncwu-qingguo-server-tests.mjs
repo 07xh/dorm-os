@@ -29,7 +29,8 @@ function detail(value='1-8周 一[1-2] '+room){
   '<td>必修</td><td>'+teacher+'</td><td>已选</td><td>'+value+'</td></tr></table>';
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
-function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,redirectAway=false,rotateCookie=false}={}){
+function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
+ redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
@@ -46,11 +47,25 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
    return reply(302,'',{location:redirectAway?'https://foreign.invalid/capture':
     SERVICE+'?ticket=FAKE_TICKET_DO_NOT_REPLAY'});
   }
-  if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/caslogin')
+  if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/caslogin'){
+   // The unauthenticated official landing decides between a school-owned form
+   // and the school's registered campus SSO; CAS ticket is not generated here.
+   if(!u.searchParams.has('ticket')){
+    if(directLogin||directChallenge){
+     const schoolForm='<html><form method="post" action="/hsjw/cas/logon.action">'+
+      '<input name="username"><input type="password" name="password">'+
+      '<input type="hidden" name="loginmethod" value="plain">'+
+      (directChallenge?'<input name="captcha" value="">' : '')+
+      '</form></html>';
+     return reply(200,schoolForm);
+    }
+    return reply(302,'',{location:CAS});
+   }
    return reply(302,'',{location:SCHOOL+'/hsjw/frame/home.jsp',
     'set-cookie':'QG_SESS=school-authorized; Path=/hsjw/; Secure'});
+  }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/frame/home.jsp'){
-   if(second)return reply(200,'<html><form method="post" action="/hsjw/cas/logon.action">'+
+   if(second&&!directLogin)return reply(200,'<html><form method="post" action="/hsjw/cas/logon.action">'+
     '<input name="username"><input type="password" name="password">'+
     '<input type="hidden" name="loginmethod" value="plain"></form></html>');
    return reply(200,'<html>Authorized synthetic Qingguo portal</html>');
@@ -58,9 +73,10 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/cas/logon.action'){
    const p=new URLSearchParams(options.body);
    assert.equal(p.get('username'),student);
-   assert.equal(p.get('password'),'SECOND_PASSWORD_FAKE');
+   assert.equal(p.get('password'),directLogin?password:'SECOND_PASSWORD_FAKE');
    assert.equal(p.get('loginmethod'),'plain');
-   return reply(302,'',{location:'/hsjw/frame/authorized.jsp'});
+   return reply(302,'',{location:'/hsjw/frame/authorized.jsp',
+    ...(directLogin?{'set-cookie':'QG_SESS=school-authorized; Path=/hsjw/; Secure'}:{})});
   }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/frame/authorized.jsp')
    return reply(200,'<html>Authorized second-step portal</html>');
@@ -92,6 +108,34 @@ await assert.rejects(()=>gate.login({username:student,password}),
  e=>e instanceof NcwuQingguoError&&e.code==='interactive_login_required');
 assert.ok(deniedSchool.calls.every(x=>x.method==='GET'),
  'disabled trust gate must not send credentials');
+
+// Prefer the school-owned Qingguo form if its real login action is present.
+const direct=school({directLogin:true});
+const native=makeNcwuQingguoServerAdapter({fetcher:direct.fetcher,trustedSyncEnabled:true});
+assert.deepEqual(await native.preflight(),
+ {loginSupported:true,mode:'school_password_form_verified'});
+assert.ok(direct.calls.every(c=>c.method==='GET'),
+ 'preflight never posts a credential to either school or CAS');
+const nativeLogin=await native.login({username:student,password});
+assert.equal(nativeLogin.session.studentId,student);
+assert.ok(nativeLogin.session.cookies.some(c=>c.name==='QG_SESS'&&c.value==='school-authorized'));
+assert.equal(direct.calls.filter(c=>c.method==='POST'&&c.host==='jwmis.ncwu.edu.cn'&&
+ c.path==='/hsjw/cas/logon.action').length,1);
+assert.equal(direct.calls.filter(c=>c.host==='authserver.ncwu.edu.cn').length,0,
+ 'no campus CAS password fallback when the native form is verified');
+const nativeReader=await native.forSession({session:nativeLogin.session,userId:'owner-direct'});
+const nativeProof=await nativeReader.verifySession();
+assert.equal((await nativeReader.readSection({kind:'schedule',session:nativeProof.session})).records.length,1);
+const directBlocked=school({directChallenge:true});
+const blocked=makeNcwuQingguoServerAdapter({
+ fetcher:directBlocked.fetcher,trustedSyncEnabled:true
+});
+assert.deepEqual(await blocked.preflight(),
+ {loginSupported:false,mode:'interactive_login_required'});
+await assert.rejects(()=>blocked.login({username:student,password}),
+ e=>e instanceof NcwuQingguoError&&e.code==='interactive_login_required');
+assert.ok(directBlocked.calls.every(c=>c.method==='GET'),
+ 'interactive school challenge cannot trigger silent credential submission');
 
 const fake=school();
 const adapter=makeNcwuQingguoServerAdapter({fetcher:fake.fetcher,trustedSyncEnabled:true});
