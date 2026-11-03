@@ -31,7 +31,10 @@ export async function onRequestPost(context){
  if(!validSchoolLoginInput(payload))return json({error:'invalid_credentials'},400);
  try{
   const result=await connectSchoolAccount({db:auth.db,userId:auth.userId,provider,adapter,
-   username:payload.username,password:payload.password,secret:context.env?.SCHOOL_SESSION_KEY});
+   username:payload.username,password:payload.password,
+   ...(provider==='ncwu'?{academicUsername:payload.academicUsername,
+    academicPassword:payload.academicPassword}:{}),
+   secret:context.env?.SCHOOL_SESSION_KEY});
   return json(result,200);
  }catch(e){
   const code=e instanceof SchoolLoginError?e.code:'sync_failed';
