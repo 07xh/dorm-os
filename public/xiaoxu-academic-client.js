@@ -155,7 +155,7 @@
    const officialCas=provider.id==='second_class';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
    // Second-class: school-owned SSO only. No password proxy or CAS preflight.
-   const authPanel=officialCas?
+   const authPanel=authorized?'':officialCas?
     '<div class="xu-school-connect" data-xu-second-class-official-only>'+
     '<p class="tiny muted">第二课堂旧版站内账号密码直连已删除。请使用学校官方页面完成扫码、密码或其他必要验证；学校会话不会因此自动交给校序。</p>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://dekt.ncwu.edu.cn/">打开第二课堂官网</a>'+
@@ -168,6 +168,7 @@
     canLogin?
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
+     (record?.qrLoginAvailable===true?'<button type="button" class="primary" data-xu-chaoxing-qr-start>学习通 APP 扫码连接</button><div data-xu-chaoxing-qr-output role="status" aria-live="polite"></div>':'')+
      '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
      '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
@@ -334,6 +335,60 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
+ // QR challenges are short-lived and sealed to the logged-in owner.
+ let chaoxingQrAttempt=null;
+ async function chaoxingQrPost(action,payload){
+  const response=await fetch('/api/v1/connections/chaoxing/qr/'+action,{
+   method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+   headers:{'content-type':'application/json','accept':'application/json'},
+   body:JSON.stringify(payload)});
+  const result=await response.json().catch(()=>null);
+  if(!response.ok)throw Error(schoolMessage[result?.error]||'扫码连接暂时不可用');
+  return result;
+ }
+ async function checkChaoxingQr(){
+  const attempt=chaoxingQrAttempt;
+  if(!attempt||attempt.busy||document.hidden)return;
+  const host=document.querySelector('[data-xu-chaoxing-qr-output]');
+  if(!host){chaoxingQrAttempt=null;return;}
+  if(Date.now()>=attempt.expiresAt){
+   host.textContent='二维码已过期，请重新生成';chaoxingQrAttempt=null;return;
+  }
+  attempt.busy=true;
+  try{
+   const result=await chaoxingQrPost('status',{ticket:attempt.ticket});
+   if(chaoxingQrAttempt!==attempt)return;
+   if(result.status==='connected'){
+    chaoxingQrAttempt=null;
+    await connect();
+    await Promise.allSettled([
+     root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
+     root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
+    ]);
+    announceUpdated();
+    root.dispatchEvent(new Event('xiaoxu-school-authorization-connected'));
+    return;
+   }
+   if(result.status==='cancelled'){
+    host.textContent='已取消扫码连接';chaoxingQrAttempt=null;return;
+   }
+   if(!['pending','scanned'].includes(result.status)||typeof result.ticket!=='string')
+    throw Error('扫码状态无效');
+   attempt.ticket=result.ticket;
+   const feedback=host.querySelector('[data-xu-qr-feedback]');
+   if(feedback)feedback.textContent=result.status==='scanned'?
+    '已扫码，请在学习通 APP 确认登录':'请使用学习通 APP 扫描二维码';
+  }catch(error){
+   if(chaoxingQrAttempt===attempt){
+    host.textContent=error.message||'扫码连接失败';
+    chaoxingQrAttempt=null;
+   }
+  }finally{
+   attempt.busy=false;
+   if(chaoxingQrAttempt===attempt&&!document.hidden)
+    setTimeout(()=>{void checkChaoxingQr();},3000);
+  }
+ }
  const schoolMessage={upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing'].includes(provider)||
@@ -415,6 +470,34 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-chaoxing-qr-start]');
+   if(!button)return;
+   button.disabled=true;chaoxingQrAttempt=null;
+   const host=button.parentElement.querySelector('[data-xu-chaoxing-qr-output]');
+   if(host)host.textContent='正在从学习通官网生成登录二维码…';
+   try{
+    const result=await chaoxingQrPost('start',{});
+    const url=new URL(result.qrImageUrl);
+    if(url.protocol!=='https:'||url.hostname!=='passport2.chaoxing.com'||
+      url.pathname!=='/createqr'||typeof result.ticket!=='string'||
+      !Number.isFinite(Date.parse(result.expiresAt)))throw Error('登录二维码响应无效');
+    const img=document.createElement('img');
+    img.src=url.href;img.alt='学习通官方登录二维码';img.width=190;img.height=190;
+    img.referrerPolicy='no-referrer';
+    const note=document.createElement('p');
+    note.className='tiny muted';note.dataset.xuQrFeedback='';
+    note.textContent='使用学习通 APP 扫描并确认；完成后校序自动读取本人数据。';
+    host?.replaceChildren(img,note);
+    chaoxingQrAttempt={ticket:result.ticket,expiresAt:Date.parse(result.expiresAt),busy:false};
+    setTimeout(()=>{void checkChaoxingQr();},3000);
+   }catch(error){
+    if(host)host.textContent=error.message||'无法生成登录二维码';
+   }finally{if(button.isConnected)button.disabled=false;}
+  });
+  document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden&&chaoxingQrAttempt)void checkChaoxingQr();
+  });
   // Foreground-only checking; no hidden-tab school traffic.
   setInterval(()=>{
    if(!document.hidden){

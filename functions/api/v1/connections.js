@@ -44,7 +44,7 @@ export async function onRequestGet(context){
    const checked=context.data?.academicChaoxingReadiness;
    const loginReadiness=checked==='ready'&&!available?'adapter_unavailable':
     checked||'adapter_unavailable';
-   return {...row,loginMode:available?'password':'unavailable',sessionState,
+   return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
     loginReadiness,accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
