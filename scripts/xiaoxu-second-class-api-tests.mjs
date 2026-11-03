@@ -129,7 +129,8 @@ try{
    aggregate:{termIndex:100,isAggregate:true,qualityScore:7,volunteerHours:3,
     categories:[]},semesters:[],isSchoolReportedAggregate:true
   }),at);
-assert.equal(body.provenance,'trusted_readonly');
+body=await (await onRequestGet(req(jwtA))).json();
+ assert.equal(body.provenance,'trusted_readonly');
  assert.equal(body.officialScore.aggregate.qualityScore,7);
  assert.equal(body.officialScore.aggregate.volunteerHours,3);
  assert.equal(body.lastReadOnlyAt,at);
