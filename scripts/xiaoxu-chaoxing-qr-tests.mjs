@@ -10,6 +10,8 @@ const urls=[],profile='<div aria-label="账号：本人"></div>'+
  '<div id="siteName" title="华北水利水电大学"></div>'+
  '<script>var uid = "1234567";</script>';
 let polls=0,invalid=false;
+const qrPng=Uint8Array.from(Buffer.from(
+ 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64'));
 const fakeFetch=async(url,options)=>{
  const u=new URL(url),cookie=options.headers.get('cookie')||'';
  urls.push({host:u.hostname,path:u.pathname,method:options.method,cookie});
@@ -19,6 +21,12 @@ const fakeFetch=async(url,options)=>{
  if(u.pathname==='/mlogin'){
   assert.match(cookie,/qr_sid=initial/);
   return new Response('<input id="uuid" value="'+uuid+'"><input id="enc" value="'+enc+'">');
+ }
+ if(u.pathname==='/createqr'){
+  assert.equal(options.method,'GET');
+  assert.match(cookie,/qr_sid=initial/,'QR image must use original login jar');
+  assert.equal(u.searchParams.get('uuid'),uuid);
+  return new Response(qrPng,{headers:{'content-type':'image/png'}});
  }
  if(u.pathname==='/getauthstatus'){
   assert.equal(options.method,'POST');
@@ -55,6 +63,16 @@ await assert.rejects(unsealChaoxingQrChallenge({ticket,userId:'another-owner',se
  e=>e.code==='authorization_failed');
 const decoded=await unsealChaoxingQrChallenge({ticket,userId:'owner1',secret});
 assert.equal(decoded.uuid,uuid);
+const binary=await adapter.readQrImage({challenge:decoded});
+assert.deepEqual([...binary],[...qrPng],'QR PNG is fetched using owner challenge');
+assert.ok(urls.some(x=>x.path==='/createqr'&&x.cookie.includes('qr_sid=initial')),
+ 'QR image must reuse the cookie jar from /mlogin');
+await assert.rejects(adapter.readQrImage({challenge:{...decoded,issuedAt:Date.now()-300000}}),
+ e=>e.code==='session_expired');
+const badImage=createChaoxingSchoolAdapter({fetchImpl:async()=>new Response('<html>not PNG</html>',{
+ headers:{'content-type':'text/html'}})});
+await assert.rejects(badImage.readQrImage({challenge:decoded}),
+ e=>e.code==='upstream_unavailable','never proxy arbitrary HTML as a QR image');
 const waiting=await adapter.pollQrLogin({challenge:decoded});
 assert.equal(waiting.status,'pending');
 const scanned=await adapter.pollQrLogin({challenge:waiting.challenge});
@@ -105,4 +123,4 @@ assert.ok(writes.some(x=>x.sql.includes('INSERT INTO academic_provider_sessions'
 assert.ok(!JSON.stringify(writes).includes('cx_s=ok'),
  'no raw upstream cookie may be persisted');
 
-console.log('Chaoxing QR challenge: official URL, cookie jar, scanned/approved, owner-bound encryption and expiry passed');
+console.log('Chaoxing QR challenge: same-cookie PNG, official poll, owner-bound session and expiry passed');

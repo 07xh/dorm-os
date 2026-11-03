@@ -1,4 +1,17 @@
 import {test,expect} from '@playwright/test';
+const qrPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64');
+async function stubQrImage(page,readTicket){
+ const received=[];
+ await page.route('**/api/v1/connections/chaoxing/qr/image',route=>{
+  expect(route.request().method()).toBe('POST');
+  const payload=route.request().postDataJSON();
+  expect(payload).toEqual({ticket:readTicket()});
+  received.push(payload.ticket);
+  return route.fulfill({status:200,contentType:'image/png',
+   body:qrPng,headers:{'cache-control':'private, no-store'}});
+ });
+ return received;
+}
 
 async function stubConnections(page,qrLoginAvailable){
  await page.route('**/api/v1/connections',route=>route.fulfill({
@@ -23,7 +36,11 @@ test('QR button is unavailable until trusted backend advertises capability',asyn
 });
 test('owner QR starts from a real official endpoint and never requests a password',async({page})=>{
  await stubConnections(page,true);
- let starts=0,polls=0;
+ let starts=0,polls=0,crossOriginRequests=0;
+ const imageReads=await stubQrImage(page,()=> 'encrypted-opaque-challenge');
+ await page.route('https://passport2.chaoxing.com/createqr**',route=>{
+  crossOriginRequests++;return route.abort();
+ });
  await page.route('**/api/v1/connections/chaoxing/qr/start',async route=>{
   starts++;
   expect(route.request().method()).toBe('POST');
@@ -41,20 +58,19 @@ test('owner QR starts from a real official endpoint and never requests a passwor
    status:'cancelled'
   })});
  });
- await page.route('https://passport2.chaoxing.com/createqr**',route=>route.fulfill({
-  status:200,contentType:'image/png',body:Buffer.from(
-   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64')
- }));
+
  await page.goto('/#settings');
  await page.getByRole('button',{name:'读取我的连接状态'}).click();
  const source=page.locator('.xu-connection-source').filter({hasText:'学习通'});
  await source.locator('.xu-school-manage > summary').click();
  await source.locator('[data-xu-chaoxing-qr-start]').click();
  await expect(source.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
- await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('使用学习通 APP 扫描');
+ await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('请使用学习通 APP 扫码');
  await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('已取消扫码连接',{timeout:10000});
  expect(starts).toBe(1);
  expect(polls).toBe(1);
+ expect(imageReads).toHaveLength(1);
+ expect(crossOriginRequests).toBe(0,'QR PNG must not depend on cross-site browser cookies');
  expect(await page.locator('[data-xu-school-login="chaoxing"] input[name="password"]').isVisible()).toBe(false);
 });
 
@@ -63,6 +79,7 @@ test('pending owner QR survives same-tab page reload and resumes status polling'
  const opaque='ABCDEFGHIJKLMNOP.abcdefghijklmnopqrstuvwxyz0123456789abcd';
  const url='https://passport2.chaoxing.com/createqr?uuid=UUID123456abcDEF789&fid=-1';
  let polls=0;
+ const imageReads=await stubQrImage(page,()=>opaque);
  await page.route('**/api/v1/connections/chaoxing/qr/start',route=>route.fulfill({
   status:200,contentType:'application/json',body:JSON.stringify({
    status:'pending',ticket:opaque,qrImageUrl:url,
@@ -76,10 +93,7 @@ test('pending owner QR survives same-tab page reload and resumes status polling'
    status:'scanned',ticket:opaque
   })});
  });
- await page.route('https://passport2.chaoxing.com/createqr**',route=>route.fulfill({
-  status:200,contentType:'image/png',body:Buffer.from(
-   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64')
- }));
+ await page.route('https://passport2.chaoxing.com/createqr**',route=>route.abort());
  await page.goto('/#settings');
  await page.getByRole('button',{name:'读取我的连接状态'}).click();
  const row=page.locator('.xu-connection-source').filter({hasText:'学习通'});
@@ -91,7 +105,69 @@ test('pending owner QR survives same-tab page reload and resumes status polling'
  await expect(row.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
  await expect.poll(()=>polls,{timeout:10000}).toBeGreaterThan(before);
  await expect(row.locator('[data-xu-qr-feedback]')).toContainText('已扫码');
+ expect(imageReads.length).toBeGreaterThanOrEqual(2,'reload must refetch same-owner QR PNG');
  expect(await page.evaluate(()=>!!sessionStorage.getItem('xiaoxu-chaoxing-qr-pending-v1'))).toBe(true);
+});
+
+test('confirmed scan becomes a persistent school connection and manual check works',async({page})=>{
+ // Real owner login stores only this boolean hint; the server's /auth/me
+ // still has to verify the authenticated owner after page reload.
+ await page.addInitScript(()=>{
+  localStorage.setItem('xiaoxu_owner_login_seen','1');
+ });
+ const ticket='ABCDEFGHIJKLMNOP.abcdefghijklmnopqrstuvwxyz0123456789abcd';
+ const imageReads=await stubQrImage(page,()=>ticket);
+ let linked=false,statusReads=0;
+ await page.route('**/api/v1/auth/me',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({authenticated:true,expiresAt:'2026-12-01T09:00:00Z'})
+ }));
+ await page.route('**/api/v1/connections',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({schema:'xiaoxu/connections-v1',
+   platforms:['ncwu','chaoxing','second_class'].map(id=>({
+    id,status:'not_connected',trustedKinds:[],importedKinds:[],
+    loginMode:id==='chaoxing'?'password':'unavailable',
+    sessionState:id==='chaoxing'&&linked?'active':'not_connected',
+    accountAuthorization:id==='chaoxing'&&linked?'verified_session':'not_verified',
+    syncPending:id==='chaoxing'&&linked,
+    qrLoginAvailable:id==='chaoxing'
+   }))})
+ }));
+ await page.route('**/api/v1/verified/**',route=>route.fulfill({
+  status:200,contentType:'application/json',body:'{"status":"not_connected","records":[]}'
+ }));
+ await page.route('**/api/v1/second-class',route=>route.fulfill({
+  status:200,contentType:'application/json',body:'{"status":"not_connected","records":[]}'
+ }));
+ await page.route('**/api/v1/connections/chaoxing/qr/start',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   status:'pending',ticket,
+   qrImageUrl:'https://passport2.chaoxing.com/createqr?uuid=UUID123456abcDEF789&fid=-1',
+   expiresAt:new Date(Date.now()+100000).toISOString()
+  })
+ }));
+ await page.route('**/api/v1/connections/chaoxing/qr/status',route=>{
+  expect(route.request().postDataJSON()).toEqual({ticket});
+  statusReads++;linked=true;
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+   status:'authenticated_pending_sync',
+   expiresAt:new Date(Date.now()+3600000).toISOString(),lastSuccessAt:null
+  })});
+ });
+ await page.goto('/#settings');
+ await page.getByRole('button',{name:'读取我的连接状态'}).click();
+ const source=page.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await source.locator('[data-xu-chaoxing-qr-start]').click();
+ await expect(source.locator('[data-xu-qr-check-now]')).toBeVisible();
+ await source.locator('[data-xu-qr-check-now]').click();
+ await expect(source).toContainText('已认证 · 数据待同步');
+ await expect(source.locator('[data-xu-chaoxing-qr-start]')).toHaveCount(0);
+ expect(statusReads).toBeGreaterThanOrEqual(1);
+ expect(imageReads.length).toBe(1);
+ await page.reload();
+ await expect(source).toContainText('已认证 · 数据待同步',{timeout:12000});
+ expect(await page.evaluate(()=>sessionStorage.getItem('xiaoxu-chaoxing-qr-pending-v1'))).toBeNull();
 });
 
 test('verified owner logout clears the old owner\'s QR challenge and stops polling',async({page})=>{
@@ -110,10 +186,7 @@ test('verified owner logout clears the old owner\'s QR challenge and stops polli
   return route.fulfill({status:200,contentType:'application/json',
    body:JSON.stringify({status:'scanned',ticket:opaque})});
  });
- await page.route('https://passport2.chaoxing.com/createqr**',route=>route.fulfill({
-  status:200,contentType:'image/png',body:Buffer.from(
-   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64')
- }));
+ await stubQrImage(page,()=>opaque);
  await page.goto('/#settings');
  await page.locator('[data-action="academic-connect"]').click();
  const row=page.locator('.xu-connection-source').filter({hasText:'学习通'});

@@ -176,3 +176,16 @@
  #app .xu-connection-source .xu-school-session-tools{justify-content:flex-start}
  #app .xu-school-manage-body{max-width:100%}
 }
+
+/* QR is obtained from the owner's same-origin session, never a third-party img. */
+#app .xu-connection-actions [data-xu-chaoxing-qr-start]{min-height:38px;padding:8px 12px;font-size:12px;white-space:nowrap}
+#app .xu-qr-image-slot{width:190px;max-width:100%;min-height:190px;
+ display:flex;align-items:center;justify-content:center;text-align:center;
+ border-radius:10px;border:1px solid var(--xu-line);background:#fff;color:#48546a;
+ padding:5px;overflow:hidden}
+#app .xu-qr-image-slot img{display:block;width:180px;height:180px;max-width:100%;border:0;border-radius:4px;object-fit:contain}
+#app [data-xu-qr-check-now]{min-height:38px;padding:7px 12px;font-size:12px}
+@media(max-width:580px){
+ #app .xu-qr-image-slot{width:190px;min-height:190px}
+ #app .xu-connection-actions [data-xu-chaoxing-qr-start]{flex-shrink:0}
+}
