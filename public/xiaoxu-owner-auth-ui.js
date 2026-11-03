@@ -26,7 +26,15 @@
     } catch { /* Disabled storage must never affect authorization. */ }
   };
   const report = message => { if (result) result.textContent = message; };
+  let connected = false;
   const render = authenticated => {
+    connected = authenticated === true;
+    document.querySelectorAll('[data-owner-auth-open]').forEach(entry => {
+      const label = entry.querySelector('[data-owner-auth-entry-title]');
+      const sub = entry.querySelector('[data-owner-auth-entry-subtitle]');
+      if (label) label.textContent = connected ? '云端已连接' : '登录校序';
+      if (sub) sub.textContent = connected ? '查看或退出当前设备' : '管理个人云端登录';
+    });
     if (link) {
       link.textContent = authenticated ? '云端已连接' : '云端登录';
       link.setAttribute('aria-label', authenticated ? '管理本人校序登录' : '登录校序');
@@ -61,23 +69,32 @@
     }
   }
 
-  if (link) {
-    render(false); // A new visitor must not trigger private API queries.
-    link.addEventListener('click', event => {
-      if (!dialog || typeof dialog.showModal !== 'function') return;
-      event.preventDefault();
-      report('');
-      dialog.showModal();
-      if (readHint()) {
-        void verify({notify:true});
-      } else {
-        // Clicking the login control is an explicit request to check this session.
-        void verify();
-      }
-      if (!logout?.hidden) logout.focus({preventScroll:true});
-      else input?.focus({preventScroll:true});
-    });
-  }
+  window.XiaoxuOwnerAuth = Object.freeze({connected: () => connected});
+  const openDialog = () => {
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      location.assign('/login/');
+      return;
+    }
+    report('');
+    if (!dialog.open) dialog.showModal();
+    // This explicit click is the first private session check for new visitors.
+    void verify({notify:readHint()});
+    if (connected) logout?.focus({preventScroll:true});
+    else input?.focus({preventScroll:true});
+  };
+  // The "我的" profile view re-renders dynamically, so delegate its one login entry.
+  document.addEventListener('click', event => {
+    const entry = event.target instanceof Element ? event.target.closest('[data-owner-auth-open]') : null;
+    if (!entry) return;
+    event.preventDefault();
+    openDialog();
+  });
+  link?.addEventListener('click', event => {
+    if (!dialog) return; // No modal support: /login/ remains the fallback.
+    event.preventDefault();
+    openDialog();
+  });
+  render(false); // No automatic private API call for an unconnected visitor.
   if (dialog) {
     close?.addEventListener('click', () => dialog.close());
     dialog.addEventListener('click', event => {
