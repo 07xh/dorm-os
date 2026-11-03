@@ -31,8 +31,13 @@ test('legacy NFC tag controls remain usable from direct links on a narrow phone'
  const entry=page.locator('.tag-entry').last();
  await entry.locator('.v41-tag-more summary').click();
  await expect(entry.locator('[data-tag-delete]')).toBeVisible();
- for(const button of await entry.locator('.v41-tag-menu button').all()){
+ // The old menu may include buttons hidden by the active browser feature gate.
+ // Touch targets are measured only for actions actually displayed to the user.
+ const visibleButtons=entry.locator('.v41-tag-menu button:visible');
+ await expect(visibleButtons.first()).toBeVisible();
+ for(const button of await visibleButtons.all()){
   const rect=await button.boundingBox();
+  expect(rect).not.toBeNull();
   expect(rect.height).toBeGreaterThanOrEqual(44);
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
