@@ -30,8 +30,12 @@ export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
  const provider=context.params?.provider;
- if(!['ncwu','second_class'].includes(provider))
-  return json({status:'unknown_provider',loginSupported:false},404);
+ if(provider==='second_class'){
+  // The school's CAS callback belongs to the school, not this website.
+  return json({status:'official_sso_only',loginSupported:false,
+   nativeLoginReady:false,automaticSync:false},410);
+ }
+ if(provider!=='ncwu')return json({status:'unknown_provider',loginSupported:false},404);
  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
  if(provider==='ncwu'){
   // Keep the existing credential-free official-site probe. An ordinary
@@ -40,22 +44,5 @@ export async function onRequestGet(context){
   const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');
   return json(await resolveNcwuPreflight(result,adapter,vaultReady),200);
  }
- if(!vaultReady)
-  return json({status:'server_session_vault_unavailable',loginSupported:false},503);
- const adapter=availableSchoolAdapter(context,'second_class');
- if(!adapter||typeof adapter.preflight!=='function')
-  return json({status:'adapter_unavailable',loginSupported:false},503);
- try{
-  const result=await adapter.preflight();
-  // Bounded anonymous login-stage codes only. No CAS ticket, form field, cookie,
-  // student identifier or school account information is returned.
-  const safeReasons=new Set(['school_unreachable','cas_handoff_unrecognized',
-   'cas_login_page_unavailable','password_form_unavailable',
-   'interactive_challenge_required','password_transform_required',
-   'unexpected_cas_form_action','unrecognized_auth_flow']);
-  return json({status:result.mode,loginSupported:result.loginSupported===true,
-   ...(safeReasons.has(result.reason)?{reason:result.reason}:{})},200);
- }catch{
-  return json({status:'upstream_unavailable',loginSupported:false},502);
- }
+
 }
