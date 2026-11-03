@@ -155,7 +155,7 @@ try{
  assert.notEqual(newerKey,key);
  assert.equal(moved.items.find(x=>x.kind==='exam').read,false);
  assert.equal(moved.unread,2);
- assert.equal((await onRequestPatch(ctx(a,'PATCH',{operation:'read',key,read:true})).status,404,
+ assert.equal((await onRequestPatch(ctx(a,'PATCH',{operation:'read',key,read:true}))).status,404,
    'old event key cannot be marked when it is no longer in the inbox');
  await onRequestPatch(ctx(a,'PATCH',{operation:'read',key:newerKey,read:true}));
  // Moving a date-only assignment also reopens the reminder.
