@@ -8,6 +8,8 @@
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let connected=false,sources=[],error='',serviceHealth=null,healthError='';
  let connectionStatusRead=false,connectionEpoch=0,connectionRequest=null;
+ let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
+ const SCHOOL_AUTO_SYNC_INTERVAL=30*60*1000;
  // Foreground refresh is allowed only for an already verified owner session.
  const SECOND_CLASS_REFRESH_MS=15*60*1000;
  let secondClassAutoAt=0,secondClassAutoRequest=null,secondClassAutoMessage='';
@@ -25,6 +27,7 @@
  };
  function disconnect(){
   connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
+  schoolAutoSyncBusy=false;
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
   secondClassAutoAt=0;secondClassAutoMessage='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
@@ -89,6 +92,7 @@
    if(!loaded||!connected)return false;
    // Uses only the owner's previously verified encrypted school session.
    void maybeAutoRefreshSecondClass();
+   void autoRefreshChaoxing();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
  }
@@ -152,7 +156,7 @@
  }
  const CONNECTION_PROVIDERS=Object.freeze([
   {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
-  {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'课程作业、截止日期、提交状态'},
+  {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'收件箱、作业、互评、考试与提醒（提交状态待核实）'},
   {id:'second_class',name:'第二课堂',url:'https://dekt.ncwu.edu.cn/',what:'活动、积分与审核记录'}
  ]);
  const CONNECTION_LABELS={connected:'曾完成只读同步',partial:'上次同步不完整',
@@ -208,8 +212,8 @@
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
-    '<p>目前可以使用本人设备上的 xuexitong-cli 只读导出，再在下方「学校官网连通性诊断与手动导入」中导入作业 JSON。</p>'+
-    '<p>本机导入属于部分覆盖，不代表已自动同步。学校账号的授权续期与完整作业接口尚未验证。</p></details>':
+    '<p>可通过校序现有的站内学习通连接入口登录；若学校要求验证码或交互认证则停止自动登录。</p>'+
+    '<p>本人会话验证通过后，网站处于前台时每 30 分钟尝试更新收件箱；网页关闭后尚未启用后台推送。会话过期可在此重新连接，提交状态仍需另行核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
     '<p>活动、积分、志愿服务时长的只读解析与服务端会话框架已保留，但尚未通过本人真实学校登录验证；打开官网不等于账号已绑定，当前不会冒充已连接。</p>'+
     '<p>后续直接在校序「我的 → 数据连接」中完成学校登录及自动同步，无需额外安装浏览器脚本或导入 JSON。</p></details>';
@@ -351,6 +355,42 @@
   if(!response.ok)throw Error(schoolMessage[result?.error]||'连接操作失败');
   return result;
  }
+ async function autoRefreshChaoxing(){
+  if(!connected||schoolAutoSyncBusy||typeof document==='undefined'||
+     document.visibilityState==='hidden')return false;
+  const linked=sources.find(x=>x.id==='chaoxing');
+  if(linked?.loginMode!=='password'||linked?.sessionState!=='active')return false;
+  const time=Date.now(),lastSuccess=Date.parse(linked.lastSuccessAt||'')||0;
+  if(time-Math.max(lastSuccess,lastSchoolAutoSyncAttempt)<SCHOOL_AUTO_SYNC_INTERVAL)return false;
+  schoolAutoSyncBusy=true;lastSchoolAutoSyncAttempt=time;
+  const epoch=connectionEpoch;
+  try{
+   await schoolPost('chaoxing','sync');
+   if(epoch!==connectionEpoch||!connected)return false;
+   await refresh();
+   await Promise.allSettled([
+    root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve(),
+    root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve()
+   ]);
+   if(epoch===connectionEpoch)announceUpdated();
+   return true;
+  }catch(e){
+   if(epoch===connectionEpoch&&connected){
+    await refresh().catch(()=>{});
+    error=e.message||'学习通自动同步未完成；之前的数据仍保留';
+    announceUpdated();
+   }
+   return false;
+  }finally{schoolAutoSyncBusy=false;}
+ }
+ if(typeof document!=='undefined'){
+  document.addEventListener('visibilitychange',()=>{
+   if(document.visibilityState==='visible')void autoRefreshChaoxing();
+  });
+  root.addEventListener?.('focus',()=>{void autoRefreshChaoxing();});
+  // Foreground-only polling; this is NOT a background Cron subscription.
+  // Reuse the existing minute tick for both sources.
+ }
  function announceUpdated(){
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
@@ -359,7 +399,12 @@
    if(!document.hidden)void maybeAutoRefreshSecondClass();
   });
   // Foreground-only checking; no hidden-tab school traffic.
-  setInterval(()=>{if(!document.hidden)void maybeAutoRefreshSecondClass();},60*1000);
+  setInterval(()=>{
+   if(!document.hidden){
+    void maybeAutoRefreshSecondClass();
+    void autoRefreshChaoxing();
+   }
+  },60*1000);
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-ncwu-check]');
    if(!button)return;
@@ -482,7 +527,12 @@
    try{
     await schoolPost(provider,'login',{username,password,
      ...(provider==='ncwu'&&academicUsername?{academicUsername,academicPassword}:{})});
+    if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
     await connect();
+    if(provider==='chaoxing')await Promise.allSettled([
+     root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
+     root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
+    ]);
     announceUpdated();
    }catch(e){status.textContent=e.message||'学校账号连接失败';}
    finally{if(submit.isConnected)submit.disabled=false;}
@@ -496,10 +546,19 @@
    button.disabled=true;
    try{
     await schoolPost(provider,removing?'disconnect':'sync');
-    await connect();announceUpdated();
+    if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
+    await connect();
+    if(provider==='chaoxing'){
+     if(removing)root.XiaoxuChaoxingInbox?.disconnect?.();
+     else await Promise.allSettled([
+      root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
+      root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
+     ]);
+    }
+    announceUpdated();
    }catch(e){root.alert(e.message||'学校连接操作失败');}
    finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);

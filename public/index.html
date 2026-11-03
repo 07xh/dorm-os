@@ -691,6 +691,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
   <link rel="stylesheet" href="/xiaoxu-owner-auth.css?v=98-profile-styles">
   <link rel="stylesheet" href="/xiaoxu-v9-ui.css">
   <title>校序 · 华水教务整合</title>
+<link rel="stylesheet" href="/xiaoxu-chaoxing-inbox.css">
 </head>
 <body>
 <svg class="dorm-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="dicon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="dicon-study" viewBox="0 0 24 24"><path d="M12 7v14M3 18V5a2 2 0 0 1 2-2h2a7 7 0 0 1 5 2 7 7 0 0 1 5-2h2a2 2 0 0 1 2 2v13h-4a7 7 0 0 0-5 2 7 7 0 0 0-5-2z"/></symbol><symbol id="dicon-nfc" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 9-9m0 14a9 9 0 0 0 9-9M7 16a5 5 0 0 1 5-5m0 6a5 5 0 0 0 5-5M12 3v1m0 16v1"/></symbol><symbol id="dicon-life" viewBox="0 0 24 24"><path d="M12 21s-8-5-9-11a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-1 6-9 11-9 11Z"/></symbol><symbol id="dicon-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol><symbol id="dicon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="dicon-scan" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4m0 6v4a1 1 0 0 1-1 1h-4m-6 0H5a1 1 0 0 1-1-1v-4M7 12h10"/></symbol></svg>
@@ -745,6 +746,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 <script src="/xiaoxu-notices.js"></script>
 <script src="/xiaoxu-academic-client.js"></script>
 <script src="/xiaoxu-cloud-tasks.js"></script>
+<script src="/xiaoxu-chaoxing-inbox.js"></script>
 <script src="/xiaoxu-deadline-reminders.js"></script>
 <script src="/xiaoxu-reminders.js"></script>
 <script src="/xiaoxu-owner-auth-ui.js" defer></script>
@@ -763,7 +765,7 @@ function rememberCloudOptIn(enabled){
 }
 function clearPrivateCloudWorkspace(){
  cloudResumeGeneration++;rememberCloudOptIn(false);
- XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuReminders.disconnect();
+ XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuChaoxingInbox.disconnect();XiaoxuReminders.disconnect();
 }
 // Only a previously opted-in device with a VERIFIED existing owner session
 // resumes the same cloud workspace. No new school login or credential storage.
@@ -774,7 +776,7 @@ async function resumeOptedCloudWorkspace(){
  try{
   await XiaoxuAcademic.connect();
   if(generation!==cloudResumeGeneration)return false;
-  await Promise.allSettled([XiaoxuCloudTasks.connect(),XiaoxuReminders.connect()]);
+  await Promise.allSettled([XiaoxuCloudTasks.connect(),XiaoxuReminders.connect(),XiaoxuChaoxingInbox.refresh()]);
   if(generation!==cloudResumeGeneration)return false;
   if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
   return true;
@@ -1490,7 +1492,8 @@ function tasksPage(){
  ${XiaoxuCloudTasks.deadlineSummary(state.tasks)}
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div class="task-context"><span>${remaining} 项待完成${linked?' · '+linked+' 项学习通记录':''}</span><span class="task-context-source" title="云端任务不代表学校平台自动登录">${XiaoxuCloudTasks.isReady()?'已加载个人云端作业 · 平台会话待核验':'学习通未连接自动同步'}</span></div>
- <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter,state.tasks)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+XiaoxuAcademic.taskRows(taskFilter,state.tasks)+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>`;
+ <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter,state.tasks)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+XiaoxuAcademic.taskRows(taskFilter,state.tasks)+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>
+ <div id="xuChaoxingInboxHost">${XiaoxuChaoxingInbox.panel()}</div>`;
 }
 function scenesPage(){
  const p=now();

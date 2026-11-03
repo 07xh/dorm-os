@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-test('NCWU school login guidance is inline, does not request credentials and cannot impersonate account binding',async({page})=>{
+test('NCWU and Chaoxing inline guidance never requests credentials before owner opt-in',async({page})=>{
  const calls=[];
  await page.route('**/api/v1/**',async route=>{
   calls.push(new URL(route.request().url()).pathname);
@@ -18,7 +18,8 @@ test('NCWU school login guidance is inline, does not request credentials and can
  await expect(ncwu).toContainText('不能读取其他网站的登录 Cookie');
  const chaoxing=center.locator('.xu-connection-source').filter({hasText:'学习通'});
  await chaoxing.locator('.xu-provider-guide summary').click();
- await expect(chaoxing).toContainText('本机导入属于部分覆盖');
+ await expect(chaoxing).toContainText('站内学习通连接入口');
+ await expect(chaoxing).toContainText('会话过期可在此重新连接');
  const second=center.locator('.xu-connection-source').filter({hasText:'第二课堂'});
  await second.locator('.xu-provider-guide summary').click();
  await expect(second).toContainText('不等于账号已绑定');
@@ -60,4 +61,29 @@ test('website password fields appear only when trusted server advertises a valid
  await expect(ncwu.locator('input[name="password"]')).toHaveCount(1);
  await expect(center.locator('.xu-connection-source').filter({hasText:'学习通'}).locator('input[name="password"]')).toHaveCount(0);
  expect(calls).toEqual(['GET']);
+});
+
+test('Chaoxing uses the existing data connection form only after a trusted adapter is advertised',async({page})=>{
+ const methods=[];
+ await page.route('**/api/v1/connections',route=>{
+  methods.push(route.request().method());
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+   schema:'xiaoxu/connections-v1',
+   platforms:[
+    {id:'ncwu',status:'not_connected',loginMode:'unavailable',sessionState:'not_connected',trustedKinds:[],importedKinds:[]},
+    {id:'chaoxing',status:'not_connected',loginMode:'password',sessionState:'not_connected',trustedKinds:[],importedKinds:[]},
+    {id:'second_class',status:'not_connected',loginMode:'unavailable',sessionState:'not_connected',trustedKinds:[],importedKinds:[]}
+   ]
+  })});
+ });
+ await page.goto('/#settings');
+ await page.locator('[data-action="academic-connect"]').click();
+ const center=page.getByRole('region',{name:'统一数据连接中心'});
+ const chaoxing=center.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await expect(chaoxing.getByText('在校序网页登录连接')).toBeVisible();
+ await chaoxing.locator('.xu-school-connect summary').click();
+ await expect(chaoxing.locator('input[name="username"]')).toHaveCount(1);
+ await expect(chaoxing.locator('input[name="password"]')).toHaveCount(1);
+ await expect(center.locator('.xu-connection-source').filter({hasText:'华水青果教务'}).locator('input[name="password"]')).toHaveCount(0);
+ expect(methods).toEqual(['GET'],'no school credentials or writes on opening the existing center');
 });
