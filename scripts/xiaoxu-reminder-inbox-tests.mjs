@@ -40,7 +40,35 @@ assert.equal(pure.preferences.enabled,false,'opt-in off by default');
 assert.equal(pure.items.find(x=>x.kind==='task').precision,'date');
 assert.ok(pure.items.find(x=>x.kind==='task').when.includes('时刻未知'));
 assert.equal(buildReminderInbox({exams:[{...exam,date:'2026-02-30'}]}).items.length,0,'invalid date excluded');
-assert.equal(buildReminderInbox({exams:[exam],tasks:[{...task,local_status:'done'}],readKeys:['exam:exam-1:test-term']}).unread,0);
+const originalExamKey=pure.items.find(x=>x.kind==='exam').key;
+const originalTaskKey=pure.items.find(x=>x.kind==='task').key;
+assert.match(originalExamKey,/^exam-v2:/);
+assert.match(originalTaskKey,/^task-v2:/);
+assert.equal(buildReminderInbox({exams:[exam],tasks:[{...task,local_status:'done'}],readKeys:[originalExamKey]}).unread,0);
+const rescheduledExam={...exam,date:move(today,3)};
+const examMoved=buildReminderInbox({exams:[rescheduledExam],now:Date.now(),readKeys:[originalExamKey]});
+assert.equal(examMoved.items.length,1);
+assert.notEqual(examMoved.items[0].key,originalExamKey,'changed exam date gets a new receipt');
+assert.equal(examMoved.unread,1,'past read may not silence rescheduled exam');
+const sameExam=buildReminderInbox({exams:[{...exam}],now:Date.now(),readKeys:[originalExamKey]});
+assert.equal(sameExam.unread,0,'unchanged exam remains read');
+const timedExam=buildReminderInbox({exams:[{...exam,startTime:'10:30'}],now:Date.now(),readKeys:[originalExamKey]});
+assert.equal(timedExam.unread,1,'newly verified exam hour must alert again');
+const endTimeExam=buildReminderInbox({exams:[{...exam,startTime:'10:30',endTime:'12:30'}],now:Date.now(),readKeys:[timedExam.items[0].key]});
+assert.equal(endTimeExam.unread,1,'exam end-time correction must alert again');
+const shiftedTask=buildReminderInbox({tasks:[{...task,due_local_date:move(today,1)}],now:Date.now(),readKeys:[originalTaskKey]});
+assert.equal(shiftedTask.unread,1);
+assert.notEqual(shiftedTask.items[0].key,originalTaskKey);
+const exactTask={...task,due_precision:'exact',
+  due_at_utc:new Date(move(today,1)+'T10:30:00+08:00').toISOString(),due_local_date:move(today,1)};
+const exactOnce=buildReminderInbox({tasks:[exactTask],now:Date.now(),readKeys:[originalTaskKey]});
+assert.equal(exactOnce.unread,1,'date-only becoming exact should re-alert');
+const exactSame=buildReminderInbox({tasks:[exactTask],now:Date.now(),readKeys:[exactOnce.items[0].key]});
+assert.equal(exactSame.unread,0);
+const exactChanged=buildReminderInbox({tasks:[{...exactTask,due_at_utc:new Date(move(today,1)+'T11:00:00+08:00').toISOString()}],now:Date.now(),readKeys:[exactOnce.items[0].key]});
+assert.equal(exactChanged.unread,1,'exact clock change must not inherit old read');
+assert.equal(buildReminderInbox({exams:[{...exam,externalId:'exam-2',title:exam.title}],now:Date.now(),readKeys:[originalExamKey]}).unread,1,
+ 'same-title different external ID is a different event');
 assert.equal(buildReminderInbox({exams:[exam],preferences:{examLeadDays:0}}).items.length,0);
 
 const sql=new DatabaseSync(':memory:');
@@ -118,8 +146,28 @@ try{
  assert.equal(data.unread,1);
  assert.equal(data.items.find(x=>x.key===key).read,true);
  assert.equal((await (await onRequestGet(ctx(a))).json()).unread,1,'read state persisted');
+ // A corrected exam schedule must not inherit the old read receipt.
+ const changedExam={...exam,date:move(today,3)};
+ sql.prepare('UPDATE academic_verified_records SET payload=? WHERE user_id=? AND kind=? AND external_id=?')
+  .run(JSON.stringify(changedExam),id,'exams',exam.externalId);
+ const moved=await (await onRequestGet(ctx(a))).json();
+ const newerKey=moved.items.find(x=>x.kind==='exam').key;
+ assert.notEqual(newerKey,key);
+ assert.equal(moved.items.find(x=>x.kind==='exam').read,false);
+ assert.equal(moved.unread,2);
+ assert.equal((await onRequestPatch(ctx(a,'PATCH',{operation:'read',key,read:true})).status,404,
+   'old event key cannot be marked when it is no longer in the inbox');
+ await onRequestPatch(ctx(a,'PATCH',{operation:'read',key:newerKey,read:true}));
+ // Moving a date-only assignment also reopens the reminder.
+ const beforeTask=(await (await onRequestGet(ctx(a))).json()).items.find(x=>x.kind==='task').key;
+ await onRequestPatch(ctx(a,'PATCH',{operation:'read',key:beforeTask,read:true}));
+ sql.prepare('UPDATE academic_assignments SET due_local_date=? WHERE id=? AND user_id=?')
+  .run(move(today,1),task.id,id);
+ const movedTask=(await (await onRequestGet(ctx(a))).json());
+ assert.equal(movedTask.items.find(x=>x.kind==='task').read,false);
+ assert.equal(movedTask.unread,1);
  assert.equal((await onRequestPatch(ctx(a,'PATCH',{operation:'read',key:'exam:fake',read:true}))).status,404);
- data=await (await onRequestPatch(ctx(a,'PATCH',{operation:'read',key,read:false}))).json();
+ data=await (await onRequestPatch(ctx(a,'PATCH',{operation:'read',key:newerKey,read:false}))).json();
  assert.equal(data.unread,2);
  data=await (await onRequestPatch(ctx(a,'PATCH',{...pref,enabled:false}))).json();
  assert.equal(data.preferences.enabled,false);
