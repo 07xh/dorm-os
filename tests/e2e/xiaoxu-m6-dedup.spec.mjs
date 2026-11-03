@@ -24,6 +24,7 @@ test('same-source task displays once across personal import, cloud ledger and sn
   {externalId:'work:2',title:'本地导入的学习通任务',course:'高等数学',platformStatus:'todo'},
   {externalId:'work:other',title:'同名作业',course:'高等数学',platformStatus:'todo'}
  ];
+ await page.route('**/api/v1/connections',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({schema:'xiaoxu/connections-v1',platforms:[{id:'ncwu',status:'not_connected'},{id:'chaoxing',status:'not_connected'},{id:'second_class',status:'not_connected'}]})}));
  await page.route('**/api/v1/verified/**',route=>{
   const kind=route.request().url().split('/').pop();
   return route.fulfill({status:200,contentType:'application/json',
