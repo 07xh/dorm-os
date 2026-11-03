@@ -61,7 +61,19 @@ test('official Chaoxing session import uses existing connection center and owner
  await page.reload();
  await expect.poll(()=>page.evaluate(()=>window.XiaoxuAcademic.hasData('assignments'))).toBe(true);
  expect(attempted.length).toBe(before,'reopening must reuse server session, never reimport browser cookies');
- await expect(page.locator('textarea[name="cookieExport"]')).toHaveCount(1);
- await expect(page.locator('textarea[name="cookieExport"]')).toHaveValue('');
- expect(attempted.length).toBe(before,'re-opening must not send login cookies a second time');
+ const saved=await page.evaluate(()=>{
+  const values=[];
+  for(const storage of [localStorage,sessionStorage]){
+   for(let i=0;i<storage.length;i++){
+    const key=storage.key(i);
+    values.push(key,storage.getItem(key));
+   }
+  }
+  return values.join(' ');
+ });
+ expect(saved).not.toContain('synthetic_session_value_not_real');
+ const inputs=await page.locator('textarea[name="cookieExport"]').evaluateAll(
+  elements=>elements.map(element=>element.value));
+ expect(inputs.every(value=>value==='')).toBe(true);
+ expect(attempted.length).toBe(before,'re-opening must not upload imported cookies again');
 });
