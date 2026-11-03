@@ -182,8 +182,8 @@
     adapter_unavailable:'学习通服务端登录适配器未在当前部署中注册，无法提供可靠的登录输入框。'
    };
    const chaoxingBlocked=provider.id==='chaoxing'&&!canLogin&&record?
-    '<div class="xu-school-pending" role="status">'+
-    '<strong>学习通连接入口暂不可用</strong><p class="small">'+
+    '<div class="xu-school-pending" role="status" data-school-unavailable="chaoxing">'+
+    '<strong>此平台暂不支持站内登录：学习通连接入口未就绪</strong><p class="small">'+
     escapeHtml(chaoxingReadinessMessage[record.loginReadiness]||
      '尚未取得学习通连接能力的诊断结果，请刷新连接状态。')+'</p>'+
     '<button type="button" class="secondary" data-action="academic-refresh">重新检测学习通连接</button>'+
@@ -201,14 +201,14 @@
     escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">'+(officialCas?'打开第二课堂官网':'打开学校官网')+'</a></div>':
     canLogin?
     '<details class="xu-school-connect" '+(!authorized&&provider.id==='chaoxing'?'open':'')+'><summary>'+ 
-    (authorized?'账号管理 / 重新连接':provider.id==='chaoxing'?'连接学习通账号 · 登录并同步':'在校序网页登录连接')+'</summary>'+
-    (!authorized&&provider.id==='chaoxing'?'<p class="tiny muted">使用本人学习通账号在校序完成首次连接。第三方 APK 的本机会话不能自动转移。</p>':'')+
+    (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
+    (!authorized&&provider.id==='chaoxing'?'<p class="tiny muted"><strong>连接学习通账号 · 登录并同步</strong>。使用本人学习通账号在校序完成首次连接。第三方 APK 的本机会话不能自动转移。</p>':'')+
     '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
     '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
     '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
-    chaoxingBlocked|| (active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台当前未配置可用的站内连接入口，不收取学校账号或密码。</p>':'');
+    chaoxingBlocked|| (active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
    const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
