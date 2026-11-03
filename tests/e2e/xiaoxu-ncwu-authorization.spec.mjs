@@ -18,7 +18,7 @@ test('NCWU and Chaoxing inline guidance never requests credentials before owner 
  await expect(ncwu).toContainText('不能读取其他网站的登录 Cookie');
  const chaoxing=center.locator('.xu-connection-source').filter({hasText:'学习通'});
  await chaoxing.locator('.xu-provider-guide summary').click();
- await expect(chaoxing).toContainText('站内学习通连接入口');
+ await expect(chaoxing).toContainText('学校统一认证和超星独立账号是两种不同的登录方式');
  await expect(chaoxing).toContainText('会话过期可在此重新连接');
  const second=center.locator('.xu-connection-source').filter({hasText:'第二课堂'});
  await second.locator('.xu-provider-guide summary').click();
@@ -80,10 +80,14 @@ test('Chaoxing uses the existing data connection form only after a trusted adapt
  await page.locator('[data-action="academic-connect"]').click();
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  const chaoxing=center.locator('.xu-connection-source').filter({hasText:'学习通'});
- await expect(chaoxing.getByText('在校序网页登录连接')).toBeVisible();
- await chaoxing.locator('.xu-school-connect summary').click();
- await expect(chaoxing.locator('input[name="username"]')).toHaveCount(1);
- await expect(chaoxing.locator('input[name="password"]')).toHaveCount(1);
+ await expect(chaoxing.getByText('我另有超星独立账号密码（非校园密码）')).toBeVisible();
+ await expect(chaoxing).toContainText('不能把校园密码直接当成超星独立密码');
+ await expect(chaoxing.getByRole('link',{name:'打开华水学习通统一认证'}))
+  .toHaveAttribute('href','https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu');
+ await expect(chaoxing.locator('input[name="password"]')).toBeHidden();
+ await chaoxing.locator('.xu-chaoxing-direct summary').click();
+ await expect(chaoxing.locator('input[name="username"]')).toBeVisible();
+ await expect(chaoxing.locator('input[name="password"]')).toBeVisible();
  await expect(center.locator('.xu-connection-source').filter({hasText:'华水青果教务'}).locator('input[name="password"]')).toHaveCount(0);
  expect(methods).toEqual(['GET'],'no school credentials or writes on opening the existing center');
 });
