@@ -188,7 +188,7 @@ const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const release=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
 assert.ok(release.includes("'/api/v1/second-class'"),'production deny gate');
 assert.ok(html.includes("XiaoxuAcademic.panel('second-class')"));
-assert.ok(sw.includes("const CACHE='dorm-os-shell-v94-ui-polish'"),'PWA cache is bumped for the single connection center');
+assert.ok(sw.includes("const CACHE='dorm-os-shell-v95-session-duration'"),'PWA cache is bumped for the single connection center');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
 assert.ok(sw.includes("'/xiaoxu-owner-auth.css'"),'PWA shell retains modal styles');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');

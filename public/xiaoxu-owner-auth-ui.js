@@ -3,6 +3,20 @@
 (() => {
   'use strict';
   const key = 'xiaoxu_owner_login_seen';
+  const durationKey = 'xiaoxu_owner_duration_days';
+  const validDays = value => Number.isInteger(value) && value >= 1 && value <= 30;
+  const presets = new Set([1, 7, 30]);
+  const initialDays = (() => {
+    try {
+      const stored = localStorage.getItem(durationKey);
+      if (!stored || !/^[0-9]{1,2}$/.test(stored)) return 7;
+      const days = Number(stored);
+      return validDays(days) ? days : 7;
+    } catch { return 7; }
+  })();
+  let chosenDays = initialDays;
+  let customMode = !presets.has(initialDays);
+  let currentExpiry = null;
   const link = document.querySelector('[data-owner-session-link]');
   const surface = document.querySelector('[data-owner-auth-surface]');
   const dialog = surface?.tagName === 'DIALOG' ? surface : null;
@@ -27,6 +41,44 @@
   };
   const report = message => { if (result) result.textContent = message; };
   let connected = false;
+  const updateDurationUI = () => {
+    document.querySelectorAll('[data-owner-duration-select]').forEach(select => {
+      select.value = customMode ? 'custom' : String(chosenDays);
+    });
+    document.querySelectorAll('[data-owner-duration-custom]').forEach(field => {
+      field.hidden = !customMode;
+      if (document.activeElement !== field) field.value = String(chosenDays);
+    });
+    const summary = surface?.querySelector('[data-owner-duration-summary]');
+    if (summary) summary.textContent = '本次登录保持 ' + chosenDays + ' 天';
+  };
+  const chooseDays = (days, custom = !presets.has(days)) => {
+    if (!validDays(days)) return false;
+    chosenDays = days;
+    customMode = custom;
+    try { localStorage.setItem(durationKey, String(days)); } catch {}
+    updateDurationUI();
+    return true;
+  };
+  document.addEventListener('change', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.matches('[data-owner-duration-select]')) {
+      const raw = target.value;
+      if (raw === 'custom') {
+        customMode = true;
+        updateDurationUI();
+        const field = target.closest('.xu-owner-duration-fields, .xu-owner-duration-pref, .duration-controls')?.querySelector('[data-owner-duration-custom]');
+        field?.focus();
+      } else chooseDays(Number(raw), false);
+    } else if (target.matches('[data-owner-duration-custom]')) {
+      const days = Number(target.value);
+      if (!chooseDays(days, true)) {
+        target.setCustomValidity('请输入 1～30 的整数天数');
+        target.reportValidity();
+      } else target.setCustomValidity('');
+    }
+  });
   const render = authenticated => {
     connected = authenticated === true;
     document.querySelectorAll('[data-owner-auth-open]').forEach(entry => {
@@ -43,6 +95,7 @@
     if (form) form.hidden = authenticated;
     if (logout) logout.hidden = !authenticated;
     if (title) title.textContent = authenticated ? '已登录' : dialog ? '登录校序' : '登录';
+    updateDurationUI();
   };
   async function verify({notify = false} = {}) {
     try {
@@ -51,6 +104,7 @@
         headers:{accept:'application/json'}
       });
       if (!response.ok) {
+        currentExpiry = null;
         render(false);
         if (response.status === 401 || response.status === 503) writeHint(false);
         if (notify && response.status === 503) report('登录服务尚未启用。');
@@ -58,9 +112,14 @@
       }
       const payload = await response.json();
       const verified = payload?.authenticated === true;
+      currentExpiry = verified && typeof payload.expiresAt === 'string' ? payload.expiresAt : null;
       render(verified);
       writeHint(verified);
-      if (notify && verified) report('当前设备已登录。');
+      if (notify && verified) {
+        const date = currentExpiry && Number.isFinite(Date.parse(currentExpiry))
+          ? new Date(currentExpiry).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}) : '';
+        report(date ? '当前会话有效至 ' + date + '。修改登录时间将在下次登录时生效。' : '当前设备已登录。');
+      }
       return verified;
     } catch {
       render(false);
@@ -69,14 +128,19 @@
     }
   }
 
-  window.XiaoxuOwnerAuth = Object.freeze({connected: () => connected});
+  window.XiaoxuOwnerAuth = Object.freeze({
+    connected: () => connected,
+    durationDays: () => chosenDays
+  });
   const openDialog = () => {
     if (!dialog || typeof dialog.showModal !== 'function') {
       location.assign('/login/');
       return;
     }
     report('');
-    if (!dialog.open) dialog.showModal();
+    try { if (!dialog.open) dialog.showModal(); }
+    catch { location.assign('/login/'); return; }
+    updateDurationUI();
     // This explicit click is the first private session check for new visitors.
     void verify({notify:readHint()});
     if (connected) logout?.focus({preventScroll:true});
@@ -86,6 +150,8 @@
   document.addEventListener('click', event => {
     const entry = event.target instanceof Element ? event.target.closest('[data-owner-auth-open]') : null;
     if (!entry) return;
+    // A real link still works when JS fails, avoiding a dead mobile control.
+    if (!dialog || typeof dialog.showModal !== 'function') return;
     event.preventDefault();
     openDialog();
   });
@@ -129,10 +195,12 @@
       const response = await fetch('/api/v1/auth/login', {
         method:'POST', credentials:'same-origin', cache:'no-store',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({passphrase:input.value})
+        body:JSON.stringify({passphrase:input.value,durationDays:chosenDays})
       });
       input.value = '';
       if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        currentExpiry = typeof payload.expiresAt === 'string' ? payload.expiresAt : null;
         writeHint(true);
         render(true);
         if (dialog) {
@@ -164,6 +232,7 @@
       });
       if (!response.ok) throw Error('logout_failed');
       writeHint(false);
+      currentExpiry = null;
       render(false);
       if (input) input.value = '';
       report('已退出当前设备。');

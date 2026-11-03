@@ -9,6 +9,6 @@ export async function onRequestPost({request,env}){
  const result=await createOwnerSession(request,env);
  if(!result.ok)return json({error:result.error},result.status,
   result.status===429?{'retry-after':'900'}:{});
- return json({authenticated:true,expiresAt:result.expiresAt},200,
-  {'set-cookie':sessionSetCookie(result.token)});
+ return json({authenticated:true,expiresAt:result.expiresAt,durationDays:result.durationDays},200,
+  {'set-cookie':sessionSetCookie(result.token,result.durationDays)});
 }

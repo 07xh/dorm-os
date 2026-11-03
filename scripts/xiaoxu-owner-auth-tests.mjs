@@ -5,6 +5,7 @@ import {onRequestPost as login} from '../functions/api/v1/auth/login.js';
 import {onRequestPost as logout} from '../functions/api/v1/auth/logout.js';
 import {onRequestGet as me} from '../functions/api/v1/auth/me.js';
 import {verifyAcademicAccess} from '../lib/academic-access.mjs';
+import {verifyOwnerSession} from '../lib/academic-owner-session.mjs';
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
 for(const name of [
@@ -21,7 +22,7 @@ const db={
 const passphrase='local-owner-credential-long-unique-only-for-tests';
 const env={ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password',OWNER_LOGIN_SECRET:passphrase};
 const url='https://xiaoxu.test/api/v1/auth/login';
-const request=(passphrase,other={})=>new Request(url,{method:'POST',headers:{origin:'https://xiaoxu.test','content-type':'application/json',...other},body:JSON.stringify({passphrase})});
+const request=(passphrase,other={},durationDays)=>new Request(url,{method:'POST',headers:{origin:'https://xiaoxu.test','content-type':'application/json',...other},body:JSON.stringify(durationDays===undefined?{passphrase}:{passphrase,durationDays})});
 try {
  let r=await login({request:request(passphrase),env:{}});
  assert.equal(r.status,503,'missing configuration is never public');
@@ -58,6 +59,34 @@ try {
  assert.match(eightLogin.headers.get('set-cookie')||'',/HttpOnly; Secure; SameSite=Strict/);
  assert.equal((await login({request:request('wrong000'),env:shortEnv})).status,401,
   'wrong 8-character credential must be rejected');
+ // Duration is an enforced server policy, not an untrusted frontend timer.
+ const dayEnv={...env,OWNER_LOGIN_SECRET:'independent-duration-test-credential'};
+ const daySecret=dayEnv.OWNER_LOGIN_SECRET;
+ const oneDay=await login({request:request(daySecret,{},1),env:dayEnv});
+ assert.equal(oneDay.status,200,'1-day preference can authenticate');
+ assert.match(oneDay.headers.get('set-cookie')||'',/Max-Age=86400(?:;|$)/);
+ const onePayload=await oneDay.json();
+ assert.equal(onePayload.durationDays,1);
+ const thirty=await login({request:request(daySecret,{},30),env:dayEnv});
+ assert.equal(thirty.status,200,'30-day preference can authenticate');
+ assert.match(thirty.headers.get('set-cookie')||'',/Max-Age=2592000(?:;|$)/);
+ const thirtyBody=await thirty.json();
+ assert.equal(thirtyBody.durationDays,30);
+ const tCookie=(thirty.headers.get('set-cookie')||'').split(';')[0];
+ const tRequest=new Request('https://xiaoxu.test/api/v1/auth/me',{headers:{cookie:tCookie}});
+ const exactExpiry=Date.parse(thirtyBody.expiresAt);
+ assert.ok(Number.isFinite(exactExpiry),'expiry must be returned');
+ assert.equal((await verifyOwnerSession(tRequest,dayEnv,{clock:()=>exactExpiry-1})).ok,true);
+ assert.equal((await verifyOwnerSession(tRequest,dayEnv,{clock:()=>exactExpiry})).ok,false,'DB denies the session at its deadline');
+ const meDuration=await me({request:tRequest,env:dayEnv});
+ assert.equal((await meDuration.json()).expiresAt,thirtyBody.expiresAt);
+ const defaults=await login({request:request(daySecret),env:dayEnv});
+ assert.equal(defaults.status,200);
+ assert.match(defaults.headers.get('set-cookie')||'',/Max-Age=604800(?:;|$)/);
+ for(const bad of [0,31,-1,1.5,'7',null]){
+  const response=await login({request:request(daySecret,{},bad),env:dayEnv});
+  assert.equal(response.status,400,'invalid duration must be rejected: '+String(bad));
+ }
  assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
  assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
  console.log('M12 owner login: migration, strict origin, one-owner auth, same gate, cookie, revocation and rate limit passed');

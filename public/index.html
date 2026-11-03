@@ -729,6 +729,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
       <input id="xuOwnerPassword" data-owner-auth-password type="password" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入密码">
       <button class="xu-owner-toggle" type="button" data-owner-auth-toggle aria-label="显示密码">显示</button>
     </div>
+    <p class="xu-owner-duration-hint" data-owner-duration-summary>本次保持登录 7 天</p>
     <button class="xu-owner-action" type="submit" data-owner-auth-submit>安全登录</button>
   </form>
   <button class="xu-owner-action xu-owner-exit" type="button" data-owner-auth-logout hidden>退出当前设备</button>
@@ -1474,13 +1475,22 @@ const devices=[['📱','一加 Ace 6','Android 自动化 · 未来通过授权�
 function devicesPage(){return `${titleBlock('HARDWARE INTEGRATION','设备中心','已知你的设备类别，但还没有获取任何真实在线状态。')}<div class="device-grid">${devices.map(d=>`<section class="card device-card"><div class="device-icon">${d[0]}</div><div class="device-name">${d[1]}</div><div class="small muted">${d[2]}</div><div class="device-status"><span class="status-line">未连接到网站</span>${badge('待接入')}</div></section>`).join('')}</div><div class="notice neutral" style="margin-top:16px">预留协议：<span class="kbd">dorm-os/eink-v1</span>，可在设置中导出 JSON 样例。静态 V1 网站不能对外提供实时硬件 API；后续需增加带身份验证的服务端。</div>`;}
 function profilePage(){
  const ownerConnected=window.XiaoxuOwnerAuth?.connected?.()===true;
+ const ownerDays=window.XiaoxuOwnerAuth?.durationDays?.()??7;
+ const ownerCustom=![1,7,30].includes(ownerDays);
  return titleBlock('','我的')+'<section class="card v4-profile-card">'
  +'<div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">校</span>'
  +'<div><strong>个人设置与数据连接</strong><span>本地任务保存在当前设备 · 云端任务独立管理</span></div></div>'
- +'<div class="v4-profile-links"><button type="button" class="v4-profile-link" data-owner-auth-open>'
- +'<span class="v4-profile-symbol" aria-hidden="true">◉</span><span><strong data-owner-auth-entry-title>'+(ownerConnected?'云端已连接':'登录校序')+'</strong><small data-owner-auth-entry-subtitle>'+(ownerConnected?'查看或退出当前设备':'管理个人云端登录')+'</small></span><b>›</b></button>'
+ +'<div class="v4-profile-links"><a href="/login/" class="v4-profile-link" data-owner-auth-open>'
+ +'<span class="v4-profile-symbol" aria-hidden="true">◉</span><span><strong data-owner-auth-entry-title>'+(ownerConnected?'云端已连接':'登录校序')+'</strong><small data-owner-auth-entry-subtitle>'+(ownerConnected?'查看或退出当前设备':'管理个人云端登录')+'</small></span><b>›</b></a>'
  +'<button type="button" class="v4-profile-link" data-page="settings">'
  +'<span class="v4-profile-symbol" aria-hidden="true">⚙</span><span><strong>数据连接</strong><small>学校账号、云端数据与备份统一管理</small></span><b>›</b></button></div>'
+ +'<div class="xu-owner-duration-pref"><div><strong>保持登录时间</strong><small>下次登录生效 · 最长 30 天</small></div>'
+ +'<div class="xu-owner-duration-fields"><select data-owner-duration-select aria-label="保持登录时间">'
+ +'<option value="1" '+(ownerDays===1?'selected':'')+'>1 天</option>'
+ +'<option value="7" '+(ownerDays===7?'selected':'')+'>7 天</option>'
+ +'<option value="30" '+(ownerDays===30?'selected':'')+'>30 天</option>'
+ +'<option value="custom" '+(ownerCustom?'selected':'')+'>自定义</option></select>'
+ +'<input type="number" data-owner-duration-custom aria-label="自定义保持登录天数" min="1" max="30" step="1" inputmode="numeric" value="'+ownerDays+'" '+(ownerCustom?'':'hidden')+'></div></div>'
  +'<details class="x-v7-legacy-links"><summary>原有个人功能（教务整合后再联动）</summary>'
  +'<div class="x-v7-legacy-list"><button type="button" data-page="nfc">NFC 标签管理</button>'
  +'<button type="button" data-page="scenes">个人场景</button><button type="button" data-page="life">生活管理</button>'

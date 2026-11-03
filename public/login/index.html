@@ -12,7 +12,7 @@ body{min-height:100dvh;margin:0;padding:clamp(40px,10vh,96px) 18px 30px;display:
 main{width:min(100%,380px);padding:28px;background:#fff;border:1px solid #e5ecf6;border-radius:20px;box-shadow:0 15px 46px rgba(36,80,143,.07)}
 .brand{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:750;letter-spacing:-.02em}
 .logo{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;color:#fff;background:#2c71e9;font-size:19px;font-weight:750}
-h1{font-size:25px;line-height:1.25;margin:24px 0 22px;letter-spacing:-.035em}
+h1{font-size:25px;line-height:1.25;margin:18px 0 14px;letter-spacing:-.035em}
 label{display:block;margin:0 0 9px;font-size:13px;font-weight:660;color:#48617e}
 .password-field{position:relative}
 input{width:100%;height:48px;border:1px solid #ccd9ec;border-radius:12px;background:#fff;padding:0 62px 0 14px;font:inherit;font-size:15px;color:#1a3150;transition:border-color .16s,box-shadow .16s}
@@ -27,11 +27,13 @@ input:focus{outline:none;border-color:#3474e9;box-shadow:0 0 0 3px rgba(52,116,2
 #logout{background:#edf3fe;color:#205ec4}
 #result{margin-top:15px;font-size:13px;line-height:1.55;color:#526782;overflow-wrap:anywhere}
 #result:empty{display:none}
-.back{display:block;width:max-content;margin:23px auto 0;color:#6b819f;text-decoration:none;font-size:13px}
+.back{display:block;width:max-content;margin:17px auto 0;color:#6b819f;text-decoration:none;font-size:13px}
 .back:hover{text-decoration:underline;color:#2664d1}
 [hidden]{display:none!important}
-@media(max-width:420px){main{padding:25px 22px;border-radius:18px}body{padding-top:clamp(28px,8vh,72px)}h1{margin-top:23px;margin-bottom:20px}}
+@media(max-width:420px){main{padding:25px 22px;border-radius:18px}body{padding-top:clamp(28px,8vh,72px)}h1{margin-top:17px;margin-bottom:14px}}
 @media(prefers-reduced-motion:reduce){input,.primary{transition:none}}
+
+.duration-preference{margin-top:10px}.duration-preference label{margin:0 0 5px;font-size:13px}.duration-controls{display:flex;gap:8px}.duration-controls select,.duration-controls input{height:42px;min-width:0;border:1px solid #ccd9ec;border-radius:10px;background:#fff;color:#1a3150;padding:0 10px;font:inherit;font-size:14px}.duration-controls select{flex:1}.duration-controls input{width:86px}.duration-preference small{display:block;margin-top:7px;color:#71839e;font-size:11px}.duration-controls [hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -43,6 +45,19 @@ input:focus{outline:none;border-color:#3474e9;box-shadow:0 0 0 3px rgba(52,116,2
     <div class="password-field">
       <input id="passphrase" data-owner-auth-password type="password" name="passphrase" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入密码">
       <button id="toggle" data-owner-auth-toggle class="toggle" type="button" aria-label="显示密码">显示</button>
+    </div>
+    <div class="duration-preference" data-owner-duration-fields>
+      <label for="sessionDuration">保持登录时间</label>
+      <div class="duration-controls">
+        <select id="sessionDuration" data-owner-duration-select aria-label="保持登录时间">
+          <option value="1">1 天</option>
+          <option value="7" selected>7 天</option>
+          <option value="30">30 天</option>
+          <option value="custom">自定义</option>
+        </select>
+        <input id="customDuration" data-owner-duration-custom type="number" inputmode="numeric" min="1" max="30" step="1" value="7" aria-label="自定义保持登录天数" hidden>
+      </div>
+      <small>最长 30 天，下次登录生效</small>
     </div>
     <button id="submit" data-owner-auth-submit class="primary" type="submit">安全登录</button>
   </form>
