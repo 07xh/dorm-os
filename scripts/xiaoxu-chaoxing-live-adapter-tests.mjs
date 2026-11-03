@@ -7,7 +7,8 @@ const profile='<div aria-label="账号：测试本人" id="user"></div>'+
  '<div id="siteName" title="华北水利水电大学"></div><script>var uid = "1234567";</script>';
 const item={idCode:'A'.repeat(32),uuid:'B'.repeat(42),tag:'courseId123',
  title:'作业发布',content:'课程名称：Python\r作业名称：练习一\r结束时间：2026-11-10 20:30',
- isread:0,sendTime:'2026-11-03 18:45:00'};
+ isread:0,sendTime:'2026-11-03 18:45:00',
+ extendParam:{cparams:JSON.stringify({funConfig:{content:{key:'workItemUnique12345'}}})}};
 const urls=[],notices=[];
 let invalidSession=false;
 async function fakeFetch(url,options){
