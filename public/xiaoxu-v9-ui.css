@@ -125,3 +125,14 @@ html.theme-light body { background:#f6f8fc!important }
 @media(prefers-reduced-motion:reduce){
  #app .x-v91-next-summary { transition:none!important }
 }
+
+
+/* V9.2: mobile-safe touch hit areas for the original task controls. */
+#app .v4-task-list .x-v92-task-toggle,#app .v41-study-panel .x-v92-task-toggle{display:grid;place-items:center;flex:0 0 44px;width:44px;min-height:44px;cursor:pointer;border-radius:10px}
+#app .x-v92-task-toggle input[type=checkbox]{width:21px;height:21px;margin:0;accent-color:var(--xu-brand,#356bfa)}
+#app .x-v92-task-toggle:focus-within{outline:2px solid var(--xu-brand,#356bfa);outline-offset:1px}
+#app .v4-task-list .task-actions{display:flex;gap:5px}
+#app .v4-task-list .task-actions .icon-btn{min-width:44px;min-height:44px;display:grid;place-items:center;border-radius:9px}
+#app .v4-task-list .task-actions .icon-btn:active{background:var(--xu-soft,#eaf1ff)}
+@media(max-width:430px){#app .v4-task-list .task-item{flex-wrap:wrap;gap:4px 10px}#app .v4-task-list .task-main{flex:1 1 calc(100% - 58px)}#app .v4-task-list .task-actions{margin-left:54px;margin-top:-2px}#app .v4-task-list .task-actions .icon-btn{min-width:44px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){#app .v4-task-list .task-actions .icon-btn{transition:none!important}}
