@@ -74,3 +74,32 @@
 #app .xu-second-class-official{margin:12px 0 16px;padding:14px;border:1px solid var(--xu-line);border-radius:14px;background:var(--xu-surface);min-width:0}
 #app .xu-second-class-official>strong{font-size:13px;color:var(--xu-ink)}
 #app .xu-second-class-official .xu-second-class-summary{margin:10px 0}
+
+/* One visible source-connection entry. Older cloud/migration widgets stay in
+ * disclosure sections and retain their original workflows. */
+#app .xu-connection-list{display:grid;gap:10px;margin:15px 0}
+#app .xu-connection-source{display:flex;align-items:center;justify-content:space-between;
+ gap:14px;padding:15px 16px;border:1px solid var(--xu-line);border-radius:14px;
+ background:var(--xu-soft);min-width:0}
+#app .xu-connection-copy{display:grid;gap:5px;min-width:0}
+#app .xu-connection-copy strong{font-size:14px;color:var(--xu-ink)}
+#app .xu-connection-copy small{font-size:12px;color:var(--xu-muted)}
+#app .xu-connection-copy span{font-size:11px;line-height:1.55;color:var(--xu-muted);overflow-wrap:anywhere}
+#app .xu-connection-actions{display:flex;align-items:flex-end;flex-direction:column;gap:9px;flex:none}
+#app .xu-connection-link{font-size:12px;padding:9px 12px;border-radius:10px;
+ text-decoration:none;display:inline-flex;align-items:center;justify-content:center;
+ min-height:38px;border:1px solid var(--xu-line);color:var(--xu-brand);
+ background:var(--xu-surface)}
+#app .xu-connection-link:focus-visible{outline:3px solid var(--xu-ring);outline-offset:2px}
+#app .xu-connection-bottom{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+#app .xu-connection-bottom button{min-height:42px}
+#app .xu-advanced-tools{grid-column:1/-1;padding:0;min-width:0}
+#app .xu-advanced-tools>summary{cursor:pointer;padding:14px 16px;border:1px solid var(--xu-line);
+ border-radius:13px;color:var(--xu-ink);background:var(--xu-surface);font-size:13px;font-weight:650}
+#app .xu-advanced-tools[open]>summary{margin-bottom:12px}
+#app .xu-advanced-tools .xu-cloud-panel,#app .xu-advanced-tools .xu-reminder-panel{margin:10px 0}
+@media(max-width:580px){
+ #app .xu-connection-source{align-items:stretch;flex-direction:column;padding:13px}
+ #app .xu-connection-actions{align-items:center;flex-direction:row;justify-content:space-between}
+ #app .xu-connection-bottom button{flex:1 1 140px}
+}
