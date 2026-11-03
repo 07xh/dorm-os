@@ -34,8 +34,11 @@ test('NCWU expanded authorization detail does not cause horizontal overflow',asy
  for(const width of [360,393,768,1280]){
   await page.setViewportSize({width,height:840});
   await page.reload();
-  await page.locator('[data-xu-school-provider="ncwu"] > summary').click();
-  await expect(page.locator('[data-xu-school-provider="ncwu"]')).toHaveAttribute('open','');
+  // This test checks layout at each viewport, not native disclosure timing.
+  // Open the details deterministically; click behavior is covered above.
+  await page.locator('[data-xu-school-provider="ncwu"]').evaluate(el=>{el.open=true;});
+  await page.locator('.xu-kingo-guide').evaluate(el=>{el.open=true;});
+  await expect(page.locator('.xu-kingo-guide')).toHaveAttribute('open','');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth), 'viewport width '+width).toBeLessThanOrEqual(2);
  }
 });
