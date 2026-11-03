@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {probeNcwuLogin,classifyNcwuLoginHtml,ncwuOfficialRedirect}
  from '../lib/academic-ncwu-login-probe.mjs';
+import {resolveNcwuPreflight} from '../functions/api/v1/connections/[provider]/preflight.js';
 
 const ENTRY='https://jwmis.ncwu.edu.cn/hsjw/caslogin';
 const CAS='https://authserver.ncwu.edu.cn/authserver/login?service='+encodeURIComponent(ENTRY);
@@ -58,4 +59,22 @@ for(const data of [valid,await probeNcwuLogin({fetchImpl:network.fetchImpl})]){
  assert.ok(!output.includes('Cookie'));
  assert.ok(!output.includes('SECRET'));
 }
+// The independent private CAS probe must not be blocked by a less-specific
+// public HTML classifier. Neither result authenticates an account.
+const falsePublic={loginSupported:false,mode:'login_form_not_found'};
+const ready=await resolveNcwuPreflight(falsePublic,{
+ preflight:async()=>({loginSupported:true,mode:'password_form_verified'})
+},true);
+assert.equal(ready.nativeLoginReady,true);
+assert.equal(ready.loginSupported,true);
+assert.equal(ready.schoolAuthorized,false);
+const needsHuman=await resolveNcwuPreflight(
+ {loginSupported:true,mode:'ordinary_form_detected_not_authenticated'},
+ {preflight:async()=>({loginSupported:false,mode:'interactive_login_required'})},true);
+assert.equal(needsHuman.nativeLoginReady,false);
+assert.equal(needsHuman.status,'interactive_login_required');
+const noVault=await resolveNcwuPreflight(falsePublic,null,false);
+assert.equal(noVault.status,'server_session_vault_unavailable');
+assert.equal(noVault.nativeLoginReady,false);
+
 console.log('NCWU public preflight: authentic official redirects, no credentials, safe blocking and privacy passed');
