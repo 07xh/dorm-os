@@ -3,6 +3,7 @@
  */
 import {verifyAcademicAccess} from '../../../../lib/academic-access.mjs';
 import {KINDS,KIND_SOURCES,validateSnapshot} from '../../../../lib/academic-contract.mjs';
+import {savePersonalSnapshot,PersonalSnapshotError} from '../../../../lib/academic-personal-snapshot.mjs';
 const HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store, private',
  'x-content-type-options':'nosniff','referrer-policy':'no-referrer','vary':'Cf-Access-Jwt-Assertion'};
 const respond=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:HEADERS});
@@ -57,25 +58,11 @@ export async function onRequestPost(context){
  }catch(e){return respond({status:'invalid_snapshot',message:String(e.message).slice(0,120)},422);}
  const {db,userId}=auth;
  try{
-  const latest=await db.prepare('SELECT last_success_at,provenance FROM academic_verified_batches WHERE user_id=? AND kind=?')
-   .bind(userId,batch.kind).first();
-  // Personal uploads cannot replace an independently attested school read.
-  if(latest?.provenance==='trusted_readonly')
-   return respond({status:'trusted_source_readonly'},409);
-  if(latest&&Date.parse(latest.last_success_at)>Date.parse(batch.capturedAt))
-   return respond({status:'outdated_snapshot'},409);
-  const now=new Date().toISOString(),batchId=crypto.randomUUID();
-  const statements=[db.prepare('INSERT OR IGNORE INTO academic_users(id,created_at) VALUES (?,?)').bind(userId,now)];
-  statements.push(...batch.records.map(r=>db.prepare(
-   'INSERT INTO academic_verified_records(user_id,kind,source,external_id,term,payload,batch_id,updated_at) VALUES(?,?,?,?,?,?,?,?) '+
-   'ON CONFLICT(user_id,kind,source,external_id,term) DO UPDATE SET payload=excluded.payload,batch_id=excluded.batch_id,updated_at=excluded.updated_at')
-     .bind(userId,batch.kind,batch.source,r.externalId,r.term,JSON.stringify(r),batchId,batch.capturedAt)));
-  statements.push(db.prepare('INSERT INTO academic_verified_batches(user_id,kind,source,last_success_at,batch_id,updated_at,provenance) VALUES(?,?,?,?,?,?,?) '+
-   'ON CONFLICT(user_id,kind) DO UPDATE SET source=excluded.source,last_success_at=excluded.last_success_at,batch_id=excluded.batch_id,updated_at=excluded.updated_at,provenance=excluded.provenance')
-    .bind(userId,batch.kind,batch.source,batch.capturedAt,batchId,now,'user_import'));
-  statements.push(db.prepare('INSERT INTO academic_verified_ingests(id,user_id,kind,source,captured_at,accepted_at,count) VALUES(?,?,?,?,?,?,?)')
-    .bind(crypto.randomUUID(),userId,batch.kind,batch.source,batch.capturedAt,now,batch.records.length));
-  await db.batch(statements);
-  return respond({status:'accepted',kind:batch.kind,count:batch.records.length,lastSuccessAt:batch.capturedAt,provenance:'user_import'},202);
- }catch{return respond({status:'database_unavailable'},503);}
+  return respond(await savePersonalSnapshot(db,userId,batch),202);
+ }catch(e){
+  if(e instanceof PersonalSnapshotError&&
+   ['trusted_source_readonly','outdated_snapshot'].includes(e.code))
+    return respond({status:e.code},409);
+  return respond({status:'database_unavailable'},503);
+ }
 }
