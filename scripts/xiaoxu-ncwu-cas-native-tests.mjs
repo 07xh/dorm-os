@@ -15,6 +15,16 @@ const markup='<form method="POST" action="'+casUrl+'">'+
  '<input name="_eventId" type="hidden" value="submit"></form>';
 const response=(status,body='',headers={})=>new Response(body,{status,headers});
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
+// The official CAS page offers optional alternative authentication widgets.
+// These must not veto an otherwise safe, self-contained ordinary password form.
+const optionalMethods='<section aria-label="其他登录方式">短信登录 · 图形验证码 · 滑块验证 · 人脸登录'+
+ '<input name="smsCode"></section><script>function showAlternateCaptcha() {}</script>';
+assert.deepEqual(inspectCasForm(markup+optionalMethods,casUrl).hidden,
+ {execution:'e1s1',_eventId:'submit'});
+// A challenge INSIDE the submitted form is mandatory, and remains blocked.
+assert.throws(()=>inspectCasForm(markup.replace('</form>',
+ '<input name="geetest_challenge" type="hidden" value="required"></form>'),casUrl),
+ e=>e.code==='interactive_login_required');
 assert.throws(()=>inspectCasForm(markup.replace('</form>','<input name="captcha" type="text"></form>'),casUrl),
  e=>e instanceof NcwuCasError&&e.code==='interactive_login_required');
 assert.throws(()=>inspectCasForm(markup.replace('sec.ncwu.edu.cn','thirdparty.invalid'),casUrl),
