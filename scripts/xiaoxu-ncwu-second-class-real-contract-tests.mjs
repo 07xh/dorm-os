@@ -114,10 +114,12 @@ assert.deepEqual(auditCalls.map(x=>x.path).slice(-4),[
 assert.deepEqual(auditCalls[0].form,{page:'1',pagesize:'50'});
 await assert.rejects(async()=>adapter({verifiedAccount:{...verified,identityBound:false}}).verifySession(),
  e=>e.code==='authorization_failed');
+await assert.rejects(async()=>adapter({verifiedAccount:{...verified,session:{}}}).verifySession(),
+ e=>e.code==='authorization_failed');
 await assert.rejects(async()=>{
  const x=adapter();const proof=await x.verifySession();
  await x.readPage({cursor:null,session:{studentCode:'OTHER'}});
-},e=>e.code==='authorization_failed');
+},e=>e.code==='school_identity_changed');
 
 const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
