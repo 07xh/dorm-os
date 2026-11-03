@@ -67,7 +67,7 @@ denied(()=>validateSecondClassMapping({...mapping,statusValues:{reviewStatus:{pa
 denied(()=>makeSecondClassMappedAdapter({mapping,verifySession:()=>true}));
 
 const proof={authorized:true,scope:'self',provider:'second_class',school:'ncwu',
- identityBound:true,session:{ephemeral:true}};
+ identityBound:true,principalBoundTo:'owner-001',session:{ephemeral:true}};
 const seen=[];
 const adapter=makeSecondClassMappedAdapter({
  mapping,

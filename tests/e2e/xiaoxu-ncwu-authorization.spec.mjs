@@ -16,6 +16,12 @@ test('NCWU school login guidance is inline, does not request credentials and can
  await ncwu.locator('.xu-kingo-guide summary').click();
  await expect(ncwu).toContainText('打开官网不等于绑定成功');
  await expect(ncwu).toContainText('不能读取其他网站的登录 Cookie');
+ const chaoxing=center.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await chaoxing.locator('.xu-provider-guide summary').click();
+ await expect(chaoxing).toContainText('本机导入属于部分覆盖');
+ const second=center.locator('.xu-connection-source').filter({hasText:'第二课堂'});
+ await second.locator('.xu-provider-guide summary').click();
+ await expect(second).toContainText('不等于账号已绑定');
  await expect(center.locator('input[type="password"]')).toHaveCount(0);
  expect(calls).toEqual([],'settings page must not read personal school records before opt-in');
 });

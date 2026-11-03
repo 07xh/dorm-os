@@ -31,7 +31,8 @@ const task=i=>({externalId:'work:'+i,title:'真实来源模拟作业 '+i,
 const pages=[Array.from({length:20},(_,i)=>task(i)),
  [task(20)]];
 const authorized={provider:'chaoxing',verifySession:async()=>({
- authorized:true,scope:'self',provider:'chaoxing',
+ authorized:true,scope:'self',provider:'chaoxing',school:'ncwu',
+ identityBound:true,principalBoundTo:'owner-1',
  session:{opaque:'test-only-memory'}
 }),readPage:async({cursor})=>cursor===null?
  {tasks:pages[0],complete:false,nextCursor:'page2'}:
@@ -42,7 +43,8 @@ assert.equal(first.received,21);
 assert.equal(first.inserted,21);
 assert.equal(first.coverage,'complete');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,21);
-assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_sync_runs').get().n,2);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_sync_runs').get().n,1,
+ 'all pages share one transactional write');
 const connection=sqlite.prepare('SELECT * FROM academic_connections').get();
 assert.equal(connection.provider,'chaoxing');
 assert.equal(connection.status,'connected');
@@ -52,6 +54,11 @@ const repeat=await runTrustedConnector(db,'owner-1',authorized,opts);
 assert.equal(repeat.inserted,0);
 assert.equal(repeat.updated,0);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,21);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_sync_runs').get().n,2);
+await assert.rejects(()=>runTrustedConnector(db,'owner-2',authorized,opts),
+ e=>e instanceof ConnectorRunError&&e.code==='authorization_failed');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_users').get().n,1,
+ 'wrong school account cannot write to second owner');
 
 const partial={...authorized,readPage:async({cursor})=>{
  if(cursor)throw Error('DO NOT LOG RAW AUTH COOKIE');
@@ -63,12 +70,12 @@ const afterFail=sqlite.prepare('SELECT * FROM academic_connections').get();
 assert.equal(afterFail.status,'error');
 assert.equal(afterFail.last_error_code,'upstream_unavailable');
 assert.ok(!JSON.stringify(afterFail).includes('COOKIE'));
-assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,22,
- 'partial valid first page may be preserved without deleting past tasks');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,21,
+ 'later page failure must not persist partially fetched tasks');
 const recovered=await runTrustedConnector(db,'owner-1',{
  ...authorized,readPage:async()=>({tasks:[task(99)],complete:true,nextCursor:null})
 },opts);
-assert.equal(recovered.inserted,0);
+assert.equal(recovered.inserted,1);
 assert.equal(sqlite.prepare('SELECT status FROM academic_connections').get().status,'connected');
 await assert.rejects(()=>runTrustedConnector(db,'owner-1',{
  ...authorized,verifySession:async()=>({authorized:false,provider:'chaoxing'})
