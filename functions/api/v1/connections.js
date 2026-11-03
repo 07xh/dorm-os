@@ -21,7 +21,7 @@ export async function onRequestGet(context){
   const sessions=await schoolSessionStates(auth.db,auth.userId,context.env?.SCHOOL_SESSION_KEY);
   const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
   result.platforms=result.platforms.map(row=>{
-   const available=vaultReady&&!!availableSchoolAdapter(context,row.id);
+   const available=row.id!=='second_class'&&vaultReady&&!!availableSchoolAdapter(context,row.id);
    const sessionState=sessions[row.id]||'not_connected';
    // The second-class verified ledger is intentionally independent of the
    // legacy academic_connections table (whose provider CHECK excludes it).
@@ -29,11 +29,13 @@ export async function onRequestGet(context){
    // University CAS returns to a SCHOOL-owned service. Do not expose
    // an Academic OS password form or imply consent to a third-party app.
    if(row.id==='second_class'){
-    const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
-    return {...row,status:verified?'connected':row.status,sessionState,
-     loginMode:verified?'connected':available?'native_cas_probe':flow.loginMode,
-     authFlow:flow,nativeCasPreflight:available,
-     accountAuthorization:flow.xiaoxuAuthorization};
+    // Retired encrypted sessions and previous trusted snapshots are NOT a
+    // fresh grant through the university-owned CAS callback.
+    const flow=describeSecondClassAuthorization({
+     sessionState:'not_connected',verifiedSession:false});
+    return {...row,status:'not_connected',sessionState:'not_connected',
+     loginMode:'official_sso',authFlow:flow,nativeCasPreflight:false,
+     automaticSync:false,accountAuthorization:'not_verified'};
    }
    if(row.id==='ncwu')return {...row,sessionState,
     loginMode:available?'native_cas_probe':'unavailable',

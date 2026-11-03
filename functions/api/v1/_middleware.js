@@ -1,7 +1,5 @@
-/* Register trusted server-owned adapters for NCWU/Qingguo, Chaoxing and
- * second-class CAS. Browser input cannot register adapters or login modes.
- */
-import {makeNcwuCasServerAdapter} from '../../../lib/academic-ncwu-cas-server.mjs';
+/* Register active school adapters. The old second-class password CAS
+ * proxy was removed; school-owned SSO is not a third-party grant. */
 import {makeNcwuQingguoServerAdapter} from '../../../lib/academic-ncwu-qingguo-server.mjs';
 import {createChaoxingSchoolAdapter} from '../../../lib/academic-chaoxing-provider.mjs';
 import {diagnoseChaoxingReadiness} from '../../../lib/academic-chaoxing-readiness.mjs';
@@ -12,7 +10,6 @@ export async function onRequest(context){
   context.data??={};
   context.data.academicSchoolAdapters={
    ...(context.data.academicSchoolAdapters||{}),
-   second_class:makeNcwuCasServerAdapter(),
    // New NCWU sessions only become trusted AFTER an owner-reviewed preview.
    // Explicit false is a production rollback switch, not an onboarding step.
    ...(context.env?.NCWU_QINGGUO_TRUSTED_SYNC_ENABLED!=='false'&&

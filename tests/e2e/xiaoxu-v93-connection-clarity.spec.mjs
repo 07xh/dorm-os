@@ -42,7 +42,9 @@ test('unavailable school adapter does not collect school account or password',as
  await page.goto('/#settings');
  const panel=page.getByRole('region',{name:'统一数据连接中心'});
  await panel.getByRole('button',{name:'读取我的连接状态'}).click();
- await expect(panel.locator('[data-school-unavailable]')).toHaveCount(3);
+ await expect(panel.locator('[data-school-unavailable]')).toHaveCount(2);
+ await expect(panel.locator('[data-xu-second-class-official-only]')).toHaveCount(1);
+ await expect(panel.locator('[data-xu-second-cas-check]')).toHaveCount(0);
  await expect(panel.locator('form[data-xu-school-login]')).toHaveCount(0);
  await expect(panel).toContainText('校序云端已读取');
  await expect(panel).toContainText('此平台暂不支持站内登录');
@@ -58,5 +60,6 @@ test('school account form appears only after server reports real adapter availab
  await expect(panel.locator('form[data-xu-school-login="ncwu"]')).toHaveCount(1);
  await expect(panel.locator('form[data-xu-school-login="chaoxing"]')).toHaveCount(0);
  await expect(panel.locator('form[data-xu-school-login="second_class"]')).toHaveCount(0);
- await expect(panel.locator('[data-school-unavailable]')).toHaveCount(2);
+ await expect(panel.locator('[data-school-unavailable]')).toHaveCount(1);
+ await expect(panel.locator('[data-xu-second-class-official-only]')).toHaveCount(1);
 });

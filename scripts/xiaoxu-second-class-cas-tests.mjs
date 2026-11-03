@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {NCWU_SECOND_CLASS_SSO,describeSecondClassAuthorization}
  from '../lib/academic-ncwu-secondclass-sso.mjs';
 import {onRequestPost as loginPost}
@@ -21,5 +22,8 @@ const denied=await loginPost({
  }),
  env:{},params:{provider:'second_class'}
 });
-assert.equal(denied.status,503,'school login must not bypass owner access');
-console.log('Second-class CAS: official handoff and independent-authorization boundary passed');
+assert.equal(denied.status,503,'school login still requires owner authentication');
+assert.ok(!JSON.stringify(await denied.json()).includes('DO_NOT_STORE'));
+const schoolLogin=readFileSync(new URL('../functions/api/v1/connections/[provider]/login.js',import.meta.url),'utf8');
+assert.ok(schoolLogin.includes("provider==='second_class')return json({error:'official_sso_only'},410)"));
+console.log('Second-class official SSO only: no third-party callback or password proxy passed');
