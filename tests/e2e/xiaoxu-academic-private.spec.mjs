@@ -3,12 +3,13 @@ const capturedAt=new Date().toISOString();
 test('private academic UI is unconnected by default',async({page})=>{
  await page.goto('/#settings');
  await expect(page.locator('[data-action="academic-connect"]')).toBeVisible();
- await expect(page.locator('.xu-private-panel')).toContainText('尚未授权');
+ await expect(page.locator('.xu-private-panel')).toContainText('校序云端未读取');
  await page.goto('/#academic');
  await page.locator('[data-academic-tab="grades"]').click();
  await expect(page.locator('[role="tabpanel"]')).toContainText('未连接青果成绩查询');
 });
 test('private academic client displays verified five-domain response without persisting token',async({page})=>{
+ await page.route('**/api/v1/connections',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({schema:'xiaoxu/connections-v1',platforms:[{id:'ncwu',status:'not_connected',trustedKinds:[],importedKinds:[]},{id:'chaoxing',status:'not_connected',trustedKinds:[],importedKinds:[]},{id:'second_class',status:'not_connected',trustedKinds:[],importedKinds:[]}]})}));
  await page.route('**/api/v1/verified/**',async route=>{
   const kind=route.request().url().split('/').pop();
   const data={
@@ -24,7 +25,7 @@ test('private academic client displays verified five-domain response without per
  });
  await page.goto('/#settings');
  await page.locator('[data-action="academic-connect"]').click();
- await expect(page.locator('.xu-private-panel')).toContainText('本页已加载本人数据');
+ await expect(page.locator('.xu-private-panel')).toContainText('校序云端已读取');
  await page.goto('/#timetable');
  await expect(page.locator('.xu-private-view')).toContainText('已核验测试课程');
  await expect(page.locator('.xu-private-view')).toContainText('第3–4节');
@@ -38,9 +39,10 @@ test('private academic client displays verified five-domain response without per
  await expect(page.locator('[role="tabpanel"]')).toContainText('2026-12-20');
  await page.reload();
  await page.goto('/#settings');
- await expect(page.locator('.xu-private-panel')).toContainText('尚未授权');
+ await expect(page.locator('.xu-private-panel')).toContainText('校序云端未读取');
 });
 test('unconfigured private service fails closed on mobile',async({page})=>{
+ await page.route('**/api/v1/connections',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'私人账户尚未完成验证'})}));
  await page.route('**/api/v1/verified/**',route=>route.fulfill({
   status:503,contentType:'application/json',body:JSON.stringify({
     status:'auth_not_configured',message:'Cloudflare Access 尚未配置'
@@ -48,8 +50,8 @@ test('unconfigured private service fails closed on mobile',async({page})=>{
  }));
  await page.goto('/#settings');
  await page.locator('[data-action="academic-connect"]').click();
- await expect(page.locator('.xu-private-panel')).toContainText('尚未授权');
- await expect(page.locator('.xu-private-panel')).toContainText('Cloudflare Access 尚未配置');
+ await expect(page.locator('.xu-private-panel')).toContainText('校序云端未读取');
+ await expect(page.locator('.xu-private-panel')).toContainText('私人账户尚未完成验证');
  for(const width of [360,393,768,1280]){
   await page.setViewportSize({width,height:850});
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
