@@ -745,6 +745,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 <script src="/xiaoxu-notices.js"></script>
 <script src="/xiaoxu-academic-client.js"></script>
 <script src="/xiaoxu-cloud-tasks.js"></script>
+<script src="/xiaoxu-chaoxing-inbox.js"></script>
 <script src="/xiaoxu-deadline-reminders.js"></script>
 <script src="/xiaoxu-reminders.js"></script>
 <script src="/xiaoxu-owner-auth-ui.js" defer></script>
@@ -763,7 +764,7 @@ function rememberCloudOptIn(enabled){
 }
 function clearPrivateCloudWorkspace(){
  cloudResumeGeneration++;rememberCloudOptIn(false);
- XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuReminders.disconnect();
+ XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuChaoxingInbox.disconnect();XiaoxuReminders.disconnect();
 }
 // Only a previously opted-in device with a VERIFIED existing owner session
 // resumes the same cloud workspace. No new school login or credential storage.
@@ -1490,7 +1491,8 @@ function tasksPage(){
  ${XiaoxuCloudTasks.deadlineSummary(state.tasks)}
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div class="task-context"><span>${remaining} 项待完成${linked?' · '+linked+' 项学习通记录':''}</span><span class="task-context-source" title="云端任务不代表学校平台自动登录">${XiaoxuCloudTasks.isReady()?'已加载个人云端作业 · 平台会话待核验':'学习通未连接自动同步'}</span></div>
- <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter,state.tasks)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+XiaoxuAcademic.taskRows(taskFilter,state.tasks)+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>`;
+ <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter,state.tasks)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+XiaoxuAcademic.taskRows(taskFilter,state.tasks)+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>
+ <div id="xuChaoxingInboxHost">${XiaoxuChaoxingInbox.panel()}</div>`;
 }
 function scenesPage(){
  const p=now();
