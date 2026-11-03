@@ -9,6 +9,7 @@
  let connected=false,sources=[],error='',serviceHealth=null,healthError='';
  let connectionStatusRead=false,connectionEpoch=0,connectionRequest=null;
  let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
+ let ncwuAutoSyncBusy=false,lastNcwuAutoSyncAttempt=0;
  const SCHOOL_AUTO_SYNC_INTERVAL=30*60*1000;
  // Foreground refresh is allowed only for an already verified owner session.
  const SECOND_CLASS_REFRESH_MS=15*60*1000;
@@ -27,7 +28,7 @@
  };
  function disconnect(){
   connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
-  schoolAutoSyncBusy=false;
+  schoolAutoSyncBusy=false;ncwuAutoSyncBusy=false;lastNcwuAutoSyncAttempt=0;
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
   secondClassAutoAt=0;secondClassAutoMessage='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
@@ -93,6 +94,7 @@
    // Uses only the owner's previously verified encrypted school session.
    void maybeAutoRefreshSecondClass();
    void autoRefreshChaoxing();
+   void autoRefreshNcwu();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
  }
@@ -226,6 +228,8 @@
     '<p class="tiny muted">打开校序后按需自动刷新本人第二课堂（前台检查间隔不少于 15 分钟）；关闭页面后不执行后台采集。</p>':'';
    const autoRefreshNote=provider.id==='second_class'&&secondClassAutoMessage?
     '<p class="tiny muted" role="status">'+escapeHtml(secondClassAutoMessage)+'</p>':'';
+   const ncwuAutoHint=authorized&&provider.id==='ncwu'?
+    '<p class="tiny muted">重开校序后，如课表已超过30分钟未更新且会话有效，将尝试只读同步。关闭网页时不采集数据。</p>':'';
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
@@ -247,7 +251,7 @@
     '<p>后续直接在校序「我的 → 数据连接」中完成学校登录及自动同步，无需额外安装浏览器脚本或导入 JSON。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
-    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+guidance+'</div>'+
+    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+ncwuAutoHint+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
     ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
@@ -383,6 +387,34 @@
   if(!response.ok)throw Error(schoolMessage[result?.error]||'连接操作失败');
   return result;
  }
+ // Reuse only a verified owner-bound encrypted NCWU session.
+ // Foreground-only: closed tabs perform no school traffic.
+ async function autoRefreshNcwu(){
+  if(!connected||ncwuAutoSyncBusy||typeof document==='undefined'||
+     document.visibilityState==='hidden')return false;
+  const linked=sources.find(x=>x.id==='ncwu');
+  if(linked?.accountAuthorization!=='verified_session'||
+     linked.sessionState!=='active'||!Array.isArray(linked.trustedKinds)||
+     !linked.trustedKinds.includes('schedule'))return false;
+  const time=Date.now(),lastSuccess=Date.parse(linked.lastSuccessAt||'')||0;
+  if(time-Math.max(lastSuccess,lastNcwuAutoSyncAttempt)<SCHOOL_AUTO_SYNC_INTERVAL)return false;
+  ncwuAutoSyncBusy=true;lastNcwuAutoSyncAttempt=time;
+  const epoch=connectionEpoch;
+  try{
+   await schoolPost('ncwu','sync');
+   if(epoch!==connectionEpoch||!connected)return false;
+   if(!await refresh())return false;
+   if(epoch===connectionEpoch)announceUpdated();
+   return true;
+  }catch(e){
+   if(epoch===connectionEpoch&&connected){
+    await refresh().catch(()=>{});
+    error=e.message||'青果课表自动同步未完成，旧数据仍保留';
+    announceUpdated();
+   }
+   return false;
+  }finally{ncwuAutoSyncBusy=false;}
+ }
  async function autoRefreshChaoxing(){
   if(!connected||schoolAutoSyncBusy||typeof document==='undefined'||
      document.visibilityState==='hidden')return false;
@@ -413,9 +445,9 @@
  }
  if(typeof document!=='undefined'){
   document.addEventListener('visibilitychange',()=>{
-   if(document.visibilityState==='visible')void autoRefreshChaoxing();
+   if(document.visibilityState==='visible'){void autoRefreshChaoxing();void autoRefreshNcwu();}
   });
-  root.addEventListener?.('focus',()=>{void autoRefreshChaoxing();});
+  root.addEventListener?.('focus',()=>{void autoRefreshChaoxing();void autoRefreshNcwu();});
   // Foreground-only polling; this is NOT a background Cron subscription.
   // Reuse the existing minute tick for both sources.
  }
@@ -431,6 +463,7 @@
    if(!document.hidden){
     void maybeAutoRefreshSecondClass();
     void autoRefreshChaoxing();
+    void autoRefreshNcwu();
    }
   },60*1000);
   document.addEventListener('click',async event=>{
@@ -603,6 +636,7 @@
    try{
     await schoolPost('ncwu','confirm',{reviewed:true,reviewHash:panel.dataset.reviewHash});
     await connect();announceUpdated();
+    root.dispatchEvent(new Event('xiaoxu-school-authorization-connected'));
     status.textContent='本人课表已连接并完成同步';
    }catch(e){
     status.textContent=e.message||'课表核对未完成';
@@ -644,6 +678,7 @@
      root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
     ]);
     announceUpdated();
+    root.dispatchEvent(new Event('xiaoxu-school-authorization-connected'));
    }catch(e){status.textContent=e.message||'学校账号连接失败';}
    finally{if(submit.isConnected)submit.disabled=false;}
   });
@@ -670,5 +705,5 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,hasVerifiedSchoolConnection:()=>connected&&sources.some(row=>row.accountAuthorization==='verified_session'&&row.sessionState==='active'),state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);

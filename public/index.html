@@ -2168,6 +2168,19 @@ $('importInput').addEventListener('change',async e=>{const file=e.target.files?.
 $('editor').addEventListener('click',e=>{if(e.target===$('editor'))$('editor').close();});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(nameMap[h]&&h!==page){page=h;render();maybeReadMyConnections();}});
  window.addEventListener('xiaoxu-school-connection-updated',()=>{if(page==='settings')render();toast('学校平台连接状态已更新');});
+// A successful real school connection explicitly opts this device into the
+// existing owner-verified cloud resume path. This preference contains no
+// password, cookie, ticket or student information. Reopening still requires
+// /api/v1/auth/me before private data may be fetched.
+window.addEventListener('xiaoxu-school-authorization-connected',()=>{
+ if(!XiaoxuAcademic.hasVerifiedSchoolConnection())return;
+ rememberCloudOptIn(true);
+ void Promise.allSettled([
+  XiaoxuCloudTasks.isReady()?XiaoxuCloudTasks.refresh():XiaoxuCloudTasks.connect(),
+  XiaoxuReminders.isConnected()?XiaoxuReminders.refresh():XiaoxuReminders.connect(),
+  XiaoxuChaoxingInbox.refresh()
+ ]).then(()=>{if(['settings','tasks','academic','dashboard','profile'].includes(page))render();});
+});
 function updateOfflineBanner(){$('offlineBanner').hidden=navigator.onLine;}
 async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未显示安装提示，请使用浏览器菜单中的「添加到主屏幕」');return;}const p=deferredInstallPrompt;deferredInstallPrompt=null;try{await p.prompt();await p.userChoice;}catch(e){console.warn('安装提示不可用',e);}}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});
