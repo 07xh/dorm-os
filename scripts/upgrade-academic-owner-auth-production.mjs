@@ -32,6 +32,14 @@ export function classifyAuthUpgrade(tables,columns){
  if(present===authTables.length)return 'verify';
  return 'partial_auth_schema';
 }
+export function classifySessionVaultUpgrade(tables,columns){
+ if(!Array.isArray(tables)||!Array.isArray(columns))throw Error('invalid_session_schema');
+ const present=new Set(tables.map(x=>x?.name));
+ if(!present.has('academic_provider_sessions'))return 'apply';
+ const fields=new Set(columns.map(x=>x?.name));
+ const required=['user_id','provider','ciphertext','nonce','expires_at','updated_at'];
+ return required.every(x=>fields.has(x))?'verify':'partial_session_schema';
+}
 export async function upgrade(){
  if(process.env.GITHUB_REPOSITORY!=='07xh/dorm-os'||process.env.GITHUB_REF!=='refs/heads/main')
   throw Error('repository_or_branch_not_allowed');
@@ -62,11 +70,23 @@ export async function upgrade(){
   const c=rows(name,'PRAGMA table_info('+t+')');
   if(!Array.isArray(c)||c.length<3)throw Error('auth_columns_missing');
  }
+ // Extend the SAME existing academic D1. No new service account or database.
+ const sessionColumns=rows(name,'PRAGMA table_info(academic_provider_sessions)');
+ const sessionAction=classifySessionVaultUpgrade(next,sessionColumns);
+ if(sessionAction==='partial_session_schema')throw Error('partial_session_schema_manual_review');
+ if(sessionAction==='apply'){
+  run(['d1','execute',name,'--remote','--yes','--json','--file=./migrations/0011_academic_provider_sessions.sql']);
+  report('✅ 已执行 0011 校序本人学校会话加密保险库迁移');
+ }else report('✅ 0011 已存在，无重复迁移');
+ const vaultTables=rows(name,"SELECT name FROM sqlite_master WHERE type='table'");
+ const vaultColumns=rows(name,'PRAGMA table_info(academic_provider_sessions)');
+ if(classifySessionVaultUpgrade(vaultTables,vaultColumns)!=='verify')
+  throw Error('session_vault_columns_missing');
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
  const check=rows(name,'PRAGMA quick_check');
  if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
- report('✅ 0010 三表、外键和完整性均通过；现有学业数据未删除');
- report('ℹ️ 认证功能仍须显式配置 ACADEMIC_AUTH_MODE 与 OWNER_LOGIN_SECRET 才会启用');
+ report('✅ 0010 + 0011 表、外键和完整性均通过；现有学业数据未删除');
+ report('ℹ️ 学校网页登录功能仍需配置独立加密密钥及真实授权适配器；本迁移不存储凭据，也不会启动学校连接');
 }
 if(process.argv[1]?.endsWith('upgrade-academic-owner-auth-production.mjs')){
  try{await upgrade();}
