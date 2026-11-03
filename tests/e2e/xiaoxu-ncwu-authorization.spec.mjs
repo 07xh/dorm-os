@@ -34,7 +34,7 @@ test('NCWU expanded authorization detail does not cause horizontal overflow',asy
   await page.setViewportSize({width,height:840});
   await page.goto('/#settings');
   await page.locator('[data-xu-school-provider="ncwu"] > summary').click();
-  await page.locator('.xu-kingo-guide summary').click();
+  await expect(page.locator('[data-xu-school-provider="ncwu"]')).toHaveAttribute('open','');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth), 'viewport width '+width).toBeLessThanOrEqual(2);
  }
 });
