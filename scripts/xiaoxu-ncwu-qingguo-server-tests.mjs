@@ -14,6 +14,12 @@ const form='<html><form method="post" action="'+CAS+'">'+
  '<input type="hidden" name="_eventId" value="submit"></form></html>';
 const headers={'content-type':'text/html;charset=UTF-8'};
 const reply=(status,content='',extra={})=>new Response(content,{status,headers:{...headers,...extra}});
+// Real GBK bytes for the synthetic word “中”, with no charset in HTTP headers.
+// Unlike a UTF-8-only parser, the native transport must read the HTML meta tag.
+const gbkPage=html=>Buffer.concat([
+ Buffer.from('<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><!-- '),
+ Buffer.from([0xd6,0xd0]),Buffer.from(' -->'+html)
+]);
 const meta='<input type="hidden" id="xh" value="'+student+'">'+
  '<input type="hidden" id="xn" value="2026">'+
  '<input type="hidden" id="xq_m" value="1">';
@@ -30,16 +36,18 @@ function detail(value='1-8周 一[1-2] '+room){
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
- redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false}={}){
+ redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,gbkLogin=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
   const u=new URL(url),method=options.method;
   calls.push({host:u.hostname,path:u.pathname,method,hasCookie:!!(options.headers?.cookie||options.headers?.Cookie)});
   if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login'&&method==='GET')
-   return reply(200,challenge?form.replace('</form>','<input name="captcha"></form>'):
-    cryptoForm?form+'<script>encryptPassword();</script>':form,
-    {'set-cookie':'CAS_FAKE=authorization; Path=/authserver/; Secure'});
+   {const html=challenge?form.replace('</form>','<input name="captcha"></form>'):
+    cryptoForm?form+'<script>encryptPassword();</script>':form;
+    return reply(200,gbkLogin?gbkPage(html):html,
+     {'set-cookie':'CAS_FAKE=authorization; Path=/authserver/; Secure',
+      ...(gbkLogin?{'content-type':'text/html'}:{})});}
   if(u.hostname==='authserver.ncwu.edu.cn'&&method==='POST'){
    const p=new URLSearchParams(options.body);
    assert.equal(p.get('username'),student);
@@ -57,7 +65,8 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
       '<input type="hidden" name="loginmethod" value="plain">'+
       (directChallenge?'<input name="captcha" value="">' : '')+
       '</form></html>';
-     return reply(200,schoolForm);
+     return reply(200,gbkLogin?gbkPage(schoolForm):schoolForm,
+      gbkLogin?{'content-type':'text/html'}:{});
     }
     return reply(302,'',{location:CAS});
    }
@@ -126,6 +135,23 @@ assert.equal(direct.calls.filter(c=>c.host==='authserver.ncwu.edu.cn').length,0,
 const nativeReader=await native.forSession({session:nativeLogin.session,userId:'owner-direct'});
 const nativeProof=await nativeReader.verifySession();
 assert.equal((await nativeReader.readSection({kind:'schedule',session:nativeProof.session})).records.length,1);
+// Qingguo can serve GBK/GB2312 pages without setting the HTTP charset.
+// This exercises decoding actual non-UTF-8 bytes, not just a meta-string.
+const nativeGbkSchool=school({directLogin:true,gbkLogin:true});
+const nativeGbk=makeNcwuQingguoServerAdapter({
+ fetcher:nativeGbkSchool.fetcher,trustedSyncEnabled:true
+});
+assert.deepEqual(await nativeGbk.preflight(),
+ {loginSupported:true,mode:'school_password_form_verified'});
+assert.equal((await nativeGbk.login({username:student,password})).session.studentId,student);
+const casGbkSchool=school({gbkLogin:true});
+const casGbk=makeNcwuQingguoServerAdapter({
+ fetcher:casGbkSchool.fetcher,trustedSyncEnabled:true
+});
+assert.deepEqual(await casGbk.preflight(),
+ {loginSupported:true,mode:'password_form_verified'});
+assert.equal((await casGbk.login({username:student,password})).session.studentId,student);
+
 const directBlocked=school({directChallenge:true});
 const blocked=makeNcwuQingguoServerAdapter({
  fetcher:directBlocked.fetcher,trustedSyncEnabled:true
