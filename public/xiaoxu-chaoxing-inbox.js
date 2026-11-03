@@ -10,7 +10,7 @@
  const title={assignment:'作业',assignment_reminder:'作业提醒',
   peer_review:'互评',exam:'考试',checkin:'签到',
   quiz:'测验',activity:'活动',notice:'课程通知'};
- const actionable=new Set(['assignment','assignment_reminder','peer_review','exam']);
+ const actionable=new Set(['assignment','assignment_reminder','peer_review','exam','checkin','quiz','activity']);
  const isConnected=()=>root.XiaoxuAcademic?.isReady?.()===true||root.XiaoxuCloudTasks?.isReady?.()===true;
  function message(row){
   if(!row||typeof row!=='object'||!title[row.category])return '';
@@ -30,7 +30,7 @@
   return '<section class="card xu-inbox-panel" aria-label="学习通收件箱">'+
    '<details class="xu-inbox-details"><summary><strong>学习通收件箱</strong> '+
    '<span class="small muted">'+(logged?(loaded?rows.length+' 条已保存消息':'尚未读取'):'未连接校序云端')+'</span></summary>'+
-   '<p class="small muted">这是校序保存的学习通消息，不代表已实时同步。发布/截止提醒不会自动判定作业是否提交。</p>'+
+   '<p class="small muted">这是校序保存的学习通消息，不代表已实时同步。签到、测验及活动先保留为待核实消息，不会自动判定作业是否提交。</p>'+
    (logged?'<div class="button-row"><button type="button" class="secondary" data-chaoxing-inbox-refresh '+
       (loading?'disabled':'')+'>'+(loading?'读取中…':'读取已保存消息')+'</button></div>':
     '<p class="small muted">先在「我的」完成校序登录，再查看已保存的消息。</p>')+
