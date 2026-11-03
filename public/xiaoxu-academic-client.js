@@ -11,9 +11,6 @@
  let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
  let ncwuAutoSyncBusy=false,lastNcwuAutoSyncAttempt=0;
  const SCHOOL_AUTO_SYNC_INTERVAL=30*60*1000;
- // Foreground refresh is allowed only for an already verified owner session.
- const SECOND_CLASS_REFRESH_MS=15*60*1000;
- let secondClassAutoAt=0,secondClassAutoRequest=null,secondClassAutoMessage='';
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -30,7 +27,6 @@
   connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
   schoolAutoSyncBusy=false;ncwuAutoSyncBusy=false;lastNcwuAutoSyncAttempt=0;
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
-  secondClassAutoAt=0;secondClassAutoMessage='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
  async function get(kind){
@@ -92,46 +88,10 @@
    const loaded=await refresh();
    if(!loaded||!connected)return false;
    // Uses only the owner's previously verified encrypted school session.
-   void maybeAutoRefreshSecondClass();
    void autoRefreshChaoxing();
    void autoRefreshNcwu();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
- }
- function maybeAutoRefreshSecondClass(){
-  if(!connected||typeof document==='undefined'||document.hidden||
-     secondClassAutoRequest||Date.now()<secondClassAutoAt)return false;
-  const source=sources.find(item=>item.id==='second_class');
-  if(source?.accountAuthorization!=='verified_session'||
-     source.sessionState!=='active'||!Array.isArray(source.trustedKinds)||
-     !source.trustedKinds.includes('second-class'))return false;
-  const lastRead=Date.parse(source.lastSuccessAt||'');
-  if(Number.isFinite(lastRead)&&Date.now()-lastRead<SECOND_CLASS_REFRESH_MS)
-   return false;
-  const epoch=connectionEpoch;
-  secondClassAutoAt=Date.now()+SECOND_CLASS_REFRESH_MS;
-  secondClassAutoMessage='正在使用已连接的第二课堂会话自动更新…';
-  const task=(async()=>{
-   try{
-    await schoolPost('second_class','sync');
-    if(!connected||connectionEpoch!==epoch)return false;
-    const updated=await refresh();
-    if(!updated||!connected||connectionEpoch!==epoch)return false;
-    secondClassAutoMessage='';
-    announceUpdated();
-    return true;
-   }catch(e){
-    if(!connected||connectionEpoch!==epoch)return false;
-    secondClassAutoMessage='第二课堂自动刷新失败：'+
-     String(e?.message||'请手动重新连接');
-    // The server revokes expired sessions; keep the last verified snapshot.
-    try{await refresh();}catch{}
-    if(connected&&connectionEpoch===epoch)announceUpdated();
-    return false;
-   }finally{if(secondClassAutoRequest===task)secondClassAutoRequest=null;}
-  })();
-  secondClassAutoRequest=task;
-  return task;
  }
  async function diagnose(){
   if(!connected)throw Error('请先登录校序并读取个人连接状态');
@@ -174,7 +134,7 @@
      imported?'有 '+imported+' 类个人导入记录 · 不是账号绑定':record?'尚无已验证的学校同步记录':'';
    const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
-   const canLogin=record?.loginMode==='password';
+   const canLogin=provider.id!=='second_class'&&record?.loginMode==='password';
    const chaoxingReadinessMessage={
     session_key_missing:'学校会话密钥尚未配置，无法安全连接学习通。',
     session_key_invalid:'学校会话密钥格式不符合要求，请检查生产 Secret（勿发送密码）。',
@@ -191,16 +151,19 @@
     '<button type="button" class="secondary" data-action="academic-refresh">重新检测学习通连接</button>'+
     '<p class="tiny muted">第三方 APK 的本机会话不自动共享给校序。</p></div>':'';
 
-   const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
+   const officialCas=provider.id==='second_class';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
-   const authPanel=(officialCas||nativeNcwu)?
-    '<div class="xu-school-connect"><p class="tiny muted">校序通过本人的学校正常登录流程检查是否能安全连接；验证前不会收集密码，也不会绕过学校验证码或二次认证。</p>'+
-    ((record?.nativeCasPreflight||nativeNcwu)?
-     '<button type="button" class="secondary" '+(officialCas?'data-xu-second-cas-check':'data-xu-cas-check="ncwu"')+'>尝试连接'+escapeHtml(provider.name)+'</button>'+
-     '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>':
-     '<p class="tiny muted">站内安全会话尚未就绪，当前不会收取学校密码。</p>')+
-    '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
-    escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">'+(officialCas?'打开第二课堂官网':'打开学校官网')+'</a></div>':
+   // Second-class: school-owned SSO only. No password proxy or CAS preflight.
+   const authPanel=officialCas?
+    '<div class="xu-school-connect" data-xu-second-class-official-only>'+
+    '<p class="tiny muted">第二课堂旧版站内账号密码直连已删除。请使用学校官方页面完成扫码、密码或其他必要验证；学校会话不会因此自动交给校序。</p>'+
+    '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://dekt.ncwu.edu.cn/">打开第二课堂官网</a>'+
+    '<p class="tiny muted">校序尚未完成官方登录后的安全会话接入。目前只展示本人已保存的数据，不会假装登录成功或自动同步。</p></div>':
+   nativeNcwu?
+    '<div class="xu-school-connect"><p class="tiny muted">校序后端仅在校方提供安全的普通密码表单时尝试青果本人验证，不绕过验证码和二次认证。</p>'+
+    '<button type="button" class="secondary" data-xu-cas-check="ncwu">尝试连接华水青果教务</button>'+
+    '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>'+
+    '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://jwmis.ncwu.edu.cn/">打开学校官网</a></div>':
     canLogin?
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
@@ -221,16 +184,12 @@
      '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
      '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>'):
     chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
-   const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
+   const schoolScopeStatus=provider.id==='second_class'?'官方登录尚未接入':authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
-   const autoRefreshHint=authorized&&provider.id==='second_class'?
-    '<p class="tiny muted">打开校序后按需自动刷新本人第二课堂（前台检查间隔不少于 15 分钟）；关闭页面后不执行后台采集。</p>':'';
-   const autoRefreshNote=provider.id==='second_class'&&secondClassAutoMessage?
-    '<p class="tiny muted" role="status">'+escapeHtml(secondClassAutoMessage)+'</p>':'';
    const ncwuAutoHint=authorized&&provider.id==='ncwu'?
     '<p class="tiny muted">重开校序后，如课表已超过30分钟未更新且会话有效，将尝试只读同步。关闭网页时不采集数据。</p>':'';
-   const sessionTools=authorized?
+   const sessionTools=authorized&&provider.id!=='second_class'?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
    const guidance=provider.id==='ncwu'?
@@ -248,10 +207,10 @@
     '<p>本人会话验证通过后，网站处于前台时每 30 分钟尝试更新收件箱；网页关闭后尚未启用后台推送。会话过期可在此重新连接，提交状态仍需另行核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
     '<p>活动、积分、志愿服务时长的只读解析与服务端会话框架已保留，但尚未通过本人真实学校登录验证；打开官网不等于账号已绑定，当前不会冒充已连接。</p>'+
-    '<p>后续直接在校序「我的 → 数据连接」中完成学校登录及自动同步，无需额外安装浏览器脚本或导入 JSON。</p></details>';
+    '<p>目前未完成学校官方登录后的会话授权链路；在校序中不要求输入第二课堂密码，也不采集校方 Cookie。只有合法有效的本人会话接入并验收后才会启用自动同步。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
-    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+ncwuAutoHint+guidance+'</div>'+
+    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+ncwuAutoHint+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
     ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
@@ -376,7 +335,7 @@
  }
  const schoolMessage={upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
-  if(!['ncwu','chaoxing','second_class'].includes(provider)||
+  if(!['ncwu','chaoxing'].includes(provider)||
      !['login','confirm','sync','disconnect'].includes(verb))
    throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
@@ -455,13 +414,9 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
-  document.addEventListener('visibilitychange',()=>{
-   if(!document.hidden)void maybeAutoRefreshSecondClass();
-  });
   // Foreground-only checking; no hidden-tab school traffic.
   setInterval(()=>{
    if(!document.hidden){
-    void maybeAutoRefreshSecondClass();
     void autoRefreshChaoxing();
     void autoRefreshNcwu();
    }
@@ -495,12 +450,12 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
   document.addEventListener('click',async event=>{
-   const button=event.target.closest?.('[data-xu-cas-check],[data-xu-second-cas-check]');
+   const button=event.target.closest?.('[data-xu-cas-check]');
    if(!button)return;
    const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-second-cas-result]');
    if(!result)return;
-   const checkProvider=button.dataset.xuCasCheck||'second_class';
-   if(!['ncwu','second_class'].includes(checkProvider))return;
+   const checkProvider='ncwu';
+   
    button.disabled=true;result.textContent='正在向学校确认登录方式…';
    try{
     const response=await fetch('/api/v1/connections/'+checkProvider+'/preflight',{
@@ -508,23 +463,11 @@
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
-    if(!response.ok||(checkProvider==='ncwu'?!info?.nativeLoginReady:!info?.loginSupported)){
-     const secondClassReasons={
-      school_unreachable:'S01：校序服务器暂时无法连接学校认证入口。',
-      cas_handoff_unrecognized:'S02：学校入口未发现可核验的统一认证跳转。',
-      cas_login_page_unavailable:'S03：学校登录页面与现有认证流程不一致。',
-      password_form_unavailable:'S04：学校密码表单或必要字段已改变。',
-      interactive_challenge_required:'S05：学校当前要求验证码或其他交互式验证。',
-      password_transform_required:'S06：学校密码提交需要官方页面的加密处理。',
-      unexpected_cas_form_action:'S07：学校认证提交目标与二课服务不匹配。',
-      unrecognized_auth_flow:'S08：当前学校登录流程尚不受支持。'
-     };
+    if(!response.ok||(!info?.nativeLoginReady)){
      result.textContent=info?.status==='server_session_vault_unavailable'?
       '校序服务端安全会话未就绪；没有读取或保存学校账号。':
       info?.status==='schedule_review_pending'?
       '学校普通登录表单已识别，但课表尚待本人核对；暂不收集密码。':
-      checkProvider==='second_class'&&secondClassReasons[info?.reason]?
-      secondClassReasons[info.reason]+' 需要时请使用学校官网登录验证；反馈 S 编号即可，不需提供密码。':
       info?.status==='upstream_unavailable'?
       '校序服务器暂不能访问学校登录服务（S01）；没有读取或保存学校账号。':
       '学校当前不支持此方式的安全自动登录（S08）；请通过学校官网正常登录，不会绕过身份验证。';
@@ -533,7 +476,7 @@
     // The trusted backend has inspected a simple current CAS password form.
     // Only now does this page request school account credentials.
     const form=document.createElement('form');
-    form.dataset.xuSchoolLogin=checkProvider;
+    form.dataset.xuSchoolLogin='ncwu';
     form.autocomplete='on';
     const accountLabel=document.createElement('label');
     accountLabel.textContent='学校学工号';
@@ -549,7 +492,7 @@
     passwordLabel.appendChild(password);
     const hint=document.createElement('p');
     hint.className='tiny muted';
-    hint.textContent=checkProvider==='ncwu'?'先由安全后端读取本人课表，与学校官网核对后再启用同步；学校密码不保存。':'通过校序 HTTPS 后端向学校 CAS 验证；密码不保存。成功后仅把学校会话加密保存到 D1。';
+    hint.textContent='先由安全后端读取本人课表，与学校官网核对后再启用同步；学校密码不保存。';
     if(checkProvider==='ncwu'){
      const extra=document.createElement('div');
      extra.className='xu-school-secondary';
@@ -569,7 +512,7 @@
     }
     const submit=document.createElement('button');
     submit.type='submit';submit.className='primary';
-    submit.textContent=checkProvider==='ncwu'?'登录并查看待核对课表':'登录并同步本人二课';
+    submit.textContent='登录并查看待核对课表';
     const status=document.createElement('p');
     status.dataset.xuSchoolResult='';status.setAttribute('role','status');
     status.setAttribute('aria-live','polite');
@@ -648,6 +591,7 @@
    if(!form)return;
    event.preventDefault();
    const provider=form.dataset.xuSchoolLogin;
+   if(!['ncwu','chaoxing'].includes(provider))return;
    const submit=form.querySelector('button[type="submit"]');
    const status=form.querySelector('[data-xu-school-result]');
    const username=form.elements.namedItem('username')?.value||'';
