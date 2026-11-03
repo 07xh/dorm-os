@@ -19,7 +19,7 @@
    '<strong>'+escapeHtml(row.title||'学习通消息')+'</strong></div>'+
    '<div class="small muted">'+escapeHtml(row.course||'未关联课程')+
    ' · '+escapeHtml((row.sentAt||'').slice(0,10))+
-   (row.dueAt?' · 截止 '+escapeHtml(new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',
+   (row.dueAt?(row.category==='exam'?' · 考试开始 ':' · 截止 ')+escapeHtml(new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',
     year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'
    }).format(new Date(row.dueAt))):'')+'</div></article>';
  }
