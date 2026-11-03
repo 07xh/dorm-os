@@ -33,6 +33,19 @@ export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
   schoolAuthorized:false,automaticSync:false};
 }
 
+// Only the authenticated, trusted native adapter can authorize credential
+// submission. The informational public probe is a fallback, not a second
+// mandatory round trip on every button click.
+export async function checkNcwuPreflight({
+ vaultReady,adapter,publicProbe=probeNcwuLogin
+}={}){
+ if(vaultReady!==true)
+  return resolveNcwuPreflight(null,null,false);
+ if(adapter&&typeof adapter.preflight==='function')
+  return resolveNcwuPreflight(null,adapter,true);
+ return resolveNcwuPreflight(await publicProbe(),null,true);
+}
+
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -42,12 +55,6 @@ export async function onRequestGet(context){
    nativeLoginReady:false,automaticSync:false},410);
  if(provider!=='ncwu')return json({status:'unknown_provider',loginSupported:false},404);
  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
- if(provider==='ncwu'){
-  // Keep the existing credential-free official-site probe. An ordinary
-  // form is NOT the same as a verified, configured account connector.
-  const result=await probeNcwuLogin();
-  const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');
-  return json(await resolveNcwuPreflight(result,adapter,vaultReady),200);
- }
-
+ const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');
+ return json(await checkNcwuPreflight({vaultReady,adapter}),200);
 }
