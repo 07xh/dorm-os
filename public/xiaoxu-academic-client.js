@@ -82,7 +82,16 @@
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
     '<p>华水教务可能先经过统一身份认证，再进入青果教务。请只在学校官方页面输入本人凭据。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
-    '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':'';
+    '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':
+    provider.id==='chaoxing'?
+    '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
+    '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
+    '<p>目前可以使用本人设备上的 xuexitong-cli 只读导出，再在下方「学校官网连通性诊断与手动导入」中导入作业 JSON。</p>'+
+    '<p>本机导入属于部分覆盖，不代表已自动同步。学校账号的授权续期与完整作业接口尚未验证。</p></details>':
+    '<details class="xu-provider-guide"><summary>第二课堂连接方式</summary>'+
+    '<p>活动与素质分的本人只读响应结构已核验，现有连接器能够区分审核、核算状态和学校报告的分数合计。</p>'+
+    '<p>仍须使用经本人授权且身份匹配的受信任会话；目前不能在校序内无感保持学校登录或自动刷新。</p>'+
+    '<p>进入官方第二课堂只会打开学校页面，不等于账号已绑定。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     '<span>'+escapeHtml(details+stampText)+'</span>'+guidance+'</div>'+
