@@ -173,6 +173,22 @@
    const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const canLogin=record?.loginMode==='password';
+   const chaoxingReadinessMessage={
+    session_key_missing:'服务端尚未配置学校会话加密密钥，暂不能安全接收学习通账号。',
+    session_key_invalid:'服务端已有学校会话密钥，但格式不符合 32 字节加密要求；需修复生产 Secret，不能用学校密码代替。',
+    database_unbound:'当前网站部署未绑定校序个人学业数据库，无法保存安全登录会话。',
+    school_session_table_missing:'当前部署缺少学校会话数据表，请检查生产数据库迁移或绑定。',
+    chaoxing_inbox_table_missing:'当前部署缺少学习通收件箱表，请检查生产数据库迁移或绑定。',
+    adapter_unavailable:'学习通服务端登录适配器未在当前部署中注册，无法提供可靠的登录输入框。'
+   };
+   const chaoxingBlocked=provider.id==='chaoxing'&&!canLogin&&record?
+    '<div class="xu-school-pending" role="status">'+
+    '<strong>学习通连接入口暂不可用</strong><p class="small">'+
+    escapeHtml(chaoxingReadinessMessage[record.loginReadiness]||
+     '尚未取得学习通连接能力的诊断结果，请刷新连接状态。')+'</p>'+
+    '<button type="button" class="secondary" data-action="academic-refresh">重新检测学习通连接</button>'+
+    '<p class="tiny muted">第三方 APK 已登录只代表该应用的本机会话有效，不会自动登录到校序。</p></div>':'';
+
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
    const authPanel=(officialCas||nativeNcwu)?
@@ -190,7 +206,7 @@
     '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
-    active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'';
+    chaoxingBlocked|| (active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台当前未配置可用的站内连接入口，不收取学校账号或密码。</p>':'');
    const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
