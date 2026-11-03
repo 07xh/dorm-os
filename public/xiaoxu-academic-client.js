@@ -140,12 +140,14 @@
    '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
    (active?'校序云端已读取':'校序云端未读取')+'</span></div>'+
    '<p class="small muted xu-connection-intro">校序与学校账号分开授权。只有学校登录适配器可用时，才会显示账号输入框。</p>'+
-   '<div class="xu-connection-list">'+entries+'</div>'+
-   '<div class="xu-connection-bottom">'+
+
+   '<div class="xu-connection-bottom xu-connection-primary-actions">'+
    (!active?'<button type="button" class="primary" data-action="academic-connect">读取我的连接状态</button>':
     '<button type="button" class="secondary" data-action="academic-refresh">刷新连接状态与数据</button>'+
     '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>')+
-   '</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
+   '</div>'+
+   (!active?'<p class="tiny muted xu-connection-not-loaded" role="status">先读取校序连接状态；若提示未登录，请到「我的」登录校序。</p>':'')+
+   '<div class="xu-connection-list">'+entries+'</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
    '<details class="xu-connection-diagnostics"><summary>校序数据服务自检</summary>'+
    '<p class="tiny muted">仅检测本人登录和 D1 学业表结构，不检查学校账号是否已连接，也不会修改数据。</p>'+
    (active?'<button type="button" class="secondary" data-action="academic-health">只读检查数据库</button>':
