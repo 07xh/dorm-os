@@ -159,7 +159,7 @@
     '<p>本机导入属于部分覆盖，不代表已自动同步。学校账号的授权续期与完整作业接口尚未验证。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接方式</summary>'+
     '<p>活动与素质分的本人只读响应结构已核验，现有连接器能够区分审核、核算状态和学校报告的分数合计。</p>'+
-    '<p>当前第二课堂通过学校自有的 CAS 回调登录，校序不能读取另一网站的登录状态；用户不需要向校序输入学校密码。</p>'+
+    '<p>当前第二课堂通过学校自有的 CAS 回调登录；打开官网或完成学校登录不等于账号已绑定校序，校序不能读取另一网站的登录状态，也不需要向校序输入学校密码。</p>'+
     '<p>可在学校本人登录后通过只读本机导出保留活动记录；该导入不是后台自动同步。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
