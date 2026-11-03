@@ -8,7 +8,9 @@ import {probeNcwuLogin} from '../../../../../lib/academic-ncwu-login-probe.mjs';
  * credentials nor grants authorization.
  */
 export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
- const plain=publicProbe?.loginSupported===true;
+ // Seeing an ordinary form on the official site does not mean that the
+ // server-side adapter can complete that login and bind the owner's data.
+ const officialFormDetected=publicProbe?.loginSupported===true;
  let nativeLoginReady=false,status=publicProbe?.mode||'upstream_unavailable';
  if(adapter&&typeof adapter.preflight==='function'){
   try{
@@ -21,8 +23,8 @@ export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
   }catch{status='upstream_unavailable';}
  }
  if(!vaultReady)status='server_session_vault_unavailable';
- return {status,loginSupported:plain||nativeLoginReady,
-  nativeLoginReady,sessionVaultReady:vaultReady===true,
+ return {status,loginSupported:nativeLoginReady&&vaultReady===true,
+  officialFormDetected,nativeLoginReady,sessionVaultReady:vaultReady===true,
   schoolAuthorized:false,automaticSync:false};
 }
 
