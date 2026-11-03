@@ -6,6 +6,14 @@ import {readConnectionCenter} from '../../../lib/academic-connection-center.mjs'
 import {availableSchoolAdapter,schoolSessionStates,schoolSessionVaultReady} from '../../../lib/academic-school-login.mjs';
 import {describeSecondClassAuthorization} from '../../../lib/academic-ncwu-secondclass-sso.mjs';
 import {bridgeStatus} from '../../../lib/academic-secondclass-browser-bridge.mjs';
+export function isActiveSchoolAuthorization(row,sessionState,available){
+ // Historical snapshots cannot prove current owner-bound authorization.
+ if(!available||sessionState!=='active'||!row||!Array.isArray(row.trustedKinds))return false;
+ if(row.id==='second_class')return row.trustedKinds.includes('second-class');
+ if(row.id==='ncwu')return ['partial','connected'].includes(row.status)&&
+  row.trustedKinds.includes('schedule');
+ return row.id==='chaoxing'&&row.status==='connected';
+}
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -19,10 +27,7 @@ export async function onRequestGet(context){
    const sessionState=sessions[row.id]||'not_connected';
    // The second-class verified ledger is intentionally independent of the
    // legacy academic_connections table (whose provider CHECK excludes it).
-   const verified=available&&sessionState==='active'&&(
-    row.id==='second_class'
-     ? row.trustedKinds.includes('second-class')
-     : row.status==='connected');
+   const verified=isActiveSchoolAuthorization(row,sessionState,available);
    // University CAS returns to a SCHOOL-owned service. Do not expose
    // an Academic OS password form or imply consent to a third-party app.
    if(row.id==='second_class'){
