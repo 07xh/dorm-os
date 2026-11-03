@@ -10,12 +10,13 @@
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
+ const isOfficial=kind=>state(kind).provenance==='trusted_readonly';
  const records=kind=>hasData(kind)?state(kind).records:[];
  const stamp=value=>value?new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'未取得';
  const statusLabel=k=>{
   const s=state(k);
-  return s.status==='ready'?'个人快照 · '+stamp(s.lastSuccessAt):
-   s.status==='stale'?'过期个人快照 · '+stamp(s.lastSuccessAt):
+  return s.status==='ready'?(isOfficial(k)?'本人授权只读同步 · ':'个人快照 · ')+stamp(s.lastSuccessAt):
+   s.status==='stale'?(isOfficial(k)?'过期只读同步 · ':'过期个人快照 · ')+stamp(s.lastSuccessAt):
    s.status==='error'?'连接失败':s.status==='loading'?'正在读取':'未连接';
  };
  function disconnect(){
@@ -42,7 +43,7 @@
    if(result.status==='fulfilled'&&Array.isArray(result.value?.records)&&
        ['ready','stale','not_connected'].includes(result.value.status)){
      const v=result.value;
-     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null};
+     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import'};
    }else feeds[kind]={...feeds[kind],status:'error'};
   }
   error=results.some(v=>v.status==='rejected')?'部分个人数据源暂时不可用；不清空历史会话记录。':'';
@@ -109,8 +110,8 @@
    }
    return item(record,kind);
   }).join(''):'<div class="friendly-empty">本次保存的快照为空；不代表真实平台目前没有任务。</div>';
-  return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'快照已过期':'个人快照')+'</span></div>'+
-   '<p class="tiny muted">来源：本人保存的'+escapeHtml(SOURCE[kind])+'快照 · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
+  return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
+   '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
    (s.status==='stale'?' · 请重新同步':'')+'</p><div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all',localTasks=[]){
