@@ -39,8 +39,11 @@ export async function onRequestGet(context){
     loginMode:available?'native_cas_probe':'unavailable',
     nativeCasPreflight:available,
     accountAuthorization:verified?'verified_session':'not_verified'};
+   const checked=context.data?.academicChaoxingReadiness;
+   const loginReadiness=checked==='ready'&&!available?'adapter_unavailable':
+    checked||'adapter_unavailable';
    return {...row,loginMode:available?'password':'unavailable',sessionState,
-    accountAuthorization:verified?'verified_session':'not_verified'};
+    loginReadiness,accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
  }catch{return json({error:'database_unavailable'},503);}

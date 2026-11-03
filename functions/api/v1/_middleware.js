@@ -4,6 +4,7 @@
 import {makeNcwuCasServerAdapter} from '../../../lib/academic-ncwu-cas-server.mjs';
 import {makeNcwuQingguoServerAdapter} from '../../../lib/academic-ncwu-qingguo-server.mjs';
 import {createChaoxingSchoolAdapter} from '../../../lib/academic-chaoxing-provider.mjs';
+import {diagnoseChaoxingReadiness} from '../../../lib/academic-chaoxing-readiness.mjs';
 const CHA0XING_ROUTES=/^\/api\/v1\/connections(?:\/chaoxing\/(?:login|sync))?\/?$/;
 export async function onRequest(context){
  const path=new URL(context.request.url).pathname;
@@ -22,17 +23,14 @@ export async function onRequest(context){
    }:{})
   };
  }
- if((CHA0XING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework')&&
-    typeof context.env?.SCHOOL_SESSION_KEY==='string'&&
-    /^[A-Za-z0-9_-]{43}$/.test(context.env.SCHOOL_SESSION_KEY)&&
-    typeof context.env?.ACADEMIC_DB?.prepare==='function'){
-   try{
-    await context.env.ACADEMIC_DB.prepare('SELECT provider FROM academic_provider_sessions LIMIT 0').all();
-    await context.env.ACADEMIC_DB.prepare('SELECT notice_id FROM academic_chaoxing_notices LIMIT 0').all();
-    context.data??={};
-    context.data.academicSchoolAdapters??={};
-    context.data.academicSchoolAdapters.chaoxing=createChaoxingSchoolAdapter();
-   }catch{ /* Fail closed until D1 migration. */ }
+ if(CHA0XING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework'){
+  context.data??={};
+  const state=await diagnoseChaoxingReadiness(context);
+  context.data.academicChaoxingReadiness=state;
+  if(state==='ready'){
+   context.data.academicSchoolAdapters??={};
+   context.data.academicSchoolAdapters.chaoxing=createChaoxingSchoolAdapter();
   }
+ }
  return context.next();
 }

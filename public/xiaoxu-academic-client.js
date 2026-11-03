@@ -173,6 +173,22 @@
    const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const canLogin=record?.loginMode==='password';
+   const chaoxingReadinessMessage={
+    session_key_missing:'学校会话密钥尚未配置，无法安全连接学习通。',
+    session_key_invalid:'学校会话密钥格式不符合要求，请检查生产 Secret（勿发送密码）。',
+    database_unbound:'当前部署未绑定校序学业数据库。',
+    school_session_table_missing:'学校账号加密会话表尚未准备好。',
+    chaoxing_inbox_table_missing:'学习通收件箱数据表尚未准备好。',
+    adapter_unavailable:'当前部署未正确注册学习通安全连接适配器。'
+   };
+   const chaoxingBlocked=provider.id==='chaoxing'&&!canLogin&&record?
+    '<div class="xu-school-pending" role="status" data-school-unavailable="chaoxing">'+
+    '<strong>此平台暂不支持站内登录：学习通连接入口未就绪</strong><p class="small">'+
+    escapeHtml(chaoxingReadinessMessage[record.loginReadiness]||
+     '连接诊断暂不可用，请重新读取连接状态。')+'</p>'+
+    '<button type="button" class="secondary" data-action="academic-refresh">重新检测学习通连接</button>'+
+    '<p class="tiny muted">第三方 APK 的本机会话不自动共享给校序。</p></div>':'';
+
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
    const authPanel=(officialCas||nativeNcwu)?
@@ -202,7 +218,7 @@
      '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
      '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
      '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>'):
-    active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'';
+    chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
    const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
