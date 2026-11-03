@@ -14,9 +14,16 @@ export async function onRequestGet(context){
   result.platforms=result.platforms.map(row=>{
    const available=vaultReady&&!!availableSchoolAdapter(context,row.id);
    const sessionState=sessions[row.id]||'not_connected';
-   return {...row,loginMode:available?'password':'unavailable',sessionState,
-    accountAuthorization:available&&sessionState==='active'&&row.status==='connected'?
-     'verified_session':'not_verified'};
+   // The second-class verified ledger is intentionally independent of the
+   // legacy academic_connections table (whose provider CHECK excludes it).
+   const verified=available&&sessionState==='active'&&(
+    row.id==='second_class'
+     ? row.trustedKinds.includes('second-class')
+     : row.status==='connected');
+   return {...row,
+    status:row.id==='second_class'&&verified?'connected':row.status,
+    loginMode:available?'password':'unavailable',sessionState,
+    accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
  }catch{return json({error:'database_unavailable'},503);}

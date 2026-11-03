@@ -148,7 +148,7 @@
     '<p>本机导入属于部分覆盖，不代表已自动同步。学校账号的授权续期与完整作业接口尚未验证。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接方式</summary>'+
     '<p>活动与素质分的本人只读响应结构已核验，现有连接器能够区分审核、核算状态和学校报告的分数合计。</p>'+
-    '<p>仍须使用经本人授权且身份匹配的受信任会话；目前不能在校序内无感保持学校登录或自动刷新。</p>'+
+    '<p>启用并验证学校专用授权适配器后，可在本卡片登录、手动同步与解除授权；无法安全授权时不会要求输入学校密码。</p>'+
     '<p>进入官方第二课堂只会打开学校页面，不等于账号已绑定。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+

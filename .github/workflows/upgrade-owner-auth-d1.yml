@@ -6,6 +6,7 @@ on:
       - '.github/workflows/upgrade-owner-auth-d1.yml'
       - 'migrations/0010_academic_owner_auth.sql'
       - 'migrations/0011_academic_provider_sessions.sql'
+      - 'migrations/0012_academic_second_class_sessions.sql'
       - 'scripts/upgrade-academic-owner-auth-production.mjs'
   workflow_dispatch:
 permissions:
@@ -25,7 +26,7 @@ jobs:
           node-version: '22'
       - name: Run offline owner-auth SQLite tests first
         run: node scripts/xiaoxu-owner-auth-tests.mjs && node scripts/xiaoxu-school-session-vault-upgrade-tests.mjs
-      - name: Validate exact production D1 then idempotently apply 0010/0011
+      - name: Validate exact production D1 then idempotently apply 0010/0011/0012
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
