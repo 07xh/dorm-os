@@ -1,5 +1,5 @@
 import {authorize,json} from '../../assignments.js';
-import {availableSchoolAdapter,connectSchoolAccount,checkSchoolMutation,validSchoolLoginInput,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
+import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
  e.code==='interactive_login_required'?409:e.code==='sync_failed'?502:503;
 export async function onRequestPost(context){
@@ -30,10 +30,18 @@ export async function onRequestPost(context){
  let payload;try{payload=JSON.parse(raw);}catch{return json({error:'invalid_json'},400);}
  if(!validSchoolLoginInput(payload))return json({error:'invalid_credentials'},400);
  try{
+  if(provider==='ncwu'){
+   // Confirm a live ordinary official form before accepting credentials.
+   const form=await adapter.preflight();
+   if(form?.loginSupported!==true)return json({error:'interactive_login_required'},409);
+   const review=await prepareNcwuAccountReview({db:auth.db,userId:auth.userId,adapter,
+    username:payload.username,password:payload.password,
+    academicUsername:payload.academicUsername,academicPassword:payload.academicPassword,
+    secret:context.env?.SCHOOL_SESSION_KEY});
+   return json(review,200);
+  }
   const result=await connectSchoolAccount({db:auth.db,userId:auth.userId,provider,adapter,
    username:payload.username,password:payload.password,
-   ...(provider==='ncwu'?{academicUsername:payload.academicUsername,
-    academicPassword:payload.academicPassword}:{}),
    secret:context.env?.SCHOOL_SESSION_KEY});
   return json(result,200);
  }catch(e){

@@ -165,7 +165,7 @@
   const active=connected||connectionStatusRead;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=sources.find(x=>x.id===provider.id)||null;
-   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'学校会话无法验证，请重新连接':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
+   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'学校会话无法验证，请重新连接':record.sessionState==='review_pending'?'本人课表等待核对':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
@@ -342,10 +342,10 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
- const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
+ const schoolMessage={schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing','second_class'].includes(provider)||
-     !['login','sync','disconnect'].includes(verb))
+     !['login','confirm','sync','disconnect'].includes(verb))
    throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
    method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
@@ -476,7 +476,7 @@
     passwordLabel.appendChild(password);
     const hint=document.createElement('p');
     hint.className='tiny muted';
-    hint.textContent='通过校序 HTTPS 后端向学校 CAS 验证；密码不保存。成功后仅把学校会话加密保存到 D1。';
+    hint.textContent=checkProvider==='ncwu'?'先由安全后端读取本人课表，与学校官网核对后再启用同步；学校密码不保存。':'通过校序 HTTPS 后端向学校 CAS 验证；密码不保存。成功后仅把学校会话加密保存到 D1。';
     if(checkProvider==='ncwu'){
      const extra=document.createElement('div');
      extra.className='xu-school-secondary';
@@ -496,7 +496,7 @@
     }
     const submit=document.createElement('button');
     submit.type='submit';submit.className='primary';
-    submit.textContent=checkProvider==='ncwu'?'登录并同步本人课表':'登录并同步本人二课';
+    submit.textContent=checkProvider==='ncwu'?'登录并查看待核对课表':'登录并同步本人二课';
     const status=document.createElement('p');
     status.dataset.xuSchoolResult='';status.setAttribute('role','status');
     status.setAttribute('aria-live','polite');
@@ -504,6 +504,70 @@
     result.replaceChildren(form);
    }catch{result.textContent='连接状态检查失败；没有获取学校账号信息。';}
    finally{if(button.isConnected)button.disabled=false;}
+  });
+
+  function showNcwuReview(form,preview){
+   const host=form.closest('[data-xu-second-cas-result]')||form.parentElement;
+   const panel=document.createElement('section');
+   panel.className='xu-school-review';panel.dataset.xuNcwuReview='';
+   panel.dataset.reviewHash=preview.reviewHash;
+   const heading=document.createElement('strong');
+   heading.textContent='请与学校官网逐项核对课表';
+   const desc=document.createElement('p');
+   desc.className='small muted';
+   desc.textContent='核对课程名称、星期、节次、周次、教师与教室。若不一致，请勿确认。';
+   const count=document.createElement('p');
+   count.className='small';
+   count.textContent='共 '+preview.schedule.length+' 条安排 · 有效期至 '+new Date(preview.expiresAt).toLocaleTimeString();
+   const details=document.createElement('details');
+   details.open=true;
+   const summary=document.createElement('summary');
+   summary.textContent='所有待核对课程（尚未同步）';
+   const list=document.createElement('ol');
+   list.className='xu-review-schedule-list';
+   for(const item of preview.schedule){
+    const li=document.createElement('li');
+    li.textContent=[item.title,'周'+('一二三四五六日'[item.weekday-1]||'?'),
+     item.startSection+'–'+item.endSection+'节',
+     Array.isArray(item.weeks)?'第'+item.weeks.join('、')+'周':'周次待核实',
+     item.location||'地点未核实',item.teacher||''].filter(Boolean).join(' · ');
+    list.appendChild(li);
+   }
+   details.append(summary,list);
+   const official=document.createElement('a');
+   official.className='secondary xu-connection-link';official.href='https://jwmis.ncwu.edu.cn/';
+   official.target='_blank';official.rel='noopener noreferrer';
+   official.textContent='打开华水教务官网核对';
+   const label=document.createElement('label');
+   const checkbox=document.createElement('input');
+   checkbox.type='checkbox';checkbox.dataset.xuNcwuReviewed='';
+   label.append(checkbox,document.createTextNode(' 已核对官网，全部课程一致'));
+   const confirmButton=document.createElement('button');
+   confirmButton.type='button';confirmButton.className='primary';
+   confirmButton.dataset.xuNcwuConfirm='';
+   confirmButton.textContent='确认并连接课表';confirmButton.disabled=true;
+   checkbox.addEventListener('change',()=>{confirmButton.disabled=!checkbox.checked;});
+   const status=document.createElement('p');
+   status.className='tiny muted';status.setAttribute('role','status');
+   status.dataset.xuNcwuReviewStatus='';
+   panel.append(heading,desc,count,details,official,label,confirmButton,status);
+   host.replaceChildren(panel);
+  }
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-ncwu-confirm]');
+   if(!button)return;
+   const panel=button.closest('[data-xu-ncwu-review]');
+   const status=panel?.querySelector('[data-xu-ncwu-review-status]');
+   if(!panel||!status||!panel.querySelector('[data-xu-ncwu-reviewed]')?.checked)return;
+   button.disabled=true;status.textContent='正在重新读取学校课表并对照核对版本…';
+   try{
+    await schoolPost('ncwu','confirm',{reviewed:true,reviewHash:panel.dataset.reviewHash});
+    await connect();announceUpdated();
+    status.textContent='本人课表已连接并完成同步';
+   }catch(e){
+    status.textContent=e.message||'课表核对未完成';
+    if(button.isConnected)button.disabled=false;
+   }
   });
   document.addEventListener('submit',async event=>{
    const form=event.target.closest?.('form[data-xu-school-login]');
@@ -525,8 +589,14 @@
    }
    submit.disabled=true;status.textContent='正在验证学校账号与读取数据…';
    try{
-    await schoolPost(provider,'login',{username,password,
+    const outcome=await schoolPost(provider,'login',{username,password,
      ...(provider==='ncwu'&&academicUsername?{academicUsername,academicPassword}:{})});
+    if(provider==='ncwu'){
+     if(outcome?.reviewRequired!==true||!Array.isArray(outcome.schedule)||
+        !outcome.schedule.length||!/^[A-Za-z0-9_-]{43}$/.test(outcome.reviewHash||''))
+      throw Error('课表预览格式无效；未启用同步');
+     showNcwuReview(form,outcome);return;
+    }
     if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
     await connect();
     if(provider==='chaoxing')await Promise.allSettled([
