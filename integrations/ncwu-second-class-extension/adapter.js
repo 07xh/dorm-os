@@ -135,9 +135,11 @@
    requestJson(fetchImpl,ACTIVITIES_PATH,{page:'1',pagesize:String(PAGE_SIZE)})
   ]);
   const categories=normalizeTypes(typeResponse);
-  const scores=pageEnvelope(scoreResponse,100);
-  if(scores.totalSize!==scores.data.length)fail('INVALID_RESPONSE');
-  const scoreRecords=scores.data.map(row=>normalizeScoreRow(row,categories));
+  if(!scoreResponse||typeof scoreResponse!=='object'||Array.isArray(scoreResponse)||
+   !Array.isArray(scoreResponse.data)||scoreResponse.data.length>50||
+   !Number.isInteger(scoreResponse.totalSize)||scoreResponse.totalSize!==scoreResponse.data.length)
+   fail('INVALID_RESPONSE');
+  const scoreRecords=scoreResponse.data.map(row=>normalizeScoreRow(row,categories));
   const summaryRows=scoreRecords.filter(row=>row.recordType==='score_summary');
   if(scoreRecords.length>0&&summaryRows.length!==1)fail('INVALID_RESPONSE');
   const activityEnvelope=pageEnvelope(firstActivity,PAGE_SIZE);
