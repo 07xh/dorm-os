@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>校序第二课堂同步</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+ <header><div class="mark">序</div><div><strong>校序 · 第二课堂</strong><small>NCWU READ-ONLY SYNC</small></div></header>
+ <section class="status"><span id="dot"></span><div><strong id="status">正在读取状态…</strong><small id="last">尚无同步记录</small></div></section>
+ <div class="counts"><div><strong id="activities">—</strong><small>活动记录</small></div><div><strong id="terms">—</strong><small>学期成绩记录</small></div></div>
+ <label class="toggle"><span><strong>自动同步</strong><small>浏览器运行且学校登录有效时执行</small></span><input id="enabled" type="checkbox"><i></i></label>
+ <label class="field">同步间隔<select id="interval"><option value="30">每 30 分钟</option><option value="120" selected>每 2 小时</option><option value="360">每 6 小时</option></select></label>
+ <p id="error" class="error" hidden></p>
+ <button id="sync" class="primary">立即同步</button>
+ <div class="links"><button id="school">打开华水第二课堂</button><button id="portal">打开校序</button></div>
+ <footer>仅读取本人已登录页面的数据；不保存学校 Cookie、密码或原始 HAR。自动同步不执行报名、签到或成绩修改。</footer>
+ <script src="popup.js"></script>
+</body></html>
