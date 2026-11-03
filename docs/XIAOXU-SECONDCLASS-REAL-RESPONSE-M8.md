@@ -16,6 +16,17 @@
 4. 在「学时/积分汇总」另外核验官方累计；不把候选学时或明细合计冒充学校累计值。
 5. 只分享手动整理的脱敏字段结构，不发完整 HAR、Cookie、Token、SSO 跳转、学号或签到二维码。
 
+## 本机只导出 JSON 字段结构（可选）
+如果已经在自己设备上保存了本人正常访问的业务响应 JSON，可以在本机项目目录执行：
+
+~~~bash
+node scripts/xiaoxu-second-class-shape.mjs /path/to/own-response.json > second-class-shape.txt
+~~~
+
+输出字段路径、类型，不含响应值；**不会联网或上传原始文件**。
+敏感字段名会隐藏，但分享前仍须自行审核文本；不要把完整 HAR、Cookie、
+Token、学号、真实活动涉及的其他人信息、SSO 请求发到聊天或公开仓库。
+
 ## 合成映射示例（不是华水真实接口）
 ~~~js
 const mapping = {
