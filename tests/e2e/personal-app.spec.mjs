@@ -231,7 +231,9 @@ test('V7 home prioritizes courses, tasks and official notice entry without showi
 test('V4 unique secondary actions and NFC progressive help',async({page})=>{
  await page.goto('/#nfc');
  await expect(page.locator('[data-action="tag-add"]')).toHaveCount(1);
- await expect(page.locator('.v4-nfc-details')).toHaveCount(4);
+ await expect(page.locator('.v4-nfc-details')).toHaveCount(3);
+ await expect(page.getByText('Android 自动化配置说明')).toHaveCount(0);
+ await expect(page.getByText('MacroDroid')).toHaveCount(0);
  await expect(page.locator('.v4-nfc-details').first()).not.toHaveAttribute('open','');
  await page.locator('.v4-nfc-details summary').first().click();
  await expect(page.locator('.v4-nfc-details').first()).toHaveAttribute('open','');
