@@ -3,6 +3,29 @@ import {availableSchoolAdapter,schoolSessionVaultReady}
  from '../../../../../lib/academic-school-login.mjs';
 import {probeNcwuLogin} from '../../../../../lib/academic-ncwu-login-probe.mjs';
 
+/* The public probe is informational only; it must not veto the server's
+ * independent, stricter CAS adapter readiness check. Neither probe sends
+ * credentials nor grants authorization.
+ */
+export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
+ const plain=publicProbe?.loginSupported===true;
+ let nativeLoginReady=false,status=publicProbe?.mode||'upstream_unavailable';
+ if(adapter&&typeof adapter.preflight==='function'){
+  try{
+   const readiness=await adapter.preflight();
+   nativeLoginReady=readiness?.loginSupported===true;
+   // Prefer the native adapter's actual state when it can inspect the school.
+   if(nativeLoginReady||readiness?.mode==='interactive_login_required'||
+      readiness?.mode==='schedule_review_pending')
+    status=readiness.mode;
+  }catch{status='upstream_unavailable';}
+ }
+ if(!vaultReady)status='server_session_vault_unavailable';
+ return {status,loginSupported:plain||nativeLoginReady,
+  nativeLoginReady,sessionVaultReady:vaultReady===true,
+  schoolAuthorized:false,automaticSync:false};
+}
+
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -15,17 +38,7 @@ export async function onRequestGet(context){
   // form is NOT the same as a verified, configured account connector.
   const result=await probeNcwuLogin();
   const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');
-  let nativeLoginReady=false,mode=result.mode;
-  if(adapter&&typeof adapter.preflight==='function'&&result.loginSupported===true){
-   try{
-    const readiness=await adapter.preflight();
-    nativeLoginReady=readiness.loginSupported===true;
-    mode=readiness.mode;
-   }catch{mode='upstream_unavailable';}
-  }
-  return json({status:mode,loginSupported:result.loginSupported===true,
-   nativeLoginReady,sessionVaultReady:vaultReady,
-   schoolAuthorized:false,automaticSync:false},200);
+  return json(await resolveNcwuPreflight(result,adapter,vaultReady),200);
  }
  if(!vaultReady)
   return json({status:'server_session_vault_unavailable',loginSupported:false},503);
