@@ -152,35 +152,38 @@ assert.equal(relinked.connected,true);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare("SELECT status FROM academic_connections WHERE provider='chaoxing'").get().status,'connected');
 
-// Concurrent relink regression: the old reader fails after a NEW successful
-// login has already replaced its encrypted vault row. Old failure must not
-// revoke the new login or change the trusted connection status to "expired".
-let replacementRow=null;
-const staleReaderAdapter={
- provider:'chaoxing',
- async forSession({userId}){
-  assert.equal(userId,'owner1');
-  return {provider:'chaoxing',async verifySession(){
-   notices.length=0;
-   const fresh=await connectSchoolAccount({db:db2,userId:'owner1',
-    provider:'chaoxing',adapter,username:'my-account',password:'test-password',secret});
-   assert.equal(fresh.connected,true);
-   replacementRow=sqlite.prepare(
-    "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
-   ).get();
-   throw Object.assign(new Error('old session expired'),{code:'authorization_failed'});
-  }};
- }
-};
+// Concurrent re-authorization regression: prepare two authentic encrypted
+// session versions for the same owner, then simulate a newer login landing
+// while an older upstream request is failing. No nested network sync or fake
+// plaintext cookie is needed to exercise the CAS revoke path.
+const olderRow=sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get();
+notices.length=0;
+await refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',adapter,secret});
+const replacementRow=sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get();
+assert.notEqual(olderRow.ciphertext,replacementRow.ciphertext);
+sqlite.prepare(
+ "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
+).run(olderRow.ciphertext,olderRow.nonce);
 await assert.rejects(
  ()=>refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',
-   adapter:staleReaderAdapter,secret}),e=>e.code==='session_expired');
+  adapter,secret,sync:async()=>{
+   sqlite.prepare(
+    "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
+   ).run(replacementRow.ciphertext,replacementRow.nonce);
+   throw Object.assign(new Error('old upstream session expired'),
+    {code:'authorization_failed'});
+  }}),
+ e=>e.code==='session_expired');
 assert.deepEqual(sqlite.prepare(
  "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
-).get(),replacementRow,'stale sync must not delete a successful new login');
+).get(),replacementRow,'stale sync must not delete a successful newer encrypted session');
 assert.equal(sqlite.prepare(
  "SELECT status FROM academic_connections WHERE user_id='owner1' AND provider='chaoxing'"
-).get().status,'connected','stale failure must not mark the new owner session expired');
+).get().status,'connected','stale upstream failure must not expire a newer session');
 assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 sqlite.close();
