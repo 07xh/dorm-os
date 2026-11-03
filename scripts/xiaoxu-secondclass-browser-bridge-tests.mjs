@@ -101,6 +101,6 @@ assert.ok(sandbox.XiaoxuSecondClassLocalExport?.collect);
 const client=readFileSync(new URL('../public/xiaoxu-academic-client.js',import.meta.url),'utf8');
 assert.match(client,/data-xu-bridge-create/);
 assert.match(client,/data-xu-bridge-revoke/);
-assert.match(client,//api/v1/second-class/bridge/);
+assert.ok(client.includes('/api/v1/second-class/bridge'));
 sql.close();
 console.log('M20 browser bridge: token isolation and rotation, per-owner snapshot, CORS, throttle, trusted-write protection, ScriptCat grants passed');
