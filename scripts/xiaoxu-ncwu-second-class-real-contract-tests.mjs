@@ -82,7 +82,7 @@ assert.throws(()=>normalizeRecord('second-class',{
 const auditCalls=[];
 const verified={authorized:true,provider:'second_class',school:'ncwu',scope:'self',
  identityBound:true,session:{studentCode:schoolCode}};
-function adapter({badScore=false,badPage=false,verifiedAccount=verified}={}){
+function adapter({badScore=false,badPage=false,badStudent=false,verifiedAccount=verified}={}){
  return makeNcwuSecondClassAdapter({
   async verifySession(){return verifiedAccount;},
   async readPost({method,path,form,session}){
@@ -91,6 +91,7 @@ function adapter({badScore=false,badPage=false,verifiedAccount=verified}={}){
    assert.equal(session.studentCode,schoolCode);
    if(path===NCWU_SECOND_CLASS_READS.activities)
     return badPage?{...page1,totalSize:3}:
+     badStudent?{...page1,data:[{...page1.data[0],student_code:'OTHER'}]}:
      form.page==='1'?page1:page2;
    if(path===NCWU_SECOND_CLASS_READS.scoreTypes)return types;
    if(path===NCWU_SECOND_CLASS_READS.scores)
@@ -117,8 +118,8 @@ await assert.rejects(async()=>adapter({verifiedAccount:{...verified,identityBoun
 await assert.rejects(async()=>adapter({verifiedAccount:{...verified,session:{}}}).verifySession(),
  e=>e.code==='authorization_failed');
 await assert.rejects(async()=>{
- const x=adapter();const proof=await x.verifySession();
- await x.readPage({cursor:null,session:{studentCode:'OTHER'}});
+ const x=adapter({badStudent:true});const proof=await x.verifySession();
+ await x.readPage({cursor:null,session:proof.session});
 },e=>e.code==='school_identity_changed');
 
 const sql=new DatabaseSync(':memory:');
