@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {classifySessionVaultUpgrade} from './upgrade-academic-owner-auth-production.mjs';
+const fixtures=()=>new DatabaseSync(':memory:');
+const db=fixtures();
+db.exec('PRAGMA foreign_keys=ON');
+for(const file of ['0001_academic_core.sql','0003_academic_verified_snapshots.sql'])
+ db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+const tableRows=()=>db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+const columnRows=()=>db.prepare('PRAGMA table_info(academic_provider_sessions)').all();
+assert.equal(classifySessionVaultUpgrade(tableRows(),columnRows()),'apply');
+const beforeUsers=db.prepare('SELECT COUNT(*) AS n FROM academic_users').get().n;
+db.exec(readFileSync(new URL('../migrations/0011_academic_provider_sessions.sql',import.meta.url),'utf8'));
+assert.equal(classifySessionVaultUpgrade(tableRows(),columnRows()),'verify');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM academic_users').get().n,beforeUsers);
+assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+assert.equal(db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+const required=['user_id','provider','ciphertext','nonce','expires_at','updated_at'];
+assert.ok(required.every(key=>columnRows().some(row=>row.name===key)));
+assert.equal(classifySessionVaultUpgrade(tableRows(),columnRows().filter(row=>row.name!=='nonce')),'partial_session_schema');
+assert.throws(()=>classifySessionVaultUpgrade(null,[]),/invalid_session_schema/);
+db.exec(readFileSync(new URL('../migrations/0011_academic_provider_sessions.sql',import.meta.url),'utf8'));
+assert.equal(classifySessionVaultUpgrade(tableRows(),columnRows()),'verify','migration must be idempotent');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions').get().n,0);
+db.close();
+console.log('School session vault 0011: forward-only, empty by default, foreign keys, schema rejection and replay passed');
