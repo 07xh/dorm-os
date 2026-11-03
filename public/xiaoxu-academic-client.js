@@ -178,7 +178,7 @@
    const authPanel=(officialCas||nativeNcwu)?
     '<div class="xu-school-connect"><p class="tiny muted">校序通过本人的学校正常登录流程检查是否能安全连接；验证前不会收集密码，也不会绕过学校验证码或二次认证。</p>'+
     ((record?.nativeCasPreflight||nativeNcwu)?
-     '<button type="button" class="secondary" '+(officialCas?'data-xu-second-cas-check':'data-xu-cas-check="ncwu"')+'>检查'+escapeHtml(provider.name)+'登录</button>'+
+     '<button type="button" class="secondary" '+(officialCas?'data-xu-second-cas-check':'data-xu-cas-check="ncwu"')+'>尝试连接'+escapeHtml(provider.name)+'</button>'+
      '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>':
      '<p class="tiny muted">站内安全会话尚未就绪，当前不会收取学校密码。</p>')+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
@@ -218,7 +218,7 @@
     '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
     '<p>已准备课表只读接口与本人身份检查；完整课表与来源键未验收时禁止自动同步。</p>'+
-    (!nativeNcwu?'<button type="button" class="secondary" data-xu-ncwu-check>检测华水教务真实登录入口</button>'+
+    (!nativeNcwu?'<button type="button" class="secondary" data-xu-ncwu-check>只读诊断华水教务入口</button>'+
     '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p>':'')+
     '</details>':
     provider.id==='chaoxing'?
@@ -466,7 +466,7 @@
       '学校普通登录表单已识别，但完整课表及来源编号的真人验收尚未完成；暂不收集密码。':
       info?.status==='upstream_unavailable'?
       '暂时无法访问学校登录服务；没有获取或保存学校账号。':
-      '学校当前要求交互验证或不支持安全的普通密码表单；不会绕过验证或要求安装脚本。';
+      '该平台要求官方页面交互验证，或登录表单不符合安全直连条件；请通过上方学校官网完成正常登录，当前尚未绑定校序。';
      return;
     }
     // The trusted backend has inspected a simple current CAS password form.
