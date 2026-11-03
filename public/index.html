@@ -776,7 +776,7 @@ async function resumeOptedCloudWorkspace(){
  try{
   await XiaoxuAcademic.connect();
   if(generation!==cloudResumeGeneration)return false;
-  await Promise.allSettled([XiaoxuCloudTasks.connect(),XiaoxuReminders.connect()]);
+  await Promise.allSettled([XiaoxuCloudTasks.connect(),XiaoxuReminders.connect(),XiaoxuChaoxingInbox.refresh()]);
   if(generation!==cloudResumeGeneration)return false;
   if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
   return true;
