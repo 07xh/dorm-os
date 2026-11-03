@@ -48,6 +48,7 @@ test('owner QR starts from a real official endpoint and never requests a passwor
  await page.goto('/#settings');
  await page.getByRole('button',{name:'读取我的连接状态'}).click();
  const source=page.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await source.locator('.xu-school-manage > summary').click();
  await source.locator('[data-xu-chaoxing-qr-start]').click();
  await expect(source.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
  await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('使用学习通 APP 扫描');
@@ -55,4 +56,40 @@ test('owner QR starts from a real official endpoint and never requests a passwor
  expect(starts).toBe(1);
  expect(polls).toBe(1);
  expect(await page.locator('[data-xu-school-login="chaoxing"] input[name="password"]').isVisible()).toBe(false);
+});
+
+test('pending owner QR survives same-tab page reload and resumes status polling',async({page})=>{
+ await stubConnections(page,true);
+ const opaque='ABCDEFGHIJKLMNOP.abcdefghijklmnopqrstuvwxyz0123456789abcd';
+ const url='https://passport2.chaoxing.com/createqr?uuid=UUID123456abcDEF789&fid=-1';
+ let polls=0;
+ await page.route('**/api/v1/connections/chaoxing/qr/start',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   status:'pending',ticket:opaque,qrImageUrl:url,
+   expiresAt:new Date(Date.now()+100000).toISOString()
+  })
+ }));
+ await page.route('**/api/v1/connections/chaoxing/qr/status',route=>{
+  polls++;
+  expect(route.request().postDataJSON()).toEqual({ticket:opaque});
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+   status:'scanned',ticket:opaque
+  })});
+ });
+ await page.route('https://passport2.chaoxing.com/createqr**',route=>route.fulfill({
+  status:200,contentType:'image/png',body:Buffer.from(
+   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOz8+VkAAAAASUVORK5CYII=','base64')
+ }));
+ await page.goto('/#settings');
+ await page.getByRole('button',{name:'读取我的连接状态'}).click();
+ const row=page.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await row.locator('.xu-school-manage > summary').click();
+ await row.locator('[data-xu-chaoxing-qr-start]').click();
+ await expect.poll(()=>polls,{timeout:12000}).toBeGreaterThan(0);
+ const before=polls;
+ await page.reload();
+ await expect(row.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
+ await expect.poll(()=>polls,{timeout:10000}).toBeGreaterThan(before);
+ await expect(row.locator('[data-xu-qr-feedback]')).toContainText('已扫码');
+ expect(await page.evaluate(()=>!!sessionStorage.getItem('xiaoxu-chaoxing-qr-pending-v1'))).toBe(true);
 });

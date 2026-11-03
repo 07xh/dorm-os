@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
-import {sealChaoxingQrChallenge,unsealChaoxingQrChallenge}
+import {sealChaoxingQrChallenge,unsealChaoxingQrChallenge,connectAuthenticatedChaoxingQr}
  from '../lib/academic-school-login.mjs';
 globalThis.crypto??=webcrypto;
 
@@ -31,6 +31,10 @@ const fakeFetch=async(url,options)=>{
   return new Response('{"data":{"status":true}}',{headers:{
    'set-cookie':'cx_s=ok; Domain=.chaoxing.com; Path=/; HttpOnly'}});
  }
+ if(u.hostname==='i.chaoxing.com'&&u.pathname==='/'){
+  assert.match(cookie,/cx_s=ok/);
+  return new Response('<html>official QR refer session established</html>');
+ }
  if(u.pathname==='/base'){
   if(invalid)return new Response('<html>logged out</html>');
   assert.match(cookie,/cx_s=ok/);
@@ -59,6 +63,7 @@ const approved=await adapter.pollQrLogin({challenge:scanned.challenge});
 assert.equal(approved.status,'approved');
 assert.equal(approved.session.schema,'chaoxing-session-v1');
 assert.equal(approved.session.uid,'1234567');
+assert.ok(urls.some(x=>x.host==='i.chaoxing.com'&&x.path==='/'),'QR success must complete the official refer hop');
 const reader=await adapter.forSession({session:approved.session,userId:'owner1'});
 const proof=await reader.verifySession();
 assert.equal(proof.school,'ncwu');
@@ -76,4 +81,28 @@ const cancelled=createChaoxingSchoolAdapter({fetchImpl:async(url,options)=>{
  throw Error('unexpected');
 }});
 assert.equal((await cancelled.pollQrLogin({challenge:decoded})).status,'cancelled');
+// A QR-authenticated school account must remain reconnectable if the inbox
+// read fails, without claiming that any academic records were synchronized.
+const writes=[];
+const db={prepare(sql){return {
+ bind(...args){this.args=args;return this;},
+ async all(){return {results:[]};},
+ async run(){writes.push({sql,args:this.args});return {success:true};}
+};}};
+const offlineAdapter={provider:'chaoxing',pollQrLogin:async()=>({}),
+ forSession:async()=>({provider:'chaoxing',
+  async verifySession(){return {authorized:true,school:'ncwu',
+   identityBound:true,principalBoundTo:'owner1'};},
+  async readNoticePage(){throw Error('upstream inbox temporarily unavailable');}
+ })};
+const pending=await connectAuthenticatedChaoxingQr({db,userId:'owner1',
+ adapter:offlineAdapter,session:approved.session,secret,
+ expiresAt:new Date(Date.now()+3600000).toISOString()});
+assert.equal(pending.connected,false);
+assert.equal(pending.syncPending,true);
+assert.ok(writes.some(x=>x.sql.includes('INSERT INTO academic_provider_sessions')),
+ 'only the encrypted owner session is saved');
+assert.ok(!JSON.stringify(writes).includes('cx_s=ok'),
+ 'no raw upstream cookie may be persisted');
+
 console.log('Chaoxing QR challenge: official URL, cookie jar, scanned/approved, owner-bound encryption and expiry passed');

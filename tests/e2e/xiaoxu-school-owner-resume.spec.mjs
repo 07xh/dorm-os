@@ -49,6 +49,7 @@ test('school first login opts device into owner-verified restore and reloads rea
  await page.goto('/#settings');
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  const row=center.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await row.locator('.xu-school-manage > summary').click();
  await expect(row.locator('.xu-chaoxing-direct summary')).toBeVisible();
  await row.locator('.xu-chaoxing-direct summary').click();
  await row.locator('input[name="username"]').fill('SYNTHETIC_XUEXITONG_ACCOUNT');

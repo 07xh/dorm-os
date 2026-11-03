@@ -44,6 +44,7 @@ test('official Chaoxing session import uses existing connection center and owner
  await page.locator('[data-action="academic-connect"]').click();
  const panel=page.getByRole('region',{name:'统一数据连接中心'});
  const source=panel.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await source.locator('.xu-school-manage > summary').click();
  const importPanel=source.locator('.xu-chaoxing-import');
  await expect(importPanel.getByText('已在官方学习通登录？导入本人有效会话（无需校园密码）')).toBeVisible();
  await expect(importPanel.locator('textarea[name="cookieExport"]')).toBeHidden();

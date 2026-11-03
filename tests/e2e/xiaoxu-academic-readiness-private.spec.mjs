@@ -30,6 +30,7 @@ test('schema check is private, on-demand and within the same source center',asyn
  await expect(center.locator('.xu-connection-source')).toHaveCount(3);
  await expect(center).toContainText('校序云端未读取');
  expect(healthCalls).toHaveLength(0);
+ await center.locator('.xu-connection-more > summary').click();
  await center.locator('.xu-connection-diagnostics summary').click();
  await expect(center).toContainText('请先使用上方按钮读取本人连接状态');
  await page.locator('[data-action="academic-connect"]').click();
@@ -60,6 +61,7 @@ test('missing migration is visible without treating it as school connection',asy
  await page.goto('/#settings');
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  await center.getByRole('button',{name:'读取我的连接状态'}).click();
+ await center.locator('.xu-connection-more > summary').click();
  await center.locator('.xu-connection-diagnostics summary').click();
  await center.getByRole('button',{name:'只读检查数据库'}).click();
  await expect(center).toContainText('数据库结构不完整');
@@ -78,6 +80,7 @@ test('unavailable D1 is not misreported as a missing migration',async({page})=>{
  await page.goto('/#settings');
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  await center.getByRole('button',{name:'读取我的连接状态'}).click();
+ await center.locator('.xu-connection-more > summary').click();
  await center.locator('.xu-connection-diagnostics summary').click();
  await center.getByRole('button',{name:'只读检查数据库'}).click();
  await expect(center).toContainText('校序数据服务暂不可用，暂时无法确认数据库结构');

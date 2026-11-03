@@ -99,6 +99,7 @@ test('encrypted export and restore work between isolated browser contexts',async
   await page.locator('#taskTitle').fill('转移验证资料');
   await page.locator('#modalForm [type="submit"]').click();
   await page.goto('/#settings');
+  await page.locator('.xu-settings-more > summary').click();
   await page.locator('[data-action="export-encrypted"]').click();
   await page.locator('#backupPassword').fill('A-Long-Backup-Password-2026');
   await page.locator('#backupRepeat').fill('A-Long-Backup-Password-2026');
