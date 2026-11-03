@@ -53,9 +53,11 @@ export function queryRows(raw){
  const parsed=typeof raw==='string'?readJson(raw):raw;
  const blocks=Array.isArray(parsed)?parsed:[parsed];
  if(blocks.length===0||blocks.some(x=>x?.success===false))throw Error('d1_read_failed');
- const all=blocks.flatMap(x=>Array.isArray(x?.results)?x.results:
-  Array.isArray(x?.result?.results)?x.result.results:[]);
- if(!Array.isArray(all))throw Error('d1_read_failed');
+ const all=blocks.flatMap(x=>{
+  if(Array.isArray(x?.results))return x.results;
+  if(Array.isArray(x?.result?.results))return x.result.results;
+  throw Error('d1_read_malformed');
+ });
  return all;
 }
 function localWrangler(args){
