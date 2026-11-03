@@ -7,6 +7,8 @@ if (!match) throw new Error('Missing inline application script');
 new Script(match[1], { filename: 'dorm-os-inline-app.js' });
 new Script(readFileSync(new URL('../public/xiaoxu-task-import.js', import.meta.url), 'utf8'), {filename:'xiaoxu-task-import.js'});
 new Script(readFileSync(new URL('../public/xiaoxu-chaoxing-cli.js', import.meta.url), 'utf8'), {filename:'xiaoxu-chaoxing-cli.js'});
+new Script(readFileSync(new URL('../public/xiaoxu-chaoxing-inbox.js', import.meta.url), 'utf8'), {filename:'xiaoxu-chaoxing-inbox.js'});
+if(!html.includes('<script src="/xiaoxu-chaoxing-inbox.js"></script>')||!html.includes('XiaoxuChaoxingInbox.panel()')||!html.includes('/xiaoxu-chaoxing-inbox.css'))throw Error('Missing integrated Chaoxing inbox panel');
 if(!html.includes('<script src="/xiaoxu-chaoxing-cli.js"></script>'))throw Error('Missing Chaoxing CLI source');
 if(!html.includes('<script src="/xiaoxu-task-import.js"></script>'))throw Error('Missing task import source');
 
