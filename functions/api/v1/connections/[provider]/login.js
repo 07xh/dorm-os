@@ -23,9 +23,11 @@ export async function onRequestPost(context){
  if(!validSchoolLoginInput(payload))return json({error:'invalid_credentials'},400);
  try{
   if(provider==='ncwu'){
-   // Confirm a live ordinary official form before accepting credentials.
-   const form=await adapter.preflight();
-   if(form?.loginSupported!==true)return json({error:'interactive_login_required'},409);
+   // Do not run an unbound preflight before a second fresh login GET.
+   // The native adapter itself inspects the current school form WITH the
+   // cookie jar used for its only credential POST; unsupported challenges
+   // fail closed before any password leaves the server. The encrypted vault,
+   // school adapter and per-owner rate limit were checked above.
    const review=await prepareNcwuAccountReview({db:auth.db,userId:auth.userId,adapter,
     username:payload.username,password:payload.password,
     academicUsername:payload.academicUsername,academicPassword:payload.academicPassword,
