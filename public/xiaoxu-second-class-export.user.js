@@ -1,15 +1,21 @@
 // ==UserScript==
-// @name         校序 · 华水第二课堂本人只读导出
+// @name         校序 · 第二课堂本人同步 + 只读导出
 // @namespace    https://dorm-os-dk9.pages.dev/
-// @version      0.1.0
-// @description  在第二课堂本人已登录页面读取活动与分数，脱敏后仅保存本机文件；不上传凭据
+// @version      0.2.0
+// @description  在本人已登录的华水第二课堂同步脱敏活动到校序（需先自愿配对，支持本机导出）
 // @match        https://dekt.ncwu.edu.cn/*
 // @run-at       document-idle
-// @grant        none
+// @grant        GM.getValue
+// @grant        GM.setValue
+// @grant        GM.deleteValue
+// @grant        GM.xmlHttpRequest
+// @connect      dorm-os-dk9.pages.dev
+// @noframes
 // ==/UserScript==
-/* No login automation, cookies, CAS tickets, cross-origin upload or write APIs.
- * A user must first sign in through the university itself and click export.
- * The result is a PERSONAL IMPORT, never an independently trusted connector.
+/* Explicit owner-approved pairing; no password, cookies, CAS tickets, or
+ * university write APIs. Cross-origin upload is restricted to Xiaoxu's bridge.
+ * Runs only while an authenticated official second-class page is open/active.
+ * Every upload is user_import, NOT a server-side university trusted sync.
  */
 (function(root){
  'use strict';
@@ -153,6 +159,126 @@
   if(!contentType.toLowerCase().includes('json'))fail('学校返回非 JSON，请先在官网完成登录');
   return response.json();
  }
+
+ const BRIDGE_URL='https://dorm-os-dk9.pages.dev/api/v1/second-class/bridge/ingest';
+ const BRIDGE_TOKEN_KEY='xiaoxuSecondClassBrowserBridgeTokenV1';
+ const BRIDGE_LAST_KEY='xiaoxuSecondClassBrowserBridgeLastSyncV1';
+ const BRIDGE_CADENCE_MS=30*60_000;
+ const BRIDGE_TOKEN=/^[A-Za-z0-9_-]{43}$/;
+ let bridgeBusy=false,bridgeStatusNode=null;
+ function showBridgeStatus(message){
+  if(bridgeStatusNode)bridgeStatusNode.textContent=message;
+ }
+ function bridgeApiReady(){
+  return typeof GM!=='undefined'&&typeof GM.getValue==='function'&&
+   typeof GM.setValue==='function'&&typeof GM.deleteValue==='function'&&
+   typeof GM.xmlHttpRequest==='function';
+ }
+ async function postToXiaoxu(snapshot,token){
+  if(!BRIDGE_TOKEN.test(token))fail('校序配对密钥格式无效');
+  const response=await GM.xmlHttpRequest({
+   method:'POST',url:BRIDGE_URL,anonymous:true,timeout:25000,
+   headers:{'content-type':'application/json','authorization':'Bearer '+token,
+    'accept':'application/json'},
+   data:JSON.stringify(snapshot),responseType:'json'
+  });
+  const status=response?.status;
+  const body=typeof response?.response==='object'&&response.response!==null
+   ?response.response:{};
+  if(status===202&&body.provenance==='user_import'&&body.kind==='second-class')
+   return {count:body.count};
+  if(status===429)fail('校序限制十分钟内重复同步，请稍后再试');
+  if(status===401||status===410) {
+   await GM.deleteValue(BRIDGE_TOKEN_KEY);
+   await GM.deleteValue(BRIDGE_LAST_KEY);
+   fail('校序配对密钥失效，已清理本机配对，请重新生成');
+  }
+  if(status===409&&body.error==='trusted_source_readonly') {
+   await GM.deleteValue(BRIDGE_TOKEN_KEY);
+   fail('校序已有可信学校同步记录，已停止个人导入，避免覆盖');
+  }
+  fail('校序未接受此次同步（HTTP '+String(status||0)+'），未修改历史记录');
+ }
+ async function browserBridgeSync(force=false){
+  if(bridgeBusy||!bridgeApiReady())return;
+  const token=await GM.getValue(BRIDGE_TOKEN_KEY,'');
+  if(!BRIDGE_TOKEN.test(token))return;
+  const last=Number(await GM.getValue(BRIDGE_LAST_KEY,0))||0;
+  if(!force&&Date.now()-last<BRIDGE_CADENCE_MS)return;
+  bridgeBusy=true;showBridgeStatus('正在读取本人活动并同步…');
+  try{
+   const {snapshot}=await collect(readPost);
+   const result=await postToXiaoxu(snapshot,token);
+   await GM.setValue(BRIDGE_LAST_KEY,Date.now());
+   showBridgeStatus('已同步 '+result.count+' 条活动 · 个人只读数据');
+  }catch(error){
+   showBridgeStatus('同步未完成：'+String(error?.message||'学校会话失效').slice(0,85));
+  }finally{bridgeBusy=false;}
+ }
+ function installBridgeControls(){
+  if(root.location?.hostname!=='dekt.ncwu.edu.cn'||!bridgeApiReady())return;
+  if(document.getElementById('xu-second-class-sync-panel'))return;
+  const container=document.createElement('section');
+  container.id='xu-second-class-sync-panel';
+  container.style.cssText='position:fixed;right:16px;bottom:78px;z-index:2147483000;'+
+   'max-width:min(310px,calc(100vw - 32px));background:white;color:#23304a;'+
+   'padding:10px;border:1px solid #d9e5f8;border-radius:12px;'+
+   'box-shadow:0 6px 20px #0003;font:12px/1.5 system-ui';
+  const heading=document.createElement('div');
+  heading.textContent='校序 · 本人二课同步（网页运行时）';
+  heading.style.cssText='font-weight:700;margin-bottom:6px';
+  container.appendChild(heading);
+  const controls=document.createElement('div');
+  controls.style.cssText='display:flex;flex-wrap:wrap;gap:6px';
+  function control(text,handler){
+   const btn=document.createElement('button');btn.type='button';btn.textContent=text;
+   btn.style.cssText='background:#e9f1ff;color:#1647a2;border:0;border-radius:8px;'+
+    'padding:7px 9px;cursor:pointer;font:600 12px system-ui';
+   btn.addEventListener('click',()=>{Promise.resolve(handler()).catch(e=>{
+    showBridgeStatus('操作失败：'+String(e?.message||'请重试').slice(0,75));
+   });});controls.appendChild(btn);
+  }
+  control('首次连接',async()=>{
+   const token=root.prompt('到校序 → 我的 → 数据连接 → 第二课堂生成配对密钥。'+
+    '\n只复制一次性配对密钥，绝不要填写学校密码或 Cookie。');
+   if(token===null)return;
+   if(!BRIDGE_TOKEN.test(token.trim())){
+    showBridgeStatus('配对密钥格式无效，请在校序重新生成');return;
+   }
+   await GM.setValue(BRIDGE_TOKEN_KEY,token.trim());
+   await GM.setValue(BRIDGE_LAST_KEY,0);
+   showBridgeStatus('已保存校序配对，开始首次同步…');
+   await browserBridgeSync(true);
+  });
+  control('立即同步',()=>browserBridgeSync(true));
+  control('断开本机配对',async()=>{
+   if(!root.confirm('删除本机校序配对密钥？校序中已有的个人活动数据会保留。'))return;
+   await GM.deleteValue(BRIDGE_TOKEN_KEY);
+   await GM.deleteValue(BRIDGE_LAST_KEY);
+   showBridgeStatus('已清理本机密钥；如需彻底撤销，请到校序连接中心撤销');
+  });
+  container.appendChild(controls);
+  const note=document.createElement('div');
+  note.style.cssText='margin-top:6px;color:#64748b';
+  note.textContent='只调用本人已登录网页的只读接口；页面关闭或会话失效无法持续同步。';
+  container.appendChild(note);
+  bridgeStatusNode=document.createElement('div');
+  bridgeStatusNode.setAttribute('role','status');
+  bridgeStatusNode.style.cssText='margin-top:6px;overflow-wrap:anywhere';
+  bridgeStatusNode.textContent='未读取配对状态';
+  container.appendChild(bridgeStatusNode);
+  document.body.appendChild(container);
+  GM.getValue(BRIDGE_TOKEN_KEY,'').then(token=>{
+   showBridgeStatus(BRIDGE_TOKEN.test(token)?
+    '已配对，正在检查本次同步…':'尚未配对，点击「首次连接」');
+   if(BRIDGE_TOKEN.test(token))void browserBridgeSync();
+  }).catch(()=>{showBridgeStatus('脚本存储权限不可用');});
+  root.setInterval(()=>{void browserBridgeSync();},BRIDGE_CADENCE_MS);
+  document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden)void browserBridgeSync();
+  });
+ }
+
  function installButton(){
   if(root.location?.hostname!=='dekt.ncwu.edu.cn')return;
   if(document.getElementById('xu-second-class-export'))return;
@@ -183,7 +309,8 @@
  }
  root.XiaoxuSecondClassLocalExport=Object.freeze({collect,paths:P});
  if(typeof document!=='undefined'){
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installButton,{once:true});
-  else installButton();
+  const install=()=>{installButton();installBridgeControls();};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
+  else install();
  }
 })(globalThis);
