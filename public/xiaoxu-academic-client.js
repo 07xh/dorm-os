@@ -448,13 +448,25 @@
     });
     const info=await response.json().catch(()=>null);
     if(!response.ok||(checkProvider==='ncwu'?!info?.nativeLoginReady:!info?.loginSupported)){
+     const secondClassReasons={
+      school_unreachable:'S01：校序服务器暂时无法连接学校认证入口。',
+      cas_handoff_unrecognized:'S02：学校入口未发现可核验的统一认证跳转。',
+      cas_login_page_unavailable:'S03：学校登录页面与现有认证流程不一致。',
+      password_form_unavailable:'S04：学校密码表单或必要字段已改变。',
+      interactive_challenge_required:'S05：学校当前要求验证码或其他交互式验证。',
+      password_transform_required:'S06：学校密码提交需要官方页面的加密处理。',
+      unexpected_cas_form_action:'S07：学校认证提交目标与二课服务不匹配。',
+      unrecognized_auth_flow:'S08：当前学校登录流程尚不受支持。'
+     };
      result.textContent=info?.status==='server_session_vault_unavailable'?
-      '校序后端安全会话尚未配置，请先完成服务器配置。':
+      '校序服务端安全会话未就绪；没有读取或保存学校账号。':
       info?.status==='schedule_review_pending'?
-      '学校普通登录表单已识别，但完整课表及来源编号的真人验收尚未完成；暂不收集密码。':
+      '学校普通登录表单已识别，但课表尚待本人核对；暂不收集密码。':
+      checkProvider==='second_class'&&secondClassReasons[info?.reason]?
+      secondClassReasons[info.reason]+' 需要时请使用学校官网登录验证；反馈 S 编号即可，不需提供密码。':
       info?.status==='upstream_unavailable'?
-      '暂时无法访问学校登录服务；没有获取或保存学校账号。':
-      '学校当前要求交互验证或不支持安全的普通密码表单；不会绕过验证或要求安装脚本。';
+      '校序服务器暂不能访问学校登录服务（S01）；没有获取或保存学校账号。':
+      '学校当前不支持此方式的安全自动登录（S08）；不会绕过官方身份验证。';
      return;
     }
     // The trusted backend has inspected a simple current CAS password form.
