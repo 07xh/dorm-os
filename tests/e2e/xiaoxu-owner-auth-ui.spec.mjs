@@ -11,6 +11,25 @@ test('a new visitor does not fetch private session endpoints on page load', asyn
   expect(paths).toEqual([]);
 });
 
+test('login page is compact on phones and password visibility remains accessible', async ({ page }) => {
+  await page.goto('/login/');
+  await expect(page.getByRole('heading', {name:'登录'})).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('Cloudflare Pages Secrets');
+  const size = await page.locator('main').boundingBox();
+  expect(size?.height).toBeLessThan(440);
+  const dims=await page.evaluate(()=>({
+    documentWidth:document.documentElement.scrollWidth,
+    viewportWidth:document.documentElement.clientWidth,
+    minLength:document.getElementById('passphrase').minLength
+  }));
+  expect(dims.documentWidth).toBeLessThanOrEqual(dims.viewportWidth+1);
+  expect(dims.minLength).toBe(8);
+  await page.getByRole('button',{name:'显示密码'}).click();
+  await expect(page.locator('#passphrase')).toHaveAttribute('type','text');
+  await page.getByRole('button',{name:'隐藏密码'}).click();
+  await expect(page.locator('#passphrase')).toHaveAttribute('type','password');
+});
+
 test('owner login is remembered for display and logout clears the opt-in marker', async ({ page }) => {
   let signedIn = false;
   await page.route('**/api/v1/auth/**', async route => {
