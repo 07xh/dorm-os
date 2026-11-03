@@ -8,7 +8,7 @@ test('home layout can hide, reorder, persist and restore dashboard modules',asyn
   localStorage.setItem(key,JSON.stringify(s));
  },STORAGE);
  await page.reload();
- await expect(page.locator('[data-home-widget]')).toHaveCount(6);
+ await expect(page.locator('[data-home-widget]')).toHaveCount(5);
  await page.locator('[data-action="home-layout"]').click();
  await expect(page.locator('.home-layout-editor')).toBeVisible();
  await page.locator('[data-home-widget-toggle="weather"]').click();
@@ -26,14 +26,14 @@ test('home layout can hide, reorder, persist and restore dashboard modules',asyn
  await page.locator('[data-action="home-layout-reset"]').click();
  await page.locator('[data-action="home-layout-save"]').click();
  const restored=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),STORAGE);
- expect(restored.settings.homeLayout.order).toEqual(['timetable','tasks','focus','life','devices','weather']);
+ expect(restored.settings.homeLayout.order).toEqual(['timetable','tasks','focus','life','weather']);
  expect(restored.settings.homeLayout.hidden).toEqual([]);
- await expect(page.locator('[data-home-widget]')).toHaveCount(6);
+ await expect(page.locator('[data-home-widget]')).toHaveCount(5);
 });
 test('home layout enforces one visible module and is accessible from settings',async({page})=>{
  await page.goto('/');
  await page.locator('[data-action="home-layout"]').click();
- for(const id of ['timetable','focus','life','devices','weather'])await page.locator('[data-home-widget-toggle="'+id+'"]').click();
+ for(const id of ['timetable','focus','life','weather'])await page.locator('[data-home-widget-toggle="'+id+'"]').click();
  await page.locator('[data-home-widget-toggle="tasks"]').click();
  await expect(page.locator('.toast')).toContainText('至少保留一个首页模块');
  await expect(page.locator('[data-home-widget-toggle="tasks"]')).toHaveText('隐藏');
