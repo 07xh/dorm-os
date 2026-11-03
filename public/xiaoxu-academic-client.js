@@ -62,6 +62,19 @@
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
  }
+ async function loadOverview(){
+  overviewAttempted=true;
+  try{
+   const overview=await get('connections');
+   if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
+      overview.platforms.length!==3)throw Error('连接状态格式无效');
+   sources=overview.platforms;
+   return true;
+  }catch{
+   sources=[];
+   return false;
+  }
+ }
  const CONNECTION_PROVIDERS=Object.freeze([
   {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
   {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'课程作业、截止日期、提交状态'},
@@ -72,8 +85,8 @@
  function connectionPanel(){
   const active=connected;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
-   const record=active?sources.find(x=>x.id===provider.id):null;
-   const label=active?(record?.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record?.status]||'状态待确认'):'未读取连接状态';
+   const record=sources.find(x=>x.id===provider.id)||null;
+   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
@@ -254,5 +267,5 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel,hasOverviewAttempted:()=>overviewAttempted});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,loadOverview,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel,hasOverviewAttempted:()=>overviewAttempted});
 })(globalThis);
