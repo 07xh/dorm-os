@@ -1,5 +1,5 @@
 import {authorize,json} from '../../assignments.js';
-import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
+import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,schoolConnectAttemptStatus,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
  e.code==='interactive_login_required'?409:['sync_failed','upstream_unavailable'].includes(e.code)?502:503;
 export async function onRequestPost(context){
@@ -14,19 +14,9 @@ export async function onRequestPost(context){
  const adapter=availableSchoolAdapter(context,provider);
  // Never read or accept a password when the school adapter is unavailable.
  if(!adapter)return json({error:'school_login_unavailable'},503);
- // Reuse the existing owner-login rate-limit table. This is an atomic,
- // owner-and-provider-scoped 15-minute bucket, not an additional user system.
- try{
-  const now=Date.now(),bucket='school-login:'+auth.userId+':'+provider;
-  const row=await auth.db.prepare(
-   'INSERT INTO academic_auth_login_attempts(bucket,hits,window_end) VALUES(?,1,?) '+
-   'ON CONFLICT(bucket) DO UPDATE SET hits=CASE WHEN window_end<=? THEN 1 ELSE hits+1 END, '+
-   'window_end=CASE WHEN window_end<=? THEN excluded.window_end ELSE window_end END '+
-   'RETURNING hits'
-  ).bind(bucket,now+900000,now,now).first();
-  if(!row||!Number.isInteger(row.hits))return json({error:'rate_limit_unavailable'},503);
-  if(row.hits>6)return json({error:'too_many_attempts'},429);
- }catch{return json({error:'rate_limit_unavailable'},503);}
+ // Password login and imported session use the same owner/provider rate limit.
+ const limit=await schoolConnectAttemptStatus(auth.db,auth.userId,provider);
+ if(limit!=='ok')return json({error:limit},limit==='too_many_attempts'?429:503);
  const raw=await context.request.text();
  if(raw.length>2400)return json({error:'payload_too_large'},413);
  let payload;try{payload=JSON.parse(raw);}catch{return json({error:'invalid_json'},400);}
