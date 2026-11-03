@@ -118,10 +118,10 @@
      '</span></div>';
    }
    return item(record,kind);
-  }).join(''):'<div class="friendly-empty">本次保存的快照为空；不代表真实平台目前没有任务。</div>';
+  }).join(''):'<div class="friendly-empty">'+(kind==='second-class'?'当前没有已保存的第二课堂活动；这不证明学校平台无记录。':'本次保存的快照为空；不代表真实平台目前没有任务。')+'</div>';
   return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
    '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
-   (s.status==='stale'?' · 请重新同步':'')+'</p>'+summary+'<div class="xu-private-list">'+rows+'</div></section>';
+   (s.status==='stale'?' · 请重新同步':'')+'</p>'+(kind==='second-class'?'<p class="tiny muted">校序尚未启动第二课堂无人值守自动更新；展示的是上一次保存的数据。</p>':'')+summary+'<div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all',localTasks=[]){
   if(!hasData('assignments')||filter==='done')return '';
