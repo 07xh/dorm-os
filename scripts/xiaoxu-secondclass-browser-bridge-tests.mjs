@@ -83,7 +83,11 @@ assert.equal(sql.prepare('SELECT count(*) AS n FROM academic_verified_records WH
 assert.equal(sql.prepare('SELECT count(*) AS n FROM academic_verified_records WHERE user_id=?').get(other).n,0);
 sql.prepare("UPDATE academic_verified_batches SET provenance='trusted_readonly' WHERE user_id=?").run(owner);
 const rekey=await createBrowserBridge(db,owner);
-const denied=await send(rekey.token,{...snapshot,capturedAt:new Date(Date.now()+1000).toISOString()});
+const denied=await send(rekey.token,{
+ schema:'xiaoxu/academic-snapshot-v1',source:'second_class',kind:'second-class',
+ verifiedSchool:'ncwu',capturedAt:new Date(Date.now()+1000).toISOString(),
+ complete:true,verifiedEmpty:false,records:snapshot.records
+});
 assert.equal(denied.status,409);
 assert.equal((await denied.json()).error,'trusted_source_readonly');
 assert.equal(sql.prepare('SELECT provenance FROM academic_verified_batches').get().provenance,'trusted_readonly');
