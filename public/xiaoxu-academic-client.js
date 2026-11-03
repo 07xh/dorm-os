@@ -53,7 +53,7 @@
    if(result.status==='fulfilled'&&Array.isArray(result.value?.records)&&
        ['ready','stale','not_connected'].includes(result.value.status)){
      const v=result.value;
-     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import',summary:v.summary||null,officialScore:v.officialScore||null,automaticSync:v.automaticSync===true};
+     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import',summary:v.summary||null,officialScore:v.officialScore||null,personalScore:v.personalScore||null,automaticSync:v.automaticSync===true};
    }else feeds[kind]={...feeds[kind],status:'error'};
   }
   error=results.some(v=>v.status==='rejected')?'部分个人数据源暂时不可用；不清空历史会话记录。':'';
@@ -83,7 +83,6 @@
   connected=true;
   try{
    await refresh();
-   // Refresh a validated school session in the same owner workspace only.
    void autoRefreshChaoxing();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
@@ -122,7 +121,7 @@
   const active=connected||connectionStatusRead;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=sources.find(x=>x.id===provider.id)||null;
-   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
+   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'学校会话无法验证，请重新连接':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
@@ -132,15 +131,9 @@
    const canLogin=record?.loginMode==='password';
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
    const authPanel=officialCas?
-    '<div class="xu-school-connect"><p class="tiny muted">已核实：学校使用 CAS 统一身份认证；回跳目标属于学校，登录官网不会直接绑定校序。</p>'+
+    '<div class="xu-school-connect"><p class="tiny muted">学校使用统一身份认证（CAS）。校序正在完善站内连接与服务端只读同步，目前未完成真实账号联通；无需安装脚本、配置配对密钥或向聊天提供学校密码。</p>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
-    escapeHtml(record.authFlow.officialLoginUrl)+'">前往华水官方统一认证</a>'+
-    '<details class="xu-provider-guide"><summary>已有学校账号：导出本人数据到校序</summary>'+
-    '<p>先在学校官网完成正常登录，再用脚本管理器导入本站提供的只读脚本。脚本只在学校网站上读取已核实的活动与分数接口，生成本机 JSON，不上传密码或 Cookie。</p>'+
-    '<a class="secondary xu-connection-link" href="/xiaoxu-second-class-export.user.js" download>保存本人只读导出脚本</a>'+
-    '<label>导入本机二课文件<input type="file" accept=".json,application/json" data-xu-second-class-import></label>'+
-    '<p class="tiny muted">导入属于本人快照，不表示校序已被学校授予自动同步权限；分数合计仅作本机核对预览。</p>'+
-    '<p class="tiny" role="status" aria-live="polite" data-xu-second-class-import-status></p></details></div>':
+    escapeHtml(record.authFlow.officialLoginUrl)+'">打开第二课堂官网</a></div>':
     canLogin?
     '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
     '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
@@ -149,6 +142,9 @@
     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
     active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'';
+   const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
+    record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
+    authorized?'已授权 · 可同步':label;
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
@@ -160,16 +156,15 @@
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
-    '<p>学习通可通过校序已有的站内账号连接入口尝试登录；如果学校要求官方验证码、二维码等交互，校序会停止并提示使用官方方式。</p>'+
-    '<p>连接成功后，在网页打开且本人会话有效时每 30 分钟尝试同步一次收件箱；关闭网页后的后台推送尚未开通。会话过期在此重新连接。作业提交状态仍须另行核验。</p></details>':
-    '<details class="xu-provider-guide"><summary>第二课堂连接方式</summary>'+
-    '<p>活动与素质分的本人只读响应结构已核验，现有连接器能够区分审核、核算状态和学校报告的分数合计。</p>'+
-    '<p>当前第二课堂通过学校自有的 CAS 回调登录；打开官网或完成学校登录不等于账号已绑定校序，校序不能读取另一网站的登录状态，也不需要向校序输入学校密码。</p>'+
-    '<p>可在学校本人登录后通过只读本机导出保留活动记录；该导入不是后台自动同步。</p></details>';
+    '<p>可通过校序现有的站内学习通连接入口登录；若学校要求验证码或交互认证则停止自动登录。</p>'+
+    '<p>本人会话验证通过后，网站处于前台时每 30 分钟尝试更新收件箱；网页关闭后尚未启用后台推送。会话过期可在此重新连接，提交状态仍需另行核实。</p></details>':
+    '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
+    '<p>活动、积分、志愿服务时长的只读解析与服务端会话框架已保留，但尚未通过本人真实学校登录验证；打开官网不等于账号已绑定，当前不会冒充已连接。</p>'+
+    '<p>后续直接在校序「我的 → 数据连接」中完成学校登录及自动同步，无需额外安装浏览器脚本或导入 JSON。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+guidance+'</div>'+
-    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(authorized?'已授权 · 可同步':label)+'</span>'+sessionTools+
+    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
     (officialCas?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
   }).join('');
@@ -237,6 +232,14 @@
   '<div><strong>'+escapeHtml(s.officialScore.aggregate.volunteerHours??'未公布')+
   '</strong><small>志愿服务时长</small></div></div>'+
   '<p class="tiny muted">来自华水本人分数页的“合计”记录，未与各学期或活动逐条数据重复相加。</p></div>':'';
+ const browserTotals=kind==='second-class'&&!isOfficial(kind)&&s.personalScore?
+   '<div class="xu-second-class-official" aria-label="学校网页本人同步的个人分数快照">'+
+   '<strong>历史个人导入 · 分数合计</strong><div class="xu-second-class-summary">'+
+   '<div><strong>'+escapeHtml(s.personalScore.qualityScore??'未公布')+
+   '</strong><small>素质分</small></div>'+
+   '<div><strong>'+escapeHtml(s.personalScore.volunteerHours??'未公布')+
+   '</strong><small>志愿服务时长</small></div></div>'+
+   '<p class="tiny muted">旧版个人快照留存；浏览器脚本同步已停用，历史数值未经校序服务端独立核验，请以学校官网为准。</p></div>':'';
  const summary=kind==='second-class'&&s.summary?
    '<div class="xu-second-class-summary" aria-label="第二课堂已保存记录统计">'+
    '<div><strong>'+escapeHtml(s.summary.recordCount)+'</strong><small>已保存活动记录</small></div>'+
@@ -263,7 +266,7 @@
   }).join(''):'<div class="friendly-empty">'+(kind==='second-class'?'当前没有已保存的第二课堂活动；这不证明学校平台无记录。':'本次保存的快照为空；不代表真实平台目前没有任务。')+'</div>';
   return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
    '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
-   (s.status==='stale'?' · 请重新同步':'')+'</p>'+(kind==='second-class'?'<p class="tiny muted">校序尚未启动第二课堂无人值守自动更新；展示的是上一次保存的数据。</p>':'')+official+summary+'<div class="xu-private-list">'+rows+'</div></section>';
+   (s.status==='stale'?' · 请重新同步':'')+'</p>'+(kind==='second-class'?'<p class="tiny muted">校序尚未启动第二课堂无人值守自动更新；展示的是上一次保存的数据。</p>':'')+official+browserTotals+summary+'<div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all',localTasks=[]){
   if(!hasData('assignments')||filter==='done')return '';
@@ -354,47 +357,6 @@
     announceUpdated();
    }catch(e){status.textContent=e.message||'学校账号连接失败';}
    finally{if(submit.isConnected)submit.disabled=false;}
-  });
-  document.addEventListener('change',async event=>{
-   const input=event.target.closest?.('input[data-xu-second-class-import]');
-   if(!input)return;
-   const file=input.files?.[0],status=input.closest('.xu-provider-guide')?.querySelector('[data-xu-second-class-import-status]');
-   if(!file)return;
-   input.disabled=true;
-   if(status)status.textContent='正在检查本机文件…';
-   try{
-    if(file.size>100000)throw Error('本机二课文件超过 100 KB，请检查文件内容');
-    const local=JSON.parse(await file.text());
-    const snapshot=local?.snapshot;
-    if(!snapshot||snapshot.schema!=='xiaoxu/academic-snapshot-v1'||
-       snapshot.kind!=='second-class'||snapshot.source!=='second_class'||
-       snapshot.verifiedSchool!=='ncwu'||snapshot.complete!==true||
-       !Array.isArray(snapshot.records)||snapshot.records.length>250)
-     throw Error('文件不是校序的第二课堂本人导出格式');
-    const preview=local.schoolReportedPreview;
-    const amount=preview&&typeof preview==='object'?
-     '；文件中学校页面合计预览：素质分 '+String(preview.qualityScore??'未公布')+
-     '、志愿时长 '+String(preview.volunteerHours??'未公布'):'';
-    if(!root.confirm('准备保存 '+snapshot.records.length+' 条本人活动记录'+amount+
-     '。这些数据会标注为“个人导入”，不代表校序取得官方自动同步授权。是否继续？'))return;
-    if(status)status.textContent='正在保存本人活动到校序…';
-    const response=await fetch('/api/v1/verified/snapshot',{
-     method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
-     headers:{'content-type':'application/json','accept':'application/json'},
-     // Only the whitelisted snapshot portion is transmitted. The local
-     // school aggregate preview is never submitted as an official D1 score.
-     body:JSON.stringify(snapshot)
-    });
-    const result=await response.json().catch(()=>null);
-    if(!response.ok)throw Error(result?.status==='trusted_source_readonly'?
-     '已有正式可信同步记录，个人导入不能覆盖':
-     result?.status==='outdated_snapshot'?'该文件早于已保存的个人快照':
-     result?.message||'校序保存失败，请检查账号登录状态');
-    if(status)status.textContent='已保存 '+result.count+' 条个人活动记录（非自动同步）';
-    await connect();
-    announceUpdated();
-   }catch(e){if(status)status.textContent=String(e.message||'导入失败').slice(0,160);}
-   finally{input.value='';if(input.isConnected)input.disabled=false;}
   });
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-school-sync],[data-xu-school-disconnect]');
