@@ -115,6 +115,7 @@
      '<div class="task-main '+(done?'done':'')+'"><div class="entry-title">'+esc(r.title)+'</div>'+
      '<div class="entry-sub">'+esc(formatDue(r))+' · '+esc(r.source_course||status)+
      (r.source_course?' · '+esc(status):'')+'</div></div>'+
+     (r.kind==='manual'?'<button type="button" class="secondary" data-action="cloud-edit:'+esc(r.id)+'">编辑</button>':'')+
      '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(r.id)+':'+action+'">'+
      (done?'恢复待办':'标记完成')+'</button></div>';
    }).join('');
@@ -237,6 +238,52 @@
  // A successful task mutation makes any already-running GET obsolete, even
  // when it is still waiting for a response from D1. Do not let that older
  // response overwrite the newly committed status on either device.
+ async function refreshAfterWrite(){
+  // Invalidate any old polling response so it cannot overwrite a committed
+  // write. A new D1 read has its own request generation.
+  invalidatePendingReads();
+  try{return await refresh();}catch{return false;}
+ }
+ // A newly added manual task is saved directly to the existing private
+ // assignment API. The user must have opted in to load the cloud workspace.
+ async function createPersonal({title,dueDate=''}) {
+  if(!online)throw Error('请先连接校序云端任务');
+  const safeTitle=typeof title==='string'?title.trim():'';
+  if(!safeTitle||safeTitle.length>120)throw Error('请输入有效任务名称');
+  if(dueDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)||
+    !Number.isFinite(Date.parse(dueDate+'T00:00:00Z'))||
+     new Date(dueDate+'T00:00:00Z').toISOString().slice(0,10)!==dueDate))
+    throw Error('截止日期不合法');
+  const deadline=dueDate?{precision:'date',date:dueDate}:{precision:'unknown'};
+  const response=await api('/api/v1/assignments','POST',{title:safeTitle,deadline});
+  if(!response.item?.id)throw Error('云端保存返回的任务信息不完整');
+  const cloudListRefreshed=await refreshAfterWrite();
+  return {...response.item,cloudListRefreshed};
+ }
+ function editable(id){
+  const item=online?items.find(x=>x.id===id&&x.kind==='manual'):null;
+  return item?{id:item.id,title:item.title,dueDate:item.due_local_date||'',
+    duePrecision:item.due_precision,revision:item.revision}:null;
+ }
+ async function updatePersonal(id,{title,dueDate}){
+  const item=editable(id);
+  if(!item)throw Error('任务已变化或不是可编辑的个人云端任务');
+  const safeTitle=typeof title==='string'?title.trim():'';
+  if(!safeTitle||safeTitle.length>120)throw Error('请输入有效任务名称');
+  const patch={revision:item.revision,title:safeTitle};
+  if(dueDate!==item.dueDate){
+   if(dueDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)||
+      !Number.isFinite(Date.parse(dueDate+'T00:00:00Z'))||
+     new Date(dueDate+'T00:00:00Z').toISOString().slice(0,10)!==dueDate))
+      throw Error('截止日期不合法');
+   patch.deadline=dueDate?{precision:'date',date:dueDate}:{precision:'unknown'};
+  }
+  try{
+   const result=await api('/api/v1/assignments/'+encodeURIComponent(id),'PATCH',patch);
+   const cloudListRefreshed=await refreshAfterWrite();
+   return {...result.item,cloudListRefreshed};
+  }catch(e){if(e.status===409)await refresh().catch(()=>{});throw e;}
+ }
  function invalidatePendingReads(){
   refreshGeneration++;refreshPromise=null;lastRefreshAt=0;
  }
@@ -260,6 +307,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
  });
 })(globalThis);

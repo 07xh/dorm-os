@@ -114,3 +114,80 @@ test('mobile resume refreshes a previously authorized cloud session without chan
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
  expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test('one task form saves to cloud across devices and keeps local-only selection',async({page,context})=>{
+ await page.setViewportSize({width:390,height:844});
+ let rows=[],posts=0;
+ const respond=(route,value,status=200)=>route.fulfill({
+  status,contentType:'application/json',body:JSON.stringify(value)
+ });
+ await context.route('**/api/v1/connections',route=>respond(route,{
+  schema:'xiaoxu/connections-v1',platforms:[
+   {id:'ncwu',status:'not_connected'},{id:'chaoxing',status:'not_connected'},
+   {id:'second_class',status:'not_connected'}
+  ]
+ }));
+ await context.route('**/api/v1/verified/**',route=>respond(route,{
+  status:'not_connected',records:[],lastSuccessAt:null
+ }));
+ await context.route('**/api/v1/sources',route=>respond(route,{
+  connections:[],userSnapshots:[]
+ }));
+ await context.route('**/api/v1/assignments**',route=>{
+  const request=route.request(),url=new URL(request.url()),method=request.method();
+  if(url.pathname==='/api/v1/assignments'&&method==='GET')
+   return respond(route,{items:rows.map(x=>({...x}))});
+  if(url.pathname==='/api/v1/assignments'&&method==='POST'){
+   const payload=request.postDataJSON();
+   posts++;
+   const item={id:'manual-'+posts,title:payload.title,kind:'manual',
+    local_status:'todo',revision:0,legacy_id:null,platform_status:null,
+    due_precision:payload.deadline.precision,
+    due_local_date:payload.deadline.date||null,due_at_utc:null};
+   rows.push(item);return respond(route,{item},201);
+  }
+  if(method==='PATCH'&&url.pathname==='/api/v1/assignments/manual-1'){
+   const patch=request.postDataJSON();
+   const current=rows[0];
+   if(current.revision!==patch.revision)return respond(route,{error:'revision_conflict'},409);
+   rows[0]={...current,title:patch.title,revision:current.revision+1,
+    ...(patch.deadline?{due_precision:patch.deadline.precision,
+       due_local_date:patch.deadline.date||null}:{})};
+   return respond(route,{item:{id:current.id,revision:rows[0].revision}});
+  }
+  return respond(route,{error:'unexpected_request'},405);
+ });
+ await page.goto('/#settings');
+ await page.locator('[data-action="academic-connect"]').click();
+ await expect(page.locator('.xu-cloud-panel')).toContainText('已载入 0 项');
+ await page.locator('#sidebarNav [data-page="tasks"]').click();
+ await page.locator('#quickAdd').click();
+ await expect(page.locator('#taskSaveScope')).toHaveValue('cloud');
+ await page.locator('#taskTitle').fill('跨设备高数作业');
+ await page.locator('#taskDue').fill('2026-11-27');
+ await page.locator('#modalForm button[type="submit"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('跨设备高数作业');
+ expect(posts).toBe(1);
+ expect(await page.evaluate(()=>{const saved=localStorage.getItem('dorm-os-state-v1');return saved?JSON.parse(saved).tasks.length:0;})).toBe(0,
+  'cloud create must not also create a duplicate local-only task');
+ const second=await context.newPage();
+ await second.goto('/#settings');
+ await second.locator('[data-action="academic-connect"]').click();
+ await second.locator('#sidebarNav [data-page="tasks"]').click();
+ await expect(second.locator('.xu-cloud-task')).toContainText('跨设备高数作业');
+ await second.locator('[data-action="cloud-edit:manual-1"]').click();
+ await second.locator('#taskTitle').fill('高数作业已补充');
+ await second.locator('#modalForm button[type="submit"]').click();
+ await expect(second.locator('.xu-cloud-task')).toContainText('高数作业已补充');
+ await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+ await expect(page.locator('.xu-cloud-task')).toContainText('高数作业已补充');
+ await page.locator('#quickAdd').click();
+ await page.locator('#taskSaveScope').selectOption('local');
+ await page.locator('#taskTitle').fill('仅本机的临时任务');
+ await page.locator('#modalForm button[type="submit"]').click();
+ await expect(page.locator('#app')).toContainText('仅本机的临时任务');
+ expect(posts).toBe(1,'explicit local-only create never writes cloud');
+ const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+ expect(overflow).toBeLessThanOrEqual(1,'cloud task form and action buttons must fit on mobile');
+ await second.close();
+});

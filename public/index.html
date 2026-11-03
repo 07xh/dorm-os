@@ -1810,7 +1810,30 @@ function timerSetDuration(minutes){
 
 function openDialog(html){const dialog=$('editor');dialog.classList.remove('search-editor','home-layout-dialog','form-editor');$('editorContent').innerHTML=html;const form=$('modalForm');dialog.classList.toggle('form-editor',!!form);dialog.setAttribute('aria-label',dialog.querySelector('h2')?.textContent||'DORM OS 操作窗口');if(form)form.addEventListener('submit',event=>{event.preventDefault();event.stopPropagation();processForm(form);});dialog.showModal();}
 function formFrame(title,body,kind=""){return `<form id="modalForm" class="dorm-form" ${kind?`data-form="${esc(kind)}"`:""}><header class="dorm-form-header"><h2>${esc(title)}</h2></header><div class="dorm-form-body">${body}</div><div class="modal-actions dorm-form-actions"><button type="button" class="secondary" data-action="close-modal">取消</button><button type="submit" class="primary">保存</button></div></form>`;}
-function taskDialog(id){const t=state.tasks.find(x=>x.id===id);openDialog(formFrame(t?'编辑任务':'新增任务',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label for="taskTitle">任务名称 *</label><input id="taskTitle" name="title" maxlength="100" required placeholder="例如：完成高数作业" value="${esc(t?.title||'')}"></div><div class="grid-fields"><div class="form-field"><label for="taskCategory">类别</label><select name="category" id="taskCategory">${CATEGORIES.map(c=>`<option ${t?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><div class="form-field"><label for="taskDue">截止日期（可选）</label><input id="taskDue" type="date" name="due" value="${esc(t?.due||'')}"></div></div>`));$('modalForm').dataset.form='task';$('taskTitle').focus();}
+function taskDialog(id,cloudId=''){
+ const cloud=cloudId?XiaoxuCloudTasks.editable(cloudId):null;
+ if(cloudId&&!cloud){toast('云端任务已经变化，请重新读取');return;}
+ const local=cloud?null:state.tasks.find(x=>x.id===id);
+ const item=cloud?{title:cloud.title,due:cloud.dueDate}:local;
+ const newTask=!id&&!cloudId;
+ const scope=newTask&&XiaoxuCloudTasks.isReady()?
+  '<div class="form-field"><label for="taskSaveScope">保存位置</label><select id="taskSaveScope" name="saveScope">'+
+  '<option value="cloud" selected>私人云端 · 可在手机和平板同步</option>'+
+  '<option value="local">仅当前浏览器 · 离线保存</option></select>'+
+  '<p class="small muted">云端任务目前保存名称和截止日期；类别只用于本机任务，旧任务不会自动上传。</p></div>':'';
+ const category=cloud?'':'<div class="form-field"><label for="taskCategory">本机类别</label><select name="category" id="taskCategory">'+
+  CATEGORIES.map(c=>'<option '+(local?.category===c?'selected':'')+'>'+esc(c)+'</option>').join('')+
+  '</select></div>';
+ openDialog(formFrame(cloud?'编辑云端任务':local?'编辑任务':'新增任务',
+  '<input name="id" type="hidden" value="'+esc(local?.id||'')+'">'+
+  '<input name="cloudId" type="hidden" value="'+esc(cloudId)+'">'+
+  '<div class="form-field"><label for="taskTitle">任务名称 *</label>'+
+  '<input id="taskTitle" name="title" maxlength="100" required placeholder="例如：完成高数作业" value="'+esc(item?.title||'')+'"></div>'+
+  scope+'<div class="grid-fields">'+category+
+  '<div class="form-field"><label for="taskDue">截止日期（可选）</label>'+
+  '<input id="taskDue" type="date" name="due" value="'+esc(item?.due||'')+'"></div></div>'));
+ $('modalForm').dataset.form='task';$('taskTitle').focus();
+}
 function classDialog(id){const c=state.classes.find(x=>x.id===id);openDialog(formFrame(c?'编辑课程':'添加课程',`<input name="id" type="hidden" value="${esc(c?.id||'')}"><div class="form-field"><label for="classSubject">课程名称 *</label><input id="classSubject" name="subject" maxlength="80" placeholder="例如：高等数学" required value="${esc(c?.subject||'')}"></div><div class="grid-fields"><div class="form-field"><label>星期</label><select name="day">${[1,2,3,4,5,6,0].map(d=>`<option value="${d}" ${c?.day===d?'selected':''}>${WEEKDAYS[d]}</option>`).join('')}</select></div><div class="form-field"><label>教室</label><input name="location" maxlength="60" placeholder="如教学楼 A201" value="${esc(c?.location||'')}"></div></div><div class="grid-fields"><div class="form-field"><label>开始时间</label><input name="start" type="time" required value="${esc(c?.start||'08:00')}"></div><div class="form-field"><label>结束时间</label><input name="end" type="time" required value="${esc(c?.end||'09:40')}"></div></div>`));$('modalForm').dataset.form='class';$('classSubject').focus();}
 function balanceDialog(){openDialog(formFrame('手动记录宿舍电费',`<p class="small muted">这里只保存你主动输入的数值，不连接学校收费系统。</p><div class="form-field"><label>电费余额（人民币）</label><input name="balance" type="number" min="0" max="99999" step="0.01" required value="${state.electricity.balance??''}" placeholder="例如 35.50"></div>`));$('modalForm').dataset.form='balance';}
 async function processForm(form){const d=new FormData(form);
@@ -1836,7 +1859,24 @@ async function processForm(form){const d=new FormData(form);
  if(form.dataset.form==='tag'){const id=String(d.get('id')||'').trim();const name=String(d.get('name')||'').trim().slice(0,40);const scene=String(d.get('scene')||'');if(!name||!sceneDefs.some(x=>x.id===scene)){toast('请输入有效标签名称与场景');return;}const old=state.nfcTags.find(x=>x.id===id);if(old){if(old.scene!==scene){old.readAt='';old.readScene='';}old.name=name;old.scene=scene;}else{if(state.nfcTags.length>=60){toast('标签数量达到上限');return;}state.nfcTags.push({id:newId(),name,scene,createdAt:new Date().toISOString()});}log(`保存 NFC 标签：${name}`);persist();$('editor').close();render();toast(old&&old.writtenScene&&old.writtenScene!==old.scene?'场景已改绑，请重新写入实体 NFC 标签':'标签配置已保存');return;}
  if(form.dataset.form==='reminder'){const text=String(d.get('text')||'').trim().slice(0,100),due=String(d.get('due')||''),id=String(d.get('id')||'');if(!text){toast('请输入提醒内容');return;}const record=state.reminders.find(x=>x.id===id);if(record){record.text=text;record.due=/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'';}else{if(state.reminders.length>=120){toast('提醒最多保存 120 项');return;}state.reminders.push({id:newId(),text,due:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'',done:false});}persist();$('editor').close();render();toast('提醒已保存');return;}
  if(form.dataset.form==='item'){const name=String(d.get('name')||'').trim().slice(0,80),place=String(d.get('place')||'').trim().slice(0,80),id=String(d.get('id')||'');if(!name){toast('请输入物品名称');return;}const record=state.items.find(x=>x.id===id);if(record){record.name=name;record.place=place;}else{if(state.items.length>=120){toast('物品最多保存 120 项');return;}state.items.push({id:newId(),name,place});}persist();$('editor').close();render();toast('物品已保存');return;}
-if(form.dataset.form==='task'){const title=String(d.get('title')||'').trim().slice(0,100);if(!title){toast('请输入任务名称');return;}const id=String(d.get('id')||'');const current=state.tasks.find(x=>x.id===id);const record={...current,id:current?.id||newId(),title,category:CATEGORIES.includes(d.get('category'))?d.get('category'):'其他',due:String(d.get('due')||''),dueAt:current?.due===String(d.get('due')||'')?current?.dueAt||'':'',done:current?.done||false,createdAt:current?.createdAt||new Date().toISOString()};if(current)Object.assign(current,record);else state.tasks.push(record);log(`${current?'修改':'新增'}任务：${title}`);}else if(form.dataset.form==='class'){const subject=String(d.get('subject')||'').trim().slice(0,80),start=d.get('start'),end=d.get('end');if(!subject||!start||!end||start>=end){toast('请检查课程名称及时间顺序');return;}const id=String(d.get('id')||'');const current=state.classes.find(x=>x.id===id);const record={id:current?.id||newId(),subject,day:Number(d.get('day')),start,end,location:String(d.get('location')||'').trim().slice(0,60)};if(current)Object.assign(current,record);else state.classes.push(record);log(`${current?'修改':'新增'}课程：${subject}`);}else if(form.dataset.form==='campus-link'){const name=String(d.get('name')||'').trim().slice(0,40),url=String(d.get('url')||'').trim();if(!name||!/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(url)||url.length>300){toast('请输入有效 HTTPS 地址和服务名称');return;}if(state.campusLinks.length>=30){toast('自定义入口最多 30 个');return;}state.campusLinks.push({id:newId(),name,url});log(`添加校园服务：${name}`);} else if(form.dataset.form==='balance'){const raw=String(d.get('balance')||'');const n=Number(raw);if(raw===''||!Number.isFinite(n)||n<0||n>99999){toast('请输入有效的非负余额');return;}state.electricity={balance:Math.round(n*100)/100,updatedAt:new Date().toISOString()};log('手动更新电费余额');}
+if(form.dataset.form==='task'&&(d.get('cloudId')||(!d.get('id')&&d.get('saveScope')==='cloud'))){
+  const title=String(d.get('title')||'').trim().slice(0,100);
+  const dueDate=String(d.get('due')||''),cloudId=String(d.get('cloudId')||'');
+  if(!title){toast('请输入任务名称');return;}
+  const saveButton=form.querySelector('[type="submit"]');
+  if(saveButton?.disabled)return;
+  if(saveButton)saveButton.disabled=true;
+  try{
+   const result=cloudId?await XiaoxuCloudTasks.updatePersonal(cloudId,{title,dueDate}):
+    await XiaoxuCloudTasks.createPersonal({title,dueDate});
+   $('editor').close();render();
+   toast(result.cloudListRefreshed===false?'已保存到云端，但列表刷新失败；请稍后手动刷新':
+    cloudId?'云端任务已更新':'任务已保存到私人云端，其他设备可刷新查看');
+  }catch(err){toast('云端保存失败：'+String(err.message||'请重试'));}
+  finally{if(saveButton)saveButton.disabled=false;}
+  return;
+ }
+ if(form.dataset.form==='task'){const title=String(d.get('title')||'').trim().slice(0,100);if(!title){toast('请输入任务名称');return;}const id=String(d.get('id')||'');const current=state.tasks.find(x=>x.id===id);const record={...current,id:current?.id||newId(),title,category:CATEGORIES.includes(d.get('category'))?d.get('category'):'其他',due:String(d.get('due')||''),dueAt:current?.due===String(d.get('due')||'')?current?.dueAt||'':'',done:current?.done||false,createdAt:current?.createdAt||new Date().toISOString()};if(current)Object.assign(current,record);else state.tasks.push(record);log(`${current?'修改':'新增'}任务：${title}`);}else if(form.dataset.form==='class'){const subject=String(d.get('subject')||'').trim().slice(0,80),start=d.get('start'),end=d.get('end');if(!subject||!start||!end||start>=end){toast('请检查课程名称及时间顺序');return;}const id=String(d.get('id')||'');const current=state.classes.find(x=>x.id===id);const record={id:current?.id||newId(),subject,day:Number(d.get('day')),start,end,location:String(d.get('location')||'').trim().slice(0,60)};if(current)Object.assign(current,record);else state.classes.push(record);log(`${current?'修改':'新增'}课程：${subject}`);}else if(form.dataset.form==='campus-link'){const name=String(d.get('name')||'').trim().slice(0,40),url=String(d.get('url')||'').trim();if(!name||!/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(url)||url.length>300){toast('请输入有效 HTTPS 地址和服务名称');return;}if(state.campusLinks.length>=30){toast('自定义入口最多 30 个');return;}state.campusLinks.push({id:newId(),name,url});log(`添加校园服务：${name}`);} else if(form.dataset.form==='balance'){const raw=String(d.get('balance')||'');const n=Number(raw);if(raw===''||!Number.isFinite(n)||n<0||n>99999){toast('请输入有效的非负余额');return;}state.electricity={balance:Math.round(n*100)/100,updatedAt:new Date().toISOString()};log('手动更新电费余额');}
   persist();$('editor').close();render();toast('已保存到当前浏览器');}
 function weatherCacheKey(){return `dorm-os-weather-${state.settings.campus}`;}
 function loadWeather(){try{const raw=localStorage.getItem(weatherCacheKey());weather=raw?JSON.parse(raw):null;}catch{weather=null;}}
@@ -1984,6 +2024,7 @@ function clickAction(action){
   if(!confirm('确认将预览中的本机任务复制到本人云端？原本地任务与备份不会删除。'))return;
   XiaoxuCloudTasks.commitLegacy(state.tasks).then(r=>{render();toast('云端迁移成功：新增 '+r.created+' 项');}).catch(err=>{render();toast(String(err.message));});return;
  }
+ if(action.startsWith('cloud-edit:')){taskDialog('',action.slice('cloud-edit:'.length));return;}
  if(action.startsWith('cloud-toggle:')){
   const segments=action.split(':');if(segments.length!==3)return;
   XiaoxuCloudTasks.toggle(segments[1],segments[2]).then(()=>{render();toast('云端个人完成状态已更新');}).catch(err=>{render();toast(String(err.message));});return;
