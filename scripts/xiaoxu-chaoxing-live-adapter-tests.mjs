@@ -107,7 +107,7 @@ const online=await connectSchoolAccount({db:db2,userId:'owner1',provider:'chaoxi
 assert.equal(online.connected,true);
 const before=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1'").get();
 assert.ok(before.ciphertext&&!JSON.stringify(before).includes('test-password'));
-assert.deepEqual(await schoolSessionStates(db2,'owner1'),{chaoxing:'active'});
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,1);
 notices.length=0;
@@ -118,7 +118,7 @@ assert.notEqual(before.ciphertext,rotated.ciphertext,'successful refresh re-seal
 invalidSession=true;
 await assert.rejects(()=>refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',adapter,secret}),
  e=>e.code==='session_expired');
-assert.deepEqual(await schoolSessionStates(db2,'owner1'),{});
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{});
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
  'upstream expiry must preserve historical tasks');
 invalidSession=false;notices.length=0;
