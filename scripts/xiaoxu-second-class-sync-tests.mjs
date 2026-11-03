@@ -25,7 +25,7 @@ const db={
 let idCounter=0;
 const options={now:()=> '2026-11-03T02:00:00.000Z',id:()=> 'id-'+(++idCounter)};
 const proof={authorized:true,scope:'self',school:'ncwu',provider:'second_class',
- identityBound:true,session:{ephemeral:true}};
+ identityBound:true,principalBoundTo:'owner-a',session:{ephemeral:true}};
 const page1={activities:[{activityId:'a1',title:'合成活动甲',date:'2026-11-01',hours:2,
  points:5,activityStatus:'completed',reviewStatus:'approved',unusedPII:'SHOULD_NOT_PERSIST'}],
  nextCursor:'page2',complete:false};
@@ -56,7 +56,8 @@ const current=()=>sqlite.prepare("SELECT payload FROM academic_verified_records 
 assert.equal(current().length,2);
 assert.equal(current()[0].title,'合成活动甲');
 assert.equal(JSON.stringify(current()).includes('SHOULD_NOT_PERSIST'),false);
-const ownerB=adapter([{activities:[],complete:true,nextCursor:null,verifiedEmpty:true}]);
+const ownerB=adapter([{activities:[],complete:true,nextCursor:null,verifiedEmpty:true}],
+ {...proof,principalBoundTo:'owner-b'});
 const second=await runAuthorizedSecondClassSync(db,'owner-b',ownerB,options);
 assert.equal(second.count,0);
 assert.equal(current().length,2,'second user cannot overwrite owner records');
@@ -79,6 +80,8 @@ await mustFail(collectAuthorizedSecondClass(adapter([{activities:[page1.activiti
 await mustFail(collectAuthorizedSecondClass({provider:'second_class',verifySession:async()=>proof,
  readPage:async()=>{throw Error('cookie=redacted');}}),'upstream_unavailable');
 await mustFail(runAuthorizedSecondClassSync(db,'owner-a',adapter([page2],{...proof,authorized:false}),options),'authorization_failed');
+await mustFail(runAuthorizedSecondClassSync(db,'owner-a',adapter([page2],
+ {...proof,principalBoundTo:'owner-b'}),options),'authorization_failed');
 assert.equal(sqlite.prepare("SELECT batch_id FROM academic_verified_batches WHERE user_id='owner-a'").get().batch_id,
  previous,'failed source read must preserve last good snapshot');
 // Full verified empty is allowed only with signed-in self scope, and hides old
