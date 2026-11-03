@@ -4,7 +4,7 @@
 - 在已存在的 Cloudflare Access RS256 JWT 身份与 D1 用户隔离基础上，新增 `0007_academic_reminder_inbox.sql`。
 - 本人登录后由 `GET /api/v1/reminders` 从当前个人考试快照和 D1 云端任务生成站内待办提醒。
 - `PATCH /api/v1/reminders` 保存个人开启/关闭、提前天数及逐条已读状态，读写仅限 JWT 验证后的同一用户；跨设备重新访问同一账号可恢复。
-- UI 复用「任务」「设置与备份」现有卡片，不新建一套重复导航；PWA 缓存客户端 JS。
+- UI 复用「设置与备份」的卡片，保留任务页已有的前台截止提醒，不新建一套重复导航；PWA 缓存客户端 JS。
 - 个人导入成绩、考试、二课不再标为 `snapshot_verified`，改为 `personal_snapshot`；`GET verified/*` 返回 `provenance: user_import`。快照字段结构校验**不是**学校官方来源证明。
 - 严格保留“日期只有天，没有时刻”的精度，不编造具体考试、作业时间。原有本地课表和任务不覆盖。
 
@@ -18,7 +18,7 @@
 
 ## Cloudflare 上线依赖与操作
 1. 首先为 `/api/v1/*` 配置 Cloudflare Access，只允许本人登录。配置 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`，Pages 项目绑定已有 D1 为 `ACADEMIC_DB`。不要把任何密钥提交仓库。
-2. 对正式 D1 备份后，按顺序执行 `migrations/0001_academic_core.sql` 至 `0007_academic_reminder_inbox.sql`，且此前每个 migration 只能应用一次。若生产已应用前五个，仅执行 `0006`；先在预览环境跑迁移和端点验证。
+2. 对正式 D1 备份后，按顺序执行 `migrations/0001_academic_core.sql` 至 `0007_academic_reminder_inbox.sql`，且此前每个 migration 只能应用一次。若生产已应用前六个，仅执行 `0007`；若仅应用前五个，按顺序执行 `0006` 调度器迁移和 `0007` 私人提醒迁移；先在预览环境跑迁移和端点验证。
 3. 在本人访问 `/api/v1/reminders` 的有效 Access 会话中，确认首次返回 `enabled:false`、`delivery:in_app_only`；无个人数据返回空列表而不是模拟。
 4. 两台设备使用同一经授权 Access 身份，手动启用站内订阅并将一条真实任务标已读；另一台刷新后状态一致。另一身份应该读不到记录。
 5. 实机检查手机任务页、设置页、授权过期时错误状态、PWA 更新；Cloudflare Functions/D1 绑定与生产 SHA 通过后才能说“云端提醒上线”。
