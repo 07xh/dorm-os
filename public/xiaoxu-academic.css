@@ -64,3 +64,9 @@
 #app .xu-reminder-item button{flex:none;min-height:40px}
 @media(max-width:540px){#app .xu-reminder-item{align-items:flex-start;flex-direction:column}
  #app .xu-reminder-item button{align-self:flex-start}#app .xu-reminder-panel{padding:15px}}
+
+/* 第二课堂：只汇总已保存记录，不推断官方累计学时。 */
+#app .xu-second-class-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin:14px 0 10px}
+#app .xu-second-class-summary>div{padding:13px 14px;border:1px solid var(--xu-line);border-radius:12px;background:var(--xu-soft);min-width:0}
+#app .xu-second-class-summary strong{display:block;font-size:19px;font-variant-numeric:tabular-nums;color:var(--xu-ink);overflow-wrap:anywhere}
+#app .xu-second-class-summary small{display:block;color:var(--xu-muted);font-size:11px;margin-top:4px;line-height:1.5}
