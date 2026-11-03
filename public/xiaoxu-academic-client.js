@@ -152,7 +152,9 @@
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
     '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
-    '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':
+    '<p>课表解析与只读接口已有代码；只有账号授权、学校主体及逐项一致性全部验收通过后才能自动同步。</p>'+
+    '<button type="button" class="secondary" data-xu-ncwu-check>检测华水教务真实登录入口</button>'+
+    '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p></details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
@@ -303,6 +305,34 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-ncwu-check]');
+   if(!button)return;
+   const result=button.parentElement?.querySelector('[data-xu-ncwu-result]');
+   if(!result)return;
+   button.disabled=true;
+   result.textContent='正在从校序后端检测学校当前登录页面…';
+   try{
+    const response=await fetch('/api/v1/connections/ncwu/preflight',{
+     method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',
+     headers:{accept:'application/json'}
+    });
+    const info=await response.json().catch(()=>null);
+    if(!response.ok){result.textContent='学校登录检测暂不可用，请检查校序本人登录和后端服务。';return;}
+    if(info.loginSupported){
+     result.textContent='已识别学校当前普通登录表单；'+
+      (info.sessionVaultReady?'安全会话库已配置。':'服务端加密会话库仍未就绪。')+
+      '目前尚未完成本人身份绑定与可信课表读取，不能把页面检测当成账号接入。';
+    }else{
+     result.textContent=info.status==='upstream_unavailable'?
+      '校序服务器暂时不能访问学校登录服务。':
+      info.status==='unexpected_school_redirect'?
+      '学校入口跳转至尚未确认的地址，已安全停止。':
+      '学校登录目前需要官方页面交互或表单尚未验证；请使用学校官网登录。';
+    }
+   }catch{result.textContent='检查失败，未访问账号和课表。';}
+   finally{if(button.isConnected)button.disabled=false;}
+  });
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-second-cas-check]');
    if(!button)return;
