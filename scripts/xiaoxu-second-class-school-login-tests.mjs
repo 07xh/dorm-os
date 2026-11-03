@@ -86,7 +86,7 @@ assert.equal(connected.connected,true);
 assert.equal(connected.provider,'second_class');
 assert.ok(Number.isFinite(Date.parse(connected.lastSuccessAt)));
 assert.equal(readCalls,3,'only the HAR-confirmed activity, type and score paths were read');
-assert.deepEqual(await schoolSessionStates(db,owner),{second_class:'active'});
+assert.deepEqual(await schoolSessionStates(db,owner,secret),{second_class:'active'});
 const vault=sql.prepare('SELECT * FROM academic_provider_sessions WHERE user_id=?').get(owner);
 assert.equal(vault.provider,'second_class');
 assert.ok(!JSON.stringify(vault).includes('EPHEMERAL_PASSWORD'));
@@ -113,7 +113,7 @@ assert.equal(sql.prepare('SELECT count(*) AS n FROM academic_provider_sessions W
 assert.equal(sql.prepare('SELECT count(*) AS n FROM academic_verified_records WHERE user_id=?').get(other).n,0);
 const revoked=await revokeSchoolAccount(db,owner,'second_class');
 assert.equal(revoked.disconnected,true);
-assert.deepEqual(await schoolSessionStates(db,owner),{});
+assert.deepEqual(await schoolSessionStates(db,owner,secret),{});
 assert.equal(sql.prepare('SELECT count(*) AS n FROM academic_verified_records WHERE user_id=?').get(owner).n,1,
  'disconnect retains previous verified academic data');
 assert.deepEqual(sql.prepare('PRAGMA foreign_key_check').all(),[]);

@@ -120,7 +120,7 @@
    const bridgeState=provider.id==='second_class'?record?.browserBridge?.state:null;
    const label=bridgeState==='browser_sync_enabled'?'本人浏览器同步 · 曾成功':
     bridgeState==='paired_not_synced'?'已配对 · 等待本人网页同步':
-    record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
+    record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'本地学校会话无法验证，请重新连接':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':

@@ -19,7 +19,7 @@ export async function onRequestGet(context){
  if(auth.response)return auth.response;
  try{
   const result=await readConnectionCenter(auth.db,auth.userId);
-  const sessions=await schoolSessionStates(auth.db,auth.userId);
+  const sessions=await schoolSessionStates(auth.db,auth.userId,context.env?.SCHOOL_SESSION_KEY);
   const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
   const browserBridge=await bridgeStatus(auth.db,auth.userId).catch(()=>({state:'unavailable',lastSyncAt:null,expiresAt:null}));
   result.platforms=result.platforms.map(row=>{

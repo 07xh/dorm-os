@@ -69,7 +69,7 @@ const overview=await readConnectionCenter(db,owner);
 assert.equal(overview.platforms[0].status,'partial');
 assert.deepEqual(overview.platforms[0].trustedKinds,['schedule']);
 assert.equal(overview.platforms[0].accountAuthorization,'not_verified');
-const sessions=await schoolSessionStates(db,owner);
+const sessions=await schoolSessionStates(db,owner,secret);
 assert.deepEqual(sessions,{ncwu:'active'});
 assert.equal(isActiveSchoolAuthorization(overview.platforms[0],sessions.ncwu,true),true,
  'only a trusted active service-side adapter may prove account authorization');
