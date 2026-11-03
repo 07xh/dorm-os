@@ -1130,17 +1130,6 @@ function saveHomeLayout(){
  if(!persist()){state.settings.homeLayout=previous;return;}
  homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();render();toast('首页布局已保存到当前浏览器');
 }
-function v4Hero(showFocus,p){
-  const greeting=p.hour<11?'早上好':p.hour<18?'下午好':'晚上好';
-  return `<section class="v4-hero" aria-label="今日专注" ${showFocus?'data-home-widget="focus"':''}>
-    <div class="v4-hero-content"><span class="v4-hero-kicker">校序 · MY SPACE</span>
-    <h1>${greeting} <span aria-hidden="true">✦</span></h1>
-    ${showFocus?`<p>专注学习</p><div class="v4-hero-clock" id="timerDisplay" role="timer" aria-live="off">${timerText()}</div>
-    <button type="button" class="v4-hero-start" data-action="timer-toggle">${timer.running?'Ⅱ 暂停专注':'▶ 开始专注'}</button>`:`<p>今天也有新的进展。</p><button type="button" class="v4-hero-start" data-page="scenes">查看场景</button>`}
-    </div><div class="v4-hero-orbit" aria-hidden="true"><span>◉</span></div>
-    <div class="v4-hero-date">${p.month} 月 ${p.dateNumber} 日 · ${WEEKDAYS[p.day]}</div>
-  </section>`;
-}
 function dashboard(){
  const p=now(),layout=normalizeHomeLayout(state.settings.homeLayout);
  const available=layout.order.filter(id=>!layout.hidden.includes(id));
@@ -1501,7 +1490,7 @@ function scenesPage(){
  const p=now();
  const study=`<div class="v4-focus-controls"><div class="v4-duration-choices" role="group" aria-label="专注时长">${[15,25,45].map(n=>`<button type="button" class="secondary" data-timer-duration="${n}" aria-pressed="${timer.duration===n}">${n} 分钟</button>`).join('')}</div><div class="v4-focus-time" id="timerDisplay" role="timer" aria-live="off">${timerText()}</div><div class="button-row"><button type="button" class="primary" data-action="timer-toggle">${timer.running?'暂停专注':'开始专注'}</button><button type="button" class="secondary" data-action="timer-reset">重置</button></div></div>`;
  const rest='<div class="v4-scene-hint">享受安静时间。系统勿扰需在手机设置中开启。</div>';
- const dev=`<div class="button-row v4-link-buttons"><a class="secondary" href="https://github.com/07xh/dorm-os" target="_blank" rel="noopener noreferrer">校序 ↗</a><a class="secondary" href="https://drawing.0701000.xyz" target="_blank" rel="noopener noreferrer">DraftAI ↗</a><a class="secondary" href="https://0701000.xyz" target="_blank" rel="noopener noreferrer">博客 ↗</a></div>`;
+ const dev=`<div class="button-row v4-link-buttons"><a class="secondary" href="https://github.com/07xh/dorm-os" target="_blank" rel="noopener noreferrer">校序 ↗</a><a class="secondary" href="https://drawing.0701000.xyz" target="_blank" rel="noopener noreferrer">绘序 · DraftFlow ↗</a><a class="secondary" href="https://0701000.xyz" target="_blank" rel="noopener noreferrer">博客 ↗</a></div>`;
  const away=`${awayChecklistPanel()}<p class="small muted">${esc(weatherAdvice(weather))} · 今日已登记 ${classForDay(state.classes,p.day).length} 节课程</p>`;
  return `${titleBlock('','个人快捷场景')}<div class="v4-section"><div class="v4-section-title"><h2>切换场景</h2>${badge(sceneLabel(state.scene))}</div>${sceneButtons()}</div>
  <section class="card v4-active-scene"><div class="card-header"><span class="card-title">${esc(sceneLabel(state.scene))}</span><button type="button" class="action-link" data-action="scene-copy" ${state.scene==='none'?'disabled':''}>复制链接</button></div>
