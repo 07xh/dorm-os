@@ -1,0 +1,77 @@
+name: Vendor pinned UI agent skills (one-time)
+on:
+  push:
+    branches: [chore/vendor-ui-skills-20261103]
+    paths: [.github/workflows/vendor-ui-skills-once.yml]
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Copy pinned skills into the repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C vendor/design-skills/taste-skill rev-parse HEAD)" = "12af471f627f866411b4bd785b19646d3672784c"
+          test "$(git -C vendor/design-skills/impeccable rev-parse HEAD)" = "9fadc41729c38fd47d7ae622b501558653f9d2e9"
+          tmp="$(mktemp -d)"
+          cp -a vendor/design-skills/taste-skill/skills/taste-skill "$tmp/taste"
+          cp -a vendor/design-skills/impeccable/.agents/skills/impeccable "$tmp/impeccable"
+          cp vendor/design-skills/taste-skill/LICENSE "$tmp/TASTE-LICENSE"
+          cp vendor/design-skills/impeccable/LICENSE "$tmp/IMPECCABLE-LICENSE"
+          cp vendor/design-skills/impeccable/NOTICE.md "$tmp/IMPECCABLE-NOTICE"
+          git rm -f .agents/skills/design-taste-frontend .agents/skills/impeccable
+          git rm -f .claude/skills/design-taste-frontend .claude/skills/impeccable
+          git rm -f vendor/design-skills/taste-skill vendor/design-skills/impeccable
+          git rm -f .gitmodules .github/workflows/vendor-ui-skills-once.yml
+          mkdir -p .agents/skills .claude/skills docs/third-party-notices
+          cp -a "$tmp/taste" .agents/skills/design-taste-frontend
+          cp -a "$tmp/impeccable" .agents/skills/impeccable
+          ln -s ../../.agents/skills/design-taste-frontend .claude/skills/design-taste-frontend
+          ln -s ../../.agents/skills/impeccable .claude/skills/impeccable
+          cp "$tmp/TASTE-LICENSE" docs/third-party-notices/TASTE-SKILL-LICENSE
+          cp "$tmp/IMPECCABLE-LICENSE" docs/third-party-notices/IMPECCABLE-LICENSE
+          cp "$tmp/IMPECCABLE-NOTICE" docs/third-party-notices/IMPECCABLE-NOTICE.md
+          cat > docs/UI-DESIGN-SKILLS.md <<'EOF'
+          # UI design skills — included in the repository
+          
+          Taste Skill and Impeccable are vendored as actual files under `.agents/skills/`.
+          They do not require npm installation or Git submodule commands. Claude Code
+          uses links under `.claude/skills/`; Codex uses `.agents/skills/`.
+          Restart the coding agent after pulling the latest main branch.
+          
+          - Taste Skill: Leonxlnx/taste-skill at 12af471f627f866411b4bd785b19646d3672784c (MIT).
+          - Impeccable: pbakaus/impeccable at 9fadc41729c38fd47d7ae622b501558653f9d2e9 (Apache-2.0).
+          - License and NOTICE files are retained in `docs/third-party-notices/`.
+          
+          ## Scope
+          These are developer-only AI agent instructions and resources, not
+          application runtime dependencies. Do not add hooks or run privileged live
+          commands. Keep existing routes, data connections, real user data, auth,
+          deployment and geometry solvers unchanged unless the separate task
+          explicitly authorizes an implementation.
+          
+          ## Verify
+          `test -f .agents/skills/design-taste-frontend/SKILL.md`
+          `test -f .agents/skills/impeccable/SKILL.md`
+          `test -f .claude/skills/design-taste-frontend/SKILL.md`
+          `test -f .claude/skills/impeccable/SKILL.md`
+          
+          Vendor updates require review and an explicit PR; do not fetch the upstream
+          main branch automatically.
+          EOF
+          test -f .agents/skills/design-taste-frontend/SKILL.md
+          test -f .agents/skills/impeccable/SKILL.md
+          test -f .claude/skills/design-taste-frontend/SKILL.md
+          test -f .claude/skills/impeccable/SKILL.md
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(ui): vendor complete pinned design skills"
+          git push origin HEAD:chore/vendor-ui-skills-20261103
