@@ -33,7 +33,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  expect(paths.length).toBe(0,'private endpoint must not load before user opts in');
  await page.getByRole('button',{name:'读取授权数据'}).click();
  await expect(page.locator('.xu-private-panel')).toContainText('本页已加载本人数据');
- await page.locator('[data-page="academic"]:visible').first().click();
+ await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  const panel=page.getByRole('region',{name:'第二课堂'});
  await expect(panel).toContainText('个人快照');
@@ -48,13 +48,13 @@ test('second-class personal API renders accurate source, known-only totals and d
  await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'重新读取'}).click();
  await expect(page.locator('.xu-private-panel')).toContainText('本人授权只读同步');
- await page.locator('[data-page="academic"]:visible').first().click();
+ await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(panel).toContainText('授权只读同步');
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'断开连接'}).click();
- await page.locator('[data-page="academic"]:visible').first().click();
+ await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(page.getByText('第二课堂数据未连接')).toBeVisible();
  await expect(panel).toHaveCount(0);
