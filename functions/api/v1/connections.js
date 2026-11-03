@@ -1,11 +1,22 @@
-/* Consolidated private connections endpoint. Never accepts passwords, Cookies or
- * caller-supplied account IDs. It does not initiate a school login.
+/* Consolidated private connections endpoint. A provider is only login-capable
+ * when a real server-side adapter is installed. Never accepts client credentials.
  */
 import {authorize,json} from './assignments.js';
 import {readConnectionCenter} from '../../../lib/academic-connection-center.mjs';
+import {availableSchoolAdapter,schoolSessionStates} from '../../../lib/academic-school-login.mjs';
 export async function onRequestGet(context){
-  const auth=await authorize(context);
-  if(auth.response)return auth.response;
-  try{return json(await readConnectionCenter(auth.db,auth.userId));}
-  catch{return json({error:'database_unavailable'},503);}
+ const auth=await authorize(context);
+ if(auth.response)return auth.response;
+ try{
+  const result=await readConnectionCenter(auth.db,auth.userId);
+  const sessions=await schoolSessionStates(auth.db,auth.userId);
+  result.platforms=result.platforms.map(row=>{
+   const available=!!availableSchoolAdapter(context,row.id);
+   const sessionState=sessions[row.id]||'not_connected';
+   return {...row,loginMode:available?'password':'unavailable',sessionState,
+    accountAuthorization:available&&sessionState==='active'&&row.status==='connected'?
+     'verified_session':'not_verified'};
+  });
+  return json(result);
+ }catch{return json({error:'database_unavailable'},503);}
 }
