@@ -40,6 +40,7 @@
     try { return localStorage.getItem('xiaoxu_owner_login_seen') === '1'; }
     catch { return false; }
   };
+  show(false);
   if (mayCheck()) void verify();
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && mayCheck()) void verify();
