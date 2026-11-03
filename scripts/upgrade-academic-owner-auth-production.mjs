@@ -49,6 +49,16 @@ export function classifySecondClassSessionUpgrade(definition){
   return 'apply';
  return 'unexpected_session_constraint';
 }
+export function classifyChaoxingInboxSchema(tables,columns){
+ if(!Array.isArray(tables)||!Array.isArray(columns))throw Error('invalid_chaoxing_inbox_schema');
+ const present=tables.some(row=>row?.name==='academic_chaoxing_notices');
+ if(!present)return 'apply';
+ const fields=new Set(columns.map(row=>row?.name));
+ const expected=['user_id','notice_id','category','title','course_title',
+  'source_course_id','task_external_id','sent_at_utc','due_at_utc',
+  'platform_read','observed_at'];
+ return expected.every(col=>fields.has(col))?'verify':'partial_inbox_schema';
+}
 export async function upgrade(){
  if(process.env.GITHUB_REPOSITORY!=='07xh/dorm-os'||process.env.GITHUB_REF!=='refs/heads/main')
   throw Error('repository_or_branch_not_allowed');
@@ -105,6 +115,25 @@ export async function upgrade(){
  }else report('✅ 0012 已存在，无重复迁移');
  if(classifySecondClassSessionUpgrade(definition())!=='verify')
   throw Error('second_class_session_schema_missing');
+ // Legacy 0013/0014 tables are left intact in databases that already have them.
+ // They are no longer an active dependency and are never dropped here.
+ // Reuse the SAME production D1 and existing authenticated-session vault.
+ // Apply the new inbox metadata table only after 0010-0014 are verified.
+ const existingInbox=rows(name,
+  "SELECT name FROM sqlite_master WHERE type='table' AND name='academic_chaoxing_notices'");
+ const inboxCols=rows(name,'PRAGMA table_info(academic_chaoxing_notices)');
+ const inboxAction=classifyChaoxingInboxSchema(existingInbox,inboxCols);
+ if(inboxAction==='partial_inbox_schema')
+  throw Error('partial_chaoxing_inbox_schema_manual_review');
+ if(inboxAction==='apply'){
+  run(['d1','execute',name,'--remote','--yes','--json',
+   '--file=./migrations/0015_academic_chaoxing_notices.sql']);
+  report('✅ 已创建 0015 学习通收件箱元数据表（不保存消息正文）');
+ }else report('✅ 0015 学习通收件箱表已存在，无重复迁移');
+ const afterInbox=rows(name,"SELECT name FROM sqlite_master WHERE type='table' AND name='academic_chaoxing_notices'");
+ const verifiedInboxCols=rows(name,'PRAGMA table_info(academic_chaoxing_notices)');
+ if(classifyChaoxingInboxSchema(afterInbox,verifiedInboxCols)!=='verify')
+  throw Error('chaoxing_inbox_schema_missing');
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
  const check=rows(name,'PRAGMA quick_check');
  if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
