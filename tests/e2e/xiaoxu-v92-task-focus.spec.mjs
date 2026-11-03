@@ -38,10 +38,16 @@ test('task controls provide touch area without mobile horizontal overflow',async
   const box=await el.boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
-  for(const button of await page.locator('#app .v4-task-list .task-actions button').all()){
+  // Only rendered controls have a hit target. Some task actions are
+  // intentionally hidden until their row is active; Playwright returns null
+  // for such elements even though they exist in the DOM.
+  const buttons=page.locator('#app .v4-task-list .task-actions button:visible');
+  expect(await buttons.count()).toBeGreaterThan(0);
+  for(const button of await buttons.all()){
    const rect=await button.boundingBox();
-   expect(rect?.width).toBeGreaterThanOrEqual(44);
-   expect(rect?.height).toBeGreaterThanOrEqual(44);
+   expect(rect,'visible action must have a hit rectangle').not.toBeNull();
+   expect(rect.width).toBeGreaterThanOrEqual(44);
+   expect(rect.height).toBeGreaterThanOrEqual(44);
   }
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
   expect(overflow,'width '+width).toBeLessThanOrEqual(2);
