@@ -18,8 +18,10 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
  assert.equal(ui.includes(token),false,'obsolete connection-center UI remains: '+token);
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
-assert.ok(ui.includes('学校使用统一身份认证'),'school link remains');
-assert.ok(ui.includes('未完成真实账号联通'),'honest unavailable status remains');
+assert.ok(ui.includes('打开第二课堂官网'),'official school link remains');
+assert.ok(ui.includes('尚未通过本人真实学校登录验证'),'honest unverified status remains');
+assert.ok(ui.includes('data-xu-second-cas-check'),'native CAS preflight control remains');
+assert.ok(ui.includes('info?.loginSupported'),'credential form is gated by preflight');
 assert.ok(read('lib/academic-ncwu-second-class.mjs').includes('NCWU_SECOND_CLASS_READS'),
  'real school HAR adapter must remain');
 assert.ok(read('lib/academic-school-login.mjs').includes('second_class'),
