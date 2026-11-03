@@ -9,14 +9,14 @@
 - 只保存 Session 的 SHA-256；7 天固定有效期；服务端可撤销；Secure + HttpOnly + SameSite=Strict。
 - 不支持用户自注册。本人口令只存于 Cloudflare Pages 加密 Secrets 的 `OWNER_LOGIN_SECRET`，**不能在 GitHub、HAR 或聊天中发送**。
 - 单人登录限流：每 IP 15 分钟最多 9 次，全部来源总计 48 次；D1 原子计数。登录与退出严格同源。
-- 现阶段为 **配置式单人口令认证**，并非邮箱验证码或 Passkey。需使用随机、独一无二的高强度口令，至少 20 字符。
+- 现阶段为 **配置式单人口令认证**，并非邮箱验证码或 Passkey。当前允许 8–256 个字符；8 位仅是最低门槛，因账号包含私人学业数据，强烈推荐至少 12–16 位随机且不与学校账号复用的口令，继续保留登录限流。
 
 ## 生产步骤（按顺序）
 
 1. 合并 PR 后，GitHub Actions `Upgrade XIAOXU Owner Auth D1 M12 (forward-only)` 会核对 Pages 生产 `ACADEMIC_DB` 与真实数据库 UUID，检查 0001–0009 schema，再执行 `0010`（如已存在则不重复）。
 2. 等该工作流 **success**，再在 Cloudflare `Workers & Pages → dorm-os → Settings → Variables and Secrets → Production` 添加：
    - `ACADEMIC_AUTH_MODE`（Plaintext）：`owner_password`
-   - `OWNER_LOGIN_SECRET`（Secret）：自选唯一随机强口令，20–256 字符。只在 Cloudflare 输入。
+   - `OWNER_LOGIN_SECRET`（Secret）：自选唯一口令，8–256 字符（推荐至少 12–16 位随机字符）。只在 Cloudflare 输入。
 3. 触发正式生产重部署，让变量生效。
 4. 打开 `https://dorm-os-dk9.pages.dev/login/`，输入你设置的口令。第一次成功登录会自动创建唯一 `local-owner-v1` 账号与服务端会话。
 5. 验证 `/api/v1/auth/me` 返回 authenticated true；`/api/v1/health` 返回 database_ready；退出后两接口都不再允许读取私人信息；无痕窗口必须返回 401。

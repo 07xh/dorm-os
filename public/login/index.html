@@ -12,7 +12,7 @@ button{width:100%;font:inherit;background:#2263de;border:0;color:white;font-weig
 #result{min-height:2em;font-size:13px;margin-top:15px}a{color:#2765d3}.back{display:block;margin-top:25px;font-size:13px;text-align:center}
 </style></head><body><main><div class="brand"><span class="logo" aria-hidden="true">序</span><span>校序 <small>ACADEMIC OS</small></span></div>
 <h1>登录个人云端</h1><p>仅供本人使用。使用 Cloudflare Pages Secrets 中配置的个人登录口令。不会上传至第三方学校平台。</p>
-<form id="form"><label for="passphrase">个人登录口令</label><input id="passphrase" type="password" name="passphrase" required minlength="20" autocomplete="current-password" placeholder="输入本人设置的口令">
+<form id="form"><label for="passphrase">个人登录口令</label><input id="passphrase" type="password" name="passphrase" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入本人设置的口令">
 <button id="submit" type="submit">安全登录</button></form>
 <button id="logout" type="button" hidden>退出当前设备</button>
 <div id="result" role="status" aria-live="polite"></div><a href="/" class="back">返回校序首页</a></main>

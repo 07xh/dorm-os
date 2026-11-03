@@ -46,6 +46,18 @@ try {
  assert.equal((await logout({request:evil,env})).status,403);
  for(let i=0;i<7;i++)await login({request:request('wrong'),env});
  assert.equal((await login({request:request(passphrase),env})).status,429,'IP rate limited even if password correct');
+ // Password policy: 8 characters are accepted, 7 are rejected by the server.
+ // The checked-in test credential is synthetic; a real owner secret is configured in Cloudflare.
+ const eight='A7!g9@p2';
+ const shortEnv={...env,OWNER_LOGIN_SECRET:eight};
+ const shortPassEnv={...env,OWNER_LOGIN_SECRET:'A7!g9@p'};
+ assert.equal((await login({request:request(eight),env:shortPassEnv})).status,503,
+  '7-character owner secret must never enable owner authentication');
+ const eightLogin=await login({request:request(eight),env:shortEnv});
+ assert.equal(eightLogin.status,200,'8-character owner secret must authenticate when correct');
+ assert.match(eightLogin.headers.get('set-cookie')||'',/HttpOnly; Secure; SameSite=Strict/);
+ assert.equal((await login({request:request('wrong000'),env:shortEnv})).status,401,
+  'wrong 8-character credential must be rejected');
  assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
  assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
  console.log('M12 owner login: migration, strict origin, one-owner auth, same gate, cookie, revocation and rate limit passed');
