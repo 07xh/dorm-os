@@ -8,7 +8,8 @@ const notice=(id,title,content,extra={})=>({
  ...base,idCode:id.repeat(32),uuid:'$fake$'+id.repeat(36),title,content,...extra
 });
 const homework=notice('A','作业:Python实验一',
- '课程名称：Python程序设计\r作业名称：实验一\r开始时间：2026-11-01 09:00\r结束时间：2026-11-10 23:59');
+ '课程名称：Python程序设计\r作业名称：实验一\r开始时间：2026-11-01 09:00\r结束时间：2026-11-10 23:59',
+ {extendParam:{cparams:JSON.stringify({funConfig:{content:{key:'uniqueWorkA12345'}}})}});
 const reminder=notice('B','作业结束提醒',
  '课程名称：Python程序设计\r作业名称：实验一\r你的作业还有24小时就要截止了',
  {sendTime:'2026-11-09 10:00:00'});
@@ -36,6 +37,19 @@ assert.equal(parseChaoxingNotice(checkin).category,'checkin');
 assert.equal(parseChaoxingNotice(quiz).category,'quiz');
 assert.equal(parseChaoxingNotice(activity).category,'activity');
 const payload=(list)=>({status:true,notices:{lastPage:1,lastGetId:'cursor',list}});
+const secondSameName=notice('J','作业:Python实验一',
+ '课程名称：Python程序设计\r作业名称：实验一\r结束时间：2026-11-15 23:59',
+ {extendParam:{cparams:JSON.stringify({funConfig:{content:{key:'uniqueWorkB98765'}}})}});
+const distinct=await normalizeChaoxingInbox({
+ status:true,notices:{list:[homework,secondSameName,reminder],lastPage:1,lastGetId:''}
+});
+assert.equal(distinct.tasks.length,2,'same course and title but distinct platform work keys must remain two tasks');
+assert.notEqual(distinct.tasks[0].externalId,distinct.tasks[1].externalId);
+assert.equal(distinct.notices.find(x=>x.noticeId==='B'.repeat(32)).externalId,null,
+ 'reminder lacking its key must not attach ambiguously to two same-name works');
+assert.ok(distinct.notices.every(x=>!('content' in x)&&!('uuid' in x)),
+ 'raw message bodies must not be stored');
+
 const normalized=await normalizeChaoxingInbox(payload([reminder,homework,peer,exam,announcement,checkin,quiz,activity]));
 assert.equal(normalized.notices.length,8);
 assert.equal(normalized.tasks.length,3,'homework and reminder must be one task; other notifications are not assignments');
