@@ -5,6 +5,9 @@
  'use strict';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let online=false,items=[],health=null,error='',migration=null,busy=false;
+ // A returning response from a previous login must never repopulate a disconnected
+ // or newly connected owner's screen. Coalesce concurrent refreshes per session.
+ let connectionEpoch=0,refreshPromise=null,lastRefreshAt=0;
  async function api(path,method='GET',data){
   const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
    redirect:'error',headers:{'Accept':'application/json',...(data?{'Content-Type':'application/json'}:{})},
@@ -21,27 +24,54 @@
   }
   return body;
  }
- function disconnect(){online=false;items=[];health=null;error='';migration=null;busy=false;}
- async function refresh(){
-  if(!online)throw Error('请先连接本人的学业数据');
-  const next=[];
-  try{
-   for(let page=0;page<50;page++){
-    const data=await api('/api/v1/assignments?limit=100&offset='+page*100);
-    if(!Array.isArray(data.items))throw Error('云端任务格式无效');
-    for(const row of data.items){
-     if(!row||typeof row.id!=='string'||typeof row.title!=='string'||
-        !Number.isSafeInteger(row.revision))throw Error('云端任务字段不完整');
-     next.push(row);
-    }
-    if(data.items.length<100)break;
-    if(page===49)throw Error('任务超过单次安全加载上限，请使用分页管理');
-   }
-   const sources=await api('/api/v1/sources').catch(()=>null);
-   items=next;health=sources;error='';return true;
-  }catch(e){error=String(e.message||'刷新失败');throw e;}
+ function disconnect(){
+  connectionEpoch++;online=false;items=[];health=null;error='';migration=null;
+  busy=false;refreshPromise=null;lastRefreshAt=0;
  }
- async function connect(){online=true;try{await refresh();return true;}catch(e){disconnect();error=String(e.message);throw e;}}
+ function refresh(){
+  if(!online)return Promise.reject(Error('请先连接本人的学业数据'));
+  if(refreshPromise)return refreshPromise;
+  const epoch=connectionEpoch;
+  const running=(async()=>{
+   const next=[],ids=new Set();
+   try{
+    for(let page=0;page<50;page++){
+     const data=await api('/api/v1/assignments?limit=100&offset='+page*100);
+     if(!Array.isArray(data.items))throw Error('云端任务格式无效');
+     for(const row of data.items){
+      if(!row||typeof row.id!=='string'||typeof row.title!=='string'||
+         !Number.isSafeInteger(row.revision))throw Error('云端任务字段不完整');
+      if(ids.has(row.id))throw Error('云端分页出现重复任务，请刷新后重试');
+      ids.add(row.id);next.push(row);
+     }
+     if(data.items.length<100)break;
+     if(page===49)throw Error('任务超过单次安全加载上限，请使用分页管理');
+    }
+    const sources=await api('/api/v1/sources').catch(()=>null);
+    // Logout/reconnect can happen while a request is running.
+    if(!online||epoch!==connectionEpoch)return false;
+    items=next;health=sources;error='';lastRefreshAt=Date.now();return true;
+   }catch(e){
+    if(online&&epoch===connectionEpoch)error=String(e.message||'刷新失败');
+    throw e; // Existing tasks remain available if the network is temporarily down.
+   }
+  })();
+  refreshPromise=running;
+  void running.finally(()=>{if(refreshPromise===running)refreshPromise=null;}).catch(()=>{});
+  return running;
+ }
+ async function connect(){
+  connectionEpoch++;online=true;lastRefreshAt=0;
+  const epoch=connectionEpoch;
+  try{await refresh();return online&&connectionEpoch===epoch;}
+  catch(e){if(connectionEpoch===epoch){disconnect();error=String(e.message||'连接失败');}throw e;}
+ }
+ // Visible-tab refresh only; never silently connects the school or uploads local
+ // tasks. The throttle protects D1 and prevents rapid focus changes from polling.
+ async function refreshIfStale(minAgeMs=15000){
+  if(!online||busy||refreshPromise||Date.now()-lastRefreshAt<minAgeMs)return false;
+  return refresh();
+ }
  const isReady=()=>online;
  const taskCount=()=>items.length;
  function formatDue(r){
@@ -223,6 +253,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
  });
 })(globalThis);

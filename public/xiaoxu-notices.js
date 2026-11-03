@@ -71,6 +71,13 @@
   }
   return [...combined.values()].slice(0,240);
  }
+ // Reading an old valid archive is not the same as successfully checking for
+ // new notices. Twelve hours exceeds the longest scheduled collector interval.
+ function isStaleFeed(fetchedAt,now=Date.now(),maxAgeMs=12*3600000){
+  const fetched=typeof fetchedAt==='string'?Date.parse(fetchedAt):NaN;
+  return !Number.isFinite(fetched)||!Number.isFinite(now)||
+   fetched>now+5*60000||now-fetched>maxAgeMs;
+ }
  function normalizeReading(raw){
   const source=raw&&typeof raw==='object'?raw:{};
   const urls=a=>Array.isArray(a)?[...new Set(a.filter(x=>!!officialUrl(x)))].slice(-350):[];
@@ -91,7 +98,7 @@
   return {...state,unread:state.unread.filter(v=>v!==url)};
  }
  function markAllRead(current){return {...normalizeReading(current),unread:[]};}
- const api={READ_STORAGE,officialUrl,fromArchive,fromApi,merge,normalizeReading,reconcileReading,markRead,markAllRead};
+ const api={READ_STORAGE,officialUrl,fromArchive,fromApi,merge,isStaleFeed,normalizeReading,reconcileReading,markRead,markAllRead};
  root.XiaoxuNotices=api;
  if(typeof module==='object'&&module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

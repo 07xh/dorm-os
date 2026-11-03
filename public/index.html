@@ -1324,7 +1324,8 @@ function publicNoticeState(){
  if(!noticeFeed)return '尚未获取到官方通知；也可以直接查看学校官网。';
  const origin=noticeApiUsed&&noticeArchiveUsed?'官网动态公告 + 定时归档':noticeArchiveUsed?'定时归档（非即时）':'官网动态公告';
  const dt=noticeUpdatedAt?new Date(noticeUpdatedAt).toLocaleString('zh-CN'):'未知';
- return (noticePartial?'部分通知源不可用 · ':'')+origin+' · 上次取得于 '+dt+' · 已标记的新通知 '+publicUnread()+' 条';
+ return (XiaoxuNotices.isStaleFeed(noticeUpdatedAt)?'历史公告，超过12小时未核验新内容 · ':'')+
+  (noticePartial?'部分通知源不可用 · ':'')+origin+' · 上次取得于 '+dt+' · 已标记的新通知 '+publicUnread()+' 条';
 }
 async function loadPublicNotices(force=false){
  if(noticeStatus==='loading'||(!force&&noticeStatus==='ready'))return;
@@ -2058,9 +2059,19 @@ window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(name
 function updateOfflineBanner(){$('offlineBanner').hidden=navigator.onLine;}
 async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未显示安装提示，请使用浏览器菜单中的「添加到主屏幕」');return;}const p=deferredInstallPrompt;deferredInstallPrompt=null;try{await p.prompt();await p.userChoice;}catch(e){console.warn('安装提示不可用',e);}}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});
-window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);});
+// Cloud task changes made on another device appear when this tab resumes or
+// stays open. Never opens a new owner/school session or uploads local data.
+function refreshVisibleCloudTasks(minAgeMs=15000){
+ if(!XiaoxuCloudTasks.isReady()||!(page==='tasks'||page==='settings')||
+    navigator.onLine===false)return;
+ void XiaoxuCloudTasks.refreshIfStale(minAgeMs).then(changed=>{
+  if(changed&&(page==='tasks'||page==='settings'))render();
+ }).catch(()=>{if(page==='settings')render();});
+}
+window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);refreshVisibleCloudTasks(0);});
 window.addEventListener('offline',updateOfflineBanner);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();refreshVisibleCloudTasks();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
+setInterval(()=>{if(!document.hidden)refreshVisibleCloudTasks(60000);},60*1000);
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
 window.addEventListener('storage',event=>{
  if(event.key===NOTICE_ALERT_PREF){
