@@ -27,3 +27,9 @@
 ## 安全验收
 
 `node scripts/xiaoxu-school-login-tests.mjs` 验证：无服务端 Secret 不能处理学校密码、同源约束、对称加密密文不泄漏 Cookie/明文口令、owner 隔离、未过期会话主动同步、断连撤销、未注册适配器拒绝。以及原项目 `npm run check` / Playwright 回归。正式学校上游不得用测试模拟证明可用。
+
+## 加密会话保险库前向迁移（D1 M17 补充）
+- 在**已有** `upgrade-owner-auth-d1.yml` 中增加 `0011_academic_provider_sessions.sql` 迁移（复用该工作流和现有 Wrangler 安全检查；不新建第二套数据库或绑定系统）。
+- 先校验 Cloudflare Pages 生产绑定 UUID 与 D1 UUID 完全一致，确认原 0001–0009 学业表及 0010 校序本人登录表完整；0011 缺失时才执行，已经存在且字段完整时直接跳过；部分表结构则拒绝自动改写。
+- 检查 0011 六个必要字段、外键和 SQLite 完整性；全程不查询任何个人学业/学校会话明文。
+- 合并后的 Actions 运行结果才是生产迁移证据；迁移成功也**不会**开启网页登录、后台 Cron 或生成学校凭据，仍需真实适配器验证及 `SCHOOL_SESSION_KEY` 由用户自行安全配置。
