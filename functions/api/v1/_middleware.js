@@ -12,7 +12,12 @@ export async function onRequest(context){
   context.data.academicSchoolAdapters={
    ...(context.data.academicSchoolAdapters||{}),
    second_class:makeNcwuCasServerAdapter(),
-   ...(context.env?.NCWU_QINGGUO_TRUSTED_SYNC_ENABLED==='true'?{
+   // New NCWU sessions only become trusted AFTER an owner-reviewed preview.
+   // Explicit false is a production rollback switch, not an onboarding step.
+   ...(context.env?.NCWU_QINGGUO_TRUSTED_SYNC_ENABLED!=='false'&&
+     typeof context.env?.SCHOOL_SESSION_KEY==='string'&&
+     /^[A-Za-z0-9_-]{43}$/.test(context.env.SCHOOL_SESSION_KEY)&&
+     typeof context.env?.ACADEMIC_DB?.prepare==='function'?{
     ncwu:makeNcwuQingguoServerAdapter({trustedSyncEnabled:true})
    }:{})
   };
