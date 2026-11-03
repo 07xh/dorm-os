@@ -57,8 +57,11 @@ export async function onRequestPost(context){
  }catch(e){return respond({status:'invalid_snapshot',message:String(e.message).slice(0,120)},422);}
  const {db,userId}=auth;
  try{
-  const latest=await db.prepare('SELECT last_success_at FROM academic_verified_batches WHERE user_id=? AND kind=?')
+  const latest=await db.prepare('SELECT last_success_at,provenance FROM academic_verified_batches WHERE user_id=? AND kind=?')
    .bind(userId,batch.kind).first();
+  // Personal uploads cannot replace an independently attested school read.
+  if(latest?.provenance==='trusted_readonly')
+   return respond({status:'trusted_source_readonly'},409);
   if(latest&&Date.parse(latest.last_success_at)>Date.parse(batch.capturedAt))
    return respond({status:'outdated_snapshot'},409);
   const now=new Date().toISOString(),batchId=crypto.randomUUID();
