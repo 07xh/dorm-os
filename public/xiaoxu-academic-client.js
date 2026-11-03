@@ -73,7 +73,7 @@
   const active=connected;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=active?sources.find(x=>x.id===provider.id):null;
-   const label=active?(CONNECTION_LABELS[record?.status]||'状态待确认'):'未读取连接状态';
+   const label=active?(record?.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record?.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
@@ -94,7 +94,7 @@
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
-    '<p>华水教务可能先经过统一身份认证，再进入青果教务。请只在学校官方页面输入本人凭据。</p>'+
+    '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
     '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':
     provider.id==='chaoxing'?
@@ -207,7 +207,7 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
- const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
+ const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing'].includes(provider))throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
