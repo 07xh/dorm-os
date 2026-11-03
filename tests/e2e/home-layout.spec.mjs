@@ -39,6 +39,7 @@ test('home layout enforces one visible module and is accessible from settings',a
  await expect(page.locator('[data-home-widget-toggle="tasks"]')).toHaveText('隐藏');
  await page.locator('[data-action="close-modal"]').click();
  await page.goto('/#settings');
+ await page.locator('.xu-settings-more > summary').click();
  await expect(page.locator('[data-action="home-layout"]')).toBeVisible();
  await page.locator('[data-action="home-layout"]').click();
  await expect(page.locator('.home-layout-editor')).toBeVisible();
