@@ -44,6 +44,16 @@ assert.equal(result.candidate.records[0].externalId,null,'do not invent school c
 assert.equal(result.candidate.records[0].startTime,null,'no official bell schedule');
 assert.equal(result.candidate.records[0].syncState,'unverified');
 
+// HTML <br> and nested blocks must not be merged into one unreadable fragment.
+const withBr=example.replace(
+ '1-8周 一[1-2] [示例]教学楼A201；2,4,6周 三[3-4] [示例]实验楼B102',
+ '1-8周 一[1-2] [示例]教学楼A201<br><div>2,4,6周 三[3-4] [示例]实验楼B102</div>'
+);
+const withBrParsed=parseNcwuStudentTimetableHtml(withBr,{semester:'2026-2027-1'});
+assert.equal(withBrParsed.parsedBlocks,3);
+assert.deepEqual(withBrParsed.blockers,[]);
+assert.equal(withBrParsed.trustedSyncAllowed,false);
+
 const partial=parseNcwuStudentTimetableHtml(html([
  row('SYN-01','合成高等数学','示例教师甲',
      '1-17周 二[1-2] [示例]教学楼A201；18-20周'),
