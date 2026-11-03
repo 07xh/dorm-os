@@ -117,7 +117,10 @@
   const active=connected||connectionStatusRead;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=sources.find(x=>x.id===provider.id)||null;
-   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
+   const bridgeState=provider.id==='second_class'?record?.browserBridge?.state:null;
+   const label=bridgeState==='browser_sync_enabled'?'本人浏览器同步 · 曾成功':
+    bridgeState==='paired_not_synced'?'已配对 · 等待本人网页同步':
+    record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
@@ -126,13 +129,27 @@
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const canLogin=record?.loginMode==='password';
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
+   const bridge=record?.browserBridge;
+   const bridgeInfo=bridge?.state==='browser_sync_enabled'?
+    '已配对 · 上次同步 '+stamp(bridge.lastSyncAt):
+    bridge?.state==='paired_not_synced'?'已配对，等待本人学校网页首次同步':
+    bridge?.state==='expired'?'配对已过期，请重新生成':
+    bridge?.state==='unavailable'?'浏览器同步服务尚未启用':'尚未与本人浏览器配对';
+   const bridgePanel=officialCas?
+    '<div class="xu-school-connect" data-xu-bridge-panel>'+
+    '<strong>本人浏览器自动同步</strong><p class="tiny muted">无需学校第三方 OAuth；本人正常登录官网并运行脚本时，每隔约 30 分钟自动读取一次。浏览器关闭或学校登录失效则无法更新。</p>'+
+    '<p class="tiny">'+escapeHtml(bridgeInfo)+'</p>'+
+    '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-bridge-create>生成 / 重置配对密钥</button>'+
+    (bridge&&['paired_not_synced','browser_sync_enabled','expired'].includes(bridge.state)?
+      '<button type="button" class="secondary" data-xu-bridge-revoke>解除浏览器配对</button>':'')+
+    '</div><p class="tiny" role="status" aria-live="polite" data-xu-bridge-result></p></div>':'';
    const authPanel=officialCas?
     '<div class="xu-school-connect"><p class="tiny muted">已核实：学校使用 CAS 统一身份认证；回跳目标属于学校，登录官网不会直接绑定校序。</p>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
-    escapeHtml(record.authFlow.officialLoginUrl)+'">前往华水官方统一认证</a>'+
-    '<details class="xu-provider-guide"><summary>已有学校账号：导出本人数据到校序</summary>'+
-    '<p>先在学校官网完成正常登录，再用脚本管理器导入本站提供的只读脚本。脚本只在学校网站上读取已核实的活动与分数接口，生成本机 JSON，不上传密码或 Cookie。</p>'+
-    '<a class="secondary xu-connection-link" href="/xiaoxu-second-class-export.user.js" download>保存本人只读导出脚本</a>'+
+    escapeHtml(record.authFlow.officialLoginUrl)+'">前往华水官方统一认证</a>'+bridgePanel+
+    '<details class="xu-provider-guide"><summary>手动导出备用 · ScriptCat 安装与导入</summary>'+
+    '<p>先在学校官网完成正常登录，再用脚本管理器安装本站脚本；脚本可在学校网页用配对密钥将个人活动定时同步到校序，也保留离线 JSON 导出备用。不读取密码或 Cookie。</p>'+
+    '<a class="secondary xu-connection-link" href="/xiaoxu-second-class-export.user.js" download>下载本人只读同步脚本</a>'+
     '<label>导入本机二课文件<input type="file" accept=".json,application/json" data-xu-second-class-import></label>'+
     '<p class="tiny muted">导入属于本人快照，不表示校序已被学校授予自动同步权限；分数合计仅作本机核对预览。</p>'+
     '<p class="tiny" role="status" aria-live="polite" data-xu-second-class-import-status></p></details></div>':
@@ -160,7 +177,7 @@
     '<details class="xu-provider-guide"><summary>第二课堂连接方式</summary>'+
     '<p>活动与素质分的本人只读响应结构已核验，现有连接器能够区分审核、核算状态和学校报告的分数合计。</p>'+
     '<p>当前第二课堂通过学校自有的 CAS 回调登录；打开官网或完成学校登录不等于账号已绑定校序，校序不能读取另一网站的登录状态，也不需要向校序输入学校密码。</p>'+
-    '<p>可在学校本人登录后通过只读本机导出保留活动记录；该导入不是后台自动同步。</p></details>';
+    '<p>本人登录官网后，可使用一次性配对密钥让 ScriptCat 在该网页打开期间定时同步；没有独立学校会话时不能在 Cloudflare 后台持续读取。手动导入仍为备用。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+guidance+'</div>'+
@@ -295,6 +312,50 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-bridge-create],[data-xu-bridge-revoke]');
+   if(!button)return;
+   const panel=button.closest('[data-xu-bridge-panel]');
+   if(!panel)return;
+   const status=panel.querySelector('[data-xu-bridge-result]');
+   const creating=button.hasAttribute('data-xu-bridge-create');
+   if(!creating&&!root.confirm('撤销此浏览器同步密钥？已保存的个人活动快照将保留。'))return;
+   button.disabled=true;
+   status.textContent=creating?'正在生成一次性配对密钥…':'正在撤销配对…';
+   try{
+    const response=await fetch('/api/v1/second-class/bridge',{
+     method:creating?'POST':'DELETE',credentials:'same-origin',
+     cache:'no-store',redirect:'error',
+     headers:{'content-type':'application/json','accept':'application/json'},
+     body:'{}'
+    });
+    const body=await response.json().catch(()=>null);
+    if(!response.ok)throw Error(body?.error||'校序浏览器配对服务不可用');
+    if(creating){
+     if(typeof body.token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(body.token))
+      throw Error('服务器未生成有效密钥');
+     status.replaceChildren();
+     const label=document.createElement('span');
+     label.textContent='以下密钥仅显示一次。复制并在已登录的学校网页脚本中点击「首次连接」粘贴：';
+     const input=document.createElement('input');
+     input.type='text';input.readOnly=true;input.value=body.token;
+     input.setAttribute('aria-label','一次性浏览器配对密钥');
+     input.style.cssText='display:block;width:100%;max-width:280px;margin:8px 0;overflow-wrap:anywhere';
+     const copy=document.createElement('button');
+     copy.type='button';copy.className='secondary';copy.textContent='复制密钥';
+     copy.addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(input.value);copy.textContent='已复制';}
+      catch{input.focus();input.select();copy.textContent='请手动复制已选中的密钥';}
+     });
+     status.append(label,input,copy);
+    }else{
+     status.textContent='已撤销配对。学校网页本机脚本如仍保存旧密钥，同步时将收到失效提示。';
+     await readConnectionStatus().catch(()=>{});
+     announceUpdated();
+    }
+   }catch(e){status.textContent=String(e?.message||'操作失败').slice(0,130);}
+   finally{if(button.isConnected)button.disabled=false;}
+  });
   document.addEventListener('submit',async event=>{
    const form=event.target.closest?.('form[data-xu-school-login]');
    if(!form)return;
