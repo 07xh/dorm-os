@@ -465,12 +465,19 @@
     });
     const info=await response.json().catch(()=>null);
     if(!response.ok||(!info?.nativeLoginReady)){
+     const qingguoBlockers={
+      password_transform_required:'学校认证页面包含密码加密提交逻辑；校序当前尚不支持该方式的站内登录，不会要求输入密码。请在学校官网完成认证。',
+      interactive_challenge_required:'学校当前要求验证码或交互式验证；需要在官方页面完成，校序不会绕过。',
+      password_form_unavailable:'学校密码登录表单与当前适配器不一致，暂不接收账号密码。',
+      unexpected_cas_form_action:'学校认证表单的提交地址未通过安全校验，已停止连接。'
+     };
      result.textContent=info?.status==='server_session_vault_unavailable'?
       '校序服务端安全会话未就绪；没有读取或保存学校账号。':
       info?.status==='schedule_review_pending'?
       '学校普通登录表单已识别，但课表尚待本人核对；暂不收集密码。':
       info?.status==='upstream_unavailable'?
       '校序服务器暂不能访问学校登录服务（S01）；没有读取或保存学校账号。':
+      qingguoBlockers[info?.reason]||
       '学校当前不支持此方式的安全自动登录（S08）；请通过学校官网正常登录，不会绕过身份验证。';
      return;
     }
