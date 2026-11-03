@@ -15,6 +15,13 @@ const markup='<form method="POST" action="'+casUrl+'">'+
  '<input name="_eventId" type="hidden" value="submit"></form>';
 const response=(status,body='',headers={})=>new Response(body,{status,headers});
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
+assert.deepEqual(inspectCasForm('<nav>短信登录 · 人脸识别 · 动态口令 · 验证码</nav>'+markup,casUrl).hidden,
+ {execution:'e1s1',_eventId:'submit'},
+ 'other official login modes must not reject a separate clean password form');
+assert.throws(()=>inspectCasForm(markup.replace('</form>',
+ '<input name="smsCode" type="text"></form>'),casUrl),
+ e=>e.code==='interactive_login_required','an actual OTP field must still stop direct password login');
+
 assert.throws(()=>inspectCasForm(markup.replace('</form>','<input name="captcha" type="text"></form>'),casUrl),
  e=>e instanceof NcwuCasError&&e.code==='interactive_login_required');
 assert.throws(()=>inspectCasForm(markup.replace('sec.ncwu.edu.cn','thirdparty.invalid'),casUrl),
