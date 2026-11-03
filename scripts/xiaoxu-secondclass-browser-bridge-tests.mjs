@@ -13,7 +13,7 @@ const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
 for(const file of [
  '0001_academic_core.sql','0003_academic_verified_snapshots.sql',
- '0013_academic_secondclass_browser_bridge.sql'
+ '0008_academic_second_class_source.sql','0013_academic_secondclass_browser_bridge.sql'
 ]) sql.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
 const db={prepare(statement){
  let args=[];
