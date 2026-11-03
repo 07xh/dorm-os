@@ -118,8 +118,11 @@ test('custom login duration is chosen in 我的 and reaches the actual login req
   });
   await page.goto('/');
   await page.evaluate(()=>window.setPage('profile'));
-  await expect(page.locator('[data-owner-duration-select]')).toHaveValue('7');
-  await page.locator('[data-owner-duration-select]').selectOption('custom');
+  await expect(page.locator('[data-owner-duration-value]')).toHaveText('7 天');
+  await expect(page.locator('.xu-owner-duration-pref select')).toHaveCount(0);
+  await page.locator('[data-owner-duration-toggle]').click();
+  await expect(page.locator('[data-owner-duration-panel]')).toBeVisible();
+  await page.locator('[data-owner-duration-choice="custom"]').click();
   const custom=page.locator('[data-owner-duration-custom]');
   await expect(custom).toBeVisible();
   await custom.fill('12');
@@ -127,7 +130,9 @@ test('custom login duration is chosen in 我的 and reaches the actual login req
   expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_duration_days'))).toBe('12');
   await page.reload();
   await page.evaluate(()=>window.setPage('profile'));
-  await expect(page.locator('[data-owner-duration-select]')).toHaveValue('custom');
+  await expect(page.locator('[data-owner-duration-value]')).toHaveText('12 天');
+  await page.locator('[data-owner-duration-toggle]').click();
+  await expect(page.locator('[data-owner-duration-choice="custom"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-owner-duration-custom]')).toHaveValue('12');
   await page.locator('[data-owner-auth-open]').click();
   const dialog=page.locator('#xuOwnerDialog');
@@ -166,4 +171,24 @@ test('direct fallback can choose 30 days with the same server API',async ({page}
   await page.getByRole('button',{name:'安全登录'}).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:4173\/$/);
   expect(days).toBe(30);
+});
+
+test('mobile duration preference is inline, keyboard dismissible and uses existing saved session value',async({page})=>{
+  await page.setViewportSize({width:390,height:780});
+  await page.goto('/');
+  await page.evaluate(()=>window.setPage('profile'));
+  const toggle=page.locator('[data-owner-duration-toggle]');
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded','true');
+  await expect(page.locator('[data-owner-duration-panel]')).toBeVisible();
+  await page.locator('[data-owner-duration-choice="1"]').click();
+  await expect(page.locator('[data-owner-duration-value]')).toHaveText('1 天');
+  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_duration_days'))).toBe('1');
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  await toggle.click();
+  await page.keyboard.press('Escape');
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  const width=await page.evaluate(()=>[document.documentElement.scrollWidth,document.documentElement.clientWidth]);
+  expect(width[0]).toBeLessThanOrEqual(width[1]+1);
 });

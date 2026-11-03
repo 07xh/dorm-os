@@ -49,6 +49,16 @@
       field.hidden = !customMode;
       if (document.activeElement !== field) field.value = String(chosenDays);
     });
+    document.querySelectorAll('[data-owner-duration-value]').forEach(value => {
+      value.textContent = chosenDays + ' 天';
+    });
+    document.querySelectorAll('[data-owner-duration-choice]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.ownerDurationChoice ===
+        (customMode ? 'custom' : String(chosenDays))));
+    });
+    document.querySelectorAll('[data-owner-duration-custom-wrap]').forEach(wrap => {
+      wrap.hidden = !customMode;
+    });
     const summary = surface?.querySelector('[data-owner-duration-summary]');
     if (summary) summary.textContent = '本次登录保持 ' + chosenDays + ' 天';
   };
@@ -60,6 +70,56 @@
     updateDurationUI();
     return true;
   };
+  const closeDurationPanel = root => {
+    const panel = root?.querySelector('[data-owner-duration-panel]');
+    const toggle = root?.querySelector('[data-owner-duration-toggle]');
+    if (!panel || !toggle) return;
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  };
+  document.addEventListener('click', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const toggle = target.closest('[data-owner-duration-toggle]');
+    if (toggle) {
+      const root = toggle.closest('.xu-owner-duration-pref');
+      const panel = root?.querySelector('[data-owner-duration-panel]');
+      if (!panel) return;
+      const expanded = panel.hidden;
+      panel.hidden = !expanded;
+      toggle.setAttribute('aria-expanded', String(expanded));
+      return;
+    }
+    const choice = target.closest('[data-owner-duration-choice]');
+    if (choice) {
+      const root = choice.closest('.xu-owner-duration-pref');
+      const raw = choice.dataset.ownerDurationChoice;
+      const feedback = root?.querySelector('[data-owner-duration-feedback]');
+      if (raw === 'custom') {
+        customMode = true;
+        updateDurationUI();
+        if (feedback) feedback.textContent = '输入 1–30 之间的整数天数。';
+        root?.querySelector('[data-owner-duration-custom]')?.focus({preventScroll:true});
+      } else if (chooseDays(Number(raw), false)) {
+        if (feedback) feedback.textContent = '已保存，下次登录生效。';
+        closeDurationPanel(root);
+      }
+      return;
+    }
+    if (!target.closest('.xu-owner-duration-pref')) {
+      document.querySelectorAll('.xu-owner-duration-pref').forEach(closeDurationPanel);
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    const open = document.querySelector('.xu-owner-duration-pref [data-owner-duration-panel]:not([hidden])');
+    if (!open) return;
+    const root = open.closest('.xu-owner-duration-pref');
+    closeDurationPanel(root);
+    root?.querySelector('[data-owner-duration-toggle]')?.focus({preventScroll:true});
+    event.preventDefault();
+    event.stopPropagation();
+  });
   document.addEventListener('change', event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -73,10 +133,16 @@
       } else chooseDays(Number(raw), false);
     } else if (target.matches('[data-owner-duration-custom]')) {
       const days = Number(target.value);
+      const feedback = target.closest('.xu-owner-duration-pref')?.querySelector('[data-owner-duration-feedback]');
       if (!chooseDays(days, true)) {
         target.setCustomValidity('请输入 1～30 的整数天数');
-        target.reportValidity();
-      } else target.setCustomValidity('');
+        target.setAttribute('aria-invalid', 'true');
+        if (feedback) feedback.textContent = '请输入 1–30 之间的整数天数。';
+      } else {
+        target.setCustomValidity('');
+        target.removeAttribute('aria-invalid');
+        if (feedback) feedback.textContent = '已保存，下次登录生效。';
+      }
     }
   });
   const render = authenticated => {
