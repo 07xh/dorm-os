@@ -35,6 +35,10 @@ export async function onRequestGet(context){
      authFlow:flow,nativeCasPreflight:available,
      accountAuthorization:flow.xiaoxuAuthorization};
    }
+   if(row.id==='ncwu')return {...row,sessionState,
+    loginMode:available?'native_cas_probe':'unavailable',
+    nativeCasPreflight:available,
+    accountAuthorization:verified?'verified_session':'not_verified'};
    return {...row,loginMode:available?'password':'unavailable',sessionState,
     accountAuthorization:verified?'verified_session':'not_verified'};
   });
