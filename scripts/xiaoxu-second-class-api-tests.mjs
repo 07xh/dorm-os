@@ -6,6 +6,7 @@ import {runInNewContext} from 'node:vm';
 import {projectSecondClass} from '../lib/academic-second-class-view.mjs';
 import {verifyAcademicAccess} from '../lib/academic-access.mjs';
 import {onRequestGet} from '../functions/api/v1/second-class.js';
+import {onRequestGet as onHealthGet} from '../functions/api/v1/health.js';
 import {onRequestPost} from '../functions/api/v1/verified/[section].js';
 
 const projected=projectSecondClass([
@@ -80,9 +81,24 @@ function addBatch(userId,provenance,records,capturedAt,id){
 }
 try{
  assert.equal((await onRequestGet(req(''))).status,401);
+ assert.equal((await onHealthGet(req(''))).status,401);
+ assert.equal((await onHealthGet(req(jwtA,{}))).status,503);
  assert.equal((await onRequestGet(req(jwtA,{}))).status,503);
  const noDatabase={ACCESS_TEAM_DOMAIN:domain,ACCESS_AUD:aud};
  assert.equal((await onRequestGet(req(jwtA,noDatabase))).status,503);
+ assert.equal((await onHealthGet(req(jwtA,noDatabase))).status,503);
+ const healthReady=await onHealthGet(req(jwtA));
+ assert.equal(healthReady.status,200);
+ assert.equal(healthReady.headers.get('cache-control'),'private, no-store');
+ const healthBody=await healthReady.json();
+ assert.equal(healthBody.status,'database_ready');
+ assert.equal(healthBody.accessAuthenticated,true);
+ assert.equal(healthBody.databaseReady,true);
+ assert.equal(healthBody.automaticSync,false);
+ assert.equal(healthBody.schoolConnection,'not_verified');
+ assert.deepEqual(healthBody.missingTables,[]);
+ assert.equal(JSON.stringify(healthBody).includes('owner-a'),false);
+
  let r=await onRequestGet(req(jwtA));
  assert.equal(r.status,200);
  assert.equal(r.headers.get('cache-control'),'private, no-store');
@@ -156,6 +172,14 @@ body=await (await onRequestGet(req(jwtA))).json();
    ACCESS_TEAM_DOMAIN:domain,ACCESS_AUD:aud,
    ACADEMIC_DB:{prepare(){throw Error('fake database down');}}
  }))).status,503);
+ sql.exec('DROP TABLE academic_second_class_official_scores');
+ const incomplete=await onHealthGet(req(jwtA));
+ assert.equal(incomplete.status,503);
+ const incompleteBody=await incomplete.json();
+ assert.equal(incompleteBody.status,'database_schema_incomplete');
+ assert.ok(incompleteBody.missingTables.includes('academic_second_class_official_scores'));
+ assert.equal(incompleteBody.databaseReady,false);
+
 }finally{globalThis.fetch=oldFetch;sql.close();}
 
 const ui=readFileSync(new URL('../public/xiaoxu-academic-client.js',import.meta.url),'utf8');
