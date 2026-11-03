@@ -46,7 +46,7 @@ async function sendReady(tabId,message){
  }
  throw last||new Error('CONTENT_SCRIPT_UNAVAILABLE');
 }
-async function readSchool(){
+async function readSchool(source='manual'){
  let tab;
  try{
   tab=await ensureTab('https://dekt.ncwu.edu.cn/*',
@@ -55,14 +55,15 @@ async function readSchool(){
   if(!current.url?.startsWith('https://dekt.ncwu.edu.cn/'))
    throw Object.assign(new Error('AUTH_EXPIRED'),{code:'AUTH_EXPIRED',keepTab:true});
   const result=await sendReady(tab.id,{type:'NCWU_READ_ONLY_SYNC'});
-  if(!result?.ok)throw Object.assign(new Error(result?.error||'SYNC_FAILED'),{code:result?.error||'SYNC_FAILED'});
+  if(!result?.ok)throw Object.assign(new Error(result?.error||'SYNC_FAILED'),{code:result?.error||'SYNC_FAILED',keepTab:result?.error==='AUTH_EXPIRED'});
   return {snapshot:result.snapshot,stats:result.stats,tab};
  }catch(error){
   if(tab?.created&&error?.keepTab!==true)await chrome.tabs.remove(tab.id).catch(()=>{});
+  if(tab?.created&&error?.keepTab===true&&source==='manual')await chrome.tabs.update(tab.id,{active:true}).catch(()=>{});
   throw error;
  }
 }
-async function uploadPortal(snapshot){
+async function uploadPortal(snapshot,source='manual'){
  let tab;
  try{
   tab=await ensureTab('https://dorm-os-dk9.pages.dev/*','https://dorm-os-dk9.pages.dev/#academic',false);
@@ -72,10 +73,11 @@ async function uploadPortal(snapshot){
    throw Object.assign(new Error('PORTAL_AUTH_REQUIRED'),{code:'PORTAL_AUTH_REQUIRED',keepTab:true});
   }
   const result=await sendReady(tab.id,{type:'NCWU_UPLOAD_SNAPSHOT',snapshot});
-  if(!result?.ok)throw Object.assign(new Error(result?.error||'PORTAL_UPLOAD_FAILED'),{code:result?.error||'PORTAL_UPLOAD_FAILED'});
+  if(!result?.ok)throw Object.assign(new Error(result?.error||'PORTAL_UPLOAD_FAILED'),{code:result?.error||'PORTAL_UPLOAD_FAILED',keepTab:result?.error==='PORTAL_AUTH_REQUIRED'});
   return {result,tab};
  }catch(error){
   if(tab?.created&&error?.keepTab!==true)await chrome.tabs.remove(tab.id).catch(()=>{});
+  if(tab?.created&&error?.keepTab===true&&source==='manual')await chrome.tabs.update(tab.id,{active:true}).catch(()=>{});
   throw error;
  }
 }
@@ -85,9 +87,10 @@ async function runSync(source='manual'){
  let schoolTab,portalTab;
  await save({lastStatus:'reading_school',lastError:null});
  try{
-  const school=await readSchool();schoolTab=school.tab;
+  const school=await readSchool(source);schoolTab=school.tab;
+  if(schoolTab?.created){await chrome.tabs.remove(schoolTab.id).catch(()=>{});schoolTab=null;}
   await save({lastStatus:'uploading'});
-  const portal=await uploadPortal(school.snapshot);portalTab=portal.tab;
+  const portal=await uploadPortal(school.snapshot,source);portalTab=portal.tab;
   const stats=school.stats||{};
   await save({lastStatus:'success',lastSyncAt:portal.result.capturedAt||new Date().toISOString(),
    lastError:null,lastActivityCount:stats.activityCount||0,lastSemesterCount:stats.semesterCount||0});
