@@ -27,6 +27,7 @@ const database=new DatabaseSync(':memory:');
 database.exec('PRAGMA foreign_keys=ON');
 database.exec(readFileSync(new URL('../migrations/0001_academic_core.sql',import.meta.url),'utf8'));
 database.exec(readFileSync(new URL('../migrations/0003_academic_verified_snapshots.sql',import.meta.url),'utf8'));
+database.exec(readFileSync(new URL('../migrations/0008_academic_second_class_source.sql',import.meta.url),'utf8'))
 for(const table of ['academic_users','academic_assignments','academic_verified_batches','academic_verified_records','academic_verified_ingests']){
  assert.ok(database.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table),'missing table '+table);
 }
