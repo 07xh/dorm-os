@@ -29,8 +29,9 @@ function detail(value='1-8周 一[1-2] '+room){
   '<td>必修</td><td>'+teacher+'</td><td>已选</td><td>'+value+'</td></tr></table>';
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
-function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,redirectAway=false}={}){
+function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,redirectAway=false,rotateCookie=false}={}){
  const calls=[];
+ let principalReads=0;
  async function fetcher(url,options={}){
   const u=new URL(url),method=options.method;
   calls.push({host:u.hostname,path:u.pathname,method,hasCookie:!!(options.headers?.cookie||options.headers?.Cookie)});
@@ -64,12 +65,20 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/frame/authorized.jsp')
    return reply(200,'<html>Authorized second-step portal</html>');
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/xkjg.wdkb.jsp'){
-   assert.ok((options.headers?.cookie||options.headers?.Cookie||'').includes('QG_SESS=school-authorized'),
+   const cookie=options.headers?.cookie||options.headers?.Cookie||'';
+   assert.ok(cookie.includes(principalReads>1&&rotateCookie?
+     'QG_SESS=school-rotated':'QG_SESS=school-authorized'),
     'the official school cookie must be scoped to the school origin');
-   return reply(200,entry.replace('value="'+student+'"','value="'+identity+'"'));
+   principalReads++;
+   return reply(200,entry.replace('value="'+student+'"','value="'+identity+'"'),
+    rotateCookie&&principalReads===2?
+    {'set-cookie':'QG_SESS=school-rotated; Path=/hsjw/; Secure'}:{});
   }
-  if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp')
+  if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp'){
+   if(rotateCookie)assert.ok((options.headers?.cookie||options.headers?.Cookie||'')
+    .includes('QG_SESS=school-rotated'),'timetable read must use renewed session cookie');
    return reply(200,page(detailTime));
+  }
   throw Error('Unexpected synthetic school request');
  }
  return {fetcher,calls};
@@ -111,6 +120,28 @@ assert.equal(schedule.records[0].term,'2026-2027-1');
 const again=await read.readSection({kind:'schedule',session:proof.session});
 assert.equal(again.records[0].externalId,schedule.records[0].externalId);
 assert.ok(!JSON.stringify(schedule).includes(password));
+
+// School may rotate its cookie when the verified student page is fetched.
+// A fresh process must be able to reuse the new jar, never the stale cookie.
+const rotating=school({rotateCookie:true});
+const rotatingAdapter=makeNcwuQingguoServerAdapter({
+ fetcher:rotating.fetcher,trustedSyncEnabled:true
+});
+const rotatingLogin=await rotatingAdapter.login({username:student,password});
+assert.ok(rotatingLogin.session.cookies.some(c=>c.name==='QG_SESS'&&c.value==='school-authorized'));
+const rotatingReader=await rotatingAdapter.forSession({
+ session:rotatingLogin.session,userId:'owner-rotating'
+});
+assert.throws(()=>rotatingReader.getRefreshedSession(),e=>e.code==='authorization_failed');
+const rotatingProof=await rotatingReader.verifySession();
+await rotatingReader.readSection({kind:'schedule',session:rotatingProof.session});
+const renewed=rotatingReader.getRefreshedSession();
+assert.equal(renewed.studentId,student);
+assert.equal(renewed.semester,'2026-2027-1');
+assert.ok(renewed.cookies.some(c=>c.name==='QG_SESS'&&c.value==='school-rotated'));
+assert.ok(!JSON.stringify(renewed).includes(password));
+const resumed=await rotatingAdapter.forSession({session:renewed,userId:'owner-rotating'});
+assert.equal((await resumed.verifySession()).authorized,true);
 
 const second=school({second:true});
 const twoStep=makeNcwuQingguoServerAdapter({fetcher:second.fetcher,trustedSyncEnabled:true});
