@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {classifySessionVaultUpgrade,classifyAuthUpgrade} from './upgrade-academic-owner-auth-production.mjs';
+import {classifySessionVaultUpgrade} from './upgrade-academic-owner-auth-production.mjs';
 const fixtures=()=>new DatabaseSync(':memory:');
 const db=fixtures();
 db.exec('PRAGMA foreign_keys=ON');
