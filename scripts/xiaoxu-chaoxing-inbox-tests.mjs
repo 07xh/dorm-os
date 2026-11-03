@@ -120,7 +120,7 @@ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').ge
 // Force a notice-table constraint failure AFTER a new assignment has been
 // prepared, proving the shared SQLite/D1 batch rolls back both tables.
 const extra=notice('K','新作业发布',
- '课程名称：Python程序设计\\r作业名称：练习二\\r结束时间：2026-11-19 22:00',
+ '课程名称：Python程序设计\r作业名称：练习二\r结束时间：2026-11-19 22:00',
  {extendParam:{cparams:JSON.stringify({funConfig:{content:{key:'rollbackWork12345'}}})}});
 const corruptNotices={
  ...db,
