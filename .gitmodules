@@ -1,6 +1,0 @@
-[submodule "vendor/design-skills/taste-skill"]
-	path = vendor/design-skills/taste-skill
-	url = https://github.com/Leonxlnx/taste-skill.git
-[submodule "vendor/design-skills/impeccable"]
-	path = vendor/design-skills/impeccable
-	url = https://github.com/pbakaus/impeccable.git
