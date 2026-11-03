@@ -31,7 +31,7 @@
   });
   const body=await resp.json().catch(()=>null);
   if(!resp.ok)throw Error(body?.message||(
-   resp.status===401?'请先通过 Cloudflare Access 完成本人授权':'个人学业服务尚未配置或不可用'));
+   resp.status===401?'请先登录校序':'个人学业服务尚未配置或不可用'));
   if(!body||typeof body!=='object')throw Error('授权登录尚未完成，服务返回了非 JSON 响应');
   return body;
  }
@@ -78,9 +78,14 @@
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
      imported?'有 '+imported+' 类个人导入记录 · 不是账号绑定':'尚无已验证的学校同步记录';
    const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
+   const guidance=provider.id==='ncwu'?
+    '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
+    '<p>华水教务可能先经过统一身份认证，再进入青果教务。请只在学校官方页面输入本人凭据。</p>'+
+    '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
+    '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':'';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
-    '<span>'+escapeHtml(details+stampText)+'</span></div>'+
+    '<span>'+escapeHtml(details+stampText)+'</span>'+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(label)+'</span>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a></div></div>';

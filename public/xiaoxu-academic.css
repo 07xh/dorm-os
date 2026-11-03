@@ -103,3 +103,9 @@
  #app .xu-connection-actions{align-items:center;flex-direction:row;justify-content:space-between}
  #app .xu-connection-bottom button{flex:1 1 140px}
 }
+
+/* NCWU authorization guide is part of the existing source row, not a new page. */
+#app .xu-kingo-guide{max-width:100%;margin-top:8px;font-size:12px;color:var(--xu-muted)}
+#app .xu-kingo-guide summary{cursor:pointer;color:var(--xu-brand);font-weight:650;list-style-position:inside;line-height:1.5}
+#app .xu-kingo-guide summary:focus-visible{outline:3px solid var(--xu-ring);outline-offset:3px;border-radius:5px}
+#app .xu-kingo-guide p{max-width:56ch;line-height:1.65;margin:8px 0 0;font-size:12px;color:var(--xu-muted)}
