@@ -63,8 +63,8 @@ export async function upgrade(){
   if(!Array.isArray(c)||c.length<3)throw Error('auth_columns_missing');
  }
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
- const check=rows(name,'PRAGMA integrity_check');
- if(check.length!==1||check[0].integrity_check!=='ok')throw Error('integrity_check_failed');
+ const check=rows(name,'PRAGMA quick_check');
+ if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
  report('✅ 0010 三表、外键和完整性均通过；现有学业数据未删除');
  report('ℹ️ 认证功能仍须显式配置 ACADEMIC_AUTH_MODE 与 OWNER_LOGIN_SECRET 才会启用');
 }
