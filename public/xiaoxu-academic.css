@@ -134,3 +134,26 @@
  #app .xu-school-session-tools{justify-content:flex-start}
  #app .xu-school-connect form{padding:10px}
 }
+
+/* V9.3: connect action first; compact truthful provider rows. */
+#app .xu-connection-intro{margin:9px 0 11px;line-height:1.65;max-width:60ch}
+#app .xu-connection-primary-actions{margin:0 0 10px}
+#app .xu-connection-primary-actions button{min-height:44px}
+#app .xu-connection-not-loaded{margin:3px 0 12px;line-height:1.6;color:var(--xu-muted)}
+#app .xu-connection-list{margin:10px 0 12px;gap:9px}
+#app .xu-connection-source{padding:12px 14px;border-radius:12px;align-items:flex-start;background:var(--xu-surface)}
+#app .xu-connection-copy{gap:4px}
+#app .xu-connection-copy strong{font-size:14px;line-height:1.4}
+#app .xu-connection-copy small{font-size:12px;line-height:1.5}
+#app .xu-connection-copy .xu-school-pending{font-size:11px;line-height:1.5;margin:4px 0 0}
+#app .xu-connection-copy .xu-provider-guide,#app .xu-connection-copy .xu-kingo-guide{margin-top:3px}
+#app .xu-connection-copy :is(.xu-provider-guide,.xu-kingo-guide)>summary{font-size:11px;line-height:1.5}
+#app .xu-connection-actions{gap:7px}
+#app .xu-connection-disclaimer{line-height:1.65}
+@media(max-width:580px){
+ #app .xu-connection-source{padding:13px 14px;gap:9px}
+ #app .xu-connection-actions{align-items:center;justify-content:space-between;flex-wrap:wrap;width:100%;gap:7px}
+ #app .xu-connection-link{min-height:40px;font-size:11px}
+ #app .xu-connection-primary-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+ #app .xu-connection-primary-actions button{flex:none;width:100%;min-height:44px}
+}
