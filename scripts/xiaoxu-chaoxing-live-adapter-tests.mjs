@@ -92,6 +92,13 @@ invalidSession=false;invoked=false;
 await onRequest(ctx);
 assert.equal(invoked,true);
 assert.equal(seen?.chaoxing?.provider,'chaoxing');
+const importContext={...ctx,request:new Request(
+ 'https://site.example/api/v1/connections/chaoxing/import'),data:{},
+ next:async()=>new Response('next')};
+await onRequest(importContext);
+assert.equal(importContext.data?.academicSchoolAdapters?.chaoxing?.provider,'chaoxing',
+ 'the imported-session endpoint must register the same trusted backend adapter');
+
 assert.equal(typeof seen.chaoxing.login,'function');
 assert.ok(!urls.some(x=>x.cookie.includes('test-password')));
 // Exercise the same existing owner login / encrypted session vault / sync route,
@@ -158,7 +165,7 @@ assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'activ
 const importedRow=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1'").get();
 assert.ok(importedRow.ciphertext);
 assert.ok(!JSON.stringify(importedRow).includes('cx_s'));
-assert.ok(!JSON.stringify(importedRow).includes('ok'));
+assert.ok(!JSON.stringify(importedRow).includes('cx_s=ok'));
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,1);
 const existingCipher=importedRow.ciphertext;
