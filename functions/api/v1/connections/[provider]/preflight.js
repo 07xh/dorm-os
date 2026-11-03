@@ -34,7 +34,15 @@ export async function onRequestGet(context){
   return json({status:'adapter_unavailable',loginSupported:false},503);
  try{
   const result=await adapter.preflight();
-  return json({status:result.mode,loginSupported:result.loginSupported===true},200);
+  // Publicly safe stage enums only. Never return page HTML, CAS tickets,
+  // form values, session headers, addresses or school credentials.
+  const allowed=new Set(['school_unreachable','cas_handoff_unrecognized',
+   'cas_login_page_unavailable','password_form_unavailable',
+   'interactive_challenge_required','password_transform_required',
+   'unexpected_cas_form_action','unrecognized_auth_flow']);
+  const reason=allowed.has(result.reason)?result.reason:null;
+  return json({status:result.mode,loginSupported:result.loginSupported===true,
+   ...(reason?{reason}:{})},200);
  }catch{
   return json({status:'upstream_unavailable',loginSupported:false},502);
  }
