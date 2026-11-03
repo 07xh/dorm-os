@@ -105,36 +105,12 @@ export async function upgrade(){
  }else report('✅ 0012 已存在，无重复迁移');
  if(classifySecondClassSessionUpgrade(definition())!=='verify')
   throw Error('second_class_session_schema_missing');
- // M20 is another forward-only table in the SAME owner-scoped production D1.
- // Never replace existing student data or session ciphertext.
- const existingBridge=rows(name,
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='academic_secondclass_browser_bridges'");
- if(!existingBridge.length){
-  run(['d1','execute',name,'--remote','--yes','--json',
-   '--file=./migrations/0013_academic_secondclass_browser_bridge.sql']);
-  report('✅ 已创建 0013 本人浏览器二课同步配对表');
- }else report('✅ 0013 浏览器配对表已存在，无重复迁移');
- const bridgeColumns=rows(name,'PRAGMA table_info(academic_secondclass_browser_bridges)');
- const requiredBridge=['user_id','token_hash','created_at','expires_at','last_sync_at','last_status','last_error_code'];
- if(!requiredBridge.every(field=>bridgeColumns.some(column=>column.name===field)))
-  throw Error('browser_bridge_schema_missing');
- // Keep browser-reported totals separate from independent school attestations.
- const personalTotalTable='academic_secondclass_personal_totals';
- const foundPersonal=rows(name,
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='"+personalTotalTable+"'");
- if(!foundPersonal.length){
-  run(['d1','execute',name,'--remote','--yes','--json',
-   '--file=./migrations/0014_academic_secondclass_personal_totals.sql']);
-  report('✅ 已创建 0014 第二课堂本人浏览器合计表');
- }else report('✅ 0014 个人合计表已存在，无重复迁移');
- const totalColumns=rows(name,'PRAGMA table_info('+personalTotalTable+')');
- if(!['user_id','captured_at','quality_score','volunteer_hours','updated_at','source']
-  .every(field=>totalColumns.some(column=>column.name===field)))
-  throw Error('personal_totals_schema_missing');
+ // Legacy 0013/0014 tables are left intact in databases that already have them.
+ // They are no longer an active dependency and are never dropped here.
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
  const check=rows(name,'PRAGMA quick_check');
  if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
- report('✅ 0010–0014 表、外键和完整性均通过；现有学业数据未删除');
+ report('✅ 0010–0012 表、外键和完整性均通过；现有学业数据未删除');
  report('ℹ️ 学校网页登录功能仍需配置独立加密密钥及真实授权适配器；本迁移不存储凭据，也不会启动学校连接');
 }
 if(process.argv[1]?.endsWith('upgrade-academic-owner-auth-production.mjs')){
