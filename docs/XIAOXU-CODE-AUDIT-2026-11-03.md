@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | `lib/academic-chaoxing-provider.mjs` | 学习通请求允许非标准 HTTPS 端口；307/308 响应被无条件改为 GET | 拒绝异常端口；对密码 POST 的 307/308 安全停止，不尝试不符合规范的降级 |
 | `scripts/xiaoxu-chaoxing-live-adapter-tests.mjs` | 缺少上述回归断言 | 加入异常端口与 307 降级的合成拒绝测试 |
-| `public/index.html` | `v4Hero` 无任何调用；旧跨站链接仍显示 DraftAI | 删除不可达渲染函数；文案改为「绘序 · DraftFlow」，保留原链接 |
+| `public/sw.js` | 版本号未随部署更新，学业脚本采用缓存优先；新部署可能继续运行旧 JS，部分学习通脚本未预缓存 | 改静态脚本网络优先/离线回退、升级缓存名、补齐脚本与 CSS 预缓存；加入执行式 Service Worker 回归测试 |\n| `public/index.html` | `v4Hero` 无任何调用；旧跨站链接仍显示 DraftAI | 删除不可达渲染函数；文案改为「绘序 · DraftFlow」，保留原链接 |
 | `public/xiaoxu-academic-client.js` | 文件首注释误称所有登录状态只在页面内存、刷新即断开 | 写清服务端加密会话与浏览器页面状态的边界 |
 | `lib/academic-owner-session.mjs` | 注释仍称 Owner 登录尚未接入 | 按已存在的 `owner_password` 流程更新 |
 | `functions/api/v1/_middleware.js` | 注释只说二课，实际还有青果/学习通；`CHA0XING_ROUTES` 拼写含数字 0 | 校正注释与变量名，不改变注册条件 |
@@ -40,6 +40,6 @@
 
 ## 5. 本轮验收与回滚要求
 
-- 先运行 `npm run check` 与 `npm run test:e2e`，重点确认新增学习通重定向安全断言、登录/数据连接状态、桌面与手机端交互、不出现模拟数据冒充真实数据。
+- 先运行 `npm run check` 与 `npm run test:e2e`，重点确认新增学习通重定向安全断言、Service Worker JS 网络更新/离线回退/私人 API 不拦截、登录/数据连接状态、桌面与手机端交互、不出现模拟数据冒充真实数据。
 - PR CI 成功只是代码检查；合并后再确认生产部署 commit 与匿名 401，**本人登录和数据比对仍需独立实测**。
 - 不删除 D1 数据、迁移或既有用户会话，不修改生产 Secret、不打开后台 Cron、不重复创建账号表。出现兼容性问题可直接回滚本 PR，不重置用户数据。
