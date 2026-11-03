@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {probeNcwuLogin,classifyNcwuLoginHtml,ncwuOfficialRedirect}
  from '../lib/academic-ncwu-login-probe.mjs';
-import {resolveNcwuPreflight} from '../functions/api/v1/connections/[provider]/preflight.js';
+import {resolveNcwuPreflight,checkNcwuPreflight} from '../functions/api/v1/connections/[provider]/preflight.js';
 
 const ENTRY='https://jwmis.ncwu.edu.cn/hsjw/caslogin';
 const CAS='https://authserver.ncwu.edu.cn/authserver/login?service='+encodeURIComponent(ENTRY);
@@ -99,5 +99,36 @@ assert.equal('reason' in untrustedCause,false,'do not echo arbitrary CAS form va
 const noVault=await resolveNcwuPreflight(falsePublic,null,false);
 assert.equal(noVault.status,'server_session_vault_unavailable');
 assert.equal(noVault.nativeLoginReady,false);
+
+// Configured owner connector is the authority: one trusted preflight, no
+// redundant school GET to the informational public detector.
+let probeCalls=0,adapterCalls=0;
+const publicProbe=async()=>{probeCalls++;return {loginSupported:true,
+ mode:'ordinary_form_detected_not_authenticated'};};
+const nativeAdapter={preflight:async()=>{adapterCalls++;return {
+ loginSupported:true,mode:'school_password_form_verified'};}};
+const single=await checkNcwuPreflight({
+ vaultReady:true,adapter:nativeAdapter,publicProbe
+});
+assert.equal(single.loginSupported,true);
+assert.equal(single.status,'school_password_form_verified');
+assert.equal(single.schoolAuthorized,false);
+assert.equal(probeCalls,0);
+assert.equal(adapterCalls,1,'only the trusted adapter runs if configured');
+// Missing encrypted vault must fail immediately, without contacting school.
+const missingVault=await checkNcwuPreflight({
+ vaultReady:false,adapter:nativeAdapter,publicProbe
+});
+assert.equal(missingVault.status,'server_session_vault_unavailable');
+assert.equal(missingVault.loginSupported,false);
+assert.equal(probeCalls,0);
+assert.equal(adapterCalls,1);
+// Without the configured backend, the original public detection remains a
+// strictly informational fallback; it must never advertise auth readiness.
+const fallback=await checkNcwuPreflight({vaultReady:true,adapter:null,publicProbe});
+assert.equal(fallback.officialFormDetected,true);
+assert.equal(fallback.loginSupported,false);
+assert.equal(probeCalls,1);
+assert.equal(adapterCalls,1);
 
 console.log('NCWU public preflight: authentic official redirects, no credentials, safe blocking and privacy passed');
