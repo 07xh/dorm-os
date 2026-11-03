@@ -116,13 +116,22 @@ try{
  const other=await (await onRequestGet(req(jwtB))).json();
  assert.equal(other.records.length,1,'users cannot read each other');
  assert.equal(other.records[0].title,'另一用户的私有活动');
+ assert.equal(other.officialScore,null,'no cross-tenant official scores');
  // New school-attested batch and audit: do not fabricate background scheduling.
  sql.prepare("UPDATE academic_verified_batches SET provenance='trusted_readonly' WHERE user_id=? AND kind='second-class'")
   .run(idA);
  sql.prepare("INSERT INTO academic_second_class_sync_audit(id,user_id,source,status,observed_at,item_count) VALUES (?,?,'second_class','success',?,?)")
   .run('audit-a',idA,at,2);
  body=await (await onRequestGet(req(jwtA))).json();
- assert.equal(body.provenance,'trusted_readonly');
+ sql.prepare("INSERT INTO academic_second_class_official_scores(user_id,batch_id,captured_at,payload,updated_at) VALUES(?,?,?,?,?)")
+  .run(idA,'personal-1',at,JSON.stringify({
+   school:'ncwu',units:{qualityScore:'素质分',volunteerHours:'志愿服务时长'},
+   aggregate:{termIndex:100,isAggregate:true,qualityScore:7,volunteerHours:3,
+    categories:[]},semesters:[],isSchoolReportedAggregate:true
+  }),at);
+assert.equal(body.provenance,'trusted_readonly');
+ assert.equal(body.officialScore.aggregate.qualityScore,7);
+ assert.equal(body.officialScore.aggregate.volunteerHours,3);
  assert.equal(body.lastReadOnlyAt,at);
  assert.equal(body.automaticSync,false);
  const payload={
