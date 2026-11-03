@@ -49,4 +49,13 @@ assert.equal(current.unread.length,0);
 step=lib.reconcileReading(current,[...items,article(3004)]);
 assert.equal(step.added,0,'Read item must not return as new');
 assert.deepEqual(lib.markAllRead(step.next).unread,[]);
+
+const fixedNow=Date.parse('2026-11-03T17:00:00Z');
+assert.equal(lib.isStaleFeed('2026-11-03T08:00:00Z',fixedNow),false,
+ 'recent verified API data must not be called stale');
+assert.equal(lib.isStaleFeed('2026-11-03T04:59:59Z',fixedNow),true,
+ 'an old but valid archive must not appear recently updated');
+assert.equal(lib.isStaleFeed(null,fixedNow),true);
+assert.equal(lib.isStaleFeed('2030-01-01T00:00:00Z',fixedNow),true,
+ 'unreasonably future-dated cache must not count as fresh');
 console.log('校序通知整合：真实档案映射、恶意源拒绝、初始快照、新通知/已读状态通过');
