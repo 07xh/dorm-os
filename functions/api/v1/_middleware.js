@@ -10,9 +10,9 @@ export async function onRequest(context){
   context.data.academicSchoolAdapters={
    ...(context.data.academicSchoolAdapters||{}),
    second_class:makeNcwuCasServerAdapter(),
-   ncwu:makeNcwuQingguoServerAdapter({
-    trustedSyncEnabled:context.env?.NCWU_QINGGUO_TRUSTED_SYNC_ENABLED==='true'
-   })
+   ...(context.env?.NCWU_QINGGUO_TRUSTED_SYNC_ENABLED==='true'?{
+    ncwu:makeNcwuQingguoServerAdapter({trustedSyncEnabled:true})
+   }:{})
   };
  }
  return context.next();
