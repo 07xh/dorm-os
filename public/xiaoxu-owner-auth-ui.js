@@ -145,6 +145,13 @@
       }
     }
   });
+  // Notify the existing single-page workspace after the SERVER session check,
+  // not merely because a local "previously logged in" hint exists.
+  const publishAuthState = authenticated => {
+    window.dispatchEvent(new CustomEvent('xiaoxu-owner-auth-changed',{
+      detail:{authenticated:authenticated===true}
+    }));
+  };
   const render = authenticated => {
     connected = authenticated === true;
     document.querySelectorAll('[data-owner-auth-open]').forEach(entry => {
@@ -172,7 +179,10 @@
       if (!response.ok) {
         currentExpiry = null;
         render(false);
-        if (response.status === 401 || response.status === 503) writeHint(false);
+        if (response.status === 401 || response.status === 503) {
+          writeHint(false);
+          publishAuthState(false);
+        }
         if (notify && response.status === 503) report('登录服务尚未启用。');
         return false;
       }
@@ -181,6 +191,7 @@
       currentExpiry = verified && typeof payload.expiresAt === 'string' ? payload.expiresAt : null;
       render(verified);
       writeHint(verified);
+      publishAuthState(verified);
       if (notify && verified) {
         const date = currentExpiry && Number.isFinite(Date.parse(currentExpiry))
           ? new Date(currentExpiry).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}) : '';
@@ -269,6 +280,7 @@
         currentExpiry = typeof payload.expiresAt === 'string' ? payload.expiresAt : null;
         writeHint(true);
         render(true);
+        publishAuthState(true);
         if (dialog) {
           dialog.close();
         } else {
@@ -300,6 +312,7 @@
       writeHint(false);
       currentExpiry = null;
       render(false);
+      publishAuthState(false);
       if (input) input.value = '';
       report('已退出当前设备。');
     } catch {

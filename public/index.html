@@ -749,6 +749,42 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 <script src="/xiaoxu-reminders.js"></script>
 <script src="/xiaoxu-owner-auth-ui.js" defer></script>
 <script>
+// This is an opt-in preference, NEVER a session, credential or authorization.
+const CLOUD_RESUME_PREF='xiaoxu-cloud-opted-in-v1';
+let cloudResumeGeneration=0,cloudResumeInFlight=false;
+function cloudWasOptedIn(){
+ try{return localStorage.getItem(CLOUD_RESUME_PREF)==='1';}catch{return false;}
+}
+function rememberCloudOptIn(enabled){
+ try{
+  if(enabled)localStorage.setItem(CLOUD_RESUME_PREF,'1');
+  else localStorage.removeItem(CLOUD_RESUME_PREF);
+ }catch{}
+}
+function clearPrivateCloudWorkspace(){
+ cloudResumeGeneration++;rememberCloudOptIn(false);
+ XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuReminders.disconnect();
+}
+// Only a previously opted-in device with a VERIFIED existing owner session
+// resumes the same cloud workspace. No new school login or credential storage.
+async function resumeOptedCloudWorkspace(){
+ if(!cloudWasOptedIn()||cloudResumeInFlight||XiaoxuCloudTasks.isReady())return false;
+ const generation=cloudResumeGeneration;
+ cloudResumeInFlight=true;
+ try{
+  await XiaoxuAcademic.connect();
+  if(generation!==cloudResumeGeneration)return false;
+  await Promise.allSettled([XiaoxuCloudTasks.connect(),XiaoxuReminders.connect()]);
+  if(generation!==cloudResumeGeneration)return false;
+  if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
+  return true;
+ }catch{
+  // Keep the opt-in preference on transient network failures; server auth
+  // failures are handled by the verified owner-session controller.
+  if(generation===cloudResumeGeneration&&page==='settings')render();
+  return false;
+ }finally{cloudResumeInFlight=false;}
+}
 const TZ = 'Asia/Shanghai';
 const CAMPUSES = Object.freeze({
   jianghuai: { name: '江淮校区', city: '罗山', lat: 32.20, lon: 114.53 },
@@ -2011,12 +2047,19 @@ function chooseQuickAdd(kind){
 function clickAction(action){
  if(action.startsWith('deadline-ack:')){if(XiaoxuDeadlineReminders.ack(action.slice(13))){render();toast('已知道：不会改变任务完成状态');}return;}
  if(action==='academic-connect'){
-  XiaoxuAcademic.connect().then(async()=>{await XiaoxuCloudTasks.connect().catch(()=>null);await XiaoxuReminders.connect().catch(()=>null);render();toast('已读取可用的个人学业数据');}).catch(err=>{render();toast(String(err.message||'请先登录校序，再读取云端数据'));});
+  // A deliberate first connection opts this device into restoring the same
+  // authorized owner workspace when the page is opened again.
+  XiaoxuAcademic.connect().then(async()=>{
+   rememberCloudOptIn(true);
+   await XiaoxuCloudTasks.connect().catch(()=>null);
+   await XiaoxuReminders.connect().catch(()=>null);
+   render();toast('已读取可用的个人学业数据');
+  }).catch(err=>{render();toast(String(err.message||'请先登录校序，再读取云端数据'));});
   return;
  }
  if(action==='academic-refresh'){XiaoxuAcademic.refresh().then(async()=>{if(XiaoxuCloudTasks.isReady())await XiaoxuCloudTasks.refresh().catch(()=>null);if(XiaoxuReminders.isConnected())await XiaoxuReminders.refresh().catch(()=>null);render();toast('已重新读取可用的服务端数据');}).catch(err=>toast(String(err.message||'读取失败')));return;}
  if(action==='academic-health'){XiaoxuAcademic.diagnose().then(status=>{render();toast(status.databaseReady?'校序数据服务自检通过':status.status==='database_schema_incomplete'?'数据库存在缺失迁移':'校序数据服务暂不可用');}).catch(err=>{render();toast(String(err.message||'自检失败'));});return;}
- if(action==='academic-disconnect'){XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuReminders.disconnect();render();toast('已清除此页学业数据；未退出校序或解除学校授权');return;}
+ if(action==='academic-disconnect'){clearPrivateCloudWorkspace();render();toast('已清除此页学业数据；未退出校序或解除学校授权');return;}
 
  if(action==='cloud-refresh'){XiaoxuCloudTasks.refresh().then(()=>{render();toast('云端任务已刷新');}).catch(err=>{render();toast(String(err.message));});return;}
  if(action==='cloud-preview'){XiaoxuCloudTasks.previewLegacy(state.tasks).then(r=>{render();toast('预览：可新增 '+r.toCreate+' 项，冲突 '+r.conflicts.length+' 项');}).catch(err=>{render();toast(String(err.message));});return;}
@@ -2122,6 +2165,16 @@ function refreshVisibleCloudTasks(minAgeMs=15000){
 }
 window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);refreshVisibleCloudTasks(0);});
 window.addEventListener('offline',updateOfflineBanner);
+// The login controller emits this only after an authenticated /auth/me, a
+// successful owner login, or a verified logout; local hints cannot authorize.
+window.addEventListener('xiaoxu-owner-auth-changed',event=>{
+ if(event.detail?.authenticated===true){
+  if(cloudWasOptedIn())void resumeOptedCloudWorkspace();
+ }else{
+  clearPrivateCloudWorkspace();
+  if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
+ }
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();refreshVisibleCloudTasks();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
 setInterval(()=>{if(!document.hidden)refreshVisibleCloudTasks(60000);},60*1000);
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
