@@ -21,7 +21,7 @@ const config={
 const success=inspectAcademicPagesProject(config);
 assert.deepEqual(success,{
  d1Bound:true,authMode:'access',authSettingsReady:true,
- ownerSecretConfigured:false,accessIssuerConfigured:true,accessAudienceConfigured:true,
+ ownerSecretConfigured:false,schoolVaultConfigured:false,accessIssuerConfigured:true,accessAudienceConfigured:true,
  productionBranchMain:true,pagesFunctionsPresent:true
 });
 assert.equal(JSON.stringify(success).includes('DO_NOT_LEAK'),false);
@@ -35,7 +35,7 @@ const missing=inspectAcademicPagesProject({
 });
 assert.deepEqual(missing,{
  d1Bound:false,authMode:'access',authSettingsReady:false,
- ownerSecretConfigured:false,accessIssuerConfigured:true,accessAudienceConfigured:false,
+ ownerSecretConfigured:false,schoolVaultConfigured:false,accessIssuerConfigured:true,accessAudienceConfigured:false,
  productionBranchMain:false,pagesFunctionsPresent:false
 });
 
@@ -51,6 +51,7 @@ assert.equal(ownerMode.authMode,'owner_password');
 assert.equal(ownerMode.authSettingsReady,true,
  'owner password mode must not require old Cloudflare Access variables');
 assert.equal(ownerMode.ownerSecretConfigured,true);
+assert.equal(ownerMode.schoolVaultConfigured,false,'owner login secret must not imply school session encryption');
 assert.equal(ownerMode.accessAudienceConfigured,false);
 assert.equal(ownerMode.accessIssuerConfigured,false);
 assert.equal(JSON.stringify(ownerMode).includes('DO_NOT_LEAK'),false);
@@ -60,6 +61,7 @@ const noOwnerSecret=inspectAcademicPagesProject({...config,deployment_configs:{
  env_vars:{ACADEMIC_AUTH_MODE:{type:'plain_text',value:'owner_password'}}}
 }});
 assert.equal(noOwnerSecret.authMode,'owner_password');
+assert.equal(noOwnerSecret.schoolVaultConfigured,false);
 assert.equal(noOwnerSecret.authSettingsReady,false,
  'owner mode without a bound secret must fail closed');
 
@@ -67,6 +69,13 @@ const unknown=inspectAcademicPagesProject({...config,deployment_configs:{
  production:{d1_databases:config.deployment_configs.production.d1_databases,
  env_vars:{ACADEMIC_AUTH_MODE:{type:'secret_text'},OWNER_LOGIN_SECRET:{type:'secret_text'}}}
 }});
+const schoolVault=inspectAcademicPagesProject({...config,deployment_configs:{
+ production:{...config.deployment_configs.production,
+  env_vars:{...config.deployment_configs.production.env_vars,
+   SCHOOL_SESSION_KEY:{type:'secret_text',value:'DO_NOT_LEAK_SCHOOL_SESSION'}}
+ }}});
+assert.equal(schoolVault.schoolVaultConfigured,true);
+assert.equal(JSON.stringify(schoolVault).includes('DO_NOT_LEAK'),false);
 assert.equal(unknown.authMode,'unverified');
 assert.equal(unknown.authSettingsReady,false,'hidden or unknown mode must not silently pass');
 assert.throws(()=>inspectAcademicPagesProject({...config,name:'wrong-project'}),/unexpected_pages_project/);
