@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
+import {createChaoxingSchoolAdapter,validateChaoxingCookieExport} from '../lib/academic-chaoxing-provider.mjs';
 import {onRequest} from '../functions/api/v1/_middleware.js';
 globalThis.crypto??=webcrypto;
 const profile='<div aria-label="账号：测试本人" id="user"></div>'+
@@ -62,6 +62,27 @@ await assert.rejects(redirectAdapter.login({username:'synthetic',password:'synth
 assert.equal(rejectedRedirectFetches,1);
 
 const adapter=createChaoxingSchoolAdapter({fetchImpl:fakeFetch,clock:()=>Date.now()});
+// Existing official browser session path; the export preserves the true
+// .chaoxing.com domain instead of inventing another login mechanism.
+const officialCookies=[{name:'cx_s',value:'ok',domain:'.chaoxing.com',
+ path:'/',hostOnly:false}];
+assert.deepEqual(validateChaoxingCookieExport(officialCookies),[{
+ name:'cx_s',value:'ok',domain:'chaoxing.com',path:'/',hostOnly:false
+}]);
+for(const bad of [
+ [{name:'cx_s',value:'ok',domain:'.evil.example',path:'/'}],
+ [{name:'cx_s',value:'ok',domain:'chaoxing.com',path:'/',hostOnly:true}],
+ [{name:'cx_s',value:'ok',domain:'i.chaoxing.com',path:'/',hostOnly:false},
+  {name:'cx_s',value:'also',domain:'i.chaoxing.com',path:'/',hostOnly:false}],
+ [{name:'cx_s',value:'ok;Fake',domain:'.chaoxing.com',path:'/'}]
+])assert.throws(()=>validateChaoxingCookieExport(bad),
+ e=>e.code==='invalid_cookie_format');
+const directlyImported=await adapter.importSession({cookies:officialCookies});
+assert.equal(directlyImported.session.uid,'1234567');
+assert.equal(directlyImported.session.schema,'chaoxing-session-v1');
+assert.ok(!JSON.stringify(directlyImported).includes('test-password'));
+
+
 assert.equal(adapter.provider,'chaoxing');
 const login=await adapter.login({username:'my-account',password:'test-password'});
 assert.equal(login.session.schema,'chaoxing-session-v1');
@@ -95,13 +116,21 @@ invalidSession=false;invoked=false;
 await onRequest(ctx);
 assert.equal(invoked,true);
 assert.equal(seen?.chaoxing?.provider,'chaoxing');
+const importContext={...ctx,request:new Request(
+ 'https://site.example/api/v1/connections/chaoxing/import'),data:{},
+ next:async()=>new Response('next')};
+await onRequest(importContext);
+assert.equal(importContext.data?.academicSchoolAdapters?.chaoxing?.provider,'chaoxing',
+ 'the imported-session endpoint must register the same trusted backend adapter');
+
+
 assert.equal(typeof seen.chaoxing.login,'function');
 assert.ok(!urls.some(x=>x.cookie.includes('test-password')));
 // Exercise the same existing owner login / encrypted session vault / sync route,
 // including a failed upstream identity probe and subsequent explicit re-login.
 const {readFileSync}=await import('node:fs');
 const {DatabaseSync}=await import('node:sqlite');
-const {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates}=await import('../lib/academic-school-login.mjs');
+const {connectSchoolAccount,connectImportedChaoxingSession,refreshSchoolAccount,schoolSessionStates}=await import('../lib/academic-school-login.mjs');
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
 for(const filename of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
@@ -151,7 +180,25 @@ const relinked=await connectSchoolAccount({db:db2,userId:'owner1',provider:'chao
 assert.equal(relinked.connected,true);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare("SELECT status FROM academic_connections WHERE provider='chaoxing'").get().status,'connected');
-
+// Imported official browser cookies use the SAME verified record sync and
+// the existing AES-GCM session vault; no password or parallel DB schema.
+notices.length=0;
+const imported=await connectImportedChaoxingSession({db:db2,userId:'owner1',
+ adapter,cookies:officialCookies,secret});
+assert.equal(imported.connected,true);
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
+const importedRow=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1'").get();
+assert.ok(importedRow.ciphertext);
+assert.ok(!JSON.stringify(importedRow).includes('cx_s'));
+assert.ok(!JSON.stringify(importedRow).includes('cx_s=ok'));
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,1);
+const existingCipher=importedRow.ciphertext;
+await assert.rejects(()=>connectImportedChaoxingSession({db:db2,userId:'owner1',
+ adapter,cookies:[{name:'cx_s',value:'ok',domain:'.evil.example',path:'/'}],secret}),
+ e=>e.code==='invalid_cookie_format');
+assert.equal(sqlite.prepare("SELECT ciphertext FROM academic_provider_sessions WHERE user_id='owner1'").get().ciphertext,
+ existingCipher,'a bad import must never overwrite existing owner session');
 // Concurrent re-authorization regression: prepare two authentic encrypted
 // session versions for the same owner, then simulate a newer login landing
 // while an older upstream request is failing. No nested network sync or fake

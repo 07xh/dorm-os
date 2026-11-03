@@ -35,9 +35,12 @@ test('task controls provide touch area without mobile horizontal overflow',async
   await page.setViewportSize({width,height:780});
   const el=page.locator('#app .v4-task-list .x-v92-task-toggle').first();
   await expect(el).toBeVisible();
-  const box=await el.boundingBox();
-  expect(box?.width).toBeGreaterThanOrEqual(44);
-  expect(box?.height).toBeGreaterThanOrEqual(44);
+  // The responsive task row can be replaced during a viewport transition.
+  // Keep the real 44px requirement, but wait for a stable hit rectangle.
+  await expect.poll(async()=>{
+   const rect=await el.boundingBox();
+   return Boolean(rect&&rect.width>=44&&rect.height>=44);
+  },{timeout:8000}).toBe(true);
   // Only rendered controls have a hit target. Some task actions are
   // intentionally hidden until their row is active; Playwright returns null
   // for such elements even though they exist in the DOM.
