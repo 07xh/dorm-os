@@ -67,3 +67,20 @@ test('missing migration is visible without treating it as school connection',asy
  await expect(center).toContainText('academic_verified_batches.provenance');
  await expect(center).toContainText('未连接');
 });
+
+test('unavailable D1 is not misreported as a missing migration',async({page})=>{
+ await enablePrivateData(page);
+ await page.route('**/api/v1/health',route=>route.fulfill({
+  status:503,contentType:'application/json',body:JSON.stringify({
+   status:'database_unavailable',databaseReady:false
+  })
+ }));
+ await page.goto('/#settings');
+ const center=page.getByRole('region',{name:'统一数据连接中心'});
+ await center.getByRole('button',{name:'读取我的连接状态'}).click();
+ await center.locator('.xu-connection-diagnostics summary').click();
+ await center.getByRole('button',{name:'只读检查数据库'}).click();
+ await expect(center).toContainText('校序数据服务暂不可用，暂时无法确认数据库结构');
+ await expect(center).not.toContainText('数据库结构不完整');
+ await expect(center.locator('.xu-connection-source')).toHaveCount(3);
+});
