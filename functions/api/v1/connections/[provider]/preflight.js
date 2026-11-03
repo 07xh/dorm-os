@@ -8,7 +8,9 @@ import {probeNcwuLogin} from '../../../../../lib/academic-ncwu-login-probe.mjs';
  * credentials nor grants authorization.
  */
 export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
- const plain=publicProbe?.loginSupported===true;
+ // Seeing an ordinary form on the official site does not mean that the
+ // server-side adapter can complete that login and bind the owner's data.
+ const officialFormDetected=publicProbe?.loginSupported===true;
  let nativeLoginReady=false,status=publicProbe?.mode||'upstream_unavailable';
  if(adapter&&typeof adapter.preflight==='function'){
   try{
@@ -21,8 +23,8 @@ export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
   }catch{status='upstream_unavailable';}
  }
  if(!vaultReady)status='server_session_vault_unavailable';
- return {status,loginSupported:plain||nativeLoginReady,
-  nativeLoginReady,sessionVaultReady:vaultReady===true,
+ return {status,loginSupported:nativeLoginReady&&vaultReady===true,
+  officialFormDetected,nativeLoginReady,sessionVaultReady:vaultReady===true,
   schoolAuthorized:false,automaticSync:false};
 }
 
@@ -30,11 +32,9 @@ export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
  const provider=context.params?.provider;
- if(provider==='second_class'){
-  // The school's CAS callback belongs to the school, not this website.
+ if(provider==='second_class')
   return json({status:'official_sso_only',loginSupported:false,
    nativeLoginReady:false,automaticSync:false},410);
- }
  if(provider!=='ncwu')return json({status:'unknown_provider',loginSupported:false},404);
  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
  if(provider==='ncwu'){
