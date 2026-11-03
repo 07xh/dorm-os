@@ -25,8 +25,12 @@ assert.throws(()=>projectSecondClass([{externalId:'wrong',title:'invalid',cookie
 
 const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
-for(const n of ['0001_academic_core.sql','0003_academic_verified_snapshots.sql',
- '0008_academic_second_class_source.sql','0009_ncwu_second_class_official_scores.sql']){
+// The shared health endpoint now checks all 0001–0009 core tables, not just M6.
+for(const n of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
+ '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
+ '0005_academic_workspace.sql','0006_academic_scheduler.sql',
+ '0007_academic_reminder_inbox.sql','0008_academic_second_class_source.sql',
+ '0009_ncwu_second_class_official_scores.sql']){
  sql.exec(readFileSync(new URL('../migrations/'+n,import.meta.url),'utf8'));
 }
 const db={

@@ -6,7 +6,7 @@
  const TYPES=['schedule','assignments','grades','exams','second-class'];
  const SOURCE={schedule:'青果课表',assignments:'学习通作业',grades:'青果成绩',exams:'青果考试','second-class':'第二课堂'};
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- let connected=false,sources=[],error='';
+ let connected=false,sources=[],error='',serviceHealth=null,healthError='';
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -20,7 +20,7 @@
    s.status==='error'?'连接失败':s.status==='loading'?'正在读取':'未连接';
  };
  function disconnect(){
-  connected=false;sources=[];error='';
+  connected=false;sources=[];error='';serviceHealth=null;healthError='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
  async function get(kind){
@@ -60,6 +60,29 @@
    await refresh();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
+ }
+ async function diagnose(){
+  if(!connected)throw Error('请先登录校序并读取个人连接状态');
+  try{
+   const response=await fetch('/api/v1/health',{credentials:'same-origin',
+    cache:'no-store',redirect:'error',headers:{accept:'application/json'}});
+   const data=await response.json().catch(()=>null);
+   if(!data||!['database_ready','database_schema_incomplete',
+      'database_unavailable','database_not_configured'].includes(data.status))
+     throw Error(response.status===401?'登录已过期，请重新登录校序':'学业服务自检暂时不可用');
+   serviceHealth={
+    status:data.status,databaseReady:data.databaseReady===true,
+    missingTables:Array.isArray(data.missingTables)?data.missingTables.slice(0,25):[],
+    missingColumns:Array.isArray(data.missingColumns)?data.missingColumns.slice(0,30):[],
+    loginAuthenticated:data.loginAuthenticated===true,
+    schoolConnection:'not_verified'
+   };
+   healthError='';
+   return serviceHealth;
+  }catch(err){
+   serviceHealth=null;healthError=String(err.message||'服务自检失败');
+   throw err;
+  }
  }
  const CONNECTION_PROVIDERS=Object.freeze([
   {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
@@ -110,6 +133,19 @@
     '<button type="button" class="secondary" data-action="academic-refresh">刷新连接状态与数据</button>'+
     '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>')+
    '</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
+   '<details class="xu-connection-diagnostics"><summary>校序数据服务自检</summary>'+
+   '<p class="tiny muted">仅检测本人登录和 D1 学业表结构，不检查学校账号是否已连接，也不会修改数据。</p>'+
+   (active?'<button type="button" class="secondary" data-action="academic-health">只读检查数据库</button>':
+    '<p class="small muted">请先使用上方按钮读取本人连接状态。</p>')+
+   (serviceHealth?'<p class="small" aria-live="polite">'+
+     (serviceHealth.databaseReady?'校序数据库结构完整；当前校序登录已通过。':
+      serviceHealth.status==='database_schema_incomplete'?'校序数据库结构不完整；需要核对生产迁移。':
+      '校序数据服务暂不可用，暂时无法确认数据库结构。')+
+      (serviceHealth.missingTables.length?' 缺少表：'+escapeHtml(serviceHealth.missingTables.join('、')):'')+
+      (serviceHealth.missingColumns.length?' 缺少字段：'+escapeHtml(serviceHealth.missingColumns.join('、')):'')+
+     '</p>':'')+
+   (healthError?'<p class="small xu-private-error" role="alert">'+escapeHtml(healthError)+'</p>':'')+
+   '</details>'+
    '<p class="tiny muted">“打开学校官网”仅用于本人正常登录，不会自动绑定账号。学校授权、在线同步和自动续期仍需在真实平台验证后逐项启用；过去保存的快照不会被误标为实时数据。</p></section>';
  }
  const item=(record,kind)=>{
@@ -193,5 +229,5 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,diagnose,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);

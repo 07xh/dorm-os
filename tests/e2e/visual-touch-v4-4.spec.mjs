@@ -30,9 +30,10 @@ test('NFC on a 360px screen has scan status, clear controls and large tag action
  for(const selector of ['[data-tag-write]','[data-tag-edit]','.v41-tag-more summary']){
   const control=tag.locator(selector);
   await expect(control).toBeVisible();
-  const rect=await control.boundingBox();
-  expect(rect).not.toBeNull();
-  expect(rect.height).toBeGreaterThanOrEqual(44);
+  await expect.poll(async()=>{
+   const rect=await control.boundingBox().catch(()=>null);
+   return rect?.height??0;
+  },{timeout:10000}).toBeGreaterThanOrEqual(44);
  }
  await tag.locator('.v41-tag-more summary').click();
  await expect(tag.locator('[data-tag-delete]')).toBeVisible();
