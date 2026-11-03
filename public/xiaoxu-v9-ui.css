@@ -86,3 +86,42 @@ html.theme-light body { background:#f6f8fc!important }
  .x-v7-header .nav-link,#app button { transition:none!important }
  .editor::backdrop { backdrop-filter:none!important }
 }
+
+
+/* V9.1: compact, data-first daily overview. No simulated academic data. */
+#app .v4-hero.x-v7-home-intro { padding:20px 22px!important;min-height:0!important }
+#app .v4-hero.x-v7-home-intro .x-v7-home-head { max-width:none!important }
+#app .v4-hero.x-v7-home-intro h1 { letter-spacing:-.02em }
+#app .v4-hero.x-v7-home-intro .x-v7-today-stats { margin-top:10px!important }
+#app .x-v91-next-area { margin-top:13px }
+#app .x-v91-next-summary {
+ width:100%;display:grid;grid-template-columns:76px minmax(0,1fr) minmax(0,1.4fr) 16px;
+ align-items:center;gap:10px;min-height:52px;text-align:left;
+ border:1px solid #ffffff45;border-radius:11px;padding:10px 14px;
+ background:#ffffff18;color:#fff;box-shadow:none;transition:background-color .16s ease;
+}
+#app .x-v91-next-summary:hover,#app .x-v91-next-summary:focus-visible { background:#ffffff2b }
+#app .x-v91-next-summary .x-v91-next-kicker { font-size:11px;opacity:.88 }
+#app .x-v91-next-summary strong { font-size:14px;min-width:0;overflow-wrap:anywhere }
+#app .x-v91-next-summary .x-v91-next-meta { font-size:12px;opacity:.9;min-width:0;overflow-wrap:anywhere }
+#app .x-v91-next-summary .x-v91-next-arrow { font-size:22px;font-weight:400;line-height:1;text-align:right }
+#app .x-v91-next-empty { display:flex;align-items:center;gap:12px;justify-content:space-between;
+ min-height:45px;padding:8px 13px;border:1px solid #ffffff40;border-radius:10px;background:#ffffff14;font-size:12px;color:#f7faff }
+#app .x-v91-next-empty button { background:transparent;border:0;color:#fff;font-weight:750;padding:7px;min-height:34px }
+#app .x-v91-course-empty { display:flex;flex-direction:column;gap:8px;align-items:flex-start }
+#app .x-v91-course-empty strong { color:var(--xu-ink);font-weight:750 }
+#app .x-v91-course-empty span { font-size:12px;color:var(--xu-muted);line-height:1.6 }
+#app .x-v91-course-empty .secondary { min-height:38px;padding:8px 13px }
+@media(max-width:790px){
+ #app .v4-hero.x-v7-home-intro { padding:16px!important }
+ #app .v4-hero.x-v7-home-intro h1 { font-size:23px!important }
+ #app .x-v91-next-summary { grid-template-columns:minmax(0,1fr) 22px;gap:4px 10px;padding:10px 12px }
+ #app .x-v91-next-summary .x-v91-next-kicker { grid-column:1;grid-row:1 }
+ #app .x-v91-next-summary strong { grid-column:1;grid-row:2 }
+ #app .x-v91-next-summary .x-v91-next-meta { grid-column:1;grid-row:3;font-size:11px }
+ #app .x-v91-next-summary .x-v91-next-arrow { grid-column:2;grid-row:1/span 3;align-self:center }
+ #app .x-v8-home-columns { gap:12px!important }
+}
+@media(prefers-reduced-motion:reduce){
+ #app .x-v91-next-summary { transition:none!important }
+}

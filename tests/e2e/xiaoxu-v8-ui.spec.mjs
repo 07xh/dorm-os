@@ -6,7 +6,8 @@ test('V8 approved visual shell preserves existing navigation and real-data dashb
   await expect(page.locator('#sidebarNav [data-page]')).toHaveCount(5);
   await expect(page.locator('.x-v8-stat')).toHaveCount(3);
   await expect(page.locator('.x-v8-home-columns')).toBeVisible();
-  await expect(page.locator('.x-v8-connection')).toContainText('未连接');
+  await expect(page.locator('.x-v8-connection')).toHaveCount(0);
+  await expect(page.locator('.x-v7-home-notices')).toBeVisible();
 
   await page.evaluate(() => {
     const day = now().day;
@@ -18,7 +19,7 @@ test('V8 approved visual shell preserves existing navigation and real-data dashb
   await expect(page.locator('.x-v8-stat').first()).toContainText('1');
   await expect(page.locator('.x-v8-stat').nth(1)).toContainText('1');
   await expect(page.locator('.x-v7-home-intro')).toContainText('V8真实本地课程');
-  await page.locator('.x-v7-home-link[data-page="timetable"]').click();
+  await page.locator('.x-v91-next-summary').click();
   await expect(page).toHaveURL(/#timetable$/);
   await page.locator('#sidebarNav [data-page="academic"]').click();
   await page.locator('[data-academic-tab="grades"]').click();
