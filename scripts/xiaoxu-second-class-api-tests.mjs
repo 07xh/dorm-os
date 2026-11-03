@@ -192,9 +192,11 @@ const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const release=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
 assert.ok(release.includes("'/api/v1/second-class'"),'production deny gate');
 assert.ok(html.includes("XiaoxuAcademic.panel('second-class')"));
-assert.ok(sw.includes("const CACHE='dorm-os-shell-v96-home-focus'"),'PWA cache is bumped for the single connection center');
+assert.ok(sw.includes("const CACHE='dorm-os-shell-v97-profile-css-fix'"),'PWA cache must be bumped for fresh profile styles');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
-assert.ok(sw.includes("'/xiaoxu-owner-auth.css'"),'PWA shell retains modal styles');
+assert.ok(sw.includes("'/xiaoxu-owner-auth.css?v=97-profile-fix'"),'PWA shell retains current versioned profile styles');
+assert.ok(html.includes('href="/xiaoxu-owner-auth.css?v=97-profile-fix"'),'Profile must request the fresh CSS URL even under an old service worker');
+assert.ok(sw.includes("u.pathname.endsWith('.css')"),'Styles must use the network-first fetch path');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');
 const calls=[];
 const mock={kind:'second-class',status:'ready',provenance:'user_import',
