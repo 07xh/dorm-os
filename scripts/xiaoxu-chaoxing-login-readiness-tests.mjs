@@ -47,6 +47,9 @@ assert.ok(endpoint.includes('loginReadiness')&&endpoint.includes('academicChaoxi
 for(const code of CHAOXING_READINESS_CODES.filter(x=>x!=='ready')){
  assert.ok(client.includes(code),'Missing Chinese UI description for '+code);
 }
+assert.ok(client.includes("(!authorized&&provider.id==='chaoxing'?'open':'')"),
+ 'Unlinked Chaoxing login form must be open by default');
+assert.ok(client.includes('连接学习通账号 · 登录并同步'));
 assert.ok(client.includes('重新检测学习通连接'));
 assert.ok(client.includes('data-action="academic-refresh"'));
 assert.ok(client.includes('第三方 APK 已登录只代表该应用的本机会话有效'));
