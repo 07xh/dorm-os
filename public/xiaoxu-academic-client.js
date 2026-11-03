@@ -24,7 +24,7 @@
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
  async function get(kind){
-  const path=kind==='second-class'?'/api/v1/second-class':'/api/v1/verified/'+encodeURIComponent(kind);
+  const path=kind==='connections'?'/api/v1/connections':kind==='second-class'?'/api/v1/second-class':'/api/v1/verified/'+encodeURIComponent(kind);
   const resp=await fetch(path,{
    headers:{accept:'application/json'},
    cache:'no-store',credentials:'same-origin',redirect:'error'
@@ -37,6 +37,10 @@
  }
  async function refresh(){
   if(!connected)throw Error('尚未加载个人学业数据');
+  const overview=await get('connections');
+  if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
+     overview.platforms.length!==3)throw Error('数据连接状态格式无效');
+  sources=overview.platforms;
   const results=await Promise.allSettled(TYPES.map(kind=>get(kind)));
   if(!connected)return;
   for(let i=0;i<TYPES.length;i++){
@@ -53,24 +57,46 @@
  async function connect(){
   connected=true;
   try{
-   const result=await get('connections');
-   if(!Array.isArray(result.sources))throw Error('连接状态响应无效');
-   sources=result.sources;
    await refresh();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
  }
+ const CONNECTION_PROVIDERS=Object.freeze([
+  {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
+  {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'课程作业、截止日期、提交状态'},
+  {id:'second_class',name:'第二课堂',url:'https://dekt.ncwu.edu.cn/',what:'活动、积分与审核记录'}
+ ]);
+ const CONNECTION_LABELS={connected:'曾完成只读同步',partial:'上次同步不完整',
+   expired:'学校授权已过期',error:'上次同步失败',not_connected:'未连接'};
  function connectionPanel(){
   const active=connected;
-  const entries=TYPES.map(kind=>'<div class="xu-private-source"><span>'+escapeHtml(SOURCE[kind])+'</span><small>'+escapeHtml(statusLabel(kind))+'</small></div>').join('');
-  return '<section class="card xu-private-panel" aria-label="个人学业数据连接">'+
-   '<div class="card-header"><span class="card-title">个人学业数据 · 私人快照</span><span class="xu-private-status '+(active?'is-ready':'')+'">'+(active?'本页已加载本人数据':'尚未授权')+'</span></div>'+
-   '<p class="small muted">成绩、课表、考试、作业和二课可保存到受保护的个人后端。手动上传的数据只表示个人快照，不证明学校平台已自动连接；原有本地数据不会被覆盖。</p>'+
-   (!active?'<div class="xu-private-connect"><p class="small muted">通过 Cloudflare Access 登录后读取个人存储的学业快照；这不是学校自动同步，也不需要在校序填写学校密码。</p><button type="button" class="primary" data-action="academic-connect">读取授权数据</button></div>':
-   '<div class="button-row"><button type="button" class="secondary" data-action="academic-refresh">重新读取</button><button type="button" class="secondary" data-action="academic-disconnect">断开连接</button></div>')+
-   (error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
-   '<div class="xu-private-sources">'+entries+'</div>'+
-   '<p class="tiny muted">本页刷新会清除已经加载的私有数据；访问身份由 Cloudflare Access 保护。没有完成学校数据授权和 D1 绑定时不会展示模拟成绩或作业。</p></section>';
+  const entries=CONNECTION_PROVIDERS.map(provider=>{
+   const record=active?sources.find(x=>x.id===provider.id):null;
+   const label=active?(CONNECTION_LABELS[record?.status]||'状态待确认'):'未读取连接状态';
+   const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
+   const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
+   const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
+     imported?'有 '+imported+' 类个人导入记录 · 不是账号绑定':'尚无已验证的学校同步记录';
+   const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
+   return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
+    '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
+    '<span>'+escapeHtml(details+stampText)+'</span></div>'+
+    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(label)+'</span>'+
+    '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
+    escapeHtml(provider.url)+'">打开学校官网</a></div></div>';
+  }).join('');
+  return '<section class="card xu-private-panel" aria-label="统一数据连接中心">'+
+   '<div class="card-header"><span class="card-title">数据连接</span>'+
+   '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
+   (active?'校序云端已读取':'校序云端未读取')+'</span></div>'+
+   '<p class="small muted">校序登录与学校账号授权是两回事。所有数据源集中管理，未验证的学校连接不会显示为已绑定。</p>'+
+   '<div class="xu-connection-list">'+entries+'</div>'+
+   '<div class="xu-connection-bottom">'+
+   (!active?'<button type="button" class="primary" data-action="academic-connect">读取我的连接状态</button>':
+    '<button type="button" class="secondary" data-action="academic-refresh">刷新连接状态与数据</button>'+
+    '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>')+
+   '</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
+   '<p class="tiny muted">“打开学校官网”仅用于本人正常登录，不会自动绑定账号。学校授权、在线同步和自动续期仍需在真实平台验证后逐项启用；过去保存的快照不会被误标为实时数据。</p></section>';
  }
  const item=(record,kind)=>{
   const date=record.date||record.dueAt||'';

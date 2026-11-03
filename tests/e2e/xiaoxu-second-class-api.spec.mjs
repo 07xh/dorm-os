@@ -9,7 +9,12 @@ test('second-class personal API renders accurate source, known-only totals and d
   paths.push(url.pathname);
   const respond=body=>route.fulfill({status:200,contentType:'application/json',
    body:JSON.stringify(body)});
-  if(url.pathname==='/api/v1/verified/connections')return respond({status:'ready',sources:[]});
+  if(url.pathname==='/api/v1/connections')return respond({schema:'xiaoxu/connections-v1',platforms:[
+   {id:'ncwu',status:'not_connected',trustedKinds:[],importedKinds:[]},
+   {id:'chaoxing',status:'not_connected',trustedKinds:[],importedKinds:[]},
+   {id:'second_class',status:'not_connected',lastSuccessAt:new Date().toISOString(),
+    trustedKinds:trusted?['second-class']:[],importedKinds:trusted?[]:['second-class']}
+  ]});
   if(url.pathname==='/api/v1/second-class')return respond({
    kind:'second-class',source:'second_class',status:'ready',
    records:[{externalId:'a1',title,hours:2,points:5,activityStatus:'completed',reviewStatus:'approved'},
@@ -33,10 +38,10 @@ test('second-class personal API renders accurate source, known-only totals and d
   return route.fulfill({status:404,contentType:'application/json',body:'{}'});
  });
  await page.goto('/#settings');
- await expect(page.getByRole('button',{name:'读取授权数据'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'读取我的连接状态'})).toBeVisible();
  expect(paths.length).toBe(0,'private endpoint must not load before user opts in');
- await page.getByRole('button',{name:'读取授权数据'}).click();
- await expect(page.locator('.xu-private-panel')).toContainText('本页已加载本人数据');
+ await page.getByRole('button',{name:'读取我的连接状态'}).click();
+ await expect(page.locator('.xu-private-panel')).toContainText('校序云端已读取');
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  const panel=page.getByRole('region',{name:'第二课堂'});
@@ -50,8 +55,8 @@ test('second-class personal API renders accurate source, known-only totals and d
  trusted=true;
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
- await page.getByRole('button',{name:'重新读取'}).click();
- await expect(page.locator('.xu-private-panel')).toContainText('本人授权只读同步');
+ await page.getByRole('button',{name:'刷新连接状态与数据'}).click();
+ await expect(page.locator('.xu-private-panel')).toContainText('可信只读记录');
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(panel).toContainText('授权只读同步');
@@ -59,7 +64,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  await expect(panel).toContainText('志愿服务时长');
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
- await page.getByRole('button',{name:'断开连接'}).click();
+ await page.getByRole('button',{name:'清除此页私人数据'}).click();
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(page.getByText('第二课堂数据未连接')).toBeVisible();

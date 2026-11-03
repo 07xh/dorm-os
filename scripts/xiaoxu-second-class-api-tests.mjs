@@ -188,7 +188,7 @@ const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const release=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
 assert.ok(release.includes("'/api/v1/second-class'"),'production deny gate');
 assert.ok(html.includes("XiaoxuAcademic.panel('second-class')"));
-assert.ok(sw.includes("const CACHE='dorm-os-shell-v91-owner-auth-navigation'"),'PWA version is bumped for the updated login UI');
+assert.ok(sw.includes("const CACHE='dorm-os-shell-v92-unified-connections'"),'PWA cache is bumped for the single connection center');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');
 const calls=[];
@@ -199,7 +199,9 @@ const mock={kind:'second-class',status:'ready',provenance:'user_import',
  recordedPoints:{sum:5,knownCount:1}},automaticSync:false};
 const context={fetch:async (url)=>{
  calls.push(url);
- const data=url==='/api/v1/verified/connections'?{sources:[]}:
+ const data=url==='/api/v1/connections'?{schema:'xiaoxu/connections-v1',platforms:[
+  {id:'ncwu',status:'not_connected'},{id:'chaoxing',status:'not_connected'},
+  {id:'second_class',status:'not_connected'}]}:
   url==='/api/v1/second-class'?mock:{kind:'grades',status:'not_connected',records:[]};
  return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});
 },Response};

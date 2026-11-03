@@ -86,7 +86,7 @@ const respond=data=>new Response(JSON.stringify(data),
 const ctx={Response,Date,Intl,fetch:async url=>{
  if(url.startsWith('/api/v1/assignments?'))return respond({items:cloudItems});
  if(url==='/api/v1/sources')return respond({connections:[],userSnapshots:[]});
- if(url==='/api/v1/verified/connections')return respond({status:'ready',sources:[]});
+ if(url==='/api/v1/connections')return respond({schema:'xiaoxu/connections-v1',platforms:[{id:'ncwu',status:'not_connected'},{id:'chaoxing',status:'not_connected'},{id:'second_class',status:'not_connected'}]});
  if(url==='/api/v1/verified/assignments')return respond({kind:'assignments',
   status:'ready',lastSuccessAt:timestamp,records:snapshots});
  if(url.startsWith('/api/v1/verified/'))return respond({kind:url.split('/').pop(),
