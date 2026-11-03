@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates,SchoolLoginError} from '../lib/academic-school-login.mjs';
+import {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates,prepareNcwuAccountReview,confirmNcwuAccountReview,SchoolLoginError} from '../lib/academic-school-login.mjs';
 import {readConnectionCenter} from '../lib/academic-connection-center.mjs';
 import {isActiveSchoolAuthorization} from '../functions/api/v1/connections.js';
 
@@ -97,6 +97,42 @@ await assert.rejects(
  e=>e instanceof SchoolLoginError&&e.code==='authorization_failed');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE user_id=?')
  .get(owner).n,savedBefore,'failed verification must not add a session');
+
+/* First real-connector contact must NOT silently turn a school timetable into
+ * trusted data. Keep the only pending session encrypted in the existing vault. */
+const preview=await prepareNcwuAccountReview({db,userId:owner,adapter:adapter(),
+ username:'test-user-no-real-login',password,secret});
+assert.equal(preview.reviewRequired,true);
+assert.equal(preview.schedule[0].title,'虚构课程A');
+assert.ok(!JSON.stringify(preview).includes(syntheticCookie));
+assert.ok(!JSON.stringify(preview).includes(password));
+assert.deepEqual(await schoolSessionStates(db,owner,secret),{ncwu:'review_pending'});
+await assert.rejects(()=>refreshSchoolAccount({db,userId:owner,provider:'ncwu',
+ adapter:adapter(),secret}),e=>e.code==='review_pending');
+await assert.rejects(()=>confirmNcwuAccountReview({db,userId:owner,
+ adapter:adapter(),secret,reviewHash:'x'.repeat(43)}),e=>e.code==='review_pending');
+const changed=adapter();
+const originalRead=changed.forSession.bind(changed);
+changed.forSession=async args=>{
+ const reader=await originalRead(args);
+ const originalSection=reader.readSection;
+ return {...reader,readSection:async opts=>{
+  const section=await originalSection(opts);
+  return {...section,records:section.records.map(row=>({...row,title:'合成课程发生变化'}))};
+ }};
+};
+await assert.rejects(()=>confirmNcwuAccountReview({db,userId:owner,
+ adapter:changed,secret,reviewHash:preview.reviewHash}),e=>e.code==='schedule_changed');
+assert.deepEqual(await schoolSessionStates(db,owner,secret),{ncwu:'review_pending'},
+ 'school mismatch must not promote the pending session');
+const reviewed=await confirmNcwuAccountReview({db,userId:owner,
+ adapter:adapter(),secret,reviewHash:preview.reviewHash});
+assert.equal(reviewed.connected,true);
+assert.deepEqual(await schoolSessionStates(db,owner,secret),{ncwu:'active'});
+const finalRow=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id=? AND provider='ncwu'").get(owner);
+assert.ok(!JSON.stringify(finalRow).includes(syntheticCookie));
+assert.ok(!JSON.stringify(finalRow).includes(password));
+
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 sqlite.close();
