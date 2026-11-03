@@ -110,4 +110,26 @@ const challenge=makeNcwuCasServerAdapter({fetcher:async(url,opts)=>{
  throw Error('unexpected challenge flow');
 }});
 assert.deepEqual(await challenge.preflight(),{loginSupported:false,mode:'interactive_login_required'});
+assert.throws(()=>inspectCasForm('<script>encryptPassword(raw)</script>'+markup,casUrl),
+ e=>e.code==='interactive_login_required');
+const domainScope=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='dekt.ncwu.edu.cn'&&new URL(url).pathname==='/')
+  return response(302,'',{location:'/rump_frontend/login/',
+   'set-cookie':'school_auth=spoof; Domain=authserver.ncwu.edu.cn; Path=/; Secure'});
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn')
+  assert.ok(!options.headers.cookie?.includes('school_auth=spoof'));
+ return fakeSchool(url,options);
+}});
+assert.equal((await domainScope.preflight()).loginSupported,true);
+let postAttempts=0;
+const noReplay=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
+  postAttempts++;
+  return response(307,'',{location:'https://dekt.ncwu.edu.cn/sys'});
+ }
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>noReplay.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}), e=>e.code==='interactive_login_required');
+assert.equal(postAttempts,1);
 console.log('M23 NCWU CAS transport: synthetics, identity, cookie scope, preflight, read-only business endpoints, MFA and redirect refusal passed');
