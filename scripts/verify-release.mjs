@@ -23,6 +23,8 @@ assert.equal(revision.commit,sha,'Published release revision does not match depl
 const html=await readRoute('/');
 assert.ok(html.includes('校序'),'Published site is missing the 校序 brand marker');
 assert.ok(html.includes('id="app"'),'Published site is missing app root');
+assert.ok(html.includes('name="xiaoxu-release" content="'+sha+'"'),
+ 'Published HTML is stale or missing its exact release stamp');
 const manifest=JSON.parse(await readRoute('/manifest.webmanifest'));
 assert.ok(manifest.name.includes('校序') && manifest.short_name==='校序','PWA manifest has the wrong brand');
 for(const size of [192,512]){
@@ -31,7 +33,8 @@ for(const size of [192,512]){
 const importer=await readRoute('/xiaoxu-task-import.js');
 assert.ok(importer.includes('xiaoxu-task-batch-v1'),'Task import module missing from production');
 const sw=await readRoute('/sw.js');
-assert.ok(sw.includes('dorm-os-shell-'),'PWA service worker missing');
+assert.ok(sw.includes('dorm-os-shell-'+sha),
+ 'Published PWA worker has an older app-shell cache version');
 // Public history is a separately deployed, bot-maintained snapshot: do not mistake
 // a collector-only GitHub commit for a new Cloudflare release.
 const publicArchive = JSON.parse(await readRoute('/data/notices.json'));
@@ -147,4 +150,33 @@ for(const path of ['/api/v1/assignments','/api/v1/sources','/api/v1/connections'
  console.log('Private API anonymous read correctly blocked: '+path+' ('+response.status+')');
 }
 
+// The immutable deployment URL is not the user's saved bookmark. A release
+// only counts as current if the fixed Pages domain serves the SAME commit,
+// HTML and PWA worker; retry briefly for Cloudflare's alias propagation.
+const canonical='https://dorm-os-dk9.pages.dev';
+if(base!==canonical){
+ let verified=false,last='not checked';
+ for(let i=0;i<20;i++){
+  try{
+   const revisionResponse=await fetch(canonical+'/revision.json?v='+sha.slice(0,12),{
+    cache:'no-store',signal:AbortSignal.timeout(12000)
+   });
+   if(!revisionResponse.ok)throw Error('canonical revision HTTP '+revisionResponse.status);
+   const actual=await revisionResponse.json();
+   if(actual.commit!==sha)throw Error('canonical has commit '+String(actual.commit).slice(0,12));
+   const [page,worker]=await Promise.all([
+    fetch(canonical+'/?v='+sha.slice(0,12),{cache:'no-store',signal:AbortSignal.timeout(12000)}),
+    fetch(canonical+'/sw.js?v='+sha.slice(0,12),{cache:'no-store',signal:AbortSignal.timeout(12000)})
+   ]);
+   if(!page.ok||!worker.ok)throw Error('canonical HTML or worker HTTP mismatch');
+   const [markup,script]=await Promise.all([page.text(),worker.text()]);
+   if(!markup.includes('name="xiaoxu-release" content="'+sha+'"')||
+      !script.includes('dorm-os-shell-'+sha))
+    throw Error('canonical HTML/worker still contains old release');
+   verified=true;break;
+  }catch(error){last=String(error?.message||error);if(i<19)await sleep(1700);}
+ }
+ assert.ok(verified,'Fixed user-facing Pages URL did not update to '+sha+': '+last);
+ console.log('Canonical bookmark verified: '+canonical+' revision '+sha);
+}
 console.log('Verified live published release '+sha+' at '+base);

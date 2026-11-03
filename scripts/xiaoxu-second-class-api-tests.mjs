@@ -201,9 +201,10 @@ const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const release=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
 assert.ok(release.includes("'/api/v1/second-class'"),'production deny gate');
 assert.ok(html.includes("XiaoxuAcademic.panel('second-class')"));
-const swVersion=Number(sw.match(/const CACHE='dorm-os-shell-v(\d+)-/)?.[1]);
-assert.ok(Number.isInteger(swVersion)&&swVersion>=99,
- 'PWA cache must not regress below the verified network-first script release');
+assert.ok(sw.includes("const CACHE='dorm-os-shell-__XIAOXU_RELEASE_SHA__'"),
+ 'PWA cache must be unique to the exact immutable deployment SHA');
+assert.ok(html.includes('name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__"'),
+ 'Published HTML and worker must share the deployment revision');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
 assert.ok(sw.includes("'/xiaoxu-owner-auth.css'"),'PWA shell retains modal styles');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');

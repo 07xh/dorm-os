@@ -5,6 +5,14 @@ import {runInNewContext} from 'node:vm';
 // Exercise the actual Service Worker rather than only inspecting source strings.
 const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+assert.ok(sw.includes('dorm-os-shell-__XIAOXU_RELEASE_SHA__'),
+ 'Every release must stamp a fresh PWA cache name');
+assert.ok(html.includes('name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__"'),
+ 'The browser must know the exact HTML release it is executing');
+assert.ok(html.includes("updateViaCache:'none'")&&html.includes('checkPublishedRelease()'),
+ 'Existing PWA tabs must recheck the live release on resume');
+assert.ok(!html.includes('androidAutomationGuide')&&!html.includes('MacroDroid'),
+ 'Retired Android automation tutorial and handlers must be removed');
 const literalAssets=sw.match(/const ASSETS=\[([\s\S]*?)\];/)?.[1];
 assert.ok(literalAssets,'Expected explicit PWA app-shell asset list');
 const assets=new Set([...literalAssets.matchAll(/'([^']+)'/g)]
@@ -63,6 +71,19 @@ assert.equal(await(await appCache.match(new Request(appScript))).text(),
 offline=true;
 assert.equal(await dispatch(appScript),'current-deployed-script',
  'Offline app should reuse last successful script');
+// A navigation must bypass the HTTP cache even under an old active worker.
+offline=false;
+const waits=[];
+let navigationResponse;
+onFetch({request:{url:'https://test.invalid/',method:'GET',mode:'navigate'},
+ respondWith:p=>{navigationResponse=p;},waitUntil:p=>waits.push(p)});
+assert.equal(await (await navigationResponse).text(),'current-deployed-script');
+await Promise.all(waits);
+assert.equal(calls.at(-1)?.cache,'no-store');
+const revisionText=await dispatch('https://test.invalid/revision.json');
+assert.equal(revisionText,'current-deployed-script');
+assert.equal(calls.at(-1)?.cache,'no-store',
+ 'Revision manifest must never be satisfied by stale browser cache');
 const count=calls.length;
 assert.equal(await dispatch('https://test.invalid/api/v1/connections'),null,
  'Private academic API must never be intercepted or cached by the static worker');
