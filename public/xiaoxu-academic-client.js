@@ -79,13 +79,16 @@
     '考试开始 '+record.startTime+(record.endTime?'–'+record.endTime:''):'具体考试时刻未验证');
    if(!record.location)fields.push('考场未核实');
   }else if(kind==='second-class'){
+   if(record.category)fields.push(record.category);
    if(record.credit!==undefined)fields.push('学分 '+record.credit);
-   if(record.hours!==undefined)fields.push('学时 '+record.hours);
-   if(record.points!==undefined)fields.push('积分 '+record.points);
+   if(record.hours!==undefined)fields.push('志愿服务时长 '+record.hours);
+   if(record.points!==undefined)fields.push('素质分 '+record.points);
    const label={registered:'已报名',completed:'已完成',cancelled:'已取消',unknown:'活动状态未核实'};
-   fields.push(label[record.activityStatus]||'活动状态未核实');
+   if(record.activityStatus)fields.push(label[record.activityStatus]||'活动状态未核实');
    const reviews={pending:'待审核',approved:'审核通过',rejected:'审核未通过',
-    attended:'已签到记录',unknown:'审核状态未核实'};
+    attended:'已签到记录',calculated:'已核算',not_calculated:'未核算',
+    awaiting_calculation:'等待核算',verified:'已验证',unverified:'未验证',
+    unknown:'审核状态未核实'};
    if(record.reviewStatus)fields.push(reviews[record.reviewStatus]||'审核状态未核实');
   }else if(record.platformStatus)fields.push(record.platformStatus);
   const detail=fields.filter(Boolean).map(escapeHtml).join(' · ');
@@ -94,7 +97,31 @@
  function panel(kind){
   if(!hasData(kind))return '';
   const s=state(kind);
-  const rows=s.records.length?s.records.map(record=>{
+  let rows='';
+  if(kind==='second-class'){
+   const scoreRows=s.records.filter(record=>record.recordType==='semester_score'||record.recordType==='score_summary');
+   const activityRows=s.records.filter(record=>!record.recordType||record.recordType==='activity');
+   const scoreHtml=scoreRows.sort((a,b)=>(a.recordType==='score_summary'?-1:0)-(b.recordType==='score_summary'?-1:0))
+    .map(record=>{
+     const categories=(record.categoryScores||[]).map(category=>
+      '<div class="xu-second-category"><span>'+escapeHtml(category.name)+'</span><strong>'+
+      (category.value===null?'未公布':escapeHtml(category.value))+'</strong>'+
+      (category.previousValue!==null&&category.previousValue!==undefined&&category.previousValue!==category.value?
+       '<small>上次 '+escapeHtml(category.previousValue)+'</small>':'')+'</div>').join('');
+     const totals=[record.points!==undefined?'素质分 '+record.points:'',
+      record.previousPoints!==undefined&&record.previousPoints!==record.points?'上次素质分 '+record.previousPoints:'',
+      record.hours!==undefined?'志愿服务时长 '+record.hours+' 小时':''].filter(Boolean).join(' · ');
+     return '<div class="xu-second-score"><div class="xu-second-score-head"><strong>'+
+      escapeHtml(record.title)+'</strong><span>'+escapeHtml(totals||'成绩字段未返回')+'</span></div>'+
+      '<div class="xu-second-categories">'+categories+'</div></div>';
+    }).join('');
+   const activityHtml=activityRows.map(record=>item(record,kind)).join('');
+   rows='<div class="xu-second-block"><div class="xu-second-block-title">六类成绩与学期汇总</div>'+
+    (scoreHtml||'<div class="friendly-empty">尚无成绩汇总记录</div>')+'</div>'+
+    '<div class="xu-second-block"><div class="xu-second-block-title">我的活动</div>'+
+    (activityHtml||'<div class="friendly-empty">尚无活动记录</div>')+'</div>';
+  }else{
+   rows=s.records.length?s.records.map(record=>{
    if(kind==='schedule'){
     const weeks=Array.isArray(record.weeks)?record.weeks.join('、'):'';
     return '<div class="xu-private-item"><strong>'+escapeHtml(record.title)+'</strong><span>'+
@@ -110,6 +137,7 @@
    }
    return item(record,kind);
   }).join(''):'<div class="friendly-empty">本次保存的快照为空；不代表真实平台目前没有任务。</div>';
+  }
   return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
    '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
    (s.status==='stale'?' · 请重新同步':'')+'</p><div class="xu-private-list">'+rows+'</div></section>';
