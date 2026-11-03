@@ -139,7 +139,8 @@
     '<p class="small muted">请先使用上方按钮读取本人连接状态。</p>')+
    (serviceHealth?'<p class="small" aria-live="polite">'+
      (serviceHealth.databaseReady?'校序数据库结构完整；当前校序登录已通过。':
-      '校序数据库结构不完整；需要核对生产迁移。')+
+      serviceHealth.status==='database_schema_incomplete'?'校序数据库结构不完整；需要核对生产迁移。':
+      '校序数据服务暂不可用，暂时无法确认数据库结构。')+
       (serviceHealth.missingTables.length?' 缺少表：'+escapeHtml(serviceHealth.missingTables.join('、')):'')+
       (serviceHealth.missingColumns.length?' 缺少字段：'+escapeHtml(serviceHealth.missingColumns.join('、')):'')+
      '</p>':'')+
