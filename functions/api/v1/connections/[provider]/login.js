@@ -1,7 +1,8 @@
 import {authorize,json} from '../../assignments.js';
 import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
- e.code==='interactive_login_required'?409:e.code==='sync_failed'?502:503;
+ e.code==='interactive_login_required'?409:
+ ['sync_failed','upstream_unavailable'].includes(e.code)?502:503;
 export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
