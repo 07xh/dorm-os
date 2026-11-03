@@ -35,86 +35,21 @@ input:focus{outline:none;border-color:#3474e9;box-shadow:0 0 0 3px rgba(52,116,2
 </style>
 </head>
 <body>
-<main>
+<main data-owner-auth-surface>
   <div class="brand"><span class="logo" aria-hidden="true">序</span><span>校序</span></div>
-  <h1 id="title">登录</h1>
-  <form id="form">
+  <h1 id="title" data-owner-auth-title>登录</h1>
+  <form id="form" data-owner-auth-form>
     <label for="passphrase">个人密码</label>
     <div class="password-field">
-      <input id="passphrase" type="password" name="passphrase" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入密码">
-      <button id="toggle" class="toggle" type="button" aria-label="显示密码">显示</button>
+      <input id="passphrase" data-owner-auth-password type="password" name="passphrase" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入密码">
+      <button id="toggle" data-owner-auth-toggle class="toggle" type="button" aria-label="显示密码">显示</button>
     </div>
-    <button id="submit" class="primary" type="submit">安全登录</button>
+    <button id="submit" data-owner-auth-submit class="primary" type="submit">安全登录</button>
   </form>
-  <button id="logout" class="primary" type="button" hidden>退出当前设备</button>
-  <div id="result" role="status" aria-live="polite"></div>
+  <button id="logout" data-owner-auth-logout class="primary" type="button" hidden>退出当前设备</button>
+  <div id="result" data-owner-auth-result role="status" aria-live="polite"></div>
   <a href="/" class="back">返回首页</a>
 </main>
-<script>
-const form=document.getElementById('form');
-const button=document.getElementById('submit');
-const result=document.getElementById('result');
-const input=document.getElementById('passphrase');
-const logout=document.getElementById('logout');
-const title=document.getElementById('title');
-const toggle=document.getElementById('toggle');
-const report=text=>{result.textContent=text};
-const signedIn=()=>{
- form.hidden=true;logout.hidden=false;title.textContent='已登录';
- report('当前设备已登录，可直接返回首页。');
-};
-const signedOut=()=>{form.hidden=false;logout.hidden=true;title.textContent='登录';};
-toggle.addEventListener('click',()=>{
- const show=input.type==='password';
- input.type=show?'text':'password';
- toggle.textContent=show?'隐藏':'显示';
- toggle.setAttribute('aria-label',show?'隐藏密码':'显示密码');
- input.focus({preventScroll:true});
-});
-async function check(){
- try{
-  const r=await fetch('/api/v1/auth/me',{credentials:'same-origin',cache:'no-store'});
-  if(r.ok){
-   const status=await r.json();
-   if(status.authenticated===true){
-    try{localStorage.setItem('xiaoxu_owner_login_seen','1')}catch{}
-    signedIn();
-   }
-  }
- }catch{report('暂时无法检查登录状态。')}
-}
-logout.addEventListener('click',async()=>{
- logout.disabled=true;report('正在退出…');
- try{
-  const r=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
-  if(!r.ok)throw Error('logout_failed');
-  try{localStorage.removeItem('xiaoxu_owner_login_seen')}catch{}
-  signedOut();input.value='';input.type='password';toggle.textContent='显示';toggle.setAttribute('aria-label','显示密码');
-  report('已退出当前设备。');
- }catch{report('退出失败，请检查网络后重试。')}
- finally{logout.disabled=false}
-});
-form.addEventListener('submit',async e=>{
- e.preventDefault();button.disabled=true;report('正在验证…');
- try{
-  const r=await fetch('/api/v1/auth/login',{
-   method:'POST',credentials:'same-origin',
-   headers:{'content-type':'application/json'},
-   body:JSON.stringify({passphrase:input.value})
-  });
-  input.value='';
-  if(r.ok){
-   try{localStorage.setItem('xiaoxu_owner_login_seen','1')}catch{}
-   report('登录成功，正在进入校序…');location.assign('/');return;
-  }
-  const data=await r.json().catch(()=>({}));
-  report(r.status===429?'尝试次数过多，请 15 分钟后重试。':
-   r.status===503?'登录服务尚未配置或数据库未就绪。':
-   r.status===401?'密码错误，请重试。':'登录失败：'+(data.error||r.status));
- }catch{report('网络异常，请重试。')}
- finally{button.disabled=false}
-});
-check();
-</script>
+<script src="/xiaoxu-owner-auth-ui.js" defer></script>
 </body>
 </html>
