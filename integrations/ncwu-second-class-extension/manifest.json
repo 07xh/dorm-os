@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "校序 · 华水第二课堂只读同步",
+  "version": "0.1.0",
+  "description": "使用本人浏览器中已登录的华水第二课堂会话，定时读取活动与六类成绩并同步到校序。",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": [
+    "https://dekt.ncwu.edu.cn/*",
+    "https://dorm-os-dk9.pages.dev/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "校序第二课堂同步"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://dekt.ncwu.edu.cn/*"],
+      "js": ["adapter.js", "school-content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://dorm-os-dk9.pages.dev/*"],
+      "js": ["portal-content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
