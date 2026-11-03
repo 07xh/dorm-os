@@ -94,7 +94,7 @@ const savedBefore=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_se
 await assert.rejects(
  ()=>connectSchoolAccount({db,userId:owner,provider:'ncwu',adapter:adapter({origin:'https://not-official.example'}),
   username:'test-user-no-real-login',password,secret}),
- e=>e instanceof SchoolLoginError&&e.code==='sync_failed');
+ e=>e instanceof SchoolLoginError&&e.code==='authorization_failed');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE user_id=?')
  .get(owner).n,savedBefore,'failed verification must not add a session');
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
