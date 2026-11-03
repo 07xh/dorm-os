@@ -12,7 +12,7 @@ button{width:100%;font:inherit;background:#2263de;border:0;color:white;font-weig
 #result{min-height:2em;font-size:13px;margin-top:15px}a{color:#2765d3}.back{display:block;margin-top:25px;font-size:13px;text-align:center}
 </style></head><body><main><div class="brand"><span class="logo" aria-hidden="true">序</span><span>校序 <small>ACADEMIC OS</small></span></div>
 <h1>登录个人云端</h1><p>仅供本人使用。使用 Cloudflare Pages Secrets 中配置的个人登录口令。不会上传至第三方学校平台。</p>
-<form id="form"><label for="passphrase"个人登录口令</label><input id="passphrase" type="password" name="passphrase" required minlength="20" autocomplete="current-password" placeholder="输入本人设置的口令">
+<form id="form"><label for="passphrase">个人登录口令</label><input id="passphrase" type="password" name="passphrase" required minlength="20" autocomplete="current-password" placeholder="输入本人设置的口令">
 <button id="submit" type="submit">安全登录</button></form>
 <button id="logout" type="button" hidden>退出当前设备</button>
 <div id="result" role="status" aria-live="polite"></div><a href="/" class="back">返回校序首页</a></main>
@@ -23,7 +23,7 @@ async function check(){try{
  const r=await fetch('/api/v1/auth/me',{credentials:'same-origin',cache:'no-store'});
  if(r.ok){
   const status=await r.json();
-  if(status.authenticated===true){form.hidden=true;logout.hidden=false;report('当前设备已登录，无需再次输入口令。可直接返回首页。');}
+  if(status.authenticated===true){try{localStorage.setItem('xiaoxu_owner_login_seen','1')}catch{} form.hidden=true;logout.hidden=false;report('当前设备已登录，无需再次输入口令。可直接返回首页。');}
  }
 }catch{report('暂时无法验证登录状态。可尝试登录，或稍后重试。')}}
 logout.addEventListener('click',async()=>{
@@ -31,13 +31,13 @@ logout.addEventListener('click',async()=>{
  try{
   const r=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
   if(!r.ok)throw Error('logout_failed');
-  form.hidden=false;logout.hidden=true;input.value='';report('已退出此设备的云端会话。');
+  try{localStorage.removeItem('xiaoxu_owner_login_seen')}catch{} form.hidden=false;logout.hidden=true;input.value='';report('已退出此设备的云端会话。');
  }catch{report('退出失败，请检查网络后重试。')}finally{logout.disabled=false}
 });
 form.addEventListener('submit',async e=>{e.preventDefault();button.disabled=true;report('正在验证登录…');try{
  const r=await fetch('/api/v1/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({passphrase:input.value})});
  input.value='';
- if(r.ok){report('登录成功，正在打开校序…');location.assign('/');return;}
+ if(r.ok){try{localStorage.setItem('xiaoxu_owner_login_seen','1')}catch{} report('登录成功，正在打开校序…');location.assign('/');return;}
  const data=await r.json().catch(()=>({}));
  report(r.status===429?'尝试次数过多，请过 15 分钟再试。':r.status===503?'服务端登录还未配置或数据库迁移未就绪。':r.status===401?'口令错误，请重试。':'请求失败：'+(data.error||r.status));
 }catch{report('网络异常，无法连接登录服务。')}finally{button.disabled=false}});
