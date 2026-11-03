@@ -1,27 +1,48 @@
 name: Deploy DORM OS to Cloudflare Pages
 on:
-  push:
+  # Pages releases only after the same-repository push to main passes CI.
+  workflow_run:
+    workflows: ["DORM OS CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 concurrency:
   group: dorm-os-pages
   cancel-in-progress: false
 jobs:
   verify:
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_run' &&
+           github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Install pinned browser testing tools
         run: npm install --no-audit --no-fund --ignore-scripts
       - name: Install Chromium test runtime
+        if: github.event_name == 'workflow_dispatch'
         run: npx playwright install --with-deps chromium
       - name: Check source and behavior
-        run: npm run check && npm run test:e2e
+        run: |
+          npm run check
+          # Trusted CI already ran the desktop/mobile E2E on this exact SHA.
+          # A manual release still runs E2E itself before publishing.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            npm run test:e2e
+          fi
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
@@ -36,12 +57,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Mark this immutable release with its exact commit
         run: |
-          node -e "require('node:fs').writeFileSync('public/revision.json', JSON.stringify({commit:process.env.GITHUB_SHA, builtAt:new Date().toISOString()},null,2)+'\n')"
+          node -e "require('node:fs').writeFileSync('public/revision.json', JSON.stringify({commit:process.env.RELEASE_SHA, builtAt:new Date().toISOString()},null,2)+'\n')"
       - name: Publish verified static website
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

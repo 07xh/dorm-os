@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 const url=process.argv[2];
-const sha=process.env.GITHUB_SHA;
+const sha=process.env.RELEASE_SHA||process.env.GITHUB_SHA;
 if(!url||!/^https:\/\/[a-z0-9-]+\.dorm-os-dk9\.pages\.dev\/?$/.test(url))throw Error('Invalid deployment-specific Pages URL');
 if(!/^[a-f0-9]{40}$/.test(sha||''))throw Error('Missing expected full Git commit SHA');
 const base=url.replace(/\/$/,'');
