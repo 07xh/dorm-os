@@ -170,14 +170,15 @@
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const canLogin=record?.loginMode==='password';
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
-   const authPanel=officialCas?
-    '<div class="xu-school-connect"><p class="tiny muted">校序正在使用现有统一数据连接中心对接学校 CAS。先检查学校当前是否允许普通密码流程；若要求滑块、短信或其他互动验证，会明确提示而不会跳过。</p>'+
-    (record?.nativeCasPreflight?
-     '<button type="button" class="secondary" data-xu-second-cas-check>检查第二课堂站内登录</button>'+
+   const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
+   const authPanel=(officialCas||nativeNcwu)?
+    '<div class="xu-school-connect"><p class="tiny muted">校序通过本人的学校正常登录流程检查是否能安全连接；验证前不会收集密码，也不会绕过学校验证码或二次认证。</p>'+
+    ((record?.nativeCasPreflight||nativeNcwu)?
+     '<button type="button" class="secondary" '+(officialCas?'data-xu-second-cas-check':'data-xu-cas-check="ncwu"')+'>检查'+escapeHtml(provider.name)+'登录</button>'+
      '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>':
      '<p class="tiny muted">站内安全会话尚未就绪，当前不会收取学校密码。</p>')+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
-    escapeHtml(record.authFlow.officialLoginUrl)+'">打开第二课堂官网</a></div>':
+    escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">'+(officialCas?'打开第二课堂官网':'打开学校官网')+'</a></div>':
     canLogin?
     '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
     '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
@@ -200,9 +201,10 @@
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
     '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
-    '<p>课表解析与只读接口已有代码；只有账号授权、学校主体及逐项一致性全部验收通过后才能自动同步。</p>'+
-    '<button type="button" class="secondary" data-xu-ncwu-check>检测华水教务真实登录入口</button>'+
-    '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p></details>':
+    '<p>已准备课表只读接口与本人身份检查；完整课表与来源键未验收时禁止自动同步。</p>'+
+    (!nativeNcwu?'<button type="button" class="secondary" data-xu-ncwu-check>检测华水教务真实登录入口</button>'+
+    '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p>':'')+
+    '</details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
@@ -215,7 +217,7 @@
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
-    (officialCas?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
+    ((officialCas||nativeNcwu)?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
   }).join('');
   return '<section class="card xu-private-panel" aria-label="统一数据连接中心">'+
@@ -387,20 +389,24 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
   document.addEventListener('click',async event=>{
-   const button=event.target.closest?.('[data-xu-second-cas-check]');
+   const button=event.target.closest?.('[data-xu-cas-check],[data-xu-second-cas-check]');
    if(!button)return;
    const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-second-cas-result]');
    if(!result)return;
+   const checkProvider=button.dataset.xuCasCheck||'second_class';
+   if(!['ncwu','second_class'].includes(checkProvider))return;
    button.disabled=true;result.textContent='正在向学校确认登录方式…';
    try{
-    const response=await fetch('/api/v1/connections/second_class/preflight',{
+    const response=await fetch('/api/v1/connections/'+checkProvider+'/preflight',{
      method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
-    if(!response.ok||!info?.loginSupported){
+    if(!response.ok||(checkProvider==='ncwu'?!info?.nativeLoginReady:!info?.loginSupported)){
      result.textContent=info?.status==='server_session_vault_unavailable'?
       '校序后端安全会话尚未配置，请先完成服务器配置。':
+      info?.status==='schedule_review_pending'?
+      '学校普通登录表单已识别，但完整课表及来源编号的真人验收尚未完成；暂不收集密码。':
       info?.status==='upstream_unavailable'?
       '暂时无法访问学校登录服务；没有获取或保存学校账号。':
       '学校当前要求交互验证或不支持安全的普通密码表单；不会绕过验证或要求安装脚本。';
@@ -409,7 +415,7 @@
     // The trusted backend has inspected a simple current CAS password form.
     // Only now does this page request school account credentials.
     const form=document.createElement('form');
-    form.dataset.xuSchoolLogin='second_class';
+    form.dataset.xuSchoolLogin=checkProvider;
     form.autocomplete='on';
     const accountLabel=document.createElement('label');
     accountLabel.textContent='学校学工号';
@@ -426,8 +432,26 @@
     const hint=document.createElement('p');
     hint.className='tiny muted';
     hint.textContent='通过校序 HTTPS 后端向学校 CAS 验证；密码不保存。成功后仅把学校会话加密保存到 D1。';
+    if(checkProvider==='ncwu'){
+     const extra=document.createElement('div');
+     extra.className='xu-school-secondary';
+     const extraUser=document.createElement('label');
+     extraUser.textContent='教务独立账号（若学校二次登录要求）';
+     const extraUserInput=document.createElement('input');
+     extraUserInput.name='academicUsername';extraUserInput.maxLength=128;
+     extraUserInput.autocomplete='off';extraUser.appendChild(extraUserInput);
+     const extraPass=document.createElement('label');
+     extraPass.textContent='教务独立密码（若学校二次登录要求）';
+     const extraPassInput=document.createElement('input');
+     extraPassInput.name='academicPassword';extraPassInput.type='password';
+     extraPassInput.maxLength=512;extraPassInput.autocomplete='off';
+     extraPass.appendChild(extraPassInput);
+     extra.append(extraUser,extraPass);
+     form.appendChild(extra);
+    }
     const submit=document.createElement('button');
-    submit.type='submit';submit.className='primary';submit.textContent='登录并同步本人二课';
+    submit.type='submit';submit.className='primary';
+    submit.textContent=checkProvider==='ncwu'?'登录并同步本人课表':'登录并同步本人二课';
     const status=document.createElement('p');
     status.dataset.xuSchoolResult='';status.setAttribute('role','status');
     status.setAttribute('aria-live','polite');
@@ -445,10 +469,19 @@
    const status=form.querySelector('[data-xu-school-result]');
    const username=form.elements.namedItem('username')?.value||'';
    const input=form.elements.namedItem('password'),password=input?.value||'';
+   const extraUser=form.elements.namedItem('academicUsername');
+   const extraPass=form.elements.namedItem('academicPassword');
+   const academicUsername=extraUser?.value?.trim()||'';
+   const academicPassword=extraPass?.value||'';
    if(input)input.value='';
+   if(extraPass)extraPass.value='';
+   if(Boolean(academicUsername)!==Boolean(academicPassword)){
+    status.textContent='教务独立账号与密码必须同时填写或同时留空';return;
+   }
    submit.disabled=true;status.textContent='正在验证学校账号与读取数据…';
    try{
-    await schoolPost(provider,'login',{username,password});
+    await schoolPost(provider,'login',{username,password,
+     ...(provider==='ncwu'&&academicUsername?{academicUsername,academicPassword}:{})});
     await connect();
     announceUpdated();
    }catch(e){status.textContent=e.message||'学校账号连接失败';}

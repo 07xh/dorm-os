@@ -11,12 +11,21 @@ export async function onRequestGet(context){
   return json({status:'unknown_provider',loginSupported:false},404);
  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
  if(provider==='ncwu'){
-  // A real GET probe is deliberately separate from the adapter registration.
-  // It must not imply school authentication, successful timetable read, or
-  // permission to submit credentials to an unconfigured service.
+  // Keep the existing credential-free official-site probe. An ordinary
+  // form is NOT the same as a verified, configured account connector.
   const result=await probeNcwuLogin();
-  return json({status:result.mode,loginSupported:result.loginSupported===true,
-   sessionVaultReady:vaultReady,schoolAuthorized:false,automaticSync:false},200);
+  const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');
+  let nativeLoginReady=false,mode=result.mode;
+  if(adapter&&typeof adapter.preflight==='function'&&result.loginSupported===true){
+   try{
+    const readiness=await adapter.preflight();
+    nativeLoginReady=readiness.loginSupported===true;
+    mode=readiness.mode;
+   }catch{mode='upstream_unavailable';}
+  }
+  return json({status:mode,loginSupported:result.loginSupported===true,
+   nativeLoginReady,sessionVaultReady:vaultReady,
+   schoolAuthorized:false,automaticSync:false},200);
  }
  if(!vaultReady)
   return json({status:'server_session_vault_unavailable',loginSupported:false},503);
