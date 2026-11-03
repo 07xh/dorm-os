@@ -53,7 +53,7 @@ test('school first login opts device into owner-verified restore and reloads rea
  await row.locator('.xu-chaoxing-direct summary').click();
  await row.locator('input[name="username"]').fill('SYNTHETIC_XUEXITONG_ACCOUNT');
  await row.locator('input[name="password"]').fill('SYNTHETIC_SECRET');
- await row.locator('button[type="submit"]').click();
+ await row.locator('form[data-xu-school-login="chaoxing"] button[type="submit"]').click();
  await expect.poll(()=>page.evaluate(()=>
   localStorage.getItem('xiaoxu-cloud-opted-in-v1'))).toBe('1');
  await expect.poll(()=>page.evaluate(()=>window.XiaoxuAcademic.hasData('assignments'))).toBe(true);
