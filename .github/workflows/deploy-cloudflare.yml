@@ -59,3 +59,9 @@ jobs:
           fi
           node scripts/verify-release.mjs "$site"
           echo "Verified production release: $site" >> "$GITHUB_STEP_SUMMARY"
+      - name: Read-only audit of Academic OS D1 and Access binding names
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/audit-cloudflare-academic-production.mjs
