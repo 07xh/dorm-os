@@ -354,6 +354,10 @@
     await schoolPost(provider,'login',{username,password});
     if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
     await connect();
+    if(provider==='chaoxing')await Promise.allSettled([
+     root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
+     root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
+    ]);
     announceUpdated();
    }catch(e){status.textContent=e.message||'学校账号连接失败';}
    finally{if(submit.isConnected)submit.disabled=false;}
@@ -368,7 +372,15 @@
    try{
     await schoolPost(provider,removing?'disconnect':'sync');
     if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
-    await connect();announceUpdated();
+    await connect();
+    if(provider==='chaoxing'){
+     if(removing)root.XiaoxuChaoxingInbox?.disconnect?.();
+     else await Promise.allSettled([
+      root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
+      root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
+     ]);
+    }
+    announceUpdated();
    }catch(e){root.alert(e.message||'学校连接操作失败');}
    finally{if(button.isConnected)button.disabled=false;}
   });
