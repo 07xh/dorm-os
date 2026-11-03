@@ -207,7 +207,13 @@
      '<div class="xu-school-connect">'+
      '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
-     '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
+     '<details class="xu-chaoxing-import"><summary>已在官方学习通登录？导入本人有效会话（无需校园密码）</summary>'+
+      '<p class="tiny muted">仅接受你从本人官方浏览器导出的 Cookie JSON 数组，须包含 name、value、domain、path。校序不会跨站读取 Cookie；原始域名不能更改，导入相当于提供账号登录凭证，请只在你自己的校序 HTTPS 站点操作，切勿在聊天中发送。</p>'+
+      '<form data-xu-chaoxing-import-form><label>官方浏览器 Cookie JSON（仅本次使用）'+
+      '<textarea name="cookieExport" rows="4" maxlength="15500" spellcheck="false" autocomplete="off" required placeholder=\'[{"name":"名称","value":"值","domain":".chaoxing.com","path":"/"}]\'></textarea></label>'+
+      '<p class="tiny muted">仅在服务器验证华水本人身份、读取到真实收件箱数据后，才会加密保存会话；失败不会保存。请勿导入其他人的 Cookie。</p>'+
+      '<button type="submit" class="primary">验证并连接本人学习通</button><p class="tiny" role="status" aria-live="polite" data-xu-chaoxing-import-result></p></form></details>'+
+      '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
      '<p class="tiny muted">只有单独设置过超星账号密码时才使用；这个入口是超星独立登录接口，不是华水统一认证。</p>'+
      '<form data-xu-school-login="chaoxing" autocomplete="on">'+
      '<label>超星独立账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="超星独立账号"></label>'+
@@ -375,10 +381,10 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
- const schoolMessage={upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
+ const schoolMessage={invalid_cookie_format:'会话格式有误，须保留 Cookie 原始域名与路径；本次没有保存',upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing','second_class'].includes(provider)||
-     !['login','confirm','sync','disconnect'].includes(verb))
+     !['login','confirm','import','sync','disconnect'].includes(verb))
    throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
    method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
@@ -642,6 +648,38 @@
    }catch(e){
     status.textContent=e.message||'课表核对未完成';
     if(button.isConnected)button.disabled=false;
+   }
+  });
+  document.addEventListener('submit',async event=>{
+   const form=event.target.closest?.('form[data-xu-chaoxing-import-form]');
+   if(!form)return;
+   event.preventDefault();
+   const submit=form.querySelector('button[type="submit"]');
+   const status=form.querySelector('[data-xu-chaoxing-import-result]');
+   const input=form.elements.namedItem('cookieExport');
+   const raw=String(input?.value||'').trim();
+   if(input)input.value=''; // Do not retain secrets in the DOM or browser storage.
+   let cookies;
+   try{cookies=JSON.parse(raw);}catch{
+    status.textContent='Cookie JSON 格式无效，本次没有发送任何会话';return;
+   }
+   if(!Array.isArray(cookies)||!cookies.length||cookies.length>40){
+    status.textContent='只支持最多 40 条的 Cookie JSON 数组';return;
+   }
+   submit.disabled=true;status.textContent='正在验证官方会话并读取本人真实数据…';
+   try{
+    await schoolPost('chaoxing','import',{cookies});
+    // Never log or save a raw cookie. Reuse the existing source readers.
+    cookies=null;
+    await connect();
+    lastSchoolAutoSyncAttempt=Date.now();
+    announceUpdated();
+    root.dispatchEvent(new Event('xiaoxu-school-authorization-connected'));
+   }catch(error){
+    status.textContent=error.message||'官方会话未通过校验，未连接';
+   }finally{
+    cookies=null;
+    if(submit.isConnected)submit.disabled=false;
    }
   });
   document.addEventListener('submit',async event=>{
