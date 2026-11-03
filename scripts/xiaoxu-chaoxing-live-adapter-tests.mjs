@@ -151,6 +151,37 @@ const relinked=await connectSchoolAccount({db:db2,userId:'owner1',provider:'chao
 assert.equal(relinked.connected,true);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare("SELECT status FROM academic_connections WHERE provider='chaoxing'").get().status,'connected');
+
+// Concurrent relink regression: the old reader fails after a NEW successful
+// login has already replaced its encrypted vault row. Old failure must not
+// revoke the new login or change the trusted connection status to "expired".
+let replacementRow=null;
+const staleReaderAdapter={
+ provider:'chaoxing',
+ async forSession({userId}){
+  assert.equal(userId,'owner1');
+  return {provider:'chaoxing',async verifySession(){
+   notices.length=0;
+   const fresh=await connectSchoolAccount({db:db2,userId:'owner1',
+    provider:'chaoxing',adapter,username:'my-account',password:'test-password',secret});
+   assert.equal(fresh.connected,true);
+   replacementRow=sqlite.prepare(
+    "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+   ).get();
+   throw Object.assign(new Error('old session expired'),{code:'authorization_failed'});
+  }};
+ }
+};
+await assert.rejects(
+ ()=>refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',
+   adapter:staleReaderAdapter,secret}),e=>e.code==='session_expired');
+assert.deepEqual(sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get(),replacementRow,'stale sync must not delete a successful new login');
+assert.equal(sqlite.prepare(
+ "SELECT status FROM academic_connections WHERE user_id='owner1' AND provider='chaoxing'"
+).get().status,'connected','stale failure must not mark the new owner session expired');
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 sqlite.close();
 console.log('Chaoxing trusted adapter: real request shape, cookie-scoped identity, HAR paging and connection registration passed');
