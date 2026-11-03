@@ -24,7 +24,8 @@
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
  async function get(kind){
-  const resp=await fetch('/api/v1/verified/'+encodeURIComponent(kind),{
+  const path=kind==='second-class'?'/api/v1/second-class':'/api/v1/verified/'+encodeURIComponent(kind);
+  const resp=await fetch(path,{
    headers:{accept:'application/json'},
    cache:'no-store',credentials:'same-origin',redirect:'error'
   });
@@ -43,7 +44,7 @@
    if(result.status==='fulfilled'&&Array.isArray(result.value?.records)&&
        ['ready','stale','not_connected'].includes(result.value.status)){
      const v=result.value;
-     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import'};
+     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import',summary:v.summary||null,automaticSync:v.automaticSync===true};
    }else feeds[kind]={...feeds[kind],status:'error'};
   }
   error=results.some(v=>v.status==='rejected')?'部分个人数据源暂时不可用；不清空历史会话记录。':'';
@@ -94,7 +95,15 @@
  function panel(kind){
   if(!hasData(kind))return '';
   const s=state(kind);
-  const rows=s.records.length?s.records.map(record=>{
+  const summary=kind==='second-class'&&s.summary?
+   '<div class="xu-second-class-summary" aria-label="第二课堂已保存记录统计">'+
+   '<div><strong>'+escapeHtml(s.summary.recordCount)+'</strong><small>已保存活动记录</small></div>'+
+   ['recordedHours','recordedPoints'].map((key,i)=>{
+     const v=s.summary[key]||{},name=i===0?'记录学时':'记录积分';
+     return '<div><strong>'+escapeHtml(v.sum===null||v.sum===undefined?'未取得':v.sum)+
+       '</strong><small>'+name+' · '+escapeHtml(v.knownCount||0)+' 条含该字段</small></div>';
+   }).join('')+'</div><p class="tiny muted">以上仅为已保存活动记录中有数值字段的合计，不等于学校官方累计学时或积分；字段缺失时不按零计算。</p>':'';
+ const rows=s.records.length?s.records.map(record=>{
    if(kind==='schedule'){
     const weeks=Array.isArray(record.weeks)?record.weeks.join('、'):'';
     return '<div class="xu-private-item"><strong>'+escapeHtml(record.title)+'</strong><span>'+
@@ -112,7 +121,7 @@
   }).join(''):'<div class="friendly-empty">本次保存的快照为空；不代表真实平台目前没有任务。</div>';
   return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
    '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
-   (s.status==='stale'?' · 请重新同步':'')+'</p><div class="xu-private-list">'+rows+'</div></section>';
+   (s.status==='stale'?' · 请重新同步':'')+'</p>'+summary+'<div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all',localTasks=[]){
   if(!hasData('assignments')||filter==='done')return '';
