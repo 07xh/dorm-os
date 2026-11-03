@@ -1,43 +1,104 @@
 import { test, expect } from '@playwright/test';
 
-test('a new visitor does not fetch private session endpoints on page load', async ({ page }) => {
-  const paths = [];
+test('new visitor sees login in 我的 without private requests or duplicate header navigation', async ({ page }) => {
+  const requests = [];
   await page.route('**/api/v1/**', async route => {
-    paths.push(new URL(route.request().url()).pathname);
+    requests.push(new URL(route.request().url()).pathname);
     await route.fulfill({status:401, contentType:'application/json', body:'{"authenticated":false}'});
   });
   await page.goto('/');
-  await expect(page.locator('[data-owner-session-link]')).toHaveText('云端登录');
-  expect(paths).toEqual([]);
+  expect(requests).toEqual([]);
+  await expect(page.locator('[data-owner-session-link]')).toHaveCount(0);
+  await page.evaluate(() => window.setPage('profile'));
+  await expect(page.locator('[data-owner-auth-entry-title]')).toHaveText('登录校序');
+  expect(requests).toEqual([]);
+  const path = new URL(page.url()).pathname;
+  await page.locator('[data-owner-auth-open]').click();
+  const dialog=page.locator('#xuOwnerDialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[data-owner-auth-form]')).toBeVisible();
+  await expect(dialog.getByLabel('个人密码')).toHaveAttribute('minlength','8');
+  expect(new URL(page.url()).pathname).toBe(path);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 });
 
-test('owner login is remembered for display and logout clears the opt-in marker', async ({ page }) => {
+test('login page remains a compact fallback with accessible password visibility', async ({ page }) => {
+  await page.goto('/login/');
+  await expect(page.getByRole('heading', {name:'登录'})).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('Cloudflare Pages Secrets');
+  const size = await page.locator('main').boundingBox();
+  expect(size?.height).toBeLessThan(440);
+  const dims=await page.evaluate(()=>({
+    documentWidth:document.documentElement.scrollWidth,
+    viewportWidth:document.documentElement.clientWidth,
+    minLength:document.getElementById('passphrase').minLength
+  }));
+  expect(dims.documentWidth).toBeLessThanOrEqual(dims.viewportWidth+1);
+  expect(dims.minLength).toBe(8);
+  await page.getByRole('button',{name:'显示密码'}).click();
+  await expect(page.locator('#passphrase')).toHaveAttribute('type','text');
+  await page.getByRole('button',{name:'隐藏密码'}).click();
+  await expect(page.locator('#passphrase')).toHaveAttribute('type','password');
+});
+
+test('in-page login stays on 我的, server state wins and logout clears remembered marker', async ({ page }) => {
   let signedIn = false;
+  const calls = [];
   await page.route('**/api/v1/auth/**', async route => {
-    const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/login')) {
+    const pathname=new URL(route.request().url()).pathname;
+    calls.push(pathname);
+    if(pathname.endsWith('/login')){
       signedIn = true;
-      return route.fulfill({status:200, contentType:'application/json', body:'{"authenticated":true}'});
+      return route.fulfill({status:200,contentType:'application/json',body:'{"authenticated":true}'});
     }
-    if (path.endsWith('/logout')) {
+    if(pathname.endsWith('/logout')){
       signedIn = false;
-      return route.fulfill({status:200, contentType:'application/json', body:'{"authenticated":false}'});
+      return route.fulfill({status:200,contentType:'application/json',body:'{"authenticated":false}'});
     }
-    return route.fulfill({
-      status:signedIn ? 200 : 401, contentType:'application/json',
-      body:JSON.stringify({authenticated:signedIn}),
-    });
+    return route.fulfill({status:signedIn?200:401,contentType:'application/json',
+      body:JSON.stringify({authenticated:signedIn})});
+  });
+  await page.goto('/');
+  expect(calls).toEqual([]);
+  await page.evaluate(()=>window.setPage('profile'));
+  await page.locator('[data-owner-auth-open]').click();
+  const dialog=page.locator('#xuOwnerDialog');
+  await expect(dialog).toBeVisible();
+  await dialog.locator('[data-owner-auth-password]').fill('q8r4t7y2');
+  await dialog.getByRole('button',{name:'安全登录'}).click();
+  await expect(dialog).toBeHidden();
+  expect(new URL(page.url()).pathname).toBe('/');
+  await expect(page.locator('[data-owner-auth-entry-title]')).toHaveText('云端已连接');
+  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_login_seen'))).toBe('1');
+  await page.locator('[data-owner-auth-open]').click();
+  await expect(dialog.locator('[data-owner-auth-form]')).toBeHidden();
+  await dialog.getByRole('button',{name:'退出当前设备'}).click();
+  await expect(dialog.locator('[data-owner-auth-form]')).toBeVisible();
+  await expect(page.locator('[data-owner-auth-entry-title]')).toHaveText('登录校序');
+  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_login_seen'))).toBeNull();
+});
+
+test('standalone deep-link still uses the same login flow', async ({ page }) => {
+  let signedIn=false;
+  await page.route('**/api/v1/auth/**', async route => {
+    const path=new URL(route.request().url()).pathname;
+    if(path.endsWith('/login')) {
+      signedIn=true;return route.fulfill({status:200,contentType:'application/json',body:'{"authenticated":true}'});
+    }
+    if(path.endsWith('/logout')) {
+      signedIn=false;return route.fulfill({status:200,contentType:'application/json',body:'{"authenticated":false}'});
+    }
+    return route.fulfill({status:signedIn?200:401,contentType:'application/json',body:JSON.stringify({authenticated:signedIn})});
   });
   await page.goto('/login/');
   await page.locator('#passphrase').fill('unit-test-only-passphrase-strong');
-  await page.getByRole('button', {name:'安全登录'}).click();
+  await page.getByRole('button',{name:'安全登录'}).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:4173\/$/);
-  await expect(page.locator('[data-owner-session-link]')).toHaveText('云端已连接');
-  expect(await page.evaluate(() => localStorage.getItem('xiaoxu_owner_login_seen'))).toBe('1');
-
-  await page.locator('[data-owner-session-link]').click();
+  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_login_seen'))).toBe('1');
+  await page.goto('/login/');
   await expect(page.locator('#form')).toBeHidden();
   await page.getByRole('button',{name:'退出当前设备'}).click();
   await expect(page.locator('#form')).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('xiaoxu_owner_login_seen'))).toBeNull();
+  expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_login_seen'))).toBeNull();
 });
