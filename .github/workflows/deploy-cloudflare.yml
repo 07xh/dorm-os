@@ -62,6 +62,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install Pages Functions runtime dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
       - name: Mark this immutable release with its exact commit
         run: |
           node -e "require('node:fs').writeFileSync('public/revision.json', JSON.stringify({commit:process.env.RELEASE_SHA, builtAt:new Date().toISOString()},null,2)+'\n')"
