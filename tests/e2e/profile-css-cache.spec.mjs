@@ -12,7 +12,9 @@ test('a controlled service worker fetches current profile CSS despite obsolete c
     const names=(await caches.keys()).filter(name=>name.startsWith('dorm-os-shell-'));
     if(names.length!==1) throw Error('Expected one active offline shell; got '+names.join(', '));
     const cache=await caches.open(names[0]);
-    await cache.put('/xiaoxu-owner-auth.css',
+    const stylesheet=document.querySelector('link[href*="xiaoxu-owner-auth.css"]');
+    if (!stylesheet) throw Error('Owner CSS link missing');
+    await cache.put(stylesheet.href,
       new Response('/* obsolete CSS from a previous release */', {
         headers:{'Content-Type':'text/css; charset=utf-8'}
       }));
