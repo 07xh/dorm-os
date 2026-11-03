@@ -29,7 +29,7 @@ db.prepare('INSERT INTO academic_provider_sessions VALUES(?,?,?,?,?,?)').run(
  'synthetic_owner','second_class','SYNTHETIC_CIPHER2','SYNTHETIC_NONCE2',
  '2026-11-30T00:00:00.000Z','2026-11-03T00:00:00.000Z');
 assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
-assert.deepEqual(db.prepare('PRAGMA quick_check').all(),[{quick_check:'ok'}]);
+assert.equal(db.prepare('PRAGMA quick_check').get()?.quick_check,'ok');
 assert.equal(classifySecondClassVault({tableSql:code(),columns:col(),
  nextTableExists:true}),'unsafe_partial_migration');
 assert.equal(classifySecondClassVault({tableSql:'CREATE TABLE academic_provider_sessions (bad TEXT)',columns:[{name:'bad'}]}),'unexpected_schema');
