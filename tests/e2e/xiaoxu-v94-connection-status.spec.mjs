@@ -26,7 +26,9 @@ test('verified owner session automatically reads connection status without loadi
  await page.reload();
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  await expect(center).toContainText('校序连接状态已读取');
- await expect(center.locator('[data-school-unavailable]')).toHaveCount(3);
+ await expect(center.locator('[data-school-unavailable]')).toHaveCount(2);
+ await expect(center.locator('[data-xu-second-class-official-only]')).toHaveCount(1);
+ await expect(center.locator('[data-xu-second-cas-check]')).toHaveCount(0);
  await expect(center.locator('form[data-xu-school-login]')).toHaveCount(0);
  await expect(center.getByRole('button',{name:'读取我的学业数据'})).toBeVisible();
  expect(connections).toBe(1,'server-verified owner triggers exactly one status read');
