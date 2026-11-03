@@ -29,7 +29,7 @@ async function fakeFetch(url,options){
   assert.equal(headers.get('x-requested-with'),'XMLHttpRequest');
   const form=new URLSearchParams(options.body);
   assert.equal(form.get('type'),'2');
-  assert.equal(form.get('year'),'2026');
+  assert.equal(form.get('year'),new Intl.DateTimeFormat('en-US',{year:'numeric',timeZone:'Asia/Shanghai'}).format(new Date()));
   notices.push(form.get('lastValue'));
   if(notices.length===1)return new Response(JSON.stringify({status:true,notices:{
    lastPage:0,lastGetId:'F'.repeat(32),list:[item]}}),{status:200});
@@ -37,7 +37,7 @@ async function fakeFetch(url,options){
  }
  throw Error('unexpected request');
 }
-const adapter=createChaoxingSchoolAdapter({fetchImpl:fakeFetch,clock:()=>Date.parse('2026-11-03T13:00:00Z')});
+const adapter=createChaoxingSchoolAdapter({fetchImpl:fakeFetch,clock:()=>Date.now()});
 assert.equal(adapter.provider,'chaoxing');
 const login=await adapter.login({username:'my-account',password:'test-password'});
 assert.equal(login.session.schema,'chaoxing-session-v1');
