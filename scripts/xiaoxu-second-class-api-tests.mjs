@@ -25,7 +25,7 @@ assert.throws(()=>projectSecondClass([{externalId:'wrong',title:'invalid',cookie
 const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
 for(const n of ['0001_academic_core.sql','0003_academic_verified_snapshots.sql',
- '0008_academic_second_class_source.sql']){
+ '0008_academic_second_class_source.sql','0009_ncwu_second_class_official_scores.sql']){
  sql.exec(readFileSync(new URL('../migrations/'+n,import.meta.url),'utf8'));
 }
 const db={
@@ -91,6 +91,7 @@ try{
  assert.deepEqual(body.records,[]);
  assert.equal(body.summary,null);
  assert.equal(body.automaticSync,false);
+ assert.equal(body.officialScore,null,'imports have no official totals');
  const idA=(await verifyAcademicAccess(req(jwtA).request,env)).userId;
  const idB=(await verifyAcademicAccess(req(jwtB).request,env)).userId;
  const at=new Date().toISOString();
