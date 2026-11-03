@@ -38,6 +38,29 @@ async function fakeFetch(url,options){
  }
  throw Error('unexpected request');
 }
+// Regression: an upstream redirect must never send cookies to another HTTPS port.
+let rejectedPortFetches=0;
+const portAdapter=createChaoxingSchoolAdapter({fetchImpl:async()=>{
+ rejectedPortFetches++;
+ if(rejectedPortFetches===1)return new Response(null,{status:302,headers:{
+  location:'https://passport2.chaoxing.com:8443/fanyalogin'}});
+ throw Error('Disallowed port must be rejected before a second request');
+}});
+await assert.rejects(portAdapter.login({username:'synthetic',password:'synthetic-secret'}),
+ e=>e.code==='upstream_unavailable');
+assert.equal(rejectedPortFetches,1);
+
+// Regression: a 307/308 cannot change a password POST into an untrusted GET.
+let rejectedRedirectFetches=0;
+const redirectAdapter=createChaoxingSchoolAdapter({fetchImpl:async()=>{
+ rejectedRedirectFetches++;
+ return new Response(null,{status:307,headers:{
+  location:'https://i.chaoxing.com/base'}});
+}});
+await assert.rejects(redirectAdapter.login({username:'synthetic',password:'synthetic-secret'}),
+ e=>e.code==='interactive_login_required');
+assert.equal(rejectedRedirectFetches,1);
+
 const adapter=createChaoxingSchoolAdapter({fetchImpl:fakeFetch,clock:()=>Date.now()});
 assert.equal(adapter.provider,'chaoxing');
 const login=await adapter.login({username:'my-account',password:'test-password'});
