@@ -27,6 +27,9 @@ for (const feature of ['function dashboard()', 'function lifePage()', 'function 
 for (const old of ['REDMI Book 14 2025', 'XIAOMI_CONNECT_TYPE', '小米互联 externaltype']) {
   if (html.includes(old)) throw new Error('Deprecated laptop-only NFC behavior: '+old);
 }
+if (!html.includes('<link rel="stylesheet" href="/xiaoxu-base.css">')) throw Error('Base CSS must remain loaded before themed layers');
+if (html.includes('<style>')) throw Error('Legacy inline CSS must not return');
+for (const stale of ['function devicesPage()', 'function academicSourceHealth()', 'function checkAcademicSources(']) if (html.includes(stale)) throw Error('Retired placeholder logic: '+stale);
 if (!html.includes("theme: 'light'")) throw new Error('V3.3 default light theme missing');
 if (!html.includes('noopener noreferrer')) throw new Error('Safe external links missing');
 for (const feature of ["function homeWidgetContent(id)","function homeLayoutDialog()","homeLayout: defaultHomeLayout()","data-home-widget-up","class=\"home-widget-grid v4-main-widgets x-v7-home-grid\""]) if (!html.includes(feature)) throw new Error('Missing V3.6 dashboard feature: '+feature);

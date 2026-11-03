@@ -1,37 +1,26 @@
 import {test,expect} from '@playwright/test';
-const data={
- schema:'xiaoxu/academic-readiness-v1',checkedAt:'2026-11-03T06:00:00.000Z',
- kind:'public-entry-reachability-only',personalData:false,
- accountConnected:false,fullyVerified:false,
- sources:[
-  {id:'kingo',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',reachability:'responded',httpStatus:302,accountStatus:'not-connected'},
-  {id:'chaoxing',name:'学习通（华水学堂）',url:'https://ncwu.fanya.chaoxing.com/portal',reachability:'unavailable',httpStatus:503,accountStatus:'not-connected'},
-  {id:'second',name:'第二课堂',url:'https://dekt.ncwu.edu.cn/',reachability:'responded',httpStatus:200,accountStatus:'not-connected'}
- ]};
-test('settings shows dynamic official-source network checks, not forged account connection',async({page})=>{
- let count=0;
- await page.route('**/api/academic/status',async route=>{
-  count++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+
+// Public source reachability stays in the production release monitor,
+// not in a competing school-login UI.
+test('settings has one real provider connection center, without the redundant probe',async({page})=>{
+ let calls=0;
+ await page.route('**/api/academic/status',route=>{
+  calls++;return route.fulfill({status:200,contentType:'application/json',body:'{}'});
  });
  await page.goto('/#settings');
- await page.locator('.xu-advanced-tools').filter({hasText:'官网连通性诊断'}).locator('summary').first().click();
- await expect(page.locator('.x-v84-health-row')).toHaveCount(3);
- await expect(page.locator('.x-v84-health-row').nth(0)).toContainText('官网有响应');
- await expect(page.locator('.x-v84-health-row').nth(1)).toContainText('暂未获取响应');
- await expect(page.locator('.x-v84-health-row').nth(2)).toContainText('官网有响应');
- await expect(page.locator('.x-v84-source-health')).toContainText('个人账号尚未连接');
- await expect(page.locator('.x-v84-source-health')).toContainText('检查于');
- await expect(page.locator('body')).not.toContainText('账号已登录');
- expect(count).toBe(1);
- await page.locator('[data-action="check-academic-sources"]').click();
- await expect.poll(()=>count).toBe(2);
+ await expect(page.getByRole('region',{name:'统一数据连接中心'})).toBeVisible();
+ await expect(page.locator('.xu-connection-source')).toHaveCount(3);
+ await expect(page.locator('.x-v84-source-health')).toHaveCount(0);
+ await expect(page.locator('[data-action="check-academic-sources"]')).toHaveCount(0);
+ await expect(page.locator('text=安全与功能边界')).toHaveCount(0);
+ expect(calls).toBe(0);
 });
 
-test('cannot present unverified or failed readiness response as authenticated academic data',async({page})=>{
- await page.route('**/api/academic/status',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...data,accountConnected:true})}));
+test('legacy task import is still usable without a duplicate source-status section',async({page})=>{
  await page.goto('/#settings');
- await page.locator('.xu-advanced-tools').filter({hasText:'官网连通性诊断'}).locator('summary').first().click();
- await expect(page.locator('.x-v84-source-health')).toContainText('网络检测暂不可用');
- await expect(page.locator('.x-v84-source-health')).not.toContainText('官网有响应');
- await expect(page.locator('body')).toContainText('公开入口检测不代表本人已授权');
+ const legacy=page.locator('.xu-advanced-tools').filter({hasText:'兼容旧版学习任务导入'});
+ await legacy.locator('summary').click();
+ await expect(legacy.locator('[data-action="import-task-batch"]')).toBeVisible();
+ await expect(page.locator('.task-connection-dot')).toHaveCount(0);
+ await expect(page.locator('#app')).not.toContainText('尚未实现');
 });
