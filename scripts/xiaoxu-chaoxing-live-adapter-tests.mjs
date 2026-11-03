@@ -51,7 +51,7 @@ for(const bad of [
  [{name:'cx_s',value:'ok',domain:'chaoxing.com',path:'/',hostOnly:true}],
  [{name:'cx_s',value:'ok',domain:'i.chaoxing.com',path:'/',hostOnly:false},
   {name:'cx_s',value:'also',domain:'i.chaoxing.com',path:'/',hostOnly:false}],
- [{name:'cx_s',value:'ok\\nFake',domain:'.chaoxing.com',path:'/'}]
+ [{name:'cx_s',value:'ok;Fake',domain:'.chaoxing.com',path:'/'}]
 ])assert.throws(()=>validateChaoxingCookieExport(bad),
  e=>e.code==='invalid_cookie_format');
 const directlyImported=await adapter.importSession({cookies:officialCookies});
