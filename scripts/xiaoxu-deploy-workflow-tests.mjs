@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const yaml=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
 const verify=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
+const stamp=readFileSync(new URL('./stamp-release.mjs',import.meta.url),'utf8');
 assert.match(yaml,/workflow_run:\s*\n\s*workflows:\s*\["DORM OS CI"\]/,
  'Pages release must be triggered by complete main CI, not simultaneous pushes');
 assert.match(yaml,/types:\s*\[completed\]/);
@@ -15,7 +16,14 @@ assert.match(yaml,/github\.event_name == 'workflow_dispatch' && github\.ref == '
 assert.match(yaml,/RELEASE_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
 assert.equal((yaml.match(/ref:\s*\$\{\{ env\.RELEASE_SHA \}\}/g)||[]).length,2,
  'verification and deployment must checkout the exact CI-passed commit');
-assert.match(yaml,/process\.env\.RELEASE_SHA/);
+assert.match(yaml,/node scripts\/stamp-release\.mjs/,
+ 'Publishing must stamp the same SHA into HTML, worker and revision');
+assert.match(stamp,/process\.env\.RELEASE_SHA/);
+assert.match(stamp,/public\/index\.html/);
+assert.match(stamp,/public\/sw\.js/);
+assert.match(stamp,/public\/revision\.json/);
+assert.match(verify,/Canonical bookmark verified/);
+assert.match(verify,/name="xiaoxu-release"/);
 assert.match(verify,/process\.env\.RELEASE_SHA\|\|process\.env\.GITHUB_SHA/);
 assert.match(yaml,/if \[ "\$GITHUB_EVENT_NAME" = "workflow_dispatch" \]; then\s*\n\s*npm run test:e2e/,
  'manual dispatch still needs full E2E before deploying');
