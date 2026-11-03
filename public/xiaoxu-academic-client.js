@@ -389,7 +389,7 @@
   });
   root.addEventListener?.('focus',()=>{void autoRefreshChaoxing();});
   // Foreground-only polling; this is NOT a background Cron subscription.
-  root.setInterval?.(()=>{void autoRefreshChaoxing();},10*60*1000);
+  // Reuse the existing minute tick for both sources.
  }
  function announceUpdated(){
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
@@ -399,7 +399,12 @@
    if(!document.hidden)void maybeAutoRefreshSecondClass();
   });
   // Foreground-only checking; no hidden-tab school traffic.
-  setInterval(()=>{if(!document.hidden)void maybeAutoRefreshSecondClass();},60*1000);
+  setInterval(()=>{
+   if(!document.hidden){
+    void maybeAutoRefreshSecondClass();
+    void autoRefreshChaoxing();
+   }
+  },60*1000);
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-ncwu-check]');
    if(!button)return;
