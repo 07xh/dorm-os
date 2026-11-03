@@ -158,4 +158,23 @@ assert.ok(html.includes('document.addEventListener(\'visibilitychange\''));
 assert.ok(html.includes('refreshVisibleCloudTasks()'));
 assert.ok(html.includes('refreshVisibleCloudTasks(0)'));
 assert.ok(html.includes('refreshVisibleCloudTasks(60000)'));
+// Race regression: an old background GET captures the pre-PATCH state, then
+// arrives AFTER the PATCH and its fresh GET. The old snapshot must be ignored.
+pauseOnNextA=true;
+const beforePatch=serverRows.map(x=>({...x}));
+const stalePoll=a.client.refresh();
+assert.equal(typeof deliverPausedA,'function');
+await a.client.toggle('shared-1','todo');
+assert.equal(serverRows[0].revision,2);
+assert.equal(a.client.taskRows('open',[]).includes('两端任务'),true);
+deliverPausedA(make({items:beforePatch}));
+assert.equal(await stalePoll,false,'outdated polling result must be invalidated after PATCH');
+assert.equal(a.client.taskRows('open',[]).includes('两端任务'),true,
+ 'outdated polling result cannot undo a committed change');
+assert.equal(a.client.taskRows('done',[]).includes('两端任务'),false);
+assert.equal(b.client.taskRows('done',[]).includes('两端任务'),true,
+ 'the second device keeps its last loaded snapshot until a new sync');
+assert.equal(await b.client.refreshIfStale(0),true);
+assert.equal(b.client.taskRows('open',[]).includes('两端任务'),true);
+
 console.log('校序跨设备恢复：双客户端共享 D1 状态、返回刷新、请求去重、退出隔离、断网保留与恢复通过');
