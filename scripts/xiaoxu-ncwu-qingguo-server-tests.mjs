@@ -37,7 +37,8 @@ function detail(value='1-8周 一[1-2] '+room){
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
  redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,
- gbkLogin=false,optionalChallengeTab=false,principalHelpText=false}={}){
+ gbkLogin=false,optionalChallengeTab=false,principalHelpText=false,
+ principalPasswordField=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
@@ -99,6 +100,7 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
     'the official school cookie must be scoped to the school origin');
    principalReads++;
    const principalHtml=(principalHelpText?'<p>忘记密码？验证码帮助</p>':'')+
+    (principalPasswordField?'<input type="password" name="password">':'')+
     entry.replace('value="'+student+'"','value="'+identity+'"');
    return reply(200,principalHtml,rotateCookie&&principalReads===2?
     {'set-cookie':'QG_SESS=school-rotated; Path=/hsjw/; Secure'}:{});
@@ -171,6 +173,15 @@ const optionalRead=await optionalAdapter.forSession({
 });
 assert.equal((await optionalRead.verifySession()).identityBound,true);
 assert.equal(optionalSchool.calls.filter(c=>c.method==='POST').length,1);
+
+// A fake/principal-bearing login page must still be refused if it contains
+// an actual password-entry field, even when it also prints an #xh value.
+const principalLoginPage=school({directLogin:true,principalPasswordField:true});
+const principalGate=makeNcwuQingguoServerAdapter({
+ fetcher:principalLoginPage.fetcher,trustedSyncEnabled:true
+});
+await assert.rejects(()=>principalGate.login({username:student,password}),
+ e=>e instanceof NcwuQingguoError&&e.code==='authorization_failed');
 
 const directBlocked=school({directChallenge:true});
 const blocked=makeNcwuQingguoServerAdapter({
