@@ -30,7 +30,8 @@ for(const n of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
  '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
  '0005_academic_workspace.sql','0006_academic_scheduler.sql',
  '0007_academic_reminder_inbox.sql','0008_academic_second_class_source.sql',
- '0009_ncwu_second_class_official_scores.sql']){
+ '0009_ncwu_second_class_official_scores.sql',
+ '0014_academic_secondclass_personal_totals.sql']){
  sql.exec(readFileSync(new URL('../migrations/'+n,import.meta.url),'utf8'));
 }
 const db={
@@ -122,10 +123,16 @@ try{
  ],at,'personal-1');
  addBatch(idB,'trusted_readonly',[{externalId:'other-1',title:'另一用户的私有活动',hours:7}],
   at,'trusted-b');
+ sql.prepare("INSERT INTO academic_secondclass_personal_totals(user_id,captured_at,quality_score,volunteer_hours,updated_at) VALUES(?,?,?,?,?)")
+  .run(idA,at,5.5,2.25,at);
  r=await onRequestGet(req(jwtA));
  body=await r.json();
  assert.equal(body.status,'ready');
  assert.equal(body.provenance,'user_import');
+ assert.equal(body.officialScore,null,'browser import must not claim independent school attestation');
+ assert.equal(body.personalScore.qualityScore,5.5);
+ assert.equal(body.personalScore.volunteerHours,2.25);
+ assert.equal(body.personalScore.provenance,'user_browser_export');
  assert.equal(body.records.length,2);
  assert.equal(body.summary.recordedHours.knownCount,1);
  assert.equal(body.summary.recordedHours.sum,2);
@@ -137,6 +144,7 @@ try{
  assert.equal(other.records.length,1,'users cannot read each other');
  assert.equal(other.records[0].title,'另一用户的私有活动');
  assert.equal(other.officialScore,null,'no cross-tenant official scores');
+ assert.equal(other.personalScore,null,'no cross-tenant personal browser totals');
  // New school-attested batch and audit: do not fabricate background scheduling.
  sql.prepare("UPDATE academic_verified_batches SET provenance='trusted_readonly' WHERE user_id=? AND kind='second-class'")
   .run(idA);
@@ -151,6 +159,7 @@ try{
   }),at);
 body=await (await onRequestGet(req(jwtA))).json();
  assert.equal(body.provenance,'trusted_readonly');
+ assert.equal(body.personalScore,null,'trusted reading must not display browser-import totals as school official');
  assert.equal(body.officialScore.aggregate.qualityScore,7);
  assert.equal(body.officialScore.aggregate.volunteerHours,3);
  assert.equal(body.lastReadOnlyAt,at);

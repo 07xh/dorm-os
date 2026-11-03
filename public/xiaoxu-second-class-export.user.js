@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         校序 · 第二课堂本人同步 + 只读导出
 // @namespace    https://dorm-os-dk9.pages.dev/
-// @version      0.2.0
+// @version      0.3.0
 // @description  在本人已登录的华水第二课堂同步脱敏活动到校序（需先自愿配对，支持本机导出）
 // @match        https://dekt.ncwu.edu.cn/*
 // @run-at       document-idle
@@ -174,13 +174,13 @@
    typeof GM.setValue==='function'&&typeof GM.deleteValue==='function'&&
    typeof GM.xmlHttpRequest==='function';
  }
- async function postToXiaoxu(snapshot,token){
+ async function postToXiaoxu(payload,token){
   if(!BRIDGE_TOKEN.test(token))fail('校序配对密钥格式无效');
   const response=await GM.xmlHttpRequest({
    method:'POST',url:BRIDGE_URL,anonymous:true,timeout:25000,
    headers:{'content-type':'application/json','authorization':'Bearer '+token,
     'accept':'application/json'},
-   data:JSON.stringify(snapshot),responseType:'json'
+   data:JSON.stringify(payload),responseType:'json'
   });
   const status=response?.status;
   const body=typeof response?.response==='object'&&response.response!==null
@@ -207,8 +207,8 @@
   if(!force&&Date.now()-last<BRIDGE_CADENCE_MS)return;
   bridgeBusy=true;showBridgeStatus('正在读取本人活动并同步…');
   try{
-   const {snapshot}=await collect(readPost);
-   const result=await postToXiaoxu(snapshot,token);
+   const payload=await collect(readPost);
+   const result=await postToXiaoxu(payload,token);
    await GM.setValue(BRIDGE_LAST_KEY,Date.now());
    showBridgeStatus('已同步 '+result.count+' 条活动 · 个人只读数据');
   }catch(error){

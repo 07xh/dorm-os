@@ -4,6 +4,7 @@
  */
 import {validateSnapshot} from '../../../../../lib/academic-contract.mjs';
 import {savePersonalSnapshot,PersonalSnapshotError} from '../../../../../lib/academic-personal-snapshot.mjs';
+import {parsePersonalTotals,PersonalTotalsError} from '../../../../../lib/academic-secondclass-personal-totals.mjs';
 import {bridgeTokenFromRequest,validateBrowserBridge,BridgeError}
  from '../../../../../lib/academic-secondclass-browser-bridge.mjs';
 const ORIGIN='https://dekt.ncwu.edu.cn';
@@ -36,9 +37,18 @@ export async function onRequestPost(context){
   const {userId,tokenHash}=await validateBrowserBridge(context.env.ACADEMIC_DB,token);
   const raw=await req.text();
   if(raw.length>120000)return respond({error:'payload_too_large'},413);
-  let snapshot;
-  try{snapshot=validateSnapshot(JSON.parse(raw));}
-  catch{return respond({error:'invalid_snapshot'},422);}
+  let snapshot,personalTotals=null;
+  try{
+   const input=JSON.parse(raw);
+   const wrapped=input&&typeof input==='object'&&!Array.isArray(input)&&
+    Object.prototype.hasOwnProperty.call(input,'snapshot');
+   if(wrapped&&Object.keys(input).some(key=>!['snapshot','schoolReportedPreview'].includes(key)))
+    throw Error('unknown_upload_field');
+   snapshot=validateSnapshot(wrapped?input.snapshot:input);
+   personalTotals=wrapped?parsePersonalTotals(input.schoolReportedPreview):null;
+  }catch(e){
+   return respond({error:e instanceof PersonalTotalsError?'invalid_browser_totals':'invalid_snapshot'},422);
+  }
   // Every token is pinned to second_class and can ONLY upload that section.
   if(snapshot.kind!=='second-class'||snapshot.source!=='second_class')
    return respond({error:'invalid_provider'},422);
@@ -48,7 +58,17 @@ export async function onRequestPost(context){
     "UPDATE academic_secondclass_browser_bridges SET last_sync_at=?,last_status='synced',last_error_code=NULL WHERE user_id=? AND token_hash=? AND expires_at>?"
    ).bind(stamp,userId,tokenHash,stamp);
   try{
-   const saved=await savePersonalSnapshot(db,userId,snapshot,{afterStatements:[checked]});
+   const afterStatements=[checked];
+   if(personalTotals){
+    afterStatements.push(db.prepare(
+     "INSERT INTO academic_secondclass_personal_totals(user_id,captured_at,quality_score,volunteer_hours,updated_at,source) "+
+     "VALUES(?,?,?,?,?,'user_browser_export') ON CONFLICT(user_id) DO UPDATE SET "+
+     "captured_at=excluded.captured_at,quality_score=excluded.quality_score,"+
+     "volunteer_hours=excluded.volunteer_hours,updated_at=excluded.updated_at"
+    ).bind(userId,snapshot.capturedAt,personalTotals.qualityScore,
+     personalTotals.volunteerHours,stamp));
+   }
+   const saved=await savePersonalSnapshot(db,userId,snapshot,{afterStatements});
    return respond({...saved,syncMode:'user_browser_bridge'},202);
   }catch(e){
    if(e instanceof PersonalSnapshotError&&['outdated_snapshot','trusted_source_readonly'].includes(e.code))
