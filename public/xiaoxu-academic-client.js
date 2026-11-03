@@ -7,6 +7,7 @@
  const SOURCE={schedule:'青果课表',assignments:'学习通作业',grades:'青果成绩',exams:'青果考试','second-class':'第二课堂'};
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let connected=false,sources=[],error='',serviceHealth=null,healthError='';
+ let connectionStatusRead=false,connectionEpoch=0,connectionRequest=null;
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -20,6 +21,7 @@
    s.status==='error'?'连接失败':s.status==='loading'?'正在读取':'未连接';
  };
  function disconnect(){
+  connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
@@ -40,7 +42,7 @@
   const overview=await get('connections');
   if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
      overview.platforms.length!==3)throw Error('数据连接状态格式无效');
-  sources=overview.platforms;
+  sources=overview.platforms;connectionStatusRead=true;
   const results=await Promise.allSettled(TYPES.map(kind=>get(kind)));
   if(!connected)return;
   for(let i=0;i<TYPES.length;i++){
@@ -53,6 +55,26 @@
   }
   error=results.some(v=>v.status==='rejected')?'部分个人数据源暂时不可用；不清空历史会话记录。':'';
   return true;
+ }
+
+ // Read ONLY the connection summary on an already verified owner session.
+ // No credential collection, school sign-in, trusted upstream sync, or cloud opt-in.
+ function readConnectionStatus(){
+  if(connected||connectionStatusRead)return Promise.resolve(true);
+  if(connectionRequest)return connectionRequest;
+  const epoch=connectionEpoch;
+  const request=(async()=>{
+   const overview=await get('connections');
+   if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
+      overview.platforms.length!==3)throw Error('数据连接状态格式无效');
+   if(epoch!==connectionEpoch)return false;
+   sources=overview.platforms;
+   connectionStatusRead=true;
+   return true;
+  })();
+  connectionRequest=request;
+  void request.finally(()=>{if(connectionRequest===request)connectionRequest=null;}).catch(()=>{});
+  return request;
  }
  async function connect(){
   connected=true;
@@ -92,7 +114,7 @@
  const CONNECTION_LABELS={connected:'曾完成只读同步',partial:'上次同步不完整',
    expired:'学校授权已过期',error:'上次同步失败',not_connected:'未连接'};
  function connectionPanel(){
-  const active=connected;
+  const active=connected||connectionStatusRead;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=sources.find(x=>x.id===provider.id)||null;
    const label=record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
@@ -138,11 +160,12 @@
   return '<section class="card xu-private-panel" aria-label="统一数据连接中心">'+
    '<div class="card-header"><span class="card-title">数据连接</span>'+
    '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
-   (active?'校序云端已读取':'校序云端未读取')+'</span></div>'+
+   (connected?'校序云端已读取':connectionStatusRead?'校序连接状态已读取':'校序云端未读取')+'</span></div>'+
    '<p class="small muted xu-connection-intro">校序登录与学校账号授权是两回事。只有学校登录适配器可用时，才会显示账号输入框。</p>'+
 
    '<div class="xu-connection-bottom xu-connection-primary-actions">'+
    (!active?'<button type="button" class="primary" data-action="academic-connect">读取我的连接状态</button>':
+    !connected?'<button type="button" class="primary" data-action="academic-connect">读取我的学业数据</button>':
     '<button type="button" class="secondary" data-action="academic-refresh">刷新连接状态与数据</button>'+
     '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>')+
    '</div>'+
@@ -150,7 +173,7 @@
    '<div class="xu-connection-list">'+entries+'</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
    '<details class="xu-connection-diagnostics"><summary>校序数据服务自检</summary>'+
    '<p class="tiny muted">仅检测本人登录和 D1 学业表结构，不检查学校账号是否已连接，也不会修改数据。</p>'+
-   (active?'<button type="button" class="secondary" data-action="academic-health">只读检查数据库</button>':
+   (connected?'<button type="button" class="secondary" data-action="academic-health">只读检查数据库</button>':
     '<p class="small muted">请先使用上方按钮读取本人连接状态。</p>')+
    (serviceHealth?'<p class="small" aria-live="polite">'+
      (serviceHealth.databaseReady?'校序数据库结构完整；当前校序登录已通过。':
@@ -291,5 +314,5 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,diagnose,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);
