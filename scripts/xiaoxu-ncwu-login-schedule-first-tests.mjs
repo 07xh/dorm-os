@@ -133,6 +133,70 @@ const finalRow=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_se
 assert.ok(!JSON.stringify(finalRow).includes(syntheticCookie));
 assert.ok(!JSON.stringify(finalRow).includes(password));
 
+/* Persist only newly authenticated NCWU cookie values. The owner should
+ * be able to close/reopen the site without reusing a stale pre-refresh jar.
+ * These are synthetic, non-school tokens and never exposed by the API. */
+const rotateOwner='synthetic-rotating-owner';
+sqlite.prepare('INSERT INTO academic_users(id,created_at) VALUES(?,?)').run(rotateOwner,now);
+const rotatePrincipal='SYNTHETIC_STUDENT';
+const initialSession={studentId:rotatePrincipal,semester:'2026-2027-1',cookies:[
+ {name:'QG_TEST',value:'seed',domain:'jwmis.ncwu.edu.cn',path:'/hsjw/',hostOnly:true}
+]};
+const observedCookies=[];
+const rotatingAdapter={
+ provider:'ncwu',
+ async login(){return {session:initialSession,expiresAt:new Date(Date.now()+3600000).toISOString()};},
+ async forSession({session,userId}){
+  assert.equal(userId,rotateOwner);
+  const cookie=session.cookies?.find(c=>c.name==='QG_TEST')?.value;
+  assert.ok(cookie,'must have a school-scoped cookie');
+  observedCookies.push(cookie);
+  let proved=false;
+  return {
+   provider:'ncwu',
+   async verifySession(){
+    proved=true;
+    return {authorized:true,scope:'self',school:'ncwu',provider:'ncwu',
+     identityBound:true,principalBoundTo:userId,
+     officialOrigin:'https://jwmis.ncwu.edu.cn',
+     session:{studentId:rotatePrincipal,semester:'2026-2027-1'}};
+   },
+   async readSection({kind}){
+    assert.equal(proved,true);assert.equal(kind,'schedule');
+    return expectedSchedule;
+   },
+   getRefreshedSession(){
+    assert.equal(proved,true,'no cookie renewal before school identity check');
+    return {...session,cookies:session.cookies.map(c=>({...c,value:c.value+'-new'}))};
+   }
+  };
+ }
+};
+const rotatingPreview=await prepareNcwuAccountReview({
+ db,userId:rotateOwner,adapter:rotatingAdapter,
+ username:'SYNTHETIC',password:'NOT_A_REAL_PASSWORD',secret
+});
+assert.equal(rotatingPreview.reviewRequired,true);
+assert.equal(observedCookies[0],'seed');
+const rotatingConfirm=await confirmNcwuAccountReview({
+ db,userId:rotateOwner,adapter:rotatingAdapter,secret,reviewHash:rotatingPreview.reviewHash
+});
+assert.equal(rotatingConfirm.connected,true);
+assert.equal(observedCookies[1],'seed-new','preview must store rotated cookie');
+assert.equal(observedCookies[2],'seed-new-new','confirmation must use fresh reread cookie');
+await refreshSchoolAccount({db,userId:rotateOwner,provider:'ncwu',adapter:rotatingAdapter,secret});
+assert.equal(observedCookies.at(-1),'seed-new-new-new',
+ 'first refresh must use last confirmed and rotated session');
+await refreshSchoolAccount({db,userId:rotateOwner,provider:'ncwu',adapter:rotatingAdapter,secret});
+assert.equal(observedCookies.at(-1),'seed-new-new-new-new',
+ 'next refresh must use re-encrypted cookie from previous refresh');
+const rotatedRows=sqlite.prepare("SELECT ciphertext,nonce,expires_at FROM academic_provider_sessions WHERE user_id=? AND provider='ncwu'")
+ .get(rotateOwner);
+assert.ok(rotatedRows.ciphertext&&rotatedRows.nonce);
+assert.ok(Date.parse(rotatedRows.expires_at)>Date.now()+3600000);
+assert.ok(!JSON.stringify(rotatedRows).includes('seed-new'));
+assert.ok(!JSON.stringify(rotatedRows).includes('NOT_A_REAL_PASSWORD'));
+
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 sqlite.close();
