@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {classifyAuthUpgrade} from './upgrade-academic-owner-auth-production.mjs';
-const core=['academic_users','academic_verified_batches','academic_verified_records',
- 'academic_second_class_sync_audit','academic_second_class_official_scores'].map(name=>({name}));
+const core=['academic_users','academic_connections','academic_courses','academic_assignments',
+ 'academic_assignment_sources','academic_sync_runs','academic_assignment_events','academic_legacy_links',
+ 'academic_verified_batches','academic_verified_records','academic_verified_ingests','academic_sync_jobs',
+ 'academic_reminder_preferences','academic_reminder_receipts','academic_second_class_sync_audit',
+ 'academic_second_class_official_scores'].map(name=>({name}));
 const cols=[{name:'provenance'}];
 assert.equal(classifyAuthUpgrade(core,cols),'apply');
 assert.equal(classifyAuthUpgrade(core.concat([{name:'academic_auth_sessions'}]),cols),'partial_auth_schema');
