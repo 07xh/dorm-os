@@ -141,7 +141,10 @@
     '<img src="'+escapeHtml(chaoxingQrAttempt.qrImageUrl)+
     '" alt="学习通官方登录二维码" width="190" height="190" referrerpolicy="no-referrer">'+
     '<p class="tiny muted" data-xu-qr-feedback>正在恢复扫码状态，请在学习通 APP 确认登录</p>':'';
-   const canLogin=provider.id!=='second_class'&&record?.loginMode==='password';
+   // A short-lived, owner-bound QR challenge must remain visible after
+   // same-tab reload before the connections summary has been reloaded.
+   const canLogin=provider.id!=='second_class'&&(
+    record?.loginMode==='password'||(provider.id==='chaoxing'&&qrResuming));
    const chaoxingReadinessMessage={
     session_key_missing:'学校会话密钥尚未配置，无法安全连接学习通。',
     session_key_invalid:'学校会话密钥格式不符合要求，请检查生产 Secret（勿发送密码）。',
@@ -176,7 +179,7 @@
     canLogin?
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
-     (record?.qrLoginAvailable===true?'<button type="button" class="primary" data-xu-chaoxing-qr-start>学习通 APP 扫码连接</button><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
+     (record?.qrLoginAvailable===true||qrResuming?'<button type="button" class="primary" data-xu-chaoxing-qr-start>学习通 APP 扫码连接</button><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
      '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
      '<details class="xu-chaoxing-import"><summary>已在官方学习通登录？导入本人有效会话（无需校园密码）</summary>'+
