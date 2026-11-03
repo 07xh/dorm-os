@@ -36,7 +36,7 @@ test('QR button is unavailable until trusted backend advertises capability',asyn
 });
 test('owner QR starts from a real official endpoint and never requests a password',async({page})=>{
  await stubConnections(page,true);
- let starts=0,polls=0,crossOriginRequests=0;
+ let starts=0,polls=0,crossOriginRequests=0,allowCancel=false;
  const imageReads=await stubQrImage(page,()=> 'encrypted-opaque-challenge');
  await page.route('https://passport2.chaoxing.com/createqr**',route=>{
   crossOriginRequests++;return route.abort();
@@ -54,9 +54,9 @@ test('owner QR starts from a real official endpoint and never requests a passwor
  await page.route('**/api/v1/connections/chaoxing/qr/status',async route=>{
   polls++;
   expect(route.request().postDataJSON()).toEqual({ticket:'encrypted-opaque-challenge'});
-  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
-   status:'cancelled'
-  })});
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(
+   allowCancel?{status:'cancelled'}:{status:'scanned',ticket:'encrypted-opaque-challenge'}
+  )});
  });
 
  await page.goto('/#settings');
@@ -65,10 +65,11 @@ test('owner QR starts from a real official endpoint and never requests a passwor
  await source.locator('.xu-school-manage > summary').click();
  await source.locator('[data-xu-chaoxing-qr-start]').click();
  await expect(source.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
+ allowCancel=true;
  await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('请使用学习通 APP 扫码');
  await expect(source.locator('[data-xu-chaoxing-qr-output]')).toContainText('已取消扫码连接',{timeout:10000});
  expect(starts).toBe(1);
- expect(polls).toBe(1);
+ expect(polls).toBeGreaterThanOrEqual(1);
  expect(imageReads).toHaveLength(1);
  expect(crossOriginRequests).toBe(0,'QR PNG must not depend on cross-site browser cookies');
  expect(await page.locator('[data-xu-school-login="chaoxing"] input[name="password"]').isVisible()).toBe(false);
@@ -156,9 +157,11 @@ test('confirmed scan becomes a persistent school connection and manual check wor
   })});
  });
  await page.goto('/#settings');
- await page.getByRole('button',{name:'读取我的连接状态'}).click();
  const source=page.locator('.xu-connection-source').filter({hasText:'学习通'});
+ // The verified owner session can auto-load before any manual status button.
+ await expect(source.locator('[data-xu-chaoxing-qr-start]')).toBeVisible();
  await source.locator('[data-xu-chaoxing-qr-start]').click();
+ await expect(source.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
  await expect(source.locator('[data-xu-qr-check-now]')).toBeVisible();
  await source.locator('[data-xu-qr-check-now]').click();
  await expect(source).toContainText('已认证 · 数据待同步');
