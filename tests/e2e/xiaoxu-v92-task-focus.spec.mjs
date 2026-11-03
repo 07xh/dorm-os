@@ -34,6 +34,7 @@ test('task controls provide touch area without mobile horizontal overflow',async
  for(const width of [320,393,768]){
   await page.setViewportSize({width,height:780});
   const el=page.locator('#app .v4-task-list .x-v92-task-toggle').first();
+  await expect(el).toBeVisible();
   const box=await el.boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
