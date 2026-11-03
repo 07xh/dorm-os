@@ -31,7 +31,8 @@ export async function onRequestGet(context){
    if(row.id==='second_class'){
     const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
     return {...row,status:verified?'connected':row.status,sessionState,
-     loginMode:flow.loginMode,authFlow:flow,
+     loginMode:verified?'connected':available?'native_cas_probe':flow.loginMode,
+     authFlow:flow,nativeCasPreflight:available,
      accountAuthorization:flow.xiaoxuAuthorization};
    }
    return {...row,loginMode:available?'password':'unavailable',sessionState,
