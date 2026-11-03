@@ -1,0 +1,46 @@
+name: Build DouyinLocalBlock experimental APK
+on:
+  push:
+    branches:
+      - ci/douyin-localblock-apk-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and unpack isolated sources
+        shell: bash
+        run: |
+          cat source-*.part > src.b64
+          base64 -d src.b64 > source.tar.xz
+          echo "90d337d94ffbc2aac40230f07ec9eb975c072e5f64a62a9803fa91ecbfb914de  source.tar.xz" | sha256sum -c -
+          tar -xJf source.tar.xz
+          ls -lah
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test model filtering and edge cases
+        run: bash ./run-core-tests.sh
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Assemble signed debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify produced APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DouyinLocalBlock-v0.2.0-debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
