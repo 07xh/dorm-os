@@ -5,7 +5,11 @@ const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization
 export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
- const provider=context.params?.provider,adapter=availableSchoolAdapter(context,provider);
+ const provider=context.params?.provider;
+ // The observed second-class CAS service redirects to a SCHOOL-owned endpoint,
+ // not to this app. Reject passwords even if a speculative adapter is injected.
+ if(provider==='second_class')return json({error:'interactive_login_required'},409);
+ const adapter=availableSchoolAdapter(context,provider);
  // Never read or accept a password when the school adapter is unavailable.
  if(!adapter)return json({error:'school_login_unavailable'},503);
  // Reuse the existing owner-login rate-limit table. This is an atomic,
