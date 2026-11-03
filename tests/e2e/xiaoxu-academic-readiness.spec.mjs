@@ -18,7 +18,8 @@ test('settings has one real provider connection center, without the redundant pr
 
 test('legacy task import is still usable without a duplicate source-status section',async({page})=>{
  await page.goto('/#settings');
- const legacy=page.locator('.xu-advanced-tools').filter({hasText:'兼容旧版学习任务导入'});
+ await page.locator('.xu-settings-more > summary').click();
+ const legacy=page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'兼容旧版学习任务导入'});
  await legacy.locator('summary').click();
  await expect(legacy.locator('[data-action="import-task-batch"]')).toBeVisible();
  await expect(page.locator('.task-connection-dot')).toHaveCount(0);
