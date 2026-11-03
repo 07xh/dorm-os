@@ -3,7 +3,7 @@
 import {makeNcwuQingguoServerAdapter} from '../../../lib/academic-ncwu-qingguo-server.mjs';
 import {createChaoxingSchoolAdapter} from '../../../lib/academic-chaoxing-provider.mjs';
 import {diagnoseChaoxingReadiness} from '../../../lib/academic-chaoxing-readiness.mjs';
-const CHA0XING_ROUTES=/^\/api\/v1\/connections(?:\/chaoxing\/(?:login|sync))?\/?$/;
+const CHAOXING_ROUTES=/^\/api\/v1\/connections(?:\/chaoxing\/(?:login|sync))?\/?$/;
 export async function onRequest(context){
  const path=new URL(context.request.url).pathname;
  if(path==='/api/v1/connections'||path.startsWith('/api/v1/connections/')){
@@ -20,7 +20,7 @@ export async function onRequest(context){
    }:{})
   };
  }
- if(CHA0XING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework'){
+ if(CHAOXING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework'){
   context.data??={};
   const state=await diagnoseChaoxingReadiness(context);
   context.data.academicChaoxingReadiness=state;
