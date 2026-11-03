@@ -5,6 +5,7 @@ import {authorize,json} from './assignments.js';
 import {readConnectionCenter} from '../../../lib/academic-connection-center.mjs';
 import {availableSchoolAdapter,schoolSessionStates,schoolSessionVaultReady} from '../../../lib/academic-school-login.mjs';
 import {describeSecondClassAuthorization} from '../../../lib/academic-ncwu-secondclass-sso.mjs';
+import {bridgeStatus} from '../../../lib/academic-secondclass-browser-bridge.mjs';
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -12,6 +13,7 @@ export async function onRequestGet(context){
   const result=await readConnectionCenter(auth.db,auth.userId);
   const sessions=await schoolSessionStates(auth.db,auth.userId);
   const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
+  const browserBridge=await bridgeStatus(auth.db,auth.userId).catch(()=>({state:'unavailable',lastSyncAt:null,expiresAt:null}));
   result.platforms=result.platforms.map(row=>{
    const available=vaultReady&&!!availableSchoolAdapter(context,row.id);
    const sessionState=sessions[row.id]||'not_connected';
@@ -26,7 +28,7 @@ export async function onRequestGet(context){
    if(row.id==='second_class'){
     const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
     return {...row,status:verified?'connected':row.status,sessionState,
-     loginMode:flow.loginMode,authFlow:flow,
+     loginMode:flow.loginMode,authFlow:flow,browserBridge,
      accountAuthorization:flow.xiaoxuAuthorization};
    }
    return {...row,loginMode:available?'password':'unavailable',sessionState,
