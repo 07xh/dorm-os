@@ -4,11 +4,11 @@ import {availableSchoolAdapter,schoolSessionVaultReady}
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
- if(context.params?.provider!=='second_class')
+ if(!['ncwu','second_class'].includes(context.params?.provider))
   return json({status:'unknown_provider',loginSupported:false},404);
  if(!await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY))
   return json({status:'server_session_vault_unavailable',loginSupported:false},503);
- const adapter=availableSchoolAdapter(context,'second_class');
+ const adapter=availableSchoolAdapter(context,context.params.provider);
  if(!adapter||typeof adapter.preflight!=='function')
   return json({status:'adapter_unavailable',loginSupported:false},503);
  try{
