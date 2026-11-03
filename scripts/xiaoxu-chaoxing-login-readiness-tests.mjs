@@ -47,10 +47,13 @@ assert.ok(endpoint.includes('loginReadiness')&&endpoint.includes('academicChaoxi
 for(const code of CHAOXING_READINESS_CODES.filter(x=>x!=='ready')){
  assert.ok(client.includes(code),'Missing Chinese UI description for '+code);
 }
-assert.ok(client.includes("(!authorized&&provider.id==='chaoxing'?'open':'')"),
- 'Unlinked Chaoxing login form must be open by default');
-assert.ok(client.includes('连接学习通账号 · 登录并同步'));
+assert.ok(client.includes('我另有超星独立账号密码（非校园密码）'),
+ 'The independent Chaoxing password form must remain distinguished from campus CAS');
+assert.ok(client.includes('authserver.ncwu.edu.cn/authserver/login'),
+ 'The normal campus CAS link must remain available');
+assert.ok(!client.includes("(!authorized&&provider.id==='chaoxing'?'open':'')"),
+ 'A campus password must not be solicited through an automatically opened Chaoxing form');
 assert.ok(client.includes('重新检测学习通连接'));
 assert.ok(client.includes('data-action="academic-refresh"'));
-assert.ok(client.includes('第三方 APK 已登录只代表该应用的本机会话有效'));
+assert.ok(client.includes('第三方 APK 的本机会话不自动共享给校序'));
 console.log('Chaoxing owner-only readiness: every failure reason, safe registration, UI retry and unchanged unrelated routes passed');

@@ -60,6 +60,14 @@ const makeAdapter=()=>({
  }
 });
 const adapter=makeAdapter();
+const downAdapter={...makeAdapter(),
+ async login(){throw Object.assign(new Error('synthetic server failure'),{code:'upstream_unavailable'});}};
+await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',
+ adapter:downAdapter,username:'official-student-account',
+ password:'ephemeral-school-password',secret}),
+ e=>e instanceof SchoolLoginError&&e.code==='upstream_unavailable',
+ 'school network errors must not be mislabeled as invalid account credentials');
+
 let result;
 await assert.rejects(
  ()=>connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,

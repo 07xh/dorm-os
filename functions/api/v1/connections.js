@@ -39,9 +39,6 @@ export async function onRequestGet(context){
     loginMode:available?'native_cas_probe':'unavailable',
     nativeCasPreflight:available,
     accountAuthorization:verified?'verified_session':'not_verified'};
-   // Owner-visible, non-secret reason why the Chaoxing password form is hidden.
-   // Schema migration and a named Cloudflare secret alone are not proof that
-   // this deployment has a working session vault and registered adapter.
    const checked=context.data?.academicChaoxingReadiness;
    const loginReadiness=checked==='ready'&&!available?'adapter_unavailable':
     checked||'adapter_unavailable';
