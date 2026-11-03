@@ -94,16 +94,29 @@
  function connectionPanel(){
   const active=connected;
   const entries=CONNECTION_PROVIDERS.map(provider=>{
-   const record=active?sources.find(x=>x.id===provider.id):null;
-   const label=active?(CONNECTION_LABELS[record?.status]||'状态待确认'):'未读取连接状态';
+   const record=sources.find(x=>x.id===provider.id)||null;
+   const label=record?(record.sessionState==='expired'?'学校登录会话已过期':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
    const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
      imported?'有 '+imported+' 类个人导入记录 · 不是账号绑定':'尚无已验证的学校同步记录';
    const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
+   const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
+   const canLogin=record?.loginMode==='password';
+   const authPanel=canLogin?
+    '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
+    '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
+    '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
+    '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
+    '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
+    '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
+    '<p class="tiny muted xu-school-pending">网页登录连接尚待学校实际适配验证，当前不会收集账号或密码。</p>';
+   const sessionTools=authorized?
+    '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
+    '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
-    '<p>华水教务可能先经过统一身份认证，再进入青果教务。请只在学校官方页面输入本人凭据。</p>'+
+    '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
     '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
     '<p>已准备课表、成绩、考试的可信只读接口与本人身份校验。取得学校许可的授权读取方式并完成真实对照后，才能启用自动同步。</p></details>':
     provider.id==='chaoxing'?
@@ -117,8 +130,8 @@
     '<p>进入官方第二课堂只会打开学校页面，不等于账号已绑定。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
-    '<span>'+escapeHtml(details+stampText)+'</span>'+guidance+'</div>'+
-    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(label)+'</span>'+
+    '<span>'+escapeHtml(details+stampText)+'</span>'+authPanel+guidance+'</div>'+
+    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(authorized?'已授权 · 可同步':label)+'</span>'+sessionTools+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a></div></div>';
   }).join('');
@@ -228,6 +241,53 @@
    (r.dueAt?' · 截止 '+escapeHtml(stamp(r.dueAt)):' · 截止时间未核实')+
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
+ }
+ const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
+ async function schoolPost(provider,verb,payload={}){
+  if(!['ncwu','chaoxing'].includes(provider))throw Error('未知学校平台');
+  const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
+   method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+   headers:{'content-type':'application/json','accept':'application/json'},
+   body:JSON.stringify(payload)});
+  const result=await response.json().catch(()=>null);
+  if(!response.ok)throw Error(schoolMessage[result?.error]||'连接操作失败');
+  return result;
+ }
+ function announceUpdated(){
+  root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
+ }
+ if(typeof document!=='undefined'){
+  document.addEventListener('submit',async event=>{
+   const form=event.target.closest?.('form[data-xu-school-login]');
+   if(!form)return;
+   event.preventDefault();
+   const provider=form.dataset.xuSchoolLogin;
+   const submit=form.querySelector('button[type="submit"]');
+   const status=form.querySelector('[data-xu-school-result]');
+   const username=form.elements.namedItem('username')?.value||'';
+   const input=form.elements.namedItem('password'),password=input?.value||'';
+   if(input)input.value='';
+   submit.disabled=true;status.textContent='正在验证学校账号与读取数据…';
+   try{
+    await schoolPost(provider,'login',{username,password});
+    await connect();
+    announceUpdated();
+   }catch(e){status.textContent=e.message||'学校账号连接失败';}
+   finally{if(submit.isConnected)submit.disabled=false;}
+  });
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-school-sync],[data-xu-school-disconnect]');
+   if(!button)return;
+   const provider=button.dataset.xuSchoolSync||button.dataset.xuSchoolDisconnect;
+   const removing=button.hasAttribute('data-xu-school-disconnect');
+   if(removing&&!confirm('解除该平台授权？已有学业记录会保留为历史数据。'))return;
+   button.disabled=true;
+   try{
+    await schoolPost(provider,removing?'disconnect':'sync');
+    await connect();announceUpdated();
+   }catch(e){root.alert(e.message||'学校连接操作失败');}
+   finally{if(button.isConnected)button.disabled=false;}
+  });
  }
  root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,diagnose,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);

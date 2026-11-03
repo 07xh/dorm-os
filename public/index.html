@@ -2054,6 +2054,7 @@ $('icsInput').addEventListener('change',async e=>{
 $('importInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;pendingEncryptedBackup=null;pendingPlainBackup=null;try{if(file.size>3*1024*1024)throw new Error('备份超过 3MB');const obj=JSON.parse(await file.text());if(obj?.format===ENCRYPTED_BACKUP_MARKER){pendingEncryptedBackup=obj;encryptedImportDialog();return;}pendingPlainBackup=safeState(obj);plainImportDialog();}catch(err){toast(`恢复失败：${err.message}`);}finally{e.target.value='';}});
 $('editor').addEventListener('click',e=>{if(e.target===$('editor'))$('editor').close();});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(nameMap[h]&&h!==page){page=h;render();}});
+ window.addEventListener('xiaoxu-school-connection-updated',()=>{if(page==='settings')render();toast('学校平台连接状态已更新');});
 function updateOfflineBanner(){$('offlineBanner').hidden=navigator.onLine;}
 async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未显示安装提示，请使用浏览器菜单中的「添加到主屏幕」');return;}const p=deferredInstallPrompt;deferredInstallPrompt=null;try{await p.prompt();await p.userChoice;}catch(e){console.warn('安装提示不可用',e);}}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});

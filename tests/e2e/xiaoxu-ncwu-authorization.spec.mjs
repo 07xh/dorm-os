@@ -33,3 +33,31 @@ test('NCWU expanded authorization detail does not cause horizontal overflow',asy
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth), 'viewport width '+width).toBeLessThanOrEqual(2);
  }
 });
+
+test('website password fields appear only when trusted server advertises a validated school adapter',async({page})=>{
+ const calls=[];
+ await page.route('**/api/v1/connections',route=>{
+  calls.push(route.request().method());
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+   schema:'xiaoxu/connections-v1',
+   platforms:[
+    {id:'ncwu',status:'not_connected',loginMode:'password',sessionState:'not_connected',
+     trustedKinds:[],importedKinds:[]},
+    {id:'chaoxing',status:'not_connected',loginMode:'unavailable',sessionState:'not_connected',
+     trustedKinds:[],importedKinds:[]},
+    {id:'second_class',status:'not_connected',loginMode:'unavailable',sessionState:'not_connected',
+     trustedKinds:[],importedKinds:[]}
+   ]
+  })});
+ });
+ await page.goto('/#settings');
+ await page.locator('[data-action="academic-connect"]').click();
+ const center=page.getByRole('region',{name:'统一数据连接中心'});
+ const ncwu=center.locator('.xu-connection-source').filter({hasText:'华水青果教务'});
+ await expect(ncwu.getByText('在校序网页登录连接')).toBeVisible();
+ await ncwu.locator('.xu-school-connect summary').click();
+ await expect(ncwu.locator('input[name="username"]')).toHaveCount(1);
+ await expect(ncwu.locator('input[name="password"]')).toHaveCount(1);
+ await expect(center.locator('.xu-connection-source').filter({hasText:'学习通'}).locator('input[name="password"]')).toHaveCount(0);
+ expect(calls).toEqual(['GET']);
+});
