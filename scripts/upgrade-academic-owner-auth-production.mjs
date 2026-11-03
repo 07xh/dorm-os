@@ -118,7 +118,7 @@ export async function upgrade(){
  // Legacy 0013/0014 tables are left intact in databases that already have them.
  // They are no longer an active dependency and are never dropped here.
  // Reuse the SAME production D1 and existing authenticated-session vault.
- // Apply the new inbox metadata table only after 0010-0014 are verified.
+ // Apply the new inbox metadata table only after 0010-0012 are verified.
  const existingInbox=rows(name,
   "SELECT name FROM sqlite_master WHERE type='table' AND name='academic_chaoxing_notices'");
  const inboxCols=rows(name,'PRAGMA table_info(academic_chaoxing_notices)');
@@ -137,7 +137,7 @@ export async function upgrade(){
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
  const check=rows(name,'PRAGMA quick_check');
  if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
- report('✅ 0010–0012 表、外键和完整性均通过；现有学业数据未删除');
+ report('✅ 0010–0012/0015 表、外键和完整性均通过；现有学业数据未删除');
  report('ℹ️ 学校网页登录功能仍需配置独立加密密钥及真实授权适配器；本迁移不存储凭据，也不会启动学校连接');
 }
 if(process.argv[1]?.endsWith('upgrade-academic-owner-auth-production.mjs')){
