@@ -45,7 +45,8 @@
  }
  function update(){
   const host=document.getElementById('xuChaoxingInboxHost');
-  if(host)host.innerHTML=panel();
+  if(host){const expanded=host.querySelector('.xu-inbox-details')?.open===true;
+   host.innerHTML=panel();const details=host.querySelector('.xu-inbox-details');if(details)details.open=expanded;}
  }
  async function refresh(){
   if(!isConnected())return;
