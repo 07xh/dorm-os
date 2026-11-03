@@ -70,3 +70,7 @@
 #app .xu-second-class-summary>div{padding:13px 14px;border:1px solid var(--xu-line);border-radius:12px;background:var(--xu-soft);min-width:0}
 #app .xu-second-class-summary strong{display:block;font-size:19px;font-variant-numeric:tabular-nums;color:var(--xu-ink);overflow-wrap:anywhere}
 #app .xu-second-class-summary small{display:block;color:var(--xu-muted);font-size:11px;margin-top:4px;line-height:1.5}
+
+#app .xu-second-class-official{margin:12px 0 16px;padding:14px;border:1px solid var(--xu-line);border-radius:14px;background:var(--xu-surface);min-width:0}
+#app .xu-second-class-official>strong{font-size:13px;color:var(--xu-ink)}
+#app .xu-second-class-official .xu-second-class-summary{margin:10px 0}
