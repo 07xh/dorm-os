@@ -64,3 +64,18 @@
 #app .xu-reminder-item button{flex:none;min-height:40px}
 @media(max-width:540px){#app .xu-reminder-item{align-items:flex-start;flex-direction:column}
  #app .xu-reminder-item button{align-self:flex-start}#app .xu-reminder-panel{padding:15px}}
+
+
+/* 华水第二课堂：六类成绩、学期合计与本人活动记录 */
+.xu-second-block{margin-top:14px}
+.xu-second-block-title{font-size:12px;font-weight:750;color:var(--muted,#91a3c3);margin:0 0 9px}
+.xu-second-score{border:1px solid var(--border,rgba(155,182,220,.13));border-radius:12px;padding:12px;margin:8px 0;background:rgba(18,34,56,.45)}
+.xu-second-score-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;margin-bottom:10px}
+.xu-second-score-head strong{font-size:13px;color:var(--text,#eaf0fd)}
+.xu-second-score-head span{font-size:11px;color:var(--muted,#91a3c3)}
+.xu-second-categories{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.xu-second-category{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:8px;border-radius:9px;background:rgba(115,151,205,.07)}
+.xu-second-category span{font-size:10px;line-height:1.5;color:var(--muted,#91a3c3);overflow-wrap:anywhere}
+.xu-second-category strong{font-size:13px;font-variant-numeric:tabular-nums;color:var(--text,#eaf0fd)}
+.xu-second-category small{grid-column:1/-1;font-size:9px;color:var(--muted,#91a3c3)}
+@media(max-width:480px){.xu-second-categories{grid-template-columns:1fr}}
