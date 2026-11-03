@@ -20,7 +20,7 @@ export async function onRequestGet({request,env}){
    "SELECT batch_id,last_success_at,provenance FROM academic_verified_batches WHERE user_id=? AND kind='second-class'"
   ).bind(userId).first();
   if(!batch)return json({...base,status:'not_connected',provenance:null,
-   records:[],summary:null,officialScore:null,lastSuccessAt:null,lastReadOnlyAt:null});
+   records:[],summary:null,officialScore:null,personalScore:null,lastSuccessAt:null,lastReadOnlyAt:null});
   const {results}=await db.prepare(
    "SELECT payload FROM academic_verified_records WHERE user_id=? AND kind='second-class' AND batch_id=? ORDER BY external_id LIMIT 250"
   ).bind(userId,batch.batch_id).all();
@@ -36,12 +36,26 @@ export async function onRequestGet({request,env}){
   ).bind(userId).first():null;
   const officialScore=officialRow?.batch_id===batch.batch_id?
    JSON.parse(officialRow.payload):null;
+  // User-browser totals are a different provenance class: never substitute
+  // them for the independently trusted academic_second_class_official_scores.
+  let personalRow=null;
+  if(!attested){
+   try{
+    personalRow=await db.prepare(
+     'SELECT captured_at,quality_score,volunteer_hours FROM academic_secondclass_personal_totals WHERE user_id=?'
+    ).bind(userId).first();
+   }catch{personalRow=null;} // Older D1 deployments may not have 0014 yet.
+  }
+  const personalScore=personalRow?.captured_at===batch.last_success_at?{
+   capturedAt:personalRow.captured_at,qualityScore:personalRow.quality_score,
+   volunteerHours:personalRow.volunteer_hours,provenance:'user_browser_export'
+  }:null;
   const dateMs=Date.parse(batch.last_success_at);
   if(!Number.isFinite(dateMs))throw Error('invalid_last_success');
   return json({...base,
    status:Date.now()-dateMs>36*3600_000?'stale':'ready',
    provenance:attested?'trusted_readonly':'user_import',
-   records:mapped.records,summary:mapped.summary,officialScore,
+   records:mapped.records,summary:mapped.summary,officialScore,personalScore,
    lastSuccessAt:batch.last_success_at,lastReadOnlyAt:audit?.observed_at||null});
  }catch{return json({status:'database_unavailable'},503);}
 }

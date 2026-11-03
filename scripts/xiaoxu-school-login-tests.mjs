@@ -76,7 +76,33 @@ const stored=sqlite.prepare('SELECT * FROM academic_provider_sessions WHERE user
 assert.equal(stored.provider,'ncwu');
 assert.equal(JSON.stringify(stored).includes(sessionValue),false,'session AES-GCM encrypted');
 assert.equal(JSON.stringify(stored).includes('ephemeral-school-password'),false);
-assert.deepEqual(await schoolSessionStates(db,'owner-a'),{ncwu:'active'});
+assert.deepEqual(await schoolSessionStates(db,'owner-a',secret),{ncwu:'active'});
+assert.deepEqual(await schoolSessionStates(db,'owner-a','invalid-key'),{},
+ 'missing/invalid vault key must not report a usable session');
+const rotatedKey=Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+assert.deepEqual(await schoolSessionStates(db,'owner-a',rotatedKey),{ncwu:'unreadable'},
+ 'a rotated but syntactically valid key must not report active');
+const originalCipher=sqlite.prepare(
+ 'SELECT ciphertext FROM academic_provider_sessions WHERE user_id=? AND provider=?'
+).get('owner-a','ncwu').ciphertext;
+sqlite.prepare('UPDATE academic_provider_sessions SET ciphertext=? WHERE user_id=? AND provider=?')
+ .run('Y'.repeat(43),'owner-a','ncwu');
+assert.deepEqual(await schoolSessionStates(db,'owner-a',secret),{ncwu:'unreadable'},
+ 'corrupted AES-GCM ciphertext must fail closed');
+sqlite.prepare('UPDATE academic_provider_sessions SET ciphertext=? WHERE user_id=? AND provider=?')
+ .run(originalCipher,'owner-a','ncwu');
+assert.deepEqual(await schoolSessionStates(db,'owner-a',secret),{ncwu:'active'},
+ 'restoring the original valid ciphertext restores local readability');
+const originalExpiry=sqlite.prepare(
+ 'SELECT expires_at FROM academic_provider_sessions WHERE user_id=? AND provider=?'
+).get('owner-a','ncwu').expires_at;
+sqlite.prepare('UPDATE academic_provider_sessions SET expires_at=? WHERE user_id=? AND provider=?')
+ .run('2020-01-01T00:00:00Z','owner-a','ncwu');
+assert.deepEqual(await schoolSessionStates(db,'owner-a',secret),{ncwu:'expired'});
+sqlite.prepare('UPDATE academic_provider_sessions SET expires_at=? WHERE user_id=? AND provider=?')
+ .run(originalExpiry,'owner-a','ncwu');
+assert.deepEqual(await schoolSessionStates(db,'owner-b',secret),{},
+ 'other owners cannot see the current owner school-session status');
 await assert.rejects(
  ()=>refreshSchoolAccount({db,userId:'owner-b',provider:'ncwu',adapter,secret,
  sync:async()=>{throw Error('should not sync');}}),
@@ -91,7 +117,7 @@ await assert.rejects(
  e=>e instanceof SchoolLoginError&&e.code==='authorization_failed');
 const revoked=await revokeSchoolAccount(db,'owner-a','ncwu');
 assert.equal(revoked.disconnected,true);
-assert.deepEqual(await schoolSessionStates(db,'owner-a'),{});
+assert.deepEqual(await schoolSessionStates(db,'owner-a',secret),{});
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions').get().n,0);
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 sqlite.close();
