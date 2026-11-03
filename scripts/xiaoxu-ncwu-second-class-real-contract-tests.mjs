@@ -81,7 +81,7 @@ assert.throws(()=>normalizeRecord('second-class',{
 
 const auditCalls=[];
 const verified={authorized:true,provider:'second_class',school:'ncwu',scope:'self',
- identityBound:true,session:{studentCode:schoolCode}};
+ identityBound:true,principalBoundTo:'owner-a',session:{studentCode:schoolCode}};
 function adapter({badScore=false,badPage=false,badStudent=false,verifiedAccount=verified}={}){
  return makeNcwuSecondClassAdapter({
   async verifySession(){return verifiedAccount;},
@@ -115,6 +115,16 @@ assert.deepEqual(auditCalls.map(x=>x.path).slice(-4),[
 assert.deepEqual(auditCalls[0].form,{page:'1',pagesize:'50'});
 await assert.rejects(async()=>adapter({verifiedAccount:{...verified,identityBound:false}}).verifySession(),
  e=>e.code==='authorization_failed');
+await assert.rejects(async()=>adapter({verifiedAccount:{...verified,principalBoundTo:null}}).verifySession(),
+ e=>e.code==='authorization_failed');
+let identityChecks=0;
+const switched=makeNcwuSecondClassAdapter({
+ verifySession:async()=>++identityChecks===1?verified:{...verified,principalBoundTo:'owner-b'},
+ readPost:async()=>{throw Error('should not read after identity switch');}
+});
+await switched.verifySession();
+await assert.rejects(()=>switched.readOfficialScores(),e=>e.code==='school_identity_changed');
+
 await assert.rejects(async()=>adapter({verifiedAccount:{...verified,session:{}}}).verifySession(),
  e=>e.code==='authorization_failed');
 await assert.rejects(async()=>{
