@@ -70,7 +70,8 @@ jobs:
           test -f .claude/skills/design-taste-frontend/SKILL.md
           test -f .claude/skills/impeccable/SKILL.md
           git add -A
-          git diff --cached --check
+          # Keep upstream vendored files byte-for-byte: check authored documentation only.
+          git diff --cached --check -- docs/UI-DESIGN-SKILLS.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(ui): vendor complete pinned design skills"
