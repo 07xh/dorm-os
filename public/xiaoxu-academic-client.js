@@ -139,7 +139,7 @@
    '<div class="card-header"><span class="card-title">数据连接</span>'+
    '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
    (active?'校序云端已读取':'校序云端未读取')+'</span></div>'+
-   '<p class="small muted xu-connection-intro">校序与学校账号分开授权。只有学校登录适配器可用时，才会显示账号输入框。</p>'+
+   '<p class="small muted xu-connection-intro">校序登录与学校账号授权是两回事。只有学校登录适配器可用时，才会显示账号输入框。</p>'+
 
    '<div class="xu-connection-bottom xu-connection-primary-actions">'+
    (!active?'<button type="button" class="primary" data-action="academic-connect">读取我的连接状态</button>':
