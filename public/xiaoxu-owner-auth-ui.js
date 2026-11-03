@@ -148,6 +148,11 @@
   // Notify the existing single-page workspace after the SERVER session check,
   // not merely because a local "previously logged in" hint exists.
   const publishAuthState = authenticated => {
+    if (authenticated !== true) {
+      // /login/ is a standalone fallback without the academic client.
+      // Invalidate its pending QR ticket even if logout happens on that page.
+      try { sessionStorage.removeItem('xiaoxu-chaoxing-qr-pending-v1'); } catch {}
+    }
     window.dispatchEvent(new CustomEvent('xiaoxu-owner-auth-changed',{
       detail:{authenticated:authenticated===true}
     }));
