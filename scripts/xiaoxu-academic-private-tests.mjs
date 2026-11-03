@@ -27,6 +27,7 @@ const database=new DatabaseSync(':memory:');
 database.exec('PRAGMA foreign_keys=ON');
 database.exec(readFileSync(new URL('../migrations/0001_academic_core.sql',import.meta.url),'utf8'));
 database.exec(readFileSync(new URL('../migrations/0003_academic_verified_snapshots.sql',import.meta.url),'utf8'));
+database.exec(readFileSync(new URL('../migrations/0008_academic_second_class_source.sql',import.meta.url),'utf8'))
 for(const table of ['academic_users','academic_assignments','academic_verified_batches','academic_verified_records','academic_verified_ingests']){
  assert.ok(database.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table),'missing table '+table);
 }
@@ -84,6 +85,9 @@ try{
  assert.equal(body.status,'ready');
  assert.equal(body.records.length,1);
  assert.equal(body.records[0].title,'课程作业');
+ assert.equal(body.provenance,'user_import','browser upload cannot gain trusted source provenance');
+ const connBody=await (await onRequestGet(context('connections',jwt))).json();
+ assert.equal(connBody.sources.find(x=>x.kind==='assignments').state,'personal_snapshot');
  const otherUser=await onRequestGet(context('assignments',other));
  assert.equal((await otherUser.json()).records.length,0,'User isolation blocks other identities');
  const invalid=await onRequestPost(context('snapshot',jwt,{...sample,records:[{...sample.records[0],password:'secret'}]}));
