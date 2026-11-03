@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {validateSecondClassMapping,mapSecondClassPage,makeSecondClassMappedAdapter,SecondClassMapError}
  from '../lib/academic-second-class-source-map.mjs';
+import {describeSecondClassJson} from './xiaoxu-second-class-shape.mjs';
 import {runAuthorizedSecondClassSync,collectAuthorizedSecondClass}
  from '../lib/academic-second-class-connector.mjs';
 
@@ -26,6 +27,14 @@ const rawFirst={data:{finished:false,nextCursor:'p2',items:[
 const rawLast={data:{finished:true,nextCursor:null,items:[
  {id:'1003',name:'文化活动',earned:{hours:'1'},participation:'enrolled',audit:{result:'deny'}}
 ]}};
+const safeShape=describeSecondClassJson(rawFirst);
+assert.ok(safeShape.includes('data.items : array'));
+assert.ok(safeShape.includes('data.items[].earned.hours : string'));
+assert.equal(safeShape.includes('SENSITIVE_SHOULD_NOT_PERSIST'),false);
+assert.equal(safeShape.includes('studentPhone'),false);
+assert.equal(safeShape.includes('SECRET'),false);
+assert.equal(safeShape.includes('1001'),false);
+assert.throws(()=>describeSecondClassJson(rawFirst,{maxDepth:100}),/invalid/);
 assert.equal(validateSecondClassMapping(mapping),mapping);
 const first=mapSecondClassPage(rawFirst,mapping);
 assert.equal(first.activities.length,2);
