@@ -188,8 +188,9 @@ const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
 const release=readFileSync(new URL('./verify-release.mjs',import.meta.url),'utf8');
 assert.ok(release.includes("'/api/v1/second-class'"),'production deny gate');
 assert.ok(html.includes("XiaoxuAcademic.panel('second-class')"));
-assert.ok(sw.includes("const CACHE='dorm-os-shell-v91-owner-auth-navigation'"),'PWA version is bumped for the updated login UI');
+assert.ok(sw.includes("const CACHE='dorm-os-shell-v92-inpage-owner-auth'"),'PWA version is bumped for the updated login UI');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
+assert.ok(sw.includes("'/xiaoxu-owner-auth.css'"),'PWA shell caches login dialog styles for offline consistency');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');
 const calls=[];
 const mock={kind:'second-class',status:'ready',provenance:'user_import',
