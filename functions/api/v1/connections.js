@@ -4,6 +4,7 @@
 import {authorize,json} from './assignments.js';
 import {readConnectionCenter} from '../../../lib/academic-connection-center.mjs';
 import {availableSchoolAdapter,schoolSessionStates,schoolSessionVaultReady} from '../../../lib/academic-school-login.mjs';
+import {describeSecondClassAuthorization} from '../../../lib/academic-ncwu-secondclass-sso.mjs';
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -20,9 +21,15 @@ export async function onRequestGet(context){
     row.id==='second_class'
      ? row.trustedKinds.includes('second-class')
      : row.status==='connected');
-   return {...row,
-    status:row.id==='second_class'&&verified?'connected':row.status,
-    loginMode:available?'password':'unavailable',sessionState,
+   // University CAS returns to a SCHOOL-owned service. Do not expose
+   // an Academic OS password form or imply consent to a third-party app.
+   if(row.id==='second_class'){
+    const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
+    return {...row,status:verified?'connected':row.status,sessionState,
+     loginMode:flow.loginMode,authFlow:flow,
+     accountAuthorization:flow.xiaoxuAuthorization};
+   }
+   return {...row,loginMode:available?'password':'unavailable',sessionState,
     accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
