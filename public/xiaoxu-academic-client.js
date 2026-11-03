@@ -280,7 +280,9 @@
  }
  const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
-  if(!['ncwu','chaoxing'].includes(provider))throw Error('未知学校平台');
+  if(!['ncwu','chaoxing'].includes(provider)&&
+     !(provider==='second_class'&&['sync','disconnect'].includes(verb)))
+   throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
    method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
    headers:{'content-type':'application/json','accept':'application/json'},
