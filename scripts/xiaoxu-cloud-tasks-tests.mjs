@@ -178,3 +178,56 @@ assert.equal(await b.client.refreshIfStale(0),true);
 assert.equal(b.client.taskRows('open',[]).includes('两端任务'),true);
 
 console.log('校序跨设备恢复：双客户端共享 D1 状态、返回刷新、请求去重、退出隔离、断网保留与恢复通过');
+
+// Unified personal task dialog uses the already deployed private assignment API,
+// not a local-only duplicate or a second user database. One owner session can
+// create on device A and read/edit on device B without a school account.
+const stored=[];
+const operations=[];
+const cloudRuntime={Response,Intl,Date,fetch:async(url,opts={})=>{
+ operations.push({url,method:opts.method||'GET',data:opts.body?JSON.parse(opts.body):null});
+ if(url.startsWith('/api/v1/assignments?'))return make({items:stored.map(x=>({...x}))});
+ if(url==='/api/v1/sources')return make({connections:[],userSnapshots:[]});
+ if(url==='/api/v1/assignments'&&opts.method==='POST'){
+  const body=JSON.parse(opts.body);
+  assert.equal(body.title,'高数周五作业');
+  assert.deepEqual(body.deadline,{precision:'date',date:'2026-11-27'});
+  const item={id:'manual-1',title:body.title,kind:'manual',
+   due_local_date:'2026-11-27',due_precision:'date',due_at_utc:null,
+   local_status:'todo',revision:0,legacy_id:null};
+  stored.push(item);return make({item},201);
+ }
+ if(url==='/api/v1/assignments/manual-1'&&opts.method==='PATCH'){
+  const body=JSON.parse(opts.body);
+  assert.equal(body.revision,0);
+  assert.equal(body.title,'高数作业（已核对）');
+  assert.deepEqual(body.deadline,{precision:'date',date:'2026-11-28'});
+  stored[0]={...stored[0],title:body.title,due_local_date:'2026-11-28',revision:1};
+  return make({item:{id:'manual-1',revision:1}});
+ }
+ throw Error('unexpected '+url);
+}};
+runInNewContext(code,cloudRuntime);
+const client=cloudRuntime.XiaoxuCloudTasks;
+assert.equal(client.editable('manual-1'),null);
+await assert.rejects(()=>client.createPersonal({title:'高数周五作业',dueDate:'2026-11-27'}),/先连接/);
+assert.equal(operations.length,0);
+await client.connect();
+assert.equal(client.taskCount(),0);
+await assert.rejects(()=>client.createPersonal({title:'高数周五作业',dueDate:'2026-02-31'}),/截止日期/);
+await client.createPersonal({title:'高数周五作业',dueDate:'2026-11-27'});
+assert.equal(client.taskCount(),1,'successful cloud POST must refresh private D1 snapshot');
+assert.ok(client.taskRows().includes('cloud-edit:manual-1'),'only manual cloud task supports edit');
+assert.equal(client.editable('manual-1').dueDate,'2026-11-27');
+await client.updatePersonal('manual-1',{title:'高数作业（已核对）',dueDate:'2026-11-28'});
+assert.equal(client.editable('manual-1').revision,1);
+const secondDevice={Response,Intl,Date,fetch:cloudRuntime.fetch};
+runInNewContext(code,secondDevice);
+await secondDevice.XiaoxuCloudTasks.connect();
+assert.ok(secondDevice.XiaoxuCloudTasks.taskRows().includes('高数作业（已核对）'),
+ 'second device receives the same authenticated owner D1 task after refresh');
+assert.ok(html.includes('name="saveScope"'),'existing task dialog offers the cloud/local choice');
+assert.ok(html.includes('XiaoxuCloudTasks.createPersonal({title,dueDate})'));
+assert.ok(html.includes('XiaoxuCloudTasks.updatePersonal(cloudId,{title,dueDate})'));
+assert.ok(html.includes("action.startsWith('cloud-edit:')"));
+console.log('校序新增任务：校序登录后默认私人云端、日期精度、编辑版本控制及双设备读取通过');
