@@ -29,6 +29,7 @@ test('import original xuexitong-cli hw JSON and keep deadline time without persi
  await expect(page.locator('#app')).toContainText('19:30');
  await expect(page.locator('#app [data-action="import-task-batch"]')).toHaveCount(0);
  await page.goto('/#settings');
+ await page.locator('.xu-advanced-tools').filter({hasText:'学校官网连通性诊断与手动导入'}).locator('summary').first().click();
  await page.locator('.task-advanced-tools summary').click();
  await expect(page.locator('[data-action="import-task-batch"]')).toBeVisible();
  expect(errors).toEqual([]);
