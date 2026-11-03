@@ -36,7 +36,8 @@ function detail(value='1-8周 一[1-2] '+room){
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
- redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,gbkLogin=false}={}){
+ redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,
+ gbkLogin=false,optionalChallengeTab=false,principalHelpText=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
@@ -65,7 +66,9 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
       '<input type="hidden" name="loginmethod" value="plain">'+
       (directChallenge?'<input name="captcha" value="">' : '')+
       '</form></html>';
-     return reply(200,gbkLogin?gbkPage(schoolForm):schoolForm,
+     const pageHtml=(optionalChallengeTab?
+      '<p>可选的短信验证码登录 / 人脸识别入口</p>':'')+schoolForm;
+     return reply(200,gbkLogin?gbkPage(pageHtml):pageHtml,
       gbkLogin?{'content-type':'text/html'}:{});
     }
     return reply(302,'',{location:CAS});
@@ -95,8 +98,9 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
      'QG_SESS=school-rotated':'QG_SESS=school-authorized'),
     'the official school cookie must be scoped to the school origin');
    principalReads++;
-   return reply(200,entry.replace('value="'+student+'"','value="'+identity+'"'),
-    rotateCookie&&principalReads===2?
+   const principalHtml=(principalHelpText?'<p>忘记密码？验证码帮助</p>':'')+
+    entry.replace('value="'+student+'"','value="'+identity+'"');
+   return reply(200,principalHtml,rotateCookie&&principalReads===2?
     {'set-cookie':'QG_SESS=school-rotated; Path=/hsjw/; Secure'}:{});
   }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp'){
@@ -152,12 +156,28 @@ assert.deepEqual(await casGbk.preflight(),
  {loginSupported:true,mode:'password_form_verified'});
 assert.equal((await casGbk.login({username:student,password})).session.studentId,student);
 
+// Other optional login tabs and support notices must not block a separate
+// ordinary school form or invalidate the independently verified principal.
+const optionalSchool=school({directLogin:true,optionalChallengeTab:true,principalHelpText:true});
+const optionalAdapter=makeNcwuQingguoServerAdapter({
+ fetcher:optionalSchool.fetcher,trustedSyncEnabled:true
+});
+assert.deepEqual(await optionalAdapter.preflight(),
+ {loginSupported:true,mode:'school_password_form_verified'});
+const optionalAuth=await optionalAdapter.login({username:student,password});
+assert.equal(optionalAuth.session.studentId,student);
+const optionalRead=await optionalAdapter.forSession({
+ session:optionalAuth.session,userId:'optional-owner'
+});
+assert.equal((await optionalRead.verifySession()).identityBound,true);
+assert.equal(optionalSchool.calls.filter(c=>c.method==='POST').length,1);
+
 const directBlocked=school({directChallenge:true});
 const blocked=makeNcwuQingguoServerAdapter({
  fetcher:directBlocked.fetcher,trustedSyncEnabled:true
 });
 assert.deepEqual(await blocked.preflight(),
- {loginSupported:false,mode:'interactive_login_required'});
+ {loginSupported:false,mode:'interactive_login_required',reason:'interactive_challenge_required'});
 await assert.rejects(()=>blocked.login({username:student,password}),
  e=>e instanceof NcwuQingguoError&&e.code==='interactive_login_required');
 assert.ok(directBlocked.calls.every(c=>c.method==='GET'),
