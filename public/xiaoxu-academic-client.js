@@ -162,7 +162,7 @@
    nativeNcwu?
     '<div class="xu-school-connect"><p class="tiny muted">校序后端仅在校方提供安全的普通密码表单时尝试青果本人验证，不绕过验证码和二次认证。</p>'+
     '<button type="button" class="secondary" data-xu-cas-check="ncwu">尝试连接华水青果教务</button>'+
-    '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>'+
+    '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-ncwu-cas-result></div>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://jwmis.ncwu.edu.cn/">打开学校官网</a></div>':
     canLogin?
     (provider.id==='chaoxing'?
@@ -452,7 +452,7 @@
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-cas-check]');
    if(!button)return;
-   const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-second-cas-result]');
+   const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-ncwu-cas-result]');
    if(!result)return;
    const checkProvider='ncwu';
    
@@ -523,7 +523,7 @@
   });
 
   function showNcwuReview(form,preview){
-   const host=form.closest('[data-xu-second-cas-result]')||form.parentElement;
+   const host=form.closest('[data-xu-ncwu-cas-result]')||form.parentElement;
    const panel=document.createElement('section');
    panel.className='xu-school-review';panel.dataset.xuNcwuReview='';
    panel.dataset.reviewHash=preview.reviewHash;
