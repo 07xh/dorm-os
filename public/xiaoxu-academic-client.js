@@ -174,11 +174,11 @@
    const authPanel=(officialCas||nativeNcwu)?
     '<div class="xu-school-connect"><p class="tiny muted">校序通过本人的学校正常登录流程检查是否能安全连接；验证前不会收集密码，也不会绕过学校验证码或二次认证。</p>'+
     ((record?.nativeCasPreflight||nativeNcwu)?
-     '<button type="button" class="secondary" data-xu-cas-check="'+escapeHtml(provider.id)+'">检查'+escapeHtml(provider.name)+'登录</button>'+
+     '<button type="button" class="secondary" '+(officialCas?'data-xu-second-cas-check':'data-xu-cas-check="ncwu"')+'>检查'+escapeHtml(provider.name)+'登录</button>'+
      '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>':
      '<p class="tiny muted">站内安全会话尚未就绪，当前不会收取学校密码。</p>')+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
-    escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">打开学校官网</a></div>':
+    escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">'+(officialCas?'打开第二课堂官网':'打开学校官网')+'</a></div>':
     canLogin?
     '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
     '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
@@ -389,11 +389,11 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
   document.addEventListener('click',async event=>{
-   const button=event.target.closest?.('[data-xu-cas-check]');
+   const button=event.target.closest?.('[data-xu-cas-check],[data-xu-second-cas-check]');
    if(!button)return;
    const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-second-cas-result]');
    if(!result)return;
-   const checkProvider=button.dataset.xuCasCheck;
+   const checkProvider=button.dataset.xuCasCheck||'second_class';
    if(!['ncwu','second_class'].includes(checkProvider))return;
    button.disabled=true;result.textContent='正在向学校确认登录方式…';
    try{
