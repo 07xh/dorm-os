@@ -41,7 +41,7 @@ test('mobile home headline remains horizontal, legible and compact',async({page}
  expect(dims.headHeight).toBeLessThan(58);
  expect(dims.heroHeight).toBeLessThan(370);
  expect(dims.overflow).toBeLessThanOrEqual(2);
- await expect(page.locator('.x-v7-course-name')).toContainText('今天的本地高数课程');
+ await expect(page.locator('.x-v91-next-summary strong')).toContainText('今天的本地高数课程');
 });
 
 test('day chips switch actual local course content and course cards navigate',async({page})=>{
@@ -49,14 +49,14 @@ test('day chips switch actual local course content and course cards navigate',as
  await expect(page.locator('[data-home-day]')).toHaveCount(3);
  await page.locator('[data-home-day="1"]').click();
  await expect(page.locator('[data-home-day="1"]')).toHaveAttribute('aria-pressed','true');
- await expect(page.locator('.x-v7-course-name')).toContainText('明天的本地英语课程');
- await expect(page.locator('.x-v7-course-name')).not.toContainText('今天的本地高数课程');
- await page.locator('.x-v7-course-preview').click();
+ await expect(page.locator('.x-v91-next-summary strong')).toContainText('明天的本地英语课程');
+ await expect(page.locator('.x-v91-next-summary strong')).not.toContainText('今天的本地高数课程');
+ await page.locator('.x-v91-next-summary').click();
  await expect(page).toHaveURL(/#timetable$/);
  await page.goto('/#dashboard');
  await expect(page.locator('[data-home-day="1"]')).toHaveAttribute('aria-pressed','true');
  await page.locator('[data-home-day="0"]').click();
- await expect(page.locator('.x-v7-course-name')).toContainText('今天的本地高数课程');
+ await expect(page.locator('.x-v91-next-summary strong')).toContainText('今天的本地高数课程');
 });
 
 test('homepage task checkbox persists and task title opens existing editor',async({page})=>{
@@ -88,6 +88,6 @@ test('home responsive task widgets and dark theme keep content visible',async({p
  });
  await page.reload();
  await expect(page.locator('html')).not.toHaveClass(/theme-light/);
- await expect(page.locator('.x-v7-course-name')).toBeVisible();
+ await expect(page.locator('.x-v91-next-summary strong')).toBeVisible();
  await expect(page.locator('.x-v7-day-chip.selected')).toBeVisible();
 });
