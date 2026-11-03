@@ -11,7 +11,7 @@
   peer_review:'互评',exam:'考试',checkin:'签到',
   quiz:'测验',activity:'活动',notice:'课程通知'};
  const actionable=new Set(['assignment','assignment_reminder','peer_review','exam']);
- const isConnected=()=>root.XiaoxuCloudTasks?.isReady?.()===true;
+ const isConnected=()=>root.XiaoxuAcademic?.isReady?.()===true||root.XiaoxuCloudTasks?.isReady?.()===true;
  function message(row){
   if(!row||typeof row!=='object'||!title[row.category])return '';
   return '<article class="xu-inbox-entry">'+
