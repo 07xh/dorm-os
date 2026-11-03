@@ -14,6 +14,7 @@ test('settings shows dynamic official-source network checks, not forged account 
   count++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
  });
  await page.goto('/#settings');
+ await page.locator('.xu-advanced-tools').filter({hasText:'官网连通性诊断'}).locator('summary').first().click();
  await expect(page.locator('.x-v84-health-row')).toHaveCount(3);
  await expect(page.locator('.x-v84-health-row').nth(0)).toContainText('官网有响应');
  await expect(page.locator('.x-v84-health-row').nth(1)).toContainText('暂未获取响应');
@@ -29,6 +30,7 @@ test('settings shows dynamic official-source network checks, not forged account 
 test('cannot present unverified or failed readiness response as authenticated academic data',async({page})=>{
  await page.route('**/api/academic/status',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...data,accountConnected:true})}));
  await page.goto('/#settings');
+ await page.locator('.xu-advanced-tools').filter({hasText:'官网连通性诊断'}).locator('summary').first().click();
  await expect(page.locator('.x-v84-source-health')).toContainText('网络检测暂不可用');
  await expect(page.locator('.x-v84-source-health')).not.toContainText('官网有响应');
  await expect(page.locator('body')).toContainText('公开入口检测不代表本人已授权');
