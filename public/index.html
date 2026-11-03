@@ -1436,7 +1436,7 @@ function tasksPage(){
  ${XiaoxuCloudTasks.deadlineSummary(state.tasks)}
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div class="task-context"><span>${remaining} 项待完成${linked?' · '+linked+' 项学习通记录':''}</span><span class="task-context-source" title="云端任务不代表学校平台自动登录">${XiaoxuCloudTasks.isReady()?'已加载个人云端作业 · 平台会话待核验':'学习通未连接自动同步'}</span></div>
- <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+(XiaoxuCloudTasks.isReady()&&XiaoxuCloudTasks.taskCount()?'':XiaoxuAcademic.taskRows(taskFilter))+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>`;
+ <section class="card v4-task-list">${rows.length||XiaoxuAcademic.taskRows(taskFilter,state.tasks)||XiaoxuCloudTasks.taskRows(taskFilter,state.tasks)?rows.map(x=>taskRow(x)).join('')+(XiaoxuCloudTasks.isReady()&&XiaoxuCloudTasks.taskCount()?'':XiaoxuAcademic.taskRows(taskFilter,state.tasks))+XiaoxuCloudTasks.taskRows(taskFilter,state.tasks):'<div class="empty">还没有任务。这里会集中显示你创建的待办和已授权同步的课程作业。</div>'}</section>`;
 }
 function scenesPage(){
  const p=now();
