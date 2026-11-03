@@ -22,13 +22,19 @@ async function seed(page) {
 test('mobile home headline remains horizontal, legible and compact',async({page})=>{
  await page.setViewportSize({width:360,height:780});
  await seed(page);
- const dims=await page.locator('.x-v7-home-intro').evaluate(el=>{
+ await expect(page.locator('.x-v7-home-intro h1')).toBeVisible();
+ let dims;
+ await expect.poll(async()=>{
+  dims=await page.locator('.x-v7-home-intro').evaluate(el=>{
   const hero=el.getBoundingClientRect(),h=el.querySelector('h1');
   const title=h.getBoundingClientRect(),cs=getComputedStyle(h),heroStyle=getComputedStyle(el);
   return {heroHeight:hero.height,width:hero.width,headWidth:title.width,headHeight:title.height,
    direction:cs.writingMode,display:heroStyle.display,heroText:heroStyle.color,headText:cs.color,
    overflow:document.documentElement.scrollWidth-window.innerWidth};
- });
+  }).catch(()=>null);
+  return dims?.direction==='horizontal-tb'&&dims.display==='block'&&
+   dims.headWidth>100&&dims.headHeight<58&&dims.heroHeight<370&&dims.overflow<=2;
+ }).toBe(true);
  expect(dims.direction).toBe('horizontal-tb');
  expect(dims.display).toBe('block');
  expect(dims.headWidth).toBeGreaterThan(100);
