@@ -44,7 +44,7 @@
    if(result.status==='fulfilled'&&Array.isArray(result.value?.records)&&
        ['ready','stale','not_connected'].includes(result.value.status)){
      const v=result.value;
-     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import',summary:v.summary||null,automaticSync:v.automaticSync===true};
+     feeds[kind]={status:v.status,records:v.records.slice(0,250),lastSuccessAt:v.lastSuccessAt||null,provenance:v.provenance||'user_import',summary:v.summary||null,officialScore:v.officialScore||null,automaticSync:v.automaticSync===true};
    }else feeds[kind]={...feeds[kind],status:'error'};
   }
   error=results.some(v=>v.status==='rejected')?'部分个人数据源暂时不可用；不清空历史会话记录。':'';
@@ -99,7 +99,15 @@
  function panel(kind){
   if(!hasData(kind))return '';
   const s=state(kind);
-  const summary=kind==='second-class'&&s.summary?
+  const official=kind==='second-class'&&isOfficial(kind)&&s.officialScore?.aggregate?
+  '<div class="xu-second-class-official" aria-label="学校原始分数合计">'+
+  '<strong>学校显示合计</strong><div class="xu-second-class-summary">'+
+  '<div><strong>'+escapeHtml(s.officialScore.aggregate.qualityScore??'未公布')+
+  '</strong><small>素质分</small></div>'+
+  '<div><strong>'+escapeHtml(s.officialScore.aggregate.volunteerHours??'未公布')+
+  '</strong><small>志愿服务时长</small></div></div>'+
+  '<p class="tiny muted">来自华水本人分数页的“合计”记录，未与各学期或活动逐条数据重复相加。</p></div>':'';
+ const summary=kind==='second-class'&&s.summary?
    '<div class="xu-second-class-summary" aria-label="第二课堂已保存记录统计">'+
    '<div><strong>'+escapeHtml(s.summary.recordCount)+'</strong><small>已保存活动记录</small></div>'+
    ['recordedHours','recordedPoints'].map((key,i)=>{
@@ -125,7 +133,7 @@
   }).join(''):'<div class="friendly-empty">'+(kind==='second-class'?'当前没有已保存的第二课堂活动；这不证明学校平台无记录。':'本次保存的快照为空；不代表真实平台目前没有任务。')+'</div>';
   return '<section class="card xu-private-view" aria-label="'+escapeHtml(SOURCE[kind])+'"><div class="card-header"><span class="card-title">'+escapeHtml(SOURCE[kind])+'</span><span class="xu-private-status '+(s.status==='ready'?'is-ready':'')+'">'+(s.status==='stale'?'数据已过期':isOfficial(kind)?'授权只读同步':'个人快照')+'</span></div>'+
    '<p class="tiny muted">来源：'+(isOfficial(kind)?'本人授权的受信任只读连接器 · ':'本人保存的个人快照 · ')+escapeHtml(SOURCE[kind])+' · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
-   (s.status==='stale'?' · 请重新同步':'')+'</p>'+(kind==='second-class'?'<p class="tiny muted">校序尚未启动第二课堂无人值守自动更新；展示的是上一次保存的数据。</p>':'')+summary+'<div class="xu-private-list">'+rows+'</div></section>';
+   (s.status==='stale'?' · 请重新同步':'')+'</p>'+(kind==='second-class'?'<p class="tiny muted">校序尚未启动第二课堂无人值守自动更新；展示的是上一次保存的数据。</p>':'')+official+summary+'<div class="xu-private-list">'+rows+'</div></section>';
  }
  function taskRows(filter='all',localTasks=[]){
   if(!hasData('assignments')||filter==='done')return '';
