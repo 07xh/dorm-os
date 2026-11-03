@@ -35,10 +35,19 @@ function detail(value='1-8周 一[1-2] '+room){
   '<td>必修</td><td>'+teacher+'</td><td>已选</td><td>'+value+'</td></tr></table>';
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
+// One official class has two distinct, nonoverlapping week segments at the
+// SAME weekday/section. Both are explicitly present in grid and detail HTML.
+const splitGrid='<table id="mytable"><tr>'+Array.from({length:7},(_,i)=>
+ '<td class="td">'+(i===0?
+  '<div style="padding-bottom:5px">'+title+'<br>'+teacher+'<br>1-8周[1-2]<br>'+room+'</div>'+
+  '<div style="padding-bottom:5px">'+title+'<br>'+teacher+'<br>9-16周[1-2]<br>虚构教室B202</div>':'')+
+ '</td>').join('')+'</tr></table>';
+const splitPage='<html><input id="xn" value="2026"><input id="xq_m" value="1">'+
+ splitGrid+detail('1-8周 一[1-2] '+room+'；9-16周 一[1-2] 虚构教室B202')+'</html>';
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
  redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,
  gbkLogin=false,optionalChallengeTab=false,principalHelpText=false,
- principalPasswordField=false}={}){
+ principalPasswordField=false,splitWeeks=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
@@ -108,7 +117,7 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp'){
    if(rotateCookie)assert.ok((options.headers?.cookie||options.headers?.Cookie||'')
     .includes('QG_SESS=school-rotated'),'timetable read must use renewed session cookie');
-   return reply(200,page(detailTime));
+   return reply(200,splitWeeks?splitPage:page(detailTime));
   }
   throw Error('Unexpected synthetic school request');
  }
@@ -221,6 +230,38 @@ assert.equal(schedule.records[0].term,'2026-2027-1');
 const again=await read.readSection({kind:'schedule',session:proof.session});
 assert.equal(again.records[0].externalId,schedule.records[0].externalId);
 assert.ok(!JSON.stringify(schedule).includes(password));
+
+// A course can move rooms in the second half of the term without changing
+// its class code, weekday or class period. This must NOT collide or drop data.
+const splitSchool=school({splitWeeks:true});
+const splitAdapter=makeNcwuQingguoServerAdapter({
+ fetcher:splitSchool.fetcher,trustedSyncEnabled:true
+});
+const splitLogin=await splitAdapter.login({username:student,password});
+const splitReader=await splitAdapter.forSession({
+ session:splitLogin.session,userId:'owner-split-weeks'
+});
+const splitProof=await splitReader.verifySession();
+const splitSchedule=await splitReader.readSection({kind:'schedule',
+ session:splitProof.session});
+assert.equal(splitSchedule.records.length,2);
+assert.equal(new Set(splitSchedule.records.map(x=>x.externalId)).size,2,
+ 'different explicit week segments must have distinct provider IDs');
+assert.deepEqual(splitSchedule.records.map(x=>x.weeks),[
+ [1,2,3,4,5,6,7,8],[9,10,11,12,13,14,15,16]
+]);
+assert.deepEqual(splitSchedule.records.map(x=>x.startSection),[1,1]);
+assert.deepEqual(splitSchedule.records.map(x=>x.weekday),[1,1]);
+assert.deepEqual(splitSchedule.records.map(x=>x.location),[
+ room,'虚构教室B202'
+]);
+const splitAgain=await splitReader.readSection({kind:'schedule',
+ session:splitProof.session});
+assert.deepEqual(splitAgain.records.map(x=>x.externalId),
+ splitSchedule.records.map(x=>x.externalId),
+ 'the week-aware IDs must stay stable across refreshes');
+assert.equal(splitSchedule.records.every(x=>x.term==='2026-2027-1'),true);
+assert.ok(!JSON.stringify(splitSchedule).includes(password));
 
 // School may rotate its cookie when the verified student page is fetched.
 // A fresh process must be able to reuse the new jar, never the stale cookie.
