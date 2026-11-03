@@ -21,13 +21,14 @@ export function inspectAcademicPagesProject(project){
    rawMode==='owner_password'?'owner_password':
    rawMode==='access'?'access':'unverified';
  const ownerSecretConfigured=own(vars,'OWNER_LOGIN_SECRET');
+ const schoolVaultConfigured=own(vars,'SCHOOL_SESSION_KEY');
  const accessIssuerConfigured=own(vars,'ACCESS_TEAM_DOMAIN');
  const accessAudienceConfigured=own(vars,'ACCESS_AUD');
  const authSettingsReady=authMode==='owner_password'?ownerSecretConfigured:
    authMode==='access'?accessIssuerConfigured&&accessAudienceConfigured:false;
  return {
   d1Bound:own(d1,'ACADEMIC_DB')&&typeof d1.ACADEMIC_DB?.id==='string'&&d1.ACADEMIC_DB.id.length>0,
-  authMode,authSettingsReady,ownerSecretConfigured,accessIssuerConfigured,
+  authMode,authSettingsReady,ownerSecretConfigured,schoolVaultConfigured,accessIssuerConfigured,
   accessAudienceConfigured,
   productionBranchMain:project.production_branch==='main',
   pagesFunctionsPresent:project.uses_functions===true
@@ -68,6 +69,9 @@ if(invoked){
     '；Access Audience '+(inspection.accessAudienceConfigured?'已配置':'缺少'));
   else
    report.push('- ⚠️ 无法确认 ACADEMIC_AUTH_MODE 的非敏感枚举值；需人工核对模式');
+  report.push('- '+(inspection.schoolVaultConfigured?'✅':'⚠️')+
+   ' 第二课堂加密会话 Secret '+(inspection.schoolVaultConfigured?'已配置名称':'缺少 SCHOOL_SESSION_KEY')+
+   '（不读取秘密值，不代表学校登录成功）');
   report.push('- ℹ️ D1 实际迁移、有效登录会话和 Zero Trust 策略：**未在本脚本内检查**');
   report.push('- ℹ️ 学校真实账号授权和无人值守同步：**尚未验证**');
   if(!required.every(key=>inspection[key]))process.exitCode=1;
