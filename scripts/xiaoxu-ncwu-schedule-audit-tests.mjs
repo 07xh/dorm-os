@@ -90,7 +90,7 @@ await assert.rejects(
 );
 await assert.rejects(
  ()=>auditNcwuTimetableAgainstReference({
-  cookie:'bad\\ncookie',semester:'2026-2027-1',referenceRecords:reference,
+  cookie:'INVALID_'+String.fromCharCode(10),semester:'2026-2027-1',referenceRecords:reference,
   fetchImpl:transport().fetchImpl
  }),
  e=>e instanceof NcwuPageReadError&&e.code==='invalid_session_input'
