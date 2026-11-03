@@ -1,5 +1,5 @@
-const CACHE='dorm-os-shell-v90-second-class-readonly-api';
-const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-v8.css','/xiaoxu-v83.css','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-notices.js','/xiaoxu-academic-client.js','/xiaoxu-cloud-tasks.js','/xiaoxu-deadline-reminders.js','/xiaoxu-reminders.js'];
+const CACHE='dorm-os-shell-v91-owner-auth-navigation';
+const ASSETS=['/','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-v8.css','/xiaoxu-v83.css','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-notices.js','/xiaoxu-academic-client.js','/xiaoxu-cloud-tasks.js','/xiaoxu-deadline-reminders.js','/xiaoxu-reminders.js','/xiaoxu-owner-auth-ui.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
 self.addEventListener('fetch',e=>{
@@ -8,7 +8,7 @@ self.addEventListener('fetch',e=>{
   const u=new URL(r.url);
   if(u.origin!==self.location.origin)return;
   if(r.mode==='navigate'){
-    e.respondWith(fetch(r).then(resp=>{if(resp.ok){const clone=resp.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put('/',clone)));}return resp;}).catch(()=>caches.match('/')));
+    e.respondWith(fetch(r).then(resp=>{if(resp.ok && u.pathname==='/'){const clone=resp.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put('/',clone)));}return resp;}).catch(()=>caches.match('/')));
     return;
   }
   if(ASSETS.includes(u.pathname))e.respondWith(caches.match(r).then(hit=>hit||fetch(r)));
