@@ -195,20 +195,14 @@ assert.equal(currentAway.awayChecklist.checked.includes('not-real'),false);
 console.log('Scene deep links and daily personal away checklist validated');
 
 
-// Android handoff is user initiated and never claims remote execution.
-const handoffCtx={URL,location:ctx.location,sceneDefs:ctx.sceneDefs};
-runInNewContext(sourceBetween('function personalSceneUrl(', 'const sceneLabel='),handoffCtx);
-handoffCtx.androidSceneSelection='study';
-runInNewContext(sourceBetween('function androidSceneLink()', 'function nfcPage(){'),handoffCtx);
-assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'study');
-handoffCtx.androidSceneSelection='away';
-assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'away');
-handoffCtx.androidSceneSelection='invalid';
-assert.equal(new URL(handoffCtx.androidSceneLink()).searchParams.get('dormScene'),'study');
-assert.ok(html.includes('data-action="android-copy-scene"'));
-assert.ok(html.includes('data-action="android-share-scene"'));
-assert.ok(html.includes('MacroDroid 会将标签写成自己的专用识别格式'));
-console.log('Android NFC handoff URLs and setup controls passed');
+// Retired MacroDroid help controls were only duplicate guidance, not NFC
+// actions. They must not reappear; the real scene URL and tag logic above stay.
+assert.ok(!html.includes('androidAutomationGuide'));
+assert.ok(!html.includes('androidScenePicker'));
+assert.ok(!html.includes('data-action="android-copy-scene"'));
+assert.ok(!html.includes('MacroDroid'));
+assert.equal(new URL(awayCtx.personalSceneUrl('away')).searchParams.get('dormScene'),'away');
+console.log('Retired Android help UI removed; native NFC and scene URL tests retained');
 
 // Focus continuity: validate persisted deadline, expiration, duration, and legacy state.
 runInNewContext(sourceBetween('function normalizeFocusTimer(', 'function safeState('),focusCtx);
