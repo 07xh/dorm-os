@@ -44,12 +44,15 @@ test('second-class personal API renders accurate source, known-only totals and d
  await expect(panel.locator('img')).toHaveCount(0,'upstream HTML must be escaped');
  expect(paths).toContain('/api/v1/second-class');
  trusted=true;
- await page.locator('[data-page="settings"]:visible').first().click();
+ await page.evaluate(()=>window.setPage('settings'));
+ await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'重新读取'}).click();
+ await expect(page.locator('.xu-private-panel')).toContainText('本人授权只读同步');
  await page.locator('[data-page="academic"]:visible').first().click();
  await page.locator('[data-academic-tab="second"]').click();
  await expect(panel).toContainText('授权只读同步');
- await page.locator('[data-page="settings"]:visible').first().click();
+ await page.evaluate(()=>window.setPage('settings'));
+ await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'断开连接'}).click();
  await page.locator('[data-page="academic"]:visible').first().click();
  await page.locator('[data-academic-tab="second"]').click();
