@@ -97,5 +97,46 @@ assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 const denied=await onRequestGet({request:new Request('https://school.test/api/v1/connections'),env:{}});
 assert.equal(denied.status,503);
 assert.match(denied.headers.get('cache-control')||'',/no-store/);
+
+// First milestone: verified schedule only. A trusted upstream adapter must
+// NOT be required to return grades/exams when they are not yet integrated.
+const scheduleOwner='owner-schedule';
+const scheduleOnlyAdapter=adapter(scheduleOwner,{failKind:'grades'});
+const scheduleOnly=await runVerifiedNcwuSync(db,scheduleOwner,scheduleOnlyAdapter,{
+ ...options,kinds:['schedule']
+});
+assert.deepEqual(scheduleOnly.counts,{schedule:1});
+assert.equal(sqlite.prepare(
+ "SELECT status FROM academic_connections WHERE user_id=? AND provider='ncwu'"
+).get(scheduleOwner).status,'partial');
+assert.deepEqual(sqlite.prepare(
+ "SELECT kind FROM academic_verified_batches WHERE user_id=? ORDER BY kind"
+).all(scheduleOwner).map(r=>r.kind),['schedule']);
+const scheduleOverview=await readConnectionCenter(db,scheduleOwner);
+assert.equal(scheduleOverview.platforms[0].status,'partial');
+assert.deepEqual(scheduleOverview.platforms[0].trustedKinds,['schedule']);
+assert.equal(scheduleOverview.platforms[0].accountAuthorization,'not_verified',
+ 'a verified snapshot alone is not a currently authorized school login');
+assert.equal(scheduleOverview.platforms[0].automaticSync,false);
+
+// Full verified sync later upgrades the same connection; no fabricated data.
+const upgraded=await runVerifiedNcwuSync(db,scheduleOwner,adapter(scheduleOwner),options);
+assert.deepEqual(upgraded.counts,{schedule:1,grades:1,exams:1});
+assert.equal(sqlite.prepare(
+ "SELECT status FROM academic_connections WHERE user_id=? AND provider='ncwu'"
+).get(scheduleOwner).status,'connected');
+assert.deepEqual(sqlite.prepare(
+ "SELECT kind FROM academic_verified_batches WHERE user_id=? ORDER BY kind"
+).all(scheduleOwner).map(r=>r.kind),['exams','grades','schedule']);
+await rejects(()=>collectVerifiedNcwu(adapter(scheduleOwner),scheduleOwner,{kinds:[]}),'connector_not_configured');
+await rejects(()=>collectVerifiedNcwu(adapter(scheduleOwner),scheduleOwner,{kinds:['schedule','schedule']}),'connector_not_configured');
+await rejects(()=>collectVerifiedNcwu(adapter(scheduleOwner),scheduleOwner,{kinds:['second-class']}),'connector_not_configured');
+await rejects(()=>collectVerifiedNcwu(adapter(scheduleOwner),scheduleOwner,{kinds:['schedule'],maxRecords:0}),'connector_not_configured');
+await rejects(()=>runVerifiedNcwuSync(db,scheduleOwner,adapter('owner-b'),{
+ ...options,kinds:['schedule']
+}),'authorization_failed');
+assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
+
 sqlite.close();
 console.log('NCWU verified academic bridge: owner binding, 3 sections, atomic D1, no session persistence, failures and isolation passed');
