@@ -40,6 +40,15 @@ export function classifySessionVaultUpgrade(tables,columns){
  const required=['user_id','provider','ciphertext','nonce','expires_at','updated_at'];
  return required.every(x=>fields.has(x))?'verify':'partial_session_schema';
 }
+export function classifySecondClassSessionUpgrade(definition){
+ if(typeof definition!=='string')return 'unexpected_session_constraint';
+ const normalized=definition.toLowerCase().replace(/\s+/g,'');
+ if(normalized.includes("check(providerin('ncwu','chaoxing','second_class'))"))
+  return 'verify';
+ if(normalized.includes("check(providerin('ncwu','chaoxing'))"))
+  return 'apply';
+ return 'unexpected_session_constraint';
+}
 export async function upgrade(){
  if(process.env.GITHUB_REPOSITORY!=='07xh/dorm-os'||process.env.GITHUB_REF!=='refs/heads/main')
   throw Error('repository_or_branch_not_allowed');
@@ -82,10 +91,24 @@ export async function upgrade(){
  const vaultColumns=rows(name,'PRAGMA table_info(academic_provider_sessions)');
  if(classifySessionVaultUpgrade(vaultTables,vaultColumns)!=='verify')
   throw Error('session_vault_columns_missing');
+ // Check the actual SQLite CHECK definition, not merely columns. Existing
+ // encrypted sessions must survive the one-time forward migration.
+ const definition=()=>rows(name,
+  "SELECT sql FROM sqlite_master WHERE type='table' AND name='academic_provider_sessions'")[0]?.sql;
+ const secondAction=classifySecondClassSessionUpgrade(definition());
+ if(secondAction==='unexpected_session_constraint')
+  throw Error('unknown_school_session_constraint_manual_review');
+ if(secondAction==='apply'){
+  run(['d1','execute',name,'--remote','--yes','--json',
+   '--file=./migrations/0012_academic_second_class_sessions.sql']);
+  report('✅ 已执行 0012 第二课堂会话范围升级（保留旧会话）');
+ }else report('✅ 0012 已存在，无重复迁移');
+ if(classifySecondClassSessionUpgrade(definition())!=='verify')
+  throw Error('second_class_session_schema_missing');
  if(rows(name,'PRAGMA foreign_key_check').length)throw Error('foreign_key_violation');
  const check=rows(name,'PRAGMA quick_check');
  if(check.length!==1||check[0].quick_check!=='ok')throw Error('integrity_check_failed');
- report('✅ 0010 + 0011 表、外键和完整性均通过；现有学业数据未删除');
+ report('✅ 0010–0012 表、外键和完整性均通过；现有学业数据未删除');
  report('ℹ️ 学校网页登录功能仍需配置独立加密密钥及真实授权适配器；本迁移不存储凭据，也不会启动学校连接');
 }
 if(process.argv[1]?.endsWith('upgrade-academic-owner-auth-production.mjs')){
