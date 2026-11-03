@@ -131,10 +131,6 @@
    const record=sources.find(x=>x.id===provider.id)||null;
    const label=record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'学校会话无法验证，请重新连接':record.sessionState==='review_pending'?'本人课表等待核对':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
    const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
-   const imported=Array.isArray(record?.importedKinds)?record.importedKinds.length:0;
-   const details=trusted?'有 '+trusted+' 类可信只读记录 · 当前学校授权仍需独立核验':
-     imported?'有 '+imported+' 类个人导入记录 · 不是账号绑定':record?'尚无已验证的学校同步记录':'';
-   const stampText=record?.lastSuccessAt?' · 上次记录 '+stamp(record.lastSuccessAt):'';
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const qrResuming=provider.id==='chaoxing'&&chaoxingQrAttempt&&
     Date.now()<chaoxingQrAttempt.expiresAt;
