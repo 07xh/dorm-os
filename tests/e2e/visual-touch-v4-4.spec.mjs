@@ -53,15 +53,17 @@ test('360px timetable day and week remain usable',async({page})=>{
  for(let i=0;i<7;i++){
   const button=dayButtons.nth(i);
   await expect(button).toBeVisible();
-  const rect=await button.boundingBox();
-  expect(rect).not.toBeNull();
-  expect(rect.height).toBeGreaterThanOrEqual(44);
+  await expect.poll(async()=>{
+   const rect=await button.boundingBox();
+   return rect?.height??0;
+  }).toBeGreaterThanOrEqual(44);
  }
  const editButton=page.locator('.v42-day-content [data-class-edit]');
  await expect(editButton).toBeVisible();
- const edit=await editButton.boundingBox();
- expect(edit).not.toBeNull();
- expect(edit.height).toBeGreaterThanOrEqual(44);
+ await expect.poll(async()=>{
+  const edit=await editButton.boundingBox();
+  return edit?.height??0;
+ }).toBeGreaterThanOrEqual(44);
  await page.locator('[data-timetable-mode="week"]').click();
  await expect(page.locator('.v42-week-grid .v42-day-card')).toHaveCount(7);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
