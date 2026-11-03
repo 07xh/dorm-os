@@ -35,7 +35,7 @@ test('schema check is private, on-demand and within the same source center',asyn
  await page.locator('[data-action="academic-connect"]').click();
  await expect(center).toContainText('校序云端已读取');
  expect(healthCalls).toHaveLength(0);
- await center.locator('.xu-connection-diagnostics summary').click();
+ await expect(center.locator('.xu-connection-diagnostics')).toHaveAttribute('open','');
  await center.getByRole('button',{name:'只读检查数据库'}).click();
  await expect(center).toContainText('校序数据库结构完整');
  await expect(center).toContainText('当前校序登录已通过');
