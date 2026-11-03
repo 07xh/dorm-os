@@ -1,0 +1,43 @@
+/* 校序个人登录弹窗：与 V8 蓝白 / 深色设计 token 同步，使用原生 dialog。 */
+.xu-owner-dialog{
+  position:fixed;inset:0;margin:auto;box-sizing:border-box;
+  width:min(368px,calc(100vw - 30px));max-height:min(85dvh,540px);overflow:auto;
+  padding:24px;border:1px solid var(--xu-line,#e5ecf6);border-radius:20px;
+  color:var(--xu-ink,#1a3150);background:var(--xu-surface,#fff);
+  box-shadow:0 24px 65px rgba(14,35,70,.18)
+}
+.xu-owner-dialog::backdrop{background:rgba(14,28,54,.38);backdrop-filter:blur(2px)}
+.xu-owner-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
+.xu-owner-brand{display:flex;align-items:center;gap:11px;min-width:0}
+.xu-owner-mark{width:34px;height:34px;flex:none;display:grid;place-items:center;
+  border-radius:11px;color:#fff;background:#2d6fe7;font-size:18px;font-weight:800}
+.xu-owner-dialog h2{font-size:19px;line-height:1.3;font-weight:760;margin:0;color:var(--xu-ink,#1a3150);letter-spacing:-.4px}
+.xu-owner-close{display:grid;place-items:center;flex:none;height:34px;width:34px;border:0;
+  border-radius:10px;color:var(--xu-muted,#7385a1);background:transparent;font-size:25px;line-height:1}
+.xu-owner-close:hover{background:var(--xu-soft,#f4f7fe)}
+.xu-owner-dialog [data-owner-auth-form] label{
+  display:block;margin-bottom:8px;font-size:13px;color:var(--xu-muted,#7385a1);font-weight:650}
+.xu-owner-field{position:relative}
+.xu-owner-field input{
+  width:100%;height:46px;min-height:46px;box-sizing:border-box;
+  padding:0 64px 0 13px;border:1px solid var(--xu-line,#d0d9ea);
+  border-radius:12px;background:var(--xu-surface,#fff);color:var(--xu-ink,#1a3150);font-size:15px;
+  outline:none}
+.xu-owner-field input:focus{border-color:var(--xu-brand,#3268ed);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--xu-brand,#3268ed) 13%,transparent)}
+.xu-owner-field input::placeholder{color:var(--xu-muted,#7385a1)}
+.xu-owner-toggle{position:absolute;right:4px;top:3px;min-width:50px;height:40px;
+  border:0;background:transparent;color:var(--xu-muted,#7385a1);font-size:13px;border-radius:9px}
+.xu-owner-action{width:100%;height:46px;margin-top:14px;border:0;border-radius:12px;
+  background:#3268ed;color:#fff;font-size:14px;font-weight:750}
+.xu-owner-action:hover{background:#2457d6}
+.xu-owner-action:disabled{opacity:.65;cursor:wait}
+.xu-owner-action.xu-owner-exit{background:var(--xu-soft,#eef4fe);color:var(--xu-brand,#3268ed)}
+.xu-owner-dialog [data-owner-auth-result]{margin-top:12px;color:var(--xu-muted,#7385a1);
+  font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.xu-owner-dialog [data-owner-auth-result]:empty{display:none}
+.xu-owner-dialog [hidden]{display:none!important}
+.xu-owner-dialog button:focus-visible,.xu-owner-dialog input:focus-visible{
+  outline:2px solid var(--xu-brand,#3268ed);outline-offset:2px}
+@media(max-width:420px){.xu-owner-dialog{padding:22px;border-radius:18px}}
+@media(prefers-reduced-motion:reduce){.xu-owner-dialog::backdrop{backdrop-filter:none}}
