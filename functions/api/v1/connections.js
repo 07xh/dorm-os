@@ -39,8 +39,14 @@ export async function onRequestGet(context){
     loginMode:available?'native_cas_probe':'unavailable',
     nativeCasPreflight:available,
     accountAuthorization:verified?'verified_session':'not_verified'};
+   // Owner-visible, non-secret reason why the Chaoxing password form is hidden.
+   // Schema migration and a named Cloudflare secret alone are not proof that
+   // this deployment has a working session vault and registered adapter.
+   const checked=context.data?.academicChaoxingReadiness;
+   const loginReadiness=checked==='ready'&&!available?'adapter_unavailable':
+    checked||'adapter_unavailable';
    return {...row,loginMode:available?'password':'unavailable',sessionState,
-    accountAuthorization:verified?'verified_session':'not_verified'};
+    loginReadiness,accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
  }catch{return json({error:'database_unavailable'},503);}
