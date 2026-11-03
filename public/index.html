@@ -688,6 +688,7 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
   <link rel="stylesheet" href="/xiaoxu-v8.css">
   <link rel="stylesheet" href="/xiaoxu-v83.css">
   <link rel="stylesheet" href="/xiaoxu-academic.css">
+  <link rel="stylesheet" href="/xiaoxu-owner-auth.css">
   <title>校序 · 华水教务整合</title>
 </head>
 <body>
@@ -702,7 +703,6 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
         <button type="button" data-page="academic" class="nav-link">教务</button>
         <button type="button" data-page="tasks" class="nav-link">任务</button>
         <button type="button" data-page="profile" class="nav-link">我的</button>
-        <a class="nav-link" href="/login/" data-owner-session-link aria-label="个人云端登录与会话管理">个人云端</a>
       </nav>
       <div class="x-v8-header-actions"><button type="button" class="x-v8-header-theme" data-action="theme-v8" aria-label="切换深浅色主题" title="切换深浅色主题"><svg class="dorm-ui-icon x-v8-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.1A8.5 8.5 0 0 1 9.9 3.6 8.5 8.5 0 1 0 20.4 14.1Z"/></svg><svg class="dorm-ui-icon x-v8-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button></div>
     </div>
@@ -717,6 +717,22 @@ html:not(.theme-light) .x-v7-today-stats strong{color:#9cbfff}
 
   </div>
 </div>
+<dialog id="xuOwnerDialog" class="xu-owner-dialog" data-owner-auth-surface aria-labelledby="xuOwnerTitle">
+  <div class="xu-owner-head">
+    <div class="xu-owner-brand"><span class="xu-owner-mark" aria-hidden="true">序</span><h2 id="xuOwnerTitle" data-owner-auth-title>登录校序</h2></div>
+    <button class="xu-owner-close" type="button" data-owner-auth-close aria-label="关闭登录窗口">×</button>
+  </div>
+  <form data-owner-auth-form>
+    <label for="xuOwnerPassword">个人密码</label>
+    <div class="xu-owner-field">
+      <input id="xuOwnerPassword" data-owner-auth-password type="password" required minlength="8" maxlength="256" autocomplete="current-password" placeholder="输入密码">
+      <button class="xu-owner-toggle" type="button" data-owner-auth-toggle aria-label="显示密码">显示</button>
+    </div>
+    <button class="xu-owner-action" type="submit" data-owner-auth-submit>安全登录</button>
+  </form>
+  <button class="xu-owner-action xu-owner-exit" type="button" data-owner-auth-logout hidden>退出当前设备</button>
+  <div data-owner-auth-result role="status" aria-live="polite"></div>
+</dialog>
 <dialog id="editor" class="editor"><div id="editorContent"></div></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <input id="icsInput" type="file" accept=".ics,text/calendar" hidden>
@@ -1456,10 +1472,13 @@ function scenesPage(){
 const devices=[['📱','一加 Ace 6','Android 自动化 · 未来通过授权客户端接入'],['▤','一加 Pad 2 Pro','平板学习面板 · 网页访问'],['💻','个人电脑','本地开发 · 后续可运行数据服务']];
 function devicesPage(){return `${titleBlock('HARDWARE INTEGRATION','设备中心','已知你的设备类别，但还没有获取任何真实在线状态。')}<div class="device-grid">${devices.map(d=>`<section class="card device-card"><div class="device-icon">${d[0]}</div><div class="device-name">${d[1]}</div><div class="small muted">${d[2]}</div><div class="device-status"><span class="status-line">未连接到网站</span>${badge('待接入')}</div></section>`).join('')}</div><div class="notice neutral" style="margin-top:16px">预留协议：<span class="kbd">dorm-os/eink-v1</span>，可在设置中导出 JSON 样例。静态 V1 网站不能对外提供实时硬件 API；后续需增加带身份验证的服务端。</div>`;}
 function profilePage(){
+ const ownerConnected=window.XiaoxuOwnerAuth?.connected?.()===true;
  return titleBlock('','我的')+'<section class="card v4-profile-card">'
  +'<div class="v4-profile-head"><span class="v4-profile-avatar" aria-hidden="true">校</span>'
  +'<div><strong>个人设置与数据连接</strong><span>目前资料保存在当前浏览器 · 未启用跨设备同步</span></div></div>'
- +'<div class="v4-profile-links"><button type="button" class="v4-profile-link" data-page="settings">'
+ +'<div class="v4-profile-links"><button type="button" class="v4-profile-link" data-owner-auth-open>'
+ +'<span class="v4-profile-symbol" aria-hidden="true">◉</span><span><strong data-owner-auth-entry-title>'+(ownerConnected?'云端已连接':'登录校序')+'</strong><small data-owner-auth-entry-subtitle>'+(ownerConnected?'查看或退出当前设备':'管理个人云端登录')+'</small></span><b>›</b></button>'
+ +'<button type="button" class="v4-profile-link" data-page="settings">'
  +'<span class="v4-profile-symbol" aria-hidden="true">⚙</span><span><strong>数据连接与备份</strong><small>平台连接状态、数据迁移、外观</small></span><b>›</b></button></div>'
  +'<details class="x-v7-legacy-links"><summary>原有个人功能（教务整合后再联动）</summary>'
  +'<div class="x-v7-legacy-list"><button type="button" data-page="nfc">NFC 标签管理</button>'
