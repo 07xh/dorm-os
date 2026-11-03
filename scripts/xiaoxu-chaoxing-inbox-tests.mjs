@@ -117,6 +117,31 @@ assert.equal(repeated.inserted,0);
 assert.equal(repeated.updated,0);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,5);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,3);
+// Force a notice-table constraint failure AFTER a new assignment has been
+// prepared, proving the shared SQLite/D1 batch rolls back both tables.
+const extra=notice('K','新作业发布',
+ '课程名称：Python程序设计\\r作业名称：练习二\\r结束时间：2026-11-19 22:00',
+ {extendParam:{cparams:JSON.stringify({funConfig:{content:{key:'rollbackWork12345'}}})}});
+const corruptNotices={
+ ...db,
+ prepare(sql){
+  const prepared=db.prepare(sql);
+  if(!sql.includes('INSERT INTO academic_chaoxing_notices'))return prepared;
+  return {bind(...values){
+   values[1]=''; // violate notice_id CHECK; never saved.
+   return prepared.bind(...values);
+  }};
+ }
+};
+const extraAdapter={...verifiedAdapter,
+ readNoticePage:async()=>({payload:payload([extra]),complete:true,nextCursor:null})};
+await assert.rejects(
+ ()=>runVerifiedChaoxingInboxSync(corruptNotices,'owner1',extraAdapter,options),
+ /upstream_unavailable|invalid_response|database_unavailable/);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,3,
+ 'failed notice insert must roll back newly created assignment');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,5,
+ 'failed transaction must preserve old notice rows');
 const after=sqlite.prepare('PRAGMA integrity_check').get();
 assert.equal(after.integrity_check,'ok');
 sqlite.close();
