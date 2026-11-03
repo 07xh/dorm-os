@@ -74,3 +74,43 @@ test('cloud tasks stay opt-in, migration previews before commit, and platform st
  await expect(page.locator('.xu-cloud-task')).toHaveCount(0);
  await expect(page.locator('#app')).toContainText('手绘工程制图');
 });
+
+
+test('mobile resume refreshes a previously authorized cloud session without changing local tasks',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ let remote=[{id:'cloud-shared',title:'跨设备同步任务',kind:'manual',
+  due_precision:'date',due_local_date:'2026-11-25',due_at_utc:null,
+  local_status:'todo',platform_status:null,source_course:null,
+  revision:0,legacy_id:null}];
+ let reads=0;
+ await page.route('**/api/v1/connections',route=>route.fulfill({status:200,
+  contentType:'application/json',body:JSON.stringify({schema:'xiaoxu/connections-v1',
+   platforms:[{id:'ncwu',status:'not_connected'},{id:'chaoxing',status:'not_connected'},
+    {id:'second_class',status:'not_connected'}]})}));
+ await page.route('**/api/v1/verified/**',route=>route.fulfill({status:200,
+  contentType:'application/json',body:JSON.stringify({status:'not_connected',
+   records:[],lastSuccessAt:null})}));
+ await page.route('**/api/v1/second-class',route=>route.fulfill({status:200,
+  contentType:'application/json',body:JSON.stringify({status:'not_connected',
+   records:[],lastSuccessAt:null})}));
+ await page.route('**/api/v1/sources',route=>route.fulfill({status:200,
+  contentType:'application/json',body:JSON.stringify({connections:[],userSnapshots:[]})}));
+ await page.route('**/api/v1/assignments?*',route=>{
+  reads++;
+  return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({items:remote})});
+ });
+ await page.goto('/#settings');
+ await expect(page.locator('.xu-cloud-panel')).toContainText('未连接');
+ expect(reads).toBe(0,'no automatic private-data requests before owner opts in');
+ await page.locator('[data-action="academic-connect"]').click();
+ await expect(page.locator('.xu-cloud-panel')).toContainText('已载入 1 项');
+ await page.locator('#sidebarNav [data-page="tasks"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('标记完成');
+ remote=[{...remote[0],local_status:'done',revision:1}]; // second device changed D1
+ await page.evaluate(()=>window.dispatchEvent(new Event('online'))); // mobile network resume
+ await expect(page.locator('.xu-cloud-task')).toContainText('恢复待办');
+ expect(reads).toBeGreaterThanOrEqual(2);
+ const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+ expect(overflow).toBeLessThanOrEqual(1);
+});
