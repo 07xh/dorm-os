@@ -29,13 +29,14 @@ function detail(value='1-8周 一[1-2] '+room){
   '<td>必修</td><td>'+teacher+'</td><td>已选</td><td>'+value+'</td></tr></table>';
 }
 const page=value=>'<html><input id="xn" value="2026"><input id="xq_m" value="1">'+grid+detail(value)+'</html>';
-function school({second=false,identity=student,detailTime,challenge=false,redirectAway=false}={}){
+function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,redirectAway=false}={}){
  const calls=[];
  async function fetcher(url,options={}){
   const u=new URL(url),method=options.method;
   calls.push({host:u.hostname,path:u.pathname,method,hasCookie:!!(options.headers?.cookie||options.headers?.Cookie)});
   if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login'&&method==='GET')
-   return reply(200,challenge?form.replace('</form>','<input name="captcha"></form>'):form,
+   return reply(200,challenge?form.replace('</form>','<input name="captcha"></form>'):
+    cryptoForm?form+'<script>encryptPassword();</script>':form,
     {'set-cookie':'CAS_FAKE=authorization; Path=/authserver/; Secure'});
   if(u.hostname==='authserver.ncwu.edu.cn'&&method==='POST'){
    const p=new URLSearchParams(options.body);
@@ -134,10 +135,24 @@ const interactive=school({challenge:true});
 const challenged=makeNcwuQingguoServerAdapter({
  fetcher:interactive.fetcher,trustedSyncEnabled:true
 });
-assert.deepEqual(await challenged.preflight(),{loginSupported:false,mode:'interactive_login_required'});
+assert.deepEqual(await challenged.preflight(),{loginSupported:false,mode:'interactive_login_required',
+ reason:'interactive_challenge_required'});
 await assert.rejects(()=>challenged.login({username:student,password}),
  e=>e.code==='interactive_login_required');
 assert.ok(interactive.calls.every(c=>c.method==='GET'));
+
+// Crypto-enabled official CAS pages must not receive a plain password POST.
+const encryptedSchool=school({cryptoForm:true});
+const encryptionBlocked=makeNcwuQingguoServerAdapter({
+ fetcher:encryptedSchool.fetcher,trustedSyncEnabled:true
+});
+assert.deepEqual(await encryptionBlocked.preflight(),{
+ loginSupported:false,mode:'interactive_login_required',reason:'password_transform_required'
+});
+await assert.rejects(()=>encryptionBlocked.login({username:student,password}),
+ e=>e instanceof NcwuQingguoError&&e.code==='interactive_login_required'&&
+ e.reason==='password_transform_required');
+assert.ok(encryptedSchool.calls.every(c=>c.method==='GET'));
 
 const incomplete=school({detailTime:'1-8周'});
 const incompleteAdapter=makeNcwuQingguoServerAdapter({

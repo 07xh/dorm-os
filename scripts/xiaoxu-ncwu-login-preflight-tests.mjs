@@ -85,6 +85,17 @@ const needsHuman=await resolveNcwuPreflight(
  {preflight:async()=>({loginSupported:false,mode:'interactive_login_required'})},true);
 assert.equal(needsHuman.nativeLoginReady,false);
 assert.equal(needsHuman.status,'interactive_login_required');
+const encryptedCas=await resolveNcwuPreflight(falsePublic,{
+ preflight:async()=>({loginSupported:false,mode:'interactive_login_required',
+  reason:'password_transform_required'})
+},true);
+assert.equal(encryptedCas.loginSupported,false);
+assert.equal(encryptedCas.reason,'password_transform_required');
+const untrustedCause=await resolveNcwuPreflight(falsePublic,{
+ preflight:async()=>({loginSupported:false,mode:'interactive_login_required',
+  reason:'TOKEN_SENSITIVE_UNRECOGNIZED'})
+},true);
+assert.equal('reason' in untrustedCause,false,'do not echo arbitrary CAS form values');
 const noVault=await resolveNcwuPreflight(falsePublic,null,false);
 assert.equal(noVault.status,'server_session_vault_unavailable');
 assert.equal(noVault.nativeLoginReady,false);

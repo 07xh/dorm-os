@@ -12,10 +12,14 @@ export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
  // server-side adapter can complete that login and bind the owner's data.
  const officialFormDetected=publicProbe?.loginSupported===true;
  let nativeLoginReady=false,status=publicProbe?.mode||'upstream_unavailable';
+ let safeReason=null;
  if(adapter&&typeof adapter.preflight==='function'){
   try{
    const readiness=await adapter.preflight();
    nativeLoginReady=readiness?.loginSupported===true;
+   if(['password_transform_required','interactive_challenge_required',
+     'password_form_unavailable','unexpected_cas_form_action'].includes(readiness?.reason))
+    safeReason=readiness.reason;
    // Prefer the native adapter's actual state when it can inspect the school.
    if(nativeLoginReady||readiness?.mode==='interactive_login_required'||
       readiness?.mode==='schedule_review_pending')
@@ -25,6 +29,7 @@ export async function resolveNcwuPreflight(publicProbe,adapter,vaultReady){
  if(!vaultReady)status='server_session_vault_unavailable';
  return {status,loginSupported:nativeLoginReady&&vaultReady===true,
   officialFormDetected,nativeLoginReady,sessionVaultReady:vaultReady===true,
+  ...(status==='interactive_login_required'&&vaultReady===true&&safeReason?{reason:safeReason}:{}),
   schoolAuthorized:false,automaticSync:false};
 }
 
