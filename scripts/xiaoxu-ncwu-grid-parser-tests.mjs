@@ -35,6 +35,60 @@ assert.deepEqual(good.candidate.records[0].weeks,[1,2,3,4,5,6,7,8]);
 assert.equal(good.candidate.records[0].weekday,1);
 checkUnverified(good);
 
+// Real timetable markup can merge a weekday cell over several section rows.
+// The second row has SIX new td.td cells because Monday is occupied by the
+// rowspanned cell. Tuesday must stay Tuesday, not shift into Monday.
+const makeBlock=(name,time,place=room)=>'<div style="padding-bottom:5px;">'+
+ [name,teacher,time,place].join('<br>')+'</div>';
+const blank='<td class="td"></td>';
+const spanGrid='<table id="mytable">'+
+ '<tr><td class="td" rowspan="2">'+makeBlock('合成课程甲','1-8周[1-2]')+
+ '</td>'+blank.repeat(6)+'</tr>'+
+ '<tr><td class="td">'+makeBlock('合成课程乙','1-8周[3-4]')+
+ '</td>'+blank.repeat(5)+'</tr></table>';
+const detailSpan='<table id="mytable"><tr>'+headers.map(h=>'<td>'+h+'</td>').join('')+'</tr>'+
+ '<tr><td>COURSE-A</td><td>合成课程甲</td><td>32</td><td>2</td><td>必修</td>'+
+ '<td>'+teacher+'</td><td>已选</td><td>1-8周 一[1-2] '+room+'</td></tr>'+
+ '<tr><td>COURSE-B</td><td>合成课程乙</td><td>32</td><td>2</td><td>必修</td>'+
+ '<td>'+teacher+'</td><td>已选</td><td>1-8周 二[3-4] '+room+'</td></tr></table>';
+const spanPage='<html><input id="xn" value="2026"><input id="xq_m" value="1">'+
+ spanGrid+detailSpan+'</html>';
+const spanParsed=parseNcwuTimetableGridHtml(spanPage,{semester});
+assert.deepEqual(spanParsed.blockers,[]);
+assert.deepEqual(spanParsed.candidate.records.map(x=>x.weekday),[1,2]);
+assert.deepEqual(spanParsed.candidate.records.map(x=>x.startSection),[1,3]);
+const spanRead=await readNcwuTimetableCandidate({cookie:'SYNTHETIC_COOKIE_ONLY',semester,
+ fetchImpl:async url=>new Response(url.includes('xkjg.wdkb.jsp')?entry:spanPage,{
+  status:200,headers:{'content-type':'text/html;charset=UTF-8'}
+ })
+});
+assert.equal(spanRead.gridComparison.syntacticMatch,true);
+assert.equal(spanRead.gridCoverage.gridItems,2);
+assert.equal(spanRead.gridCoverage.parsedItems,2);
+checkUnverified(spanRead);
+
+// A merged blank cell can occupy two weekdays without assigning a course
+// to either; the following block is unambiguously Wednesday (day 3).
+const emptyMerged='<html><table id="mytable"><tr>'+
+ '<td class="td" colspan="2"></td>'+
+ '<td class="td">'+makeBlock('合成课程丙','1-8周[5-6]')+'</td>'+
+ blank.repeat(4)+'</tr></table></html>';
+const mergedBlank=parseNcwuTimetableGridHtml(emptyMerged,{semester});
+assert.deepEqual(mergedBlank.blockers,[]);
+assert.equal(mergedBlank.candidate.records[0].weekday,3);
+
+// A real course inside a two-weekday merged cell is ambiguous: do not guess.
+const ambiguousMerged=emptyMerged.replace(
+ '<td class="td" colspan="2"></td>',
+ '<td class="td" colspan="2">'+makeBlock('错误归属课程','1-8周[1-2]')+'</td>');
+const ambiguousResult=parseNcwuTimetableGridHtml(ambiguousMerged,{semester});
+assert.ok(ambiguousResult.blockers.some(b=>b.code==='ambiguous_grid_columns'));
+assert.equal(ambiguousResult.trustedSyncAllowed,false);
+const danglingSpan=spanPage.replace('rowspan="2"','rowspan="3"');
+const danglingResult=parseNcwuTimetableGridHtml(danglingSpan,{semester});
+assert.ok(danglingResult.blockers.some(b=>b.code==='dangling_grid_rowspan'));
+assert.equal(danglingResult.trustedSyncAllowed,false);
+
 const badWeek=parseNcwuTimetableGridHtml(page({gridWeeks:'周次待定[1-2]'}),{semester});
 assert.equal(badWeek.gridItems,1);
 assert.equal(badWeek.parsedItems,0);
