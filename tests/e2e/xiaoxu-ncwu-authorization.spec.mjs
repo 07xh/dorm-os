@@ -30,9 +30,10 @@ test('NCWU and Chaoxing inline guidance never requests credentials before owner 
  expect(calls).toEqual([],'settings page must not read personal school records before opt-in');
 });
 test('NCWU expanded authorization detail does not cause horizontal overflow',async({page})=>{
+ await page.goto('/#settings');
  for(const width of [360,393,768,1280]){
   await page.setViewportSize({width,height:840});
-  await page.goto('/#settings');
+  await page.reload();
   await page.locator('[data-xu-school-provider="ncwu"] > summary').click();
   await expect(page.locator('[data-xu-school-provider="ncwu"]')).toHaveAttribute('open','');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth), 'viewport width '+width).toBeLessThanOrEqual(2);
