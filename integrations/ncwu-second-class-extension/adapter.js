@@ -55,7 +55,7 @@
  function pageEnvelope(value,maxRows){
   if(!value||typeof value!=='object'||Array.isArray(value)||!Array.isArray(value.data)||
    value.data.length>maxRows)fail('INVALID_RESPONSE');
-  const totalSize=integer(value.totalSize,'totalSize',0,MAX_ACTIVITY_ROWS);
+  const totalSize=integer(value.totalSize,'totalSize',0,10000);
   const totalPage=integer(value.totalPage,'totalPage',0,100);
   if(totalSize===0){
    if(value.data.length!==0||totalPage!==0)fail('INVALID_RESPONSE');
