@@ -91,14 +91,21 @@
  }
  async function connect(){
   connected=true;
+  const epoch=connectionEpoch;
   try{
    const loaded=await refresh();
-   if(!loaded||!connected)return false;
+   if(!loaded||!connected||epoch!==connectionEpoch)return false;
    // Uses only the owner's previously verified encrypted school session.
    void autoRefreshChaoxing();
    void autoRefreshNcwu();
    return true;
-  }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
+  }catch(err){
+   // A failed previous login's request must not disconnect a newer login.
+   if(epoch===connectionEpoch){
+    disconnect();error=String(err.message||'个人学业连接失败');
+   }
+   throw err;
+  }
  }
  async function diagnose(){
   if(!connected)throw Error('请先登录校序并读取个人连接状态');
