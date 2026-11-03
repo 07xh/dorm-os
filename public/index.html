@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f8fc">
   <meta name="description" content="校序：华水个人课表、学习任务、校园生活与 NFC 场景中心。">
+  <meta name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/dorm-os.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -319,7 +320,6 @@ let noticeAlertsEnabled=false;
 try{noticeAlertsEnabled=localStorage.getItem(NOTICE_ALERT_PREF)==='1';}catch{}
 let deferredInstallPrompt=null;
 let homeLayoutDraft=null;
-let androidSceneSelection='study';
 let expandedNfcTagMenu='';
 let timetableMode=matchMedia('(max-width:790px)').matches?'day':'week';
 let timetableDay=null;
@@ -870,53 +870,6 @@ function nfcDiagnostics(){
  {title:'浏览器本地存储',value:storageOk?'可用':'受限',ok:storageOk,detail:'课表、任务及标签绑定使用此设备本地存储'},
  {title:'当前网络',value:navigator.onLine?'在线':'离线',ok:navigator.onLine,detail:'天气和未缓存页面需要网络'}];
 }
-function androidAutomationGuide(scene) {
-  const chosen=sceneDefs.some(x=>x.id===scene)?scene:'study';
-  const url=personalSceneUrl(chosen);
-  const opts=sceneDefs.map(x=>`<option value="${x.id}" ${chosen===x.id?'selected':''}>${esc(x.label)}</option>`).join('');
-  return `<section class="card wide" id="android-setup">
-    <div class="card-header"><span class="card-title">Android 自动化接入</span>${badge('需要手机自行配置')}</div>
-    <p class="small muted">先选择场景，再决定由手机浏览器打开标签，还是由 MacroDroid 原生识别标签。两条路线写入的 NFC 内容不同，请勿直接覆盖已有数据。</p>
-    <div class="form-field" style="max-width:340px;margin:12px 0"><label for="androidScenePicker">要接入的个人场景</label><select id="androidScenePicker">${opts}</select></div>
-    <div class="notice neutral"><strong>路线 A · 网页 NFC / 普通网址标签</strong><p class="small muted">复制下面的 HTTPS 链接，用网站支持的 Web NFC 或 NDEF 写入工具写入可写标签。Android 16 扫描此类网页标签时会按网址处理；打开页面可切换 DORM OS 内部场景，但不会执行系统勿扰或音量操作。</p>
-      <code style="display:block;overflow-wrap:anywhere;margin:10px 0;font-size:12px">${esc(url)}</code>
-      <div class="button-row"><button type="button" class="secondary" data-action="android-copy-scene">复制场景 URL</button><button type="button" class="secondary" data-action="android-share-scene">Android 分享</button></div>
-    </div>
-    <div class="notice neutral" style="margin-top:12px"><strong>路线 B · MacroDroid 原生 NFC 自动化</strong>
-      <ol class="small" style="line-height:1.8;margin:8px 0 10px;padding-left:20px">
-        <li>在 MacroDroid 创建宏，添加「NFC 标签」触发器并选择「写入新标签」，为其命名。</li>
-        <li>先配置需要的手机动作，例如勿扰模式或音量设置，再添加「打开网页」动作，填入上面的 DORM OS 场景 URL。</li>
-        <li>用 MacroDroid 自己写入这枚可写 NFC 标签，在手机上实际触碰并核对动作和网页。</li>
-      </ol>
-      <p class="small muted"><strong>重要：</strong>MacroDroid 会将标签写成自己的专用识别格式，并可能替换原有 NDEF 内容。若选择此路线，不要再用本页「写入」按钮覆盖同一枚标签。页面不会自动知道 MacroDroid 动作是否执行成功。</p>
-      <a href="https://macrodroidforum.com/wiki/index.php/Trigger:_NFC_Tag" target="_blank" rel="noopener noreferrer">查看 MacroDroid NFC 触发器文档 ↗</a>
-    </div>
-    <p class="tiny muted" style="margin-top:12px">当前集成状态：网站场景链接可生成；Android 系统自动化必须在手机端独立配置、授权、触碰测试。暂无可验证的远程执行回执。</p>
-  </section>`;
-}
-function androidSceneLink() {
-  const scene=sceneDefs.some(x=>x.id===androidSceneSelection)?androidSceneSelection:'study';
-  return personalSceneUrl(scene);
-}
-async function androidCopyScene() {
-  const url=androidSceneLink();
-  if(!url){toast('请先选择有效场景');return;}
-  try{await navigator.clipboard.writeText(url);toast('已复制校序场景链接');}
-  catch{window.prompt('复制这个场景链接：',url);}
-}
-async function androidShareScene() {
-  const url=androidSceneLink();
-  if(!url){toast('请先选择有效场景');return;}
-  if(typeof navigator.share==='function'){
-    try{
-      await navigator.share({title:'校序场景',text:sceneLabel(androidSceneSelection),url});
-      return;
-    }catch(e){
-      if(e?.name==='AbortError')return;
-    }
-  }
-  await androidCopyScene();
-}
 // V3.4 website-only NFC progress, no system side effects.
 let nfcTagFilter='all';
 function nfcTagHealth(t){
@@ -941,7 +894,7 @@ function nfcRecentActivity(){const entries=state.events.filter(e=>/NFC|标签/.t
  return `<section class='card nfc-guide' aria-label='NFC 本地操作记录'><div class='card-header'><span class='card-title'>最近操作记录</span>${badge('当前浏览器')}</div>${entries.length?`<ol class='nfc-activity'>${entries.map(e=>`<li><time>${esc(e.at.slice(0,16).replace('T',' '))}</time><span>${esc(e.text)}</span></li>`).join('')}</ol>`:`<p class='small muted'>暂无 NFC 操作记录。登记、改绑、写入和读取后会显示相应记录。</p>`}<p class='tiny muted'>这些是网站记录，不代表 Android 系统或第三方应用已执行动作。可在设置中导出备份。</p></section>`;}
 function nfcPage(){
  const supported=readerSupport({NDEFReader:globalThis.NDEFReader,isSecureContext:globalThis.isSecureContext,protocol:location.protocol});
- const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非 DORM OS 标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
+ const status={idle:'尚未扫描',starting:'正在申请权限',scanning:'等待标签',matched:'真实读取成功',stale:'旧绑定需重写',other:'非校序标签',error:'扫描失败',stopped:'已停止',writing:'正在写入',written:'写入成功'}[nfc.phase]||'未连接';
  return `${titleBlock('','NFC 标签','',badge(state.nfcTags.length+' 枚'))}
  
  <section class="card v41-nfc-scan"><div class="v41-nfc-scan-head"><div><h2>读取 NFC 标签</h2><p class="small muted">手机浏览器前台授权后，将标签靠近手机背面。</p></div><span class="v44-nfc-live" data-scan-phase="${esc(nfc.phase)}">${badge(status,nfc.phase==='matched'||nfc.phase==='written'?'green':nfc.phase==='error'||nfc.phase==='stale'?'orange':'')}</span></div>
@@ -954,9 +907,9 @@ function nfcPage(){
  ${nfcFilterBar()}
  ${renderNfcTagList()}</section>
  <div class="v41-nfc-link"><span>场景设置和 NFC 标签分开管理</span><button type="button" class="action-link" data-page="scenes">查看场景 ›</button></div>
- <details class="v4-nfc-details"><summary>如何使用 NFC</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">三步绑定 · 真实使用</span></div><div class="guide-steps"><div><b>01</b><strong>注册标签</strong><small>名称和位置只保存在网站本地</small></div><div><b>02</b><strong>选择场景并写入</strong><small>把 DORM OS 链接写入可写 NDEF 标签</small></div><div><b>03</b><strong>手机触碰标签</strong><small>系统打开网页后切换网站场景</small></div></div>
- <div class="notice neutral">当前仅触发网站内部场景；MacroDroid / Tasker 的系统动作与回执仍未接入。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
-</div></details><details class="v4-nfc-details"><summary>浏览器兼容性与权限</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div></div></details><details class="v4-nfc-details"><summary>最近操作记录</summary><div class="v4-nfc-details-content">${nfcRecentActivity()}</div></details><details class="v4-nfc-details"><summary>Android 自动化配置说明</summary><div class="v4-nfc-details-content">${androidAutomationGuide(androidSceneSelection)}</div></details>` ;
+ <details class="v4-nfc-details"><summary>如何使用 NFC</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">三步绑定 · 真实使用</span></div><div class="guide-steps"><div><b>01</b><strong>注册标签</strong><small>名称和位置只保存在网站本地</small></div><div><b>02</b><strong>选择场景并写入</strong><small>把校序链接写入可写 NDEF 标签</small></div><div><b>03</b><strong>手机触碰标签</strong><small>系统打开网页后切换网站场景</small></div></div>
+ <div class="notice neutral">当前仅触发网站内部场景；不调用外部系统动作。网页和实体标签的链接不是身份凭据，请勿写入账号或密码。</div></div>
+</div></details><details class="v4-nfc-details"><summary>浏览器兼容性与权限</summary><div class="v4-nfc-details-content"><div class="card nfc-guide"><div class="card-header"><span class="card-title">NFC 使用环境自检</span></div><div class="nfc-checks">${nfcDiagnostics().map(check=>`<div class="config-row"><div><strong>${esc(check.title)}</strong><div class="detail">${esc(check.detail)}</div></div>${badge(check.value,check.ok?"green":"orange")}</div>`).join("")}</div><p class="tiny muted">浏览器自检不能代替实体标签的实机读写。兼容的手机仍需手动授权并触碰标签测试。</p></div></div></details><details class="v4-nfc-details"><summary>最近操作记录</summary><div class="v4-nfc-details-content">${nfcRecentActivity()}</div></details>` ;
 }
 function tagDialog(id){const t=state.nfcTags.find(x=>x.id===id);openDialog(formFrame(t?'编辑标签':'添加 NFC 标签',`<input name="id" type="hidden" value="${esc(t?.id||'')}"><div class="form-field"><label for="tagName">标签名称</label><input id="tagName" name="name" maxlength="40" required placeholder="例如：书桌学习标签" value="${esc(t?.name||'')}"></div><div class="form-field"><label for="tagScene">绑定的网站场景</label><select id="tagScene" name="scene">${nfcSceneOptions(t?.scene)}</select></div><p class="small muted">注册只保存在当前浏览器。保存后先用「测试网页链接」检查跳转；这并不测试 NFC 硬件。修改绑定后需重新写入实体 NFC 标签。</p>`,'tag'));}
 function stopNfcScan({silent=false}={}){nfc.scanAttempt++;nfc.controller?.abort();nfc.controller=null;nfc.reader=null;nfc.phase='stopped';nfc.message='扫描已停止。';if(!silent&&page==='nfc')render();}
@@ -1361,11 +1314,11 @@ function clickAction(action){
   XiaoxuReminders.mark(key,value==='true').then(()=>{render();toast('云端已读状态已更新');}).catch(e=>toast(String(e.message)));return;
  }
  
- if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();render();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-alert-toggle')toggleNoticeBrowserAlerts();else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='android-copy-scene')androidCopyScene();else if(action==='android-share-scene')androidShareScene();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
+ if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();render();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-alert-toggle')toggleNoticeBrowserAlerts();else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
 document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-day], [data-home-day], [data-academic-tab], [data-notice-filter], [data-notice-read], [data-notice-open], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
   if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeRead){markNoticeRead(target.dataset.noticeRead);}else if(target.dataset.noticeOpen){markNoticeRead(target.dataset.noticeOpen,true);}else if(target.dataset.noticeFilter){if(['all','unread','notice','exam'].includes(target.dataset.noticeFilter)){noticeFilter=target.dataset.noticeFilter;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
-document.addEventListener('change',e=>{const el=e.target;if(el.id==='androidScenePicker'){androidSceneSelection=sceneDefs.some(x=>x.id===el.value)?el.value:'study';render();}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
+document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
 document.addEventListener('keydown', e=>{
@@ -1498,7 +1451,58 @@ if((requestedTag||deepLink.has('dormScene'))&&linkedTag&&encodedScene&&encodedSc
 page=location.hash.slice(1)==='devices'?'profile':nameMap[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
 loadWeather();restoreTimerState();render();fetchWeather();setInterval(tick,10000);
 updateOfflineBanner();
-if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')) navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('离线缓存注册失败',e));
+// Always check the current service-worker source rather than a cached copy.
+if('serviceWorker' in navigator &&
+   (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+ navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'})
+  .then(reg=>reg.update().catch(()=>{}))
+  .catch(e=>console.warn('离线缓存注册失败',e));
+}
+// The release SHA is stamped into this HTML at publish time. Checking it
+// against the canonical site's revision catches a stale PWA tab on resume,
+// without removing the user's courses, pending tasks, or local preferences.
+let releaseProbeBusy=false;
+async function checkPublishedRelease(){
+ if(releaseProbeBusy||document.hidden||!navigator.onLine)return;
+ const built=document.querySelector('meta[name="xiaoxu-release"]')?.content||'';
+ if(!/^[a-f0-9]{40}$/.test(built))return; // local dev, never auto-reload
+ releaseProbeBusy=true;
+ try{
+  const response=await fetch('/revision.json?release_check='+Date.now(),{
+   credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}
+  });
+  if(!response.ok)return;
+  const latest=await response.json();
+  if(!/^[a-f0-9]{40}$/.test(latest?.commit)||latest.commit===built)return;
+  // Never discard an unsaved form because a release happened in the background.
+  if(document.querySelector('dialog[open],input:focus,textarea:focus,[contenteditable]:focus')){
+   toast('校序有新版本，请先保存正在编辑的内容，随后重开页面更新');return;
+  }
+  const previous=sessionStorage.getItem('xiaoxu-release-reload-target');
+  if(previous===latest.commit){
+   toast('新版本已发布但当前仍有旧缓存，请关闭此标签后重新打开校序');return;
+  }
+  sessionStorage.setItem('xiaoxu-release-reload-target',latest.commit);
+  if('serviceWorker' in navigator){
+   const reg=await navigator.serviceWorker.getRegistration();
+   await reg?.update().catch(()=>{});
+  }
+  const next=new URL(location.href);
+  next.searchParams.set('_xu_release',latest.commit.slice(0,12));
+  location.replace(next.href);
+ }catch{/* Offline/bad response: continue with the last usable app shell. */}
+ finally{releaseProbeBusy=false;}
+}
+const releaseMarker=new URL(location.href);
+if(releaseMarker.searchParams.has('_xu_release')&&
+   releaseMarker.searchParams.get('_xu_release')===
+    document.querySelector('meta[name="xiaoxu-release"]')?.content?.slice(0,12)){
+ releaseMarker.searchParams.delete('_xu_release');
+ history.replaceState(null,'',releaseMarker.pathname+releaseMarker.search+releaseMarker.hash);
+}
+void checkPublishedRelease();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkPublishedRelease();});
+setInterval(()=>{if(!document.hidden)void checkPublishedRelease();},5*60*1000);
 
 </script>
 <script src="/xiaoxu-v9-ui.js" defer></script>
