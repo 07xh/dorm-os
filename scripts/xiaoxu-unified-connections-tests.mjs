@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {projectConnectionCenter,readConnectionCenter} from '../lib/academic-connection-center.mjs';
 import {onRequestGet} from '../functions/api/v1/connections.js';
 
@@ -51,4 +52,14 @@ const unauthenticated=await onRequestGet({request:new Request('https://test.exam
 assert.equal(unauthenticated.status,503);
 assert.match(unauthenticated.headers.get('cache-control')||'',/no-store/);
 assert.equal((await unauthenticated.json()).error,'auth_not_configured');
+// Do not suggest a campus SSO password works on the unrelated Chaoxing
+// independent-account endpoint. Official school SSO is an external page,
+// not a third-party grant to Xiaoxu.
+const client=readFileSync(new URL('../public/xiaoxu-academic-client.js',import.meta.url),'utf8');
+assert.ok(client.includes('超星独立密码'));
+assert.ok(client.includes('学校统一身份认证'));
+assert.ok(client.includes('fysso.chaoxing.com%2Fcassso%2Fncwu'));
+assert.ok(client.includes('data-xu-school-login="chaoxing"'));
+assert.ok(client.includes('不能把校园密码直接当成超星独立密码'));
+
 console.log('Unified connection center: source scope, status proof, old imports, and anonymous safety passed');
