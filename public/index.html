@@ -1963,7 +1963,7 @@ function clickAction(action){
   return;
  }
  if(action==='academic-refresh'){XiaoxuAcademic.refresh().then(async()=>{if(XiaoxuCloudTasks.isReady())await XiaoxuCloudTasks.refresh().catch(()=>null);if(XiaoxuReminders.isConnected())await XiaoxuReminders.refresh().catch(()=>null);render();toast('已重新读取可用的服务端数据');}).catch(err=>toast(String(err.message||'读取失败')));return;}
- if(action==='academic-health'){XiaoxuAcademic.diagnose().then(status=>{render();toast(status.databaseReady?'校序数据服务自检通过':'数据库存在缺失迁移');}).catch(err=>{render();toast(String(err.message||'自检失败'));});return;}
+ if(action==='academic-health'){XiaoxuAcademic.diagnose().then(status=>{render();toast(status.databaseReady?'校序数据服务自检通过':status.status==='database_schema_incomplete'?'数据库存在缺失迁移':'校序数据服务暂不可用');}).catch(err=>{render();toast(String(err.message||'自检失败'));});return;}
  if(action==='academic-disconnect'){XiaoxuAcademic.disconnect();XiaoxuCloudTasks.disconnect();XiaoxuReminders.disconnect();render();toast('已清除此页学业数据；未退出校序或解除学校授权');return;}
 
  if(action==='cloud-refresh'){XiaoxuCloudTasks.refresh().then(()=>{render();toast('云端任务已刷新');}).catch(err=>{render();toast(String(err.message));});return;}
