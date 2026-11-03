@@ -113,9 +113,16 @@
    '<p class="tiny muted">来源：本人保存的'+escapeHtml(SOURCE[kind])+'快照 · 获取于 '+escapeHtml(stamp(s.lastSuccessAt))+
    (s.status==='stale'?' · 请重新同步':'')+'</p><div class="xu-private-list">'+rows+'</div></section>';
  }
- function taskRows(filter='all'){
+ function taskRows(filter='all',localTasks=[]){
   if(!hasData('assignments')||filter==='done')return '';
-  const list=records('assignments').filter(r=>filter!=='open'||['todo','returned','unknown'].includes(r.platformStatus));
+  const localIds=new Set((Array.isArray(localTasks)?localTasks:[])
+   .filter(t=>t.source==='chaoxing'&&typeof t.sourceId==='string'&&t.sourceId)
+   .map(t=>t.sourceId));
+  const cloudKeys=new Set(root.XiaoxuCloudTasks?.snapshotKeys?.()||[]);
+  const list=records('assignments')
+   .filter(r=>typeof r.externalId==='string'&&!localIds.has(r.externalId)&&
+      !cloudKeys.has('chaoxing|'+r.externalId))
+   .filter(r=>filter!=='open'||['todo','returned','unknown'].includes(r.platformStatus));
   if(!list.length)return '';
   return list.map(r=>'<div class="task-item xu-private-task" data-origin="remote-readonly">'+
    '<span class="xu-private-mark" aria-hidden="true">●</span><div class="task-main"><div class="entry-title">'+escapeHtml(r.title)+'</div>'+
