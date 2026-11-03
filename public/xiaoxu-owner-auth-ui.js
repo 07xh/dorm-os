@@ -68,7 +68,7 @@
       if (raw === 'custom') {
         customMode = true;
         updateDurationUI();
-        const field = target.closest('[data-owner-duration-fields], [data-owner-duration-pref]')?.querySelector('[data-owner-duration-custom]');
+        const field = target.closest('.xu-owner-duration-fields, .xu-owner-duration-pref, .duration-controls')?.querySelector('[data-owner-duration-custom]');
         field?.focus();
       } else chooseDays(Number(raw), false);
     } else if (target.matches('[data-owner-duration-custom]')) {
