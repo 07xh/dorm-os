@@ -47,7 +47,14 @@ export async function onRequestGet(context){
   return json({status:'adapter_unavailable',loginSupported:false},503);
  try{
   const result=await adapter.preflight();
-  return json({status:result.mode,loginSupported:result.loginSupported===true},200);
+  // Bounded anonymous login-stage codes only. No CAS ticket, form field, cookie,
+  // student identifier or school account information is returned.
+  const safeReasons=new Set(['school_unreachable','cas_handoff_unrecognized',
+   'cas_login_page_unavailable','password_form_unavailable',
+   'interactive_challenge_required','password_transform_required',
+   'unexpected_cas_form_action','unrecognized_auth_flow']);
+  return json({status:result.mode,loginSupported:result.loginSupported===true,
+   ...(safeReasons.has(result.reason)?{reason:result.reason}:{})},200);
  }catch{
   return json({status:'upstream_unavailable',loginSupported:false},502);
  }

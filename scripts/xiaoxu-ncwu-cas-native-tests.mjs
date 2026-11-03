@@ -107,7 +107,8 @@ assert.ok(calls.some(x=>x.host==='dekt.ncwu.edu.cn'&&x.path===NCWU_SECOND_CLASS_
 const unsafe=makeNcwuCasServerAdapter({fetcher:async()=>response(302,'',{
  location:'https://outsider.example/capture?secret=SECRET'
 })});
-assert.deepEqual(await unsafe.preflight(),{loginSupported:false,mode:'interactive_login_required'});
+assert.deepEqual(await unsafe.preflight(),{loginSupported:false,mode:'interactive_login_required',
+ reason:'unrecognized_auth_flow'});
 await assert.rejects(()=>unsafe.login({username:'u',password:'p'}),
  e=>e.code==='interactive_login_required');
 const challenge=makeNcwuCasServerAdapter({fetcher:async(url,opts)=>{
@@ -119,7 +120,8 @@ const challenge=makeNcwuCasServerAdapter({fetcher:async(url,opts)=>{
   markup.replace('</form>','<input name="captcha" type="text"></form>'));
  throw Error('unexpected challenge flow');
 }});
-assert.deepEqual(await challenge.preflight(),{loginSupported:false,mode:'interactive_login_required'});
+assert.deepEqual(await challenge.preflight(),{loginSupported:false,mode:'interactive_login_required',
+ reason:'interactive_challenge_required'});
 assert.throws(()=>inspectCasForm('<script>encryptPassword(raw)</script>'+markup,casUrl),
  e=>e.code==='interactive_login_required');
 const domainScope=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
@@ -131,6 +133,43 @@ const domainScope=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
  return fakeSchool(url,options);
 }});
 assert.equal((await domainScope.preflight()).loginSupported,true);
+
+// School service may expose a static redirect in HTML instead of an anchor.
+// Follow only the already allowlisted CAS endpoint and exact service.
+for(const mode of ['meta','literal_location']){
+ let inspected=false;
+ const alternate=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
+  const u=new URL(url);
+  if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/'){
+   inspected=true;
+   return response(200,mode==='meta'?
+    '<meta http-equiv="refresh" content="0;url='+casUrl.replace(/&/g,'&amp;')+'">':
+    '<script>window.location.replace("'+casUrl+'");</script>');
+  }
+  return fakeSchool(url,options);
+ }});
+ assert.deepEqual(await alternate.preflight(),{loginSupported:true,mode:'password_form_verified'});
+ assert.equal(inspected,true);
+}
+const rejectedHandoff=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/')
+  return response(200,'<meta http-equiv="refresh" content="0;url=https://outsider.example/capture?token=NOT_SENT">');
+ return fakeSchool(url,options);
+}});
+assert.deepEqual(await rejectedHandoff.preflight(),{loginSupported:false,mode:'interactive_login_required',
+ reason:'cas_handoff_unrecognized'});
+const transforms=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
+  return response(200,'<script>encryptPassword(raw)</script>'+markup);
+ return fakeSchool(url,options);
+}});
+assert.deepEqual(await transforms.preflight(),{loginSupported:false,mode:'interactive_login_required',
+ reason:'password_transform_required'});
+const schoolDown=makeNcwuCasServerAdapter({fetcher:async()=>{throw Error('school failed');}});
+assert.deepEqual(await schoolDown.preflight(),{loginSupported:false,mode:'upstream_unavailable',
+ reason:'school_unreachable'});
+
 let postAttempts=0;
 const noReplay=makeNcwuCasServerAdapter({fetcher:async(url,options)=>{
  if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
