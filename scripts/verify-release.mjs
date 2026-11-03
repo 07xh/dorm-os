@@ -114,7 +114,7 @@ console.log('Public academic source diagnostics verified: '+readiness.sources.ma
 
 // Anonymous access must NEVER return personal data, regardless of whether
 // Cloudflare Access is configured or the private D1 binding is missing.
-for(const path of ['/api/v1/assignments','/api/v1/sources','/api/v1/connections','/api/v1/verified/connections','/api/v1/reminders','/api/v1/second-class','/api/v1/health']){
+for(const path of ['/api/v1/assignments','/api/v1/sources','/api/v1/connections','/api/v1/chaoxing-inbox','/api/v1/verified/connections','/api/v1/reminders','/api/v1/second-class','/api/v1/health']){
  let response,lastError;
  for(let attempt=0;attempt<5;attempt++){
   try{
