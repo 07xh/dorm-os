@@ -109,3 +109,10 @@
 #app .xu-kingo-guide summary,#app .xu-provider-guide summary{cursor:pointer;color:var(--xu-brand);font-weight:650;list-style-position:inside;line-height:1.5}
 #app .xu-kingo-guide summary:focus-visible,#app .xu-provider-guide summary:focus-visible{outline:3px solid var(--xu-ring);outline-offset:3px;border-radius:5px}
 #app .xu-kingo-guide p,#app .xu-provider-guide p{max-width:56ch;line-height:1.65;margin:8px 0 0;font-size:12px;color:var(--xu-muted)}
+
+/* Private D1 readiness lives in the same connection center, not a new page. */
+#app .xu-connection-diagnostics{margin:12px 0 14px;border-top:1px solid var(--xu-line);padding-top:10px}
+#app .xu-connection-diagnostics>summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--xu-muted);line-height:1.6}
+#app .xu-connection-diagnostics>summary:focus-visible{outline:3px solid var(--xu-ring);outline-offset:3px;border-radius:5px}
+#app .xu-connection-diagnostics>button{margin:10px 0;min-height:40px}
+#app .xu-connection-diagnostics>p{line-height:1.7;overflow-wrap:anywhere}
