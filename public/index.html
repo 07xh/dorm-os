@@ -1383,7 +1383,7 @@ function academicPage(){
   content='<section class="card x-v7-academic-card"><h2>考试安排</h2><p class="small muted">个人考试安排尚未连接；公开考试安排可通过教务处官方栏目核对。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>暂无可验证的个人考试安排</strong><p>不把公开考试公告等同于你的个人考场和考试时间。</p></div></div>'
   +safeLink('查看教务处考试公告','https://www2.ncwu.edu.cn/jiaowu/ksap.htm','考试计划与附件可能按校区分别发布')+'</section>';
  }else if(academicTab==='second'){
-  content='<section class="card x-v7-academic-card"><h2>第二课堂</h2><p class="small muted">正在规划活动、成长记录、学时和学分的统一查看。真实二课账号尚未连接，因此不显示虚构积分和报名结果。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>第二课堂数据未连接</strong><p>官方平台的报名、活动状态、积分以本人账号中的记录为准。</p></div></div>'
+  content='<section class="card x-v7-academic-card"><h2>第二课堂</h2><p class="small muted">校序已经具备私人第二课堂数据查询 API；学校本人活动数据需要完成授权的只读接入后才会显示，不提供虚构积分或报名结果。</p><div class="x-v8-academic-empty" role="status"><span class="x-v8-academic-empty-icon"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-study"></use></svg></span><div><strong>第二课堂数据未连接</strong><p>官方平台的报名、活动状态、积分以本人账号中的记录为准。</p></div></div>'
   +safeLink('打开学校第二课堂','https://dekt.ncwu.edu.cn/','官方入口 · 活动与积分')+'</section>';
  }else{
   const links=state.campusLinks.map(l=>'<div class="campus-custom-link">'+safeLink(l.name,l.url)
@@ -1402,7 +1402,7 @@ function academicPage(){
  const metadata={notices:['校园官方通知','来自公开教务栏目，内容与时间以获取结果为准'],grades:['成绩与绩点','仅展示本人已授权的数据，当前不使用模拟成绩'],exams:['考试安排','个人考场尚未连接，可核对官方公开考试公告'],second:['第二课堂','活动与成长记录以官方平台为准'],services:['校园服务','整合官方入口与个人收藏的快捷链接']};
  const [heading,subtitle]=metadata[academicTab]||metadata.notices;
  const linkedKind=({grades:'grades',exams:'exams',second:'second-class'})[academicTab];
- const sourceLabel=academicTab==='notices'?'学校公开来源':linkedKind&&XiaoxuAcademic.hasData(linkedKind)?'本人保存的快照':'个人数据未连接';
+ const sourceLabel=academicTab==='notices'?'学校公开来源':linkedKind&&XiaoxuAcademic.hasData(linkedKind)?(XiaoxuAcademic.state(linkedKind).provenance==='trusted_readonly'?'本人授权只读记录':'本人保存的快照'):'个人数据未连接';
  const intro='<section class="x-v8-academic-intro" aria-label="当前教务分类"><div class="x-v8-academic-intro-copy"><span class="x-v8-academic-eyebrow">ACADEMIC WORKSPACE</span><h2>'+heading+'</h2><p>'+subtitle+'</p></div><span class="x-v8-academic-pill '+(academicTab==='notices'?'is-public':'')+'">'+sourceLabel+'</span></section>';
  return titleBlock('','教务中心')+intro+tabs+'<div class="x-v7-academic-content" role="tabpanel" id="xu-academic-panel" aria-labelledby="xu-tab-'+academicTab+'">'+content+'</div>';
 }
