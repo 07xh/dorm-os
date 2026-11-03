@@ -13,7 +13,7 @@ const ctx = {
   URL, TextDecoder, console,
   CAMPUSES: { jianghuai: {}, huayuan: {} },
   CATEGORIES: ['课程','高数','工程制图','Python','英语','生活','其他'],
-  HOME_WIDGETS: ['timetable','tasks','focus','life','devices','weather'].map(id=>({id})),
+  HOME_WIDGETS: ['timetable','tasks','focus','life','weather'].map(id=>({id})),
   location: { origin:'https://dorm-os-dk9.pages.dev',pathname:'/' },
   state: { nfcTags:[] },
   sceneDefs: ['study','rest','dev','away'].map(id=>({id})),
@@ -38,14 +38,17 @@ assert.equal(sanitized.nfcTags[0].writtenScene,'study');
 assert.equal(sanitized.nfcTags[0].writtenAt,'2026-10-31T12:00:00Z');
 assert.equal(sanitized.reminders[0].done,true);
 assert.equal(sanitized.items[0].place,'抽屉');
-assert.deepEqual(Array.from(sanitized.settings.homeLayout.order),['timetable','tasks','focus','life','devices','weather']);
+assert.deepEqual(Array.from(sanitized.settings.homeLayout.order),['timetable','tasks','focus','life','weather']);
 assert.deepEqual(Array.from(sanitized.settings.homeLayout.hidden),[]);
 const customLayout=ctx.safeState({version:1,settings:{homeLayout:{order:['tasks','invalid','tasks','weather'],hidden:['life','bogus','life']}}}).settings.homeLayout;
-assert.deepEqual(Array.from(customLayout.order),['tasks','weather','timetable','focus','life','devices']);
+assert.deepEqual(Array.from(customLayout.order),['tasks','weather','timetable','focus','life']);
 assert.deepEqual(Array.from(customLayout.hidden),['life']);
-const allHidden=ctx.safeState({version:1,settings:{homeLayout:{hidden:['timetable','tasks','focus','life','devices','weather']}}}).settings.homeLayout;
+const allHidden=ctx.safeState({version:1,settings:{homeLayout:{hidden:['timetable','tasks','focus','life','weather']}}}).settings.homeLayout;
 assert.deepEqual(Array.from(allHidden.hidden),[]);
-console.log('Dashboard layout defaults, allowlist, deduplication and visible-module invariant passed');
+const migrated=ctx.safeState({version:1,settings:{homeLayout:{order:['devices','tasks','timetable'],hidden:['devices','weather']}}}).settings.homeLayout;
+assert.deepEqual(Array.from(migrated.order),['tasks','timetable','focus','life','weather']);
+assert.deepEqual(Array.from(migrated.hidden),['weather']);
+console.log('Dashboard layout defaults, retired placeholder migration and deduplication passed');
 
 const legacy = ctx.safeState({version:1,settings:{theme:'dark'},nfcTags:[{id:'old',name:'旧标签',scene:'rest'}]});
 assert.equal(legacy.settings.theme,'dark');
