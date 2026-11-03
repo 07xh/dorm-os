@@ -12,6 +12,7 @@
  let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
  let ncwuAutoSyncBusy=false,lastNcwuAutoSyncAttempt=0;
  const SCHOOL_AUTO_SYNC_INTERVAL=30*60*1000;
+ const expandedSchoolProviders=new Set();
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -231,7 +232,7 @@
     '<p>目前未完成学校官方登录后的会话授权链路；在校序中不要求输入第二课堂密码，也不采集校方 Cookie。只有合法有效的本人会话接入并验收后才会启用自动同步。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
-     (qrResuming?' open':'')+'><summary>'+
+     (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
      (authorized?'连接管理':provider.id==='second_class'?'查看连接说明':'连接账号')+
      '</summary><div class="xu-school-manage-body">'+authPanel+ncwuAutoHint+guidance+
      '</div></details>':'';
@@ -535,6 +536,15 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  // Capture user intent before a concurrent status refresh can replace the row.
+  document.addEventListener('click',event=>{
+   const summary=event.target.closest?.('.xu-school-manage > summary');
+   const details=summary?.parentElement;
+   const id=details?.dataset?.xuSchoolProvider;
+   if(!id)return;
+   if(details.open)expandedSchoolProviders.delete(id);
+   else expandedSchoolProviders.add(id);
+  },true);
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-chaoxing-qr-start]');
    if(!button)return;
