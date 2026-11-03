@@ -127,7 +127,11 @@
    const canLogin=record?.loginMode==='password';
    const officialCas=provider.id==='second_class'&&record?.authFlow?.method==='school_cas_external';
    const authPanel=officialCas?
-    '<div class="xu-school-connect"><p class="tiny muted">学校使用统一身份认证（CAS）。校序正在完善站内连接与服务端只读同步，目前未完成真实账号联通；无需安装脚本、配置配对密钥或向聊天提供学校密码。</p>'+
+    '<div class="xu-school-connect"><p class="tiny muted">校序正在使用现有统一数据连接中心对接学校 CAS。先检查学校当前是否允许普通密码流程；若要求滑块、短信或其他互动验证，会明确提示而不会跳过。</p>'+
+    (record?.nativeCasPreflight?
+     '<button type="button" class="secondary" data-xu-second-cas-check>检查第二课堂站内登录</button>'+
+     '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-second-cas-result></div>':
+     '<p class="tiny muted">站内安全会话尚未就绪，当前不会收取学校密码。</p>')+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(record.authFlow.officialLoginUrl)+'">打开第二课堂官网</a></div>':
     canLogin?
@@ -284,8 +288,8 @@
  }
  const schoolMessage={invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
-  if(!['ncwu','chaoxing'].includes(provider)&&
-     !(provider==='second_class'&&['sync','disconnect'].includes(verb)))
+  if(!['ncwu','chaoxing','second_class'].includes(provider)||
+     !['login','sync','disconnect'].includes(verb))
    throw Error('未知学校平台');
   const response=await fetch('/api/v1/connections/'+provider+'/'+verb,{
    method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
@@ -299,6 +303,56 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-second-cas-check]');
+   if(!button)return;
+   const panel=button.closest('.xu-school-connect'),result=panel?.querySelector('[data-xu-second-cas-result]');
+   if(!result)return;
+   button.disabled=true;result.textContent='正在向学校确认登录方式…';
+   try{
+    const response=await fetch('/api/v1/connections/second_class/preflight',{
+     method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',
+     headers:{accept:'application/json'}
+    });
+    const info=await response.json().catch(()=>null);
+    if(!response.ok||!info?.loginSupported){
+     result.textContent=info?.status==='server_session_vault_unavailable'?
+      '校序后端安全会话尚未配置，请先完成服务器配置。':
+      info?.status==='upstream_unavailable'?
+      '暂时无法访问学校登录服务；没有获取或保存学校账号。':
+      '学校当前要求交互验证或不支持安全的普通密码表单；不会绕过验证或要求安装脚本。';
+     return;
+    }
+    // The trusted backend has inspected a simple current CAS password form.
+    // Only now does this page request school account credentials.
+    const form=document.createElement('form');
+    form.dataset.xuSchoolLogin='second_class';
+    form.autocomplete='on';
+    const accountLabel=document.createElement('label');
+    accountLabel.textContent='学校学工号';
+    const account=document.createElement('input');
+    account.name='username';account.type='text';account.required=true;
+    account.maxLength=128;account.autocomplete='username';
+    accountLabel.appendChild(account);
+    const passwordLabel=document.createElement('label');
+    passwordLabel.textContent='学校密码（仅本次登录）';
+    const password=document.createElement('input');
+    password.name='password';password.type='password';password.required=true;
+    password.maxLength=512;password.autocomplete='current-password';
+    passwordLabel.appendChild(password);
+    const hint=document.createElement('p');
+    hint.className='tiny muted';
+    hint.textContent='通过校序 HTTPS 后端向学校 CAS 验证；密码不保存。成功后仅把学校会话加密保存到 D1。';
+    const submit=document.createElement('button');
+    submit.type='submit';submit.className='primary';submit.textContent='登录并同步本人二课';
+    const status=document.createElement('p');
+    status.dataset.xuSchoolResult='';status.setAttribute('role','status');
+    status.setAttribute('aria-live','polite');
+    form.append(accountLabel,passwordLabel,hint,submit,status);
+    result.replaceChildren(form);
+   }catch{result.textContent='连接状态检查失败；没有获取学校账号信息。';}
+   finally{if(button.isConnected)button.disabled=false;}
+  });
   document.addEventListener('submit',async event=>{
    const form=event.target.closest?.('form[data-xu-school-login]');
    if(!form)return;
