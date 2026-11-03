@@ -7,7 +7,7 @@
  let online=false,items=[],health=null,error='',migration=null,busy=false;
  // A returning response from a previous login must never repopulate a disconnected
  // or newly connected owner's screen. Coalesce concurrent refreshes per session.
- let connectionEpoch=0,refreshPromise=null,lastRefreshAt=0;
+ let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0;
  async function api(path,method='GET',data){
   const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
    redirect:'error',headers:{'Accept':'application/json',...(data?{'Content-Type':'application/json'}:{})},
@@ -25,13 +25,13 @@
   return body;
  }
  function disconnect(){
-  connectionEpoch++;online=false;items=[];health=null;error='';migration=null;
+  connectionEpoch++;refreshGeneration++;online=false;items=[];health=null;error='';migration=null;
   busy=false;refreshPromise=null;lastRefreshAt=0;
  }
  function refresh(){
   if(!online)return Promise.reject(Error('请先连接本人的学业数据'));
   if(refreshPromise)return refreshPromise;
-  const epoch=connectionEpoch;
+  const epoch=connectionEpoch,generation=refreshGeneration;
   const running=(async()=>{
    const next=[],ids=new Set();
    try{
@@ -49,10 +49,11 @@
     }
     const sources=await api('/api/v1/sources').catch(()=>null);
     // Logout/reconnect can happen while a request is running.
-    if(!online||epoch!==connectionEpoch)return false;
+    if(!online||epoch!==connectionEpoch||generation!==refreshGeneration)return false;
     items=next;health=sources;error='';lastRefreshAt=Date.now();return true;
    }catch(e){
-    if(online&&epoch===connectionEpoch)error=String(e.message||'刷新失败');
+    if(online&&epoch===connectionEpoch&&generation===refreshGeneration)
+     error=String(e.message||'刷新失败');
     throw e; // Existing tasks remain available if the network is temporarily down.
    }
   })();
@@ -61,7 +62,7 @@
   return running;
  }
  async function connect(){
-  connectionEpoch++;online=true;lastRefreshAt=0;
+  connectionEpoch++;refreshGeneration++;refreshPromise=null;online=true;lastRefreshAt=0;
   const epoch=connectionEpoch;
   try{await refresh();return online&&connectionEpoch===epoch;}
   catch(e){if(connectionEpoch===epoch){disconnect();error=String(e.message||'连接失败');}throw e;}
@@ -229,9 +230,15 @@
     });
     created+=r.created??0;
    }
-   migration=null;await refresh();return {created};
+   migration=null;invalidatePendingReads();await refresh();return {created};
   }catch(e){error='云端迁移未完整结束，已成功批次可幂等重试：'+String(e.message);throw e;}
   finally{busy=false;}
+ }
+ // A successful task mutation makes any already-running GET obsolete, even
+ // when it is still waiting for a response from D1. Do not let that older
+ // response overwrite the newly committed status on either device.
+ function invalidatePendingReads(){
+  refreshGeneration++;refreshPromise=null;lastRefreshAt=0;
  }
  async function toggle(id,target){
   if(!online)throw Error('请先连接云端任务');
@@ -241,8 +248,8 @@
    await api('/api/v1/assignments/'+encodeURIComponent(id),'PATCH',{
     revision:found.revision,localStatus:target
    });
-   await refresh();return true;
-  }catch(e){if(e.status===409)await refresh().catch(()=>{});throw e;}
+   invalidatePendingReads();await refresh();return true;
+  }catch(e){if(e.status===409){invalidatePendingReads();await refresh().catch(()=>{});}throw e;}
  }
  function reminderCandidates(localTasks=[]){
   if(!online)return [];
