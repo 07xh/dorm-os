@@ -8,6 +8,9 @@
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let connected=false,sources=[],error='',serviceHealth=null,healthError='';
  let connectionStatusRead=false,connectionEpoch=0,connectionRequest=null;
+ // Foreground refresh is allowed only for an already verified owner session.
+ const SECOND_CLASS_REFRESH_MS=15*60*1000;
+ let secondClassAutoAt=0,secondClassAutoRequest=null,secondClassAutoMessage='';
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -23,6 +26,7 @@
  function disconnect(){
   connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
+  secondClassAutoAt=0;secondClassAutoMessage='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
  async function get(kind){
@@ -39,12 +43,14 @@
  }
  async function refresh(){
   if(!connected)throw Error('尚未加载个人学业数据');
+  const epoch=connectionEpoch;
   const overview=await get('connections');
+  if(!connected||epoch!==connectionEpoch)return false;
   if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
      overview.platforms.length!==3)throw Error('数据连接状态格式无效');
   sources=overview.platforms;connectionStatusRead=true;
   const results=await Promise.allSettled(TYPES.map(kind=>get(kind)));
-  if(!connected)return;
+  if(!connected||epoch!==connectionEpoch)return false;
   for(let i=0;i<TYPES.length;i++){
    const kind=TYPES[i],result=results[i];
    if(result.status==='fulfilled'&&Array.isArray(result.value?.records)&&
@@ -79,9 +85,47 @@
  async function connect(){
   connected=true;
   try{
-   await refresh();
+   const loaded=await refresh();
+   if(!loaded||!connected)return false;
+   // Uses only the owner's previously verified encrypted school session.
+   void maybeAutoRefreshSecondClass();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
+ }
+ function maybeAutoRefreshSecondClass(){
+  if(!connected||typeof document==='undefined'||document.hidden||
+     secondClassAutoRequest||Date.now()<secondClassAutoAt)return false;
+  const source=sources.find(item=>item.id==='second_class');
+  if(source?.accountAuthorization!=='verified_session'||
+     source.sessionState!=='active'||!Array.isArray(source.trustedKinds)||
+     !source.trustedKinds.includes('second-class'))return false;
+  const lastRead=Date.parse(source.lastSuccessAt||'');
+  if(Number.isFinite(lastRead)&&Date.now()-lastRead<SECOND_CLASS_REFRESH_MS)
+   return false;
+  const epoch=connectionEpoch;
+  secondClassAutoAt=Date.now()+SECOND_CLASS_REFRESH_MS;
+  secondClassAutoMessage='正在使用已连接的第二课堂会话自动更新…';
+  const task=(async()=>{
+   try{
+    await schoolPost('second_class','sync');
+    if(!connected||connectionEpoch!==epoch)return false;
+    const updated=await refresh();
+    if(!updated||!connected||connectionEpoch!==epoch)return false;
+    secondClassAutoMessage='';
+    announceUpdated();
+    return true;
+   }catch(e){
+    if(!connected||connectionEpoch!==epoch)return false;
+    secondClassAutoMessage='第二课堂自动刷新失败：'+
+     String(e?.message||'请手动重新连接');
+    // The server revokes expired sessions; keep the last verified snapshot.
+    try{await refresh();}catch{}
+    if(connected&&connectionEpoch===epoch)announceUpdated();
+    return false;
+   }finally{if(secondClassAutoRequest===task)secondClassAutoRequest=null;}
+  })();
+  secondClassAutoRequest=task;
+  return task;
  }
  async function diagnose(){
   if(!connected)throw Error('请先登录校序并读取个人连接状态');
@@ -146,6 +190,10 @@
    const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
+   const autoRefreshHint=authorized&&provider.id==='second_class'?
+    '<p class="tiny muted">打开校序后按需自动刷新本人第二课堂（前台检查间隔不少于 15 分钟）；关闭页面后不执行后台采集。</p>':'';
+   const autoRefreshNote=provider.id==='second_class'&&secondClassAutoMessage?
+    '<p class="tiny muted" role="status">'+escapeHtml(secondClassAutoMessage)+'</p>':'';
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
@@ -167,7 +215,7 @@
     '<p>后续直接在校序「我的 → 数据连接」中完成学校登录及自动同步，无需额外安装浏览器脚本或导入 JSON。</p></details>';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
-    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+guidance+'</div>'+
+    (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
     ((officialCas||nativeNcwu)?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
@@ -307,6 +355,11 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden)void maybeAutoRefreshSecondClass();
+  });
+  // Foreground-only checking; no hidden-tab school traffic.
+  setInterval(()=>{if(!document.hidden)void maybeAutoRefreshSecondClass();},60*1000);
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-ncwu-check]');
    if(!button)return;
