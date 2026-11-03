@@ -26,8 +26,13 @@
    s.status==='error'?'连接失败':s.status==='loading'?'正在读取':'未连接';
  };
  function disconnect(){
+  // Owner logout or explicit workspace clear also invalidates any active QR
+  // challenge. Never leave an old owner's encrypted ticket in sessionStorage.
+  endQrAttempt();
   connectionEpoch++;connectionStatusRead=false;connectionRequest=null;
-  schoolAutoSyncBusy=false;ncwuAutoSyncBusy=false;lastNcwuAutoSyncAttempt=0;
+  schoolAutoSyncBusy=false;ncwuAutoSyncBusy=false;
+  lastSchoolAutoSyncAttempt=0;lastNcwuAutoSyncAttempt=0;
+  expandedSchoolProviders.clear();
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
@@ -490,7 +495,10 @@
     announceUpdated();
    }
    return false;
-  }finally{ncwuAutoSyncBusy=false;}
+  }finally{
+   // A former owner's request cannot clear the busy flag of a new session.
+   if(epoch===connectionEpoch)ncwuAutoSyncBusy=false;
+  }
  }
  async function autoRefreshChaoxing(){
   if(!connected||schoolAutoSyncBusy||typeof document==='undefined'||
@@ -504,12 +512,12 @@
   try{
    await schoolPost('chaoxing','sync');
    if(epoch!==connectionEpoch||!connected)return false;
-   await refresh();
+   if(!await refresh()||epoch!==connectionEpoch||!connected)return false;
    await Promise.allSettled([
     root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve(),
     root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve()
    ]);
-   if(epoch===connectionEpoch)announceUpdated();
+   if(epoch===connectionEpoch&&connected)announceUpdated();
    return true;
   }catch(e){
    if(epoch===connectionEpoch&&connected){
@@ -518,7 +526,10 @@
     announceUpdated();
    }
    return false;
-  }finally{schoolAutoSyncBusy=false;}
+  }finally{
+   // Never release the newer owner's in-flight refresh lock.
+   if(epoch===connectionEpoch)schoolAutoSyncBusy=false;
+  }
  }
  if(typeof document!=='undefined'){
   document.addEventListener('visibilitychange',()=>{
