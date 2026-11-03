@@ -61,5 +61,10 @@ assert.ok(client.includes('学校统一身份认证'));
 assert.ok(client.includes('fysso.chaoxing.com%2Fcassso%2Fncwu'));
 assert.ok(client.includes('data-xu-school-login="chaoxing"'));
 assert.ok(client.includes('不能把校园密码直接当成超星独立密码'));
+assert.ok(client.includes('recoverQrAttempt()'),'pending QR status survives same-tab refresh');
+assert.ok(client.includes('root.sessionStorage.setItem(CHAOXING_QR_STORAGE'));
+assert.ok(client.includes('authenticated_pending_sync'),'verified QR distinguishes failed inbox refresh');
+assert.ok(client.includes('xu-school-manage'),'secondary source details collapse by default');
+
 
 console.log('Unified connection center: source scope, status proof, old imports, and anonymous safety passed');

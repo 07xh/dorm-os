@@ -31,7 +31,8 @@ export async function onRequestPost(context){
    const linked=await connectAuthenticatedChaoxingQr({db:auth.db,userId:auth.userId,
     adapter,session:result.session,expiresAt:result.expiresAt,
     secret:context.env?.SCHOOL_SESSION_KEY});
-   return json({status:'connected',lastSuccessAt:linked.lastSuccessAt,expiresAt:linked.expiresAt});
+   return json({status:linked.syncPending?'authenticated_pending_sync':'connected',
+    lastSuccessAt:linked.lastSuccessAt,expiresAt:linked.expiresAt});
   }
   if(result.status==='cancelled')return json({status:'cancelled'});
   if(!['pending','scanned'].includes(result.status))return json({error:'invalid_response'},502);

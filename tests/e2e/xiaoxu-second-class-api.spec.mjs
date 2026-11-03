@@ -55,7 +55,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  trusted=true;
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
- await page.getByRole('button',{name:'刷新连接状态与数据'}).click();
+ await page.getByRole('button',{name:'刷新状态'}).click();
  await expect(page.locator('.xu-private-panel')).toContainText('可信只读记录');
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
@@ -64,6 +64,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  await expect(panel).toContainText('志愿服务时长');
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
+ await page.locator('.xu-connection-more > summary').click();
  await page.getByRole('button',{name:'清除此页私人数据'}).click();
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();

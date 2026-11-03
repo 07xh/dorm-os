@@ -46,7 +46,8 @@ test('cloud tasks stay opt-in, migration previews before commit, and platform st
      body:JSON.stringify({item:{id:'cloud-1',revision:1}})});
  });
  await page.goto('/#settings');
- await page.locator('.xu-advanced-tools').filter({hasText:'云端任务、提醒与旧数据迁移'}).locator('summary').first().click();
+ await page.locator('.xu-settings-more > summary').click();
+ await page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'云端任务、提醒与旧数据迁移'}).locator('summary').first().click();
  await expect(page.locator('.xu-cloud-panel')).toContainText('未连接');
  expect(calls).toEqual([],'no private cloud requests before explicit authorization');
  await page.locator('[data-action="academic-connect"]').click();

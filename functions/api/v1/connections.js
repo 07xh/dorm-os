@@ -45,7 +45,8 @@ export async function onRequestGet(context){
    const loginReadiness=checked==='ready'&&!available?'adapter_unavailable':
     checked||'adapter_unavailable';
    return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
-    loginReadiness,accountAuthorization:verified?'verified_session':'not_verified'};
+    loginReadiness,syncPending:sessionState==='active'&&!verified,
+    accountAuthorization:sessionState==='active'?'verified_session':'not_verified'};
   });
   return json(result);
  }catch{return json({error:'database_unavailable'},503);}

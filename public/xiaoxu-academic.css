@@ -157,3 +157,22 @@
  #app .xu-connection-primary-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
  #app .xu-connection-primary-actions button{flex:none;width:100%;min-height:44px}
 }
+
+/* Compact connection center: one status row per school, details on demand. */
+#app .xu-school-manage{max-width:100%;margin:5px 0 0}
+#app .xu-school-manage>summary{cursor:pointer;color:var(--xu-brand);font-size:12px;font-weight:700;line-height:1.6;list-style-position:inside;min-height:29px}
+#app .xu-school-manage[open]>summary{margin-bottom:8px}
+#app .xu-school-manage-body{border-top:1px solid var(--xu-line);padding:9px 0 3px;min-width:0;max-width:min(100%,560px)}
+#app .xu-school-manage-body .xu-school-connect{margin-top:0}
+#app .xu-school-manage-body .xu-school-connect>p{line-height:1.55;margin:7px 0}
+#app .xu-school-manage-body .xu-connection-link{margin-top:5px}
+#app .xu-connection-more{border-top:1px solid var(--xu-line);padding:11px 0 0;margin-top:6px;font-size:12px;color:var(--xu-muted)}
+#app .xu-connection-more>summary{cursor:pointer;font-weight:650}
+#app .xu-connection-more>button{margin-top:11px;min-height:38px}
+#app [data-xu-chaoxing-qr-output]:not(:empty){margin:12px 0;display:grid;gap:7px;justify-items:start}
+#app [data-xu-chaoxing-qr-output] img{max-width:100%;height:auto;border:1px solid var(--xu-line);border-radius:9px}
+#app .xu-connection-source .xu-school-session-tools{justify-content:flex-end}
+@media(max-width:580px){
+ #app .xu-connection-source .xu-school-session-tools{justify-content:flex-start}
+ #app .xu-school-manage-body{max-width:100%}
+}
