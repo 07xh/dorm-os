@@ -199,6 +199,39 @@ await assert.rejects(()=>connectImportedChaoxingSession({db:db2,userId:'owner1',
  e=>e.code==='invalid_cookie_format');
 assert.equal(sqlite.prepare("SELECT ciphertext FROM academic_provider_sessions WHERE user_id='owner1'").get().ciphertext,
  existingCipher,'a bad import must never overwrite existing owner session');
+// Concurrent re-authorization regression: prepare two authentic encrypted
+// session versions for the same owner, then simulate a newer login landing
+// while an older upstream request is failing. No nested network sync or fake
+// plaintext cookie is needed to exercise the CAS revoke path.
+const olderRow=sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get();
+notices.length=0;
+await refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',adapter,secret});
+const replacementRow=sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get();
+assert.notEqual(olderRow.ciphertext,replacementRow.ciphertext);
+sqlite.prepare(
+ "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
+).run(olderRow.ciphertext,olderRow.nonce);
+await assert.rejects(
+ ()=>refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',
+  adapter,secret,sync:async()=>{
+   sqlite.prepare(
+    "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
+   ).run(replacementRow.ciphertext,replacementRow.nonce);
+   throw Object.assign(new Error('old upstream session expired'),
+    {code:'authorization_failed'});
+  }}),
+ e=>e.code==='session_expired');
+assert.deepEqual(sqlite.prepare(
+ "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
+).get(),replacementRow,'stale sync must not delete a successful newer encrypted session');
+assert.equal(sqlite.prepare(
+ "SELECT status FROM academic_connections WHERE user_id='owner1' AND provider='chaoxing'"
+).get().status,'connected','stale upstream failure must not expire a newer session');
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
 assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 sqlite.close();
 console.log('Chaoxing trusted adapter: real request shape, cookie-scoped identity, HAR paging and connection registration passed');
