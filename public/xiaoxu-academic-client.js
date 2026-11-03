@@ -161,6 +161,9 @@
     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
     active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'';
+   const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
+    record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
+    authorized?'已授权 · 可同步':label;
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
@@ -181,7 +184,7 @@
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+guidance+'</div>'+
-    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(authorized?'已授权 · 可同步':label)+'</span>'+sessionTools+
+    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
     (officialCas?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
   }).join('');
