@@ -2058,9 +2058,19 @@ window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(name
 function updateOfflineBanner(){$('offlineBanner').hidden=navigator.onLine;}
 async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未显示安装提示，请使用浏览器菜单中的「添加到主屏幕」');return;}const p=deferredInstallPrompt;deferredInstallPrompt=null;try{await p.prompt();await p.userChoice;}catch(e){console.warn('安装提示不可用',e);}}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});
-window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);});
+// Cloud task changes made on another device appear when this tab resumes or
+// stays open. Never opens a new owner/school session or uploads local data.
+function refreshVisibleCloudTasks(minAgeMs=15000){
+ if(!XiaoxuCloudTasks.isReady()||!(page==='tasks'||page==='settings')||
+    navigator.onLine===false)return;
+ void XiaoxuCloudTasks.refreshIfStale(minAgeMs).then(changed=>{
+  if(changed&&(page==='tasks'||page==='settings'))render();
+ }).catch(()=>{if(page==='settings')render();});
+}
+window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);refreshVisibleCloudTasks(0);});
 window.addEventListener('offline',updateOfflineBanner);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();refreshVisibleCloudTasks();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
+setInterval(()=>{if(!document.hidden)refreshVisibleCloudTasks(60000);},60*1000);
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
 window.addEventListener('storage',event=>{
  if(event.key===NOTICE_ALERT_PREF){
