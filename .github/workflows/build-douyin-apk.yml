@@ -25,9 +25,11 @@ jobs:
           java-version: '17'
       - name: Test model filtering and edge cases
         run: bash ./run-core-tests.sh
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Install Android SDK packages using runner SDK manager
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
