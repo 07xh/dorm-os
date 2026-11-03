@@ -7,7 +7,8 @@ import {DatabaseSync} from 'node:sqlite';
 const names=[
  '0001_academic_core.sql','0002_academic_legacy_links.sql',
  '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
- '0005_academic_workspace.sql','0006_academic_scheduler.sql'
+ '0005_academic_workspace.sql','0006_academic_scheduler.sql',
+ '0007_academic_reminder_inbox.sql'
 ];
 const sql=names.map(n=>({name:n,content:readFileSync(new URL('../migrations/'+n,import.meta.url),'utf8')}));
 function fresh(){
@@ -18,7 +19,8 @@ function fresh(){
 const db=fresh();
 try{
  const required=['academic_users','academic_connections','academic_assignments','academic_sync_runs',
- 'academic_assignment_events','academic_verified_records','academic_sync_jobs'];
+ 'academic_assignment_events','academic_verified_records','academic_sync_jobs',
+ 'academic_reminder_preferences','academic_reminder_receipts'];
  const tables=new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r=>r.name));
  for(const name of required)if(!tables.has(name))throw Error('missing table '+name);
  const pragma=db.prepare('PRAGMA foreign_key_check').all();
