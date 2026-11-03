@@ -82,12 +82,16 @@
   }else if(kind==='second-class'){
    if(record.credit!==undefined)fields.push('学分 '+record.credit);
    if(record.hours!==undefined)fields.push('学时 '+record.hours);
-   if(record.points!==undefined)fields.push('积分 '+record.points);
+   if(record.points!==undefined)fields.push((isOfficial(kind)?'已核算素质分 ':'积分 ')+record.points);
    const label={registered:'已报名',completed:'已完成',cancelled:'已取消',unknown:'活动状态未核实'};
    fields.push(label[record.activityStatus]||'活动状态未核实');
    const reviews={pending:'待审核',approved:'审核通过',rejected:'审核未通过',
     attended:'已签到记录',unknown:'审核状态未核实'};
    if(record.reviewStatus)fields.push(reviews[record.reviewStatus]||'审核状态未核实');
+   const settled={settled:'已核算',unsettled:'未核算',awaiting_settlement:'等待核算',
+    unverified:'未验证',unknown:'核算状态未核实'};
+   if(record.settlementStatus&&record.settlementStatus!=='unknown')
+     fields.push(settled[record.settlementStatus]||'核算状态未核实');
   }else if(record.platformStatus)fields.push(record.platformStatus);
   const detail=fields.filter(Boolean).map(escapeHtml).join(' · ');
   return '<div class="xu-private-item"><strong>'+escapeHtml(record.title)+'</strong><span>'+detail+'</span></div>';
