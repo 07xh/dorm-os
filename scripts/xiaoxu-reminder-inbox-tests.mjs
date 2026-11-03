@@ -16,6 +16,13 @@ assert.equal(second.credit,1.5);
 assert.equal(second.hours,2);
 assert.equal(second.points,8);
 assert.equal(second.activityStatus,'completed');
+const review=normalizeRecord('second-class',{
+ externalId:'activity-2',title:'二课候选',reviewStatus:'approved'
+});
+assert.equal(review.reviewStatus,'approved');
+assert.throws(()=>normalizeRecord('second-class',{
+ externalId:'activity-3',title:'二课候选',reviewStatus:'bypassed'
+}),/未知二课审核状态/);
 assert.throws(()=>normalizeRecord('second-class',{externalId:'x',title:'活动',activityStatus:'secret'}),/未知二课/);
 assert.equal(normalizeRecord('exams',{
  externalId:'exam-2',term:'2026-1',title:'考试',date:'2026-11-20',startTime:'10:30'
