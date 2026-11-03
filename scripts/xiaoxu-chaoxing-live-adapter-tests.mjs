@@ -73,4 +73,60 @@ assert.equal(invoked,true);
 assert.equal(seen?.chaoxing?.provider,'chaoxing');
 assert.equal(typeof seen.chaoxing.login,'function');
 assert.ok(!urls.some(x=>x.cookie.includes('test-password')));
+// Exercise the same existing owner login / encrypted session vault / sync route,
+// including a failed upstream identity probe and subsequent explicit re-login.
+const {readFileSync}=await import('node:fs');
+const {DatabaseSync}=await import('node:sqlite');
+const {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates}=await import('../lib/academic-school-login.mjs');
+const sqlite=new DatabaseSync(':memory:');
+sqlite.exec('PRAGMA foreign_keys=ON');
+for(const filename of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
+ '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
+ '0005_academic_workspace.sql','0011_academic_provider_sessions.sql',
+ '0013_academic_chaoxing_notices.sql']){
+ sqlite.exec(readFileSync(new URL('../migrations/'+filename,import.meta.url),'utf8'));
+}
+const db2={
+ prepare(sql){let args=[];return{
+  bind(...v){args=v;return this;},
+  all(){return {results:sqlite.prepare(sql).all(...args)};},
+  first(){return sqlite.prepare(sql).get(...args)??null;},
+  run(){return {meta:{changes:sqlite.prepare(sql).run(...args).changes}};}
+ }},
+ async batch(items){
+  sqlite.exec('BEGIN');try{
+   const result=items.map(x=>x.run());
+   sqlite.exec('COMMIT');return result;
+  }catch(error){sqlite.exec('ROLLBACK');throw error;}
+ }
+};
+const secret=Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+notices.length=0;
+const online=await connectSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',
+ adapter,username:'my-account',password:'test-password',secret});
+assert.equal(online.connected,true);
+const before=sqlite.prepare("SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1'").get();
+assert.ok(before.ciphertext&&!JSON.stringify(before).includes('test-password'));
+assert.deepEqual(await schoolSessionStates(db2,'owner1'),{chaoxing:'active'});
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,1);
+notices.length=0;
+const refreshed=await refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',adapter,secret});
+assert.equal(refreshed.refreshed,true);
+const rotated=sqlite.prepare("SELECT ciphertext FROM academic_provider_sessions WHERE user_id='owner1'").get();
+assert.notEqual(before.ciphertext,rotated.ciphertext,'successful refresh re-seals the provider session');
+invalidSession=true;
+await assert.rejects(()=>refreshSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',adapter,secret}),
+ e=>e.code==='session_expired');
+assert.deepEqual(await schoolSessionStates(db2,'owner1'),{});
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
+ 'upstream expiry must preserve historical tasks');
+invalidSession=false;notices.length=0;
+const relinked=await connectSchoolAccount({db:db2,userId:'owner1',provider:'chaoxing',
+ adapter,username:'my-account',password:'test-password',secret});
+assert.equal(relinked.connected,true);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
+assert.equal(sqlite.prepare("SELECT status FROM academic_connections WHERE provider='chaoxing'").get().status,'connected');
+assert.equal(sqlite.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+sqlite.close();
 console.log('Chaoxing trusted adapter: real request shape, cookie-scoped identity, HAR paging and connection registration passed');
