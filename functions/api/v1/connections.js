@@ -29,11 +29,13 @@ export async function onRequestGet(context){
    // University CAS returns to a SCHOOL-owned service. Do not expose
    // an Academic OS password form or imply consent to a third-party app.
    if(row.id==='second_class'){
-    const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
-    return {...row,status:verified?'connected':row.status,sessionState,
-     loginMode:flow.loginMode,
-     authFlow:flow,nativeCasPreflight:false,
-     accountAuthorization:flow.xiaoxuAuthorization};
+    // Retired encrypted sessions and previous trusted snapshots are NOT a
+    // fresh grant through the university-owned CAS callback.
+    const flow=describeSecondClassAuthorization({
+     sessionState:'not_connected',verifiedSession:false});
+    return {...row,status:'not_connected',sessionState:'not_connected',
+     loginMode:'official_sso',authFlow:flow,nativeCasPreflight:false,
+     automaticSync:false,accountAuthorization:'not_verified'};
    }
    if(row.id==='ncwu')return {...row,sessionState,
     loginMode:available?'native_cas_probe':'unavailable',
