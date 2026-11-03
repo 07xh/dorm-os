@@ -6,7 +6,7 @@
  const TYPES=['schedule','assignments','grades','exams','second-class'];
  const SOURCE={schedule:'青果课表',assignments:'学习通作业',grades:'青果成绩',exams:'青果考试','second-class':'第二课堂'};
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- let connected=false,sources=[],error='',overviewAttempted=false;
+ let connected=false,sources=[],error='';
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -55,25 +55,11 @@
   return true;
  }
  async function connect(){
-  overviewAttempted=true;
   connected=true;
   try{
    await refresh();
    return true;
   }catch(err){disconnect();error=String(err.message||'个人学业连接失败');throw err;}
- }
- async function loadOverview(){
-  overviewAttempted=true;
-  try{
-   const overview=await get('connections');
-   if(overview?.schema!=='xiaoxu/connections-v1'||!Array.isArray(overview.platforms)||
-      overview.platforms.length!==3)throw Error('连接状态格式无效');
-   sources=overview.platforms;
-   return true;
-  }catch{
-   sources=[];
-   return false;
-  }
  }
  const CONNECTION_PROVIDERS=Object.freeze([
   {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
@@ -267,5 +253,5 @@
    finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,loadOverview,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel,hasOverviewAttempted:()=>overviewAttempted});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);
