@@ -23,7 +23,7 @@ test('NCWU school login guidance is inline, does not request credentials and can
  await second.locator('.xu-provider-guide summary').click();
  await expect(second).toContainText('不等于账号已绑定');
  await expect(center.locator('input[type="password"]')).toHaveCount(0);
- expect(calls).toEqual(['/api/v1/connections'],'settings may inspect connection availability, but cannot read private school records before opt-in');
+ expect(calls).toEqual([],'settings page must not read personal school records before opt-in');
 });
 test('NCWU expanded authorization detail does not cause horizontal overflow',async({page})=>{
  for(const width of [360,393,768,1280]){
@@ -51,6 +51,7 @@ test('website password fields appear only when trusted server advertises a valid
   })});
  });
  await page.goto('/#settings');
+ await page.locator('[data-action="academic-connect"]').click();
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  const ncwu=center.locator('.xu-connection-source').filter({hasText:'华水青果教务'});
  await expect(ncwu.getByText('在校序网页登录连接')).toBeVisible();
