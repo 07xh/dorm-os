@@ -85,6 +85,9 @@ try{
  assert.equal(body.status,'ready');
  assert.equal(body.records.length,1);
  assert.equal(body.records[0].title,'课程作业');
+ assert.equal(body.provenance,'user_import','browser upload cannot gain trusted source provenance');
+ const connBody=await (await onRequestGet(context('connections',jwt))).json();
+ assert.equal(connBody.sources.find(x=>x.kind==='assignments').state,'personal_snapshot');
  const otherUser=await onRequestGet(context('assignments',other));
  assert.equal((await otherUser.json()).records.length,0,'User isolation blocks other identities');
  const invalid=await onRequestPost(context('snapshot',jwt,{...sample,records:[{...sample.records[0],password:'secret'}]}));
