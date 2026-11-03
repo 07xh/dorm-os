@@ -16,6 +16,10 @@ test('second-class personal API renders accurate source, known-only totals and d
     {externalId:'a2',title:'缺少积分字段的活动'}],
    provenance:trusted?'trusted_readonly':'user_import',
    lastSuccessAt:new Date().toISOString(),automaticSync:false,
+   officialScore:trusted?{school:'ncwu',units:{qualityScore:'素质分',
+     volunteerHours:'志愿服务时长'},
+     aggregate:{qualityScore:7.5,volunteerHours:3.5,termIndex:100},
+     semesters:[],isSchoolReportedAggregate:true}:null,
    summary:{recordCount:2,recordedHours:{knownCount:1,sum:2},
     recordedPoints:{knownCount:1,sum:5},isOfficialAggregate:false}
   });
@@ -51,6 +55,8 @@ test('second-class personal API renders accurate source, known-only totals and d
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(panel).toContainText('授权只读同步');
+ await expect(panel).toContainText('学校显示合计');
+ await expect(panel).toContainText('志愿服务时长');
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'断开连接'}).click();
