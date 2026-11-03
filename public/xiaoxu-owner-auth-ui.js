@@ -16,19 +16,35 @@
         cache: 'no-store',
         headers: { accept: 'application/json' }
       });
-      if (!response.ok) { show(false); return; }
+      if (!response.ok) {
+        show(false);
+        if (response.status === 401 || response.status === 503) {
+          try { localStorage.removeItem('xiaoxu_owner_login_seen'); } catch {}
+        }
+        return;
+      }
       const status = await response.json();
-      show(status?.authenticated === true);
+      const authenticated = status?.authenticated === true;
+      show(authenticated);
+      if (!authenticated) {
+        try { localStorage.removeItem('xiaoxu_owner_login_seen'); } catch {}
+      }
     } catch {
       // 网络中断时不能假定私有会话仍然有效。
       show(false);
     }
   }
-  void verify();
+  // Only recheck after the owner has explicitly logged in on this device.
+  // This marker is a non-secret UI hint, never evidence of authorization.
+  const mayCheck = () => {
+    try { return localStorage.getItem('xiaoxu_owner_login_seen') === '1'; }
+    catch { return false; }
+  };
+  if (mayCheck()) void verify();
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) void verify();
+    if (!document.hidden && mayCheck()) void verify();
   });
   window.addEventListener('pageshow', (event) => {
-    if (event.persisted) void verify();
+    if (event.persisted && mayCheck()) void verify();
   });
 })();
