@@ -184,12 +184,24 @@
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(officialCas?record.authFlow.officialLoginUrl:provider.url)+'">'+(officialCas?'打开第二课堂官网':'打开学校官网')+'</a></div>':
     canLogin?
-    '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
-    '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
-    '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
-    '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
-    '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
-    '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>':
+    (provider.id==='chaoxing'?
+     '<div class="xu-school-connect">'+
+     '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
+     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
+     '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
+     '<p class="tiny muted">只有单独设置过超星账号密码时才使用；这个入口是超星独立登录接口，不是华水统一认证。</p>'+
+     '<form data-xu-school-login="chaoxing" autocomplete="on">'+
+     '<label>超星独立账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="超星独立账号"></label>'+
+     '<label>超星独立密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="超星独立密码（非校园密码）"></label>'+
+     '<p class="tiny muted">仅本次向超星官方接口认证；校序不保存密码，验证本人身份与课程数据后才保存加密会话。</p>'+
+     '<button type="submit" class="primary">使用超星独立账号连接</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p>'+
+     '</form></details></div>':
+     '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
+     '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
+     '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
+     '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
+     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
+     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>'):
     active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'';
    const schoolScopeStatus=authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
@@ -212,7 +224,7 @@
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
-    '<p>可通过校序现有的站内学习通连接入口登录；若学校要求验证码或交互认证则停止自动登录。</p>'+
+    '<p>学校统一认证和超星独立账号是两种不同的登录方式。仅已设置超星独立账号密码时，校序才可尝试直接读取；校园 CAS 登录不能作为本站授权凭据。</p>'+
     '<p>本人会话验证通过后，网站处于前台时每 30 分钟尝试更新收件箱；网页关闭后尚未启用后台推送。会话过期可在此重新连接，提交状态仍需另行核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
     '<p>活动、积分、志愿服务时长的只读解析与服务端会话框架已保留，但尚未通过本人真实学校登录验证；打开官网不等于账号已绑定，当前不会冒充已连接。</p>'+
@@ -221,7 +233,7 @@
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (details?'<span>'+escapeHtml(details+stampText)+'</span>':'')+authPanel+autoRefreshHint+autoRefreshNote+guidance+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
-    ((officialCas||nativeNcwu)?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
+    ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
   }).join('');
   return '<section class="card xu-private-panel" aria-label="统一数据连接中心">'+
@@ -342,7 +354,7 @@
    ' · '+escapeHtml(({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'待核实'})[r.platformStatus]||'待核实')+
    '</div></div><span class="pill">个人快照</span></div>').join('');
  }
- const schoolMessage={schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'请填写有效学校账号和密码',authorization_failed:'学校登录或身份校验失败，请核对官方登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
+ const schoolMessage={upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校当前要求验证码或官方交互登录，暂不能通过校序直接登录',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing','second_class'].includes(provider)||
      !['login','confirm','sync','disconnect'].includes(verb))
