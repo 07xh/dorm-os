@@ -12,6 +12,11 @@
  let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
  let ncwuAutoSyncBusy=false,lastNcwuAutoSyncAttempt=0;
  const SCHOOL_AUTO_SYNC_INTERVAL=30*60*1000;
+ let qrImageBlobUrl=null,qrImageForUrl=null,qrImageInFlight=null;
+ function releaseQrImage(){
+  if(qrImageBlobUrl)URL.revokeObjectURL(qrImageBlobUrl);
+  qrImageBlobUrl=null;qrImageForUrl=null;
+ }
  const expandedSchoolProviders=new Set();
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
@@ -147,9 +152,13 @@
    const qrResuming=provider.id==='chaoxing'&&chaoxingQrAttempt&&
     Date.now()<chaoxingQrAttempt.expiresAt;
    const qrRestored=qrResuming?
-    '<img src="'+escapeHtml(chaoxingQrAttempt.qrImageUrl)+
-    '" alt="学习通官方登录二维码" width="190" height="190" referrerpolicy="no-referrer">'+
-    '<p class="tiny muted" data-xu-qr-feedback>正在恢复扫码状态，请在学习通 APP 确认登录</p>':'';
+    '<div class="xu-qr-image-slot" data-xu-qr-image>'+
+    (qrImageBlobUrl&&qrImageForUrl===chaoxingQrAttempt.qrImageUrl?
+     '<img src="'+escapeHtml(qrImageBlobUrl)+
+     '" alt="学习通官方登录二维码" width="190" height="190">':
+     '<span class="tiny muted">正在从学习通获取二维码图片…</span>')+
+    '</div><p class="tiny muted" data-xu-qr-feedback>请使用学习通 APP 扫码并确认登录，校序会自动检查。</p>'+
+    '<button type="button" class="secondary" data-xu-qr-check-now>已确认，立即检查</button>':'';
    // A short-lived, owner-bound QR challenge must remain visible after
    // same-tab reload before the connections summary has been reloaded.
    const canLogin=provider.id!=='second_class'&&(
@@ -188,7 +197,7 @@
     canLogin?
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
-     (record?.qrLoginAvailable===true||qrResuming?'<button type="button" class="primary" data-xu-chaoxing-qr-start>学习通 APP 扫码连接</button><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
+     (record?.qrLoginAvailable===true||qrResuming?'<div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
      '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
      '<details class="xu-chaoxing-import"><summary>已在官方学习通登录？导入本人有效会话（无需校园密码）</summary>'+
@@ -219,6 +228,9 @@
     authorized?'已授权 · 可同步':label;
    const ncwuAutoHint=authorized&&provider.id==='ncwu'?
     '<p class="tiny muted">重开校序后，如课表已超过30分钟未更新且会话有效，将尝试只读同步。关闭网页时不采集数据。</p>':'';
+   const qrQuickAction=provider.id==='chaoxing'&&!authorized&&
+    record?.qrLoginAvailable===true?
+     '<button type="button" class="primary" data-xu-chaoxing-qr-start>扫码连接</button>':'';
    const sessionTools=authorized&&provider.id!=='second_class'?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
@@ -249,7 +261,7 @@
     (record?.lastSuccessAt?'<span>上次同步 '+escapeHtml(stamp(record.lastSuccessAt))+'</span>':'')+
     (trusted?'<span>可信只读记录 '+trusted+' 类</span>':'')+
     managePanel+'</div>'+
-    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+sessionTools+
+    '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+qrQuickAction+sessionTools+
     ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
   }).join('');
@@ -403,7 +415,45 @@
    else root.sessionStorage.removeItem(CHAOXING_QR_STORAGE);
   }catch{} // Limited session storage must not disable ordinary QR polling.
  }
- function endQrAttempt(){chaoxingQrAttempt=null;saveQrAttempt(null);}
+ function endQrAttempt(){
+  chaoxingQrAttempt=null;saveQrAttempt(null);releaseQrImage();
+ }
+ async function ensureQrImage(attempt){
+  if(!attempt||attempt!==chaoxingQrAttempt)return;
+  if(qrImageBlobUrl&&qrImageForUrl===attempt.qrImageUrl)return;
+  if(qrImageInFlight===attempt)return;
+  qrImageInFlight=attempt;
+  try{
+   const response=await fetch('/api/v1/connections/chaoxing/qr/image',{
+    method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+    headers:{'content-type':'application/json','accept':'image/png, application/json'},
+    body:JSON.stringify({ticket:attempt.ticket})
+   });
+   if(!response.ok){
+    const body=await response.json().catch(()=>null);
+    throw Error(schoolMessage[body?.error]||'学习通二维码图片暂时无法读取');
+   }
+   if(!(response.headers.get('content-type')||'').startsWith('image/png'))
+    throw Error('学习通二维码图片格式不正确');
+   const blob=await response.blob();
+   if(blob.size<64||blob.size>180000)throw Error('学习通二维码图片大小异常');
+   const objectUrl=URL.createObjectURL(blob);
+   if(chaoxingQrAttempt!==attempt){URL.revokeObjectURL(objectUrl);return;}
+   releaseQrImage();
+   qrImageBlobUrl=objectUrl;qrImageForUrl=attempt.qrImageUrl;
+   const slot=document.querySelector('[data-xu-qr-image]');
+   if(slot){
+    const image=document.createElement('img');
+    image.src=objectUrl;image.alt='学习通官方登录二维码';
+    image.width=190;image.height=190;slot.replaceChildren(image);
+   }
+  }catch(error){
+   if(chaoxingQrAttempt===attempt){
+    const slot=document.querySelector('[data-xu-qr-image]');
+    if(slot)slot.textContent=error.message||'获取二维码失败，请重新生成';
+   }
+  }finally{if(qrImageInFlight===attempt)qrImageInFlight=null;}
+ }
  let chaoxingQrAttempt=recoverQrAttempt();
  async function chaoxingQrPost(action,payload){
   const response=await fetch('/api/v1/connections/chaoxing/qr/'+action,{
@@ -428,7 +478,24 @@
    if(['connected','authenticated_pending_sync'].includes(result.status)){
     const pendingSync=result.status==='authenticated_pending_sync';
     endQrAttempt();
-    await connect();
+    // QR approval has already been saved on the server. A transient failure
+    // in the *subsequent* data refresh must not conceal successful login.
+    let reloaded=false;
+    try{await connect();reloaded=true;}
+    catch(err){
+     try{
+      const overview=await get('connections');
+      if(overview?.schema==='xiaoxu/connections-v1'&&
+         Array.isArray(overview.platforms)&&overview.platforms.length===3){
+       sources=overview.platforms;connectionStatusRead=true;
+      }
+     }catch{}
+     error=String(err?.message||'账号已认证，但页面数据暂时未刷新');
+    }
+    if(!reloaded){
+     const pane=document.querySelector('[data-xu-chaoxing-qr-output]');
+     if(pane)pane.textContent='扫码认证已完成；校序数据加载失败，请点击“刷新状态”。';
+    }
     await Promise.allSettled([
      root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),
      root.XiaoxuCloudTasks?.isReady?.()?root.XiaoxuCloudTasks.refresh():Promise.resolve()
@@ -563,32 +630,42 @@
    const button=event.target.closest?.('[data-xu-chaoxing-qr-start]');
    if(!button)return;
    button.disabled=true;endQrAttempt();
-   const host=button.parentElement.querySelector('[data-xu-chaoxing-qr-output]');
+   const row=button.closest('.xu-connection-source');
+   const manage=row?.querySelector('.xu-school-manage');
+   if(manage){manage.open=true;expandedSchoolProviders.add('chaoxing');}
+   const host=row?.querySelector('[data-xu-chaoxing-qr-output]');
    if(host)host.textContent='正在从学习通官网生成登录二维码…';
    try{
     const result=await chaoxingQrPost('start',{});
     const safeImage=safeQrImageUrl(result.qrImageUrl);
     if(!safeImage||typeof result.ticket!=='string'||
       !Number.isFinite(Date.parse(result.expiresAt)))throw Error('登录二维码响应无效');
-    const img=document.createElement('img');
-    img.src=safeImage;img.alt='学习通官方登录二维码';img.width=190;img.height=190;
-    img.referrerPolicy='no-referrer';
-    const note=document.createElement('p');
-    note.className='tiny muted';note.dataset.xuQrFeedback='';
-    note.textContent='使用学习通 APP 扫描并确认；完成后校序自动读取本人数据。';
-    host?.replaceChildren(img,note);
     chaoxingQrAttempt={ticket:result.ticket,expiresAt:Date.parse(result.expiresAt),
      qrImageUrl:safeImage,busy:false};saveQrAttempt(chaoxingQrAttempt);
-    setTimeout(()=>{void checkChaoxingQr();},3000);
+    if(host)host.innerHTML='<div class="xu-qr-image-slot" data-xu-qr-image>正在加载二维码…</div>'+
+     '<p class="tiny muted" data-xu-qr-feedback>请使用学习通 APP 扫码并确认。</p>'+
+     '<button type="button" class="secondary" data-xu-qr-check-now>已确认，立即检查</button>';
+    await ensureQrImage(chaoxingQrAttempt);
+    setTimeout(()=>{void checkChaoxingQr();},2500);
    }catch(error){
     if(host)host.textContent=error.message||'无法生成登录二维码';
    }finally{if(button.isConnected)button.disabled=false;}
   });
+  document.addEventListener('click',event=>{
+   if(!event.target.closest?.('[data-xu-qr-check-now]'))return;
+   void checkChaoxingQr();
+  });
   document.addEventListener('visibilitychange',()=>{
-   if(!document.hidden&&chaoxingQrAttempt)void checkChaoxingQr();
+   if(!document.hidden&&chaoxingQrAttempt){
+    void ensureQrImage(chaoxingQrAttempt);
+    void checkChaoxingQr();
+   }
   });
   // Keep polling the sealed challenge after a same-tab reload.
-  if(chaoxingQrAttempt)setTimeout(()=>{void checkChaoxingQr();},600);
+  if(chaoxingQrAttempt)setTimeout(()=>{
+   void ensureQrImage(chaoxingQrAttempt);
+   void checkChaoxingQr();
+  },600);
   // Foreground-only checking; no hidden-tab school traffic.
   setInterval(()=>{
    if(!document.hidden){
