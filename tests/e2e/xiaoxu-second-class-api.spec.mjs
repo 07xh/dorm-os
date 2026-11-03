@@ -40,7 +40,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  await page.goto('/#settings');
  await expect(page.getByRole('button',{name:'读取我的连接状态'})).toBeVisible();
  expect(paths.length).toBe(0,'private endpoint must not load before user opts in');
- await page.getByRole('button',{name:'读取授权数据'}).click();
+ await page.getByRole('button',{name:'读取我的连接状态'}).click();
  await expect(page.locator('.xu-private-panel')).toContainText('校序云端已读取');
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
