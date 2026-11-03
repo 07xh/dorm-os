@@ -54,10 +54,25 @@
   if(r.due_precision==='date'&&r.due_local_date)return '截止 '+r.due_local_date+'（时间未知）';
   return '未核实截止时间';
  }
+ function visibleCloudTasks(localTasks=[]){
+  if(!online)return [];
+  const locals=Array.isArray(localTasks)?localTasks:[];
+  const localIds=new Set(locals.map(x=>x.id));
+  const sources=new Set(locals.filter(x=>typeof x.source==='string'&&
+    typeof x.sourceId==='string'&&x.sourceId).map(x=>x.source+'|'+x.sourceId));
+  return items.filter(r=>(!r.legacy_id||!localIds.has(r.legacy_id))&&
+    (!r.source_provider||!r.source_external_id||
+     !sources.has(r.source_provider+'|'+r.source_external_id)));
+ }
+ function snapshotKeys(){
+  if(!online)return [];
+  return items.filter(r=>typeof r.source_provider==='string'&&r.source_provider&&
+    typeof r.source_external_id==='string'&&r.source_external_id)
+   .map(r=>r.source_provider+'|'+r.source_external_id);
+ }
  function taskRows(filter='all',localTasks=[]){
   if(!online)return '';
-  const localIds=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
-  return items.filter(r=>!r.legacy_id||!localIds.has(r.legacy_id))
+  return visibleCloudTasks(localTasks)
    .filter(r=>filter==='open'?r.local_status!=='done':filter==='done'?r.local_status==='done':true)
    .map(r=>{
     const done=r.local_status==='done';
@@ -76,15 +91,14 @@
 
  function deadlineSummary(localTasks=[],now=Date.now()){
   if(!online)return '';
-  const localIds=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
   const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',
     year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now));
   const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
   const today=values.year+'-'+values.month+'-'+values.day;
   const dayIndex=date=>Date.parse(date+'T00:00:00Z')/86400000;
   const buckets={overdue:0,h6:0,h24:0,d3:0,later:0,unknown:0};
-  for(const r of items){
-   if(r.local_status==='done'||(r.legacy_id&&localIds.has(r.legacy_id)))continue;
+  for(const r of visibleCloudTasks(localTasks)){
+   if(r.local_status==='done')continue;
    if(r.due_precision==='exact'&&Number.isFinite(Date.parse(r.due_at_utc))){
     const delta=Date.parse(r.due_at_utc)-now;
     if(delta<0)buckets.overdue++;
@@ -202,14 +216,13 @@
  }
  function reminderCandidates(localTasks=[]){
   if(!online)return [];
-  const exclude=new Set((Array.isArray(localTasks)?localTasks:[]).map(x=>x.id));
-  return items.filter(x=>!x.legacy_id||!exclude.has(x.legacy_id)).map(x=>({
+  return visibleCloudTasks(localTasks).map(x=>({
    id:'cloud:'+x.id,title:x.title,local_status:x.local_status,
    platform_status:x.platform_status,due_precision:x.due_precision,
    due_at_utc:x.due_at_utc,due_local_date:x.due_local_date
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,isReady,taskCount,taskRows,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
+  connect,disconnect,refresh,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle
  });
 })(globalThis);
