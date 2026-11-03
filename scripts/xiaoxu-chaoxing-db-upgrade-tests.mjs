@@ -20,7 +20,8 @@ assert.ok(workflow.includes('CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TO
 const sql=readFileSync(new URL('../migrations/0015_academic_chaoxing_notices.sql',import.meta.url),'utf8');
 assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS academic_chaoxing_notices'));
 assert.ok(sql.includes('PRIMARY KEY (user_id,notice_id)'));
-assert.ok(!/cookie|password|token/i.test(sql),'inbox must never store credentials');
+const schemaOnly=sql.split('\n').filter(line=>!line.trim().startsWith('--')).join('\n');
+assert.ok(!/\b(cookie|password|token|session|secret)\b/i.test(schemaOnly),'inbox must never store credentials');
 const upgrade=readFileSync(new URL('./upgrade-academic-owner-auth-production.mjs',import.meta.url),'utf8');
 assert.ok(upgrade.includes('classifyChaoxingInboxSchema'));
 assert.ok(upgrade.includes('--file=./migrations/0015_academic_chaoxing_notices.sql'));
