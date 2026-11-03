@@ -5,7 +5,7 @@
 ## 当前正式开发与验收状态（2026-11-03）
 
 - **已实现：**总览、课表、教务、任务、我的；公开华水教务通知实时查询与归档/已读；本地课程、任务、NFC、备份；学习通 xuexitong-cli 本机安全只读桥接；云端个人任务 CRUD/历史/冲突控制和显式旧数据迁移。
-- **已有代码但需配置：**Cloudflare Access 个人身份隔离、D1 学业库 0001–0006、个人五域快照、M4 受信任只读连接器、M5 默认关闭的调度器、前台作业截止提醒、青果及二课候选字段转换。自动化合成/SQLite/Playwright 验收不等于实际学校账号联通。
+- **已有代码但需配置：**Cloudflare Access 个人身份隔离、D1 学业库 0001–0009、个人五域快照、受信任只读连接器、默认关闭的调度器；二课已基于本人 HAR 验证只读业务请求路径与素质分/志愿时长含义。自动化合成/SQLite/Playwright 验收不等于实际学校账号联通。
 - **尚未验收：**生产 D1 绑定与迁移、Access 本人授权、真实华水青果课表/成绩/考试、学习通自动后台会话、二课积分与活动、关闭网站后的主动系统推送、手机实体 NFC/TapFlow 硬件联动。
 
 ## 当前开发/部署入口
@@ -14,7 +14,8 @@
 - 源码： https://github.com/07xh/dorm-os
 - 一次性本地质量检查： `npm run check`（含 SQLite 0001–0006 迁移预演），完整浏览器： `npm run test:e2e`。
 - 部署：合并到 `main` 后 GitHub Actions 验证并使用 Wrangler 上传 Cloudflare Pages，随后自动核对生产 commit、公开 API 和私有 API 未授权拒绝。
-- 明天真实授权接入与生产 D1 配置： `docs/XIAOXU-TOMORROW-REAL-DATA-CHECKLIST.md`；连接器： `docs/XIAOXU-TRUSTED-CONNECTOR-M4.md`。勿上传账号密码、Cookie、学校个人数据或 Access JWT 到 GitHub。
+- **生产配置/本人验证：**`docs/XIAOXU-CLOUDFLARE-PRODUCTION-M10.md`。本人 Access 登录后可请求 `/api/v1/health` 检查 D1 0009 就绪；Github Actions 发布后报告实际 Cloudflare 生产绑定是否存在。学校二课原始 HAR 不上传 Git；未验收学校会话和 Cron 前仍显示未连接。
+- 旧连接器开发背景：`docs/XIAOXU-TRUSTED-CONNECTOR-M4.md`。勿提交密码、Cookie、个人数据或 Access JWT。
 
 ## 以下章节为旧 DORM OS 版本开发历史
 ### 历史项目介绍
