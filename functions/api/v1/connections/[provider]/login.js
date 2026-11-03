@@ -6,9 +6,9 @@ export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
  const provider=context.params?.provider;
- // The observed second-class CAS service redirects to a SCHOOL-owned endpoint,
- // not to this app. Reject passwords even if a speculative adapter is injected.
- if(provider==='second_class')return json({error:'interactive_login_required'},409);
+ // A school CAS round trip is only attempted through the trusted server
+ // adapter. The adapter rejects interactive/unsupported challenges and only
+ // saves sessions after a verified read of this owner's school records.
  const adapter=availableSchoolAdapter(context,provider);
  // Never read or accept a password when the school adapter is unavailable.
  if(!adapter)return json({error:'school_login_unavailable'},503);
