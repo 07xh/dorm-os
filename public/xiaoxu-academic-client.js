@@ -161,7 +161,9 @@
    const officialCas=provider.id==='second_class';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
    // Second-class: school-owned SSO only. No password proxy or CAS preflight.
-   const authPanel=authorized?'':officialCas?
+   const authPanel=qrResuming&&!canLogin?
+    '<div class="xu-school-connect"><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div></div>':
+    authorized?'':officialCas?
     '<div class="xu-school-connect" data-xu-second-class-official-only>'+
     '<p class="tiny muted">第二课堂旧版站内账号密码直连已删除。请使用学校官方页面完成扫码、密码或其他必要验证；学校会话不会因此自动交给校序。</p>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://dekt.ncwu.edu.cn/">打开第二课堂官网</a>'+
