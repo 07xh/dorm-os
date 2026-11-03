@@ -22,7 +22,7 @@ export async function onRequest(context){
    }:{})
   };
  }
- if(CHA0XING_ROUTES.test(path)&&
+ if((CHA0XING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework')&&
     typeof context.env?.SCHOOL_SESSION_KEY==='string'&&
     /^[A-Za-z0-9_-]{43}$/.test(context.env.SCHOOL_SESSION_KEY)&&
     typeof context.env?.ACADEMIC_DB?.prepare==='function'){

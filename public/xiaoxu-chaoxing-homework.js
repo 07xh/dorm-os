@@ -1,0 +1,110 @@
+/* Real, owner-scoped Chaoxing course > homework > question viewer.
+ * Read-only: never sends answers, submits forms, or exposes signed URLs.
+ */
+(function(root){
+ 'use strict';
+ let courses=[],items=[],detail=null,selected='',loaded=false,loading='',error='',epoch=0;
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ }[c]));
+ const online=()=>root.XiaoxuAcademic?.isReady?.()===true;
+ const key=c=>[c.courseId,c.classId,c.cpi].join(':');
+ const choice=()=>courses.find(c=>key(c)===selected)||null;
+ function panel(){
+  const ready=online(),current=choice();
+  return '<section class="card xu-inbox-panel" aria-label="学习通课程作业">'+
+   '<details class="xu-work-details"><summary><strong>学习通课程作业</strong>'+
+   ' <span class="small muted">本人会话 · 只读浏览</span></summary>'+
+   '<p class="small muted">依次读取官方课程、作业列表和题目。不会自动作答或提交；页面未开放的题目将明确提示。</p>'+
+   (!ready?'<p class="small muted">请先在「我的 → 数据连接」连接校序及学习通账号。</p>':
+    '<div class="button-row"><button class="secondary" type="button" data-xu-work-courses '+(loading?'disabled':'')+
+    '>'+(loading==='courses'?'读取中…':'读取我的课程')+'</button></div>')+
+   (ready&&loaded?'<div class="config-row"><label for="xuWorkCourseSelect">选择课程</label>'+
+    '<select id="xuWorkCourseSelect" data-xu-work-select>'+courses.map(c=>
+      '<option value="'+esc(key(c))+'" '+(key(c)===selected?'selected':'')+'>'+esc(c.title)+'</option>').join('')+
+    '</select><button type="button" class="secondary" data-xu-work-list '+(loading?'disabled':'')+
+     '>查看作业</button></div>':'')+
+   (error?'<p class="small muted" role="alert">'+esc(error)+'</p>':'')+
+   (loading?'<p class="small muted" role="status">正在读取官方'+
+      esc(({courses:'课程列表',list:'作业列表',detail:'题目'})[loading]||'数据')+'…</p>':'')+
+   (ready&&current&&items.length?'<div class="xu-inbox-entries">'+items.map(x=>
+    '<article class="xu-inbox-entry"><div><strong>'+esc(x.title)+'</strong>'+
+     '<div class="small muted">'+esc(x.status||'平台状态待核实')+'</div></div>'+
+     '<button class="secondary" type="button" data-xu-work-detail="'+esc(x.workId)+'" '+
+      (loading?'disabled':'')+'>查看题目</button></article>').join('')+'</div>':'')+
+   (ready&&detail?'<div class="xu-inbox-panel"><h4>'+esc(detail.title)+'</h4>'+
+    '<p class="small muted">'+esc(detail.course||'')+' · '+esc(detail.note||'')+'</p>'+
+    (detail.questionsAvailable?detail.questions.map(q=>
+     '<article class="xu-inbox-entry"><strong>'+q.number+'. '+esc(q.stem)+'</strong>'+
+     (q.options?.length?'<div class="small">'+q.options.map(o=>'<p>'+esc(o)+'</p>').join('')+'</div>':'')+
+     (q.hasImage?'<p class="small muted">此题含图片，请到学习通原页面查看。</p>':'')+
+     '</article>').join(''):
+     '<p class="small muted">该作业的题目暂不可直接读取，可在学习通官方页面查看。</p>')+
+    '</div>':'')+
+   '</details></section>';
+ }
+ function update(){
+  const host=document.getElementById('xuChaoxingWorkHost');if(!host)return;
+  const expanded=host.querySelector('.xu-work-details')?.open===true;
+  host.innerHTML=panel();
+  const d=host.querySelector('.xu-work-details');if(d)d.open=expanded;
+ }
+ async function read(view,params={}){
+  const url=new URL('/api/v1/chaoxing-homework',location.origin);
+  url.searchParams.set('view',view);
+  for(const [k,v] of Object.entries(params))url.searchParams.set(k,v);
+  const r=await fetch(url.pathname+url.search,{credentials:'same-origin',cache:'no-store',
+   redirect:'error',headers:{accept:'application/json'}});
+  const d=await r.json().catch(()=>null);
+  if(!r.ok)throw Error(({
+   session_expired:'学习通会话已失效，请在「我的」重新连接',
+   school_login_unavailable:'学习通读取服务尚未准备好',
+   courses_unverified:'课程列表未能核实，请打开学习通官网确认',
+   work_not_available:'该课程作业页未开放或授权信息不足',
+   not_found:'未找到这份作业，刷新列表后重试'
+  })[d?.error]||'官方页面读取失败，已保留原有数据');
+  if(d?.schema!=='xiaoxu/chaoxing-work-browser-v1'||d?.view!==view||
+    d.live!==true||typeof d.data!=='object')throw Error('学习通返回结构不匹配');
+  return d.data;
+ }
+ async function load(view,params={}){
+  if(loading||!online())return;
+  loading=view;error='';const at=epoch;update();
+  try{
+   const data=await read(view,params);
+   if(at!==epoch||!online())return;
+   if(view==='courses'){
+    if(!Array.isArray(data.courses)||data.courses.length>120)throw Error('课程列表无效');
+    courses=data.courses.filter(x=>x&&typeof x.title==='string'&&/^\d{1,24}$/.test(x.courseId)&&
+      /^\d{1,24}$/.test(x.classId)&&/^\d{1,24}$/.test(x.cpi));
+    selected=key(courses[0]||{courseId:'',classId:'',cpi:''});
+    loaded=true;items=[];detail=null;
+   }else if(view==='list'){
+    if(!Array.isArray(data.items)||data.items.length>200)throw Error('作业列表无效');
+    items=data.items.filter(x=>x&&/^\d{1,24}$/.test(x.workId)&&typeof x.title==='string');
+    detail=null;
+    if(!items.length)error=data.verifiedEmpty?'官方页面显示暂无作业':'未读取到作业，不能据此断定该课程没有作业';
+   }else{
+    if(!Array.isArray(data.questions)||data.questions.length>120)throw Error('作业内容无效');
+    detail=data;
+   }
+  }catch(e){if(at===epoch)error=String(e.message||'读取失败');}
+  finally{if(at===epoch){loading='';update();}}
+ }
+ function disconnect(){epoch++;courses=[];items=[];detail=null;selected='';loaded=false;loading='';error='';update();}
+ document.addEventListener('click',e=>{
+  if(e.target.closest('[data-xu-work-courses]')){load('courses');return;}
+  if(e.target.closest('[data-xu-work-list]')){
+   const c=choice();if(c)load('list',{courseId:c.courseId,classId:c.classId,cpi:c.cpi});return;
+  }
+  const btn=e.target.closest('[data-xu-work-detail]');
+  if(btn){const c=choice();if(c)load('detail',{courseId:c.courseId,
+   classId:c.classId,cpi:c.cpi,workId:btn.dataset.xuWorkDetail});}
+ });
+ document.addEventListener('change',e=>{
+  if(e.target.matches('[data-xu-work-select]')){
+   selected=e.target.value;items=[];detail=null;error='';update();
+  }
+ });
+ root.XiaoxuChaoxingHomework=Object.freeze({panel,disconnect});
+})(window);
