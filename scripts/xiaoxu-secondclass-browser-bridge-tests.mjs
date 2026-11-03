@@ -8,12 +8,14 @@ import {bridgeStatus,createBrowserBridge,validateBrowserBridge,revokeBrowserBrid
  BridgeError,BRIDGE_TTL_MS} from '../lib/academic-secondclass-browser-bridge.mjs';
 import {onRequestPost as ingest,onRequestOptions} from '../functions/api/v1/second-class/bridge/ingest.js';
 import {validateSnapshot} from '../lib/academic-contract.mjs';
+import {parsePersonalTotals} from '../lib/academic-secondclass-personal-totals.mjs';
 globalThis.crypto??=webcrypto;
 const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
 for(const file of [
  '0001_academic_core.sql','0003_academic_verified_snapshots.sql',
- '0008_academic_second_class_source.sql','0013_academic_secondclass_browser_bridge.sql'
+ '0008_academic_second_class_source.sql','0013_academic_secondclass_browser_bridge.sql',
+ '0014_academic_secondclass_personal_totals.sql'
 ]) sql.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
 const db={prepare(statement){
  let args=[];
@@ -59,9 +61,12 @@ assert.equal(badOrigin.status,403);
 assert.equal((await send('x'.repeat(43),snapshot)).status,401);
 assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM academic_verified_records').get().n,0);
 const done=await send(paired.token,{
- schema:'xiaoxu/academic-snapshot-v1',source:'second_class',kind:'second-class',
- verifiedSchool:'ncwu',capturedAt:at,complete:true,verifiedEmpty:false,
- records:snapshot.records
+ snapshot:{
+  schema:'xiaoxu/academic-snapshot-v1',source:'second_class',kind:'second-class',
+  verifiedSchool:'ncwu',capturedAt:at,complete:true,verifiedEmpty:false,
+  records:snapshot.records
+ },
+ schoolReportedPreview:{qualityScore:6.5,volunteerHours:2.25,origin:'unverified_local_browser_export'}
 });
 assert.equal(done.status,202);
 const body=await done.json();
@@ -70,12 +75,30 @@ assert.equal(body.syncMode,'user_browser_bridge');
 assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM academic_verified_records').get().n,1);
 assert.equal(sql.prepare('SELECT provenance FROM academic_verified_batches').get().provenance,'user_import');
 assert.equal((await bridgeStatus(db,owner)).state,'browser_sync_enabled');
+const storedTotals=sql.prepare('SELECT * FROM academic_secondclass_personal_totals WHERE user_id=?').get(owner);
+assert.equal(storedTotals.quality_score,6.5);
+assert.equal(storedTotals.volunteer_hours,2.25);
+assert.equal(storedTotals.captured_at,at);
+assert.equal(storedTotals.source,'user_browser_export');
+assert.ok(!JSON.stringify(storedTotals).includes('student_code'));
+assert.deepEqual(parsePersonalTotals({qualityScore:0,volunteerHours:null,origin:'unverified_local_browser_export'}),
+ {qualityScore:0,volunteerHours:null});
+assert.throws(()=>parsePersonalTotals({qualityScore:'6',volunteerHours:2,origin:'unverified_local_browser_export'}));
+assert.throws(()=>parsePersonalTotals({qualityScore:6,volunteerHours:2,student_code:'IDENTITY',origin:'unverified_local_browser_export'}));
 assert.equal((await send(paired.token,snapshot)).status,429,'ten-minute throttle');
 const newKey=await createBrowserBridge(db,owner);
 assert.notEqual(newKey.token,paired.token);
 assert.equal((await send(paired.token,snapshot)).status,401,'rotated token must fail');
 const badSection={...snapshot,kind:'assignments',source:'chaoxing'};
 assert.equal((await send(newKey.token,badSection)).status,422,'token cannot write unrelated sections');
+const maliciousTotals=await send(newKey.token,{
+ snapshot:{schema:'xiaoxu/academic-snapshot-v1',source:'second_class',
+  kind:'second-class',verifiedSchool:'ncwu',capturedAt:new Date().toISOString(),
+  complete:true,verifiedEmpty:false,records:snapshot.records},
+ schoolReportedPreview:{qualityScore:-3,volunteerHours:2,origin:'unverified_local_browser_export'}
+});
+assert.equal(maliciousTotals.status,422,'reject invalid aggregate before writing anything');
+assert.equal(sql.prepare('SELECT quality_score FROM academic_secondclass_personal_totals').get().quality_score,6.5);
 await revokeBrowserBridge(db,owner);
 assert.equal((await send(newKey.token,snapshot)).status,401,'revoked token must fail');
 assert.equal((await bridgeStatus(db,owner)).state,'not_paired');
