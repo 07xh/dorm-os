@@ -1809,7 +1809,19 @@ function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialo
 function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="itemName">物品名称</label><input id="itemName" name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label for="itemPlace">存放位置（可选）</label><input id="itemPlace" name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
 function render(){const previousApp=$('app');const focusedEl=document.activeElement;const focusAttrs=['data-home-day','data-timetable-mode','data-timetable-day','data-filter','data-academic-tab','data-notice-filter','data-life-tab','data-task-toggle'];const renderFocus=previousApp.contains(focusedEl)?focusAttrs.map(attr=>[attr,focusedEl?.getAttribute(attr)]).find(([,value])=>value!==null):null;const taskFocusIndex=page==='tasks'&&focusedEl?.matches?.('.v4-task-list [data-task-toggle]')?Array.from(previousApp.querySelectorAll('.v4-task-list [data-task-toggle]')).indexOf(focusedEl):-1;const preserveLegacyOpen=page==='profile'&&Boolean(previousApp.querySelector('.x-v7-legacy-links')?.open);const preserveCourseId=page==='timetable'?previousApp.querySelector('.v42-row-more[open] [data-class-delete]')?.dataset.classDelete:null;const preserveAdvanced=page==='settings'?[...previousApp.querySelectorAll('.xu-advanced-tools')].map((el,i)=>el.open?i:-1).filter(i=>i>=0):[];const preserveConnectionDiagnostic=page==='settings'&&previousApp.querySelector('.xu-connection-diagnostics')?.open===true;const pages={dashboard,study:studyPage,timetable,academic:academicPage,campus:campusPage,tasks:tasksPage,scenes:scenesPage,profile:profilePage,devices:devicesPage,settings:settingsPage,nfc:nfcPage,life:lifePage};$('app').innerHTML=pages[page]();if(renderFocus){const [attr,value]=renderFocus;const same=Array.from(previousApp.querySelectorAll('['+attr+']')).find(el=>el.getAttribute(attr)===value);if(same)same.focus({preventScroll:true});else if(attr==='data-task-toggle'&&taskFocusIndex>=0){const next=previousApp.querySelectorAll('.v4-task-list [data-task-toggle]');(next[Math.min(taskFocusIndex,next.length-1)]||previousApp.querySelector('[data-filter="'+taskFilter+'"]'))?.focus({preventScroll:true});}}if(preserveLegacyOpen){const details=$('app').querySelector('.x-v7-legacy-links');if(details)details.open=true;}if(preserveCourseId){const button=Array.from($('app').querySelectorAll('[data-class-delete]')).find(el=>el.dataset.classDelete===preserveCourseId);const details=button?.closest('.v42-row-more');if(details)details.open=true;}if(preserveAdvanced.length){const panels=$('app').querySelectorAll('.xu-advanced-tools');for(const i of preserveAdvanced)if(panels[i])panels[i].open=true;}if(preserveConnectionDiagnostic){const panel=$('app').querySelector('.xu-connection-diagnostics');if(panel)panel.open=true;}const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',devices:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings'||page==='devices';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}if(page==='settings'&&academicSourceState==='idle')queueMicrotask(()=>checkAcademicSources());}
 
-function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();window.scrollTo({top:0,behavior:'instant'});}
+
+ // After owner authentication, the connection-center page may read its status.
+ // This does not opt into cloud workspace sync or sign in to school websites.
+ let myConnectionStatusRequested=false;
+ function maybeReadMyConnections(){
+  if(page!=='settings'||cloudWasOptedIn()||myConnectionStatusRequested||
+     !window.XiaoxuOwnerAuth?.connected?.())return;
+  myConnectionStatusRequested=true;
+  void XiaoxuAcademic.readConnectionStatus().then(ok=>{
+   if(ok&&page==='settings')render();
+  }).catch(()=>{if(page==='settings')render();});
+ }
+function setPage(next){if(!nameMap[next])return;if(page==='nfc'&&next!=='nfc'){if(nfc.controller)stopNfcScan({silent:true});if(nfc.writeController)stopNfcWrite({silent:true});}page=next;history.replaceState(null,'',`#${next}`);render();maybeReadMyConnections();window.scrollTo({top:0,behavior:'instant'});}
 function tick(){const p=now();$('dateChip').textContent=`${p.month}月${p.dateNumber}日 · ${WEEKDAYS[p.day]}`;document.querySelectorAll('[data-clock]').forEach(x=>x.textContent=p.time);if($('timerDisplay'))$('timerDisplay').textContent=timerText();}
 function timerText(){return `${String(Math.floor(timer.remaining/60)).padStart(2,'0')}:${String(timer.remaining%60).padStart(2,'0')}`;}
 function saveTimerState(){state.focusTimer={duration:timer.duration,remaining:timer.remaining,running:timer.running,deadline:timer.deadline};persist();}
@@ -2149,7 +2161,7 @@ $('icsInput').addEventListener('change',async e=>{
 });
 $('importInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;pendingEncryptedBackup=null;pendingPlainBackup=null;try{if(file.size>3*1024*1024)throw new Error('备份超过 3MB');const obj=JSON.parse(await file.text());if(obj?.format===ENCRYPTED_BACKUP_MARKER){pendingEncryptedBackup=obj;encryptedImportDialog();return;}pendingPlainBackup=safeState(obj);plainImportDialog();}catch(err){toast(`恢复失败：${err.message}`);}finally{e.target.value='';}});
 $('editor').addEventListener('click',e=>{if(e.target===$('editor'))$('editor').close();});
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(nameMap[h]&&h!==page){page=h;render();}});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(nameMap[h]&&h!==page){page=h;render();maybeReadMyConnections();}});
  window.addEventListener('xiaoxu-school-connection-updated',()=>{if(page==='settings')render();toast('学校平台连接状态已更新');});
 function updateOfflineBanner(){$('offlineBanner').hidden=navigator.onLine;}
 async function installPwa(){if(!deferredInstallPrompt){toast('如果浏览器未显示安装提示，请使用浏览器菜单中的「添加到主屏幕」');return;}const p=deferredInstallPrompt;deferredInstallPrompt=null;try{await p.prompt();await p.userChoice;}catch(e){console.warn('安装提示不可用',e);}}
@@ -2170,7 +2182,9 @@ window.addEventListener('offline',updateOfflineBanner);
 window.addEventListener('xiaoxu-owner-auth-changed',event=>{
  if(event.detail?.authenticated===true){
   if(cloudWasOptedIn())void resumeOptedCloudWorkspace();
+  else maybeReadMyConnections();
  }else{
+  myConnectionStatusRequested=false;
   clearPrivateCloudWorkspace();
   if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
  }
