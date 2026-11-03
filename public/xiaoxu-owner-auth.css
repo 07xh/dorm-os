@@ -42,18 +42,46 @@
 @media(max-width:420px){.xu-owner-dialog{padding:22px;border-radius:18px}}
 @media(prefers-reduced-motion:reduce){.xu-owner-dialog::backdrop{backdrop-filter:none}}
 
-/* Only one preference row is shown under 我的. Session changes take effect on next login. */
-.xu-owner-duration-pref{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:11px;
-  border-top:1px solid var(--xu-line,#e7edf6);padding:15px 0 3px;margin-top:4px}
-.xu-owner-duration-pref>div:first-child{display:grid;gap:4px}
-.xu-owner-duration-pref strong{font-size:13px;font-weight:720;color:var(--xu-ink,#172a48)}
-.xu-owner-duration-pref small{font-size:11px;line-height:1.5;color:var(--xu-muted,#7385a1)}
-.xu-owner-duration-fields{display:flex;gap:7px;align-items:center}
-.xu-owner-duration-fields select,.xu-owner-duration-fields input{
- height:38px;max-width:120px;min-width:0;border:1px solid var(--xu-line,#d6dfef);
- border-radius:10px;background:var(--xu-surface,#fff);color:var(--xu-ink,#172a48);
- padding:0 8px;font:inherit;font-size:13px}
-.xu-owner-duration-fields input{width:73px}
-.xu-owner-duration-fields [hidden]{display:none!important}
-.xu-owner-duration-hint{margin:11px 0 -4px;font-size:12px;color:var(--xu-muted,#7385a1)}
-@media(max-width:380px){.xu-owner-duration-pref{align-items:flex-start}.xu-owner-duration-fields{width:100%}.xu-owner-duration-fields select{flex:1;max-width:none}}
+/* 我的：原位设置登录时长，避免 Android 原生 select 覆盖整屏。 */
+#app:has(.v4-profile-card) .heading h1{font-size:clamp(26px,5.3vw,33px);letter-spacing:-.035em}
+#app .v4-profile-card{padding:7px 22px 13px;max-width:760px;border-radius:16px}
+#app .v4-profile-head{padding:14px 0 18px}
+#app .v4-profile-avatar{width:44px;height:44px;border-radius:12px;font-size:21px}
+#app .v4-profile-link{min-height:67px}
+#app .v4-profile-symbol{height:38px;width:38px;border-radius:11px;flex:none}
+#app .v4-profile-symbol svg{width:20px;height:20px;display:block}
+#app .v4-profile-link b{font-size:21px;line-height:1;color:var(--xu-muted,#71829b);font-weight:400}
+#app .v4-profile-link:focus-visible{outline:2px solid var(--xu-brand,#3268ed);outline-offset:-2px;border-radius:9px}
+.xu-owner-duration-pref{margin-top:2px;border-top:1px solid var(--xu-line,#e7edf6)}
+.xu-owner-duration-trigger{width:100%;min-height:69px;padding:12px 0;display:flex;align-items:center;gap:12px;text-align:left;
+ border:0;background:transparent;color:var(--xu-ink,#172a48);cursor:pointer}
+.xu-owner-duration-copy{display:grid;gap:5px;flex:1;min-width:0}
+.xu-owner-duration-copy strong{font-size:13.5px;font-weight:700}
+.xu-owner-duration-copy small{font-size:11.5px;line-height:1.45;color:var(--xu-muted,#71829b)}
+.xu-owner-duration-value{font-size:13px;font-weight:730;white-space:nowrap;color:var(--xu-brand,#3268ed);font-variant-numeric:tabular-nums}
+.xu-owner-duration-chevron{width:18px;height:18px;flex:none;color:var(--xu-muted,#71829b);transition:transform .18s ease}
+.xu-owner-duration-trigger[aria-expanded="true"] .xu-owner-duration-chevron{transform:rotate(180deg)}
+.xu-owner-duration-panel{padding:14px 0 15px;border-top:1px solid var(--xu-line,#e7edf6)}
+.xu-owner-duration-panel[hidden],.xu-owner-duration-custom-wrap[hidden]{display:none!important}
+.xu-owner-duration-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.xu-owner-duration-choice{min-width:0;min-height:44px;padding:9px 5px;border-radius:10px;
+ border:1px solid var(--xu-line,#d6dfef);background:var(--xu-surface,#fff);
+ color:var(--xu-ink,#172a48);font-size:13px;font-weight:620;transition:background-color .16s ease,border-color .16s ease}
+.xu-owner-duration-choice[aria-pressed="true"]{border-color:var(--xu-brand,#3268ed);background:var(--xu-soft,#edf3ff);color:var(--xu-brand,#3268ed)}
+.xu-owner-duration-choice:hover:not([aria-pressed="true"]){background:var(--xu-soft,#edf3ff)}
+.xu-owner-duration-trigger:focus-visible,.xu-owner-duration-choice:focus-visible,.xu-owner-duration-custom-wrap input:focus-visible{outline:2px solid var(--xu-brand,#3268ed);outline-offset:2px}
+.xu-owner-duration-custom-wrap{display:flex;align-items:center;gap:12px;margin-top:12px;color:var(--xu-ink,#172a48);font-size:12px}
+.xu-owner-duration-custom-wrap input{width:86px;height:42px;padding:0 10px;border:1px solid var(--xu-line,#d6dfef);border-radius:9px;
+ background:var(--xu-surface,#fff);color:var(--xu-ink,#172a48);font-size:14px;font-variant-numeric:tabular-nums}
+.xu-owner-duration-custom-wrap input[aria-invalid="true"]{border-color:#c84b5c}
+.xu-owner-duration-custom-wrap span{color:var(--xu-muted,#71829b);font-size:12px}
+.xu-owner-duration-feedback{margin:9px 0 0;color:var(--xu-muted,#71829b);font-size:11.5px;line-height:1.55}
+.xu-owner-duration-feedback:empty{display:none}
+@media(max-width:420px){
+ #app .v4-profile-card{padding:6px 17px 12px}
+ #app .v4-profile-head{gap:11px}
+ #app .v4-profile-head strong{font-size:15px}
+ #app .v4-profile-head span:not(.v4-profile-avatar){font-size:11.5px}
+ .xu-owner-duration-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){.xu-owner-duration-chevron,.xu-owner-duration-choice{transition:none}}
