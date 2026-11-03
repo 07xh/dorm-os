@@ -62,4 +62,48 @@ await assert.rejects(()=>normalizeChaoxingInbox({status:true}),
 await assert.rejects(()=>collectVerifiedChaoxingInbox({...adapter,
  readNoticePage:async()=>({payload:payload([]),complete:false,nextCursor:'p1'})},'owner1'),
  e=>e instanceof ChaoxingInboxError&&e.code==='invalid_response');
-console.log('Chaoxing inbox: classification, deadlines, pagination, authorized identity and safe dedup passed');
+// Offline storage/rollback test uses anonymous fictitious messages, not HAR content.
+const {DatabaseSync}=await import('node:sqlite');
+const {readFileSync}=await import('node:fs');
+const {runVerifiedChaoxingInboxSync}=await import('../lib/academic-chaoxing-notices.mjs');
+const {onRequestGet}=await import('../functions/api/v1/chaoxing-inbox.js');
+const unauthorized=await onRequestGet({request:new Request('https://site.example/api/v1/chaoxing-inbox'),env:{}});
+assert.ok([401,503].includes(unauthorized.status),'private inbox must fail closed');
+const sqlite=new DatabaseSync(':memory:');
+sqlite.exec('PRAGMA foreign_keys=ON');
+for(const name of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
+ '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
+ '0005_academic_workspace.sql','0013_academic_chaoxing_notices.sql']){
+ sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+}
+const db={
+ prepare(sql){let args=[];return{
+  bind(...v){args=v;return this;},
+  first(){return sqlite.prepare(sql).get(...args)??null;},
+  all(){return {results:sqlite.prepare(sql).all(...args)};},
+  run(){return {meta:{changes:sqlite.prepare(sql).run(...args).changes}};}
+ }},
+ async batch(stmts){sqlite.exec('BEGIN');try{
+  const out=stmts.map(x=>x.run());sqlite.exec('COMMIT');return out;
+ }catch(e){sqlite.exec('ROLLBACK');throw e;}}
+};
+let seq=0;
+const options={id:()=>'notice-test-'+(++seq),now:()=>new Date().toISOString()};
+const verifiedAdapter={provider:'chaoxing',verifySession:async()=>proof,
+ readNoticePage:async()=>({payload:payload([homework,reminder,peer,exam,announcement]),complete:true,nextCursor:null})};
+const first=await runVerifiedChaoxingInboxSync(db,'owner1',verifiedAdapter,options);
+assert.equal(first.noticeCount,5);
+assert.equal(first.taskCount,3);
+assert.equal(first.inserted,3);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,5);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,3);
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM academic_assignment_sources WHERE platform_status='unknown'").get().n,3);
+const repeated=await runVerifiedChaoxingInboxSync(db,'owner1',verifiedAdapter,options);
+assert.equal(repeated.inserted,0);
+assert.equal(repeated.updated,0);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,5);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,3);
+const after=sqlite.prepare('PRAGMA integrity_check').get();
+assert.equal(after.integrity_check,'ok');
+sqlite.close();
+console.log('Chaoxing inbox: synthetic classification, trusted D1 merge and idempotence passed');
