@@ -67,6 +67,18 @@ const ready=await resolveNcwuPreflight(falsePublic,{
 },true);
 assert.equal(ready.nativeLoginReady,true);
 assert.equal(ready.loginSupported,true);
+assert.equal(ready.officialFormDetected,false);
+// An inspectable school webpage is not proof our own connector works.
+const publicOnly=await resolveNcwuPreflight(
+ {loginSupported:true,mode:'ordinary_form_detected_not_authenticated'},null,true);
+assert.equal(publicOnly.officialFormDetected,true);
+assert.equal(publicOnly.loginSupported,false);
+assert.equal(publicOnly.nativeLoginReady,false);
+const noVaultEvenIfNative=await resolveNcwuPreflight(falsePublic,{
+ preflight:async()=>({loginSupported:true,mode:'password_form_verified'})
+},false);
+assert.equal(noVaultEvenIfNative.loginSupported,false);
+assert.equal(noVaultEvenIfNative.status,'server_session_vault_unavailable');
 assert.equal(ready.schoolAuthorized,false);
 const needsHuman=await resolveNcwuPreflight(
  {loginSupported:true,mode:'ordinary_form_detected_not_authenticated'},
