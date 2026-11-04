@@ -61,7 +61,7 @@ export async function onRequestGet(context){
    return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
     loginReadiness,syncPending:sessionState==='active'&&!verified,
     autoSyncAvailable:cronReady,
-    autoSync:{enabled:cronReady&&autoJob?.enabled===1,
+    autoSync:{enabled:autoJob?.enabled===1,
      intervalMinutes:60,nextAt:autoJob?.next_at||null,
      lastRunAt:autoJob?.last_run_at||null,
      lastResult:autoJob?.last_result||null,
