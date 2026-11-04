@@ -140,7 +140,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                         ) {
                             Text("只读题目 · " + preview.title,
                                 fontWeight = FontWeight.SemiBold)
-                            Text("来源：" + preview.course + " · 此处不提供自动作答或提交",
+                            Text("来源：" + preview.course + " · 仅只读预览，不可填写或提交",
                                 style = MaterialTheme.typography.labelSmall)
                             if (!preview.questionsAvailable) {
                                 Text(if (preview.note.isNotBlank()) preview.note
