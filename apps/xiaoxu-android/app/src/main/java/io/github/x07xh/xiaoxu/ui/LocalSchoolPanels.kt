@@ -63,12 +63,16 @@ fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(name, fontWeight = FontWeight.SemiBold)
-                        Text(if (list.isEmpty()) "暂无本机读取记录" else "已保存 " + list.size + " 条",
+                        Text(if (provider == "ncwu") "专用课表导入 · 课表页查看"
+                             else if (list.isEmpty()) "暂无本机读取记录"
+                             else "已保存 " + list.size + " 条",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(onClick = { openLocal(provider) }) {
-                        Text(if (list.isEmpty()) "手机登录并读取" else "打开官网／更新")
+                        Text(if (provider == "ncwu") "本机导入青果课表"
+                             else if (list.isEmpty()) "手机登录并读取"
+                             else "打开官网／更新")
                     }
                     list.take(3).forEach { item ->
                         Text(kindLabel(item.kind) + " · " + item.title,
