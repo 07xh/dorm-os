@@ -4,11 +4,13 @@ const CACHE='dorm-os-shell-__XIAOXU_RELEASE_SHA__';
 const ASSETS=['/xiaoxu-updates.js','/','/xiaoxu-base.css','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-chaoxing-homework.js','/xiaoxu-chaoxing-inbox.js','/xiaoxu-chaoxing-inbox.css','/xiaoxu-notices.js','/xiaoxu-academic-client.js','/xiaoxu-cloud-tasks.js','/xiaoxu-wechat-sync.js','/xiaoxu-deadline-reminders.js','/xiaoxu-reminders.js','/xiaoxu-owner-auth-ui.js','/xiaoxu-owner-auth.css?v=98-profile-styles','/xiaoxu-workspace.css','/xiaoxu-workspace.js'];
 self.addEventListener('install',e=>{e.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
- // Keep the old worker if the new HTML itself is unavailable. A single optional
- // asset failure must not veto an otherwise usable network-first update.
+ // Keep the complete old offline app until the new HTML, scripts and styles
+ // are cached. A failed optional icon must not veto a usable update.
  const request=path=>new Request(new URL(path,self.location.origin),{cache:'reload'});
  await cache.addAll([request('/')]);
- await Promise.allSettled(ASSETS.filter(path=>path!=='/').map(path=>cache.addAll([request(path)])));
+ const essential=path=>/\.(?:js|css)(?:\?|$)/.test(path);
+ await cache.addAll(ASSETS.filter(essential).map(request));
+ await Promise.allSettled(ASSETS.filter(path=>path!=='/'&&!essential(path)).map(path=>cache.addAll([request(path)])));
  await self.skipWaiting();
 })());});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dorm-os-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim().then(async()=>{const clients=await self.clients.matchAll?.({type:'window',includeUncontrolled:true})||[];for(const client of clients)client.postMessage({type:'XIAOXU_RELEASE_AVAILABLE'});})]));});
