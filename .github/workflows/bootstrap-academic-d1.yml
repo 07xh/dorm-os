@@ -1,10 +1,8 @@
 name: Bootstrap XIAOXU Academic D1 (new empty database only)
 
+# Historical empty-database recovery only: never auto-run after a source push.
+# Main production D1 is already provisioned; explicit operator dispatch required.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/bootstrap-academic-d1.yml'
   workflow_dispatch:
 
 permissions:
