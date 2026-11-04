@@ -60,7 +60,7 @@ export function queryRows(raw){
  });
  return all;
 }
-function localWrangler(args){
+export function localWrangler(args){
  const out=spawnSync('npx',['--yes','wrangler@4',...args],{
   cwd:process.cwd(),encoding:'utf8',maxBuffer:3*1024*1024,timeout:180000,
   env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}
@@ -68,12 +68,12 @@ function localWrangler(args){
  if(out.error||out.status!==0)throw Error('wrangler_'+args[1]+'_failed');
  return out.stdout;
 }
-function remoteRows(name,command){
+export function remoteRows(name,command){
  return queryRows(localWrangler([
   'd1','execute',name,'--remote','--yes','--json','--command',command
  ]));
 }
-async function api(path,token){
+export async function api(path,token){
  const res=await fetch('https://api.cloudflare.com/client/v4/'+path,{
   headers:{authorization:'Bearer '+token,accept:'application/json'},
   signal:AbortSignal.timeout(25000)
