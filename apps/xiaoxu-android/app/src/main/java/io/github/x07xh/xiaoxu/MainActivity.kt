@@ -78,6 +78,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val cloud by lazy { CloudClient(applicationContext) }
+    private var shouldRefreshAfterWebsite = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,8 +90,16 @@ class MainActivity : ComponentActivity() {
                     surface = Color.White
                 )
             ) {
-                NativeShell(dao = dao, cloud = cloud, appLifecycle = lifecycle, openWebsite = {
+                NativeShell(
+                    dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    consumeWebsiteReturn = {
+                        val pending = shouldRefreshAfterWebsite
+                        shouldRefreshAfterWebsite = false
+                        pending
+                    },
+                    openWebsite = {
                     // Fixed origin: never forward app credentials or a school session.
+                    shouldRefreshAfterWebsite = true
                     startActivity(
                         Intent(Intent.ACTION_VIEW, Uri.parse("https://dorm-os-dk9.pages.dev/"))
                             .addCategory(Intent.CATEGORY_BROWSABLE)
@@ -121,6 +130,7 @@ private fun NativeShell(
     dao: LocalTaskDao,
     cloud: CloudClient,
     appLifecycle: Lifecycle,
+    consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
 ) {
@@ -130,7 +140,10 @@ private fun NativeShell(
     DisposableEffect(appLifecycle, cloud) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                scope.launch { cloud.refreshOnForeground() }
+                val force = consumeWebsiteReturn()
+                scope.launch {
+                    if (force) cloud.refresh() else cloud.refreshOnForeground()
+                }
             }
         }
         appLifecycle.addObserver(observer)
