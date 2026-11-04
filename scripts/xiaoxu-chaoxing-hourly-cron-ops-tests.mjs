@@ -25,6 +25,9 @@ assert.ok(workflow.indexOf('Verify deployed HTML, PWA, and exact revision over H
  workflow.indexOf('Deploy authenticated hourly Chaoxing Cron Worker'),
  'The site must deploy before its hourly trigger');
 assert.match(workflow,/node scripts\/deploy-chaoxing-hourly-cron\.mjs/);
+assert.match(workflow,/id: chaoxing_cron/);
+assert.match(workflow,/steps\.chaoxing_cron\.outcome/);
+assert.match(workflow,/hourly school sync is NOT confirmed/);
 const script=file('scripts/deploy-chaoxing-hourly-cron.mjs');
 assert.match(script,/findPagesBoundD1/);
 assert.match(script,/0016_academic_chaoxing_cron\.sql/);
