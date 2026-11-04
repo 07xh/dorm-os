@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
@@ -12,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,7 +29,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.PlatformConnection
 import kotlinx.coroutines.launch
+
+/** No independent school login in Android; use the existing owner's secure service. */
+private fun connectionStatusLabel(connection: PlatformConnection?): String = when {
+    connection == null -> "尚未取得真实连接状态"
+    connection.sessionState == "expired" -> "学校登录已过期"
+    connection.sessionState == "unreadable" -> "学校会话无法验证，需重新授权"
+    connection.sessionState == "review_pending" -> "本人课表等待核对"
+    connection.sessionState == "active" && connection.verified ->
+        "已建立本人授权和可信读取记录"
+    connection.sessionState == "active" -> "已有学校会话，个人数据尚未验收"
+    else -> "未连接本人学校账号"
+}
 
 /** Existing first-party API; school sessions are not transferred to Android. */
 @Composable
@@ -141,8 +156,11 @@ fun ConnectionsPanel(client: CloudClient, openWebsite: () -> Unit) {
             Text("打开现有数据连接中心（官方登录与诊断）")
         }
         HorizontalDivider()
-        Text("学校平台连接状态", style = MaterialTheme.typography.titleLarge,
+        Text("学校数据连接", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
+        Text("校序云端登录、学校授权、本人真实数据读取是三个不同状态。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         val providers = listOf(
             "chaoxing" to "学习通",
             "ncwu" to "青果教务",
@@ -150,18 +168,66 @@ fun ConnectionsPanel(client: CloudClient, openWebsite: () -> Unit) {
         )
         providers.forEach { (id, title) ->
             val platform = state.platforms.firstOrNull { it.id == id }
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val canRead = state.authenticated && platform?.sessionState == "active"
+            val refreshing = state.schoolSyncBusyProvider == id ||
+                (id == "chaoxing" && state.chaoxingBusy)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(title, fontWeight = FontWeight.SemiBold)
-                    val status = if (!state.authenticated) "未读取校序云端连接状态"
-                        else if (platform == null) "连接状态未读取"
-                        else if (platform.verified) "已验证会话（学校数据仍需单独比对）"
-                        else "未通过本人数据连接验收"
-                    Text(status, style = MaterialTheme.typography.bodyMedium,
+                    Text(if (!state.authenticated) "请先连接校序云端"
+                        else connectionStatusLabel(platform),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (platform?.lastSuccessAt != null) {
-                        Text("上次记录：" + platform.lastSuccessAt,
-                            style = MaterialTheme.typography.labelSmall)
+                    if (platform?.verified == true && platform.lastSuccessAt != null) {
+                        Text("上次可信读取：" + platform.lastSuccessAt,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (id == "chaoxing") {
+                            OutlinedButton(
+                                enabled = canRead && !state.busy && !state.chaoxingBusy,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                onClick = { scope.launch { client.loadChaoxingCourses() } }
+                            ) {
+                                Text(if (refreshing) "正在读取…" else "读取本人课程")
+                            }
+                        } else {
+                            OutlinedButton(
+                                enabled = canRead && !state.busy && state.schoolSyncBusyProvider == null,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                onClick = { scope.launch { client.syncAuthorizedSchool(id) } }
+                            ) {
+                                Text(if (refreshing) "正在读取…" else "刷新本人数据")
+                            }
+                        }
+                        TextButton(
+                            onClick = openWebsite,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) { Text("学校授权") }
+                    }
+                    if (id == "chaoxing") {
+                        if (state.chaoxingCourses.isNotEmpty()) {
+                            Text("本次读取到 " + state.chaoxingCourses.size +
+                                " 门课程，作业请在任务页按课程同步",
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                        state.chaoxingError?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (platform?.autoSyncEnabled == true) {
+                            Text("每小时检查已登记；实际同步结果以任务页为准",
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if (state.schoolSyncResultProvider == id && state.schoolSyncMessage != null) {
+                        Text(state.schoolSyncMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
