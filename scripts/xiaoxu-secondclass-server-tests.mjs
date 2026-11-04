@@ -339,7 +339,41 @@ const casNoReturn=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>
  return fakeSchool(url,options);
 }});
 await assert.rejects(()=>casNoReturn.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='cas_return');
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
+ e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained');
+const abnormalStatus=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
+  return response(403,'Rejected by school');
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
+ e.failureStage==='cas_return'&&e.casReturnReason==='unexpected_response');
+const unfinishedCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='sec.ncwu.edu.cn'&&
+    u.pathname==='/rump_frontend/loginFromCas/')
+  return response(200,'<main>Callback</main>');
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/'&&
+    options.headers.cookie?.includes('school_auth=auth-opaque'))
+  return response(302,'',{location:casUrl});
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>unfinishedCallback.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
+ e.failureStage==='cas_return'&&e.casReturnReason==='service_callback_incomplete');
+const unknownLanding=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='sec.ncwu.edu.cn'&&
+    u.pathname==='/rump_frontend/loginFromCas/')
+  return response(302,'',{location:'https://sec.ncwu.edu.cn/rump_frontend/other/'});
+ if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/other/')
+  return response(200,'<main>Different school page</main>');
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>unknownLanding.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
+ e.failureStage==='cas_return'&&e.casReturnReason==='unexpected_school_landing');
 const personalDataRejected=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
  if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.scores&&options.method==='POST')
   return response(200,'<html>School login required</html>');
