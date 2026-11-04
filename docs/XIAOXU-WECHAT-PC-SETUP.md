@@ -35,8 +35,9 @@ npx github:syskuku/wechat-todo
 ### 本地验收（不包含云端上传）
 
 ```powershell
-& "$env:USERPROFILE\.wechat-cli\wxcli.cmd" sessions --limit 10
-& "$env:USERPROFILE\.wechat-cli\wxcli.cmd" history "你的课程群名称" --limit 20 --format text
+$env:PYTHONPATH="$env:USERPROFILE\.wechat-cli\tool;$env:USERPROFILE\.wechat-cli\deps_x64;$env:USERPROFILE\.wechat-cli\deps"
+py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" sessions --limit 10
+py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" history "你的课程群名称" --limit 20 --format text
 ```
 
 第一条应返回可读的会话列表；第二条选择自己正常参与的课程群，确认历史消息时间与内容。此阶段不需要 AI Agent；如果希望体验上游现成的“更新待办”工作流，还需要在兼容的 AI Agent 中运行两个已安装 Skills。
