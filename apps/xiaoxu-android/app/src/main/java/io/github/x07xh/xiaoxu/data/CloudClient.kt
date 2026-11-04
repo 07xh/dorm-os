@@ -386,7 +386,10 @@ class CloudClient(context: Context) {
             if (epoch != sessionEpoch) return
             if (response.code != 200) {
                 val err = response.json.optString("error")
-                state = state.copy(chaoxingError = chaoxingFailure(err, response.code))
+                state = emptyChaoxing().copy(
+                    chaoxingBusy = true,
+                    chaoxingError = chaoxingFailure(err, response.code)
+                )
                 return
             }
             val root = response.json
@@ -528,7 +531,7 @@ class CloudClient(context: Context) {
                     session.save(token, r.json.getString("expiresAt"))
                 }
                 sessionEpoch++
-                state = state.copy(authenticated = true, authMessage = "校序云端连接成功")
+                state = emptyChaoxing().copy(authenticated = true, authMessage = "校序云端连接成功")
                 refreshPrivate()
                 true
             }
