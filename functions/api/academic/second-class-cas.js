@@ -31,7 +31,7 @@ export async function runCloudflareSecondClassCasProbe({fetcher=fetch}={}){
   return response;
  };
  let state;
- try{state=await makeNcwuSecondClassServerAdapter({fetcher:restricted}).preflight();}
+ try{state=await makeNcwuSecondClassServerAdapter({fetcher:restricted}).preflight({inspectScripts:true});}
  catch{state={mode:'upstream_unavailable',reason:'school_unreachable',loginSupported:false};}
  return {
   schema:'xiaoxu/cloudflare-second-class-cas-v1',
