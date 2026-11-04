@@ -31,7 +31,9 @@ android {
 
 dependencies {
     // Official, maintained open-source AndroidX libraries. No school-session scraping.
-    implementation platform('androidx.compose:compose-bom:2026.09.00')
+    // Compose 1.12 from the Aug 2026 BOM requires API 37 / AGP 9.1+.
+    // Stay on a compatible stable BOM until the entire build toolchain is upgraded.
+    implementation platform('androidx.compose:compose-bom:2026.03.01')
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.compose.material3:material3'
