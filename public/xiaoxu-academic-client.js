@@ -243,7 +243,7 @@
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>学校统一认证和超星独立账号不同。第三方 APK 的本机会话不自动共享给校序。验证成功后仅在网页打开时尝试更新收件箱；暂无后台推送，提交状态待核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
-    '<p>尚未验证本人授权会话；只展示已保存记录，不获取学校密码或 Cookie。</p></details>';
+    '<p>本人授权会话尚未通过本人真实学校登录验证；只展示已保存记录，不获取学校密码或 Cookie。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
      (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
