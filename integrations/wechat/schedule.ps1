@@ -50,9 +50,8 @@ $exe=Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $argsLine='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $runner + '" sync'
 $action=New-ScheduledTaskAction -Execute $exe -Argument $argsLine -WorkingDirectory $PSScriptRoot
 $trigger=New-ScheduledTaskTrigger -Daily -At "00:00"
-$trigger.Repetition.Interval="PT15M"
-$trigger.Repetition.Duration="P1D"
-$trigger.Repetition.StopAtDurationEnd=$false
+$repeat=New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="P1D";StopAtDurationEnd=$false}
+$trigger.Repetition=$repeat
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
 $currentUser=[Security.Principal.WindowsIdentity]::GetCurrent().Name
 $principal=New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
