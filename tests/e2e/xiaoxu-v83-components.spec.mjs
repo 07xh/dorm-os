@@ -24,7 +24,7 @@ test.beforeEach(async({page})=>{
 test('V8.3 official notice component filters live verified records without reloading or mock records',async({page})=>{
  await page.goto('/#academic');
  await expect(page.locator('.x-v7-notice-item')).toHaveCount(2);
- await expect(page.locator('link[href="/xiaoxu-v83.css"]')).toHaveCount(1);
+ await expect(page.locator('link[href="/xiaoxu-workspace.css"]')).toHaveCount(1);
  const input=page.locator('#noticeSearch');
  await input.fill('期末考试');
  await expect(page.locator('#publicNoticeList .x-v7-notice-item')).toHaveCount(1);
@@ -62,5 +62,5 @@ test('V8.3 notice control remains responsive on narrow mobile and keeps PWA asse
   expect(overflow).toBeLessThanOrEqual(2);
   await expect(page.locator('#noticeSearch')).toBeVisible();
  }
- await expect(page.locator('link[href="/xiaoxu-v83.css"]')).toHaveCount(1);
+ await expect(page.locator('link[href="/xiaoxu-workspace.css"]')).toHaveCount(1);
 });

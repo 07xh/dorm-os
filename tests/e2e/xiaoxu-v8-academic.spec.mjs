@@ -4,11 +4,11 @@ test('V8.1 academic tabs expose accessible panel and do not invent records',asyn
  await page.goto('/#academic');
  const tabs=page.locator('.x-v7-secondary [role="tab"]');
  await expect(tabs).toHaveCount(5);
- await expect(page.locator('.x-v8-academic-intro')).toContainText('校园官方通知');
+ await expect(page.locator('.x-v8-academic-intro')).toHaveCount(0);
  await expect(page.locator('[role="tabpanel"]')).toHaveAttribute('aria-labelledby','xu-tab-notices');
  await page.locator('[data-academic-tab="grades"]').click();
  await expect(page.locator('[role="tabpanel"]')).toHaveAttribute('aria-labelledby','xu-tab-grades');
- await expect(page.locator('[role="tabpanel"]')).toContainText('未连接青果成绩查询');
+ await expect(page.locator('[role="tabpanel"]')).toContainText('尚未连接本人账号');
  await expect(page.locator('[role="tabpanel"]')).not.toContainText('4.0');
  await page.locator('[data-page="settings"]').first().click();
  await expect(page).toHaveURL(/#settings$/);
@@ -16,7 +16,7 @@ test('V8.1 academic tabs expose accessible panel and do not invent records',asyn
  await page.locator('[data-academic-tab="grades"]').click();
  await page.locator('[data-academic-tab="grades"]').press('ArrowRight');
  await expect(page.locator('#xu-tab-exams')).toBeFocused();
- await expect(page.locator('[role="tabpanel"]')).toContainText('暂无可验证的个人考试安排');
+ await expect(page.locator('[role="tabpanel"]')).toContainText('尚未连接本人账号');
  await page.locator('#xu-tab-exams').press('End');
  await expect(page.locator('#xu-tab-services')).toBeFocused();
  await page.locator('#xu-tab-services').press('Home');

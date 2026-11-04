@@ -44,7 +44,10 @@ test('连接表单仅在已验证的适配器下按需展开，保持手机端�
  for (const width of [320,393,768]) {
   await page.setViewportSize({ width, height: 850 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-  const summary = await school.locator('.xu-school-manage > summary').boundingBox();
-  expect(summary?.height).toBeGreaterThanOrEqual(40);
+  // Auth state can re-render when the viewport changes. Verify the
+  // currently visible control retains the minimum 40px hit height.
+  await expect.poll(async()=>school.locator('.xu-school-manage > summary')
+   .evaluate(el=>el.getBoundingClientRect().height).catch(()=>0),
+   {timeout:8000}).toBeGreaterThanOrEqual(40);
  }
 });

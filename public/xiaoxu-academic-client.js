@@ -249,7 +249,7 @@
      '<p class="tiny muted">仅提交安全服务端验证，不在浏览器保存密码。</p>'+
      '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></div>'):
     chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
-   const schoolScopeStatus=provider.id==='second_class'&&!authorized?
+   const schoolScopeStatus=record?.status==='error'?'同步失败 · 可重试':record?.sessionState==='expired'?'登录已过期':provider.id==='second_class'&&!authorized?
     (secondClassCanRepair?'会话待核验':active?'未连接':'未读取'):
     authorized&&provider.id==='chaoxing'&&record.syncPending===true?'已认证 · 数据待同步':
     authorized&&provider.id==='ncwu'&&record.status==='partial'&&

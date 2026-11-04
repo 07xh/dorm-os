@@ -313,6 +313,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:()=>online?items.map(r=>({...r})):[],snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
  });
 })(globalThis);
