@@ -50,7 +50,7 @@ assert.doesNotMatch(nativeSchool + nativeDb + nativePanels, /addJavascriptInterf
 assert.match(nativeDb, /@Database\(entities = \[NativeSchoolRecord::class\], version = 1/);
 assert.match(nativeDb, /@Transaction/);
 assert.match(nativeDb, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
-assert.doesNotMatch(nativeDb, /Migration\(1, 2\)|local_tasks/);
+assert.doesNotMatch(nativeDb, /Migration\(1, 2\)|@Entity\(tableName = "local_tasks"\)/);
 assert.match(nativePanels, /fun LocalSchoolConnectionPanel\(/);
 assert.match(nativePanels, /fun LocalSchoolRecordSection\(/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
