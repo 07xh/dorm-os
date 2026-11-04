@@ -30,10 +30,11 @@ class CollectorTests(TestCase):
         ts = 1793764800
         task = bridge.classify(
             "提交报告 https://school.example/private?id=123 学号请发 13812345678 "
-            "或 example@school.edu", ts)
+            "或 example@school.edu 学号202612345678", ts)
         self.assertNotIn("13812345678", task["title"])
         self.assertNotIn("example@school.edu", task["title"])
         self.assertNotIn("school.example", task["title"])
+        self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
     def test_selected_groups_only_deterministic(self):
@@ -74,7 +75,7 @@ class CollectorTests(TestCase):
     def test_setup_validation(self):
         self.assertEqual(bridge.validate_site("https://dorm-os-dk9.pages.dev/"),
                          "https://dorm-os-dk9.pages.dev")
-        for bad in ("http://not-secure", "https://user:pw@example.com",
+        for bad in ("http://not-secure", "https://example.com", "https://user:pw@example.com",
                     "https://example.com/path", "https://example.com/?key=123"):
             with self.assertRaises(bridge.BridgeError):
                 bridge.validate_site(bad)
