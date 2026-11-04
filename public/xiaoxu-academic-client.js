@@ -137,7 +137,7 @@
  }
  const CONNECTION_PROVIDERS=Object.freeze([
   {id:'ncwu',name:'华水青果教务',url:'https://jwmis.ncwu.edu.cn/',what:'课表、成绩、考试'},
-  {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'收件箱、作业、互评、考试与提醒（提交状态待核实）'},
+  {id:'chaoxing',name:'学习通',url:'https://ncwu.fanya.chaoxing.com/portal',what:'作业、收件箱与提醒'},
   {id:'second_class',name:'第二课堂',url:'https://dekt.ncwu.edu.cn/',what:'活动、积分与审核记录'}
  ]);
  const CONNECTION_LABELS={connected:'曾完成只读同步',partial:'上次同步不完整',
@@ -147,7 +147,6 @@
   const entries=CONNECTION_PROVIDERS.map(provider=>{
    const record=sources.find(x=>x.id===provider.id)||null;
    const label=record?(record.sessionState==='expired'?'学校登录会话已过期':record.sessionState==='unreadable'?'学校会话无法验证，请重新连接':record.sessionState==='review_pending'?'本人课表等待核对':CONNECTION_LABELS[record.status]||'状态待确认'):'未读取连接状态';
-   const trusted=Array.isArray(record?.trustedKinds)?record.trustedKinds.length:0;
    const authorized=record?.accountAuthorization==='verified_session'&&record?.sessionState==='active';
    const qrResuming=provider.id==='chaoxing'&&chaoxingQrAttempt&&
     Date.now()<chaoxingQrAttempt.expiresAt;
@@ -173,11 +172,11 @@
    };
    const chaoxingBlocked=provider.id==='chaoxing'&&!canLogin&&record?
     '<div class="xu-school-pending" role="status" data-school-unavailable="chaoxing">'+
-    '<strong>此平台暂不支持站内登录：学习通连接入口未就绪</strong><p class="small">'+
+    '<strong>此平台暂不支持站内登录</strong><p class="small">'+
     escapeHtml(chaoxingReadinessMessage[record.loginReadiness]||
      '连接诊断暂不可用，请重新读取连接状态。')+'</p>'+
     '<button type="button" class="secondary" data-action="academic-refresh">重新检测学习通连接</button>'+
-    '<p class="tiny muted">第三方 APK 的本机会话不自动共享给校序。</p></div>':'';
+    '</div>':'';
 
    const officialCas=provider.id==='second_class';
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
@@ -186,11 +185,11 @@
     '<div class="xu-school-connect"><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div></div>':
     authorized?'':officialCas?
     '<div class="xu-school-connect" data-xu-second-class-official-only>'+
-    '<p class="tiny muted">第二课堂旧版站内账号密码直连已删除。请使用学校官方页面完成扫码、密码或其他必要验证；学校会话不会因此自动交给校序。</p>'+
+    '<p class="tiny muted">暂未接通本人授权同步，请先在学校官网查看。</p>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://dekt.ncwu.edu.cn/">打开第二课堂官网</a>'+
-    '<p class="tiny muted">校序尚未完成官方登录后的安全会话接入。目前只展示本人已保存的数据，不会假装登录成功或自动同步。</p></div>':
+    '</div>':
    nativeNcwu?
-    '<div class="xu-school-connect"><p class="tiny muted">校序后端仅在校方提供安全的普通密码表单时尝试青果本人验证，不绕过验证码和二次认证。</p>'+
+    '<div class="xu-school-connect"><p class="tiny muted">仅检测官方可用的登录方式；验证码仍需学校官网完成。</p>'+
     '<button type="button" class="secondary" data-xu-cas-check="ncwu">尝试连接华水青果教务</button>'+
     '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-ncwu-cas-result></div>'+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://jwmis.ncwu.edu.cn/">打开学校官网</a></div>':
@@ -198,15 +197,15 @@
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
      (record?.qrLoginAvailable===true||qrResuming?'<div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
-     '<p class="tiny muted"><strong>华水学习通支持学校统一身份认证，但不能把校园密码直接当成超星独立密码。</strong>目前校序没有已验证的学校 CAS 授权回调；在学校官网登录并不会自动绑定校序。</p>'+
+     '<p class="tiny muted">学校统一认证仅用于登录官网，不会自动绑定校序。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
-     '<details class="xu-chaoxing-import"><summary>已在官方学习通登录？导入本人有效会话（无需校园密码）</summary>'+
+     '<details class="xu-chaoxing-import"><summary>导入本人官方会话（高级）</summary>'+
       '<p class="tiny muted">仅接受你从本人官方浏览器导出的 Cookie JSON 数组，须包含 name、value、domain、path。校序不会跨站读取 Cookie；原始域名不能更改，导入相当于提供账号登录凭证，请只在你自己的校序 HTTPS 站点操作，切勿在聊天中发送。</p>'+
       '<form data-xu-chaoxing-import-form><label>官方浏览器 Cookie JSON（仅本次使用）'+
       '<textarea name="cookieExport" rows="4" maxlength="15500" spellcheck="false" autocomplete="off" required placeholder=\'[{"name":"名称","value":"值","domain":".chaoxing.com","path":"/"}]\'></textarea></label>'+
       '<p class="tiny muted">仅在服务器验证华水本人身份、读取到真实收件箱数据后，才会加密保存会话；失败不会保存。请勿导入其他人的 Cookie。</p>'+
       '<button type="submit" class="primary">验证并连接本人学习通</button><p class="tiny" role="status" aria-live="polite" data-xu-chaoxing-import-result></p></form></details>'+
-      '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
+      '<details class="xu-chaoxing-direct"><summary>使用超星独立账号（非校园密码）</summary>'+
      '<p class="tiny muted">只有单独设置过超星账号密码时才使用；这个入口是超星独立登录接口，不是华水统一认证。</p>'+
      '<form data-xu-school-login="chaoxing" autocomplete="on">'+
      '<label>超星独立账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="超星独立账号"></label>'+
@@ -218,7 +217,7 @@
      '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
      '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
      '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
-     '<p class="tiny muted">通过校序 HTTPS 安全后端验证；不在本机保存学校密码，成功后仅保存加密的有效会话。</p>'+
+     '<p class="tiny muted">仅提交安全服务端验证，不在浏览器保存密码。</p>'+
      '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>'):
     chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
    const schoolScopeStatus=provider.id==='second_class'?'官方登录尚未接入':
@@ -227,7 +226,7 @@
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
    const ncwuAutoHint=authorized&&provider.id==='ncwu'?
-    '<p class="tiny muted">重开校序后，如课表已超过30分钟未更新且会话有效，将尝试只读同步。关闭网页时不采集数据。</p>':'';
+    '<p class="tiny muted">网页打开且会话有效时，课表超过30分钟将尝试刷新；关闭网页不后台同步。</p>':'';
    const qrQuickAction=provider.id==='chaoxing'&&!authorized&&
     record?.qrLoginAvailable===true?
      '<button type="button" class="primary" data-xu-chaoxing-qr-start>扫码连接</button>':'';
@@ -236,30 +235,24 @@
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
-    '<p>华水教务可能先经过统一身份认证，再进入青果教务。校序仅在经过验证并启用安全后端时提供站内账号登录；否则请使用学校官方入口。</p>'+
-    '<p>目前没有验证学校向第三方网站开放授权回调。打开官网不等于绑定成功，校序不能读取其他网站的登录 Cookie。</p>'+
-    '<p>已准备课表只读接口与本人身份检查；完整课表与来源键未验收时禁止自动同步。</p>'+
+    '<p>打开官网不会自动绑定校序；仅在本人身份与课表来源通过验证后同步。</p>'+
     (!nativeNcwu?'<button type="button" class="secondary" data-xu-ncwu-check>只读诊断华水教务入口</button>'+
     '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p>':'')+
     '</details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
-    '<p>华水学习通可通过学校官方统一身份认证登录；登录学习通网站不会自动授权校序读取账号。</p>'+
-    '<p>学校统一认证和超星独立账号是两种不同的登录方式。仅已设置超星独立账号密码时，校序才可尝试直接读取；校园 CAS 登录不能作为本站授权凭据。</p>'+
-    '<p>本人会话验证通过后，网站处于前台时每 30 分钟尝试更新收件箱；网页关闭后尚未启用后台推送。会话过期可在此重新连接，提交状态仍需另行核实。</p></details>':
+    '<p>学校统一认证和超星独立账号不同。会话验证成功后仅在网页打开时尝试更新收件箱；暂无后台推送，提交状态待核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
-    '<p>活动、积分、志愿服务时长的只读解析与服务端会话框架已保留，但尚未通过本人真实学校登录验证；打开官网不等于账号已绑定，当前不会冒充已连接。</p>'+
-    '<p>目前未完成学校官方登录后的会话授权链路；在校序中不要求输入第二课堂密码，也不采集校方 Cookie。只有合法有效的本人会话接入并验收后才会启用自动同步。</p></details>';
+    '<p>尚未验证本人授权会话；只展示已保存记录，不获取学校密码或 Cookie。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
      (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
-     (authorized?'连接管理':provider.id==='second_class'?'查看连接说明':'连接账号')+
+     (authorized?'连接管理':provider.id==='second_class'?'连接说明':'连接账号')+
      '</summary><div class="xu-school-manage-body">'+authPanel+ncwuAutoHint+guidance+
      '</div></details>':'';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (record?.lastSuccessAt?'<span>上次同步 '+escapeHtml(stamp(record.lastSuccessAt))+'</span>':'')+
-    (trusted?'<span>可信只读记录 '+trusted+' 类</span>':'')+
     managePanel+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+qrQuickAction+sessionTools+
     ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
@@ -269,7 +262,7 @@
    '<div class="card-header"><span class="card-title">数据连接</span>'+
    '<span class="xu-private-status '+(active?'is-ready':'')+'">'+
    (connected?'校序云端已读取':connectionStatusRead?'校序连接状态已读取':'校序云端未读取')+'</span></div>'+
-   '<p class="small muted xu-connection-intro">选择平台连接账号；已连接的平台可直接同步。</p>'+
+
 
    '<div class="xu-connection-bottom xu-connection-primary-actions">'+
    (!active?'<button type="button" class="primary" data-action="academic-connect">读取我的连接状态</button>':
@@ -278,7 +271,7 @@
    '</div>'+
    (!active?'<p class="tiny muted xu-connection-not-loaded" role="status">先登录校序，再读取连接状态。</p>':'')+
    '<div class="xu-connection-list">'+entries+'</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
-   '<details class="xu-connection-more"><summary>更多设置与诊断</summary>'+ '<p class="tiny muted">校序登录与学校账号授权是两回事。</p>'+ 
+   '<details class="xu-connection-more"><summary>高级设置与诊断</summary>'+ 
    '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>'+ 
    '<details class="xu-connection-diagnostics"><summary>校序数据服务自检</summary>'+
    '<p class="tiny muted">仅检测本人登录和 D1 学业表结构，不检查学校账号是否已连接，也不会修改数据。</p>'+
@@ -293,7 +286,7 @@
      '</p>':'')+
    (healthError?'<p class="small xu-private-error" role="alert">'+escapeHtml(healthError)+'</p>':'')+
    '</details>'+
-   '<p class="tiny muted xu-connection-disclaimer">打开其他网站不会自动绑定校序。学校数据仅来自经过验证的本人同步。</p></details></section>';
+   '<p class="tiny muted xu-connection-disclaimer">仅同步经过验证的本人数据。</p></details></section>';
  }
  const item=(record,kind)=>{
   const date=record.date||record.dueAt||'';
