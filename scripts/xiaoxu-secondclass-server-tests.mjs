@@ -104,6 +104,32 @@ assert.ok(calls.every(x=>['dekt.ncwu.edu.cn','authserver.ncwu.edu.cn',
  'sec.ncwu.edu.cn'].includes(x.host)));
 assert.ok(calls.some(x=>x.host==='dekt.ncwu.edu.cn'&&x.path===NCWU_SECOND_CLASS_READS.scores));
 
+// A school-side Set-Cookie during a personal read must be returned to the
+// encrypted owner session, never silently discarded after successful sync.
+const rotating=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const res=await fakeSchool(url,options);
+ if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.activities&&options.method==='POST')
+  return response(200,await res.text(),{
+   'set-cookie':'school_ss=post-read; Domain=ncwu.edu.cn; Path=/; Secure'
+  });
+ return res;
+}});
+const loginBeforeRotation=await rotating.login({
+ username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+});
+const rotatingReader=await rotating.forSession({
+ session:loginBeforeRotation.session,userId:'owner_synthetic'
+});
+const oldCookie=loginBeforeRotation.session.cookies.find(c=>c.name==='school_ss')?.value;
+assert.equal(oldCookie,'personal');
+await rotatingReader.verifySession();
+await rotatingReader.readPage({cursor:null,session:{studentCode:student}});
+const rotatedSession=rotatingReader.getRefreshedSession();
+assert.equal(rotatedSession.studentCode,student,'rotation cannot alter the student principal');
+assert.equal(rotatedSession.cookies.find(c=>c.name==='school_ss')?.value,'post-read');
+assert.equal(loginBeforeRotation.session.cookies.find(c=>c.name==='school_ss')?.value,'personal',
+ 'the original input session remains unchanged');
+
 const unsafe=makeNcwuSecondClassServerAdapter({fetcher:async()=>response(302,'',{
  location:'https://outsider.example/capture?secret=SECRET'
 })});
