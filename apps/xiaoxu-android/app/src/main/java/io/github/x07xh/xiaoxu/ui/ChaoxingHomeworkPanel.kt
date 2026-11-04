@@ -29,7 +29,7 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import kotlinx.coroutines.launch
 
 /**
- * Manual, per-course read of the EXISTING owner-scoped server adapter.
+ * On-demand read plus explicit opt-in to the EXISTING hourly server sync.
  * Never imitates successful upstream reads and never auto-submits coursework.
  */
 @Composable
@@ -38,6 +38,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
     val scope = rememberCoroutineScope()
     var selecting by remember { mutableStateOf(false) }
     val chosen = state.chaoxingCourses.firstOrNull { it.key == state.chaoxingSelectedKey }
+    val connection = state.platforms.firstOrNull { it.id == "chaoxing" }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -46,7 +47,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
             Text("学习通 · 本人课程与作业", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
             Text(
-                "使用校序现有的学习通可信会话。先读取本人课程，再按课程主动同步作业，不会代交或自动完成。",
+                "复用本人已有的学习通授权；可手动按课程读取，或主动开启云端定时检查，不会作答或提交。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -60,6 +61,63 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                 ) {
                     Text(if (state.chaoxingBusy) "正在读取…" else
                         if (state.chaoxingCourses.isEmpty()) "读取本人课程" else "重新读取课程")
+                }
+                if (connection != null) {
+                    if (connection.autoSyncAvailable || connection.autoSyncEnabled) {
+                        OutlinedButton(
+                            enabled = !state.busy && !state.chaoxingAutoSyncBusy &&
+                                (connection.autoSyncEnabled || connection.sessionState == "active"),
+                            onClick = {
+                                scope.launch {
+                                    client.setChaoxingAutoSync(!connection.autoSyncEnabled)
+                                }
+                            }
+                        ) {
+                            Text(when {
+                                state.chaoxingAutoSyncBusy -> "正在更新定时设置…"
+                                connection.autoSyncEnabled -> "关闭每小时自动同步"
+                                else -> "开启每小时自动同步"
+                            })
+                        }
+                        Text(
+                            when {
+                                connection.autoSyncEnabled && !connection.autoSyncAvailable ->
+                                    "定时 Worker 未确认可用，原计划可能暂停；你仍可以关闭它。"
+                                connection.autoSyncEnabled ->
+                                    "定时任务已登记；仍需验证服务端实际运行与学校数据更新。"
+                                else -> "默认关闭。需要有效的本人学习通会话才能开启。"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        connection.autoSyncLastRunAt?.let { lastRun ->
+                            val status = when (connection.autoSyncLastResult) {
+                                "success" -> "上次检查成功"
+                                "partial" -> "上次部分课程成功"
+                                "failed" -> "上次检查失败"
+                                "expired" -> "会话已过期，需重新授权"
+                                else -> "状态待核实"
+                            }
+                            Text(
+                                "$status · $lastRun",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (connection.autoSyncEnabled && connection.autoSyncNextAt != null) {
+                            Text("服务端下次计划检查：" + connection.autoSyncNextAt,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        Text("云端定时任务尚未确认可用；仍可手动检查作业。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                state.chaoxingAutoSyncError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
                 }
                 if (state.chaoxingCourses.isNotEmpty()) {
                     Text("已从官方会话读取到 ${state.chaoxingCourses.size} 门课程（本次会话）",
