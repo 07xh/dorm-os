@@ -342,7 +342,9 @@ private const val READ_VISIBLE_PAGE = """
               : 'activity')
         : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
       if (kind && foundKind !== kind) continue;
-      const titleIndex = compact.findIndex(h => /课程名称|课程名|作业名称|活动名称|项目名称|任务名称/.test(h));
+      const titleIndex = foundKind === 'homework'
+        ? compact.findIndex(h => /^(作业名称|作业名|任务名称|作业标题)$/.test(h))
+        : compact.findIndex(h => /^(课程名称|课程名|活动名称|项目名称|积分项目|学时项目)$/.test(h));
       const first = titleIndex >= 0 ? titleIndex :
         compact.findIndex(h => /^(课程|作业|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
       if (first < 0) continue;
