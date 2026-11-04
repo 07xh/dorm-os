@@ -171,6 +171,30 @@ class CollectorTests(TestCase):
                 "https://dorm-os-dk9.pages.dev", "wxu_"+"x"*43, payload
             )["received"], 1)
 
+    def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
+        import io
+        from urllib.error import HTTPError
+        payload = {"records": []}
+        cases = [
+            ({"Content-Type": "application/json"}, b'{"error":"device_mismatch"}', "device_mismatch"),
+            ({"Content-Type": "application/json"}, b'{"error":"forbidden_origin_or_format"}', "forbidden_origin_or_format"),
+            ({"Content-Type": "text/html"}, b"<html>hidden challenge details</html>", "非校序已知错误"),
+            ({"Content-Type": "application/json"}, b'{"error":"unknown_private_value"}', "非校序已知错误"),
+        ]
+        for headers, response_body, expected in cases:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = HTTPError(
+                    "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest",
+                    403, "Forbidden", headers, io.BytesIO(response_body)
+                )
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_" + "x"*43, payload)
+                error = str(caught.exception)
+                self.assertIn(expected, error)
+                self.assertNotIn("hidden challenge", error)
+                self.assertNotIn("unknown_private_value", error)
+                self.assertNotIn("wxu_", error)
+
 
 if __name__ == "__main__":
     main()
