@@ -119,7 +119,7 @@
  async function mutate(work){
   if(busy)return;
   const turn=epoch;busy=true;error='';note='';update();
-  try{await work();
+  try{await work(turn);
    if(turn!==epoch)return;
   }catch(e){if(turn===epoch)error=String(e.message||'操作失败');}
   finally{if(turn===epoch){busy=false;update();}}
@@ -141,11 +141,11 @@
   if(button.hasAttribute('data-xu-wc-pair')){
    const name=document.querySelector('[data-xu-wc-device-name]')?.value.trim();
    if(!name){error='请输入电脑名称';update();return;}
-   void mutate(async()=>{
+   void mutate(async turn=>{
     const r=await request('devices','POST',{name});
+    if(turn!==epoch)return;
     if(!safeId(r.device?.id)||typeof r.token!=='string'||!r.token.startsWith('wxu_'))
      throw Error('设备返回数据不完整');
-    const turn=epoch;
     oneTimeToken=r.token;tokenDevice=r.device.id;
     const data=await request('devices');
     if(turn!==epoch)return;
@@ -157,10 +157,13 @@
   const revokeId=button.getAttribute('data-xu-wc-revoke');
   if(revokeId){
    if(!safeId(revokeId)||!confirm('确定撤销这台电脑的同步权限？撤销后需要重新绑定。'))return;
-   void mutate(async()=>{
+   void mutate(async turn=>{
     await request('devices/'+encodeURIComponent(revokeId),'DELETE');
+    if(turn!==epoch)return;
     if(tokenDevice===revokeId){oneTimeToken=null;tokenDevice=null;}
-    devices=(await request('devices')).devices;
+    const data=await request('devices');
+    if(turn!==epoch)return;
+    devices=data.devices;
     note='设备已撤销，旧凭据不再有效。';
    });return;
   }
@@ -168,15 +171,16 @@
   const decision=button.getAttribute('data-xu-wc-decision');
   if(candidateId){
    if(!safeId(candidateId)||!['accept','dismiss'].includes(decision))return;
-   void mutate(async()=>{
+   void mutate(async turn=>{
     const result=await request('candidates/'+encodeURIComponent(candidateId),'POST',{decision});
+    if(turn!==epoch)return;
     if(result.status!==(decision==='accept'?'accepted':'dismissed'))
      throw Error('审核结果未确认');
     candidates=candidates.filter(x=>x.id!==candidateId);
     note=decision==='accept'?'已加入校序云端任务；查看现有待办即可':'已忽略这条候选';
     if(decision==='accept'){
-     if(root.XiaoxuCloudTasks?.isReady?.())await root.XiaoxuCloudTasks.refresh();
-     root.dispatchEvent(new Event('xiaoxu-wechat-task-reviewed'));
+     if(root.XiaoxuCloudTasks?.isReady?.())await root.XiaoxuCloudTasks.refresh().catch(()=>{});
+     if(turn===epoch)root.dispatchEvent(new Event('xiaoxu-wechat-task-reviewed'));
     }
    });return;
   }
