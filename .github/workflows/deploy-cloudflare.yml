@@ -107,6 +107,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/ensure-second-class-session-schema.mjs
+      - name: Verify and safely migrate WeChat collector candidate tables
+        if: steps.publish_guard.outputs.fresh == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/ensure-wechat-candidates-schema.mjs
       - name: Publish verified static website
         if: steps.publish_guard.outputs.fresh == 'true'
         env:

@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import {
+  WECHAT_CANDIDATE_SCHEMA, WechatCandidateError, normalizeWechatCandidateBatch
+} from '../lib/academic-wechat-candidate-contract.mjs';
+
+const k = s => s.repeat(18);
+const baseRecord = {
+  messageKey:k('a'), candidateKey:k('b'), chatKey:k('c'),
+  kind:'homework', title:'提交实验报告', chatLabel:'示例课程群',
+  excerpt:'请按课程要求提交实验报告。',
+  sentAt:'2026-11-04T09:00:00+08:00',
+  deadline:{precision:'exact',date:'2026-11-20',at:'2026-11-20T23:59:00+08:00'}
+};
+const batch = {
+  schema:WECHAT_CANDIDATE_SCHEMA,deviceId:k('d'),batchId:k('e'),
+  capturedAt:'2026-11-04T12:00:00+08:00',records:[baseRecord]
+};
+const verified = normalizeWechatCandidateBatch(batch);
+assert.equal(verified.records[0].deadline.atUtc,'2026-11-20T15:59:00.000Z');
+assert.equal(verified.records[0].reviewStatus,'needs_review');
+assert.equal(verified.records[0].provenance,'wechat_local_candidate');
+assert.equal(verified.records[0].excerpt,'请按课程要求提交实验报告。');
+assert.equal(verified.records.length,1);
+
+const secondCandidate = {
+  ...baseRecord,candidateKey:k('f'),title:'另一个独立截止',
+  deadline:{precision:'date',date:'2026-11-21'}
+};
+const two = normalizeWechatCandidateBatch({...batch, records:[baseRecord,secondCandidate]});
+assert.equal(two.records.length,2,'one message may contain two separate tasks');
+assert.equal(two.records[1].deadline.atUtc,null);
+const unknown = normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,deadline:{precision:'unknown'},excerpt:undefined}
+]});
+assert.equal(unknown.records[0].deadline.date,null);
+assert.equal(unknown.records[0].excerpt,null);
+function rejected(payload,code) {
+  assert.throws(()=>normalizeWechatCandidateBatch(payload),
+    e=>e instanceof WechatCandidateError && e.code===code);
+}
+rejected({...batch,token:'secret'},'batch_invalid');
+rejected({...batch,records:[{...baseRecord,rawMessage:'全文'}]},'record_invalid');
+rejected({...batch,records:[baseRecord,baseRecord]},'duplicate_candidate');
+rejected({...batch,records:[{...baseRecord,deadline:{
+  precision:'exact',date:'2026-11-21',at:'2026-11-20T23:59:00+08:00'
+}}]},'deadline_invalid');
+rejected({...batch,records:[{...baseRecord,deadline:{
+  precision:'unknown',date:'2026-11-21'
+}}]},'deadline_invalid');
+rejected({...batch,records:[{...baseRecord,kind:'verified_platform'}]},'kind_invalid');
+rejected({...batch,records:[{...baseRecord,status:'completed'}]},'record_invalid');
+rejected({...batch,records:[{...baseRecord,candidateKey:'wxid_abc'}]},'candidate_key_invalid');
+rejected({...batch,records:[{...baseRecord,title:'x'.repeat(121)}]},'title_invalid');
+rejected({...batch,records:[{...baseRecord,excerpt:'y'.repeat(241)}]},'excerpt_invalid');
+rejected({...batch,records:[{...baseRecord,sentAt:'2026-11-04T13:00:00+08:00'}]},'sent_at_future');
+rejected({...batch,records:[{...baseRecord,deadline:{
+  precision:'date',date:'2026-02-30'
+}}]},'deadline_invalid');
+rejected({...batch,records:[{...baseRecord,deadline:{
+  precision:'date',date:'2026-11-20',at:'2026-11-20T00:00:00+08:00'
+}}]},'deadline_invalid');
+console.log('校序微信待审核输入契约：基本字段、时间校验、隐私最小化、双日期、严格拒绝均通过');

@@ -20,6 +20,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Syntax, security and logic tests
         run: npm run check
+      - name: Windows WeChat collector logic tests (synthetic only)
+        run: python3 -m unittest discover -s integrations/wechat -p 'test_*.py'
       - name: Read-only current NCWU second-class CAS compatibility (no login)
         timeout-minutes: 2
         continue-on-error: true
