@@ -43,7 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +67,8 @@ import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.launch
 
 /**
@@ -76,6 +78,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val cloud by lazy { CloudClient(applicationContext) }
+    private var shouldRefreshAfterWebsite = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,8 +90,16 @@ class MainActivity : ComponentActivity() {
                     surface = Color.White
                 )
             ) {
-                NativeShell(dao = dao, cloud = cloud, openWebsite = {
+                NativeShell(
+                    dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    consumeWebsiteReturn = {
+                        val pending = shouldRefreshAfterWebsite
+                        shouldRefreshAfterWebsite = false
+                        pending
+                    },
+                    openWebsite = {
                     // Fixed origin: never forward app credentials or a school session.
+                    shouldRefreshAfterWebsite = true
                     startActivity(
                         Intent(Intent.ACTION_VIEW, Uri.parse("https://dorm-os-dk9.pages.dev/"))
                             .addCategory(Intent.CATEGORY_BROWSABLE)
@@ -118,13 +129,26 @@ private enum class Page(val label: String, val symbol: ImageVector) {
 private fun NativeShell(
     dao: LocalTaskDao,
     cloud: CloudClient,
+    appLifecycle: Lifecycle,
+    consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
-    LaunchedEffect(cloud) { cloud.refresh() }
+    DisposableEffect(appLifecycle, cloud) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val force = consumeWebsiteReturn()
+                scope.launch {
+                    if (force) cloud.refresh() else cloud.refreshOnForeground()
+                }
+            }
+        }
+        appLifecycle.addObserver(observer)
+        onDispose { appLifecycle.removeObserver(observer) }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp

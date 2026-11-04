@@ -53,6 +53,16 @@ assert.match(cloud, /\/api\/v1\/auth\/me/);
 assert.match(cloud, /\/api\/v1\/auth\/login/);
 assert.match(cloud, /\/api\/v1\/auth\/logout/);
 assert.match(cloud, /\/api\/v1\/assignments/);
+assert.match(cloud, /refreshOnForeground/);
+assert.match(cloud, /SystemClock\.elapsedRealtime/);
+assert.match(cloud, /60_000L/);
+assert.match(main, /LifecycleEventObserver/);
+assert.match(main, /Lifecycle\.Event\.ON_RESUME/);
+assert.match(main, /DisposableEffect/);
+assert.match(main, /cloud\.refreshOnForeground\(\)/);
+assert.match(main, /shouldRefreshAfterWebsite = true/);
+assert.match(main, /if \(force\) cloud\.refresh\(\)/);
+
 assert.match(cloud, /\/api\/v1\/connections/);
 assert.match(cloud, /\/api\/v1\/schedule/);
 assert.match(main, /CloudTimetablePanel/);

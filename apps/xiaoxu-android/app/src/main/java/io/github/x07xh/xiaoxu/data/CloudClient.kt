@@ -196,8 +196,21 @@ class CloudClient(context: Context) {
         } finally { conn.disconnect() }
     }
 
+    // Foreground reopening refreshes the existing Cloudflare snapshots only.
+    // It does NOT run any school login, Chaoxing job, or autonomous CAS sync.
+    private var lastForegroundRefreshMs: Long = -1L
+
+    suspend fun refreshOnForeground() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (state.busy || (lastForegroundRefreshMs >= 0L &&
+                now - lastForegroundRefreshMs < 60_000L)) return
+        lastForegroundRefreshMs = now
+        refresh()
+    }
+
     suspend fun refresh() {
         if (state.busy) return
+        lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
             refreshNotices()
