@@ -135,6 +135,23 @@ assert.equal(qrChallengeStatus.reason,'interactive_challenge_required');
 assert.equal(qrChallengeStatus.officialWeChatEntryObserved,true);
 assert.equal(qrChallengeStatus.challengeEvidence?.passwordFormSeen,true);
 assert.equal(qrChallengeStatus.challengeEvidence?.challengeControlSeen,true);
+const lateScript=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login')
+  return response(200,markup.replace('<form ', '<form onsubmit="return doPcMobilesubmit()" ')+
+   Array.from({length:10},(_,i)=>'<script src="/authserver/js/public-'+i+'.js"></script>').join(''));
+ if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname.endsWith('.js')){
+  assert.equal(options.headers.cookie,undefined,'public script inspection must not send session cookies');
+  return response(200,u.pathname.endsWith('public-9.js')?normalFunction:'/* vendor */');
+ }
+ return fakeSchool(url,options);
+}});
+const lateEvidence=await lateScript.preflight({inspectScripts:true});
+assert.equal(lateEvidence.challengeEvidence.schoolScriptDefinitionSeen,true,
+ 'handler in the tenth public script must not be silently excluded');
+assert.equal(lateEvidence.loginSupported,false,'script discovery alone never authorizes login');
+
+
 const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
 assert.equal(receivedCredential,true);
 assert.equal(connected.session.studentCode,student);
@@ -262,3 +279,4 @@ await assert.rejects(()=>noReplay.login({username:'SYNTHETIC_ACCOUNT',
  password:'EPHEMERAL_PASSWORD'}), e=>e.code==='interactive_login_required');
 assert.equal(postAttempts,1);
 console.log('M23 NCWU CAS transport: synthetics, identity, cookie scope, preflight, read-only business endpoints, MFA and redirect refusal passed');
+
