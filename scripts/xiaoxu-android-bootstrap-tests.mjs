@@ -72,6 +72,7 @@ assert.match(cloud, /www2\.ncwu\.edu\.cn/);
 const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite\)/);
+assert.match(main, /https:\\/\\/dorm-os-dk9\\.pages\\.dev\\/\#settings/);
 assert.match(workspace, /fun combineWorkspaceTasks\(/);
 assert.match(workspace, /fun RealAcademicHome\(/);
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
