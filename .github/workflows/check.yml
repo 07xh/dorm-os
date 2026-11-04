@@ -22,6 +22,17 @@ jobs:
         run: npm run check
       - name: Windows WeChat collector logic tests (synthetic only)
         run: python3 -m unittest discover -s integrations/wechat -p 'test_*.py'
+      - name: Check WeChat PowerShell runner and opt-in scheduler syntax
+        shell: pwsh
+        run: |
+          foreach ($path in @('integrations/wechat/run.ps1', 'integrations/wechat/auto-sync.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              throw "Invalid PowerShell syntax: $path"
+            }
+          }
       - name: Read-only current NCWU second-class CAS compatibility (no login)
         timeout-minutes: 2
         continue-on-error: true
