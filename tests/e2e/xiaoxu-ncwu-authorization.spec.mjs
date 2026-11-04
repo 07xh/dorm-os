@@ -24,8 +24,8 @@ test('NCWU and Chaoxing inline guidance never requests credentials before owner 
  await expect(chaoxing).toContainText('会话过期可在此重新连接');
  const second=center.locator('.xu-connection-source').filter({hasText:'第二课堂'});
  await second.locator('.xu-school-manage > summary').click();
- await expect(second).toContainText('官网可微信扫码，扫码会话尚未接入校序');
- await expect(second.locator('.xu-provider-guide')).toHaveCount(0);
+ await second.locator('.xu-provider-guide summary').click();
+ await expect(second).toContainText('不等于账号已绑定');
  await expect(center.locator('input[type="password"]')).toHaveCount(0);
  expect(calls).toEqual([],'settings page must not read personal school records before opt-in');
 });

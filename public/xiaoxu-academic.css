@@ -194,12 +194,3 @@
  #app .xu-qr-image-slot{width:190px;min-height:190px}
  #app .xu-connection-actions [data-xu-chaoxing-qr-start]{flex-shrink:0}
 }
-
-/* M25: second classroom has one status message, not nested warnings. */
-#app [data-xu-second-class-connect]{display:flex;flex-wrap:wrap;align-items:center;column-gap:9px;row-gap:6px}
-#app [data-xu-second-class-connect]>[data-xu-second-class-hint],
-#app [data-xu-second-class-connect]>[data-xu-cas-result]{flex:1 1 100%;margin:0;line-height:1.55;font-size:12px}
-#app [data-xu-second-class-connect]>[data-xu-cas-result]:empty{display:none}
-#app [data-xu-second-class-connect]>[data-xu-second-class-hint][hidden]{display:none}
-#app [data-xu-second-class-connect]>[data-xu-cas-check]{min-height:44px;font-size:12px}
-#app [data-xu-second-class-connect]>.xu-connection-link{min-height:44px;margin:0}

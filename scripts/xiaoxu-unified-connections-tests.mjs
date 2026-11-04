@@ -65,6 +65,12 @@ assert.ok(client.includes('recoverQrAttempt()'),'pending QR status survives same
 assert.ok(client.includes('root.sessionStorage.setItem(CHAOXING_QR_STORAGE'));
 assert.ok(client.includes('authenticated_pending_sync'),'verified QR distinguishes failed inbox refresh');
 assert.ok(client.includes('xu-school-manage'),'secondary source details collapse by default');
+assert.ok(client.includes('data-xu-school-sync="second_class"'),
+ 'an existing second-class encrypted session can retry without credential entry');
+assert.ok(client.includes('官网登录不会自动关联校序'),
+ "opening the school CAS site must not be presented as an authorization handoff");
+assert.ok(client.includes('secondClassCanRepair'),
+ 'unverified but readable sessions need their own repair state');
 
 
 console.log('Unified connection center: source scope, status proof, old imports, and anonymous safety passed');
