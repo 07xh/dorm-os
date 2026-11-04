@@ -63,7 +63,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                         if (state.chaoxingCourses.isEmpty()) "读取本人课程" else "重新读取课程")
                 }
                 if (connection != null) {
-                    if (connection.autoSyncAvailable) {
+                    if (connection.autoSyncAvailable || connection.autoSyncEnabled) {
                         OutlinedButton(
                             enabled = !state.busy && !state.chaoxingAutoSyncBusy &&
                                 (connection.autoSyncEnabled || connection.sessionState == "active"),
@@ -80,9 +80,13 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                             })
                         }
                         Text(
-                            if (connection.autoSyncEnabled)
-                                "定时任务已登记；仍需验证服务端实际运行与学校数据更新。"
-                            else "默认关闭。需要有效的本人学习通会话才能开启。",
+                            when {
+                                connection.autoSyncEnabled && !connection.autoSyncAvailable ->
+                                    "定时 Worker 未确认可用，原计划可能暂停；你仍可以关闭它。"
+                                connection.autoSyncEnabled ->
+                                    "定时任务已登记；仍需验证服务端实际运行与学校数据更新。"
+                                else -> "默认关闭。需要有效的本人学习通会话才能开启。"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
