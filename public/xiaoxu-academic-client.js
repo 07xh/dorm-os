@@ -586,9 +586,10 @@
     personal_data:'学校活动或积分接口未返回可核验的本人数据，不能判定账号未关联；本次没有保存会话。',
     identity_evidence:'学校接口未提供唯一、可信的本人身份标识；本次没有保存会话。'
    };
-   if(provider==='second_class'&&result?.error==='authorization_failed'&&
-      Object.hasOwn(secondClassStageText,result?.failureStage))
-    throw Error(secondClassStageText[result.failureStage]);
+   if(provider==='second_class'&&result?.error==='authorization_failed')
+    throw Error(Object.hasOwn(secondClassStageText,result?.failureStage)?
+     secondClassStageText[result.failureStage]:
+     '学校认证或本人数据校验未完成，暂无法确认具体阶段；本次没有保存会话。');
    throw Error(schoolMessage[result?.error]||'连接操作失败');
   }
   return result;
