@@ -22,7 +22,7 @@ assert.doesNotMatch(main, /\bWebView\s*\(|addJavascriptInterface\s*\(|CookieMana
 assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
-assert.match(appGradle, /androidx\.compose:compose-bom:2026\.09\.00/);
+assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
 assert.match(main, /NavigationBar/);
 assert.match(main, /NavigationRail/);
 assert.match(main, /LocalTaskDatabase/);
