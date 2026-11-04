@@ -27,6 +27,7 @@ assert.match(main, /NavigationBar/);
 assert.match(main, /NavigationRail/);
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
+const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
 const nativeSchool = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
 const nativeDb = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
 const nativePanels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
@@ -97,7 +98,7 @@ assert.match(main, /CloudTimetablePanel/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
-const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite\)/);
 assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
