@@ -1,14 +1,10 @@
 package io.github.x07xh.xiaoxu.data
 
-import android.content.Context
 import androidx.room.Dao
-import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Room
-import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
@@ -54,20 +50,3 @@ interface NativeSchoolRecordDao {
     }
 }
 
-@Database(entities = [NativeSchoolRecord::class], version = 1, exportSchema = false)
-abstract class NativeSchoolDatabase : RoomDatabase() {
-    abstract fun records(): NativeSchoolRecordDao
-
-    companion object {
-        @Volatile private var instance: NativeSchoolDatabase? = null
-
-        fun open(context: Context): NativeSchoolDatabase =
-            instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    NativeSchoolDatabase::class.java,
-                    "xiaoxu-official-page-snapshots.db"
-                ).build().also { instance = it }
-            }
-    }
-}
