@@ -20,6 +20,20 @@ export async function onRequestGet(context){
   const result=await readConnectionCenter(auth.db,auth.userId);
   const sessions=await schoolSessionStates(auth.db,auth.userId,context.env?.SCHOOL_SESSION_KEY);
   const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
+  // Token readiness is not a claim that upstream requests succeeded. Only
+  // an explicit user opt-in makes a scheduled job eligible.
+  let cronReady=false,autoJob=null;
+  try{
+   const token=await auth.db.prepare(
+    "SELECT name FROM academic_cron_identity WHERE name='chaoxing-hourly'"
+   ).first();
+   cronReady=!!token;
+   autoJob=await auth.db.prepare(
+    "SELECT enabled,interval_minutes,next_at,last_run_at,last_result,failure_count "+
+    "FROM academic_sync_jobs WHERE user_id=? AND provider='chaoxing'"
+   ).bind(auth.userId).first();
+  }catch{cronReady=false;}
+
   result.platforms=result.platforms.map(row=>{
    const available=row.id!=='second_class'&&vaultReady&&!!availableSchoolAdapter(context,row.id);
    const sessionState=sessions[row.id]||'not_connected';
@@ -46,6 +60,12 @@ export async function onRequestGet(context){
     checked||'adapter_unavailable';
    return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
     loginReadiness,syncPending:sessionState==='active'&&!verified,
+    autoSyncAvailable:cronReady,
+    autoSync:{enabled:cronReady&&autoJob?.enabled===1,
+     intervalMinutes:60,nextAt:autoJob?.next_at||null,
+     lastRunAt:autoJob?.last_run_at||null,
+     lastResult:autoJob?.last_result||null,
+     failureCount:autoJob?.failure_count||0},
     accountAuthorization:sessionState==='active'?'verified_session':'not_verified'};
   });
   return json(result);
