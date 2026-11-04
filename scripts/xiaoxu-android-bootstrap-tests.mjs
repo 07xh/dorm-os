@@ -138,6 +138,11 @@ const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x0
 assert.match(main, /LocalTaskBackupPanel\(\)/);
 assert.match(db, /suspend fun snapshot\(\): List<LocalTask>/);
 assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v1/);
+assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v2/);
+assert.match(taskBackup, /schema == FORMAT_V1 \|\| schema == FORMAT_V2/);
+assert.match(taskBackup, /"source", "due"/);
+assert.match(taskBackup, /validDue/);
+assert.match(taskBackup, /source = source, due = due/);
 assert.match(taskBackup, /withTransaction/);
 assert.match(taskBackup, /MAX_BYTES/);
 assert.match(taskBackup, /MAX_TASKS/);
