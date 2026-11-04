@@ -4,6 +4,7 @@
 import {json} from '../assignments.js';
 import {verifyCronToken} from '../../../../lib/academic-cron-auth.mjs';
 import {runChaoxingAutoCycle} from '../../../../lib/academic-chaoxing-auto-sync.mjs';
+import {recordCronWorkerHeartbeat} from '../../../../lib/academic-chaoxing-cron-health.mjs';
 import {createChaoxingSchoolAdapter} from '../../../../lib/academic-chaoxing-provider.mjs';
 export async function onRequestPost(context){
  const request=context.request;
@@ -18,6 +19,9 @@ export async function onRequestPost(context){
  try{
   const result=await runChaoxingAutoCycle(context.env.ACADEMIC_DB,
    createChaoxingSchoolAdapter(),context.env.SCHOOL_SESSION_KEY);
+  // Reaching this point proves this deployment could contact its private
+  // endpoint with the CURRENT bearer. Idle checks also count as liveness.
+  await recordCronWorkerHeartbeat(context.env.ACADEMIC_DB);
   return json(result);
  }catch{
   // Never serialize school URLs, encrypted sessions, course names or raw errors.
