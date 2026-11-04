@@ -2,7 +2,7 @@
  * No real credentials, student records, HTTP requests or CAS tickets.
  */
 import assert from 'node:assert/strict';
-import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError,observeOfficialWeChatEntry}
+import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError,observeOfficialWeChatEntry,summarizeSchoolSubmitFunctionScript}
  from '../lib/academic-ncwu-secondclass-server.mjs';
 import {NCWU_SECOND_CLASS_READS} from '../lib/academic-ncwu-second-class.mjs';
 const school='https://dekt.ncwu.edu.cn';
@@ -14,6 +14,21 @@ const markup='<form method="POST" action="'+casUrl+'">'+
  '<input name="execution" type="hidden" value="e1s1">'+
  '<input name="_eventId" type="hidden" value="submit"></form>';
 const response=(status,body='',headers={})=>new Response(body,{status,headers});
+const handler='doPcMobilesubmit';
+const normalFunction='function doPcMobilesubmit() { document.forms[0].submit(); }';
+const schoolFunction=summarizeSchoolSubmitFunctionScript(normalFunction,handler);
+assert.equal(schoolFunction.definitionSeen,true,
+ 'the actual official handler name must be matched as a function declaration');
+assert.equal(schoolFunction.formSubmissionSeen,true);
+assert.equal(summarizeSchoolSubmitFunctionScript('doPcMobilesubmit();',handler).definitionSeen,false,
+ 'a bare call is not proof the handler is defined');
+assert.equal(summarizeSchoolSubmitFunctionScript(
+ 'window.doPcMobilesubmit = function() { return true; }',handler).definitionSeen,true);
+assert.equal(summarizeSchoolSubmitFunctionScript(
+ 'const doPcMobilesubmit = function() { return true; }',handler).definitionSeen,true);
+assert.equal(summarizeSchoolSubmitFunctionScript(
+ 'function unrelatedHandler() { return true; }',handler).definitionSeen,false);
+
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
 // The returned CAS form can omit the service query even though the login
 // page was fetched with the exact trusted school-owned service.
