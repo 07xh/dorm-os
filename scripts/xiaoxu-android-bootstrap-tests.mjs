@@ -18,7 +18,7 @@ assert.match(manifest, /android:allowBackup="false"/);
 assert.match(manifest, /android:usesCleartextTraffic="false"/);
 assert.doesNotMatch(manifest, /READ_SMS|READ_CONTACTS|QUERY_ALL_PACKAGES|BIND_ACCESSIBILITY_SERVICE/i);
 assert.doesNotMatch(strings + main + manifest, /wxu_[A-Za-z0-9_-]+|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET/i);
-assert.doesNotMatch(main, /\\bWebView\\s*\\(|addJavascriptInterface\\s*\\(|CookieManager\\s*\\.|document\\.cookie/);
+assert.doesNotMatch(main, /\bWebView\s*\(|addJavascriptInterface\s*\(|CookieManager\s*\.|document\.cookie/);
 assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
