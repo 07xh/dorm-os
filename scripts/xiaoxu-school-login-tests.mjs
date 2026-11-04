@@ -14,6 +14,11 @@ const secret=Buffer.from(random).toString('base64url');
 assert.equal(availableSchoolAdapter({data:{}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({data:{academicSchoolAdapters:{ncwu:{provider:'ncwu'}}}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({},'second_class'),null);
+assert.equal(new SchoolLoginError('authorization_failed','cas_return').failureStage,'cas_return');
+assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
+assert.equal(new SchoolLoginError('authorization_failed','identity_evidence').failureStage,'identity_evidence');
+assert.equal(new SchoolLoginError('authorization_failed','custom_details').failureStage,undefined);
+assert.equal(new SchoolLoginError('invalid_credentials','cas_return').failureStage,undefined);
 assert.equal(validSchoolLoginInput({username:'student',password:'pass'}),true);
 assert.equal(validSchoolLoginInput({username:'',password:'pass'}),false);
 const goodRequest=new Request('https://site.example/api/v1/connections/ncwu/login',{
@@ -74,6 +79,17 @@ await assert.rejects(
  username:'official-student-account',password:'ephemeral-school-password',secret:'bad'}),
  e=>e instanceof SchoolLoginError&&e.code==='not_configured');
 assert.equal(credentialCalls,0,'missing server secret never processes credentials');
+// Only the second-class login may preserve fixed non-sensitive failure phases.
+const phaseFailureAdapter={provider:'second_class',
+ async login(){throw Object.assign(new Error('opaque private upstream error'),
+  {code:'authorization_failed',failureStage:'cas_return'});},
+ async forSession(){throw Error('must not read when login failed');}
+};
+await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
+ provider:'second_class',adapter:phaseFailureAdapter,username:'official-student-account',
+ password:'ephemeral-school-password',secret}),
+ e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&e.failureStage==='cas_return');
+
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,
  sync:async()=>{reads++;return {lastSuccessAt:'2026-11-03T06:00:00.000Z'};}});
