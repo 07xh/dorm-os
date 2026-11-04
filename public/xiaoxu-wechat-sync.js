@@ -8,7 +8,7 @@
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
  }[c]));
  const safeId=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{12,128}$/.test(v);
- let devices=[],candidates=[],loaded=false,busy=false,error='',note='',opened=false;
+ let devices=[],candidates=[],loaded=false,busy=false,error='',note='',opened=false,devicesOpen=false;
  let oneTimeToken=null,tokenDevice=null,epoch=0;
 
  async function request(path,method='GET',payload){
@@ -36,7 +36,7 @@
  }
  function disconnect(){
   epoch++;devices=[];candidates=[];loaded=false;busy=false;error='';note='';
-  oneTimeToken=null;tokenDevice=null;opened=false;
+  oneTimeToken=null;tokenDevice=null;opened=false;devicesOpen=false;
   update();
  }
  function when(t){
@@ -68,7 +68,7 @@
     '<p class="small muted">暂无待审核消息。这只说明目前没有已同步到校序的候选，不代表微信群没有新任务。</p>')
    :'<div class="button-row"><button type="button" class="secondary" data-xu-wc-refresh'+
      (busy?' disabled':'')+'>读取我的候选消息</button></div>';
-  const paired=loaded?'<details class="xu-wc-devices"><summary>电脑设备管理</summary>'+
+  const paired=loaded?'<details class="xu-wc-devices"'+(devicesOpen?' open':'')+'><summary>电脑设备管理</summary>'+
    '<p class="small muted">仅允许你主动绑定的电脑上传候选；群消息读取仍在电脑本地完成。</p>'+
    '<div class="form-field"><label for="xuWcDeviceName">电脑名称</label>'+
    '<input id="xuWcDeviceName" data-xu-wc-device-name maxlength="48" placeholder="我的 Windows 电脑" autocomplete="off"></div>'+
@@ -98,6 +98,8 @@
   if(!host)return;
   const details=host.querySelector('.xu-wc-details');
   if(details)opened=details.open;
+  const inner=host.querySelector('.xu-wc-devices');
+  if(inner)devicesOpen=inner.open;
   host.innerHTML=panel();
  }
  async function refresh(){
@@ -188,6 +190,7 @@
  });
  document.addEventListener('toggle',event=>{
   if(event.target.matches?.('.xu-wc-details'))opened=event.target.open;
+  if(event.target.matches?.('.xu-wc-devices'))devicesOpen=event.target.open;
  },true);
  root.XiaoxuWechat=Object.freeze({panel,disconnect,refresh});
 })(globalThis);
