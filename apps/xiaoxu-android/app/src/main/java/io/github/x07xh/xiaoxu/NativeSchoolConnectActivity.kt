@@ -41,6 +41,9 @@ import org.json.JSONTokener
 class NativeSchoolConnectActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROVIDER = "provider"
+        // Official personal homework overview; still requires the owner's normal login.
+        private const val CHAOXING_HOMEWORK =
+            "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
         private val entries = mapOf(
             "chaoxing" to "https://i.chaoxing.com/base",
             "second_class" to "https://dekt.ncwu.edu.cn/"
@@ -65,11 +68,26 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 else -> false
             }
         }
-        fun extractionAllowed(provider: String, host: String?): Boolean = when (provider) {
-            "second_class" -> host == "dekt.ncwu.edu.cn"
-            "chaoxing" -> host in setOf(
-                "mooc2-ans.chaoxing.com", "mooc1.chaoxing.com", "kb.chaoxing.com")
-            else -> false
+        fun extractionAllowed(provider: String, url: String?): Boolean {
+            if (!navigationAllowed(provider, url)) return false
+            val uri = Uri.parse(url ?: "")
+            val host = uri.host?.lowercase() ?: return false
+            val path = uri.path.orEmpty()
+            return when (provider) {
+                "second_class" -> host == "dekt.ncwu.edu.cn"
+                "chaoxing" ->
+                    (host == "mooc1-api.chaoxing.com" &&
+                        path == "/mooc-ans/mooc2/work/all-task") ||
+                    (host == "mooc1.chaoxing.com" &&
+                        (path.startsWith("/mooc2/work/") ||
+                         path.startsWith("/mooc-ans/mooc2/work/") ||
+                         path.startsWith("/visit/"))) ||
+                    (host == "mooc2-ans.chaoxing.com" &&
+                        path.startsWith("/mooc2-ans/visit/")) ||
+                    (host == "kb.chaoxing.com" &&
+                        path.startsWith("/res/pc/curriculum/"))
+                else -> false
+            }
         }
     }
 
@@ -115,6 +133,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         control("刷新页面") { browser.reload() }
         extract = control("读取当前页") { captureVisibleRecords() }
         extract.isEnabled = false
+        val homeworkShortcut = if (provider == "chaoxing") Button(this).apply {
+            text = "学习通 · 打开我的作业"
+            setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
+        } else null
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
@@ -156,7 +178,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 override fun onPageFinished(view: WebView, url: String?) {
                     loaded = !pageFailed && navigationAllowed(provider, url)
                     val host = Uri.parse(url ?: "").host
-                    extract.isEnabled = loaded && extractionAllowed(provider, host)
+                    extract.isEnabled = loaded && extractionAllowed(provider, url)
                     tell(if (pageFailed)
                         "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
                     else if (extract.isEnabled)
@@ -185,6 +207,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
+        if (homeworkShortcut != null) root.addView(homeworkShortcut)
         root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
@@ -197,7 +220,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val currentUrl = browser.url ?: return
         val host = Uri.parse(currentUrl).host
         if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
-            !extractionAllowed(provider, host)) {
+            !extractionAllowed(provider, currentUrl)) {
             tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
             return
         }
@@ -309,8 +332,14 @@ private const val READ_VISIBLE_PAGE = """
         ? compact.some(h => /活动名称|项目名称|积分|学时|第二课堂/.test(h))
         : compact.some(h => /作业名称|课程名称|课程名|作业|任务名称/.test(h));
       if (!matching) continue;
+      // An activity table can have an "积分" column. That does not make its
+      // rows an official cumulative credit statement.
       const foundKind = provider === 'second_class'
-        ? (compact.some(h => /积分|学时|成绩/.test(h)) ? 'credits' : 'activity')
+        ? (compact.some(h => /^(活动名称|活动项目|报名活动)$/.test(h))
+            ? 'activity'
+            : compact.some(h => /^(积分项目|积分项|学时项目|积分来源|学时汇总)$/.test(h))
+              ? 'credits'
+              : 'activity')
         : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
       if (kind && foundKind !== kind) continue;
       const titleIndex = compact.findIndex(h => /课程名称|课程名|作业名称|活动名称|项目名称|任务名称/.test(h));
@@ -331,7 +360,29 @@ private const val READ_VISIBLE_PAGE = """
       }
     }
   }
-  if (!rows.length && provider === 'chaoxing') {
+  if (!rows.length && provider === 'chaoxing' &&
+      host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
+    // Mirror the already-tested FIRST-PARTY backend list evidence: each
+    // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
+    // Never read the li "data" attribute: it may contain an auth token.
+    for (const doc of docs) {
+      const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
+      for (const li of Array.from(tasks).slice(0,120)) {
+        if (!onScreen(li)) continue;
+        const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
+          li.querySelector('p.overHidden2')?.innerText).slice(0,100);
+        if (!title) continue;
+        const status = clean(li.querySelector('p.status.fl')?.innerText ||
+          li.querySelector('p.status')?.innerText).slice(0,60);
+        rows.push({title,details: status ?
+          '当前网页显示的状态：' + status : '网页未展示提交状态'});
+      }
+    }
+    if (rows.length) kind = 'homework';
+  }
+  if (!rows.length && provider === 'chaoxing' &&
+      host === 'mooc2-ans.chaoxing.com' &&
+      location.pathname.includes('/visit/courselistdata')) {
     // MIT xuexitong-cli shows course-name and courseid links on the
     // authenticated official course-list page. Never infer course titles
     // from unrelated links or sign-in screens.
