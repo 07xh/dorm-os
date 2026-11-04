@@ -74,14 +74,15 @@
    ...(sync?{body:JSON.stringify(params)}:{})
   });
   const d=await r.json().catch(()=>null);
-  if(!r.ok)throw Error(({
+  if(!r.ok){const err=Error(({
    session_expired:'学习通会话已失效，请在「我的」重新连接',
+   interactive_login_required:'学习通要求重新登录或人机验证，请在官方页面完成后重新连接',
    school_login_unavailable:'学习通读取服务尚未准备好',
    courses_unverified:'未能从本人学习通会话核实课程所属学校标识或课程列表，请重新连接学习通并检查官方课程是否可访问',
    work_not_available:'该课程作业页未开放或缺少官方作业签名，不能据此认定作业已完成',
    database_unavailable:'云端任务同步数据库不可用，官方完成状态未保存',
    not_found:'未找到这份作业，刷新列表后重试'
-  })[d?.error]||'官方页面读取失败，已保留原有数据');
+  })[d?.error]||'官方页面读取失败，已保留原有数据');err.code=d?.error;throw err;}
   if(d?.schema!=='xiaoxu/chaoxing-work-browser-v1'||d?.view!==view||
     d.live!==true||typeof d.data!=='object')throw Error('学习通返回结构不匹配');
   return d.data;
@@ -155,13 +156,21 @@
      if(selected===key(course)){
       items=result.items;listVerified=true;checkedAt=Date.now();detail=null;
      }
-    }catch{failed++;}
+    }catch(ex){
+     failed++;
+     if(ex?.code==='session_expired'||ex?.code==='interactive_login_required'){
+      error=ex.message;
+      bulkProgress='已处理 '+(i+1)+' / '+list.length+' 门 · 成功 '+successful+
+       ' 门 · 待重试 '+failed+' 门 · 已停止';update();
+      break;
+     }
+    }
     bulkProgress='已处理 '+(i+1)+' / '+list.length+' 门 · 成功 '+successful+
      ' 门 · 待重试 '+failed+' 门';update();
    }
    if(courses.length>list.length)
     bulkProgress+=' · 其余课程请切换后单独同步';
-   if(failed)error='部分课程官方作业页不可用，未覆盖旧任务；可单独重试';
+   if(failed&&!error)error='部分课程官方作业页不可用，未覆盖旧任务；可单独重试';
   }finally{
    if(epoch===at){
     loading='';update();void refreshSyncedTasks();
