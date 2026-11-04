@@ -1,4 +1,4 @@
-# 校序微信同步：用户主动开启/关闭 Windows 定时任务；不包含凭据或聊天内容。
+﻿# 校序微信同步：用户主动开启/关闭 Windows 定时任务；不包含凭据或聊天内容。
 # .\integrations\wechat\schedule.ps1 status|install|remove
 # 首次必须先在校序绑定设备，然后手动 preview 和 sync 验证成功。
 [CmdletBinding()]
