@@ -188,10 +188,10 @@
     '<div class="xu-school-connect"><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div></div>':
     authorized?'':officialCas?
     '<div class="xu-school-connect" data-xu-second-class-connect>'+
-    '<p class="tiny muted">学校账号真实登录尚待验收。先检查官方 CAS 登录；安全验证通过后才输入学校账号。</p>'+ 
-    (nativeSecondClass?'<button type="button" class="secondary" data-xu-cas-check="second_class">检查第二课堂登录</button>'+ 
-     '<div class="xu-school-cas-result" role="status" aria-live="polite" data-xu-cas-result></div>':
-     '<p class="tiny muted">服务端连接暂未就绪，仍可查看历史记录。</p>')+
+    '<p class="tiny muted" data-xu-second-class-hint>官网可微信扫码，扫码会话尚未接入校序。</p>'+ 
+    (nativeSecondClass?'<button type="button" class="secondary" data-xu-cas-check="second_class">检测扫码接入</button>'+ 
+     '<p class="tiny muted xu-school-cas-result" role="status" aria-live="polite" data-xu-cas-result></p>':
+     '')+
     '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://dekt.ncwu.edu.cn/">打开第二课堂官网</a>'+
     '</div>':
    nativeNcwu?
@@ -226,7 +226,7 @@
      '<p class="tiny muted">仅提交安全服务端验证，不在浏览器保存密码。</p>'+
      '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></div>'):
     chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
-   const schoolScopeStatus=provider.id==='second_class'&&!authorized?'本人会话未连接':
+   const schoolScopeStatus=provider.id==='second_class'&&!authorized?(active?'未连接':'未读取'):
     authorized&&provider.id==='chaoxing'&&record.syncPending===true?'已认证 · 数据待同步':
     authorized&&provider.id==='ncwu'&&record.status==='partial'&&
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
@@ -258,12 +258,11 @@
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>学校统一认证和超星独立账号是两种不同的登录方式。第三方 APK 的本机会话不自动共享给校序；会话过期可在此重新连接。启用后由 Cloudflare 每小时逐批核实作业；收件箱提醒仍不是已提交凭据，暂不发送系统推送。</p></details>':
-    '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
-    '<p>学校账号真实登录尚待验收。打开官网不等于账号已绑定。本人身份与真实活动、官方积分验证后才保存加密会话；网页关闭后不执行后台同步。</p></details>';
+    '';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
      (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
-     (authorized?'连接管理':provider.id==='second_class'?'连接第二课堂':'连接账号')+
+     (authorized?'连接管理':provider.id==='second_class'?'登录方式':'连接账号')+
      '</summary><div class="xu-school-manage-body">'+authPanel+ncwuAutoHint+guidance+
      '</div></details>':'';
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
@@ -778,6 +777,18 @@
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
+    if(checkProvider==='second_class'){
+     const hint=panel.querySelector('[data-xu-second-class-hint]');
+     if(hint)hint.hidden=true;
+     // A school-owned QR option does not grant Xiaoxu a CAS session.
+     result.textContent=!response.ok?'检测暂不可用；校序仍未连接。':
+      info?.officialWeChatEntryObserved===true?
+       '官网发现微信扫码入口；校序尚无法关联扫码会话，仍未连接。':
+       info?.status==='upstream_unavailable'?
+        '学校登录页暂不可访问；校序仍未连接。':
+        '扫码会话关联尚未验证；校序仍未连接。';
+     return;
+    }
     if(!response.ok||(!info?.nativeLoginReady)){
      const qingguoBlockers={
       password_transform_required:'学校认证页面包含密码加密提交逻辑；校序当前尚不支持该方式的站内登录，不会要求输入密码。请在学校官网完成认证。',
