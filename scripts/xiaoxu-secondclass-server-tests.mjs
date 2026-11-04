@@ -297,5 +297,30 @@ const noReplay=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
 await assert.rejects(()=>noReplay.login({username:'SYNTHETIC_ACCOUNT',
  password:'EPHEMERAL_PASSWORD'}), e=>e.code==='interactive_login_required');
 assert.equal(postAttempts,1);
+// Distinguish a school CAS login that never returns to the service,
+// a rejected personal business endpoint, and a non-unique student identity.
+// These synthetic tests never use school credentials or external requests.
+const casNoReturn=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
+  return response(200,markup);
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>casNoReturn.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='cas_return');
+const personalDataRejected=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.scores&&options.method==='POST')
+  return response(200,'<html>School login required</html>');
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>personalDataRejected.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
+const identityAmbiguous=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.scores&&options.method==='POST')
+  return response(200,JSON.stringify({data:[
+   {student_code:'SYNTHETIC_ONE'},{student_code:'SYNTHETIC_TWO'}]}));
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>identityAmbiguous.login({username:'SYNTHETIC_ACCOUNT',
+ password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='identity_evidence');
 console.log('M23 NCWU CAS transport: synthetics, identity, cookie scope, preflight, read-only business endpoints, MFA and redirect refusal passed');
 
