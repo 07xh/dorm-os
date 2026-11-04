@@ -36,6 +36,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Syntax, security and logic tests
         run: npm run check
+      - name: Android static safety checks (no SDK or APK compilation)
+        run: node scripts/xiaoxu-android-bootstrap-tests.mjs
       - name: Windows WeChat collector logic tests (synthetic only)
         run: python3 -m unittest discover -s integrations/wechat -p 'test_*.py'
       - name: Read-only current NCWU second-class CAS compatibility (no login)
