@@ -131,8 +131,12 @@ private fun TaskPreview(task: WorkspaceTask) {
 
 @Composable
 private fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
-    WorkspaceCard {
-        Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
                 color = WorkspaceBlue)
             Text(label, style = MaterialTheme.typography.labelSmall,
