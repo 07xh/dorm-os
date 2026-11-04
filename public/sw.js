@@ -34,7 +34,7 @@ self.addEventListener('fetch',e=>{
     e.respondWith(fetch(r,{cache:'no-store'}).then(resp=>{
       if(resp.ok){const copy=resp.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put(r,copy)));}
       return resp;
-    }).catch(()=>caches.open(CACHE).then(c=>c.match(r,{ignoreSearch:true}))));
+    }).catch(()=>caches.open(CACHE).then(async c=>(await c.match(r))||c.match(r,{ignoreSearch:true}))));
     return;
   }
   if(ASSETS.includes(u.pathname))e.respondWith(caches.match(r).then(hit=>hit||fetch(r)));

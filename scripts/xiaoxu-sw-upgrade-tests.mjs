@@ -19,4 +19,7 @@ assert.equal(skipped,false,'never activate an incomplete offline application');
 cached.set('https://test.invalid/xiaoxu-workspace.js',new Response('current-offline-asset'));
 let responding;handlers.fetch({request:new Request('https://test.invalid/xiaoxu-workspace.js?_xu_asset=bbbbbbbbbbbb'),respondWith:p=>responding=p,waitUntil(){}});
 assert.equal(await(await responding).text(),'current-offline-asset','release-tagged HTML must find the canonical cached asset offline');
+cached.set('https://test.invalid/xiaoxu-workspace.js?_xu_asset=bbbbbbbbbbbb',new Response('newer-version-exact-asset'));
+handlers.fetch({request:new Request('https://test.invalid/xiaoxu-workspace.js?_xu_asset=bbbbbbbbbbbb'),respondWith:p=>responding=p,waitUntil(){}});
+assert.equal(await(await responding).text(),'newer-version-exact-asset','offline lookup must prefer the exact release asset over an older canonical entry');
 console.log('SW upgrade: optional asset failure does not strand old worker; versioned assets retain offline fallback');

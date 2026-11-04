@@ -16,8 +16,18 @@
   }
   return false;
  }
- function savedState(){try{return JSON.parse(sessionStorage.getItem(STATE)||'null');}catch{return null;}}
- function clearState(){try{sessionStorage.removeItem(STATE);sessionStorage.removeItem(LEGACY);}catch{}}
+ function savedState(target){
+  let stored=null;try{stored=JSON.parse(sessionStorage.getItem(STATE)||'null');}catch{}
+  const url=new URL(location.href),fallback=url.searchParams.get('_xu_release')===target.slice(0,12)?Number(url.searchParams.get('_xu_attempts')):0;
+  const attempts=stored?.target===target?Number(stored.attempts):0;
+  const bounded=value=>Number.isSafeInteger(value)&&value>=0?Math.min(value,2):0;
+  return {target,attempts:Math.max(bounded(attempts),bounded(fallback))};
+ }
+ function clearState(){
+  try{sessionStorage.removeItem(STATE);sessionStorage.removeItem(LEGACY);}catch{}
+  const url=new URL(location.href);
+  if(url.searchParams.has('_xu_attempts')){url.searchParams.delete('_xu_attempts');root.history?.replaceState(null,'',url.pathname+url.search+url.hash);}
+ }
  function notice(message,retry=false){
   if(!document.body)return;
   let box=document.getElementById('xuUpdateNotice');
@@ -30,7 +40,7 @@
  async function applyPending(){
   if(!pending||reloading||document.hidden||!navigator.onLine)return;
   if(hasUnsavedWork()){notice('新版本已就绪，保存或关闭编辑后会自动更新。');return;}
-  const previous=savedState(),attempts=previous?.target===pending?Number(previous.attempts)||0:0;
+  const previous=savedState(pending),attempts=previous?.target===pending?Number(previous.attempts)||0:0;
   if(attempts>=2){notice('更新尚未完成，可重试获取新版本。',true);return;}
   reloading=true;
   try{
@@ -40,6 +50,7 @@
    const next=new URL(location.href);
    next.searchParams.set('_xu_release',pending.slice(0,12));
    next.searchParams.set('_xu_refresh',String(Date.now()));
+   next.searchParams.set('_xu_attempts',String(attempts+1));
    location.replace(next.href);
   }catch{reloading=false;notice('暂时无法更新，请联网后重试。',true);}
  }
@@ -56,7 +67,7 @@
      pending=null;clearState();document.getElementById('xuUpdateNotice')?.remove();
      const url=new URL(location.href);
      if(url.searchParams.get('_xu_release')===latest.commit.slice(0,12)){
-      url.searchParams.delete('_xu_release');url.searchParams.delete('_xu_refresh');
+      url.searchParams.delete('_xu_release');url.searchParams.delete('_xu_refresh');url.searchParams.delete('_xu_attempts');
       root.history?.replaceState(null,'',url.pathname+url.search+url.hash);
      }
      return;

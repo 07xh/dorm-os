@@ -22,8 +22,9 @@ const test=base.extend({releaseSite:async({},use)=>{
    const current=url.searchParams.get('_xu_release')===NEW.slice(0,12);
    body=content.toString().replaceAll('__XIAOXU_RELEASE_SHA__',current?NEW:OLD);
    if(broken&&!current)body=body.replace('<script>','<script>throw new Error("synthetic stale app startup");');
-   // Count actual navigations only; a worker also precaches the root document.
-   if(request.headers['sec-fetch-mode']==='navigate')documents.push(current?'new':'old');
+   // The worker forwards a navigation as a fetch; its release query still identifies
+   // that navigation, while untagged root precaching must not be counted.
+   if(request.headers['sec-fetch-mode']==='navigate'||url.searchParams.has('_xu_release'))documents.push(current?'new':'old');
   }else if(path==='/sw.js')body=content.toString().replaceAll('__XIAOXU_RELEASE_SHA__',latest);
   const type=path.endsWith('.html')?'text/html':path.endsWith('.js')?'application/javascript':path.endsWith('.css')?'text/css':path.endsWith('.png')?'image/png':path.endsWith('.svg')?'image/svg+xml':'application/json';
   response.writeHead(200,{'content-type':type,'cache-control':'no-store'});response.end(body);
