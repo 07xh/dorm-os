@@ -5,6 +5,7 @@ import {authorize,json} from './assignments.js';
 import {readConnectionCenter} from '../../../lib/academic-connection-center.mjs';
 import {availableSchoolAdapter,schoolSessionStates,schoolSessionVaultReady} from '../../../lib/academic-school-login.mjs';
 import {describeSecondClassAuthorization} from '../../../lib/academic-ncwu-secondclass-sso.mjs';
+import {readCronWorkerHealth} from '../../../lib/academic-chaoxing-cron-health.mjs';
 export function isActiveSchoolAuthorization(row,sessionState,available){
  // Historical snapshots cannot prove current owner-bound authorization.
  if(!available||sessionState!=='active'||!row||!Array.isArray(row.trustedKinds))return false;
@@ -23,17 +24,14 @@ export async function onRequestGet(context){
   const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
   // Token readiness is not a claim that upstream requests succeeded. Only
   // an explicit user opt-in makes a scheduled job eligible.
-  let cronReady=false,autoJob=null;
+  const cronHealth=await readCronWorkerHealth(auth.db);
+  let autoJob=null;
   try{
-   const token=await auth.db.prepare(
-    "SELECT name FROM academic_cron_identity WHERE name='chaoxing-hourly'"
-   ).first();
-   cronReady=!!token;
    autoJob=await auth.db.prepare(
     "SELECT enabled,interval_minutes,next_at,last_run_at,last_result,failure_count "+
     "FROM academic_sync_jobs WHERE user_id=? AND provider='chaoxing'"
    ).bind(auth.userId).first();
-  }catch{cronReady=false;}
+  }catch{autoJob=null;}
 
   result.platforms=result.platforms.map(row=>{
    const available=vaultReady&&!!availableSchoolAdapter(context,row.id);
@@ -60,7 +58,11 @@ export async function onRequestGet(context){
     checked||'adapter_unavailable';
    return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
     loginReadiness,syncPending:sessionState==='active'&&!verified,
-    autoSyncAvailable:cronReady,
+    // Existing jobs can still be disabled when a Worker is down.
+    // A valid token record ALONE is not a running Worker.
+    autoSyncAvailable:cronHealth.ready||autoJob?.enabled===1,
+    autoSyncWorkerReady:cronHealth.ready,
+    autoSyncWorkerLastSeenAt:cronHealth.lastHeartbeatAt,
     autoSync:{enabled:autoJob?.enabled===1,
      intervalMinutes:60,nextAt:autoJob?.next_at||null,
      lastRunAt:autoJob?.last_run_at||null,
