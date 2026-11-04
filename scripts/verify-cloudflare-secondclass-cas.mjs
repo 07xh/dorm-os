@@ -34,7 +34,13 @@ const evidence={
   submitHandlerSeen:data.challengeEvidence.submitHandlerSeen===true,
   submitHandlerKind:data.challengeEvidence.submitHandlerKind,
   ...(typeof data.challengeEvidence.submitHandlerName==='string'?
-   {submitHandlerName:data.challengeEvidence.submitHandlerName}:{})
+   {submitHandlerName:data.challengeEvidence.submitHandlerName}:{}),
+  schoolScriptDefinitionSeen:data.challengeEvidence.schoolScriptDefinitionSeen===true,
+  sourceType:data.challengeEvidence.sourceType,
+  passwordProcessingSeen:data.challengeEvidence.passwordProcessingSeen===true,
+  verificationSeen:data.challengeEvidence.verificationSeen===true,
+  formSubmissionSeen:data.challengeEvidence.formSubmissionSeen===true,
+  asyncSubmissionSeen:data.challengeEvidence.asyncSubmissionSeen===true
  }}:{}),
  personalAccountLinked:false
 };
