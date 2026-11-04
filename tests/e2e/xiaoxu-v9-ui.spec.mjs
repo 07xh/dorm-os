@@ -43,7 +43,7 @@ test('V9 disables page motion when user requests reduced motion', async ({ page 
 test('V9 PWA includes its UI script, stylesheet and in-profile login stylesheet', async ({ page }) => {
  await page.goto('/sw.js');
  const text=await page.locator('body').innerText();
- expect(text).toContain("'/xiaoxu-v9-ui.css'");
- expect(text).toContain("'/xiaoxu-v9-ui.js'");
+ expect(text).toContain("'/xiaoxu-workspace.css'");
+ expect(text).toContain("'/xiaoxu-workspace.js'");
  expect(text).toContain("'/xiaoxu-owner-auth.css'");
 });

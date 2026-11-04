@@ -58,7 +58,7 @@ sql.close();
 const cloudCode=readFileSync(new URL('../public/xiaoxu-cloud-tasks.js',import.meta.url),'utf8');
 const academicCode=readFileSync(new URL('../public/xiaoxu-academic-client.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
-assert.ok(html.includes('XiaoxuAcademic.taskRows(taskFilter,state.tasks)'),
+assert.ok(html.includes('XiaoxuWorkspace.tasks({local:state.tasks,cloud:XiaoxuCloudTasks.displayRecords(),remote:XiaoxuAcademic.records(\'assignments\')}'),
  'task projection receives existing browser tasks');
 const cloudItems=[
  {id:'cloud-a',title:'同名课程作业',revision:0,kind:'platform',

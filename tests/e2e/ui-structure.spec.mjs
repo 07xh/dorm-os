@@ -15,7 +15,7 @@ test('V7 uses one top-only navigation on desktop and mobile', async ({page})=>{
  await expect(page).toHaveURL(/#academic$/);
  await expect(page.locator('.x-v7-secondary [role="tab"]')).toHaveCount(5);
  await page.locator('[data-academic-tab="grades"]').click();
- await expect(page.locator('#app')).toContainText('尚未连接华水青果本人账号');
+ await expect(page.locator('#app')).toContainText('尚未连接本人账号');
  await page.locator('[data-academic-tab="second"]').click();
  await expect(page.locator('#app')).toContainText('第二课堂');
  await page.locator('[data-academic-tab="notices"]').click();

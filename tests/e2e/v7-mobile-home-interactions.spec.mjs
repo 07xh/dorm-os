@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 
 const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('dorm-os-state-v1')));
 async function seed(page) {
+ await page.clock.setFixedTime(new Date('2026-11-04T07:00:00+08:00'));
  await page.goto('/');
  await page.evaluate(()=>{
   const d=now().day, after=(d+1)%7;
