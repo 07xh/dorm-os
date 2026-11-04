@@ -385,6 +385,7 @@ private fun ScheduleVerifiedContent(
                             onOpen = { openCourse(lesson.key) }
                         )
                     }
+                    item { LocalSchoolRecordSection(setOf("schedule")) }
                     item { ScheduleFooterNote() }
                     item {
                         TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
@@ -421,6 +422,7 @@ private fun ScheduleVerifiedContent(
                         onOpen = { openCourse(lesson.key) }
                     )
                 }
+                item { LocalSchoolRecordSection(setOf("schedule")) }
                 item { ScheduleFooterNote() }
                 item {
                     TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
