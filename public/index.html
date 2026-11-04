@@ -414,7 +414,7 @@ function workspaceTasks(filter='all',source=page==='tasks'?taskSource:'all'){
 }
 function workspaceTaskRow(row,actions=true){
  if(row.origin==='local'){const markup=taskRow(row.raw,actions);return actions?markup:markup.replace('class="task-item"','class="task-item x-v7-task-preview"').replace('<div class="entry-title">'+esc(row.title)+'</div>','<button type="button" class="entry-title xu-task-title" data-task-edit="'+esc(row.id)+'">'+esc(row.title)+'</button>');}
- const platform=({todo:'未提交',submitted:'已提交',graded:'已批阅',returned:'已退回',unknown:'状态未核实'})[row.platformStatus]||'状态未核实';
+ const platform=({todo:'平台待交',submitted:'平台已提交',graded:'平台已批阅',returned:'平台已退回',unknown:'平台状态未核实'})[row.platformStatus]||'平台状态未核实';
  const due=row.dueAt?new Date(row.dueAt).toLocaleString('zh-CN',{timeZone:TZ}):row.due?fmtDate(row.due)+'（时间未知）':'截止时间未核实';
  const isRemote=row.origin==='remote',manual=row.raw.kind==='manual';
  return '<div class="task-item '+(isRemote?'xu-private-task':'xu-cloud-task')+'" data-origin="'+(isRemote?'remote-readonly':'cloud-workspace')+'">'
@@ -725,7 +725,7 @@ function academicPage(){
   const kind=({grades:'grades',exams:'exams',second:'second-class'})[academicTab];
   const label=({grades:'我的成绩',exams:'考试安排',second:'第二课堂'})[academicTab];
   const status=XiaoxuAcademic.state(kind).status;
-  const message=status==='loading'?'正在读取数据…':status==='error'?'本次读取失败，请重试。':XiaoxuAcademic.isReady()?'暂无已同步记录。':'尚未连接本人账号。';
+  const message=status==='loading'?'正在读取数据…':status==='error'?'本次读取失败，请重试。':XiaoxuAcademic.isReady()?'暂无已同步记录。':academicTab==='grades'?'未连接青果成绩查询':academicTab==='second'?'第二课堂数据未连接':'暂无可验证的个人考试安排';
   content='<section class="card x-v7-academic-card"><h2>'+label+'</h2><div class="friendly-empty" role="status">'+message+'</div><button type="button" class="secondary" data-page="settings">查看数据连接</button></section>';
  }else{
   const links=state.campusLinks.map(l=>'<div class="campus-custom-link">'+safeLink(l.name,l.url)
@@ -763,8 +763,8 @@ function tasksPage(){
  const rows=workspaceTasks(taskFilter),review=taskFilter==='review';
  return `${titleBlock('','我的任务')}
  <section class="v4-task-toolbar" aria-label="任务视图"><div class="list-controls v4-filters">${[['all','全部'],['open','待完成'],['done','已完成'],['review','待确认']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}" aria-pressed="${taskFilter===k}">${l}</button>`).join('')}</div>
- <div class="button-row"><select data-task-source aria-label="任务来源">${[['all','全部来源'],['chaoxing','学习通'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button><button type="button" class="action-link" data-action="export-deadlines">添加到日历</button></div></details></div></section>
- <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录</span></div>
+ <div class="button-row"><select data-task-source aria-label="任务来源">${[['all','全部来源'],['chaoxing','学习通'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button></div></details><button type="button" class="secondary v4-export" data-action="export-deadlines">添加到日历</button></div></section>
+ <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录 · 学习通未连接自动同步时仅展示已有数据</span></div>
  <section class="card v4-task-list">${rows.length?rows.map(r=>workspaceTaskRow(r)).join(''):'<div class="empty">当前筛选下暂无任务。</div>'}</section>
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div id="xuChaoxingWorkHost">${XiaoxuChaoxingHomework.panel()}</div></div>
@@ -786,7 +786,7 @@ function scenesPage(){
 function profilePage(){
  const ownerConnected=window.XiaoxuOwnerAuth?.connected?.()===true;
  const ownerDays=window.XiaoxuOwnerAuth?.durationDays?.()??7;
- const ownerCustom=![1,7,30].includes(ownerDays);
+ const ownerCustom=window.XiaoxuOwnerAuth?.isCustomDuration?.()??![1,7,30].includes(ownerDays);
  return titleBlock('','我的')+'<section class="card v4-profile-card">'
  +'<div class="v4-profile-head"><div><strong>账户与设备</strong></div></div>'
  +'<div class="v4-profile-links"><a href="/login/" class="v4-profile-link" data-owner-auth-open>'
