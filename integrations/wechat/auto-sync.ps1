@@ -10,6 +10,7 @@ $ErrorActionPreference="Stop"
 $taskName="Xiaoxu-Wechat-Candidates"
 $runner=Join-Path $PSScriptRoot "run.ps1"
 $config=Join-Path $env:USERPROFILE ".wechat-cli\xiaoxu-bridge.json"
+$checkpoint=Join-Path $env:USERPROFILE ".wechat-cli\xiaoxu-sync-state.json"
 
 if($env:OS -ne "Windows_NT"){
  throw "自动同步配置仅支持 Windows。"
@@ -44,7 +45,7 @@ if($Action -eq "disable"){
 if($existing){
  throw "同名任务已经存在，请先运行 status。为保护现有任务，不会强制覆盖。"
 }
-if(!(Test-Path $runner) -or !(Test-Path $config)){
+if(!(Test-Path $runner) -or !(Test-Path $config) -or !(Test-Path $checkpoint)){
  throw "请先完成校序设备绑定、电脑 setup 和手动 sync 验证，再启用自动同步。"
 }
 $identity=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name
