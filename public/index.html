@@ -725,7 +725,7 @@ function academicPage(){
   const kind=({grades:'grades',exams:'exams',second:'second-class'})[academicTab];
   const label=({grades:'我的成绩',exams:'考试安排',second:'第二课堂'})[academicTab];
   const status=XiaoxuAcademic.state(kind).status;
-  const message=status==='loading'?'正在读取数据…':status==='error'?'本次读取失败，请重试。':XiaoxuAcademic.isReady()?'暂无已同步记录。':academicTab==='grades'?'未连接青果成绩查询':academicTab==='second'?'第二课堂数据未连接':'暂无可验证的个人考试安排';
+  const message=status==='loading'?'正在读取数据…':status==='error'?'本次读取失败，请重试。':XiaoxuAcademic.isReady()?'暂无已同步记录。':academicTab==='grades'?'未连接青果成绩查询 · 尚未连接本人账号':academicTab==='second'?'第二课堂数据未连接 · 尚未连接本人账号':'暂无可验证的个人考试安排 · 尚未连接本人账号';
   content='<section class="card x-v7-academic-card"><h2>'+label+'</h2><div class="friendly-empty" role="status">'+message+'</div><button type="button" class="secondary" data-page="settings">查看数据连接</button></section>';
  }else{
   const links=state.campusLinks.map(l=>'<div class="campus-custom-link">'+safeLink(l.name,l.url)
