@@ -331,20 +331,29 @@ def main(argv=None) -> int:
     token = opened(config["tokenDpapi"]).decode("utf-8")
     if not TOKEN.fullmatch(token):
         raise BridgeError("设备凭据无效")
-    for i in range(0, len(records), 25):
-        chunk = records[i:i + 25]
-        # Deterministic batch ID + capturedAt enables safe retry without
-        # storing raw messages or plaintext access tokens in an outbox.
-        fingerprint_input = json.dumps(chunk, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        batch_id = fingerprint(secret, "batch", fingerprint_input)
-        sent_at = max(x["sentAt"] for x in chunk)
+    # An empty scan must STILL reach the real server. Without this heartbeat,
+    # "同步完成" could be printed while the device never authenticated once.
+    # Server receives zero message bodies, updates the paired device's last_seen_at
+    # and acknowledges received:0. A failure never advances local checkpoints.
+    chunks = [records[i:i + 25] for i in range(0, len(records), 25)] or [[]]
+    for chunk in chunks:
+        if chunk:
+            # Stable retry ID for candidate-containing batches.
+            fingerprint_input = json.dumps(chunk, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            batch_id = fingerprint(secret, "batch", fingerprint_input)
+            captured_at = max(x["sentAt"] for x in chunk)
+        else:
+            # Heartbeats contain no messages; fresh identity avoids a prior
+            # successful heartbeat with another timestamp being a conflict.
+            batch_id = fingerprint(secret, "heartbeat", secrets.token_urlsafe(18))
+            captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         payload = {"schema": VERSION, "deviceId": config["deviceId"],
-                   "batchId": batch_id, "capturedAt": sent_at, "records": chunk}
+                   "batchId": batch_id, "capturedAt": captured_at, "records": chunk}
         submit(config["site"], token, payload)
-    # Only advance after every batch is acknowledged; partial HTTP failure
-    # retries stable IDs with no duplicate tasks on the next invocation.
+    # Advance only when the server has acknowledged every batch (or heartbeat).
     save_json(STATE, next_state)
-    print("同步完成；请在校序现有「任务 → 微信待审核」中审核，未自动创建正式作业。")
+    print("服务器已确认本次同步；请在校序「任务 → 微信待审核」中审核。"
+          if records else "服务器已确认设备在线，本次没有待审核任务。")
     return 0
 
 
