@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import {runCloudflareSecondClassCasProbe}
+ from '../functions/api/academic/second-class-cas.js';
+
+const service='https://sec.ncwu.edu.cn/rump_frontend/loginFromCas/';
+const cas='https://authserver.ncwu.edu.cn/authserver/login?service='+encodeURIComponent(service);
+const requests=[];
+const response=(status,body='',headers={})=>new Response(body,{status,headers});
+const fake=async(url,options)=>{
+ const u=new URL(url);
+ requests.push({host:u.hostname,method:options.method});
+ assert.equal(options.method,'GET','CAS public probe must never send credentials');
+ assert.ok(!options.headers.cookie,'no school cookie allowed in public login inspection');
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
+  return response(302,'',{location:'/rump_frontend/login/'});
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/')
+  return response(200,'<a href="'+cas+'">登录</a>');
+ if(u.hostname==='authserver.ncwu.edu.cn')
+  return response(200,'<form method="post" action="/authserver/login">'+
+   '<input name="username"><input type="password" name="password">'+
+   '<input name="execution" value="a" type="hidden">'+
+   '<input name="_eventId" value="submit" type="hidden"></form>');
+ throw Error('Unexpected request');
+};
+const ok=await runCloudflareSecondClassCasProbe({fetcher:fake});
+assert.equal(ok.environment,'cloudflare-pages-functions');
+assert.equal(ok.officialEntryReachable,true);
+assert.equal(ok.casLoginPageReachable,true);
+assert.equal(ok.currentPasswordFormCompatible,true);
+assert.equal(ok.mode,'password_form_verified');
+assert.equal(ok.sessionLinked,false);
+assert.equal(ok.personalRecordsRead,false);
+assert.ok(requests.length>=3);
+
+const timedOut=await runCloudflareSecondClassCasProbe({fetcher:async()=>{throw Error('timeout');}});
+assert.equal(timedOut.officialEntryReachable,false);
+assert.equal(timedOut.casLoginPageReachable,false);
+assert.equal(timedOut.currentPasswordFormCompatible,false);
+assert.equal(timedOut.mode,'upstream_unavailable');
+assert.equal(JSON.stringify(timedOut).includes('timeout'),false);
+
+const challenge=await runCloudflareSecondClassCasProbe({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn')return response(200,
+  '<form method="post" action="/authserver/login">'+
+  '<input name="username"><input name="password" type="password">'+
+  '<input name="captcha"><input name="execution" type="hidden" value="a">'+
+  '<input name="_eventId" type="hidden" value="submit"></form>');
+ return fake(url,options);
+}});
+assert.equal(challenge.officialEntryReachable,true);
+assert.equal(challenge.casLoginPageReachable,true);
+assert.equal(challenge.currentPasswordFormCompatible,false);
+assert.equal(challenge.reason,'interactive_challenge_required');
+assert.equal(challenge.sessionLinked,false);
+console.log('Cloudflare CAS public-only edge probe: public redirect, service binding, challenge and no-session proof passed');
