@@ -52,6 +52,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -294,7 +297,7 @@ private fun ScheduleVerifiedContent(
     }
     var selectedWeek by rememberSaveable { mutableStateOf(ALL_WEEKS) }
     var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
-    var expandedCard by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
     val allowedKeys = remember(data.lessons, selectedWeek) {
@@ -352,9 +355,7 @@ private fun ScheduleVerifiedContent(
         if (weekNumbers.size > 1) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek, onSelect = { selectedWeek = it })
         }
-        val toggle: (String) -> Unit = { key ->
-            expandedCard = if (expandedCard == key) null else key
-        }
+        val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (expanded) {
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 WeekdaySideBar(
@@ -381,8 +382,7 @@ private fun ScheduleVerifiedContent(
                         val lesson = dayLessons[index]
                         LessonCard(
                             lesson = lesson,
-                            expanded = expandedCard == lesson.key,
-                            onToggle = { toggle(lesson.key) }
+                            onOpen = { openCourse(lesson.key) }
                         )
                     }
                     item { ScheduleFooterNote() }
@@ -418,8 +418,7 @@ private fun ScheduleVerifiedContent(
                     val lesson = dayLessons[index]
                     LessonCard(
                         lesson = lesson,
-                        expanded = expandedCard == lesson.key,
-                        onToggle = { toggle(lesson.key) }
+                        onOpen = { openCourse(lesson.key) }
                     )
                 }
                 item { ScheduleFooterNote() }
@@ -428,6 +427,11 @@ private fun ScheduleVerifiedContent(
                 }
             }
         }
+    }
+    // 详情始终从本次已验证的课程集合查找，不保留旧课程快照。
+    val opened = filtered.firstOrNull { it.key == selectedCourseKey }
+    if (opened != null) {
+        CourseDetailBottomSheet(lesson = opened, onDismiss = { selectedCourseKey = null })
     }
 }
 
@@ -766,7 +770,7 @@ private fun NoLessonCard(selectedWeek: Int) {
 }
 
 @Composable
-private fun LessonCard(lesson: LessonUi, expanded: Boolean, onToggle: () -> Unit) {
+private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -775,36 +779,25 @@ private fun LessonCard(lesson: LessonUi, expanded: Boolean, onToggle: () -> Unit
         animationSpec = tween(120),
         label = "card-press"
     )
-    val arrow by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(220, easing = FastOutSlowInEasing),
-        label = "card-arrow"
-    )
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(),
-                onClickLabel = if (expanded) "收起课程详情" else "展开课程详情",
+                onClickLabel = "查看课程详情",
                 role = Role.Button,
                 onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onToggle()
+                    onOpen()
                 }
-            )
-            .animateContentSize(),
+            ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(Modifier.fillMaxWidth()) {
             Box(
-                Modifier
-                    .width(4.dp)
-                    .heightIn(min = 76.dp)
+                Modifier.width(4.dp).heightIn(min = 76.dp)
                     .background(MaterialTheme.colorScheme.primary)
             )
             Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -821,60 +814,106 @@ private fun LessonCard(lesson: LessonUi, expanded: Boolean, onToggle: () -> Unit
                     Icon(
                         imageVector = Icons.Outlined.ExpandMore,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = arrow },
+                        modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.Room,
-                        contentDescription = null,
+                    Icon(Icons.Outlined.Room, contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = lesson.location,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     Spacer(Modifier.width(12.dp))
-                    Icon(
-                        Icons.Outlined.PersonOutline,
-                        contentDescription = null,
+                    Icon(Icons.Outlined.PersonOutline, contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = lesson.teacher,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                AnimatedVisibility(visible = expanded) {
-                    Column {
-                        Spacer(Modifier.height(10.dp))
-                        HorizontalDivider()
-                        Spacer(Modifier.height(10.dp))
-                        DetailRow(label = "周次", value = lesson.weeksLabel)
-                        DetailRow(label = "学期", value = lesson.term)
-                        DetailRow(label = "节次", value = lesson.sectionLabel)
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "内容来自青果可信只读记录，未在本机改动。",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
             }
         }
+    }
+}
+
+/** 真实课程详情：原生模态抽屉，不推断作息时间，不提供未实现的提醒开关。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CourseDetailBottomSheet(lesson: LessonUi, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 22.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = lesson.title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() }
+            )
+            Text(
+                text = "华水青果 · 已验证的只读课程",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            HorizontalDivider()
+            CourseSheetRow("星期", weekdayLong(lesson.weekday))
+            CourseSheetRow("上课教室", lesson.location)
+            CourseSheetRow("任课教师", lesson.teacher)
+            CourseSheetRow("上课周次", lesson.weeksLabel)
+            CourseSheetRow("节次", lesson.sectionLabel)
+            CourseSheetRow("学期", lesson.term)
+            Text(
+                text = "课程详情来自最近一次可信读取；若出现旧数据提示，请先刷新核对。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("关闭详情")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CourseSheetRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.width(90.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
