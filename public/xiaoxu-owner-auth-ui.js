@@ -120,6 +120,18 @@
     event.preventDefault();
     event.stopPropagation();
   });
+  // Save a valid custom duration as the user types, not only on blur.
+  // The profile can be re-rendered by an independent connection refresh
+  // between input and change; otherwise the replacement field resets to 7.
+  document.addEventListener('input', event => {
+    const target = event.target;
+    if (!(target instanceof Element) ||
+        !target.matches('[data-owner-duration-custom]')) return;
+    const raw = target.value.trim();
+    if (!/^[0-9]{1,2}$/.test(raw)) return;
+    const days = Number(raw);
+    if (validDays(days)) chooseDays(days, true);
+  });
   document.addEventListener('change', event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
