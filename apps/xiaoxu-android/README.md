@@ -1,41 +1,44 @@
-# 校序 · Android 安装入口 V0.1（TWA Alpha）
+# 校序 Android V0.2 · Kotlin 原生基座（待 CI 与真机验收）
 
-**定位：可安装的首轮体验包，不是“完整原生 App”，更不是新的教务数据连接器。**
+## 本次变更：从 TWA 入口转为真正的原生 Activity
 
-- 复用生产站点 `https://dorm-os-dk9.pages.dev/`、已有个人账号、真实 Cloudflare API / D1、任务列表与微信审核。
-- 不复制或缓存学校密码、微信 Token；不加 WebView JavaScript bridge；不创建第二套云端账户。
-- 基于 Google `android-browser-helper` 的 Trusted Web Activity (TWA)。优先使用支持 TWA 的手机浏览器；不支持时可能退回 Custom Tab / 浏览器，**不冒充原生页面**。
-- UI 直接取自校序站点：网站更新后 App 同步看到线上界面变化，且只展示已经真实接入的数据。
-- 本版本无系统级定时通知、原生课表小组件、离线学校同步或手机端直接读取微信；仍使用 PC 采集器。
+- 首页、课表、任务、消息、我的使用 Jetpack Compose + Material 3，手机底部导航、平板 NavigationRail。
+- **真正可写的本地任务**：Room 持久化新增、勾选、删除；只统计本机手动任务，断网可用。
+- 课表、学习通、青果、第二课堂均不填充模拟内容。不展示尚未验收的账号为“已连接”。
+- 现有 Cloudflare 网站继续提供真实公开通知、本人授权入口、已上线的私有 API、云端任务和微信人工审核。通过系统浏览器在固定可信站点打开，不复制学校 Cookie 或账号密码。
+- 原 TWA 依赖及非导出 LauncherActivity 暂留作非默认兼容入口；**App 主界面不再是网页套壳**。
+- 不迁移或覆盖旧网站的 D1、PWA 存储与连接器；不删除 TapFlow 的任何代码。
 
-## 构建
+## 上游开源复用
 
-独立项目：`apps/xiaoxu-android`；不影响网站 Cloudflare 部署流程和 TapFlow Kotlin App。
+- AndroidX Jetpack Compose / Material 3 / Activity Compose（Apache-2.0），用于原生 UI 和响应式导航。
+- AndroidX Room 2.8.5（Apache-2.0），用于设备本地数据。
+- Kotlin 2.2.20 + Compose Compiler 插件、KSP2 2.2.20-2.0.4。
+- 原有 Google android-browser-helper 2.7.4（Apache-2.0），暂时保留为兼容能力。
+- 北化课表 APK 仅作交互参考，不直接复制未核查授权的反编译代码；时光课表 / shiguang_warehouse 的具体可复用适配器需继续核对许可、维护和学校兼容性。
 
-要求：JDK 17、Android SDK API 36、Gradle 8.13；使用 Google Maven 依赖（Android Gradle Plugin 8.13.0、Google Android Browser Helper 2.7.4）。
+## 建立环境与构建
+
+需要 JDK 17、Android SDK API 36、Gradle 8.13。独立构建，避免改变 Cloudflare 网站发布：
 
 ```sh
-gradle -p apps/xiaoxu-android :app:assembleDebug
+gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
 ```
 
-也可在 GitHub Actions 手动运行 **Build Xiaoxu Android Alpha**，提取 `xiaoxu-android-alpha-debug` artifact 中的 `app-debug.apk`。
+GitHub Actions：`Build Xiaoxu Android Alpha`，推送 Android 路径变动或手动触发。
+该构建只能验证编译，不证明 Android 16 真机启动、学校个人数据连接或云端生产可用。
 
-Debug APK 是个人体验构建。CI 可能每次用临时调试签名，升级前不要假定能覆盖安装；正式版需在可信环境中配置**固定私有签名密钥**。不要把 keystore 上传到公开仓库。
+## 安全与数据边界
 
-## 正式无浏览器地址栏：必须另行验收
+- 本机 Room 只保存手动创建的普通任务，不保存学校密码、Cookie、微信 Token。
+- 设置 `allowBackup=false`；目前本机任务没有导出/云端同步，卸载 App 可能丢失数据。
+- 原有官网登入会话在浏览器内管理，不会自动回传原生 App；**网页登录成功 ≠ 原生 API 已授权**。
+- 后续接入统一的真实业务接口时，先做好独立安全授权与真实来源验证，不在 App 里新建未经验证的抓取器。
+- 未接入学业数据时 App 明确显示未验证，不把演示课程当真实课表。
 
-TWA 全屏需要 **Digital Asset Links** 双方身份验证。当前代码没有凭空生成 SHA-256 指纹，也没有写假的 `/.well-known/assetlinks.json`：
+## 下一阶段门禁
 
-1. 先确定不再变化的正式 `applicationId` 与用户持有的正式签名密钥。
-2. 从正式签名证书提取 SHA-256 指纹，在现有校序网站 `public/.well-known/assetlinks.json` 部署准确声明（`delegate_permission/common.handle_all_urls`）。
-3. 对正式 APK 与 `https://dorm-os-dk9.pages.dev/.well-known/assetlinks.json` 验证匹配；在用户 Android 16 真机测无地址栏/登录/任务/通知/离线降级。
-4. 未完成时仍可能显示浏览器地址栏，不能宣称 TWA 信任校验成功。
-
-官方参考：https://developer.android.com/develop/ui/views/layout/webapps/trusted-web-activities
-上游依赖：https://github.com/GoogleChrome/android-browser-helper（Apache-2.0）。
-
-## 进入原生阶段之前的验收门禁
-
-- 本人校序登录后：真实通知可查看，微信待审核正常读取、**必须手动确认**才能入任务；未连接学校数据显示“未连接”。
-- 学习通本人真实课程/作业、青果课表、二课活动/积分仍与网站共用相同验收门禁，不能用 Android 合成数据覆盖。
-- 真机通过后，按功能优先级逐项加入 **原生通知/小组件 → 原生任务和课表 UI → 本地安全缓存**；必要时再评估 Kotlin/Compose 主体迁移，不另外开发学校接口。
+1. CI `assembleDebug` 实际成功，Android 16 设备安装、旋转及平板检查。
+2. 本机任务增删完成与断网、重启恢复；不得影响网站上的原有任务。
+3. 优先打通学习通 **官方登录 → 本人真实课程/作业 → 退出重进再次刷新**。
+4. 然后青果真实课表、第二课堂活动/积分；最后再接通知、桌面组件与本地/云端选择性同步。
