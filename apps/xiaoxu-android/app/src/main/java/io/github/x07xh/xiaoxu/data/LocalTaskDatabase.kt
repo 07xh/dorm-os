@@ -67,9 +67,32 @@ internal val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [LocalTask::class], version = 2, exportSchema = false)
+/**
+ * v2 -> v3: Create a SECOND TABLE in the SAME existing Room database. Existing
+ * task rows and v1->v2 migration remain untouched. No duplicate database,
+ * school password, token or raw WebView cookie is ever persisted.
+ */
+internal val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS native_school_records (
+                provider TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                title TEXT NOT NULL,
+                details TEXT NOT NULL,
+                sourceHost TEXT NOT NULL,
+                capturedAt INTEGER NOT NULL,
+                PRIMARY KEY(provider, kind, fingerprint)
+            )
+        """.trimIndent())
+    }
+}
+
+@Database(entities = [LocalTask::class, NativeSchoolRecord::class], version = 3, exportSchema = false)
 abstract class LocalTaskDatabase : RoomDatabase() {
     abstract fun tasks(): LocalTaskDao
+    abstract fun nativeSchoolRecords(): NativeSchoolRecordDao
 
     companion object {
         @Volatile private var instance: LocalTaskDatabase? = null
@@ -80,7 +103,7 @@ abstract class LocalTaskDatabase : RoomDatabase() {
                     context.applicationContext,
                     LocalTaskDatabase::class.java,
                     "xiaoxu-local-tasks.db"
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }

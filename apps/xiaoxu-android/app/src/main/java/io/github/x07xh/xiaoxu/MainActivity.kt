@@ -91,6 +91,14 @@ class MainActivity : ComponentActivity() {
                     openLocalImport = {
                         startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
                     },
+                    openLocalSchool = { provider ->
+                        if (provider == "ncwu") {
+                            startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
+                        } else if (provider == "chaoxing" || provider == "second_class") {
+                            startActivity(Intent(this@MainActivity, NativeSchoolConnectActivity::class.java)
+                                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider))
+                        }
+                    },
                     consumeWebsiteReturn = {
                         val pending = shouldRefreshAfterWebsite
                         shouldRefreshAfterWebsite = false
@@ -136,6 +144,7 @@ private fun NativeShell(
     appLifecycle: Lifecycle,
     localLessons: List<VerifiedLesson>,
     openLocalImport: () -> Unit,
+    openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
@@ -214,7 +223,7 @@ private fun NativeShell(
                             localLessons = localLessons, openLocalImport = openLocalImport)
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
+                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud, openLocalSchool)
                     }
                 }
             }
@@ -262,10 +271,12 @@ private fun MessagesPage(
 }
 
 @Composable
-private fun ConnectionsPage(openWebsite: () -> Unit, cloud: CloudClient) {
+private fun ConnectionsPage(
+    openWebsite: () -> Unit, cloud: CloudClient, openLocalSchool: (String) -> Unit
+) {
     Content {
-        item { Heading("我的", "本机优先、云端可选，学校登录保持独立") }
-        item { ConnectionsPanel(cloud, openWebsite) }
+        item { Heading("我的", "本机连接三个平台，云端用于跨设备与消息") }
+        item { ConnectionsPanel(cloud, openWebsite, openLocalSchool) }
         // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }
         // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。

@@ -320,6 +320,7 @@ fun RealAcademicTaskHub(
             Text("学习通真实读取", style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold)
         }
+        item { LocalSchoolRecordSection(setOf("course", "homework", "activity", "credits")) }
         item { ChaoxingHomeworkPanel(client, openWebsite) }
         item {
             OutlinedButton(onClick = { showLocal = !showLocal }) {

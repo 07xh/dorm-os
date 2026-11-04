@@ -115,13 +115,22 @@ fun CloudTasksPanel(client: CloudClient) {
 }
 
 @Composable
-fun ConnectionsPanel(client: CloudClient, openWebsite: () -> Unit) {
+fun ConnectionsPanel(
+    client: CloudClient, openWebsite: () -> Unit, openLocalSchool: (String) -> Unit
+) {
     val state = client.state
     val scope = rememberCoroutineScope()
     // Never save the passphrase across configuration changes.
     var passphrase by remember { mutableStateOf("") }
+    var cloudAdvanced by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("校序云端", style = MaterialTheme.typography.titleLarge,
+        LocalSchoolConnectionPanel(openLocalSchool)
+        HorizontalDivider()
+        TextButton(onClick = { cloudAdvanced = !cloudAdvanced }) {
+            Text(if (cloudAdvanced) "收起可选云端连接" else "可选：校序云端连接与旧版学校适配")
+        }
+        if (cloudAdvanced) {
+        Text("校序云端（可选）", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
         Text(state.authMessage,
             style = MaterialTheme.typography.bodyMedium,
@@ -235,5 +244,6 @@ fun ConnectionsPanel(client: CloudClient, openWebsite: () -> Unit) {
         if (state.privateError != null) {
             Text(state.privateError, color = MaterialTheme.colorScheme.error)
         }
+        } // optional Cloudflare-based school connector management
     }
 }
