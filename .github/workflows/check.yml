@@ -32,6 +32,9 @@ jobs:
           node-version: '22'
       - name: Install pinned browser testing tools
         run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Inspect sanitized public school form structure
+        continue-on-error: true
+        run: node scripts/probe-sanitized-cas-form.mjs
       - name: Install Chromium test runtime
         run: npx playwright install --with-deps chromium
       - name: Syntax, security and logic tests
