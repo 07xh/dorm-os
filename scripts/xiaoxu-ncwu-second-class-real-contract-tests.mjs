@@ -191,6 +191,11 @@ const firstEmpty=await runVerifiedNcwuSecondClassSync(db,'owner-c',adapter({
  emptyActivities:true,verifiedAccount:{...verified,principalBoundTo:'owner-c'}
 }),opts);
 assert.equal(firstEmpty.activityCount,0);
+const emptyAgain=await runVerifiedNcwuSecondClassSync(db,'owner-c',adapter({
+ emptyActivities:true,verifiedAccount:{...verified,principalBoundTo:'owner-c'}
+}),opts);
+assert.equal(emptyAgain.activityCount,0,
+ 'repeat verified zero-activity sync must not be blocked by an empty prior batch');
 await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-b',adapter({badPage:true}),opts));
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM academic_users WHERE id='owner-b'").get().n,0);
 assert.deepEqual(sql.prepare('PRAGMA foreign_key_check').all(),[]);
