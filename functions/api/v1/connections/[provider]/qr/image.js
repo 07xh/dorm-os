@@ -29,9 +29,14 @@ export async function onRequestPost(context){
   if(count.hits>20)return json({error:'too_many_attempts'},429);
   const challenge=await unsealChaoxingQrChallenge({ticket:input.ticket,
    userId:auth.userId,secret:context.env?.SCHOOL_SESSION_KEY});
-  const png=await adapter.readQrImage({challenge});
-  return new Response(png,{status:200,headers:{
-   'content-type':'image/png','cache-control':'private, no-store',
+  const image=await adapter.readQrImage({challenge});
+  if(!['image/png','image/jpeg','image/svg+xml'].includes(image?.contentType)||
+     !['official','local'].includes(image?.source)||
+     !(typeof image.body==='string'||image.body instanceof Uint8Array))
+   return json({error:'upstream_unavailable'},502);
+  return new Response(image.body,{status:200,headers:{
+   'content-type':image.contentType,'cache-control':'private, no-store',
+   'x-xu-qr-source':image.source,
    'x-content-type-options':'nosniff','content-security-policy':"default-src 'none'",
    'referrer-policy':'no-referrer'
   }});
