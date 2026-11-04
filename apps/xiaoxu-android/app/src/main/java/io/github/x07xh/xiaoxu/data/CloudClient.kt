@@ -629,8 +629,7 @@ class CloudClient(context: Context) {
             }
             if (conn.responseCode != 200) throw IllegalStateException("image_unavailable")
             val type = (conn.contentType ?: "").substringBefore(';').trim().lowercase()
-            if (type == "image/svg+xml") throw IllegalStateException("svg_not_supported")
-            if (type != "image/png" && type != "image/jpeg")
+            if (type !in setOf("image/png", "image/jpeg", "image/svg+xml"))
                 throw IllegalStateException("invalid_image_type")
             val result = java.io.ByteArrayOutputStream()
             val buffer = ByteArray(8192)
@@ -645,6 +644,9 @@ class CloudClient(context: Context) {
             }
             val bytes = result.toByteArray()
             if (bytes.size < 64) throw IllegalStateException("image_too_small")
+            // School sometimes returns the strictly generated fallback SVG.
+            // Convert in memory without ever embedding untrusted SVG in WebView.
+            if (type == "image/svg+xml") return NativeQrSvgRenderer.rasterize(bytes)
             val png = bytes.size >= 8 && bytes.sliceArray(0 until 8)
                 .contentEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10))
             val jpeg = bytes.size >= 3 && bytes[0] == -1.toByte() &&
@@ -694,9 +696,8 @@ class CloudClient(context: Context) {
         } catch (e: Exception) {
             if (epoch == sessionEpoch && generation == qrGeneration)
                 state = state.copy(chaoxingQr = ChaoxingQrUi(
-                    status = "failed", message = if (e.message == "svg_not_supported")
-                        "仅取得备用 SVG 二维码，请使用网页备用连接"
-                    else "二维码无法可信读取；未建立学校连接，请使用网页备用连接"))
+                    status = "failed",
+                    message = "二维码无法可信读取；未建立学校连接，请使用网页备用连接"))
         }
     }
 
