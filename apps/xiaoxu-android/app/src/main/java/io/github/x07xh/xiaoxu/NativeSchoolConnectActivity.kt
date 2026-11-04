@@ -42,12 +42,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROVIDER = "provider"
         private val entries = mapOf(
-            "ncwu" to "https://jwmis.ncwu.edu.cn/",
             "chaoxing" to "https://i.chaoxing.com/base",
             "second_class" to "https://dekt.ncwu.edu.cn/"
         )
         private val schools = setOf(
-            "jwmis.ncwu.edu.cn", "authserver.ncwu.edu.cn",
+            "authserver.ncwu.edu.cn",
             "sec.ncwu.edu.cn", "dekt.ncwu.edu.cn"
         )
         private val chaoxing = setOf(
@@ -62,12 +61,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             val host = uri.host?.lowercase() ?: return false
             return when (provider) {
                 "chaoxing" -> host in chaoxing
-                "ncwu", "second_class" -> host in schools
+                "second_class" -> host in schools
                 else -> false
             }
         }
         fun extractionAllowed(provider: String, host: String?): Boolean = when (provider) {
-            "ncwu" -> host == "jwmis.ncwu.edu.cn"
             "second_class" -> host == "dekt.ncwu.edu.cn"
             "chaoxing" -> host in setOf(
                 "mooc2-ans.chaoxing.com", "mooc1.chaoxing.com", "kb.chaoxing.com")
@@ -222,7 +220,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 val kind = payload.optString("kind")
                 val kinds = when (provider) {
-                    "ncwu" -> setOf("schedule")
                     "chaoxing" -> setOf("course", "homework")
                     "second_class" -> setOf("activity", "credits")
                     else -> emptySet()
@@ -297,8 +294,7 @@ private const val READ_VISIBLE_PAGE = """
       docs.push(frame.contentDocument); } catch (_) {}
   });
   const onScreen = node => !!(node && node.getClientRects().length);
-  const provider = host === 'jwmis.ncwu.edu.cn' ? 'ncwu' :
-    host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
+  const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
   const rows = [];
   let kind = '';
   for (const doc of docs) {
@@ -309,19 +305,17 @@ private const val READ_VISIBLE_PAGE = """
       const header = Array.from(trs[0].querySelectorAll('th,td')).map(el => clean(el.innerText));
       if (header.length < 2 || header.length > 18) continue;
       const compact = header.map(s => s.replace(/\s/g,''));
-      const matching = provider === 'ncwu'
-        ? compact.some(h => /课程名称|课程名|教学班/.test(h))
-        : provider === 'second_class'
-          ? compact.some(h => /活动名称|项目名称|积分|学时|第二课堂/.test(h))
-          : compact.some(h => /作业名称|课程名称|课程名|作业|任务名称/.test(h));
+      const matching = provider === 'second_class'
+        ? compact.some(h => /活动名称|项目名称|积分|学时|第二课堂/.test(h))
+        : compact.some(h => /作业名称|课程名称|课程名|作业|任务名称/.test(h));
       if (!matching) continue;
-      const foundKind = provider === 'ncwu' ? 'schedule' :
-        provider === 'second_class'
-          ? (compact.some(h => /积分|学时|成绩/.test(h)) ? 'credits' : 'activity')
-          : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
+      const foundKind = provider === 'second_class'
+        ? (compact.some(h => /积分|学时|成绩/.test(h)) ? 'credits' : 'activity')
+        : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
       if (kind && foundKind !== kind) continue;
       const titleIndex = compact.findIndex(h => /课程名称|课程名|作业名称|活动名称|项目名称|任务名称/.test(h));
-      const first = titleIndex >= 0 ? titleIndex : compact.findIndex(h => /^(课程|作业|活动|名称)$/.test(h));
+      const first = titleIndex >= 0 ? titleIndex :
+        compact.findIndex(h => /^(课程|作业|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
       if (first < 0) continue;
       kind = foundKind;
       for (const tr of trs.slice(1,121)) {
