@@ -171,6 +171,32 @@ class CollectorTests(TestCase):
                 "https://dorm-os-dk9.pages.dev", "wxu_"+"x"*43, payload
             )["received"], 1)
 
+    def test_verify_checks_device_without_reading_messages_or_moving_cursor(self):
+        with TemporaryDirectory() as temp:
+            old_state = bridge.STATE
+            bridge.STATE = Path(temp) / "checkpoints.json"
+            cfg = {
+                "site": "https://dorm-os-dk9.pages.dev",
+                "deviceId": "wxd_" + "a"*24,
+                "chats": ["合成群聊"],
+                "tokenDpapi": "protected-token",
+                "hmacDpapi": "protected-hmac",
+            }
+            try:
+                with patch.object(bridge, "load_config", return_value=cfg), \
+                     patch.object(bridge, "opened", side_effect=[
+                         ("wxu_"+"b"*43).encode(), b"local-hmac"
+                     ]), \
+                     patch.object(bridge, "extract_groups") as scan, \
+                     patch.object(bridge, "submit", return_value={"received": 0}) as send:
+                    bridge.main(["verify"])
+                    scan.assert_not_called()
+                    payload = send.call_args.args[2]
+                    self.assertEqual(payload["records"], [])
+                    self.assertEqual(payload["deviceId"], cfg["deviceId"])
+                    self.assertFalse(bridge.STATE.exists())
+            finally:
+                bridge.STATE = old_state
     def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
         import io
         from urllib.error import HTTPError
