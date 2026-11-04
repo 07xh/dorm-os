@@ -86,7 +86,10 @@ data class CloudUiState(
     val chaoxingError: String? = null,
     val chaoxingDetailBusy: Boolean = false,
     val chaoxingPreview: ChaoxingWorkPreview? = null,
-    val chaoxingDetailError: String? = null
+    val chaoxingDetailError: String? = null,
+    val secondClass: SecondClassSnapshot? = null,
+    val secondClassBusy: Boolean = false,
+    val secondClassError: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -232,7 +235,8 @@ class CloudClient(context: Context) {
             state = emptyChaoxing().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
-                privateError = null, lastSyncAt = null)
+                privateError = null, lastSyncAt = null,
+                secondClass = null, secondClassError = null, secondClassBusy = false)
             return
         }
         try {
@@ -244,7 +248,8 @@ class CloudClient(context: Context) {
                 session.clear()
                 state = emptyChaoxing().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
-                    lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null)
+                    lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
+                    secondClass = null, secondClassError = null, secondClassBusy = false)
                 return
             }
             if (auth.code != 200 || !auth.json.optBoolean("authenticated")) {
@@ -350,6 +355,47 @@ class CloudClient(context: Context) {
             privateError = if (failed.isEmpty()) null else failed.joinToString("、") + "刷新失败，部分结果可能过期",
             lastSyncAt = if (failed.isEmpty()) Instant.now().toString() else state.lastSyncAt
         )
+        loadSecondClass()
+    }
+
+    /**
+     * Reads the existing owner-protected D1 snapshot only.
+     * No campus login, school API probe, background polling or status mutation.
+     */
+    suspend fun loadSecondClass() {
+        if (!state.authenticated || state.secondClassBusy) return
+        val epoch = sessionEpoch
+        state = state.copy(secondClassBusy = true, secondClassError = null)
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/second-class", authenticated = true)
+            }
+            if (epoch != sessionEpoch) return
+            if (response.code == 401) {
+                session.clear()
+                state = emptyChaoxing().copy(
+                    authenticated = false,
+                    authMessage = "校序会话已过期，请重新连接",
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    lessons = emptyList(), scheduleStatus = "not_connected",
+                    secondClass = null, secondClassError = null, secondClassBusy = false
+                )
+                return
+            }
+            if (response.code != 200) throw IllegalStateException("secondclass_http_error")
+            val snapshot = parseSecondClassSnapshot(response.json)
+            state = state.copy(secondClass = snapshot, secondClassError = null)
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) {
+                state = state.copy(
+                    secondClassError = if (state.secondClass == null)
+                        "第二课堂个人记录读取失败，无法确认是否已连接"
+                        else "第二课堂刷新失败；展示的是上次读取的数据，不代表实时信息"
+                )
+            }
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(secondClassBusy = false)
+        }
     }
 
     private fun emptyChaoxing(): CloudUiState = state.copy(
@@ -652,7 +698,10 @@ class CloudClient(context: Context) {
                     session.save(token, r.json.getString("expiresAt"))
                 }
                 sessionEpoch++
-                state = emptyChaoxing().copy(authenticated = true, authMessage = "校序云端连接成功")
+                state = emptyChaoxing().copy(
+                    authenticated = true, authMessage = "校序云端连接成功",
+                    secondClass = null, secondClassError = null, secondClassBusy = false
+                )
                 refreshPrivate()
                 true
             }
@@ -691,6 +740,7 @@ class CloudClient(context: Context) {
         state = state.copy(authenticated = false, authMessage = "已退出校序云端",
             tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
             lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
-            privateError = null, lastSyncAt = null)
+            privateError = null, lastSyncAt = null,
+            secondClass = null, secondClassError = null, secondClassBusy = false)
     }
 }
