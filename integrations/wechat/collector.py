@@ -90,7 +90,7 @@ def save_json(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     try:
-        with tmp.open("x", encoding="utf-8") as f:
+        with tmp.open("w", encoding="utf-8") as f:
             json.dump(value, f, ensure_ascii=False, separators=(",", ":"))
         os.replace(tmp, path)
     finally:
@@ -207,7 +207,10 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
                                 continue
                             _, body = _parse_message_content(raw, local_type, True)
                             # Stable source identity: installed reader table + message ID.
-                            yield (str(table["table_name"]), int(local_id), int(ts), body)
+                            # Include the stable source shard path privately; local IDs
+                            # may repeat across separate message_*.db partitions.
+                            shard = str(table["db_path"]) + "/" + str(table["table_name"])
+                            yield (shard, int(local_id), int(ts), body)
                         if len(rows) < PAGE:
                             break
                         offset += len(rows)
