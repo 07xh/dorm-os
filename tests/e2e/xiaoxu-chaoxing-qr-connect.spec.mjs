@@ -37,8 +37,12 @@ test('server-rendered fallback SVG replaces the blank QR and still checks offici
    expiresAt:new Date(Date.now()+100000).toISOString()
   })
  }));
- await page.route('**/api/v1/connections/chaoxing/qr/image',route=>{
+ await page.route('**/api/v1/connections/chaoxing/qr/image',async route=>{
   expect(route.request().postDataJSON()).toEqual({ticket});
+  // Re-render the school status while the trusted image request is still
+  // in flight: the pending QR must attach to the new DOM, not a detached row.
+  await page.evaluate(()=>window.dispatchEvent(
+    new Event('xiaoxu-school-connection-updated')));
   return route.fulfill({status:200,contentType:'image/svg+xml',
    headers:{'x-xu-qr-source':'local','cache-control':'private, no-store'},
    body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="white"/><path d="M12 12h76v76H12z" fill="black"/></svg>'});
