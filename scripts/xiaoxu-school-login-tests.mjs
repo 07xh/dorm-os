@@ -19,6 +19,11 @@ assert.equal(new SchoolLoginError('authorization_failed','cas_return','login_pag
 for(const reason of ['cas_request_rejected','cas_rate_limited','cas_server_failure'])
  assert.equal(new SchoolLoginError('authorization_failed','cas_return',reason).casReturnReason,reason);
 assert.equal(new SchoolLoginError('authorization_failed','cas_return','PRIVATE_DETAIL').casReturnReason,undefined);
+for(const host of ['cas_auth_server','second_class_callback','second_class_portal'])
+ assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure',host).casReturnHost,host);
+assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure','https://private.example/ticket').casReturnHost,undefined);
+assert.equal(new SchoolLoginError('authorization_failed','personal_data','cas_server_failure','cas_auth_server').casReturnHost,undefined);
+assert.equal(new SchoolLoginError('invalid_credentials','cas_return','cas_server_failure','cas_auth_server').casReturnHost,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
@@ -88,14 +93,16 @@ assert.equal(credentialCalls,0,'missing server secret never processes credential
 // Only the second-class login may preserve fixed non-sensitive failure phases.
 const phaseFailureAdapter={provider:'second_class',
  async login(){throw Object.assign(new Error('opaque private upstream error'),
-  {code:'authorization_failed',failureStage:'cas_return',casReturnReason:'login_page_remained'});},
+  {code:'authorization_failed',failureStage:'cas_return',casReturnReason:'login_page_remained',
+   casReturnHost:'cas_auth_server'});},
  async forSession(){throw Error('must not read when login failed');}
 };
 await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
  provider:'second_class',adapter:phaseFailureAdapter,username:'official-student-account',
  password:'ephemeral-school-password',secret}),
  e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained');
+ e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained'&&
+ e.casReturnHost==='cas_auth_server');
 
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,
