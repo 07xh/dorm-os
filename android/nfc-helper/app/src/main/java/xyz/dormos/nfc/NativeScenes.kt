@@ -38,6 +38,16 @@ internal object NativeSceneRules {
         return id.takeIf { path == "/$id" && idPattern.matches(it) }
     }
     fun uri(id: String): String = "tapflow://scene/$id"
+
+    /** Reuse an existing NDEF scene address in this installation without rewriting the tag.
+     *  The imported identifier grants no authority: physical NDEF verification and local
+     *  scene configuration are still required before any NFC action can run.
+     */
+    fun existingTagSceneId(value: String): String? {
+        val input = value.trim()
+        if (input.length > 160) return null
+        return input.takeIf { idPattern.matches(it) } ?: sceneId(input)
+    }
     fun valid(scene: NativeScene): Boolean {
         if (!idPattern.matches(scene.id) || scene.name.isBlank() ||
             scene.name.length > 50 || scene.actions.isEmpty() || scene.actions.size > 12) return false
