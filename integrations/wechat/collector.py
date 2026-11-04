@@ -269,8 +269,10 @@ def submit(site: str, token: str, payload: dict) -> dict:
         raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查数据库迁移和设备权限") from None
     except urllib.error.URLError:
         raise BridgeError("网络连接失败：校序云端暂时无法访问") from None
-    if result.get("reviewStatus") != "needs_review":
-        raise BridgeError("云端响应格式异常；未推进同步游标")
+    if (result.get("reviewStatus") != "needs_review" or
+            type(result.get("received")) is not int or
+            result["received"] != len(payload.get("records", []))):
+        raise BridgeError("云端确认数量或状态异常；未推进同步游标")
     return result
 
 
