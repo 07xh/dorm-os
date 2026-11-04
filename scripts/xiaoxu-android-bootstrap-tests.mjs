@@ -286,7 +286,88 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.1'/);
+assert.match(appGradle, /versionName '0\.7\.2'/);
+
+/* Official-page local readable content, tested only with synthetic DOM.
+ * This never claims real account login or exercises hidden school APIs. */
+assert.match(localNative, /CHAOXING_HOMEWORK/);
+assert.match(localNative, /"学习通 · 打开我的作业"/);
+assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
+assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
+assert.match(localNative, /li\[onclick\*="goTask"\]/);
+assert.match(localNative, /p\.overHidden2\.fl/);
+assert.match(localNative, /p\.status\.fl/);
+assert.match(localNative, /foundKind === 'homework'/);
+assert.doesNotMatch(localNative, /getAttribute\(['"]data['"]\)/);
+const inlineMatch = localNative.match(/private const val READ_VISIBLE_PAGE = """([\s\S]*?)"""/);
+assert.ok(inlineMatch, 'on-device readonly DOM script must be testable');
+const inlineScript = inlineMatch[1];
+function fixtureDocument({table=null,li=[],courses=[]}={}) {
+    return {
+      querySelectorAll(selector) {
+        if(selector==='iframe')return [];
+        if(selector==='table')return table?[table]:[];
+        if(selector==='li[onclick*="goTask"]')return li;
+        if(selector.includes('.course-name'))return courses;
+        return [];
+      }
+    };
+}
+const visible = node => ({...node,getClientRects:()=>[{}]});
+function parseNativePage(doc, host, pathname) {
+  const returned=runInNewContext(inlineScript,{document:doc,
+    location:{hostname:host,pathname,origin:'https://'+host}});
+  return JSON.parse(returned);
+}
+const workLi=visible({
+  querySelector(sel) {
+    if(sel==='p.overHidden2.fl')return {innerText:'工程制图 第三次作业'};
+    if(sel==='p.status.fl')return {innerText:'未提交'};
+    return null;
+  }
+});
+const workResult=parseNativePage(fixtureDocument({li:[workLi]}),
+ 'mooc1.chaoxing.com','/mooc2/work/list');
+assert.equal(workResult.kind,'homework');
+assert.equal(workResult.records.length,1);
+assert.equal(workResult.records[0].title,'工程制图 第三次作业');
+assert.match(workResult.records[0].details,/未提交/);
+assert.ok(!JSON.stringify(workResult).includes('workEnc'));
+const courseTitle=visible({getAttribute(key){return key==='title'?'高等数学':null;},innerText:'高等数学'});
+const courseResult=parseNativePage(fixtureDocument({courses:[courseTitle]}),
+ 'mooc2-ans.chaoxing.com','/mooc2-ans/visit/courselistdata');
+assert.equal(courseResult.kind,'course');
+assert.equal(courseResult.records[0].title,'高等数学');
+function nativeTable(headers,cells) {
+ const column=text=>({innerText:text});
+ const headerRow=visible({
+   querySelectorAll(selector) {return selector==='th,td'?headers.map(column):[];}
+ });
+ const contentRow=visible({
+   querySelectorAll(selector) {
+     return selector===':scope > th,:scope > td'?cells.map(column):[];
+   }
+ });
+ return visible({querySelectorAll(s){return s==='tr'?[headerRow,contentRow]:[];}});
+}
+const homeworkOverview=parseNativePage(fixtureDocument({
+ table:nativeTable(['课程名称','作业名称','提交状态'],['高数','作业测试','未交'])
+}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(homeworkOverview.kind,'homework');
+assert.equal(homeworkOverview.records[0].title,'作业测试',
+ 'must prefer homework column, not course column');
+assert.match(homeworkOverview.records[0].details,/高数/);
+const activityWithPoints=parseNativePage(fixtureDocument({
+ table:nativeTable(['活动名称','积分'],['校园公益活动','2'])
+}), 'dekt.ncwu.edu.cn','/student/activities');
+assert.equal(activityWithPoints.kind,'activity',
+ 'activity point column is not cumulative credit statement');
+const creditRows=parseNativePage(fixtureDocument({
+ table:nativeTable(['积分项目','积分'],['实践活动','2'])
+}), 'dekt.ncwu.edu.cn','/student/credits');
+assert.equal(creditRows.kind,'credits');
+assert.equal(parseNativePage(fixtureDocument(),
+ 'mooc1.chaoxing.com','/mooc2/work/list').records.length,0);
 
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
 const importer = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/LocalQingguoImportActivity.kt');
