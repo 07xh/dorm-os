@@ -30,18 +30,19 @@ assert.match(yaml,/if \[ "\$GITHUB_EVENT_NAME" = "workflow_dispatch" \]; then\s*
 assert.ok(yaml.indexOf('needs: verify')>yaml.indexOf('jobs:\n  verify:'));
 assert.ok(!/^on:\s*\n\s*push:/m.test(yaml),'must not run duplicate E2E suite directly on push');
 
-// A public notice archive commit already triggers the trusted main CI -> Pages
-// workflow_run path. Do not also issue workflow_dispatch (which skips that
-// exact CI-success trigger and causes a redundant production deployment).
+// GitHub Actions `GITHUB_TOKEN` pushes do NOT trigger another push workflow.
+// The notice collector therefore MUST explicitly workflow_dispatch the trusted
+// Pages release after a verified archive commit. Manual Pages dispatch runs its
+// own npm check + E2E before publishing, while ordinary pushes use main CI.
 const notices=readFileSync(new URL('../.github/workflows/collect-ncwu-notices.yml',import.meta.url),'utf8');
-assert.ok(!notices.includes('gh workflow run deploy-cloudflare.yml'),
- 'NCWU notice collector must not directly dispatch another Pages deploy');
-assert.ok(!/^\s*actions:\s*write\s*$/m.test(notices),
- 'notice collector no longer needs privileged Actions write permission');
-assert.ok(!notices.includes('id: archive')&&!notices.includes('$GITHUB_OUTPUT'),
- 'dead notice collector output wiring should remain removed');
 assert.match(notices,/git push origin HEAD:main/,
- 'verified public archive still commits changes that trigger main CI');
+ 'verified notice archive must remain committed to main');
+assert.match(notices,/gh workflow run deploy-cloudflare\.yml --ref main/,
+ 'bot-authored archive pushes need explicit workflow_dispatch to become visible');
+assert.match(notices,/if: steps\.archive\.outputs\.changed == 'true'/,
+ 'only actual notice changes should trigger a Pages deploy');
+assert.match(notices,/actions:\s*write/,
+ 'the collector needs Actions write to dispatch the Pages workflow');
 for(const [name,path] of [
  ['one-time D1 bootstrap','../.github/workflows/bootstrap-academic-d1.yml'],
  ['legacy owner auth upgrade','../.github/workflows/upgrade-owner-auth-d1.yml']
