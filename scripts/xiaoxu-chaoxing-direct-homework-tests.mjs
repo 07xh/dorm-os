@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
- parseChaoxingWorkList,safeChaoxingWorkUrl} from '../lib/academic-chaoxing-work-discovery.mjs';
+ parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
 globalThis.crypto??=webcrypto;
 const courseHtml='<a href="/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"></a>'+
@@ -32,7 +32,7 @@ for(const url of [
 ])assert.throws(()=>safeChaoxingWorkUrl(url,{courseId:'123',classId:'456'}));
 assert.throws(()=>parseChaoxingCourseList('<body>登录超星</body>'),e=>e.code==='courses_unverified');
 const profile='<div aria-label="账号：虚构测试人"></div>'+
- '<div id="siteName" title="华北水利水电大学"></div><script>var uid = "1234567";</script>';
+ '<div id="siteName" title="华北水利水电大学"></div><script>var uid = "1234567";var fid = "427";</script>';
 const requests=[];
 const response=s=>new Response(s,{status:200,headers:{'content-type':'text/html'}});
 async function fakeFetch(raw,options){
@@ -40,7 +40,12 @@ async function fakeFetch(raw,options){
  requests.push({path,host:u.hostname,method:options.method,
   cookie:options.headers.get('cookie'),query:u.searchParams});
  if(path==='/base')return response(profile);
- if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/mooc2-ans/visit/courselistdata'){
+  assert.equal(u.searchParams.get('courseType'),'1');
+  assert.equal(u.searchParams.get('courseFid'),'427');
+  assert.equal(u.searchParams.get('courseTeacherid'),'0');
+  return response(courseHtml);
+ }
  if(path==='/visit/stucoursemiddle')return response(middle);
  if(path==='/mooc2/work/list'){
   assert.equal(u.searchParams.get('enc'),'signedWork');
@@ -63,9 +68,16 @@ await assert.rejects(()=>read.readHomeworkList({courseId:'999',classId:'456',cpi
 const list=await read.readHomeworkList({courseId:'123',classId:'456',cpi:'789'});
 assert.equal(list.items.length,1);
 assert.equal(list.items[0].workId,'987');
+assert.equal(list.items[0].statusCode,'todo');
+assert.equal(list.items[0].platformVerified,true);
+for(const [label,code] of [
+ ['未提交','todo'],['待评阅','submitted'],['已提交','submitted'],
+ ['已评分','graded'],['退回重做','returned'],['','unknown'],['待开放','unknown']
+])assert.equal(classifyChaoxingWorkStatus(label),code);
 assert.ok(!JSON.stringify(list).includes('signedTask'));
 const detail=await read.readHomeworkDetail({courseId:'123',classId:'456',cpi:'789',workId:'987'});
 assert.equal(detail.questionsAvailable,true);
+assert.equal(detail.statusCode,'todo');
 assert.equal(detail.questions.length,1);
 assert.equal(detail.questions[0].options.length,2);
 assert.ok(!JSON.stringify(detail).includes('隐藏答案'));
@@ -74,3 +86,12 @@ assert.ok(!JSON.stringify(detail).includes('sandbox-session'));
 assert.ok(requests.every(x=>x.method==='GET'));
 assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
+
+const missingFidProfile='<div aria-label="账号：虚构测试人"></div>'+
+ '<div id="siteName" title="华北水利水电大学"></div><script>var uid = "1234567";</script>';
+const noFid=createChaoxingSchoolAdapter({fetchImpl:async(url,options)=>
+ new Response(missingFidProfile)});
+const noFidReader=await noFid.forSession({session,userId:'owner1'});
+await noFidReader.verifySession();
+await assert.rejects(()=>noFidReader.readCourses(),e=>e.code==='courses_unverified',
+ 'missing school Fid must not return anonymous/wrong-school courses');
