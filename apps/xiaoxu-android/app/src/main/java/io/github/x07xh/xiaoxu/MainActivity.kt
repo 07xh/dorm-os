@@ -147,10 +147,8 @@ private fun NativeShell(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text("校序", fontWeight = FontWeight.SemiBold)
-                            Text("Academic OS · Android", style = MaterialTheme.typography.labelSmall)
-                        }
+                        Text("校序", fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleLarge)
                     },
                     actions = {
                         IconButton(onClick = { scope.launch { cloud.refresh() } },
