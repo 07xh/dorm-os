@@ -66,6 +66,19 @@ await refused(ingestWechatCandidates(db,device,{...batch,deviceId:str('x')}),'de
 await refused(ingestWechatCandidates(db,device,{...batch,batchId:str('z'),records:[
  {...batch.records[0],cookie:'do not persist'}
 ]}),'record_invalid');
+// A scan with no task candidates is still an authenticated network heartbeat.
+const heartbeat={...batch,batchId:str('h'),capturedAt:'2026-11-04T13:00:00+08:00',records:[]};
+const hb=await ingestWechatCandidates(db,device,heartbeat);
+assert.equal(hb.received,0);
+assert.equal(hb.inserted,0);
+assert.equal(hb.duplicateBatch,false);
+assert.equal((await ingestWechatCandidates(db,device,heartbeat)).duplicateBatch,true);
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidates'
+).get().n,1,'heartbeat must not invent tasks');
+assert.ok(sqlite.prepare(
+ 'SELECT last_seen_at FROM academic_wechat_devices WHERE id=?'
+).get(device.id)?.last_seen_at,'heartbeat updates verified last sync time');
 const http=await ingestRoute({env:{ACADEMIC_DB:db},request:new Request(
  'https://academic.example/api/v1/wechat/ingest',{
   method:'POST',headers:{'authorization':'Bearer '+paired.token,
