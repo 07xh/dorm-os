@@ -216,10 +216,10 @@ class CloudClient(context: Context) {
     suspend fun refreshPrivate() {
         val epoch = sessionEpoch
         if (session.load() == null) {
-            state = state.copy(authenticated = false, authMessage = "云端未连接",
+            state = emptyChaoxing().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
-                privateError = null, lastSyncAt = null).let { emptyChaoxing().copy(authenticated = it.authenticated, authMessage = it.authMessage, tasks = it.tasks, platforms = it.platforms, pendingWechatCount = it.pendingWechatCount, lessons = it.lessons, scheduleStatus = it.scheduleStatus, scheduleFetchedAt = it.scheduleFetchedAt, privateError = it.privateError, lastSyncAt = it.lastSyncAt) }
+                privateError = null, lastSyncAt = null)
             return
         }
         try {
@@ -229,7 +229,7 @@ class CloudClient(context: Context) {
             if (epoch != sessionEpoch) return
             if (auth.code == 401) {
                 session.clear()
-                state = state.copy(authenticated = false, authMessage = "会话过期，请重新连接",
+                state = emptyChaoxing().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                     lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null)
                 return
