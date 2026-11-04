@@ -197,6 +197,17 @@ class CollectorTests(TestCase):
                     self.assertFalse(bridge.STATE.exists())
             finally:
                 bridge.STATE = old_state
+    def test_post_has_explicit_client_identity_and_scoped_credentials(self):
+        payload = {"records": []}
+        with patch.object(bridge.urllib.request, "build_opener") as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.status = 202
+            response.read.return_value = b'{"reviewStatus":"needs_review","received":0}'
+            bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_" + "x"*43, payload)
+            req = opener.return_value.open.call_args.args[0]
+            self.assertEqual(req.get_header("User-agent"), "Xiaoxu-Desktop-Connector/1.0")
+            self.assertEqual(req.get_header("Authorization"), "Bearer " + "wxu_" + "x"*43)
+            self.assertEqual(req.full_url, "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest")
     def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
         import io
         from urllib.error import HTTPError
