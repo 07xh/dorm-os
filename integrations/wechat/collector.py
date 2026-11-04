@@ -333,7 +333,7 @@ def setup() -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（复用 Wechat-Todo，不上传原文）")
-    parser.add_argument("command", choices=("setup", "preview", "sync", "status"))
+    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify"))
     args = parser.parse_args(argv)
     if args.command == "setup":
         setup()
@@ -342,6 +342,22 @@ def main(argv=None) -> int:
     if args.command == "status":
         state = read_state()
         print(f"已选 {len(config['chats'])} 个群；上次成功处理时间戳的群数：{len(state)}")
+        return 0
+    if args.command == "verify":
+        # A credential-only heartbeat: no WhatsApp/WeChat message reader,
+        # no selected chat inspection, no state cursor mutation.
+        token = opened(config["tokenDpapi"]).decode("utf-8")
+        if not TOKEN.fullmatch(token):
+            raise BridgeError("本地设备凭据无效")
+        secret = opened(config["hmacDpapi"])
+        payload = {
+            "schema": VERSION, "deviceId": config["deviceId"],
+            "batchId": fingerprint(secret, "verify", secrets.token_urlsafe(18)),
+            "capturedAt": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "records": [],
+        }
+        submit(config["site"], token, payload)
+        print("设备已通过校序云端身份验证；未读取或上传任何微信聊天，也未改变同步进度。")
         return 0
     secret = opened(config["hmacDpapi"])
     cursors = read_state()
