@@ -27,6 +27,11 @@ data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?
 )
+data class VerifiedLesson(
+    val id: String, val term: String, val title: String, val teacher: String,
+    val location: String, val weekday: Int, val startSection: Int,
+    val endSection: Int, val weeks: List<Int>
+)
 data class AcademicNotice(
     val id: String, val title: String, val category: String,
     val dateLabel: String, val url: String
@@ -48,6 +53,9 @@ data class CloudUiState(
     val notices: List<AcademicNotice> = emptyList(),
     val noticeFetchedAt: String? = null, val noticesPartial: Boolean = false,
     val tasks: List<CloudTask> = emptyList(),
+    val lessons: List<VerifiedLesson> = emptyList(),
+    val scheduleStatus: String = "not_connected",
+    val scheduleFetchedAt: String? = null,
     val platforms: List<PlatformConnection> = emptyList(),
     val pendingWechatCount: Int? = null, val lastSyncAt: String? = null
 )
@@ -190,6 +198,7 @@ class CloudClient(context: Context) {
         if (session.load() == null) {
             state = state.copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
                 privateError = null, lastSyncAt = null)
             return
         }
@@ -200,7 +209,8 @@ class CloudClient(context: Context) {
             if (auth.code == 401) {
                 session.clear()
                 state = state.copy(authenticated = false, authMessage = "会话过期，请重新连接",
-                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null)
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null)
                 return
             }
             if (auth.code != 200 || !auth.json.optBoolean("authenticated")) {
@@ -216,6 +226,9 @@ class CloudClient(context: Context) {
         var tasks: List<CloudTask>? = null
         var platforms: List<PlatformConnection>? = null
         var candidates: Int? = null
+        var lessons: List<VerifiedLesson>? = null
+        var scheduleStatus: String? = null
+        var scheduleFetchedAt: String? = null
         try {
             val r = withContext(Dispatchers.IO) {
                 request("/api/v1/assignments?limit=100", authenticated = true)
@@ -251,6 +264,40 @@ class CloudClient(context: Context) {
         } catch (_: Exception) { failed.add("连接状态") }
         try {
             val r = withContext(Dispatchers.IO) {
+                request("/api/v1/schedule", authenticated = true)
+            }
+            if (r.code != 200) throw IllegalStateException()
+            scheduleStatus = r.json.optString("status")
+            scheduleFetchedAt = r.json.optString("lastSuccessAt")
+                .takeIf { it.isNotBlank() && it != "null" }
+            if (scheduleStatus == "ready" || scheduleStatus == "stale") {
+                if (r.json.optString("provenance") != "trusted_readonly") {
+                    throw IllegalStateException()
+                }
+                val array = r.json.getJSONArray("records")
+                lessons = buildList {
+                    for (i in 0 until array.length()) {
+                        val row = array.optJSONObject(i) ?: continue
+                        val wd = row.optInt("weekday")
+                        val start = row.optInt("startSection")
+                        val end = row.optInt("endSection")
+                        val weeksJson = row.optJSONArray("weeks")
+                        if (wd !in 1..7 || start !in 1..24 || end !in start..24 ||
+                            weeksJson == null || weeksJson.length() == 0) continue
+                        val weeks = (0 until weeksJson.length()).map { weeksJson.optInt(it) }
+                        add(VerifiedLesson(
+                            row.optString("externalId"), row.optString("term"),
+                            row.optString("title"), row.optString("teacher"),
+                            row.optString("location"), wd, start, end, weeks
+                        ))
+                    }
+                }
+            } else {
+                lessons = emptyList()
+            }
+        } catch (_: Exception) { failed.add("可信课表") }
+        try {
+            val r = withContext(Dispatchers.IO) {
                 request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true)
             }
             if (r.code != 200) throw IllegalStateException()
@@ -259,6 +306,9 @@ class CloudClient(context: Context) {
 
         state = state.copy(
             tasks = tasks ?: state.tasks,
+            lessons = lessons ?: state.lessons,
+            scheduleStatus = scheduleStatus ?: state.scheduleStatus,
+            scheduleFetchedAt = scheduleFetchedAt ?: state.scheduleFetchedAt,
             platforms = platforms ?: state.platforms,
             pendingWechatCount = candidates ?: state.pendingWechatCount,
             privateError = if (failed.isEmpty()) null else failed.joinToString("、") + "刷新失败，部分结果可能过期",
@@ -325,6 +375,7 @@ class CloudClient(context: Context) {
         session.clear()
         state = state.copy(authenticated = false, authMessage = "已退出校序云端",
             tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+            lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
             privateError = null, lastSyncAt = null)
     }
 }
