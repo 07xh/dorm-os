@@ -586,10 +586,20 @@
     personal_data:'学校活动或积分接口未返回可核验的本人数据，不能判定账号未关联；本次没有保存会话。',
     identity_evidence:'学校接口未提供唯一、可信的本人身份标识；本次没有保存会话。'
    };
-   if(provider==='second_class'&&result?.error==='authorization_failed')
+   if(provider==='second_class'&&result?.error==='authorization_failed'){
+    const casReturnReasonText={
+     unexpected_response:'学校 CAS 提交后返回了非预期状态；本次没有保存会话。',
+     login_page_remained:'CAS 提交后仍停留在学校认证页面；可能需要在学校官网完成验证，本次没有保存会话。',
+     service_callback_incomplete:'已到达学校 CAS 服务回调，但尚未确认第二课堂会话；本次没有保存会话。',
+     unexpected_school_landing:'学校 CAS 回跳落点与已验证流程不同；本次没有保存会话。'
+    };
+    if(result?.failureStage==='cas_return'&&
+       Object.hasOwn(casReturnReasonText,result?.casReturnReason))
+     throw Error(casReturnReasonText[result.casReturnReason]);
     throw Error(Object.hasOwn(secondClassStageText,result?.failureStage)?
      secondClassStageText[result.failureStage]:
      '学校认证或本人数据校验未完成，暂无法确认具体阶段；本次没有保存会话。');
+   }
    throw Error(schoolMessage[result?.error]||'连接操作失败');
   }
   return result;
