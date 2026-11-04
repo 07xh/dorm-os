@@ -89,7 +89,8 @@ import kotlinx.coroutines.launch
  *   pendingWechatCount（微信待审核候选的真实计数）。
  * - 公告只有标题 / 分类 / 日期标签 / 原文链接，没有正文。因此"全文"sheet 不编造正文，
  *   只展示完整标题与来源信息，并提供跳转学校官网原文的入口。
- * - 微信候选的正文只存在于云端审核页，客户端不缓存、不伪造，只给出真实计数与入口。
+ * - 微信候选经现有本人会话读取，App 原生审核只显示已接收的候选摘要，
+ *   不伪造完整微信聊天记录；确认后由服务端创建普通云端任务。
  */
 
 // ---------------------------------------------------------------------------
@@ -183,8 +184,6 @@ private val ExamTile = Color(0xFFFFF1DE)
 private val ExamInk = Color(0xFFB0741F)
 private val NoticeTile = Color(0xFFE7EFFF)
 private val NoticeInk = Color(0xFF2563EB)
-private val WechatTile = Color(0xFFE1F8EC)
-private val WechatInk = Color(0xFF10805C)
 
 private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
     this.widthIn(max = max).fillMaxWidth()
@@ -300,9 +299,9 @@ fun MessageCenterPanel(
 
                 if (showWechat) {
                     item {
-                        WechatSourceCard(
-                            count = state.pendingWechatCount,
-                            authenticated = state.authenticated,
+                        WechatReviewPanel(
+                            client = client,
+                            pendingCount = state.pendingWechatCount,
                             openWebsite = openWebsite
                         )
                     }
@@ -461,7 +460,7 @@ private fun MessageCountLine(
     total: Int
 ) {
     val text = when {
-        filterKey == MSG_FILTER_WECHAT -> "微信待审核不使用公告列表，计数见下方卡片"
+        filterKey == MSG_FILTER_WECHAT -> "下方展示本人云端候选，可在 App 内审核"
         query.isNotBlank() -> "关键词“" + query.trim() + "”匹配 $matched 条"
         else -> "已读取的官方公告 $total 条，当前列出 $matched 条"
     }
@@ -561,62 +560,6 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WechatSourceCard(count: Int?, authenticated: Boolean, openWebsite: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardShape
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(TileShape)
-                        .background(WechatTile),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.MailOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = WechatInk
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = "微信消息 · 人工审核",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = pendingWechatLabel(count, authenticated),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Text(
-                text = "微信原文只保存在云端候选记录里，客户端不缓存、不猜测内容；" +
-                    "必须由本人核对原文后确认，确认前不会进入任务。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedButton(
-                onClick = openWebsite,
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) {
-                Text("打开云端审核页")
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
             }
         }
     }
