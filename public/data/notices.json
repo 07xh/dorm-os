@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-03T17:53:00.370Z",
+  "lastSuccessAt": "2026-11-04T08:20:57.020Z",
   "sources": [
     {
       "id": "jwc",
@@ -14,7 +14,7 @@
     {
       "id": "school",
       "name": "学校通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-03T17:53:00.370Z",
       "count": 8
     },
@@ -24,6 +24,13 @@
       "status": "error",
       "lastSuccessAt": "2026-11-02T17:20:09.934Z",
       "count": 20
+    },
+    {
+      "id": "jwc-api",
+      "name": "教务处公开公告（代理兜底）",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-04T08:20:57.020Z",
+      "count": 29
     }
   ],
   "items": [
@@ -184,6 +191,15 @@
       "id": "ncwu-3c8ebd04cc2dbfb8",
       "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知 11-02",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3003.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-b7665f226dd00de7",
+      "title": "关于开展2026年工程教育认证申请工作的通知 11-04",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3005.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
