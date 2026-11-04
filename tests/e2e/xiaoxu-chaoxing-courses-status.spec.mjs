@@ -26,7 +26,7 @@ test('verified owner reads courses then official homework statuses in one click'
   const data=view==='courses'?{courses:[
    {courseId:'123',classId:'456',cpi:'789',title:'Python 基础'},
    {courseId:'321',classId:'654',cpi:'987',title:'工程制图'}
-  ]}:q.get('courseId')==='123'?{
+  ]}:courseId==='123'?{
    verifiedEmpty:false,items:[
     {workId:'111',title:'循环练习',status:'已提交',statusCode:'submitted',platformVerified:true},
     {workId:'222',title:'列表作业',status:'未提交',statusCode:'todo',platformVerified:true}
