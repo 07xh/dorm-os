@@ -86,6 +86,23 @@ assert.match(main, /ConnectionsPanel/);
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
 assert.match(panels, /PasswordVisualTransformation/);
+assert.match(panels, /fun ConnectionsPanel\(client: CloudClient, openWebsite: \(\) -> Unit\)/);
+assert.match(panels, /connectionStatusLabel\(platform\)/);
+assert.match(panels, /client\.loadChaoxingCourses\(\)/);
+assert.match(panels, /client\.syncAuthorizedSchool\(id\)/);
+assert.match(panels, /"ncwu" to "青果教务"/);
+assert.match(panels, /"second_class" to "第二课堂"/);
+assert.match(panels, /学校授权/);
+assert.match(cloud, /suspend fun syncAuthorizedSchool\(provider: String\): Boolean/);
+assert.match(cloud, /provider !in setOf\("ncwu", "second_class"\)/);
+assert.match(cloud, /linked\?\.sessionState != "active"/);
+assert.match(cloud, /\/api\/v1\/connections\/\$provider\/sync/);
+assert.match(cloud, /result\.json\.optBoolean\("refreshed"\)/);
+assert.match(cloud, /schoolSyncBusyProvider/);
+assert.match(cloud, /state\.privateError == null/);
+assert.match(cloud, /clearAccountSnapshots/);
+assert.doesNotMatch(panels, /schoolPassword|CookieManager|WebView|READ_SMS/);
+
 assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTACTS|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET\s*=/);
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
