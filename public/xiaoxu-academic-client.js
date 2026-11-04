@@ -197,7 +197,7 @@
     (provider.id==='chaoxing'?
      '<div class="xu-school-connect">'+
      (record?.qrLoginAvailable===true||qrResuming?'<div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div>':'')+
-     '<p class="tiny muted">学校统一认证仅用于登录官网，不会自动绑定校序。</p>'+
+     '<p class="tiny muted">学校统一身份认证不会自动绑定校序；不能把校园密码直接当成超星独立密码。</p>'+
      '<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu">打开华水学习通统一认证</a>'+
      '<details class="xu-chaoxing-import"><summary>导入本人官方会话（高级）</summary>'+
       '<p class="tiny muted">仅接受你从本人官方浏览器导出的 Cookie JSON 数组，须包含 name、value、domain、path。校序不会跨站读取 Cookie；原始域名不能更改，导入相当于提供账号登录凭证，请只在你自己的校序 HTTPS 站点操作，切勿在聊天中发送。</p>'+
@@ -205,7 +205,7 @@
       '<textarea name="cookieExport" rows="4" maxlength="15500" spellcheck="false" autocomplete="off" required placeholder=\'[{"name":"名称","value":"值","domain":".chaoxing.com","path":"/"}]\'></textarea></label>'+
       '<p class="tiny muted">仅在服务器验证华水本人身份、读取到真实收件箱数据后，才会加密保存会话；失败不会保存。请勿导入其他人的 Cookie。</p>'+
       '<button type="submit" class="primary">验证并连接本人学习通</button><p class="tiny" role="status" aria-live="polite" data-xu-chaoxing-import-result></p></form></details>'+
-      '<details class="xu-chaoxing-direct"><summary>使用超星独立账号（非校园密码）</summary>'+
+      '<details class="xu-chaoxing-direct"><summary>我另有超星独立账号密码（非校园密码）</summary>'+
      '<p class="tiny muted">只有单独设置过超星账号密码时才使用；这个入口是超星独立登录接口，不是华水统一认证。</p>'+
      '<form data-xu-school-login="chaoxing" autocomplete="on">'+
      '<label>超星独立账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="超星独立账号"></label>'+
@@ -241,7 +241,7 @@
     '</details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
-    '<p>学校统一认证和超星独立账号不同。会话验证成功后仅在网页打开时尝试更新收件箱；暂无后台推送，提交状态待核实。</p></details>':
+    '<p>学校统一认证和超星独立账号不同。第三方 APK 的本机会话不自动共享给校序。验证成功后仅在网页打开时尝试更新收件箱；暂无后台推送，提交状态待核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
     '<p>尚未验证本人授权会话；只展示已保存记录，不获取学校密码或 Cookie。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
