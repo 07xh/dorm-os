@@ -20,6 +20,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Syntax, security and logic tests
         run: npm run check
+      - name: Read-only current NCWU second-class CAS compatibility (no login)
+        timeout-minutes: 2
+        continue-on-error: true
+        run: node scripts/probe-ncwu-secondclass-cas-live.mjs
       - name: Desktop and mobile end-to-end tests
         run: npm run test:e2e
       - name: Upload failure traces and screenshots
