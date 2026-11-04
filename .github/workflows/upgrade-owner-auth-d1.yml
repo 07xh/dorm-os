@@ -1,14 +1,8 @@
 name: Upgrade XIAOXU Owner Auth + School Session Vault D1 (forward-only)
+# Retain as manual recovery only: old migrations are forward-only and
+# already applied in the existing production D1. Never auto-run a second
+# schema upgrade on edits to historical SQL or this workflow itself.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/upgrade-owner-auth-d1.yml'
-      - 'migrations/0010_academic_owner_auth.sql'
-      - 'migrations/0011_academic_provider_sessions.sql'
-      - 'migrations/0012_academic_second_class_sessions.sql'
-      - 'migrations/0015_academic_chaoxing_notices.sql'
-      - 'scripts/upgrade-academic-owner-auth-production.mjs'
   workflow_dispatch:
 permissions:
   contents: read
