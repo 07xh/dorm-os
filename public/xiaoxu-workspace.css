@@ -50,3 +50,6 @@ body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,Blink
  .v4-task-toolbar>.button-row{flex-wrap:wrap}
  #app .v4-task-list .task-actions button{min-width:44px;min-height:44px}
 }
+
+/* Update feedback floats above the mobile navigation without blocking editing. */
+.xu-update-notice{position:fixed;bottom:calc(var(--xu-bottom) + 12px);right:16px;z-index:150;display:flex;align-items:center;gap:12px;max-width:min(420px,calc(100vw - 32px));padding:14px 17px;border:1px solid var(--xu-line);border-radius:10px;background:var(--xu-surface);color:var(--xu-ink);box-shadow:0 8px 30px #18263d20;font-size:13px}.xu-update-notice button{border:0;border-radius:6px;background:var(--xu-brand);color:var(--xu-surface);min-height:44px;padding:8px 13px;white-space:nowrap}

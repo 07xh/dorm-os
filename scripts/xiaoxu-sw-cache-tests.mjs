@@ -9,7 +9,8 @@ assert.ok(sw.includes('dorm-os-shell-__XIAOXU_RELEASE_SHA__'),
  'Every release must stamp a fresh PWA cache name');
 assert.ok(html.includes('name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__"'),
  'The browser must know the exact HTML release it is executing');
-assert.ok(html.includes("updateViaCache:'none'")&&html.includes('checkPublishedRelease()'),
+const updater=readFileSync(new URL('../public/xiaoxu-updates.js',import.meta.url),'utf8');
+assert.ok(updater.includes("updateViaCache:'none'")&&updater.includes('checkPublishedRelease()')&&html.indexOf('/xiaoxu-updates.js')<html.indexOf('/xiaoxu-academic-client.js'),
  'Existing PWA tabs must recheck the live release on resume');
 assert.ok(!html.includes('androidAutomationGuide')&&!html.includes('MacroDroid'),
  'Retired Android automation tutorial and handlers must be removed');
