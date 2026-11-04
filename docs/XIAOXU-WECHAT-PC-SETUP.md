@@ -64,9 +64,20 @@ npx github:syskuku/wechat-todo
 
 - [x] 已核查上游安装器、Skills 和本地 CLI 命令
 - [x] 校序已有 D1 任务中心、来源追踪、站内提醒可供复用
-- [x] 建立候选消息最小字段契约（独立分支）
-- [ ] 用户 Windows 电脑上通过 `sessions` 与 `history` 实测
-- [ ] 校序设备绑定与云端导入接口
-- [ ] 已选群增量采集、可恢复的游标/分页
-- [ ] 校序 App 待审核 UI、跨设备任务同步与 Android 通知
-- [ ] 真机端到端验收及上线
+- [x] 建立候选消息最小字段契约（PR #173）
+- [x] 用户在 Windows 电脑上确认 `sessions` 与一个课程群的 `history` 实测成功（没有上传群聊内容）
+- [x] 设备配对/撤销、独立候选 D1 表、云端批量接收/幂等去重、待审核列表、显式接受/忽略接口已提交（PR #173）
+- [ ] 0017 迁移在生产 D1 完整执行与验证，PR #173 经 CI 验收后合并
+- [ ] App 原有设置/任务页面接入设备配对与审核 UI
+- [ ] 已选群增量采集、可恢复的游标/分页、电脑端同步脚本和一键配置
+- [ ] 真实设备凭据/课程群增量数据端到端验收及上线
+- [ ] 手机端后台系统推送验收（既有站内提醒不能替代）
+
+## 设备同步 API 草案（尚未上线）
+
+- 使用现有校序本人登录：`POST /api/v1/wechat/devices`，JSON `{"name":"我的 Windows 电脑"}`。同源校序页面调用；响应的设备 token **仅展示一次**，D1 只保存 SHA-256。
+- 使用刚绑定设备的 `Authorization: Bearer wxu_...`：`POST /api/v1/wechat/ingest`，按候选输入契约提交每批最多 25 条。不同设备/来源数据强隔离，不接受全量聊天、微信凭据或未经许可的群。
+- 校序本人登录：`GET /api/v1/wechat/candidates` 返回个人待审核队列；`POST /api/v1/wechat/candidates/{id}` 仅在用户明确 `{"decision":"accept"}` 后写入**现有** `academic_assignments`；忽略为 `{"decision":"dismiss"}`。
+- `DELETE /api/v1/wechat/devices/{id}` 需要校序本人登录和同源请求，随时撤销电脑同步权限。
+- **请不要手动调用以上接口或粘贴设备 token 到聊天中**。待 App 界面及电脑端一键配对完成后，通过校序已有登录界面操作。
+- CI 使用 SQLite 合成记录验证隔离、重放、去重与审批；**没有真实微信群内容参与 CI**。
