@@ -19,6 +19,23 @@ const questionHtml='<html><body><form id="submitForm">'+
 assert.deepEqual(parseChaoxingCourseList(courseHtml),[
  {courseId:'123',classId:'456',cpi:'789',title:'Python 基础'}
 ]);
+// Upstream query argument order can vary and entities are HTML-escaped.
+// Old strict regex returned courses_unverified even with legitimate IDs.
+const reordered='<a href="/visit/stucoursemiddle?cpi=789&amp;courseid=123&amp;clazzid=456"></a>'+ 
+ '<span class="course-name" title="Python 基础"></span>';
+assert.deepEqual(parseChaoxingCourseList(reordered),[
+ {courseId:'123',classId:'456',cpi:'789',title:'Python 基础'}
+]);
+// Multiple links to the same official course should not create duplicates.
+assert.equal(parseChaoxingCourseList(courseHtml+courseHtml).length,1);
+assert.throws(()=>parseChaoxingCourseList(
+ '<a href="/visit/stucoursemiddle?courseid=12&amp;courseid=13&amp;clazzid=4&amp;cpi=5"></a>'+ 
+ '<span class="course-name" title="wrong"></span>'
+),e=>e.code==='courses_unverified','ambiguous official IDs must be rejected');
+assert.throws(()=>parseChaoxingCourseList(
+ '<a href="/visit/stucoursemiddle?cpi=789&amp;courseid=abc&amp;clazzid=456"></a>'+ 
+ '<span class="course-name" title="wrong"></span>'
+),e=>e.code==='courses_unverified','nonnumeric course IDs are not accepted');
 assert.deepEqual(parseChaoxingWorkCredentials(middle),
  {workEnc:'signedWork',pageEnc:'signedPage',openc:'openKey'});
 assert.deepEqual(parseChaoxingWorkList(workHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
