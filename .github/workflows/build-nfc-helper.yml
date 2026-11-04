@@ -63,6 +63,26 @@ jobs:
           name: dorm-os-nfc-receiver-debug
           path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
 
+      # Separate package keeps the user's original RC and its locally saved scenes intact.
+      # Do this after uploading the regular debug APK, as the output path is reused.
+      - name: Build independently installable NFC cold-start test APK
+        working-directory: android/nfc-helper
+        run: gradle --no-daemon -PtapflowIsolatedNfcTest=true :app:assembleDebug
+      - name: Verify isolated NFC test APK package and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          "$SDK_ROOT/build-tools/35.0.0/apksigner" verify "$APK"
+          "$SDK_ROOT/build-tools/35.0.0/aapt" dump badging "$APK" |
+            grep -F "package: name='xyz.dormos.nfc.nfcfix'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tapflow-nfc-coldstart-isolated-debug
+          path: android/nfc-helper/app/build/outputs/apk/debug/app-debug.apk
+
   # One-time public RC delivery; never overwrites previous preview artifacts.
   publish-chat-preview:
     if: github.event_name == 'push' && github.ref == 'refs/heads/feature/tapflow-native-action-chain-rc1' && startsWith(github.event.head_commit.message, 'release-chat-preview:')
@@ -98,6 +118,42 @@ jobs:
             --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
             --title "触序 TapFlow · 通用聊天配置 RC（独立安装）" \
             --notes "Debug RC APK from exact CI-verified commit $GITHUB_SHA. Android application ID xyz.dormos.nfc.rc, independent from existing TapFlow. No built-in WeChat/group scene. Chat app selected from installed text-sharing apps; target conversation and message configured in TapFlow. ACTION_SEND plus clipboard fallback; recipient selection and message sending remain manual. Supports old local-scenes migration without deleting edited scenes. KernelSU/physical NFC functionality requires separate device verification."
+
+  # Published only when a passing NFC fix PR is intentionally promoted on the
+  # existing RC branch with a release-nfc-coldstart: squash commit.
+  publish-coldstart-preview:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/tapflow-native-action-chain-rc1' && startsWith(github.event.head_commit.message, 'release-nfc-coldstart:')
+    needs: [debug-apk, ksu-zip]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tapflow-nfc-coldstart-isolated-debug
+          path: verified-nfc-test
+      - name: Publish data-safe, standalone NFC cold-start test APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -s verified-nfc-test/app-debug.apk
+          mkdir -p release
+          cp verified-nfc-test/app-debug.apk release/TapFlow-NFC-ColdStart-Test-debug.apk
+          (cd release && sha256sum TapFlow-NFC-ColdStart-Test-debug.apk > SHA256SUMS.txt)
+          TAG="tapflow-nfc-coldstart-test-20261104"
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Refusing to overwrite $TAG"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            release/TapFlow-NFC-ColdStart-Test-debug.apk \
+            release/SHA256SUMS.txt \
+            --repo "$GH_REPO" --target "$GITHUB_SHA" --prerelease \
+            --title "触序 TapFlow · NFC 应用外冷启动测试包" \
+            --notes "Independently installable debug test APK, package xyz.dormos.nfc.nfcfix; preserves existing RC app/data. On-device NFC scan still needs Android 16 / ColorOS validation. To avoid an NFC app chooser when other TapFlow builds are installed, temporarily disable Launch via NFC for those older packages. No automatic Root script execution; physically reread NFC URI remains mandatory."
 
   signed-release-apk:
     if: github.event_name == 'workflow_dispatch' && vars.DORMOS_RELEASE_ENABLED == 'true'
