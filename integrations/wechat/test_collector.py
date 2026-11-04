@@ -108,6 +108,52 @@ class CollectorTests(TestCase):
                 bridge.STATE = old_state
 
 
+    def test_empty_result_still_verifies_server_before_checkpoint(self):
+        with TemporaryDirectory() as temp:
+            original = bridge.STATE
+            bridge.STATE = Path(temp) / "sync-state.json"
+            config = {
+                "site": "https://dorm-os-dk9.pages.dev",
+                "deviceId": "wxd_" + "a"*24,
+                "chats": ["已允许的课程群"],
+                "tokenDpapi": "encrypted",
+                "hmacDpapi": "encrypted",
+            }
+            try:
+                with patch.object(bridge, "load_config", return_value=config), \
+                     patch.object(bridge, "opened", side_effect=[
+                         b"local-hmac", ("wxu_" + "b"*43).encode()
+                     ]), \
+                     patch.object(bridge, "extract_groups", return_value=(
+                         [], {"已允许的课程群": 12345}, ["合成数据"]
+                     )), \
+                     patch.object(bridge, "submit", side_effect=bridge.BridgeError("offline")) as send:
+                    with self.assertRaises(bridge.BridgeError):
+                        bridge.main(["sync"])
+                    self.assertEqual(send.call_count, 1)
+                    self.assertEqual(send.call_args.args[2]["records"], [])
+                    self.assertFalse(bridge.STATE.exists(),
+                                     "failed heartbeat must not advance watermark")
+                with patch.object(bridge, "load_config", return_value=config), \
+                     patch.object(bridge, "opened", side_effect=[
+                         b"local-hmac", ("wxu_" + "b"*43).encode()
+                     ]), \
+                     patch.object(bridge, "extract_groups", return_value=(
+                         [], {"已允许的课程群": 12345}, ["合成数据"]
+                     )), \
+                     patch.object(bridge, "submit", return_value={
+                         "reviewStatus": "needs_review", "received": 0
+                     }) as send:
+                    bridge.main(["sync"])
+                    self.assertEqual(send.call_count, 1)
+                    payload = send.call_args.args[2]
+                    self.assertEqual(payload["records"], [])
+                    self.assertTrue(payload["batchId"])
+                    self.assertEqual(json.loads(bridge.STATE.read_text()),
+                                     {"已允许的课程群": 12345})
+            finally:
+                bridge.STATE = original
+
     def test_server_must_ack_exact_received_count(self):
         payload = {"records": [{"messageKey": "synthetic-record"}]}
         with patch.object(bridge.urllib.request, "build_opener") as build:
