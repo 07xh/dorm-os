@@ -249,7 +249,7 @@
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
     '<p>学校统一认证和超星独立账号是两种不同的登录方式。第三方 APK 的本机会话不自动共享给校序；会话过期可在此重新连接。网页打开时才尝试更新收件箱，暂无后台推送，提交状态待核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
-    '<p>学校账号真实登录尚待验收。本人身份与真实活动、官方积分验证后才保存加密会话；网页关闭后不执行后台同步。</p></details>';
+    '<p>学校账号真实登录尚待验收。打开官网不等于账号已绑定。本人身份与真实活动、官方积分验证后才保存加密会话；网页关闭后不执行后台同步。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
      (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
