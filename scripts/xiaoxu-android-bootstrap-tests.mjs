@@ -45,6 +45,8 @@ assert.match(cloud, /\/api\/v1\/auth\/login/);
 assert.match(cloud, /\/api\/v1\/auth\/logout/);
 assert.match(cloud, /\/api\/v1\/assignments/);
 assert.match(cloud, /\/api\/v1\/connections/);
+assert.match(cloud, /\/api\/v1\/schedule/);
+assert.match(main, /CloudTimetablePanel/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
