@@ -82,6 +82,22 @@ py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" history
 
 **当前限制：**第一版仅分析纯文本、使用保守关键词和明确日期；无法保证识别所有课程任务，不会猜测相对截止时间，也不能识别图片、语音、文件或其他媒体中的作业要求。`run.ps1` 可以手动同步；Windows 定时任务需本人明确运行 `schedule.ps1 install` 才启用。电脑关机后不能读取新消息；App 系统级推送仍需单独开发。
 
+## 上传 HTTP 403 的安全排查（无需重新选群）
+
+如果本地 `preview` 已识别候选但 `sync` 返回 HTTP 403，先在仓库目录运行：
+
+```powershell
+git pull
+& .\integrations\wechat\run.ps1 verify
+```
+
+`verify` 不读取群聊或任务，不改变本地同步游标，只向校序正式域名发送一条空记录授权验证请求。反馈只需要错误代码，不要提供设备 token、完整配置文件或聊天原文。
+
+- `device_mismatch`：本地设备 ID 与所保存 Token 不属于同一次配对；核对网站设备管理，并撤销旧配对重新绑定。
+- `forbidden_origin_or_format`：请求格式未通过服务端检查；核对校序电脑脚本是否为最新版。
+- `HTTP 403，非校序已知错误`：可能是网络/Cloudflare 安全检查，需进一步核对云端策略。
+- 验证成功后再运行 `run.ps1 sync`，按需刷新「任务 → 微信待审核」。
+
 ## 后续接入校序的最小工作
 
 1. 使用现有 `lib/academic-wechat-candidate-contract.mjs` 约束输入：设备 ID、批次 ID、稳定的不透明消息 ID、任务候选、日期与时间精度。

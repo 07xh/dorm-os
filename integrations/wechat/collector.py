@@ -270,7 +270,29 @@ def submit(site: str, token: str, payload: dict) -> dict:
                 raise BridgeError("云端尚未接受本批数据")
             result = json.load(response)
     except urllib.error.HTTPError as exc:
-        raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查数据库迁移和设备权限") from None
+        # The Cloudflare edge and the private Academic OS API can both reply
+        # HTTP 403. Only read a bounded, allowlisted machine error code;
+        # never print raw response HTML, chat contents or device credentials.
+        known = {
+            "device_mismatch": "设备 ID 与授权凭证不属于同一台设备；请在校序撤销旧设备并重新绑定。",
+            "forbidden_origin_or_format": "校序接口拒绝上传格式；请更新校序电脑同步脚本，无需重配群聊。",
+            "device_unauthorized": "设备凭证无效或已撤销；请重新绑定电脑。",
+            "database_unavailable": "校序云端数据服务暂不可用；无需重新配置群聊。",
+        }
+        code = None
+        try:
+            content_type = (exc.headers.get("Content-Type", "") if exc.headers else "").lower()
+            if "application/json" in content_type:
+                response_data = json.loads(exc.read(1024))
+                if isinstance(response_data, dict) and isinstance(response_data.get("error"), str):
+                    code = response_data["error"]
+        except (ValueError, UnicodeError, OSError):
+            pass
+        if code in known:
+            raise BridgeError(f"云端拒绝批次（HTTP {exc.code}，{code}）：{known[code]}") from None
+        if exc.code == 403:
+            raise BridgeError("云端拒绝批次（HTTP 403，非校序已知错误）；可能是网络或 Cloudflare 安全检查。无需重配群聊。") from None
+        raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查设备授权或云端服务。") from None
     except urllib.error.URLError:
         raise BridgeError("网络连接失败：校序云端暂时无法访问") from None
     if (result.get("reviewStatus") != "needs_review" or
@@ -311,7 +333,7 @@ def setup() -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（复用 Wechat-Todo，不上传原文）")
-    parser.add_argument("command", choices=("setup", "preview", "sync", "status"))
+    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify"))
     args = parser.parse_args(argv)
     if args.command == "setup":
         setup()
@@ -320,6 +342,22 @@ def main(argv=None) -> int:
     if args.command == "status":
         state = read_state()
         print(f"已选 {len(config['chats'])} 个群；上次成功处理时间戳的群数：{len(state)}")
+        return 0
+    if args.command == "verify":
+        # A credential-only heartbeat: no WhatsApp/WeChat message reader,
+        # no selected chat inspection, no state cursor mutation.
+        token = opened(config["tokenDpapi"]).decode("utf-8")
+        if not TOKEN.fullmatch(token):
+            raise BridgeError("本地设备凭据无效")
+        secret = opened(config["hmacDpapi"])
+        payload = {
+            "schema": VERSION, "deviceId": config["deviceId"],
+            "batchId": fingerprint(secret, "verify", secrets.token_urlsafe(18)),
+            "capturedAt": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "records": [],
+        }
+        submit(config["site"], token, payload)
+        print("设备已通过校序云端身份验证；未读取或上传任何微信聊天，也未改变同步进度。")
         return 0
     secret = opened(config["hmacDpapi"])
     cursors = read_state()
