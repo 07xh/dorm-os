@@ -105,7 +105,10 @@ data class CloudUiState(
     val chaoxingDetailError: String? = null,
     val secondClass: SecondClassSnapshot? = null,
     val secondClassBusy: Boolean = false,
-    val secondClassError: String? = null
+    val secondClassError: String? = null,
+    val schoolSyncBusyProvider: String? = null,
+    val schoolSyncResultProvider: String? = null,
+    val schoolSyncMessage: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -452,6 +455,73 @@ class CloudClient(context: Context) {
     }
 
     /**
+     * Trigger the existing authenticated, owner-scoped readonly school refresh.
+     * This is NOT a school login, CAS bridge or a browser Cookie extractor.
+     * Never mark success until the server confirms refreshed=true.
+     */
+    suspend fun syncAuthorizedSchool(provider: String): Boolean {
+        if (provider !in setOf("ncwu", "second_class") ||
+            !state.authenticated || state.busy || state.schoolSyncBusyProvider != null) return false
+        val linked = state.platforms.firstOrNull { it.id == provider }
+        if (linked?.sessionState != "active") {
+            state = state.copy(
+                schoolSyncResultProvider = provider,
+                schoolSyncMessage = "学校会话未生效；请先在官方连接中心完成本人授权")
+            return false
+        }
+        val epoch = sessionEpoch
+        val label = if (provider == "ncwu") "青果教务" else "第二课堂"
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = null)
+        try {
+            val result = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/$provider/sync", "POST", JSONObject(),
+                    authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            if (result.code != 200 || !result.json.optBoolean("refreshed") ||
+                result.json.optString("provider") != provider) {
+                val code = result.json.optString("error")
+                state = state.copy(schoolSyncMessage = when (code) {
+                    "session_expired", "authorization_failed" ->
+                        "$label 学校会话过期，请在官方连接中心重新授权"
+                    "review_pending" ->
+                        "青果课表仍等待本人核对，请先完成课表预览确认"
+                    "interactive_login_required" ->
+                        "$label 需要在学校官方页面完成人机验证或登录"
+                    "school_login_unavailable", "not_configured" ->
+                        "$label 连接器或安全会话配置不可用"
+                    "database_unavailable" ->
+                        "校序存储服务暂时不可用；未覆盖旧数据"
+                    "sync_failed", "upstream_unavailable" ->
+                        "$label 上游数据读取失败；旧记录保持不变"
+                    else -> "未确认 $label 同步成功（HTTP ${result.code}），请核查连接状态"
+                })
+                if (result.code == 401) refreshPrivate()
+                return false
+            }
+            // Server claims a successful owner-scoped read, but the UI still needs
+            // to verify fresh trusted snapshots through the existing GET endpoints.
+            state = state.copy(schoolSyncMessage = "$label 已返回只读刷新成功；正在核对可信快照")
+            refreshPrivate()
+            if (epoch != sessionEpoch) return false
+            val verified = state.platforms.firstOrNull { it.id == provider }?.verified == true
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (verified)
+                    "$label 已取得可信连接状态；请与学校官网逐项对照"
+                else
+                    "$label 上游刷新已返回，但可信数据状态尚未确认；请核查连接中心")
+            return verified
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "$label 网络或接口响应异常；不能确认同步成功，旧数据不受影响")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /**
      * Reviews a real cloud candidate using the existing owner session and same-origin POST.
      * Never sends school credentials or accepts a message automatically.
      */
@@ -540,7 +610,8 @@ class CloudClient(context: Context) {
     }
 
     private fun clearAccountSnapshots(): CloudUiState = emptyChaoxing().copy(
-        wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null
+        wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
+        schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
     )
 
     private fun emptyChaoxing(): CloudUiState = state.copy(
