@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
+import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
+import io.github.x07xh.xiaoxu.ui.NoticesPanel
+import io.github.x07xh.xiaoxu.ui.WechatCandidatesPanel
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -74,6 +82,7 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
+    private val cloud by lazy { CloudClient(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,12 +94,18 @@ class MainActivity : ComponentActivity() {
                     surface = Color.White
                 )
             ) {
-                NativeShell(dao = dao, openWebsite = {
+                NativeShell(dao = dao, cloud = cloud, openWebsite = {
                     // Fixed origin: never forward app credentials or a school session.
                     startActivity(
                         Intent(Intent.ACTION_VIEW, Uri.parse("https://dorm-os-dk9.pages.dev/"))
                             .addCategory(Intent.CATEGORY_BROWSABLE)
                     )
+                }, openArticle = { url ->
+                    val uri = Uri.parse(url)
+                    if (uri.scheme == "https" && uri.host == "www2.ncwu.edu.cn" &&
+                        (uri.path ?: "").startsWith("/jiaowu/info/")) {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+                    }
                 })
             }
         }
@@ -107,9 +122,16 @@ private enum class Page(val label: String, val symbol: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NativeShell(dao: LocalTaskDao, openWebsite: () -> Unit) {
+private fun NativeShell(
+    dao: LocalTaskDao,
+    cloud: CloudClient,
+    openWebsite: () -> Unit,
+    openArticle: (String) -> Unit
+) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(cloud) { cloud.refresh() }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
@@ -120,6 +142,12 @@ private fun NativeShell(dao: LocalTaskDao, openWebsite: () -> Unit) {
                         Column {
                             Text("校序", fontWeight = FontWeight.SemiBold)
                             Text("Academic OS · Android", style = MaterialTheme.typography.labelSmall)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { scope.launch { cloud.refresh() } },
+                            enabled = !cloud.state.busy) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = "刷新云端与官方通知")
                         }
                     }
                 )
@@ -155,11 +183,12 @@ private fun NativeShell(dao: LocalTaskDao, openWebsite: () -> Unit) {
                 }
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
                     when (current) {
-                        Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS }, openWebsite)
-                        Page.SCHEDULE -> SchedulePage(openWebsite)
-                        Page.TASKS -> TasksPage(localTasks, dao)
-                        Page.MESSAGES -> MessagesPage(openWebsite)
-                        Page.PROFILE -> ConnectionsPage(openWebsite)
+                        Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS },
+                            openMessages = { current = Page.MESSAGES }, openWebsite = openWebsite, cloud = cloud)
+                        Page.SCHEDULE -> SchedulePage(openWebsite, cloud)
+                        Page.TASKS -> TasksPage(localTasks, dao, cloud)
+                        Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
+                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
                     }
                 }
             }
@@ -205,53 +234,58 @@ private fun InfoCard(title: String, message: String, action: String? = null, onC
 }
 
 @Composable
-private fun HomePage(tasks: List<LocalTask>, openTasks: () -> Unit, openWebsite: () -> Unit) {
+private fun HomePage(
+    tasks: List<LocalTask>, openTasks: () -> Unit,
+    openMessages: () -> Unit, openWebsite: () -> Unit, cloud: CloudClient
+) {
+    val state = cloud.state
     Content {
-        item { Heading("今天", "在这里管理本机任务。课程数据必须来自经过验证的真实学校来源。") }
+        item { Heading("今天", "课程与作业仅展示已成功同步的本人数据") }
         item {
             InfoCard(
-                title = "本机待办：" + tasks.count { !it.completed }.toString(),
-                message = "仅统计在这台设备上创建的任务，不混入未经验证的学习通作业。",
-                action = "管理任务",
-                onClick = openTasks
+                title = "本机待办：" + tasks.count { !it.completed },
+                message = "本地独立保存，断网也能查看和编辑。",
+                action = "查看任务", onClick = openTasks
             )
         }
         item {
             InfoCard(
-                title = "课表暂未在 App 验收",
-                message = "不会显示演示课程。后续从青果教务读取本人真实课表后才展示。",
-                action = "前往现有校序网站",
-                onClick = openWebsite
+                title = if (state.authenticated) "云端任务：" + state.tasks.size
+                    else "云端任务未连接",
+                message = if (state.authenticated)
+                    "来自现有校序 API；学校作业的完成状态仍需与平台逐项核验。"
+                    else "连接校序云端后可查看已保存的任务。",
+                action = "管理任务", onClick = openTasks
             )
         }
         item {
             InfoCard(
-                title = "官方通知与微信待审核",
-                message = "继续使用现有云端通知和人工审核流程，App 暂不声称已原生同步。",
-                action = "打开现有功能",
-                onClick = openWebsite
+                title = "真实课表尚未在 Android 验收",
+                message = "沿用现有青果连接器，未获取可验证课程前不显示示例课程。",
+                action = "查看网站连接状态", onClick = openWebsite
+            )
+        }
+        item {
+            InfoCard(
+                title = "官方通知：" + state.notices.size + " 条",
+                message = if (state.publicError == null) "来自华水官方教务公告接口。"
+                    else "刷新失败，当前结果可能过期。",
+                action = "查看消息", onClick = openMessages
             )
         }
     }
 }
 
 @Composable
-private fun SchedulePage(openWebsite: () -> Unit) {
+private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient) {
     Content {
-        item { Heading("课表", "手机与平板共用的原生页面") }
-        item {
-            InfoCard(
-                "尚无已验证的本机课程",
-                "正在保留青果官方登录与来源核验门禁。本版本不会凭空生成课表。",
-                "在网站查看真实连接状态",
-                openWebsite
-            )
-        }
+        item { Heading("课表", "仅展示青果可信来源的本人课程，不混入演示课表") }
+        item { CloudTimetablePanel(cloud, openWebsite) }
     }
 }
 
 @Composable
-private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao) {
+private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao, cloud: CloudClient) {
     val scope = rememberCoroutineScope()
     var draft by rememberSaveable { mutableStateOf("") }
     fun addTask() {
@@ -308,52 +342,27 @@ private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao) {
                 }
             }
         }
+        item { CloudTasksPanel(cloud) }
     }
 }
 
 @Composable
-private fun MessagesPage(openWebsite: () -> Unit) {
+private fun MessagesPage(
+    openWebsite: () -> Unit,
+    cloud: CloudClient,
+    openArticle: (String) -> Unit
+) {
     Content {
-        item { Heading("消息", "只显示通过本人授权或公共渠道取得的信息") }
-        item {
-            InfoCard(
-                "微信候选任务",
-                "沿用现有电脑采集器与云端人工审核。手机不会在未确认时自动生成任务。",
-                "进入审核页面",
-                openWebsite
-            )
-        }
-        item {
-            InfoCard(
-                "学校公开通知",
-                "继续使用已部署的通知服务。后续接入原生消息列表前，请在网站查看。",
-                "打开通知",
-                openWebsite
-            )
-        }
+        item { Heading("消息", "学校公开通知与微信待审核分开管理") }
+        item { WechatCandidatesPanel(cloud, openWebsite) }
+        item { NoticesPanel(cloud, openArticle) }
     }
 }
 
 @Composable
-private fun ConnectionsPage(openWebsite: () -> Unit) {
+private fun ConnectionsPage(openWebsite: () -> Unit, cloud: CloudClient) {
     Content {
-        item { Heading("我的", "账号和数据源分别管理，不要求学校账号重复登录校序。") }
-        item {
-            InfoCard(
-                "数据连接中心",
-                "当前使用现有校序网站的授权与会话管理。App 还没有独立验证学校连接，因此不显示“已连接”。",
-                "前往现有数据连接",
-                openWebsite
-            )
-        }
-        item { InfoCard("学习通", "待完成本人真实课程、作业及重启后刷新验收。") }
-        item { InfoCard("青果教务", "待完成真实课表及来源一致性验收。") }
-        item { InfoCard("第二课堂", "待完成活动、积分与会话恢复验收。") }
-        item {
-            InfoCard(
-                "本地优先 · 云端辅助",
-                "手动任务只保存在当前设备的 Room 数据库中。删除 App 可能删除这些数据；尚未启用跨设备同步。"
-            )
-        }
+        item { Heading("我的", "本机优先、云端可选，学校登录保持独立") }
+        item { ConnectionsPanel(cloud, openWebsite) }
     }
 }
