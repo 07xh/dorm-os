@@ -45,6 +45,7 @@ assert.equal(isActiveSchoolAuthorization(connectedChaoxing,'active',false),false
 const connectionImpl=readFileSync(new URL('../functions/api/v1/connections.js',import.meta.url),'utf8');
 assert.match(connectionImpl,/accountAuthorization:verified\?'verified_session':'not_verified'/);
 assert.doesNotMatch(connectionImpl,/accountAuthorization:sessionState==='active'\?'verified_session'/);
+assert.match(connectionImpl,/autoSync:\{enabled:autoJob\?\.enabled===1/);
 
 const seen=[];
 const db={prepare(sql){
