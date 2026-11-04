@@ -130,7 +130,7 @@ assert.ok(!urls.some(x=>x.cookie.includes('test-password')));
 // including a failed upstream identity probe and subsequent explicit re-login.
 const {readFileSync}=await import('node:fs');
 const {DatabaseSync}=await import('node:sqlite');
-const {connectSchoolAccount,connectImportedChaoxingSession,refreshSchoolAccount,schoolSessionStates}=await import('../lib/academic-school-login.mjs');
+const {connectSchoolAccount,connectImportedChaoxingSession,refreshSchoolAccount,schoolSessionStates,readConnectedChaoxing}=await import('../lib/academic-school-login.mjs');
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
 for(const filename of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
@@ -194,6 +194,17 @@ assert.ok(!JSON.stringify(importedRow).includes('cx_s=ok'));
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_chaoxing_notices').get().n,1);
 const existingCipher=importedRow.ciphertext;
+// Preserve a valid encrypted session when the identity probe hits a network error.
+for(const [cause,expected] of [['upstream_unavailable','upstream_unavailable'],
+ ['authorization_failed','session_expired']]){
+ const failingAdapter={provider:'chaoxing',async forSession(){return {
+  provider:'chaoxing',async verifySession(){throw Object.assign(new Error(cause),{code:cause});}
+ };}};
+ await assert.rejects(()=>readConnectedChaoxing({db:db2,userId:'owner1',
+  adapter:failingAdapter,secret,reader:()=>{throw Error('reader must not run');}}),
+  e=>e.code===expected,'session verification failure classification: '+cause);
+}
+assert.deepEqual(await schoolSessionStates(db2,'owner1',secret),{chaoxing:'active'});
 await assert.rejects(()=>connectImportedChaoxingSession({db:db2,userId:'owner1',
  adapter,cookies:[{name:'cx_s',value:'ok',domain:'.evil.example',path:'/'}],secret}),
  e=>e.code==='invalid_cookie_format');
