@@ -41,7 +41,9 @@ jobs:
       - name: Read-only current NCWU second-class CAS compatibility (no login)
         timeout-minutes: 2
         continue-on-error: true
-        run: node scripts/probe-ncwu-secondclass-cas-live.mjs
+        run: |
+          node scripts/probe-ncwu-secondclass-cas-live.mjs
+          node scripts/xiaoxu-ncwu-sudy-transport-tests.mjs --live
       - name: Desktop and mobile end-to-end tests
         run: npm run test:e2e
       - name: Upload failure traces and screenshots
