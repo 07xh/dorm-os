@@ -70,6 +70,8 @@ assert.ok(ui.panel().includes('&lt;script&gt;'));
 assert.ok(!ui.panel().includes('<script>'),'message titles must be escaped');
 await click({'data-xu-wc-pair':''});
 assert.ok(ui.panel().includes(token),'only newly created token appears in this memory view');
+assert.match(ui.panel(),/尚未完成首次云端同步/,
+ 'a paired device without a cloud receipt must not appear connected');
 const pairing=calls.find(x=>x.options.method==='POST'&&x.url==='/api/v1/wechat/devices');
 assert.equal(pairing.options.headers.origin,'https://academic.test');
 await click({'data-xu-wc-review':candidate,'data-xu-wc-decision':'accept'});
