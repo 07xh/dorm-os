@@ -54,7 +54,26 @@ assert.equal(challenge.currentPasswordFormCompatible,false);
 assert.equal(challenge.reason,'interactive_challenge_required');
 assert.deepEqual(challenge.challengeEvidence,{
  passwordFormSeen:true,challengeControlSeen:true,challengeMarkupSeen:true,
- challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:false
+ challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:false,
+ submitHandlerKind:'none'
 });
 assert.equal(challenge.sessionLinked,false);
+const submitOnly=await runCloudflareSecondClassCasProbe({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn')return response(200,
+  '<form method="post" action="/authserver/login" onsubmit="return checkLogin();">'+
+  '<input name="username"><input name="password" type="password">'+
+  '<input type="hidden" name="execution" value="opaque-test">'+
+  '<input type="hidden" name="_eventId" value="submit"></form>');
+ return fake(url,options);
+}});
+assert.equal(submitOnly.currentPasswordFormCompatible,false,
+ 'an unknown onsubmit handler must not be bypassed');
+assert.deepEqual(submitOnly.challengeEvidence,{
+ passwordFormSeen:true,challengeControlSeen:false,challengeMarkupSeen:false,
+ challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:true,
+ submitHandlerKind:'named_function_call',submitHandlerName:'checkLogin'
+});
+assert.equal(submitOnly.userAuthenticated,false);
+assert.equal(submitOnly.sessionLinked,false);
 console.log('Cloudflare CAS public-only edge probe: public redirect, service binding, challenge and no-session proof passed');
