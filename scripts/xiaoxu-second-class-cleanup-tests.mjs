@@ -23,8 +23,8 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
  assert.equal(ui.includes(token),false,'obsolete connection-center UI remains: '+token);
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
-assert.ok(ui.includes('打开第二课堂官网'),'official school link remains');
-assert.ok(ui.includes('学校账号真实登录尚待验收'),'honest unverified status remains');
+assert.ok(ui.includes('打开官网（不会绑定校序）'),'official link remains but cannot be mistaken for binding');
+assert.ok(ui.includes('官网登录不会自动关联校序'),'honest unverified CAS status remains');
 assert.ok(ui.includes('data-xu-cas-check="second_class"'),'explicit school CAS preflight remains');
 assert.equal(ui.includes('maybeAutoRefreshSecondClass'),false);
 assert.equal(ui.includes('data-xu-second-class-official-only'),false,'obsolete official-only blockade removed');
