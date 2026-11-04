@@ -40,11 +40,12 @@ jobs:
         run: |
           mkdir -p public-cas-source
           curl --fail --silent --show-error --max-time 25 'https://authserver.ncwu.edu.cn/authserver/themes/sudy_ncwu/js/login.js?t=1' -o public-cas-source/login.js
+          curl --fail --silent --show-error --max-time 25 'https://authserver.ncwu.edu.cn/authserver/js/security.js' -o public-cas-source/security.js
       - uses: actions/upload-artifact@v4
         if: github.head_ref == 'fix/secondclass-cas-script-truncation'
         with:
           name: public-school-login-source
-          path: public-cas-source/login.js
+          path: public-cas-source/
           retention-days: 1
       - name: Syntax, security and logic tests
         run: npm run check
