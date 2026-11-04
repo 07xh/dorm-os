@@ -81,3 +81,44 @@ jobs:
             --prerelease \
             --notes 'Debug preview with local tasks, Cloudflare tasks, public notices and verified-timetable display. School login and Android 16 device checks remain pending. Back up local data before reinstalling.'
           echo "Direct APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK}"
+
+
+  publish-v03-pr-fallback:
+    name: Publish public v0.3.0 APK from trusted internal PR
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'release/xiaoxu-v03-direct-download-20261104'
+    needs: build-android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xiaoxu-android-alpha-debug
+          path: apk
+      - name: Publish direct-download APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='xiaoxu-android-v0.3.0-alpha'
+          APK='xiaoxu-android-v0.3.0-alpha-debug.apk'
+          test -s apk/app-debug.apk
+          cp apk/app-debug.apk "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists, refusing to overwrite; verify its assets independently."
+          else
+            gh release create "$TAG" "$APK" "$APK.sha256" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$TARGET_SHA" \
+              --title '校序 Android V0.3 Debug Alpha' \
+              --prerelease \
+              --notes 'Native Android V0.3 debug preview. School login and real-device validation are NOT complete. APK signing key may differ between CI builds; back up local-only tasks before replacing.'
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name=="xiaoxu-android-v0.3.0-alpha-debug.apk") | .url'
