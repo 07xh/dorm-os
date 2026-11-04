@@ -71,6 +71,8 @@ assert.equal(JSON.stringify(score).includes('SHOULD_NEVER_BE_PERSISTED'),false);
 assert.equal(JSON.stringify(score).includes('score_plus2'),false);
 expectFail(()=>parseNcwuScoreTypes([{code:'1',name:'A'},{code:'1',name:'B'}]));
 expectFail(()=>parseNcwuScoreList({data:[scoreRow(100,-1,2)],startIndex:0,totalPage:0,totalSize:1},cleanTypes));
+expectFail(()=>parseNcwuScoreList({...schoolScores,totalSize:3},cleanTypes),'incomplete_pagination');
+expectFail(()=>parseNcwuScoreList({...schoolScores,totalPage:2},cleanTypes),'incomplete_pagination');
 expectFail(()=>parseNcwuScoreList({data:[scoreRow(100,1,2),scoreRow(100,1,2)],startIndex:0,totalPage:0,totalSize:2},cleanTypes));
 assert.equal(normalizeRecord('second-class',{
  externalId:'x',title:'X',settlementStatus:'settled'
@@ -82,7 +84,8 @@ assert.throws(()=>normalizeRecord('second-class',{
 const auditCalls=[];
 const verified={authorized:true,provider:'second_class',school:'ncwu',scope:'self',
  identityBound:true,principalBoundTo:'owner-a',session:{studentCode:schoolCode}};
-function adapter({badScore=false,badPage=false,badStudent=false,verifiedAccount=verified}={}){
+function adapter({badScore=false,badPage=false,badStudent=false,
+ emptyActivities=false,emptyScores=false,verifiedAccount=verified}={}){
  return makeNcwuSecondClassAdapter({
   async verifySession(){return verifiedAccount;},
   async readPost({method,path,form,session}){
@@ -90,12 +93,14 @@ function adapter({badScore=false,badPage=false,badStudent=false,verifiedAccount=
    assert.equal(method,'POST');
    assert.equal(session.studentCode,schoolCode);
    if(path===NCWU_SECOND_CLASS_READS.activities)
-    return badPage?{...page1,totalSize:3}:
+    return emptyActivities?{data:[],startIndex:0,totalPage:0,totalSize:0}:
+     badPage?{...page1,totalSize:3}:
      badStudent?{...page1,data:[{...page1.data[0],student_code:'OTHER'}]}:
      form.page==='1'?page1:page2;
    if(path===NCWU_SECOND_CLASS_READS.scoreTypes)return types;
    if(path===NCWU_SECOND_CLASS_READS.scores)
-    return badScore?{...schoolScores,data:[scoreRow(100,-9,2)]}:schoolScores;
+    return emptyScores?{data:[],startIndex:0,totalPage:0,totalSize:0}:
+     badScore?{...schoolScores,data:[scoreRow(100,-9,2)]}:schoolScores;
    throw Error('unexpected remote path');
   }
  });
@@ -170,6 +175,27 @@ await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-a',adapter({ba
 assert.equal(sql.prepare("SELECT batch_id FROM academic_verified_batches WHERE user_id='owner-a'").get().batch_id,
  previousBatch,'bad official score must not overwrite last good activity or score batch');
 assert.equal(sql.prepare("SELECT batch_id FROM academic_second_class_official_scores WHERE user_id='owner-a'").get().batch_id,previousBatch);
+// A previously trusted data batch must survive either upstream list going
+// unexpectedly empty. Neither active records nor school totals are replaced.
+for(const flags of [{emptyActivities:true},{emptyScores:true}]){
+ await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-a',adapter(flags),opts),
+  e=>e.code==='unverified_empty_page');
+ assert.equal(sql.prepare("SELECT batch_id FROM academic_verified_batches WHERE user_id='owner-a'").get().batch_id,
+  previousBatch,'unexpected empty source must not replace the verified activity batch');
+ assert.equal(sql.prepare("SELECT batch_id FROM academic_second_class_official_scores WHERE user_id='owner-a'").get().batch_id,
+  previousBatch,'unexpected empty source must not replace the official scores');
+}
+// Genuine first-time owner with no activities is still permitted when the
+// school's authorized scores identify the same owner.
+const firstEmpty=await runVerifiedNcwuSecondClassSync(db,'owner-c',adapter({
+ emptyActivities:true,verifiedAccount:{...verified,principalBoundTo:'owner-c'}
+}),opts);
+assert.equal(firstEmpty.activityCount,0);
+const emptyAgain=await runVerifiedNcwuSecondClassSync(db,'owner-c',adapter({
+ emptyActivities:true,verifiedAccount:{...verified,principalBoundTo:'owner-c'}
+}),opts);
+assert.equal(emptyAgain.activityCount,0,
+ 'repeat verified zero-activity sync must not be blocked by an empty prior batch');
 await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-b',adapter({badPage:true}),opts));
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM academic_users WHERE id='owner-b'").get().n,0);
 assert.deepEqual(sql.prepare('PRAGMA foreign_key_check').all(),[]);
