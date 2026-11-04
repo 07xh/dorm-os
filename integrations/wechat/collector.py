@@ -270,7 +270,29 @@ def submit(site: str, token: str, payload: dict) -> dict:
                 raise BridgeError("云端尚未接受本批数据")
             result = json.load(response)
     except urllib.error.HTTPError as exc:
-        raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查数据库迁移和设备权限") from None
+        # The Cloudflare edge and the private Academic OS API can both reply
+        # HTTP 403. Only read a bounded, allowlisted machine error code;
+        # never print raw response HTML, chat contents or device credentials.
+        known = {
+            "device_mismatch": "设备 ID 与授权凭证不属于同一台设备；请在校序撤销旧设备并重新绑定。",
+            "forbidden_origin_or_format": "校序接口拒绝上传格式；请更新校序电脑同步脚本，无需重配群聊。",
+            "device_unauthorized": "设备凭证无效或已撤销；请重新绑定电脑。",
+            "database_unavailable": "校序云端数据服务暂不可用；无需重新配置群聊。",
+        }
+        code = None
+        try:
+            content_type = (exc.headers.get("Content-Type", "") if exc.headers else "").lower()
+            if "application/json" in content_type:
+                response_data = json.loads(exc.read(1024))
+                if isinstance(response_data, dict) and isinstance(response_data.get("error"), str):
+                    code = response_data["error"]
+        except (ValueError, UnicodeError, OSError):
+            pass
+        if code in known:
+            raise BridgeError(f"云端拒绝批次（HTTP {exc.code}，{code}）：{known[code]}") from None
+        if exc.code == 403:
+            raise BridgeError("云端拒绝批次（HTTP 403，非校序已知错误）；可能是网络或 Cloudflare 安全检查。无需重配群聊。") from None
+        raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查设备授权或云端服务。") from None
     except urllib.error.URLError:
         raise BridgeError("网络连接失败：校序云端暂时无法访问") from None
     if (result.get("reviewStatus") != "needs_review" or
