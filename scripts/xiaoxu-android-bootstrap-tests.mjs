@@ -27,6 +27,15 @@ assert.match(main, /NavigationBar/);
 assert.match(main, /NavigationRail/);
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
+// Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
+assert.match(db, /val source: String\?/);
+assert.match(db, /val due: String\?/);
+assert.match(db, /version = 2/);
+assert.match(db, /Migration\(1, 2\)/);
+assert.match(db, /ADD COLUMN source TEXT/);
+assert.match(db, /ADD COLUMN due TEXT/);
+assert.match(db, /addMigrations\(MIGRATION_1_2\)/);
+assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
@@ -52,8 +61,8 @@ assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
 assert.match(main, /CloudTasksPanel/);
 assert.match(main, /ConnectionsPanel/);
-assert.match(main, /NoticesPanel/);
-assert.match(main, /WechatCandidatesPanel/);
+// 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
+assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTACTS|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET\s*=/);
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
@@ -92,6 +101,37 @@ assert.match(secondClass, /"user_browser_export"/);
 assert.match(secondClassPanel, /官方汇总不与逐条活动分数相加/);
 assert.match(secondClassPanel, /用户自行导入的数据（非官方实时同步）/);
 assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
+
+// 课表页（Issue #209）：只读 CloudClient.state，四态显式，不伪造课程与当前周。
+const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+assert.match(schedulePanel, /fun CloudTimetablePanel\(/);
+assert.match(schedulePanel, /deriveScheduleUiState/);
+assert.match(schedulePanel, /ScheduleUiState\.Loading/);
+assert.match(schedulePanel, /ScheduleUiState\.NotConnected/);
+assert.match(schedulePanel, /ScheduleUiState\.Failed/);
+assert.match(schedulePanel, /state\.lessons/);
+assert.match(schedulePanel, /trusted_readonly|可信/);
+assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
+assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层手写课程对象冒充真实数据');
+
+// 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
+const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
+assert.match(messageCenter, /fun filterNotices\(/);
+assert.match(messageCenter, /state\.notices/);
+assert.match(messageCenter, /state\.pendingWechatCount/);
+assert.match(messageCenter, /state\.publicError/);
+assert.match(messageCenter, /noticesPartial/);
+assert.match(messageCenter, /openArticle\(notice\.url\)/);
+assert.match(messageCenter, /未连接校序云端/);
+assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
+assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
+
+// 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
+const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(taskBoard, /TASK_SOURCES/);
+assert.match(taskBoard, /dao\.insert\(LocalTask\(/);
+assert.match(taskBoard, /本人标注/);
+assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');

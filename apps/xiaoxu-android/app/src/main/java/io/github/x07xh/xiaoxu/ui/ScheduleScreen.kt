@@ -1,0 +1,1144 @@
+package io.github.x07xh.xiaoxu.ui
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Room
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.CloudUiState
+import io.github.x07xh.xiaoxu.data.VerifiedLesson
+import java.time.LocalDate
+import kotlinx.coroutines.launch
+
+/*
+ * 校序课表页四态 UI（Issue #209）。
+ *
+ * 数据边界：
+ * - 不发起网络请求、不解析接口、不写数据库。唯一来源是 CloudClient.state，
+ *   唯一触发的动作是 CloudClient.refresh()（与顶部全局刷新同一个公开方法）。
+ * - 没有可信课程时不渲染任何课程占位，只渲染对应的真实状态。
+ * - 不推断当前教学周、不做上课倒计时：VerifiedLesson 只给节次与周次，缺少开学日期与
+ *   节次作息时间表，任何"第 N 周 / 还有 X 分钟"的结论都等于伪造数据。
+ */
+
+// ---------------------------------------------------------------------------
+// 状态模型（纯函数，可在 JVM 单元测试里直接验证，不依赖 Compose）
+// ---------------------------------------------------------------------------
+
+sealed interface ScheduleUiState {
+    /** 首次读取尚未落定，或正在刷新且没有可展示的旧数据。 */
+    data object Loading : ScheduleUiState
+
+    /** 云端未连接，须由本人在"我的"页完成校序口令登录。 */
+    data object NotConnected : ScheduleUiState
+
+    /** 已连接但没有青果可信来源（status = not_connected）。 */
+    data object NoTrustedSource : ScheduleUiState
+
+    /** 有来源但未通过可信只读校验，不导入也不猜测。 */
+    data object UnverifiedSource : ScheduleUiState
+
+    /** 读取失败且没有旧数据可展示。message 为服务端返回的真实错误分类。 */
+    data class Failed(val message: String) : ScheduleUiState
+
+    /** 可信来源明确返回 0 门课程。 */
+    data object VerifiedEmpty : ScheduleUiState
+
+    /** 已验证且有真实课程。stale = 上次成功读取，未确认是否调整。 */
+    data class Verified(
+        val lessons: List<VerifiedLesson>,
+        val stale: Boolean,
+        val fetchedAt: String?,
+        val refreshWarning: String?,
+        val term: String?
+    ) : ScheduleUiState
+}
+
+/**
+ * CloudUiState 没有"首次加载完成"标志位，默认 authMessage 是唯一可判定的哨兵值。
+ * 这里读取默认实例而不是重复写字面量；数据层将来补字段后可删除此判断。
+ */
+private val PENDING_AUTH_MESSAGE = CloudUiState().authMessage
+
+/**
+ * 推导顺序即优先级，逐条对应 Issue #209 的四态：
+ * 1. 有真实课程 -> 已验证（刷新中保留旧数据，不闪白）；
+ * 2. 忙碌 / 首次读取 -> 加载；
+ * 3. 未登录 -> 未连接；
+ * 4. 有错误且无旧数据 -> 错误；
+ * 5. 其余按来源状态落到"无可信来源 / 未验证 / 可信空结果"。
+ */
+fun deriveScheduleUiState(state: CloudUiState): ScheduleUiState {
+    if (state.lessons.isNotEmpty()) {
+        return ScheduleUiState.Verified(
+            lessons = state.lessons,
+            stale = state.scheduleStatus == "stale",
+            fetchedAt = state.scheduleFetchedAt,
+            refreshWarning = state.privateError,
+            term = state.lessons.firstOrNull { it.term.isNotBlank() }?.term
+        )
+    }
+    if (state.busy || state.signingIn) return ScheduleUiState.Loading
+    if (!state.authenticated) {
+        return if (state.authMessage == PENDING_AUTH_MESSAGE) ScheduleUiState.Loading
+        else ScheduleUiState.NotConnected
+    }
+    if (state.privateError != null) return ScheduleUiState.Failed(state.privateError)
+    return when (state.scheduleStatus) {
+        "ready", "stale" -> ScheduleUiState.VerifiedEmpty
+        "not_connected" -> ScheduleUiState.NoTrustedSource
+        else -> ScheduleUiState.UnverifiedSource
+    }
+}
+
+/** 离散周次压成区间用于课程卡信息密度：1,2,3,5 -> "第1–3、5周"。 */
+fun formatWeeks(weeks: List<Int>): String {
+    val sorted = weeks.filter { it > 0 }.distinct().sorted()
+    if (sorted.isEmpty()) return "周次未提供"
+    val parts = mutableListOf<String>()
+    var start = sorted.first()
+    var previous = start
+    for (index in 1 until sorted.size) {
+        val week = sorted[index]
+        if (week == previous + 1) {
+            previous = week
+            continue
+        }
+        parts += if (start == previous) "$start" else "$start–$previous"
+        start = week
+        previous = week
+    }
+    parts += if (start == previous) "$start" else "$start–$previous"
+    return "第" + parts.joinToString("、") + "周"
+}
+
+/** 每天课程数，用于星期条上的密度点。 */
+fun lessonCountByWeekday(lessons: List<VerifiedLesson>): Map<Int, Int> =
+    lessons.groupingBy { it.weekday }.eachCount()
+
+// ---------------------------------------------------------------------------
+// UI 模型
+// ---------------------------------------------------------------------------
+
+private val WEEKDAY_SHORT = listOf("一", "二", "三", "四", "五", "六", "日")
+private const val ALL_WEEKS = 0
+private val ContentMaxWidth = 860.dp
+private val StateMaxWidth = 560.dp
+
+private fun weekdayLong(weekday: Int): String =
+    "星期" + WEEKDAY_SHORT.getOrElse(weekday - 1) { "?" }
+
+/** VerifiedLesson 含 List<Int>，Compose 无法推断稳定性；UI 侧显式声明不可变。 */
+@Immutable
+private data class LessonUi(
+    val key: String,
+    val title: String,
+    val sectionLabel: String,
+    val teacher: String,
+    val location: String,
+    val weeksLabel: String,
+    val term: String,
+    val weekday: Int,
+    val startSection: Int
+)
+
+private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
+    key = (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday",
+    title = title.ifBlank { "未命名课程" },
+    sectionLabel = "第$startSection–$endSection 节",
+    teacher = teacher.ifBlank { "教师未排" },
+    location = location.ifBlank { "地点未排" },
+    weeksLabel = formatWeeks(weeks),
+    term = term.ifBlank { "学期未标注" },
+    weekday = weekday,
+    startSection = startSection
+)
+
+/** 窄屏占满、宽屏居中并限宽，避免平板上正文被拉到全屏宽。 */
+private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
+    this.widthIn(max = max).fillMaxWidth()
+
+// ---------------------------------------------------------------------------
+// 入口：保持既有函数名与包路径，MainActivity 仍调用 CloudTimetablePanel
+// ---------------------------------------------------------------------------
+
+@Composable
+fun CloudTimetablePanel(
+    client: CloudClient,
+    openWebsite: () -> Unit,
+    openProfile: (() -> Unit)? = null
+) {
+    val state = client.state
+    val scope = rememberCoroutineScope()
+    val uiState = remember(state) { deriveScheduleUiState(state) }
+    val refresh: () -> Unit = { scope.launch { client.refresh() } }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val expanded = maxWidth >= 840.dp
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Crossfade(targetState = uiState, label = "schedule-state") { current ->
+                when (current) {
+                    ScheduleUiState.Loading -> ScheduleLoadingState()
+                    ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openProfile, openWebsite)
+                    ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openWebsite, refresh)
+                    ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openWebsite, refresh)
+                    is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openWebsite, refresh)
+                    ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openWebsite, refresh)
+                    is ScheduleUiState.Verified -> ScheduleVerifiedContent(
+                        data = current,
+                        expanded = expanded,
+                        onRefresh = refresh,
+                        openWebsite = openWebsite
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 已验证 + 真实数据
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ScheduleVerifiedContent(
+    data: ScheduleUiState.Verified,
+    expanded: Boolean,
+    onRefresh: () -> Unit,
+    openWebsite: () -> Unit
+) {
+    val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
+    val weekNumbers = remember(data.lessons) {
+        data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
+    }
+    var selectedWeek by rememberSaveable { mutableStateOf(ALL_WEEKS) }
+    var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
+    var expandedCard by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
+    val allowedKeys = remember(data.lessons, selectedWeek) {
+        if (selectedWeek == ALL_WEEKS) null
+        else data.lessons.filter { selectedWeek in it.weeks }.map { it.toUi().key }.toSet()
+    }
+    val filtered = remember(lessons, allowedKeys) {
+        if (allowedKeys == null) lessons else lessons.filter { it.key in allowedKeys }
+    }
+    val counts = remember(filtered) { filtered.groupingBy { it.weekday }.eachCount() }
+    val todayWeekday = remember { LocalDate.now().dayOfWeek.value }
+
+    // 选中的星期在当前筛选下没课时，落到最近的有课星期，避免"空页没有解释"。
+    val effectiveWeekday = remember(selectedWeekday, counts) {
+        if (counts.containsKey(selectedWeekday) || counts.isEmpty()) selectedWeekday
+        else counts.keys.minByOrNull { kotlin.math.abs(it - selectedWeekday) } ?: selectedWeekday
+    }
+    val dayLessons = remember(filtered, effectiveWeekday) {
+        filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
+    }
+
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .pageWidth(ContentMaxWidth)
+            .padding(horizontal = 18.dp)
+    ) {
+        ScheduleHeader(
+            subtitle = listOfNotNull(
+                data.term,
+                "来源：华水青果 · 可信只读",
+                data.fetchedAt?.let { "上次可信读取 $it" }
+            ).joinToString(" · "),
+            onRefresh = onRefresh
+        )
+        if (data.stale) {
+            ScheduleBanner(
+                icon = Icons.Outlined.Warning,
+                title = "这是上次成功读取的课表",
+                message = "尚未确认近期是否发生调整，请不要把它当作最新课表。",
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+        data.refreshWarning?.let { warning ->
+            ScheduleBanner(
+                icon = Icons.Outlined.Info,
+                title = "本次刷新不完整",
+                message = warning + "；下方仍是上一次成功读取的结果。",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                compact = true
+            )
+        }
+        if (weekNumbers.size > 1) {
+            WeekSelector(weeks = weekNumbers, selected = selectedWeek, onSelect = { selectedWeek = it })
+        }
+        val toggle: (String) -> Unit = { key ->
+            expandedCard = if (expandedCard == key) null else key
+        }
+        if (expanded) {
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                WeekdaySideBar(
+                    counts = counts,
+                    selected = effectiveWeekday,
+                    today = todayWeekday,
+                    onSelect = { selectedWeekday = it }
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxHeight().weight(1f).padding(start = 12.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 28.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item {
+                        DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
+                    }
+                    if (dayLessons.isEmpty()) {
+                        item { NoLessonCard(selectedWeek) }
+                    }
+                    items(
+                        count = dayLessons.size,
+                        key = { index -> dayLessons[index].key + "#" + index }
+                    ) { index ->
+                        val lesson = dayLessons[index]
+                        LessonCard(
+                            lesson = lesson,
+                            expanded = expandedCard == lesson.key,
+                            onToggle = { toggle(lesson.key) }
+                        )
+                    }
+                    item { ScheduleFooterNote() }
+                    item {
+                        TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    WeekdayStrip(
+                        counts = counts,
+                        selected = effectiveWeekday,
+                        today = todayWeekday,
+                        onSelect = { selectedWeekday = it }
+                    )
+                }
+                item {
+                    DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
+                }
+                if (dayLessons.isEmpty()) {
+                    item { NoLessonCard(selectedWeek) }
+                }
+                items(
+                    count = dayLessons.size,
+                    key = { index -> dayLessons[index].key + "#" + index }
+                ) { index ->
+                    val lesson = dayLessons[index]
+                    LessonCard(
+                        lesson = lesson,
+                        expanded = expandedCard == lesson.key,
+                        onToggle = { toggle(lesson.key) }
+                    )
+                }
+                item { ScheduleFooterNote() }
+                item {
+                    TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScheduleHeader(subtitle: String, onRefresh: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "课表",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Spacer(Modifier.width(8.dp))
+                SourceBadge()
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = onRefresh) {
+            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("刷新")
+        }
+    }
+}
+
+@Composable
+private fun SourceBadge() {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Outlined.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = "已验证",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+    }
+}
+
+@Composable
+private fun ScheduleBanner(
+    icon: ImageVector,
+    title: String,
+    message: String,
+    containerColor: Color,
+    contentColor: Color,
+    compact: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .padding(horizontal = 14.dp, vertical = if (compact) 10.dp else 12.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = contentColor)
+        Spacer(Modifier.width(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor
+            )
+            Text(text = message, style = MaterialTheme.typography.bodySmall, color = contentColor)
+        }
+    }
+}
+
+@Composable
+private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "周次",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                SelectablePill(
+                    label = "全部",
+                    isSelected = selected == ALL_WEEKS,
+                    a11yLabel = "显示全部周次",
+                    onClick = { onSelect(ALL_WEEKS) }
+                )
+            }
+            items(count = weeks.size, key = { index -> weeks[index] }) { index ->
+                val week = weeks[index]
+                SelectablePill(
+                    label = "$week",
+                    isSelected = selected == week,
+                    a11yLabel = "第 $week 周",
+                    onClick = { onSelect(week) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectablePill(
+    label: String,
+    isSelected: Boolean,
+    a11yLabel: String,
+    onClick: () -> Unit
+) {
+    val background by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(180),
+        label = "pill-bg"
+    )
+    val foreground by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(180),
+        label = "pill-fg"
+    )
+    Box(
+        modifier = Modifier
+            .heightIn(min = 44.dp)
+            .clip(RoundedCornerShape(50))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .semantics {
+                role = Role.Tab
+                selected = isSelected
+                contentDescription = a11yLabel
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
+    }
+}
+
+@Composable
+private fun WeekdayStrip(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (1..7).forEach { day ->
+            DayCell(
+                weekday = day,
+                count = counts[day] ?: 0,
+                isSelected = day == selected,
+                isToday = day == today,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelect(day) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayCell(
+    weekday: Int,
+    count: Int,
+    isSelected: Boolean,
+    isToday: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val background by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.primary
+            isToday -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surface
+        },
+        animationSpec = tween(180),
+        label = "day-bg"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(180),
+        label = "day-label"
+    )
+    Column(
+        modifier = modifier
+            .heightIn(min = 64.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp)
+            .semantics {
+                role = Role.Tab
+                selected = isSelected
+                contentDescription = weekdayLong(weekday) +
+                    (if (isToday) "，今天" else "") + "，$count 节课"
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = WEEKDAY_SHORT[weekday - 1],
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (isSelected || isToday) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else labelColor
+        )
+        Spacer(Modifier.height(4.dp))
+        if (count > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                repeat(minOf(count, 4)) {
+                    Box(
+                        Modifier
+                            .size(4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.primary
+                            )
+                    )
+                }
+            }
+        } else {
+            Box(Modifier.height(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.width(200.dp).fillMaxHeight().padding(end = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        (1..7).forEach { day ->
+            val isSelected = day == selected
+            val background by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surface,
+                animationSpec = tween(180),
+                label = "side-bg-$day"
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(background)
+                    .clickable { onSelect(day) }
+                    .padding(horizontal = 14.dp)
+                    .semantics {
+                        role = Role.Tab
+                        // 必须显式 this.：外层参数 selected: Int 会遮蔽 semantics 的 selected: Boolean。
+                        this.selected = isSelected
+                        this.contentDescription = weekdayLong(day) +
+                            (if (day == today) "，今天" else "") + "，${counts[day] ?: 0} 节课"
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = weekdayLong(day),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                    Text(
+                        text = "${counts[day] ?: 0} 节",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (day == today) {
+                    Text(
+                        text = "今天",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DaySummary(weekday: Int, count: Int, isToday: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = weekdayLong(weekday),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
+        )
+        if (isToday) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "今天",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = if (count == 0) "无课" else "$count 节",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun NoLessonCard(selectedWeek: Int) {
+    EmptyHint(
+        icon = Icons.Outlined.DateRange,
+        title = "这一天没有可信课程",
+        message = if (selectedWeek == ALL_WEEKS) "整学期该星期都没有已通过校验的课程记录。"
+        else "第 $selectedWeek 周该星期没有已通过校验的课程记录。"
+    )
+}
+
+@Composable
+private fun LessonCard(lesson: LessonUi, expanded: Boolean, onToggle: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = tween(120),
+        label = "card-press"
+    )
+    val arrow by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "card-arrow"
+    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(),
+                onClickLabel = if (expanded) "收起课程详情" else "展开课程详情",
+                role = Role.Button,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggle()
+                }
+            )
+            .animateContentSize(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .heightIn(min = 76.dp)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = lesson.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SectionBadge(lesson.sectionLabel)
+                    Icon(
+                        imageVector = Icons.Outlined.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = arrow },
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.Room,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = lesson.location,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Outlined.PersonOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = lesson.teacher,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                AnimatedVisibility(visible = expanded) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(10.dp))
+                        DetailRow(label = "周次", value = lesson.weeksLabel)
+                        DetailRow(label = "学期", value = lesson.term)
+                        DetailRow(label = "节次", value = lesson.sectionLabel)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "内容来自青果可信只读记录，未在本机改动。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionBadge(label: String) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(48.dp)
+        )
+        Text(text = value, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun ScheduleFooterNote() {
+    Text(
+        text = "按完整学期展示；未接入开学日期与节次作息时间，因此不推断当前周、不计算上课倒计时。",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp)
+    )
+}
+
+// ---------------------------------------------------------------------------
+// 未连接 / 加载 / 错误 / 无来源 / 未验证 / 可信空结果
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ScheduleLoadingState() {
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .pageWidth(ContentMaxWidth)
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "正在读取可信课表",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "只展示已通过校验的本人课程，读取完成前不显示任何示例课程。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        SkeletonBlock(Modifier.fillMaxWidth().height(64.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(7) { SkeletonBlock(Modifier.weight(1f).height(56.dp)) }
+        }
+        repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(84.dp)) }
+    }
+}
+
+@Composable
+private fun SkeletonBlock(modifier: Modifier) {
+    val transition = rememberInfiniteTransition(label = "skeleton")
+    val shift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1300, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "skeleton-shift"
+    )
+    val base = MaterialTheme.colorScheme.surfaceVariant
+    val brush = Brush.linearGradient(
+        colors = listOf(
+            base.copy(alpha = 0.45f),
+            base.copy(alpha = 0.85f),
+            base.copy(alpha = 0.45f)
+        ),
+        start = Offset(-320f + shift * 1400f, 0f),
+        end = Offset(shift * 1400f, 0f)
+    )
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(brush))
+}
+
+@Composable
+private fun ScheduleNotConnectedState(openProfile: (() -> Unit)?, openWebsite: () -> Unit) {
+    StateScaffold(
+        icon = Icons.Outlined.CloudOff,
+        title = "课表还没连接",
+        message = "校序云端连接后可读取已通过校验的青果课程。学校登录与授权仍在官方网页完成，" +
+            "App 不收集学校密码，也不显示任何示例课程。"
+    ) {
+        if (openProfile != null) {
+            Button(onClick = openProfile) {
+                Icon(Icons.Outlined.PersonOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("去「我的」连接校序云端")
+            }
+        }
+        OutlinedButton(onClick = openWebsite) {
+            Text("打开官方连接中心")
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ScheduleSourceMissingState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+    StateScaffold(
+        icon = Icons.Outlined.DateRange,
+        title = "还没有可信课表来源",
+        message = "校序已连接，但尚未读取到可信的青果课程数据。请在官方连接中心完成青果授权后重新读取；" +
+            "在此之前不导入、不猜测、不展示占位课表。"
+    ) {
+        Button(onClick = onRefresh) { Text("重新读取") }
+        OutlinedButton(onClick = openWebsite) {
+            Text("打开官方连接中心")
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ScheduleUnverifiedState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+    StateScaffold(
+        icon = Icons.Outlined.Info,
+        title = "课表来源尚未通过验证",
+        message = "当前来源未通过可信只读校验。为避免把不可信结果当成课表，本页只显示状态，" +
+            "不展示导入或推断出来的课程。"
+    ) {
+        Button(onClick = onRefresh) { Text("重新读取") }
+        OutlinedButton(onClick = openWebsite) { Text("查看官方连接状态") }
+    }
+}
+
+@Composable
+private fun ScheduleFailedState(message: String, openWebsite: () -> Unit, onRefresh: () -> Unit) {
+    StateScaffold(
+        icon = Icons.Outlined.Warning,
+        title = "课表读取失败",
+        message = message,
+        accent = true
+    ) {
+        Button(onClick = onRefresh) {
+            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("重试")
+        }
+        OutlinedButton(onClick = openWebsite) { Text("查看官方连接状态") }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "失败时不会显示上次成功之外的任何内容，也不会用示例课程填充。",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ScheduleEmptyState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+    StateScaffold(
+        icon = Icons.Outlined.DateRange,
+        title = "可信来源返回 0 门课程",
+        message = "来源校验已通过，但本学期没有课程记录。请在教务系统核对是否为当前学期，然后重新读取。"
+    ) {
+        Button(onClick = onRefresh) { Text("重新读取") }
+        OutlinedButton(onClick = openWebsite) { Text("打开官方连接中心") }
+    }
+}
+
+@Composable
+private fun StateScaffold(
+    icon: ImageVector,
+    title: String,
+    message: String,
+    accent: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .pageWidth(StateMaxWidth)
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    if (accent) MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.primaryContainer
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(26.dp),
+                tint = if (accent) MaterialTheme.colorScheme.onErrorContainer
+                else MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (accent) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        content()
+    }
+}
+
+@Composable
+private fun EmptyHint(icon: ImageVector, title: String, message: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
