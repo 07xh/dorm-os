@@ -38,6 +38,11 @@ class NativeSceneNfcActivity : Activity() {
         setIntent(intent)
         handle(intent)
     }
+    override fun onDestroy() {
+        scanGeneration.incrementAndGet()
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
     private fun handle(source: Intent?) {
         val generation = scanGeneration.incrementAndGet()
         handler.removeCallbacksAndMessages(null)
@@ -64,18 +69,22 @@ class NativeSceneNfcActivity : Activity() {
         // retry transient tag I/O failures, but never trust unverified intent extras.
         status.text = "正在读取实体 NFC 标签，请保持贴近手机…"
         Thread {
-            val recordUri = readPhysicalUri(tag)
+            val physicalRead = readPhysicalUri(tag)
             runOnUiThread {
                 if (generation != scanGeneration.get() || isFinishing || isDestroyed) return@runOnUiThread
-                if (recordUri == null) {
-                    closeWith("实体 NFC 标签回读失败，请保持贴近后重试；未执行场景")
-                    return@runOnUiThread
+                when (NativeNfcDispatchRules.verify(suppliedUri, physicalRead)) {
+                    NativeNfcDispatchDecision.VERIFIED -> executeVerifiedScene(suppliedId)
+                    NativeNfcDispatchDecision.INVALID_INTENT_URI ->
+                        closeWith("无效的 NFC 场景地址，未执行")
+                    NativeNfcDispatchDecision.NOT_NDEF ->
+                        closeWith("标签不支持 NDEF，请检查实际扫描的标签")
+                    NativeNfcDispatchDecision.MISSING_URI_RECORD ->
+                        closeWith("没有读到 TapFlow 场景 URI，请从场景页重新写 NFC")
+                    NativeNfcDispatchDecision.IO_FAILED ->
+                        closeWith("标签接触中断，无法重新读取；请保持贴近后重试")
+                    NativeNfcDispatchDecision.URI_MISMATCH ->
+                        closeWith("实体标签与请求地址不一致，已拒绝")
                 }
-                if (NativeSceneRules.sceneId(recordUri) != suppliedId || recordUri != suppliedUri) {
-                    closeWith("实体标签与请求地址不一致，已拒绝")
-                    return@runOnUiThread
-                }
-                executeVerifiedScene(suppliedId)
             }
         }.start()
     }
@@ -99,17 +108,20 @@ class NativeSceneNfcActivity : Activity() {
     }
 
     /** The physical tag, not the incoming URI/extras, remains the trust source. */
-    private fun readPhysicalUri(tag: Tag): String? {
-        val tech = try { Ndef.get(tag) } catch (_: Exception) { null } ?: return null
+    private fun readPhysicalUri(tag: Tag): PhysicalUriRead {
+        val tech = try { Ndef.get(tag) } catch (_: Exception) { null }
+            ?: return PhysicalUriRead.notNdef()
         for (attempt in 0 until 3) {
             try {
                 tech.connect()
-                return tech.ndefMessage?.records?.asSequence()
+                val uri = tech.ndefMessage?.records?.asSequence()
                     ?.filter { it.tnf == NdefRecord.TNF_WELL_KNOWN && it.type.contentEquals(NdefRecord.RTD_URI) }
                     ?.mapNotNull { it.toUri()?.toString() }
                     ?.firstOrNull()
+                return if (uri == null) PhysicalUriRead.missingUri()
+                    else PhysicalUriRead.found(uri)
             } catch (_: Exception) {
-                if (attempt == 2) return null
+                if (attempt == 2) return PhysicalUriRead.ioFailed()
             } finally {
                 try { tech.close() } catch (_: Exception) {}
             }
@@ -117,10 +129,10 @@ class NativeSceneNfcActivity : Activity() {
                 Thread.sleep(100)
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
-                return null
+                return PhysicalUriRead.ioFailed()
             }
         }
-        return null
+        return PhysicalUriRead.ioFailed()
     }
     private fun closeWith(message: String) {
         if (!isFinishing) {
