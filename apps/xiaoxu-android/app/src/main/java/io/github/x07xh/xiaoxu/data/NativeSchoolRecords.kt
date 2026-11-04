@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * Local-only snapshots obtained by the user from allowed official pages.
  * They are NOT automatically verified against the school's authoritative
  * academic record. Never include passwords, raw Cookies, HTML, URLs or CAS tickets.
- * Separate database avoids touching the existing local_tasks Room migration.
+ * Source-aware table shares the existing local task Room via additive v2->v3 migration.
  */
 @Entity(tableName = "native_school_records", primaryKeys = ["provider", "kind", "fingerprint"])
 data class NativeSchoolRecord(
