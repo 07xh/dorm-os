@@ -34,3 +34,19 @@ body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,Blink
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 .xu-task-title{padding:0;background:none;border:0;text-align:left;cursor:pointer;min-height:44px}.xu-task-title:hover{color:var(--xu-brand)}
+
+/* Preserve proven mobile task hit areas after removing V8/V9 style layers. */
+#app .v4-task-list .task-actions button{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+#app .v4-task-list .task-actions{flex-wrap:wrap}
+#app .v4-task-list .task-item{min-width:0}
+#app .v4-task-list .task-main{min-width:0;overflow-wrap:anywhere}
+.x-v7-home-intro h1{writing-mode:horizontal-tb;min-width:112px;min-height:0}
+@media(max-width:790px){
+ .xu-page-head{flex-wrap:wrap}
+ .xu-page-head>div:first-child{min-width:130px;flex:1 1 130px}
+ .x-v7-day-selector{flex:0 0 auto;max-width:100%}
+ .x-v91-next-summary{min-width:0;overflow-wrap:anywhere}
+ .v4-task-toolbar{flex-wrap:wrap}
+ .v4-task-toolbar>.button-row{flex-wrap:wrap}
+ #app .v4-task-list .task-actions button{min-width:44px;min-height:44px}
+}
