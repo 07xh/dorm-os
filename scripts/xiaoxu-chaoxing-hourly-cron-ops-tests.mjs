@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {classifySafeWranglerFailure} from './deploy-chaoxing-hourly-cron.mjs';
+assert.equal(classifySafeWranglerFailure('', 'Error [code: 10000]: Authentication error'),
+ 'cloudflare_workers_permission_or_auth');
+assert.equal(classifySafeWranglerFailure('', 'Rate limit exceeded HTTP 429'),
+ 'cloudflare_rate_limited');
+assert.equal(classifySafeWranglerFailure('', 'Could not resolve src/index.mjs'),
+ 'worker_build_or_config');
+assert.equal(classifySafeWranglerFailure('Account 12345678 deployed successfully', ''),
+ 'uncategorized');
 const root=new URL('../',import.meta.url);
 const file=path=>readFileSync(new URL(path,root),'utf8');
 const config=JSON.parse(file('workers/academic-cron/wrangler.jsonc'));
