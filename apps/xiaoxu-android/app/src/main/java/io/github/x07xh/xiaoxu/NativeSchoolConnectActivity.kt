@@ -78,8 +78,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
     private lateinit var extract: Button
+    private lateinit var finishAndReturn: Button
     private var provider = ""
     private var loaded = false
+    private var pageFailed = false
     private var captureEpoch = 0
 
     private fun tell(message: String) {
@@ -115,6 +117,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         control("刷新页面") { browser.reload() }
         extract = control("读取当前页") { captureVisibleRecords() }
         extract.isEnabled = false
+        finishAndReturn = Button(this).apply {
+            text = "返回校序查看已保存数据"
+            isEnabled = false
+            setOnClickListener { finish() }
+        }
 
         browser = WebView(this).apply {
             settings.javaScriptEnabled = true // Required for the official interactive login.
@@ -137,22 +144,32 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                     loaded = false
+                    pageFailed = false
                     captureEpoch++
                     extract.isEnabled = false
-                    tell("页面加载中。登录凭据仅交给当前官方页面，不发送到校序云端。")
+                    if (!navigationAllowed(provider, url)) {
+                        pageFailed = true
+                        view.stopLoading()
+                        tell("已阻止非学校或学习通白名单站点的跳转。请返回官方页面。")
+                    } else {
+                        tell("学校官方页面加载中。登录凭据不会发送到校序云端。")
+                    }
                 }
                 override fun onPageFinished(view: WebView, url: String?) {
-                    loaded = navigationAllowed(provider, url)
+                    loaded = !pageFailed && navigationAllowed(provider, url)
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = loaded && extractionAllowed(provider, host)
-                    tell(if (extract.isEnabled)
-                        "当前是官方业务页面（" + host + "）。请进入真实列表后点「读取当前页」。"
-                    else "请在官方页面继续登录或跳转至本人业务列表；登录页面不会被读取。")
+                    tell(if (pageFailed)
+                        "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
+                    else if (extract.isEnabled)
+                        "已打开官方站点（" + host + "）。只有进入本人真实业务列表后才能读取；登录成功不代表数据已同步。"
+                    else "请在官网继续正常登录或进入本人课程／作业／活动列表；此页面不会被提取。")
                 }
                 override fun onReceivedSslError(
                     view: WebView, handler: SslErrorHandler, error: SslError
                 ) {
                     handler.cancel()
+                    pageFailed = true
                     loaded = false
                     extract.isEnabled = false
                     tell("学校 HTTPS 证书验证失败，已阻止继续访问。")
@@ -161,6 +178,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, request: WebResourceRequest, response: WebResourceResponse
                 ) {
                     if (request.isForMainFrame && response.statusCode >= 400) {
+                        pageFailed = true
                         loaded = false
                         extract.isEnabled = false
                         tell("学校页面返回 HTTP " + response.statusCode + "。请检查官网是否可正常访问。")
@@ -169,6 +187,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
+        root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -179,7 +198,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private fun captureVisibleRecords() {
         val currentUrl = browser.url ?: return
         val host = Uri.parse(currentUrl).host
-        if (!loaded || !navigationAllowed(provider, currentUrl) ||
+        if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
             !extractionAllowed(provider, host)) {
             tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
             return
@@ -237,8 +256,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             LocalTaskDatabase.open(applicationContext)
                                 .nativeSchoolRecords().replaceKind(provider, kind, accepted)
                         }
+                        if (epoch != captureEpoch || isFinishing) return@launch
+                        finishAndReturn.isEnabled = true
                         tell("已保存 " + accepted.size +
-                            " 条本机官方页面记录。尚需与你的学校／学习通页面核对；不是云端自动同步。")
+                            " 条本机页面记录。可继续读取其他列表，或返回校序查看；这不是学校官方同步验收。")
                     } catch (_: Exception) {
                         tell("本机数据库保存失败。旧记录未被覆盖。")
                     }
