@@ -88,6 +88,12 @@ class MainActivity : ComponentActivity() {
                         shouldRefreshAfterWebsite = false
                         pending
                     },
+                    openLocalSchool = { provider ->
+                        startActivity(
+                            Intent(this, NativeSchoolConnectActivity::class.java)
+                                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider)
+                        )
+                    },
                     openWebsite = {
                     // Fixed origin: never forward app credentials or a school session.
                     shouldRefreshAfterWebsite = true
@@ -123,6 +129,7 @@ private fun NativeShell(
     appLifecycle: Lifecycle,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
+    openLocalSchool: (String) -> Unit,
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
@@ -198,7 +205,7 @@ private fun NativeShell(
                             openProfile = { current = Page.PROFILE })
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
+                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud, openLocalSchool)
                     }
                 }
             }
@@ -243,10 +250,12 @@ private fun MessagesPage(
 }
 
 @Composable
-private fun ConnectionsPage(openWebsite: () -> Unit, cloud: CloudClient) {
+private fun ConnectionsPage(
+    openWebsite: () -> Unit, cloud: CloudClient, openLocalSchool: (String) -> Unit
+) {
     Content {
-        item { Heading("我的", "本机优先、云端可选，学校登录保持独立") }
-        item { ConnectionsPanel(cloud, openWebsite) }
+        item { Heading("我的", "优先手机本机授权，云端用于微信与跨设备同步") }
+        item { ConnectionsPanel(cloud, openWebsite, openLocalSchool) }
         // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }
         // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
