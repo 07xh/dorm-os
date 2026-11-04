@@ -621,8 +621,19 @@
      unexpected_school_landing:'学校 CAS 回跳落点与已验证流程不同；本次没有保存会话。'
     };
     if(result?.failureStage==='cas_return'&&
-       Object.hasOwn(casReturnReasonText,result?.casReturnReason))
+       Object.hasOwn(casReturnReasonText,result?.casReturnReason)){
+     // Only preapproved fixed categories; never render school URLs or response text.
+     const casOriginText={
+      cas_auth_server:'学校统一身份认证站',
+      second_class_callback:'学校第二课堂登录回调',
+      second_class_portal:'学校第二课堂服务入口'
+     };
+     if(result.casReturnReason==='cas_server_failure'&&
+        Object.hasOwn(casOriginText,result?.casReturnHost))
+      throw Error(casOriginText[result.casReturnHost]+
+       '返回服务异常（5xx）；本次没有保存会话。请勿反复提交密码。');
      throw Error(casReturnReasonText[result.casReturnReason]);
+    }
     throw Error(Object.hasOwn(secondClassStageText,result?.failureStage)?
      secondClassStageText[result.failureStage]:
      '学校认证或本人数据校验未完成，暂无法确认具体阶段；本次没有保存会话。');

@@ -47,8 +47,11 @@ export async function onRequestPost(context){
    'cas_request_rejected','cas_rate_limited','cas_server_failure']);
   const secondFailure=provider==='second_class'&&
    code==='authorization_failed'&&stages.has(e?.failureStage);
+  const knownHosts=new Set(['cas_auth_server','second_class_callback','second_class_portal']);
   return json({error:code,...(secondFailure?{failureStage:e.failureStage}:{}),
    ...(secondFailure&&e.failureStage==='cas_return'&&reasons.has(e?.casReturnReason)?
-    {casReturnReason:e.casReturnReason}:{})},responseCode({code}));
+    {casReturnReason:e.casReturnReason}:{}),
+   ...(secondFailure&&e.failureStage==='cas_return'&&knownHosts.has(e?.casReturnHost)?
+    {casReturnHost:e.casReturnHost}:{})},responseCode({code}));
  }
 }

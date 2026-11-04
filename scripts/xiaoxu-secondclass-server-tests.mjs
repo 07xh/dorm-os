@@ -359,7 +359,29 @@ for(const [status,reason] of [
  await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
   password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
   e.failureStage==='cas_return'&&e.casReturnReason===reason&&
+  e.casReturnHost==='cas_auth_server'&&
   !JSON.stringify(e).includes('Synthetic school response'));
+}
+// This must classify the actual FAILED school hop, not merely the original
+// login POST. None of the error shapes may expose school URLs/tickets/cookies.
+for(const [failingHost,expected] of [
+ ['sec.ncwu.edu.cn','second_class_callback'],
+ ['dekt.ncwu.edu.cn','second_class_portal']
+]){
+ const failingSchoolHop=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+  const u=new URL(url);
+  if(u.hostname===failingHost&&
+     (failingHost==='sec.ncwu.edu.cn'?
+      u.pathname==='/rump_frontend/loginFromCas/':u.pathname==='/sys'))
+   return response(503,'PRIVATE SCHOOL FAILURE');
+  return fakeSchool(url,options);
+ }});
+ await assert.rejects(()=>failingSchoolHop.login({
+  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+ }),e=>e.code==='authorization_failed'&&e.failureStage==='cas_return'&&
+  e.casReturnReason==='cas_server_failure'&&e.casReturnHost===expected&&
+  !JSON.stringify(e).includes('PRIVATE SCHOOL FAILURE')&&
+  !JSON.stringify(e).includes('https://'));
 }
 let afterSchoolCallback=false;
 const unfinishedCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
