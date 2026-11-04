@@ -133,7 +133,7 @@ fun ConnectionsPanel(client: CloudClient, openWebsite: () -> Unit) {
                 TextButton(onClick = { scope.launch { client.signOut() } }) { Text("退出云端") }
             }
             if (state.lastSyncAt != null) {
-                Text("最近成功同步：" + state.lastSyncAt,
+                Text("最近读取校序云端：" + state.lastSyncAt,
                     style = MaterialTheme.typography.labelSmall)
             }
         }
