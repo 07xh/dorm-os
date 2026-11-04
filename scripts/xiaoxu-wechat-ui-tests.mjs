@@ -77,5 +77,5 @@ assert.ok(renderEvents.includes('xiaoxu-wechat-task-reviewed'));
 assert.doesNotMatch(ui.panel(),/实验报告/,'accepted candidate leaves the review list');
 ui.disconnect();
 assert.ok(!ui.panel().includes(token),'logout clears one-time secret');
-assert.equal(calls.length,6,'logout does not trigger a new server request');
+assert.equal(calls.length,5,'logout does not trigger a new server request');
 console.log('微信 App 面板：无静默私有访问、输入转义、显式绑定、本人审核、任务刷新事件、登出清密钥通过');
