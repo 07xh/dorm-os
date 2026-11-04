@@ -68,7 +68,7 @@ assert.ok(client.includes('xu-school-manage'),'secondary source details collapse
 assert.ok(client.includes('data-xu-school-sync="second_class"'),
  'an existing second-class encrypted session can retry without credential entry');
 assert.ok(client.includes('官网登录不会自动关联校序'),
- 'opening the school's own CAS site must not be presented as an authorization handoff');
+ "opening the school CAS site must not be presented as an authorization handoff");
 assert.ok(client.includes('secondClassCanRepair'),
  'unverified but readable sessions need their own repair state');
 
