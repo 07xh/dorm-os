@@ -113,6 +113,10 @@ assert.match(schedulePanel, /state\.lessons/);
 assert.match(schedulePanel, /trusted_readonly|可信/);
 assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层手写课程对象冒充真实数据');
+assert.match(schedulePanel, /CourseDetailBottomSheet\(/, '可信课程应有原生详情抽屉');
+assert.match(schedulePanel, /ModalBottomSheet\(/, '课程详情应使用原生底部抽屉');
+assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/, '抽屉只能读取当前可信课程');
+assert.match(schedulePanel, /onClickLabel = "查看课程详情"/);
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
