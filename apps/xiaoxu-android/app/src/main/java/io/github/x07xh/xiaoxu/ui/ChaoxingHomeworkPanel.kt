@@ -123,6 +123,17 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                     Text("已从官方会话读取到 ${state.chaoxingCourses.size} 门课程（本次会话）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(
+                        enabled = !state.chaoxingBusy && !state.chaoxingDetailBusy &&
+                            !state.busy && connection?.sessionState == "active",
+                        onClick = { scope.launch { client.syncChaoxingAllCourses() } }
+                    ) {
+                        Text(if (state.chaoxingBatchBusy) "正在逐门核验…" else
+                            "一键核验全部课程作业")
+                    }
+                    Text("逐门调用现有可信只读接口；登录失效或连续失败时停止，未完成的不算成功。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column {
                         OutlinedButton(
                             enabled = !state.chaoxingBusy,
@@ -147,6 +158,10 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                         ) { Text("同步本课程真实作业及状态") }
                     }
                 }
+            }
+            state.chaoxingBatchStatus?.let { progress ->
+                Text(progress, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             state.chaoxingError?.let {
                 Text(it, color = MaterialTheme.colorScheme.error,

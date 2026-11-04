@@ -131,6 +131,20 @@ assert.doesNotMatch(coursePanel, /自动代交|后台自动提交|已经完成�
 
 
 assert.match(cloud, /syncChaoxingCourse/);
+// Owner-initiated multi-course sync reuses the same backend validation as a
+// single course. Never infer success from the HTTP status alone.
+assert.match(cloud,/suspend fun syncChaoxingAllCourses\(\)/);
+assert.match(cloud,/val courses = state\.chaoxingCourses\.toList\(\)/);
+assert.match(cloud,/for \(course in courses\)/);
+assert.match(cloud,/verifiedChaoxingWork\(result\.json, course\)/);
+assert.match(cloud,/val \(work, verifiedEmpty\) = verifiedChaoxingWork\(response\.json, selected\)/);
+assert.match(cloud,/result\.code == 401/);
+assert.match(cloud,/if \(consecutiveFailures >= 2\) break/);
+assert.match(cloud,/val skipped = courses\.size - checked/);
+assert.match(cloud,/chaoxingBatchBusy = false/);
+assert.match(coursePanel,/client\.syncChaoxingAllCourses\(\)/);
+assert.match(coursePanel,/一键核验全部课程作业/);
+assert.match(coursePanel,/state\.chaoxingBatchStatus/);
 assert.match(cloud, /interactive_login_required/);
 assert.match(cloud, /courseId|classId|cpi/);
 assert.match(cloud, /chaoxingVerifiedEmpty/);
