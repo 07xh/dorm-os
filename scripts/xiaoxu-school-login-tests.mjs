@@ -15,6 +15,10 @@ assert.equal(availableSchoolAdapter({data:{}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({data:{academicSchoolAdapters:{ncwu:{provider:'ncwu'}}}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({},'second_class'),null);
 assert.equal(new SchoolLoginError('authorization_failed','cas_return').failureStage,'cas_return');
+assert.equal(new SchoolLoginError('authorization_failed','cas_return','login_page_remained').casReturnReason,'login_page_remained');
+assert.equal(new SchoolLoginError('authorization_failed','cas_return','PRIVATE_DETAIL').casReturnReason,undefined);
+assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
+assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence').failureStage,'identity_evidence');
 assert.equal(new SchoolLoginError('authorization_failed','custom_details').failureStage,undefined);
@@ -82,13 +86,14 @@ assert.equal(credentialCalls,0,'missing server secret never processes credential
 // Only the second-class login may preserve fixed non-sensitive failure phases.
 const phaseFailureAdapter={provider:'second_class',
  async login(){throw Object.assign(new Error('opaque private upstream error'),
-  {code:'authorization_failed',failureStage:'cas_return'});},
+  {code:'authorization_failed',failureStage:'cas_return',casReturnReason:'login_page_remained'});},
  async forSession(){throw Error('must not read when login failed');}
 };
 await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
  provider:'second_class',adapter:phaseFailureAdapter,username:'official-student-account',
  password:'ephemeral-school-password',secret}),
- e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&e.failureStage==='cas_return');
+ e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&
+ e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained');
 
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,
