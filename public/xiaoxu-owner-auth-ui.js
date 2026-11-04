@@ -212,7 +212,8 @@
 
   window.XiaoxuOwnerAuth = Object.freeze({
     connected: () => connected,
-    durationDays: () => chosenDays
+    durationDays: () => chosenDays,
+    isCustomDuration: () => customMode
   });
   const openDialog = () => {
     if (!dialog || typeof dialog.showModal !== 'function') {

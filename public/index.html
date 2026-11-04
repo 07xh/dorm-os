@@ -826,7 +826,7 @@ function scenesPage(){
 function profilePage(){
  const ownerConnected=window.XiaoxuOwnerAuth?.connected?.()===true;
  const ownerDays=window.XiaoxuOwnerAuth?.durationDays?.()??7;
- const ownerCustom=![1,7,30].includes(ownerDays);
+ const ownerCustom=window.XiaoxuOwnerAuth?.isCustomDuration?.()??![1,7,30].includes(ownerDays);
  return titleBlock('','我的')+'<section class="card v4-profile-card">'
  +'<div class="v4-profile-head"><div><strong>账户与设备</strong></div></div>'
  +'<div class="v4-profile-links"><a href="/login/" class="v4-profile-link" data-owner-auth-open>'
