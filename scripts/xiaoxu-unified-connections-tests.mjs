@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {projectConnectionCenter,readConnectionCenter} from '../lib/academic-connection-center.mjs';
-import {onRequestGet} from '../functions/api/v1/connections.js';
+import {onRequestGet,isActiveSchoolAuthorization} from '../functions/api/v1/connections.js';
 
 const all=projectConnectionCenter([],
  [{kind:'assignments',source:'chaoxing',provenance:'user_import',
@@ -31,6 +31,21 @@ assert.equal(projectConnectionCenter([
  {provider:'ncwu',mode:'readonly',status:'connected',last_success_at:null}
 ],[])[0].status,'not_connected','no verified sync is not connected');
 assert.ok(!JSON.stringify(trusted).includes('password'));
+
+// Real Chaoxing per-course writes are partial coverage; a partial verified
+// owner read is proof, but an unverified decryptable session alone is not.
+const schoolSuccess='2026-11-04T13:00:00.000Z';
+const connectedChaoxing={id:'chaoxing',status:'partial',
+ lastSuccessAt:schoolSuccess,trustedKinds:[]};
+assert.equal(isActiveSchoolAuthorization(connectedChaoxing,'active',true),true);
+assert.equal(isActiveSchoolAuthorization({...connectedChaoxing,lastSuccessAt:null},'active',true),false);
+assert.equal(isActiveSchoolAuthorization({...connectedChaoxing,status:'not_connected'},'active',true),false);
+assert.equal(isActiveSchoolAuthorization(connectedChaoxing,'expired',true),false);
+assert.equal(isActiveSchoolAuthorization(connectedChaoxing,'active',false),false);
+const connectionImpl=readFileSync(new URL('../functions/api/v1/connections.js',import.meta.url),'utf8');
+assert.match(connectionImpl,/accountAuthorization:verified\?'verified_session':'not_verified'/);
+assert.doesNotMatch(connectionImpl,/accountAuthorization:sessionState==='active'\?'verified_session'/);
+assert.match(connectionImpl,/autoSync:\{enabled:autoJob\?\.enabled===1/);
 
 const seen=[];
 const db={prepare(sql){

@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {classifySafeWranglerFailure} from './deploy-chaoxing-hourly-cron.mjs';
+assert.equal(classifySafeWranglerFailure('', 'Error [code: 10000]: Authentication error'),
+ 'cloudflare_workers_permission_or_auth');
+assert.equal(classifySafeWranglerFailure('', 'Rate limit exceeded HTTP 429'),
+ 'cloudflare_rate_limited');
+assert.equal(classifySafeWranglerFailure('', 'Could not resolve src/index.mjs'),
+ 'worker_build_or_config');
+assert.equal(classifySafeWranglerFailure('Account 12345678 deployed successfully', ''),
+ 'uncategorized');
 const root=new URL('../',import.meta.url);
 const file=path=>readFileSync(new URL(path,root),'utf8');
 const config=JSON.parse(file('workers/academic-cron/wrangler.jsonc'));
@@ -16,6 +25,9 @@ assert.ok(workflow.indexOf('Verify deployed HTML, PWA, and exact revision over H
  workflow.indexOf('Deploy authenticated hourly Chaoxing Cron Worker'),
  'The site must deploy before its hourly trigger');
 assert.match(workflow,/node scripts\/deploy-chaoxing-hourly-cron\.mjs/);
+assert.match(workflow,/id: chaoxing_cron/);
+assert.match(workflow,/steps\.chaoxing_cron\.outcome/);
+assert.match(workflow,/hourly school sync is NOT confirmed/);
 const script=file('scripts/deploy-chaoxing-hourly-cron.mjs');
 assert.match(script,/findPagesBoundD1/);
 assert.match(script,/0016_academic_chaoxing_cron\.sql/);

@@ -64,7 +64,13 @@ data class WechatCandidate(
 data class PlatformConnection(
     val id: String, val name: String, val status: String,
     val sessionState: String, val authorization: String,
-    val lastSuccessAt: String?
+    val lastSuccessAt: String?,
+    val autoSyncAvailable: Boolean = false,
+    val autoSyncEnabled: Boolean = false,
+    val autoSyncNextAt: String? = null,
+    val autoSyncLastRunAt: String? = null,
+    val autoSyncLastResult: String? = null,
+    val autoSyncFailureCount: Int = 0
 ) {
     val verified: Boolean
         get() = authorization == "verified_session" &&
@@ -86,6 +92,8 @@ data class CloudUiState(
     val wechatCandidates: List<WechatCandidate> = emptyList(),
     val wechatError: String? = null, val wechatReviewingId: String? = null,
     val chaoxingBusy: Boolean = false,
+    val chaoxingAutoSyncBusy: Boolean = false,
+    val chaoxingAutoSyncError: String? = null,
     val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
     val chaoxingSelectedKey: String? = null,
     val chaoxingHomework: List<ChaoxingHomework> = emptyList(),
@@ -326,10 +334,29 @@ class CloudClient(context: Context) {
             platforms = buildList {
                 for (i in 0 until array.length()) {
                     val o = array.optJSONObject(i) ?: continue
-                    add(PlatformConnection(o.optString("id"), o.optString("name"),
-                        o.optString("status"), o.optString("sessionState"),
-                        o.optString("accountAuthorization"),
-                        o.optString("lastSuccessAt").takeIf { it.isNotBlank() && it != "null" }))
+                    val id = o.optString("id")
+                    val auto = o.optJSONObject("autoSync")
+                    val isChaoxingAuto = id == "chaoxing" && auto != null
+                    val trustedAuto = isChaoxingAuto && o.optBoolean("autoSyncAvailable")
+                    add(PlatformConnection(
+                        id = id, name = o.optString("name"),
+                        status = o.optString("status"),
+                        sessionState = o.optString("sessionState"),
+                        authorization = o.optString("accountAuthorization"),
+                        lastSuccessAt = o.optString("lastSuccessAt")
+                            .takeIf { it.isNotBlank() && it != "null" },
+                        autoSyncAvailable = trustedAuto,
+                        autoSyncEnabled = isChaoxingAuto && auto!!.optBoolean("enabled"),
+                        autoSyncNextAt = if (isChaoxingAuto) auto!!.optString("nextAt")
+                            .takeIf { it.isNotBlank() && it != "null" } else null,
+                        autoSyncLastRunAt = if (isChaoxingAuto) auto!!.optString("lastRunAt")
+                            .takeIf { it.isNotBlank() && it != "null" } else null,
+                        autoSyncLastResult = if (isChaoxingAuto) auto!!.optString("lastResult")
+                            .takeIf { it in setOf("success","partial","failed","expired","idle") }
+                            else null,
+                        autoSyncFailureCount = if (isChaoxingAuto)
+                            auto!!.optInt("failureCount", 0).coerceIn(0, 100) else 0
+                    ))
                 }
             }
         } catch (_: Exception) { failed.add("连接状态") }
@@ -524,6 +551,8 @@ class CloudClient(context: Context) {
         chaoxingVerifiedEmpty = false,
         chaoxingError = null,
         chaoxingBusy = false,
+        chaoxingAutoSyncBusy = false,
+        chaoxingAutoSyncError = null,
         chaoxingPreview = null, chaoxingDetailBusy = false, chaoxingDetailError = null
     )
 
@@ -556,6 +585,56 @@ class CloudClient(context: Context) {
     fun clearChaoxingDetail() {
         if (!state.chaoxingDetailBusy) {
             state = state.copy(chaoxingPreview = null, chaoxingDetailError = null)
+        }
+    }
+
+    /**
+     * Controls the EXISTING hourly Worker opt-in for an authorized owner.
+     * Enabling needs an already owner-decryptable Chaoxing session.
+     * Turning it off remains permitted after the school session expires.
+     */
+    suspend fun setChaoxingAutoSync(enabled: Boolean) {
+        if (!state.authenticated || state.chaoxingAutoSyncBusy || state.busy) return
+        val current = state.platforms.firstOrNull { it.id == "chaoxing" } ?: return
+        if (enabled && (!current.autoSyncAvailable || current.sessionState != "active")) return
+        if (!enabled && !current.autoSyncEnabled) return
+        val epoch = sessionEpoch
+        state = state.copy(chaoxingAutoSyncBusy = true, chaoxingAutoSyncError = null)
+        try {
+            val result = withContext(Dispatchers.IO) {
+                request(
+                    "/api/v1/connections/chaoxing/auto-sync", "POST",
+                    JSONObject().put("enabled", enabled), authenticated = true
+                )
+            }
+            if (epoch != sessionEpoch) return
+            if (result.code != 200) {
+                val error = when (result.json.optString("error")) {
+                    "session_expired" -> "学习通授权已过期；需要在官网完成本人重新授权"
+                    "autosync_not_ready" -> "云端定时同步尚未配置，仍可手动读取"
+                    "forbidden_origin_or_format" -> "请求验证失败，定时设置未更改"
+                    "database_unavailable" -> "云端数据库暂时不可用，定时设置未确认"
+                    else -> if (result.code == 401) "校序云端登录已失效"
+                        else "自动同步设置失败（HTTP " + result.code + "），原设置不变"
+                }
+                state = state.copy(chaoxingAutoSyncError = error)
+                if (result.code == 401) refreshPrivate()
+                return
+            }
+            if (result.json.getBoolean("enabled") != enabled ||
+                result.json.getInt("intervalMinutes") != 60)
+                throw IllegalStateException("invalid_autosync_result")
+            // The server confirmed the opt-in, not a successful school read.
+            state = state.copy(platforms = state.platforms.map {
+                if (it.id == "chaoxing") it.copy(autoSyncEnabled = enabled) else it
+            })
+            refreshPrivate()
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(
+                chaoxingAutoSyncError = "未确认自动同步设置，请刷新校序云端状态后检查"
+            )
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(chaoxingAutoSyncBusy = false)
         }
     }
 

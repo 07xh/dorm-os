@@ -20,6 +20,24 @@ async function api(url,token){
  if(data?.success!==true)throw Error('cloudflare_api_unavailable');
  return data.result;
 }
+/**
+ * Only diagnostic categories leave this process; Wrangler output may contain
+ * Cloudflare account identifiers, URLs or deployment metadata.
+ */
+export function classifySafeWranglerFailure(stdout='',stderr=''){
+ const message=(String(stderr)+'\n'+String(stdout)).slice(0,30000);
+ if(/(?:10000|10001|not authorized|insufficient permissions|permission denied|authentication error|forbidden|access denied)/i.test(message))
+   return 'cloudflare_workers_permission_or_auth';
+ if(/(?:429|rate.?limit|too many requests)/i.test(message))
+   return 'cloudflare_rate_limited';
+ if(/(?:workers_dev|workers\.dev|subdomain|cron trigger|custom domain)/i.test(message))
+   return 'cloudflare_worker_account_configuration';
+ if(/(?:could not resolve|entry.?point|not found|no such file|cannot find module|main field)/i.test(message))
+   return 'worker_build_or_config';
+ if(/(?:timeout|timed out|network|connection refused|econnreset|etimedout)/i.test(message))
+   return 'temporary_deploy_network_failure';
+ return 'uncategorized';
+}
 function wrangler(args,input){
  const out=spawnSync('npx',['--yes','wrangler@4',...args],{
   cwd:process.cwd(),encoding:'utf8',timeout:180000,maxBuffer:3*1024*1024,
@@ -33,7 +51,8 @@ function wrangler(args,input){
   const stage=args[0]==='deploy'?'worker_deploy':
    args[0]==='secret'?'worker_secret':
    args.some(v=>String(v).startsWith('--file='))?'d1_migration':'d1_query';
-  throw Error('wrangler_'+stage+'_failed');
+  const category=classifySafeWranglerFailure(out.stdout,out.stderr);
+  throw Error('wrangler_'+stage+'_failed_'+category);
  }
  return out.stdout;
 }

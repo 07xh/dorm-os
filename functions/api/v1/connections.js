@@ -11,7 +11,8 @@ export function isActiveSchoolAuthorization(row,sessionState,available){
  if(row.id==='second_class')return row.trustedKinds.includes('second-class');
  if(row.id==='ncwu')return ['partial','connected'].includes(row.status)&&
   row.trustedKinds.includes('schedule');
- return row.id==='chaoxing'&&row.status==='connected';
+ return row.id==='chaoxing'&&['partial','connected'].includes(row.status)&&
+  typeof row.lastSuccessAt==='string'&&Number.isFinite(Date.parse(row.lastSuccessAt));
 }
 export async function onRequestGet(context){
  const auth=await authorize(context);
@@ -60,12 +61,12 @@ export async function onRequestGet(context){
    return {...row,qrLoginAvailable:available&&typeof availableSchoolAdapter(context,'chaoxing')?.beginQrLogin==='function',loginMode:available?'password':'unavailable',sessionState,
     loginReadiness,syncPending:sessionState==='active'&&!verified,
     autoSyncAvailable:cronReady,
-    autoSync:{enabled:cronReady&&autoJob?.enabled===1,
+    autoSync:{enabled:autoJob?.enabled===1,
      intervalMinutes:60,nextAt:autoJob?.next_at||null,
      lastRunAt:autoJob?.last_run_at||null,
      lastResult:autoJob?.last_result||null,
      failureCount:autoJob?.failure_count||0},
-    accountAuthorization:sessionState==='active'?'verified_session':'not_verified'};
+    accountAuthorization:verified?'verified_session':'not_verified'};
   });
   return json(result);
  }catch{return json({error:'database_unavailable'},503);}
