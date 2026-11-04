@@ -9,6 +9,26 @@ class NativeSceneRulesTest {
             NativeSceneRules.sceneId("tapflow://scene/wechat-group-01"))
         assertEquals("native-a1", NativeSceneRules.sceneId("tapflow://scene/native-a1"))
     }
+    @Test fun canAdoptExistingTagWithoutRewritingIt() {
+        assertEquals("wechat-group-01",
+            NativeSceneRules.existingTagSceneId("tapflow://scene/wechat-group-01"))
+        assertEquals("wechat-group-01",
+            NativeSceneRules.existingTagSceneId("wechat-group-01"))
+        assertEquals("native-a1",
+            NativeSceneRules.existingTagSceneId("  tapflow://scene/native-a1  "))
+    }
+
+    @Test fun existingTagImportRejectsUntrustedUrlsOrMalformedSceneIds() {
+        listOf(
+            "https://tapflow//scene/wechat-group-01",
+            "tapflow://scene/wechat-group-01?command=run",
+            "tapflow://evil/wechat-group-01",
+            "WECHAT-GROUP-01",
+            "scene/../../../run",
+            ""
+        ).forEach { assertNull("Rejected import: $it", NativeSceneRules.existingTagSceneId(it)) }
+    }
+
     @Test fun rejectsAmbiguousOrForgedUri() {
         listOf(
             "https://scene/wechat-group-01",
