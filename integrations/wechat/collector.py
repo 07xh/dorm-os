@@ -262,7 +262,8 @@ def submit(site: str, token: str, payload: dict) -> dict:
     req = urllib.request.Request(
         validate_site(site) + "/api/v1/wechat/ingest", data=body, method="POST",
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json",
-                 "Accept": "application/json"},
+                 "Accept": "application/json",
+                 "User-Agent": "Xiaoxu-Desktop-Connector/1.0"},
     )
     try:
         with opener.open(req, timeout=20) as response:
