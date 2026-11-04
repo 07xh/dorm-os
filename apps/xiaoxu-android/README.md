@@ -12,7 +12,7 @@
 
 独立项目：`apps/xiaoxu-android`；不影响网站 Cloudflare 部署流程和 TapFlow Kotlin App。
 
-要求：JDK 17、Android SDK API 35、Gradle 8.13；使用 Google Maven 依赖（Android Gradle Plugin 8.13.0、Google Android Browser Helper 2.7.4）。
+要求：JDK 17、Android SDK API 36、Gradle 8.13；使用 Google Maven 依赖（Android Gradle Plugin 8.13.0、Google Android Browser Helper 2.7.4）。
 
 ```sh
 gradle -p apps/xiaoxu-android :app:assembleDebug
