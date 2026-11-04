@@ -64,15 +64,33 @@ await assert.rejects(unsealChaoxingQrChallenge({ticket,userId:'another-owner',se
 const decoded=await unsealChaoxingQrChallenge({ticket,userId:'owner1',secret});
 assert.equal(decoded.uuid,uuid);
 const binary=await adapter.readQrImage({challenge:decoded});
-assert.deepEqual([...binary],[...qrPng],'QR PNG is fetched using owner challenge');
+assert.equal(binary.contentType,'image/png');
+assert.equal(binary.source,'official');
+assert.deepEqual([...binary.body],[...qrPng],'QR PNG is fetched using owner challenge');
 assert.ok(urls.some(x=>x.path==='/createqr'&&x.cookie.includes('qr_sid=initial')),
  'QR image must reuse the cookie jar from /mlogin');
 await assert.rejects(adapter.readQrImage({challenge:{...decoded,issuedAt:Date.now()-300000}}),
  e=>e.code==='session_expired');
 const badImage=createChaoxingSchoolAdapter({fetchImpl:async()=>new Response('<html>not PNG</html>',{
  headers:{'content-type':'text/html'}})});
-await assert.rejects(badImage.readQrImage({challenge:decoded}),
- e=>e.code==='upstream_unavailable','never proxy arbitrary HTML as a QR image');
+const fallback=await badImage.readQrImage({challenge:decoded});
+assert.equal(fallback.contentType,'image/svg+xml');
+assert.equal(fallback.source,'local');
+assert.ok(fallback.body.includes('<svg'));
+assert.ok(fallback.body.includes('</svg>'));
+assert.ok(fallback.body.length>500&&fallback.body.length<220000);
+assert.ok(!fallback.body.includes(enc)&&!fallback.body.includes(uuid),
+ 'fallback SVG must encode ticket only as QR modules, never as raw markup');
+const offlineImage=createChaoxingSchoolAdapter({fetchImpl:async()=>{throw Error('network unavailable');}});
+const offlineQr=await offlineImage.readQrImage({challenge:decoded});
+assert.equal(offlineQr.source,'local','offline QR image must not hide a valid official login challenge');
+assert.equal(offlineQr.body,fallback.body,'same official uuid/enc produces same local QR');
+const jpeg=Uint8Array.from([255,216,...new Array(65).fill(1),255,217]);
+const jpegAdapter=createChaoxingSchoolAdapter({fetchImpl:async()=>new Response(jpeg,{
+ headers:{'content-type':'image/jpeg'}})});
+const jpegImage=await jpegAdapter.readQrImage({challenge:decoded});
+assert.equal(jpegImage.contentType,'image/jpeg');
+assert.deepEqual([...jpegImage.body],[...jpeg]);
 const waiting=await adapter.pollQrLogin({challenge:decoded});
 assert.equal(waiting.status,'pending');
 const scanned=await adapter.pollQrLogin({challenge:waiting.challenge});
@@ -123,4 +141,4 @@ assert.ok(writes.some(x=>x.sql.includes('INSERT INTO academic_provider_sessions'
 assert.ok(!JSON.stringify(writes).includes('cx_s=ok'),
  'no raw upstream cookie may be persisted');
 
-console.log('Chaoxing QR challenge: same-cookie PNG, official poll, owner-bound session and expiry passed');
+console.log('Chaoxing QR challenge: official PNG/JPEG and MIT-rendered QR fallback, owner-bound poll and expiry passed');

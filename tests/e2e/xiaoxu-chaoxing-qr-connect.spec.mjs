@@ -26,6 +26,40 @@ async function stubConnections(page,qrLoginAvailable){
   })
  }));
 }
+test('server-rendered fallback SVG replaces the blank QR and still checks official status',async({page})=>{
+ await stubConnections(page,true);
+ const ticket='ABCDEFGHIJKLMNOP.abcdefghijklmnopqrstuvwxyz0123456789abcd';
+ const url='https://passport2.chaoxing.com/createqr?uuid=UUID123456abcDEF789&fid=-1';
+ let polls=0;
+ await page.route('**/api/v1/connections/chaoxing/qr/start',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   status:'pending',ticket,qrImageUrl:url,
+   expiresAt:new Date(Date.now()+100000).toISOString()
+  })
+ }));
+ await page.route('**/api/v1/connections/chaoxing/qr/image',route=>{
+  expect(route.request().postDataJSON()).toEqual({ticket});
+  return route.fulfill({status:200,contentType:'image/svg+xml',
+   headers:{'x-xu-qr-source':'local','cache-control':'private, no-store'},
+   body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="white"/><path d="M12 12h76v76H12z" fill="black"/></svg>'});
+ });
+ await page.route('**/api/v1/connections/chaoxing/qr/status',route=>{
+  polls++;
+  return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({status:'scanned',ticket})});
+ });
+ await page.route('https://passport2.chaoxing.com/createqr**',route=>route.abort());
+ await page.goto('/#settings');
+ await page.getByRole('button',{name:'读取我的连接状态'}).click();
+ const source=page.locator('.xu-connection-source').filter({hasText:'学习通'});
+ await source.locator('.xu-school-manage > summary').click();
+ await source.locator('[data-xu-chaoxing-qr-start]').click();
+ await expect(source.locator('img[alt="学习通官方登录二维码"]')).toBeVisible();
+ await expect(source.locator('[data-xu-qr-feedback]')).toContainText('备用二维码');
+ await source.locator('[data-xu-qr-check-now]').click();
+ await expect.poll(()=>polls).toBeGreaterThan(0);
+});
+
 test('QR button is unavailable until trusted backend advertises capability',async({page})=>{
  await stubConnections(page,false);
  await page.goto('/#settings');

@@ -426,17 +426,19 @@
   try{
    const response=await fetch('/api/v1/connections/chaoxing/qr/image',{
     method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
-    headers:{'content-type':'application/json','accept':'image/png, application/json'},
+    headers:{'content-type':'application/json','accept':'image/png, image/jpeg, image/svg+xml, application/json'},
     body:JSON.stringify({ticket:attempt.ticket})
    });
    if(!response.ok){
     const body=await response.json().catch(()=>null);
     throw Error(schoolMessage[body?.error]||'学习通二维码图片暂时无法读取');
    }
-   if(!(response.headers.get('content-type')||'').startsWith('image/png'))
+   const mime=(response.headers.get('content-type')||'').split(';')[0].trim();
+   if(!['image/png','image/jpeg','image/svg+xml'].includes(mime))
     throw Error('学习通二维码图片格式不正确');
    const blob=await response.blob();
-   if(blob.size<64||blob.size>180000)throw Error('学习通二维码图片大小异常');
+   if(blob.size<64||blob.size>220000)throw Error('学习通二维码图片大小异常');
+   attempt.qrMode=response.headers.get('x-xu-qr-source')==='local'?'local':'official';
    const objectUrl=URL.createObjectURL(blob);
    if(chaoxingQrAttempt!==attempt){URL.revokeObjectURL(objectUrl);return;}
    releaseQrImage();
@@ -447,6 +449,9 @@
     image.src=objectUrl;image.alt='学习通官方登录二维码';
     image.width=190;image.height=190;slot.replaceChildren(image);
    }
+   const feedback=document.querySelector('[data-xu-qr-feedback]');
+   if(feedback&&attempt.qrMode==='local')
+    feedback.textContent='已显示备用二维码。请扫码确认；只有官方返回成功才算连接完成。';
   }catch(error){
    if(chaoxingQrAttempt===attempt){
     const slot=document.querySelector('[data-xu-qr-image]');
@@ -513,7 +518,8 @@
    attempt.ticket=result.ticket;saveQrAttempt(attempt);
    const feedback=host?.querySelector('[data-xu-qr-feedback]');
    if(feedback)feedback.textContent=result.status==='scanned'?
-    '已扫码，请在学习通 APP 确认登录':'请使用学习通 APP 扫描二维码';
+    '已扫码，请在学习通 APP 确认登录':attempt.qrMode==='local'?
+    '正在检查备用二维码的官方扫码状态':'请使用学习通 APP 扫描二维码';
   }catch(error){
    if(chaoxingQrAttempt===attempt){
     const message=error.message||'扫码状态暂时无法读取';
