@@ -349,13 +349,17 @@ const abnormalStatus=makeNcwuSecondClassServerAdapter({fetcher:async(url,options
 await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
  password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
  e.failureStage==='cas_return'&&e.casReturnReason==='unexpected_response');
+let afterSchoolCallback=false;
 const unfinishedCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
  const u=new URL(url);
  if(u.hostname==='sec.ncwu.edu.cn'&&
-    u.pathname==='/rump_frontend/loginFromCas/')
+    u.pathname==='/rump_frontend/loginFromCas/'){
+  afterSchoolCallback=true;
   return response(200,'<main>Callback</main>');
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/'&&
-    options.headers.cookie?.includes('school_auth=auth-opaque'))
+ }
+ // Initially the official entry has the ordinary login link. Only after
+ // the callback does it redirect back to CAS, proving completion failed.
+ if(afterSchoolCallback&&u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
   return response(302,'',{location:casUrl});
  return fakeSchool(url,options);
 }});
