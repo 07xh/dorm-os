@@ -134,7 +134,8 @@ sealed interface ScheduleUiState {
         val stale: Boolean,
         val fetchedAt: String?,
         val refreshWarning: String?,
-        val term: String?
+        val term: String?,
+        val sourceLabel: String = "华水青果 · 可信只读"
     ) : ScheduleUiState
 }
 
@@ -250,14 +251,31 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 fun CloudTimetablePanel(
     client: CloudClient,
     openWebsite: () -> Unit,
-    openProfile: (() -> Unit)? = null
+    openProfile: (() -> Unit)? = null,
+    localLessons: List<VerifiedLesson> = emptyList(),
+    openLocalImport: () -> Unit = {}
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
-    val uiState = remember(state) { deriveScheduleUiState(state) }
-    val refresh: () -> Unit = { scope.launch { client.refresh() } }
+    val uiState = remember(state, localLessons) {
+        if (localLessons.isNotEmpty()) ScheduleUiState.Verified(
+            lessons = localLessons,
+            stale = false,
+            fetchedAt = null,
+            refreshWarning = null,
+            term = null,
+            sourceLabel = "华水青果 · 本机导入（待本人核对）"
+        ) else deriveScheduleUiState(state)
+    }
+    val refresh: () -> Unit = if (localLessons.isNotEmpty()) openLocalImport
+        else { { scope.launch { client.refresh() } } }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = openLocalImport) { Text("本机导入 / 更新华水课表") }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
         val expanded = maxWidth >= 840.dp
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Crossfade(targetState = uiState, label = "schedule-state") { current ->
@@ -277,6 +295,7 @@ fun CloudTimetablePanel(
                 }
             }
         }
+    }
     }
 }
 
@@ -328,7 +347,7 @@ private fun ScheduleVerifiedContent(
         ScheduleHeader(
             subtitle = listOfNotNull(
                 data.term,
-                "来源：华水青果 · 可信只读",
+                "来源：" + data.sourceLabel,
                 data.fetchedAt?.let { "上次可信读取 $it" }
             ).joinToString(" · "),
             onRefresh = onRefresh
@@ -385,7 +404,6 @@ private fun ScheduleVerifiedContent(
                             onOpen = { openCourse(lesson.key) }
                         )
                     }
-                    item { LocalSchoolRecordSection(setOf("schedule")) }
                     item { ScheduleFooterNote() }
                     item {
                         TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
@@ -422,7 +440,6 @@ private fun ScheduleVerifiedContent(
                         onOpen = { openCourse(lesson.key) }
                     )
                 }
-                item { LocalSchoolRecordSection(setOf("schedule")) }
                 item { ScheduleFooterNote() }
                 item {
                     TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
@@ -765,7 +782,7 @@ private fun DaySummary(weekday: Int, count: Int, isToday: Boolean) {
 private fun NoLessonCard(selectedWeek: Int) {
     EmptyHint(
         icon = Icons.Outlined.DateRange,
-        title = "这一天没有可信课程",
+        title = "这一天没有已读取的课程",
         message = if (selectedWeek == ALL_WEEKS) "整学期该星期都没有已通过校验的课程记录。"
         else "第 $selectedWeek 周该星期没有已通过校验的课程记录。"
     )

@@ -4,6 +4,7 @@ import {randomBytes,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {runChaoxingAutoCycle} from '../lib/academic-chaoxing-auto-sync.mjs';
 import {verifyCronToken} from '../lib/academic-cron-auth.mjs';
+import {readCronWorkerHealth,isRecentCronHeartbeat,recordCronWorkerHeartbeat} from '../lib/academic-chaoxing-cron-health.mjs';
 import {cronHash} from './deploy-chaoxing-hourly-cron.mjs';
 import {onRequestPost as hourly} from '../functions/api/v1/internal/chaoxing-hourly.js';
 
@@ -12,7 +13,8 @@ for(const name of [
  '0001_academic_core.sql','0002_academic_legacy_links.sql',
  '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
  '0005_academic_workspace.sql','0006_academic_scheduler.sql',
- '0016_academic_chaoxing_cron.sql'
+ '0016_academic_chaoxing_cron.sql',
+ '0017_academic_chaoxing_cron_health.sql'
 ])sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 const db={
  prepare(sql){let values=[];return{
@@ -36,6 +38,22 @@ assert.equal(await verifyCronToken(db,token),true);
 assert.equal(await verifyCronToken(db,randomBytes(32).toString('base64url')),false);
 assert.equal(await verifyCronToken(db,'short'),false);
 assert.equal(JSON.stringify(sqlite.prepare('SELECT * FROM academic_cron_identity').all()).includes(token),false);
+// A token row is NOT proof of a deployed, reachable scheduled Worker.
+assert.equal((await readCronWorkerHealth(db)).ready,false);
+const old='2026-11-04T01:00:00Z',heartbeat='2026-11-04T02:00:00Z';
+assert.equal(isRecentCronHeartbeat({
+ configured_at:old,observed_configured_at:old,last_heartbeat_at:heartbeat
+},Date.parse('2026-11-04T03:00:00Z')),true);
+assert.equal(isRecentCronHeartbeat({
+ configured_at:old,observed_configured_at:old,last_heartbeat_at:heartbeat
+},Date.parse('2026-11-04T05:00:00Z')),false);
+assert.equal(isRecentCronHeartbeat({
+ configured_at:old,observed_configured_at:'rotated',
+ last_heartbeat_at:heartbeat
+},Date.parse('2026-11-04T03:00:00Z')),false);
+assert.equal(isRecentCronHeartbeat({
+ configured_at:old,observed_configured_at:old,last_heartbeat_at:'invalid'
+},Date.parse('2026-11-04T03:00:00Z')),false);
 const request=key=>new Request('https://dorm-os-dk9.pages.dev/api/v1/internal/chaoxing-hourly',{
  method:'POST',headers:{'content-type':'application/json',...(key?{'x-xu-cron-key':key}:{})},
  body:'{}'
@@ -46,6 +64,17 @@ assert.equal((await hourly({request:request('wrong'),env})).status,404);
 const idle=await hourly({request:request(token),env});
 assert.equal(idle.status,200);
 assert.equal((await idle.json()).status,'idle');
+assert.equal((await readCronWorkerHealth(db)).ready,true,
+ 'only an authenticated successful Worker invocation supplies live proof');
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM academic_cron_health").get().n,1);
+// A credential rotation invalidates old Worker evidence until the new
+// scheduled token actually calls back.
+const originalConfigured=sqlite.prepare("SELECT configured_at FROM academic_cron_identity").get().configured_at;
+sqlite.prepare("UPDATE academic_cron_identity SET configured_at=?").run(
+ new Date(Date.now()-1000).toISOString());
+assert.equal((await readCronWorkerHealth(db)).ready,false);
+sqlite.prepare("UPDATE academic_cron_identity SET configured_at=?").run(originalConfigured);
+assert.equal((await readCronWorkerHealth(db)).ready,true);
 
 let when=Date.parse('2026-11-04T10:00:00Z');
 const now=()=>new Date(when).toISOString();

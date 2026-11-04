@@ -266,9 +266,13 @@
     (record.autoSync.enabled?'off':'on')+'">'+
     (record.autoSync.enabled?'暂停后台同步':'开启每小时同步')+'</button>':'';
    const autoSummary=provider.id==='chaoxing'&&record?.autoSync?.enabled?
-    '<small>后台每小时检查（单次最多三门）'+
-    (record.autoSync.lastRunAt?' · 上次运行 '+escapeHtml(stamp(record.autoSync.lastRunAt)):' · 等待首次运行')+
-    (record.autoSync.lastResult==='expired'?' · 会话已过期':'')+'</small>':'';
+    (record?.autoSyncWorkerReady===true?
+     '<small>自动检查已登记（单次最多三门）'+
+      (record.autoSync.lastRunAt?' · 上次运行 '+escapeHtml(stamp(record.autoSync.lastRunAt)):' · 等待首次运行')+
+      (record.autoSync.lastResult==='expired'?' · 会话已过期':'')+'</small>':
+     '<small>定时任务已登记，但云端 Worker 尚无近期运行证明；自动更新不可保证，可暂停。</small>'):
+    provider.id==='chaoxing'&&record?.autoSyncWorkerReady===false?
+     '<small>云端学习通定时服务尚未确认可用；可继续手动检查。</small>':'';
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     autoAction+

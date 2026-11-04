@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
@@ -70,9 +72,11 @@ class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val cloud by lazy { CloudClient(applicationContext) }
     private var shouldRefreshAfterWebsite = false
+    private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        localLessons = LocalScheduleStore.load(this)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -83,16 +87,22 @@ class MainActivity : ComponentActivity() {
             ) {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    localLessons = localLessons,
+                    openLocalImport = {
+                        startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
+                    },
+                    openLocalSchool = { provider ->
+                        if (provider == "ncwu") {
+                            startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
+                        } else if (provider == "chaoxing" || provider == "second_class") {
+                            startActivity(Intent(this@MainActivity, NativeSchoolConnectActivity::class.java)
+                                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider))
+                        }
+                    },
                     consumeWebsiteReturn = {
                         val pending = shouldRefreshAfterWebsite
                         shouldRefreshAfterWebsite = false
                         pending
-                    },
-                    openLocalSchool = { provider ->
-                        startActivity(
-                            Intent(this, NativeSchoolConnectActivity::class.java)
-                                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider)
-                        )
                     },
                     openWebsite = {
                     // Fixed origin: never forward app credentials or a school session.
@@ -111,6 +121,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        localLessons = LocalScheduleStore.load(this)
+    }
 }
 
 private enum class Page(val label: String, val symbol: ImageVector) {
@@ -127,9 +142,11 @@ private fun NativeShell(
     dao: LocalTaskDao,
     cloud: CloudClient,
     appLifecycle: Lifecycle,
+    localLessons: List<VerifiedLesson>,
+    openLocalImport: () -> Unit,
+    openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
-    openLocalSchool: (String) -> Unit,
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
@@ -202,7 +219,8 @@ private fun NativeShell(
                             openMessages = { current = Page.MESSAGES },
                             openProfile = { current = Page.PROFILE })
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
-                            openProfile = { current = Page.PROFILE })
+                            openProfile = { current = Page.PROFILE },
+                            localLessons = localLessons, openLocalImport = openLocalImport)
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud, openLocalSchool)
@@ -234,9 +252,12 @@ private fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit) {
+private fun SchedulePage(
+    openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit,
+    localLessons: List<VerifiedLesson>, openLocalImport: () -> Unit
+) {
     // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
-    CloudTimetablePanel(cloud, openWebsite, openProfile)
+    CloudTimetablePanel(cloud, openWebsite, openProfile, localLessons, openLocalImport)
 }
 
 @Composable
@@ -254,7 +275,7 @@ private fun ConnectionsPage(
     openWebsite: () -> Unit, cloud: CloudClient, openLocalSchool: (String) -> Unit
 ) {
     Content {
-        item { Heading("我的", "优先手机本机授权，云端用于微信与跨设备同步") }
+        item { Heading("我的", "本机连接三个平台，云端用于跨设备与消息") }
         item { ConnectionsPanel(cloud, openWebsite, openLocalSchool) }
         // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }

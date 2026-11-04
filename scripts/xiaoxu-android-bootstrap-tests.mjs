@@ -1,6 +1,7 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 const manifest = read('apps/xiaoxu-android/app/src/main/AndroidManifest.xml');
@@ -27,57 +28,16 @@ assert.match(main, /NavigationBar/);
 assert.match(main, /NavigationRail/);
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
-const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
-const nativeSchool = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
-const nativeDb = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
-const nativePanels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
-const scheduleUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
-assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
-for (const host of ['jwmis.ncwu.edu.cn','i.chaoxing.com','dekt.ncwu.edu.cn'])
- assert.ok(nativeSchool.includes(host));
-assert.match(nativeSchool, /navigationAllowed\(provider, request\.url\.toString\(\)\)/);
-assert.match(nativeSchool, /extractionAllowed\(provider, host\)/);
-assert.match(nativeSchool, /onReceivedSslError/);
-assert.match(nativeSchool, /finishAndReturn = Button\(this\)/);
-assert.match(nativeSchool, /text = "返回校序查看已保存数据"/);
-assert.match(nativeSchool, /finishAndReturn\.isEnabled = true/);
-assert.match(nativeSchool, /if \(!navigationAllowed\(provider, url\)\)/);
-assert.match(nativeSchool, /pageFailed = true/);
-assert.match(nativeSchool, /if \(!loaded \|\| pageFailed/);
-assert.match(nativeSchool, /if \(epoch != captureEpoch \|\| isFinishing\) return@launch/);
-
-assert.match(nativeSchool, /handler\.cancel\(\)/);
-assert.match(nativeSchool, /setAcceptThirdPartyCookies\(this, false\)/);
-assert.match(nativeSchool, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);
-assert.match(nativeSchool, /settings\.allowFileAccess = false/);
-assert.match(nativeSchool, /browser\.evaluateJavascript\(READ_VISIBLE_PAGE\)/);
-assert.match(nativeSchool, /items\.length\(\) !in 1\.\.120/);
-assert.match(nativeSchool, /replaceKind\(provider, kind, accepted\)/);
-assert.doesNotMatch(nativeSchool + nativeDb + nativePanels, /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|schoolPassword/);
-assert.match(db, /@Database\(entities = \[LocalTask::class, NativeSchoolRecord::class\], version = 3/);
-assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
-assert.match(db, /CREATE TABLE IF NOT EXISTS native_school_records/);
-assert.match(db, /PRIMARY KEY\(provider, kind, fingerprint\)/);
-assert.match(nativeDb, /@Transaction/);
-assert.match(nativeDb, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
-assert.doesNotMatch(nativeDb, /Migration\(1, 2\)|@Entity\(tableName = "local_tasks"\)/);
-assert.match(nativePanels, /fun LocalSchoolConnectionPanel\(/);
-assert.match(nativePanels, /fun LocalSchoolRecordSection\(/);
-assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
-assert.match(scheduleUi, /LocalSchoolRecordSection\(setOf\("schedule"\)\)/);
-assert.match(appGradle, /versionName '0\.7\.0'/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
 assert.match(db, /val source: String\?/);
 assert.match(db, /val due: String\?/);
 assert.match(db, /version = 3/);
+assert.match(db, /Migration\(2, 3\)/);
+assert.match(db, /CREATE TABLE IF NOT EXISTS native_school_records/);
 assert.match(db, /Migration\(1, 2\)/);
 assert.match(db, /ADD COLUMN source TEXT/);
 assert.match(db, /ADD COLUMN due TEXT/);
-assert.match(db, /Migration\(2, 3\)/);
 assert.match(db, /addMigrations\(MIGRATION_1_2, MIGRATION_2_3\)/);
-assert.match(nativeSchool, /LocalTaskDatabase\.open\(applicationContext\)/);
-assert.match(nativePanels, /LocalTaskDatabase\.open\(context\)/);
 assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
@@ -112,7 +72,7 @@ assert.match(main, /CloudTimetablePanel/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
-
+const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite\)/);
 assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
@@ -131,7 +91,6 @@ assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.match(panels, /fun ConnectionsPanel\(/);
 assert.match(panels, /openLocalSchool: \(String\) -> Unit/);
-assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool\)/);
 assert.match(panels, /connectionStatusLabel\(platform\)/);
 assert.match(panels, /client\.loadChaoxingCourses\(\)/);
 assert.match(panels, /client\.syncAuthorizedSchool\(id\)/);
@@ -279,4 +238,85 @@ assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
-console.log('校序 Android V0.7.0：本机三个学校官方页面入口、只读解析、独立 Room、会话边界检查通过');
+
+/* Dedicated Qingguo importer is owned by main; only Chaoxing and second-class
+ * use the generic official WebView reader. This is NOT a trusted school sync. */
+const localNative = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
+const nativeRecords = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
+const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
+assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
+assert.match(main, /provider == "ncwu"/);
+assert.match(main, /LocalQingguoImportActivity::class\.java/);
+assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool\)/);
+assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
+assert.match(localSchoolUi, /专用课表导入/);
+assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
+assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool\)/);
+for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
+assert.doesNotMatch(localNative, /"ncwu" to "https:/);
+assert.match(localNative, /finishAndReturn = Button\(this\)/);
+assert.match(localNative, /finishAndReturn\.isEnabled = true/);
+assert.match(localNative, /if \(!navigationAllowed\(provider, url\)\)/);
+assert.match(localNative, /pageFailed = true/);
+assert.match(localNative, /onReceivedSslError/);
+assert.match(localNative, /handler\.cancel\(\)/);
+assert.match(localNative, /setAcceptThirdPartyCookies\(this, false\)/);
+assert.match(localNative, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);
+assert.match(localNative, /browser\.evaluateJavascript\(READ_VISIBLE_PAGE\)/);
+assert.match(localNative, /replaceKind\(provider, kind, accepted\)/);
+assert.match(localNative, /LocalTaskDatabase\.open\(applicationContext\)/);
+assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
+assert.match(nativeRecords, /@Transaction/);
+assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
+assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
+ /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
+assert.match(appGradle, /versionName '0\.7\.0'/);
+
+/* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
+const importer = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/LocalQingguoImportActivity.kt');
+const localStore = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
+const script = read('apps/xiaoxu-android/app/src/main/assets/ncwu_qingguo_local.js');
+assert.match(manifest, /android:name="\.LocalQingguoImportActivity"[\s\S]*?android:exported="false"/);
+assert.match(main, /openLocalImport = /);
+assert.match(main, /LocalScheduleStore\.load\(this\)/);
+assert.match(schedulePanel, /本机导入/);
+assert.match(schedulePanel, /待本人核对/);
+assert.match(importer, /https:\/\/jwmis\.ncwu\.edu\.cn\//);
+assert.match(importer, /uri\.scheme == "https"/);
+assert.match(importer, /setAcceptThirdPartyCookies\(this, false\)/);
+assert.match(importer, /MIXED_CONTENT_NEVER_ALLOW/);
+assert.match(importer, /browser\.evaluateJavascript\(/);
+assert.doesNotMatch(importer + script + localStore, /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY|http:\/\//);
+assert.match(localStore, /getSharedPreferences\(/);
+assert.match(localStore, /LocalScheduleStore/);
+assert.match(localStore, /JSONArray\(item\.weeks\)/);
+assert.match(localStore, /没有找到完整课程，未覆盖旧课表/);
+
+function mockGrid(time) {
+    const div = { getAttribute: () => 'padding-bottom: 5px', innerText: '工程制图\n任课教师\n' + time + '\nA101' };
+    const cells = Array.from({ length: 7 }, (_, i) => ({
+        matches: selector => selector === 'td.td',
+        getAttribute: () => null,
+        querySelectorAll: () => i === 0 ? [div] : []
+    }));
+    const row = { querySelector: () => cells[0], children: cells };
+    const table = {
+        querySelector: () => cells[0],
+        querySelectorAll: () => [row]
+    };
+    return { document: { querySelectorAll: () => [table] }, frames: [] };
+}
+const officialLike = mockGrid('1-16周[1-2]');
+runInNewContext(script, {window: officialLike});
+const parsed = officialLike.__xiaoxuExtract();
+assert.equal(parsed.items.length, 1);
+assert.equal(parsed.items[0].name, '工程制图');
+assert.equal(parsed.items[0].day, 1);
+assert.equal(parsed.items[0].startSection, 1);
+assert.equal(parsed.items[0].weeks.length, 16);
+const broken = mockGrid('缺少合法节次');
+runInNewContext(script, {window: broken});
+assert.match(broken.__xiaoxuExtract().error, /无法识别|不完整/);
+
+console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

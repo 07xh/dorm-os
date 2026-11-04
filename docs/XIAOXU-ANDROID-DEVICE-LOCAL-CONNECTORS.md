@@ -6,17 +6,17 @@
 
 ## 已提交到 Android 原工程
 
-1. `NativeSchoolConnectActivity`：三个入口分别为华水青果 `jwmis.ncwu.edu.cn`、学习通 `i.chaoxing.com/base`、第二课堂 `dekt.ncwu.edu.cn`。只允许明确的 HTTPS 学校/学习通主机跳转，学校正常交互认证遵循官方网页要求，不绕验证码/MFA。
+1. 入口统一从 App 发起：青果使用已入主分支的专用 `LocalQingguoImportActivity` + MIT 网格适配，学习通与第二课堂由 `NativeSchoolConnectActivity` 打开官方 HTTPS 页面；各平台独立完成本人授权，不绕验证码/MFA。
 2. App 内「我的」默认是 **手机本机连接**，云端学校连接被归入可选区域；三平台互相独立。按「手机登录并读取」后打开官方 WebView，在本人业务列表点「读取当前页」。
 3. 读取当前已经加载的页面 DOM 的可见表格/已知学习通课程标题节点。固定只读脚本不提交表单、不读取输入框密码、不调用 Cookie API、不注入 JS bridge；未知结构/登录页直接失败，不创建任何模拟课程。
 4. `LocalTaskDatabase.nativeSchoolRecords`：原有 Room 数据库新增来源隔离表（v2→v3 非破坏性迁移，不修改 `local_tasks` 行）。记录仅保留来源代码、类型、标题、页面可见字段摘要、固定主机名、读取时间与确定性指纹；不保存完整 URL、CAS ticket、Cookie、学号或网页 HTML。
-5. 「课表」展示本机青果课程的来源标记预览，「任务」展示本机课程/作业/第二课堂活动积分预览；不会冒充现有云端 `trusted_readonly` 或官方提交状态。真实成功的班级/周次/截止字段仍需基于本校页面逐字段验收。
+5. 「课表」展示青果专用本机导入的课程网格，「任务」展示本机学习通课程/作业与第二课堂活动积分预览；不会冒充现有云端 `trusted_readonly` 或官方提交状态。真实成功的班级/周次/截止字段仍需基于本校页面逐字段验收。
 6. 页面读取失败不能以空结果覆盖已保存的旧记录。SSL 错误、HTTP 失败、非白名单跳转则阻止业务导入。
 
 ## 开源调研与复用界限（2026-11-05）
 
 - `xiaomanjun233/SleepDown-Schedule`：开源式 *源码可见非商业许可 1.1*。参考其 **WebView/Custom Tabs 本机授权 + Room 保存** 体系；本次**不复制**其代码、图标和 UI 资产，以避免许可证混合。
-- `ShiGuangSchedule/shiguang_warehouse`：MIT，已有基于脚本的青果网页适配器，可用于后续完善学校特定课表布局；**本次还没有移植学校脚本**，因此对表格结构不匹配的青果页面会如实显示无法识别。
+- `ShiGuangSchedule/shiguang_warehouse`：MIT，最新 main 已加入青果本机专用网格脚本和第三方许可说明，可读取星期、周次、节次、教室并要求本人确认；仍需真机官方页面验证。
 - `DanMo661/xuexitong-cli`：MIT，提供学习通真实课程、作业只读协议与 DOM 线索；本次参考已登录课程列表的 `.course-name[title]`，**没有在 App 中移植完整课程/作业多请求查询**。
 - 第二课堂平台依赖学校当前 CAS 与业务页面，本次只借鉴本机网页授权思路；没有可证明适配华水本人账号的现成通用 Android API。
 

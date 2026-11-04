@@ -81,8 +81,13 @@ export async function deployHourlyChaoxingCron(){
  // 0016 is additive and idempotent. Existing school sessions are untouched.
  wrangler(['d1','execute',name,'--remote','--yes','--json',
   '--file=./migrations/0016_academic_chaoxing_cron.sql']);
+ // Heartbeat is additive, idempotent, and does not access school credentials.
+ wrangler(['d1','execute',name,'--remote','--yes','--json',
+  '--file=./migrations/0017_academic_chaoxing_cron_health.sql']);
  if(rows(name,"SELECT name FROM sqlite_master WHERE type='table' AND name='academic_cron_identity'").length!==1)
   throw Error('cron_schema_not_created');
+ if(rows(name,"SELECT name FROM sqlite_master WHERE type='table' AND name='academic_cron_health'").length!==1)
+  throw Error('cron_health_schema_not_created');
  // Deliver the scheduled-only Worker before activating the D1 digest.
  wrangler(['deploy','--config',CONFIG]);
  const secret=randomBytes(32).toString('base64url');
