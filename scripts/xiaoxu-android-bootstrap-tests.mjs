@@ -257,7 +257,7 @@ assert.match(localStore, /JSONArray\(item\.weeks\)/);
 assert.match(localStore, /没有找到完整课程，未覆盖旧课表/);
 
 function mockGrid(time) {
-    const div = { getAttribute: () => 'padding-bottom: 5px', innerText: '工程制图\\n任课教师\\n' + time + '\\nA101' };
+    const div = { getAttribute: () => 'padding-bottom: 5px', innerText: '工程制图\n任课教师\n' + time + '\nA101' };
     const cells = Array.from({ length: 7 }, (_, i) => ({
         matches: selector => selector === 'td.td',
         getAttribute: () => null,
