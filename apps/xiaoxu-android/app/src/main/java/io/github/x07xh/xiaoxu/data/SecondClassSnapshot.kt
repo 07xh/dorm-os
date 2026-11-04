@@ -60,7 +60,9 @@ fun parseSecondClassSnapshot(root: JSONObject): SecondClassSnapshot {
             val row = array.getJSONObject(i)
             val id = row.getString("externalId")
             val title = row.getString("title").trim()
-            require(id.matches(Regex("^[A-Za-z0-9:_-]{1,120}$")) && known.add(id))
+            val term = row.optionalText("term", 40) ?: ""
+            require(id.matches(Regex("^[A-Za-z0-9:_-]{1,120}$")) &&
+                known.add(term + "|" + id))
             require(title.isNotBlank() && title.length <= 120)
             val activityStatus = row.optionalText("activityStatus", 24)
             val reviewStatus = row.optionalText("reviewStatus", 24)
