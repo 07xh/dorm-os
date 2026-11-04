@@ -55,7 +55,9 @@ assert.equal(challenge.reason,'interactive_challenge_required');
 assert.deepEqual(challenge.challengeEvidence,{
  passwordFormSeen:true,challengeControlSeen:true,challengeMarkupSeen:true,
  challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:false,
- submitHandlerKind:'none'
+ submitHandlerKind:'none',schoolScriptDefinitionSeen:false,sourceType:'unknown',
+ passwordProcessingSeen:false,verificationSeen:false,formSubmissionSeen:false,
+ asyncSubmissionSeen:false
 });
 assert.equal(challenge.sessionLinked,false);
 const submitOnly=await runCloudflareSecondClassCasProbe({fetcher:async(url,options)=>{
@@ -72,8 +74,38 @@ assert.equal(submitOnly.currentPasswordFormCompatible,false,
 assert.deepEqual(submitOnly.challengeEvidence,{
  passwordFormSeen:true,challengeControlSeen:false,challengeMarkupSeen:false,
  challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:true,
- submitHandlerKind:'named_function_call',submitHandlerName:'checkLogin'
+ submitHandlerKind:'named_function_call',submitHandlerName:'checkLogin',
+ schoolScriptDefinitionSeen:false,sourceType:'unknown',
+ passwordProcessingSeen:false,verificationSeen:false,formSubmissionSeen:false,
+ asyncSubmissionSeen:false
 });
 assert.equal(submitOnly.userAuthenticated,false);
 assert.equal(submitOnly.sessionLinked,false);
+// Read a bounded, same-origin school script as public evidence only.
+// JS is inspected, never executed; no credential POST is authorized.
+const observedScripts=[];
+const scripted=await runCloudflareSecondClassCasProbe({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.pathname==='/authserver/static/login.js'){
+  observedScripts.push({host:u.hostname,method:options.method,
+   credentialHeaders:!!options.headers.cookie});
+  return response(200,'function checkLogin() { document.forms[0].submit(); }',
+   {'content-type':'application/javascript'});
+ }
+ if(u.hostname==='authserver.ncwu.edu.cn')return response(200,
+  '<form method="post" action="/authserver/login" onsubmit="return checkLogin();">'+
+  '<input name="username"><input type="password" name="password">'+
+  '<input type="hidden" name="execution" value="opaque-test">'+
+  '<input type="hidden" name="_eventId" value="submit"></form>'+
+  '<script src="/authserver/static/login.js"></script>');
+ return fake(url,options);
+}});
+assert.equal(scripted.currentPasswordFormCompatible,false);
+assert.equal(scripted.challengeEvidence?.schoolScriptDefinitionSeen,true);
+assert.equal(scripted.challengeEvidence?.sourceType,'school_static_js');
+assert.equal(scripted.challengeEvidence?.formSubmissionSeen,true);
+assert.equal(scripted.challengeEvidence?.verificationSeen,false);
+assert.equal(scripted.sessionLinked,false);
+assert.deepEqual(observedScripts,[{host:'authserver.ncwu.edu.cn',
+ method:'GET',credentialHeaders:false}]);
 console.log('Cloudflare CAS public-only edge probe: public redirect, service binding, challenge and no-session proof passed');
