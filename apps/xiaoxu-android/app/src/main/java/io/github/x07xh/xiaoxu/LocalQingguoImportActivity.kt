@@ -3,7 +3,13 @@ package io.github.x07xh.xiaoxu
 import android.app.AlertDialog
 import android.graphics.Color
 import android.os.Bundle
+import android.graphics.Bitmap
+import android.net.Uri
+import android.net.http.SslError
 import android.view.ViewGroup
+import android.webkit.SslErrorHandler
+import android.webkit.WebResourceError
+import android.webkit.WebResourceResponse
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -29,7 +35,17 @@ import org.json.JSONTokener
 class LocalQingguoImportActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
+    private lateinit var extractButton: Button
     private var extracting = false
+    private var pageFailed = false
+    private var pageLoaded = false
+    private var pageEpoch = 0
+
+    private fun isOfficialPage(url: String?): Boolean {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+        return uri.scheme == "https" && uri.userInfo == null &&
+            uri.host?.lowercase() == "jwmis.ncwu.edu.cn"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,9 +58,12 @@ class LocalQingguoImportActivity : ComponentActivity() {
             setPadding(12, 12, 12, 8)
         }
         val back = Button(this).apply { text = "返回" }
-        val extract = Button(this).apply { text = "提取本页课表" }
+        extractButton = Button(this).apply {
+            text = "提取本页课表"
+            isEnabled = false
+        }
         controls.addView(back, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        controls.addView(extract, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f))
+        controls.addView(extractButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f))
         status = TextView(this).apply {
             text = "请在华水官方页面本人登录，打开个人课表，再点击提取。课程仅保存在本机。"
             setTextColor(Color.DKGRAY)
@@ -58,6 +77,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
             settings.javaScriptCanOpenWindowsAutomatically = false
             settings.setSupportMultipleWindows(false)
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            settings.safeBrowsingEnabled = true
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
@@ -70,8 +90,44 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     status.text = "安全限制：仅允许在华水官方 HTTPS 页面内完成导入。"
                     return true
                 }
+                override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    pageEpoch++
+                    pageFailed = false
+                    pageLoaded = false
+                    extractButton.isEnabled = false
+                    status.text = "学校官方页面加载中…"
+                }
                 override fun onPageFinished(view: WebView, url: String) {
-                    status.text = "打开个人课表页面后，点击“提取本页课表”。"
+                    pageLoaded = !pageFailed && isOfficialPage(url)
+                    extractButton.isEnabled = pageLoaded && !extracting
+                    if (!pageFailed) {
+                        status.text = if (pageLoaded)
+                            "请先在华水官方页面打开个人课表，再点击提取；本机导入不需要云端登录。"
+                        else "请继续在华水官方认证页面登录，返回教务课表后才可提取。"
+                    }
+                }
+                override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                    handler.cancel()
+                    pageFailed = true
+                    pageLoaded = false
+                    extractButton.isEnabled = false
+                    status.text = "学校 HTTPS 证书验证失败，已禁止在此页面读取课程。"
+                }
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) {
+                        pageFailed = true
+                        pageLoaded = false
+                        extractButton.isEnabled = false
+                        status.text = "学校页面加载失败，请检查网络或稍后重新打开教务网站。"
+                    }
+                }
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                    if (request.isForMainFrame && response.statusCode >= 400) {
+                        pageFailed = true
+                        pageLoaded = false
+                        extractButton.isEnabled = false
+                        status.text = "学校页面返回 HTTP " + response.statusCode + "，未读取任何课程。"
+                    }
                 }
             }
         }
@@ -81,25 +137,30 @@ class LocalQingguoImportActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
         back.setOnClickListener { if (browser.canGoBack()) browser.goBack() else finish() }
-        extract.setOnClickListener { extractVisibleTimetable() }
+        extractButton.setOnClickListener { extractVisibleTimetable() }
         browser.loadUrl("https://jwmis.ncwu.edu.cn/")
     }
 
     private fun extractVisibleTimetable() {
         if (extracting) return
-        val uri = android.net.Uri.parse(browser.url ?: "")
-        val host = uri.host?.lowercase() ?: ""
-        if (uri.scheme != "https" ||
-            (host != "ncwu.edu.cn" && !host.endsWith(".ncwu.edu.cn"))) {
-            status.text = "请先打开华水官方 HTTPS 教务课表页面。"
+        val currentUrl = browser.url
+        if (!pageLoaded || pageFailed || !isOfficialPage(currentUrl)) {
+            status.text = "请先完成官方登录，进入华水个人课表页面。"
             return
         }
+        val epoch = pageEpoch
         extracting = true
+        extractButton.isEnabled = false
         status.text = "正在本机读取当前页面的课表网格…"
         try {
             val script = assets.open("ncwu_qingguo_local.js").bufferedReader().use { it.readText() }
             browser.evaluateJavascript(script + "\nJSON.stringify(window.__xiaoxuExtract())") { encoded ->
                 extracting = false
+                if (epoch != pageEpoch || browser.url != currentUrl || isFinishing) {
+                    status.text = "读取期间网页发生变化；请重新打开个人课表再试。"
+                    return@evaluateJavascript
+                }
+                extractButton.isEnabled = pageLoaded && !pageFailed
                 try {
                     val jsonText = JSONTokener(encoded).nextValue() as? String
                         ?: throw IllegalArgumentException("页面没有返回课表")
@@ -129,11 +190,19 @@ class LocalQingguoImportActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             extracting = false
+            extractButton.isEnabled = pageLoaded && !pageFailed
             status.text = "课表提取组件加载失败，旧课表保持不变。"
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
+    }
+
     override fun onDestroy() {
+        pageEpoch++
+        (browser.parent as? ViewGroup)?.removeView(browser)
         browser.stopLoading()
         browser.destroy()
         super.onDestroy()
