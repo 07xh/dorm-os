@@ -42,8 +42,12 @@ export async function onRequestPost(context){
   // Emit only fixed, non-sensitive failure phases for the owner's own
   // second-class attempt. Never return CAS URLs, form values or credentials.
   const stages=new Set(['cas_return','personal_data','identity_evidence']);
-  return json({error:code,...(provider==='second_class'&&
-   code==='authorization_failed'&&stages.has(e?.failureStage)?
-   {failureStage:e.failureStage}:{})},responseCode({code}));
+  const reasons=new Set(['unexpected_response','login_page_remained',
+   'service_callback_incomplete','unexpected_school_landing']);
+  const secondFailure=provider==='second_class'&&
+   code==='authorization_failed'&&stages.has(e?.failureStage);
+  return json({error:code,...(secondFailure?{failureStage:e.failureStage}:{}),
+   ...(secondFailure&&e.failureStage==='cas_return'&&reasons.has(e?.casReturnReason)?
+    {casReturnReason:e.casReturnReason}:{})},responseCode({code}));
  }
 }
