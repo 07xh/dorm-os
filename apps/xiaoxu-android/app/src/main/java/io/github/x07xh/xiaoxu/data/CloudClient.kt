@@ -77,6 +77,18 @@ data class PlatformConnection(
         get() = authorization == "verified_session" &&
             sessionState == "active" && status in setOf("connected", "partial")
 }
+/** Opaque encrypted challenge, never a school session. In-memory only. */
+data class ChaoxingQrUi(
+    val status: String = "idle",
+    val message: String? = null,
+    val ticket: String? = null,
+    val image: ByteArray? = null,
+    val startedAt: Long = 0L,
+    val expiresAt: Long = 0L,
+    val polls: Int = 0,
+    val busy: Boolean = false
+)
+
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
@@ -93,6 +105,7 @@ data class CloudUiState(
     val wechatCandidates: List<WechatCandidate> = emptyList(),
     val wechatError: String? = null, val wechatReviewingId: String? = null,
     val chaoxingBusy: Boolean = false,
+    val chaoxingQr: ChaoxingQrUi = ChaoxingQrUi(),
     val chaoxingBatchBusy: Boolean = false,
     val chaoxingBatchStatus: String? = null,
     val chaoxingAutoSyncBusy: Boolean = false,
@@ -169,6 +182,7 @@ class CloudClient(context: Context) {
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
+    private var qrGeneration: Long = 0L
 
     /** Hash of this App's owner session, never the Cookie itself. */
     fun ownerSessionBinding(): String? = session.load()?.let { token ->
@@ -588,6 +602,184 @@ class CloudClient(context: Context) {
         }
     }
 
+    private val qrTicketShape =
+        Regex("""^[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{20,23900}$""")
+
+    /** Same-origin binary QR route; upstream school Cookies remain on the server. */
+    private fun loadChaoxingQrImage(ticket: String): ByteArray {
+        require(qrTicketShape.matches(ticket))
+        val conn = (URL(BASE + "/api/v1/connections/chaoxing/qr/image")
+            .openConnection() as HttpsURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = 18000
+            instanceFollowRedirects = false
+            useCaches = false
+            requestMethod = "POST"
+            setRequestProperty("Accept", "image/png, image/jpeg, application/json")
+            setRequestProperty("Origin", BASE)
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Cache-Control", "no-store")
+            session.load()?.let { setRequestProperty("Cookie", COOKIE_NAME + "=" + it) }
+            doOutput = true
+        }
+        return try {
+            conn.outputStream.use {
+                it.write(JSONObject().put("ticket", ticket)
+                    .toString().toByteArray(Charsets.UTF_8))
+            }
+            if (conn.responseCode != 200) throw IllegalStateException("image_unavailable")
+            val type = (conn.contentType ?: "").substringBefore(';').trim().lowercase()
+            if (type !in setOf("image/png", "image/jpeg", "image/svg+xml"))
+                throw IllegalStateException("invalid_image_type")
+            val result = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            conn.inputStream.use { source ->
+                while (true) {
+                    val n = source.read(buffer)
+                    if (n < 0) break
+                    if (result.size() + n > 220000)
+                        throw IllegalStateException("image_too_large")
+                    result.write(buffer, 0, n)
+                }
+            }
+            val bytes = result.toByteArray()
+            if (bytes.size < 64) throw IllegalStateException("image_too_small")
+            // School sometimes returns the strictly generated fallback SVG.
+            // Convert in memory without sending raw SVG to an embedded browser.
+            if (type == "image/svg+xml") return NativeQrSvgRenderer.rasterize(bytes)
+            val png = bytes.size >= 8 && bytes.sliceArray(0 until 8)
+                .contentEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10))
+            val jpeg = bytes.size >= 3 && bytes[0] == -1.toByte() &&
+                bytes[1] == -40.toByte() && bytes[2] == -1.toByte()
+            if ((type == "image/png" && !png) || (type == "image/jpeg" && !jpeg))
+                throw IllegalStateException("invalid_image_magic")
+            bytes
+        } finally { conn.disconnect() }
+    }
+
+    suspend fun startChaoxingQr() {
+        if (!state.authenticated || state.busy || state.chaoxingQr.busy) return
+        val generation = ++qrGeneration
+        val epoch = sessionEpoch
+        state = state.copy(chaoxingQr = ChaoxingQrUi(
+            status = "loading", busy = true, message = "正在生成官方登录二维码"))
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/qr/start",
+                    "POST", JSONObject(), authenticated = true)
+            }
+            if (epoch != sessionEpoch || generation != qrGeneration) return
+            if (r.code != 200 || r.json.optString("status") != "pending") {
+                state = state.copy(chaoxingQr = ChaoxingQrUi(
+                    status = "failed", message = when (r.json.optString("error")) {
+                        "too_many_attempts" -> "二维码生成次数过多，请稍后重试"
+                        "school_login_unavailable" -> "扫码服务不可用，请使用网页备用连接"
+                        else -> "二维码未生成（HTTP " + r.code + "），请使用网页备用连接"
+                    }))
+                return
+            }
+            val ticket = r.json.getString("ticket")
+            val imageUrl = java.net.URI(r.json.getString("qrImageUrl"))
+            val expiry = Instant.parse(r.json.getString("expiresAt")).toEpochMilli()
+            val now = System.currentTimeMillis()
+            if (!qrTicketShape.matches(ticket) ||
+                imageUrl.scheme != "https" || imageUrl.host != "passport2.chaoxing.com" ||
+                imageUrl.path != "/createqr" || imageUrl.port != -1 ||
+                imageUrl.rawUserInfo != null || expiry - now !in 1000L..165000L)
+                throw IllegalStateException("invalid_challenge")
+            val image = withContext(Dispatchers.IO) { loadChaoxingQrImage(ticket) }
+            if (epoch != sessionEpoch || generation != qrGeneration) return
+            state = state.copy(chaoxingQr = ChaoxingQrUi(
+                status = "pending", ticket = ticket, image = image,
+                startedAt = now, expiresAt = expiry,
+                message = "请使用另一设备上的官方学习通 App 扫码确认"))
+        } catch (e: Exception) {
+            if (epoch == sessionEpoch && generation == qrGeneration)
+                state = state.copy(chaoxingQr = ChaoxingQrUi(
+                    status = "failed",
+                    message = "二维码无法可信读取；未建立学校连接，请使用网页备用连接"))
+        }
+    }
+
+    /** Strictly bounded foreground checking; the server also rate limits. */
+    suspend fun pollChaoxingQr() {
+        val qr = state.chaoxingQr
+        if (!state.authenticated || qr.busy ||
+            qr.status !in setOf("pending", "scanned") || qr.ticket == null) return
+        if (System.currentTimeMillis() >= qr.expiresAt || qr.polls >= 24) {
+            state = state.copy(chaoxingQr = ChaoxingQrUi(
+                status = "expired", message = "二维码已过期，请重新生成"))
+            return
+        }
+        val epoch = sessionEpoch
+        val generation = qrGeneration
+        state = state.copy(chaoxingQr = qr.copy(
+            polls = qr.polls + 1, busy = true))
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/qr/status",
+                    "POST", JSONObject().put("ticket", qr.ticket), authenticated = true)
+            }
+            if (epoch != sessionEpoch || generation != qrGeneration) return
+            if (r.code != 200) {
+                state = state.copy(chaoxingQr = ChaoxingQrUi(
+                    status = "failed", message = when (r.json.optString("error")) {
+                        "session_expired" -> "学习通二维码已过期，请重新生成"
+                        "authorization_failed" -> "官方授权未通过，请重新扫码"
+                        "too_many_attempts" -> "检查次数过多，请稍后再试"
+                        else -> "登录状态无法确认（HTTP " + r.code + "）"
+                    }))
+                return
+            }
+            when (r.json.optString("status")) {
+                "pending", "scanned" -> {
+                    val ticket = r.json.getString("ticket")
+                    if (!qrTicketShape.matches(ticket))
+                        throw IllegalStateException("invalid_ticket")
+                    val scanned = r.json.optString("status") == "scanned"
+                    state = state.copy(chaoxingQr = qr.copy(
+                        ticket = ticket, polls = qr.polls + 1, busy = false,
+                        status = if (scanned) "scanned" else "pending",
+                        message = if (scanned) "已扫码，请在官方学习通 App 确认"
+                            else "等待官方学习通扫码"))
+                }
+                "connected", "authenticated_pending_sync" -> {
+                    state = state.copy(chaoxingQr = ChaoxingQrUi(
+                        status = "verifying", busy = true,
+                        message = "官方扫码已确认，正在核验真实课程与作业"))
+                    completeSchoolReturn("chaoxing")
+                    if (epoch != sessionEpoch || generation != qrGeneration) return
+                    val verified = state.platforms.firstOrNull { it.id == "chaoxing" }
+                        ?.verified == true && state.chaoxingCourses.isNotEmpty() &&
+                        state.chaoxingError == null
+                    state = state.copy(chaoxingQr = ChaoxingQrUi(
+                        status = if (verified) "verified" else "pending_sync",
+                        message = if (verified)
+                            "已读本人课程并检查首门课程作业；请与官网逐项核对"
+                        else "扫码已确认，但本人课程或作业仍需可信核验"))
+                }
+                "cancelled" -> state = state.copy(chaoxingQr = ChaoxingQrUi(
+                    status = "cancelled", message = "已取消扫码授权"))
+                else -> throw IllegalStateException("invalid_status")
+            }
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && generation == qrGeneration)
+                state = state.copy(chaoxingQr = qr.copy(
+                    polls = qr.polls + 1, busy = false,
+                    message = "检查失败，尚未确认学校授权，可重试"))
+        } finally {
+            if (epoch == sessionEpoch && generation == qrGeneration &&
+                state.chaoxingQr.busy &&
+                state.chaoxingQr.status in setOf("pending", "scanned"))
+                state = state.copy(chaoxingQr = state.chaoxingQr.copy(busy = false))
+        }
+    }
+
+    fun cancelChaoxingQr() {
+        qrGeneration++
+        state = state.copy(chaoxingQr = ChaoxingQrUi())
+    }
+
     /**
      * Reviews a real cloud candidate using the existing owner session and same-origin POST.
      * Never sends school credentials or accepts a message automatically.
@@ -683,6 +875,7 @@ class CloudClient(context: Context) {
 
     private fun emptyChaoxing(): CloudUiState = state.copy(
         chaoxingCourses = emptyList(),
+        chaoxingQr = ChaoxingQrUi(),
         chaoxingSelectedKey = null,
         chaoxingHomework = emptyList(),
         chaoxingCheckedAt = null,
@@ -1161,6 +1354,7 @@ class CloudClient(context: Context) {
 
     suspend fun signOut() {
         sessionEpoch++
+        qrGeneration++
         state = clearAccountSnapshots()
         try {
             withContext(Dispatchers.IO) {

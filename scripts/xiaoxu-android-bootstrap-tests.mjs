@@ -112,6 +112,31 @@ assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
 const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
 assert.match(workspace, /ChaoxingHomeworkPanel\(client, openWebsite\)/);
+// Native first-party QR uses existing server start/image/status, never new login routes.
+assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/start/);
+assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/image/);
+assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/status/);
+assert.match(cloud, /suspend fun startChaoxingQr\(\)/);
+assert.match(cloud, /suspend fun pollChaoxingQr\(\)/);
+assert.match(cloud, /fun cancelChaoxingQr\(\)/);
+assert.match(cloud, /qrGeneration/);
+assert.match(cloud, /image_too_large/);
+const svgRaster = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeQrSvgRenderer.kt');
+assert.match(svgRaster, /internal object NativeQrSvgRenderer/);
+assert.match(svgRaster, /document\.matchEntire\(text\)/);
+assert.match(svgRaster, /out_of_bounds_module/);
+assert.match(svgRaster, /count > 20000/);
+assert.match(svgRaster, /Bitmap\.CompressFormat\.PNG/);
+assert.match(svgRaster, /bitmap\.recycle\(\)/);
+assert.match(cloud, /NativeQrSvgRenderer\.rasterize\(bytes\)/);
+assert.doesNotMatch(svgRaster, /addJavascriptInterface|evaluateJavascript|loadUrl|CookieManager/);
+assert.match(cloud, /qr\.polls >= 24/);
+assert.match(cloud, /completeSchoolReturn\("chaoxing"\)/);
+assert.doesNotMatch(cloud, /addJavascriptInterface|CookieManager|getCookie\(/);
+assert.match(panels, /在 App 内扫码连接/);
+assert.match(panels, /BitmapFactory\.decodeByteArray/);
+assert.match(panels, /Lifecycle\.Event\.ON_PAUSE/);
+assert.match(panels, /LaunchedEffect\(qrStartedAt, foreground\)/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\?view=courses/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\/sync/);
 assert.match(cloud, /loadChaoxingCourses/);
@@ -300,7 +325,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.2'/);
+assert.match(appGradle, /versionName '0\.7\.3'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
