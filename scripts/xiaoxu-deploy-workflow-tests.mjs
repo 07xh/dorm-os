@@ -29,4 +29,28 @@ assert.match(yaml,/if \[ "\$GITHUB_EVENT_NAME" = "workflow_dispatch" \]; then\s*
  'manual dispatch still needs full E2E before deploying');
 assert.ok(yaml.indexOf('needs: verify')>yaml.indexOf('jobs:\n  verify:'));
 assert.ok(!/^on:\s*\n\s*push:/m.test(yaml),'must not run duplicate E2E suite directly on push');
+
+// A public notice archive commit already triggers the trusted main CI -> Pages
+// workflow_run path. Do not also issue workflow_dispatch (which skips that
+// exact CI-success trigger and causes a redundant production deployment).
+const notices=readFileSync(new URL('../.github/workflows/collect-ncwu-notices.yml',import.meta.url),'utf8');
+assert.ok(!notices.includes('gh workflow run deploy-cloudflare.yml'),
+ 'NCWU notice collector must not directly dispatch another Pages deploy');
+assert.ok(!/^\s*actions:\s*write\s*$/m.test(notices),
+ 'notice collector no longer needs privileged Actions write permission');
+assert.ok(!notices.includes('id: archive')&&!notices.includes('$GITHUB_OUTPUT'),
+ 'dead notice collector output wiring should remain removed');
+assert.match(notices,/git push origin HEAD:main/,
+ 'verified public archive still commits changes that trigger main CI');
+for(const [name,path] of [
+ ['one-time D1 bootstrap','../.github/workflows/bootstrap-academic-d1.yml'],
+ ['legacy owner auth upgrade','../.github/workflows/upgrade-owner-auth-d1.yml']
+]){
+ const job=readFileSync(new URL(path,import.meta.url),'utf8');
+ assert.match(job,/workflow_dispatch:/,name+' must retain manual recovery');
+ assert.ok(!/^on:\s*\n\s*push:/m.test(job),name+' must never deploy on source edits');
+ assert.ok(job.includes("github.ref == 'refs/heads/main'"),
+  name+' must remain limited to main');
+}
+
 console.log('Deploy workflow: trusted main CI success, exact SHA, manual fallback E2E and fail-closed gating passed');
