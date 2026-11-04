@@ -37,11 +37,9 @@ jobs:
         run: |
           node -e "const x=require('./public/data/notices.json'); if(x.mode!=='auto'||!x.lastSuccessAt||x.items.length<2||!x.sources.some(s=>s.status==='ok'))process.exit(1);console.log('Live data accepted:',x.items.length)"
       - name: Commit only verified public notice archive
-        id: archive
         run: |
           if git diff --quiet -- public/data/notices.json; then
             echo 'No changes to publish'
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -50,7 +48,6 @@ jobs:
           git commit -m "data(校序): refresh verified NCWU public notifications"
           git pull --rebase origin main
           git push origin HEAD:main
-          echo 'changed=true' >> "$GITHUB_OUTPUT"
       # Do not dispatch deployment here: pushing verified notices to main
       # already runs DORM OS CI. deploy-cloudflare.yml is exclusively gated
       # by that CI's successful workflow_run for the exact main revision.
