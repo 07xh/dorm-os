@@ -55,6 +55,12 @@ data class AcademicNotice(
     val id: String, val title: String, val category: String,
     val dateLabel: String, val url: String
 )
+/** Owner-only extracted candidates; NOT verified school coursework or full WeChat chat history. */
+data class WechatCandidate(
+    val id: String, val kind: String, val title: String,
+    val excerpt: String?, val chatLabel: String?, val sentAt: String,
+    val duePrecision: String, val dueLocalDate: String?
+)
 data class PlatformConnection(
     val id: String, val name: String, val status: String,
     val sessionState: String, val authorization: String,
@@ -77,6 +83,8 @@ data class CloudUiState(
     val scheduleFetchedAt: String? = null,
     val platforms: List<PlatformConnection> = emptyList(),
     val pendingWechatCount: Int? = null, val lastSyncAt: String? = null,
+    val wechatCandidates: List<WechatCandidate> = emptyList(),
+    val wechatError: String? = null, val wechatReviewingId: String? = null,
     val chaoxingBusy: Boolean = false,
     val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
     val chaoxingSelectedKey: String? = null,
@@ -287,7 +295,8 @@ class CloudClient(context: Context) {
         val failed = mutableListOf<String>()
         var tasks: List<CloudTask>? = null
         var platforms: List<PlatformConnection>? = null
-        var candidates: Int? = null
+        var candidates: List<WechatCandidate>? = null
+        var candidateLoadFailed = false
         var lessons: List<VerifiedLesson>? = null
         var scheduleStatus: String? = null
         var scheduleFetchedAt: String? = null
@@ -362,9 +371,41 @@ class CloudClient(context: Context) {
             val r = withContext(Dispatchers.IO) {
                 request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true)
             }
-            if (r.code != 200) throw IllegalStateException()
-            candidates = r.json.getJSONArray("items").length()
-        } catch (_: Exception) { failed.add("微信候选") }
+            if (r.code != 200 || r.json.optString("status") != "personal_candidates")
+                throw IllegalStateException("invalid_candidates_response")
+            val rows = r.json.getJSONArray("items")
+            if (rows.length() > 30) throw IllegalStateException("too_many_candidates")
+            val validId = Regex("^[A-Za-z0-9_-]{12,128}$")
+            val seen = mutableSetOf<String>()
+            candidates = buildList {
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    val title = row.getString("title")
+                    val kind = row.getString("kind")
+                    val at = row.getString("sentAt")
+                    val precision = row.getString("duePrecision")
+                    val due = row.optString("dueLocalDate").takeIf { it.isNotBlank() && it != "null" }
+                    if (!validId.matches(id) || !seen.add(id) ||
+                        title.isBlank() || title.length > 120 ||
+                        kind !in setOf("homework", "exam", "activity", "signup", "other") ||
+                        row.optString("reviewStatus") != "needs_review" ||
+                        precision !in setOf("unknown", "date", "exact") ||
+                        (precision != "unknown" && due.isNullOrBlank()) ||
+                        (due != null && !Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(due)))
+                        throw IllegalStateException("invalid_candidate")
+                    Instant.parse(at)
+                    val excerpt = row.optString("excerpt")
+                        .takeIf { it.isNotBlank() && it != "null" }?.take(240)
+                    val chat = row.optString("chatLabel")
+                        .takeIf { it.isNotBlank() && it != "null" }?.take(80)
+                    add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due))
+                }
+            }
+        } catch (_: Exception) {
+            candidateLoadFailed = true
+            failed.add("微信候选")
+        }
 
         // A logout or new login invalidates any in-flight older read.
         if (epoch != sessionEpoch) return
@@ -374,11 +415,60 @@ class CloudClient(context: Context) {
             scheduleStatus = scheduleStatus ?: state.scheduleStatus,
             scheduleFetchedAt = scheduleFetchedAt ?: state.scheduleFetchedAt,
             platforms = platforms ?: state.platforms,
-            pendingWechatCount = candidates ?: state.pendingWechatCount,
+            wechatCandidates = candidates ?: state.wechatCandidates,
+            pendingWechatCount = candidates?.size ?: state.pendingWechatCount,
+            wechatError = if (candidateLoadFailed) "微信候选读取失败，列表可能过期，请重试" else null,
             privateError = if (failed.isEmpty()) null else failed.joinToString("、") + "刷新失败，部分结果可能过期",
             lastSyncAt = if (failed.isEmpty()) Instant.now().toString() else state.lastSyncAt
         )
         loadSecondClass()
+    }
+
+    /**
+     * Reviews a real cloud candidate using the existing owner session and same-origin POST.
+     * Never sends school credentials or accepts a message automatically.
+     */
+    suspend fun reviewWechatCandidate(candidateId: String, decision: String): Boolean {
+        if (!state.authenticated || state.wechatReviewingId != null ||
+            decision !in setOf("accept", "dismiss") ||
+            !Regex("^[A-Za-z0-9_-]{12,128}$").matches(candidateId) ||
+            state.wechatCandidates.none { it.id == candidateId }) return false
+        val epoch = sessionEpoch
+        state = state.copy(wechatReviewingId = candidateId, wechatError = null)
+        try {
+            val result = withContext(Dispatchers.IO) {
+                request("/api/v1/wechat/candidates/$candidateId", "POST",
+                    JSONObject().put("decision", decision), authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            if (result.code != 200 ||
+                result.json.optString("id") != candidateId ||
+                result.json.optString("status") != if (decision == "accept") "accepted" else "dismissed") {
+                state = state.copy(wechatError = when (result.code) {
+                    401 -> "校序登录状态已过期，请在「我的」重新连接"
+                    409 -> "该候选已在别处审核，请刷新列表"
+                    404 -> "候选已不存在，请刷新列表"
+                    403 -> "没有审核权限，请核查校序登录状态"
+                    else -> "审核未成功（HTTP ${result.code}），请重试"
+                })
+                if (result.code == 401) refreshPrivate()
+                return false
+            }
+            // A confirmed server mutation may disappear from the current list. Refetch
+            // both the queue and task ledger; if that fails the UI labels snapshots stale.
+            state = state.copy(
+                wechatCandidates = state.wechatCandidates.filterNot { it.id == candidateId },
+                pendingWechatCount = state.pendingWechatCount?.let { (it - 1).coerceAtLeast(0) }
+            )
+            refreshPrivate()
+            return true
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch)
+                state = state.copy(wechatError = "审核请求失败，状态未确认；请先刷新以免重复操作")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(wechatReviewingId = null)
+        }
     }
 
     /**
@@ -763,6 +853,7 @@ class CloudClient(context: Context) {
         session.clear()
         state = state.copy(authenticated = false, authMessage = "已退出校序云端",
             tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+            wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
             lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
             privateError = null, lastSyncAt = null,
             secondClass = null, secondClassError = null, secondClassBusy = false)
