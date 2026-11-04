@@ -1,6 +1,6 @@
 /* 微信候选任务 UI：嵌入现有「任务」页面，不新建另一套待办和登录。
- * 默认不读取私有消息、不生成设备凭据；所有网络访问需用户主动点击。
- * 只有手动审核接受，才会调用现有服务端任务入库逻辑。
+ * 仅在校序本人登录已经服务端验证、任务页在前台时自动读取云端候选。
+ * 电脑采集及凭据绑定独立；只有手动审核接受，才会真正创建待办。
  */
 (function(root){
  'use strict';
@@ -9,7 +9,8 @@
  }[c]));
  const safeId=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{12,128}$/.test(v);
  let devices=[],candidates=[],loaded=false,busy=false,error='',note='',opened=false,devicesOpen=false;
- let oneTimeToken=null,tokenDevice=null,epoch=0;
+ let oneTimeToken=null,tokenDevice=null,epoch=0,lastReadAt=0;
+ const AUTO_REFRESH_MS=2*60*1000;
 
  async function request(path,method='GET',payload){
   const url='/api/v1/wechat/'+path;
@@ -36,7 +37,7 @@
  }
  function disconnect(){
   epoch++;devices=[];candidates=[];loaded=false;busy=false;error='';note='';
-  oneTimeToken=null;tokenDevice=null;opened=false;devicesOpen=false;
+  oneTimeToken=null;tokenDevice=null;opened=false;devicesOpen=false;lastReadAt=0;
   update();
  }
  function when(t){
@@ -96,7 +97,7 @@
   return '<section class="card xu-wechat-panel" aria-label="微信待审核任务">'+
    '<details class="xu-wc-details"'+(opened?' open':'')+'><summary>'+
    '<strong>微信待审核</strong> <span class="small muted">'+
-   (count===null?'按需读取':count+' 条待确认')+'</span></summary>'+
+   (count===null?(busy?'正在读取…':error?'读取失败':'登录后自动读取'):count+' 条待确认')+'</span></summary>'+
    '<p class="small muted">电脑采集 · 校序审核 · 仅本人确认后加入现有任务。当前不代表微信实时在线。</p>'+
    (error?'<p class="small" role="alert">'+esc(error)+'</p>':'')+
    (note?'<p class="small" role="status">'+esc(note)+'</p>':'')+
@@ -112,7 +113,8 @@
   host.innerHTML=panel();
  }
  async function refresh(){
-  if(busy)return;
+  if(busy)return false;
+  lastReadAt=Date.now();
   busy=true;error='';note='';
   const turn=epoch;
   try{
@@ -127,6 +129,14 @@
    loaded=true;
   }catch(e){if(turn===epoch)error=String(e.message||'读取失败');}
   finally{if(turn===epoch){busy=false;update();}}
+ }
+ // Automatic private reads require verified owner login and a foreground Tasks view.
+ // Failed reads are throttled too; the manual refresh button remains available.
+ function refreshIfStale(minAgeMs=AUTO_REFRESH_MS){
+  if(root.XiaoxuOwnerAuth?.connected?.()!==true||document.hidden===true||
+     navigator.onLine===false||!document.getElementById('xuWechatTasksHost')||
+     busy||Date.now()-lastReadAt<minAgeMs)return Promise.resolve(false);
+  return refresh();
  }
  async function mutate(work){
   if(busy)return;
@@ -201,5 +211,5 @@
   if(event.target.matches?.('.xu-wc-details'))opened=event.target.open;
   if(event.target.matches?.('.xu-wc-devices'))devicesOpen=event.target.open;
  },true);
- root.XiaoxuWechat=Object.freeze({panel,disconnect,refresh});
+ root.XiaoxuWechat=Object.freeze({panel,disconnect,refresh,refreshIfStale});
 })(globalThis);
