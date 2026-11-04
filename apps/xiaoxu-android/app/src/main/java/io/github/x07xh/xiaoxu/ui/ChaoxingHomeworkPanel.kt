@@ -113,6 +113,62 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                         Text(task.title, fontWeight = FontWeight.Medium)
                         Text(label, style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(
+                            enabled = !state.chaoxingBusy && !state.chaoxingDetailBusy,
+                            onClick = { scope.launch { client.loadChaoxingWorkDetail(task.workId) } }
+                        ) { Text("只读查看作业内容") }
+                    }
+                }
+                if (state.chaoxingDetailBusy) {
+                    Text("正在从本人官方会话读取作业题目…",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                state.chaoxingDetailError?.let { error ->
+                    Text(error, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                state.chaoxingPreview?.let { preview ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("只读题目 · " + preview.title,
+                                fontWeight = FontWeight.SemiBold)
+                            Text("来源：" + preview.course + " · 此处不提供自动作答或提交",
+                                style = MaterialTheme.typography.labelSmall)
+                            if (!preview.questionsAvailable) {
+                                Text(if (preview.note.isNotBlank()) preview.note
+                                    else "本页未提供可读取的题目，请在学习通官方页面查看")
+                            } else {
+                                Text("当前页面读取 " + preview.questions.size + " 题" +
+                                    (preview.declaredQuestionCount?.let { " · 页面声明 $it 题" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall)
+                                preview.questions.take(20).forEach { question ->
+                                    Text("第" + question.number + "题：" + question.stem,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    question.options.forEach { option ->
+                                        Text(option, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    if (question.hasImage) {
+                                        Text("包含图片，请在学习通官方页面查看原图",
+                                            style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                if (preview.questions.size > 20) {
+                                    Text("当前仅展示前20题，全部题目请在官方学习通查看",
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            TextButton(onClick = { client.clearChaoxingDetail() }) {
+                                Text("收起详情")
+                            }
+                        }
                     }
                 }
                 if (state.chaoxingHomework.size > 50) {
