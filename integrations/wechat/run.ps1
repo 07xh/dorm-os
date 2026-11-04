@@ -2,7 +2,7 @@
 # 不安装 Python/微信、不读取任何未选择的群、不保存明文设备凭据。
 param(
  [Parameter(Position=0)]
- [ValidateSet("setup","preview","sync","status")]
+ [ValidateSet("setup","preview","sync","status","verify")]
  [string]$Command="status"
 )
 $ErrorActionPreference="Stop"
