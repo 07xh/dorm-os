@@ -30,9 +30,21 @@ assert.equal(summarizeSchoolSubmitFunctionScript(
  'function unrelatedHandler() { return true; }',handler).definitionSeen,false);
 
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
+// The real CAS public probe returned hidden_length for a school-owned hidden
+// token. Long opaque fields are accepted only within bounded per-field and
+// total limits; no values are logged or returned by public diagnostics.
+const longExecution='s'.repeat(4096);
+assert.equal(inspectCasForm(markup.replace('value="e1s1"',
+ 'value="'+longExecution+'"'),casUrl).hidden.execution,longExecution);
+assert.equal(inspectCasForm(markup.replace('value="e1s1"',
+ 'value="'+'s'.repeat(8192)+'"'),casUrl).hidden.execution.length,8192);
+const oversizedAggregate=markup.replace('value="e1s1"',
+ 'value="'+'s'.repeat(8192)+'"').replace('</form>',
+ '<input name="schoolToken" type="hidden" value="'+'t'.repeat(8192)+'"></form>');
 for(const [html,stage] of [
  [markup.replace('name="username"','name="username" class="a" class="b"'),'input_attributes'],
- [markup.replace('value="e1s1"','value="'+'s'.repeat(1001)+'"'),'hidden_length'],
+ [markup.replace('value="e1s1"','value="'+'s'.repeat(8193)+'"'),'hidden_length'],
+ [oversizedAggregate,'hidden_length'],
  [markup.replace('action="'+casUrl+'"','action="/authserver/login;jsessionid=SYNTHETIC"'),'action_url']
 ]){
  assert.throws(()=>inspectCasForm(html,casUrl),e=>e.failureStage===stage);
