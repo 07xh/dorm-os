@@ -113,10 +113,13 @@ const qrWithChallenge=makeNcwuSecondClassServerAdapter({fetcher:async(url,option
    '<input name="captcha" type="text"></form>'));
  return fakeSchool(url,options);
 }});
-assert.deepEqual(await qrWithChallenge.preflight(),{
- loginSupported:false,mode:'interactive_login_required',
- reason:'interactive_challenge_required',officialWeChatEntryObserved:true
-});
+const qrChallengeStatus=await qrWithChallenge.preflight();
+assert.equal(qrChallengeStatus.loginSupported,false);
+assert.equal(qrChallengeStatus.mode,'interactive_login_required');
+assert.equal(qrChallengeStatus.reason,'interactive_challenge_required');
+assert.equal(qrChallengeStatus.officialWeChatEntryObserved,true);
+assert.equal(qrChallengeStatus.challengeEvidence?.passwordFormSeen,true);
+assert.equal(qrChallengeStatus.challengeEvidence?.challengeControlSeen,true);
 const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
 assert.equal(receivedCredential,true);
 assert.equal(connected.session.studentCode,student);
@@ -179,8 +182,11 @@ const challenge=makeNcwuSecondClassServerAdapter({fetcher:async(url,opts)=>{
   markup.replace('</form>','<input name="captcha" type="text"></form>'));
  throw Error('unexpected challenge flow');
 }});
-assert.deepEqual(await challenge.preflight(),{loginSupported:false,mode:'interactive_login_required',
- reason:'interactive_challenge_required'});
+const challengeStatus=await challenge.preflight();
+assert.equal(challengeStatus.loginSupported,false);
+assert.equal(challengeStatus.mode,'interactive_login_required');
+assert.equal(challengeStatus.reason,'interactive_challenge_required');
+assert.equal(challengeStatus.challengeEvidence?.challengeControlSeen,true);
 assert.throws(()=>inspectCasForm('<script>encryptPassword(raw)</script>'+markup,casUrl),
  e=>e.code==='interactive_login_required');
 const domainScope=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
