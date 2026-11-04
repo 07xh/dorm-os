@@ -40,7 +40,10 @@ const evidence={
   passwordProcessingSeen:data.challengeEvidence.passwordProcessingSeen===true,
   verificationSeen:data.challengeEvidence.verificationSeen===true,
   formSubmissionSeen:data.challengeEvidence.formSubmissionSeen===true,
-  asyncSubmissionSeen:data.challengeEvidence.asyncSubmissionSeen===true
+  asyncSubmissionSeen:data.challengeEvidence.asyncSubmissionSeen===true,
+  ...Object.fromEntries(['inlineScriptCount','externalScriptTagsSeen',
+   'eligibleExternalScripts','fetchedExternalScripts','failedExternalScripts']
+   .map(k=>[k,data.challengeEvidence[k]]))
  }}:{}),
  personalAccountLinked:false
 };
