@@ -1,18 +1,9 @@
 name: Build Xiaoxu Android Alpha
 
+# Manual build only while the three school integrations are being completed.
+# Web/Cloudflare releases still follow independent main CI.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'apps/xiaoxu-android/**'
-      - 'scripts/xiaoxu-android-bootstrap-tests.mjs'
-      - '.github/workflows/build-xiaoxu-android.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'apps/xiaoxu-android/**'
-      - 'scripts/xiaoxu-android-bootstrap-tests.mjs'
-      - '.github/workflows/build-xiaoxu-android.yml'
 
 permissions:
   contents: read
@@ -43,80 +34,3 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-
-  publish-v03-alpha:
-    name: Publish direct APK link (one-time v0.3.0)
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      contains(github.event.head_commit.message, '[publish-xiaoxu-android-v0.3.0]')
-    needs: build-android
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: xiaoxu-android-alpha-debug
-          path: apk
-      - name: Publish v0.3.0 alpha APK to GitHub Releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG='xiaoxu-android-v0.3.0-alpha'
-          APK='xiaoxu-android-v0.3.0-alpha-debug.apk'
-          test -s apk/app-debug.apk
-          cp apk/app-debug.apk "$APK"
-          sha256sum "$APK" > "$APK.sha256"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to overwrite."
-            exit 1
-          fi
-          gh release create "$TAG" "$APK" "$APK.sha256" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title '校序 Android V0.3 Debug Alpha' \
-            --prerelease \
-            --notes 'Debug preview with local tasks, Cloudflare tasks, public notices and verified-timetable display. School login and Android 16 device checks remain pending. Back up local data before reinstalling.'
-          echo "Direct APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK}"
-
-
-  publish-v07-alpha:
-    name: Publish V0.7.0 direct APK (one-time)
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      contains(github.event.head_commit.message, '[publish-xiaoxu-android-v0.7.0]')
-    needs: build-android
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: xiaoxu-android-alpha-debug
-          path: apk
-      - name: Publish V0.7.0 APK to GitHub Releases with SHA-256
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG='xiaoxu-android-v0.7.0-alpha'
-          APK='xiaoxu-android-v0.7.0-alpha-debug.apk'
-          test -s apk/app-debug.apk
-          cp apk/app-debug.apk "$APK"
-          sha256sum "$APK" > "$APK.sha256"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to overwrite."
-            exit 1
-          fi
-          gh release create "$TAG" "$APK" "$APK.sha256" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title '校序 Android V0.7.0 · 本机三平台连接预览' \
-            --prerelease \
-            --notes 'Android V0.7.0 debug preview. The local Qingguo timetable importer and in-app school login entry have been implemented; Chaoxing and second-class local read flows are experimental. Automated CI build success is not proof that the personal timetable, homework, activities or credits have been fully connected. Sign in only on official pages, verify all imported records against the source, and back up local data before replacing an older installation.'
-          echo "Direct APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK}"
