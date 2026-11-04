@@ -50,6 +50,15 @@
   if(row.duePrecision==='date'&&row.dueLocalDate)return '截止 '+esc(row.dueLocalDate)+'（时间未核实）';
   return '截止时间未知';
  }
+ function deviceText(dev){
+  if(dev.revokedAt)return '已撤销';
+  if(!dev.lastSeenAt)return '已绑定，尚未完成首次云端同步';
+  const seen=Date.parse(dev.lastSeenAt);
+  if(!Number.isFinite(seen))return '云端同步时间异常';
+  const age=Date.now()-seen;
+  const ago=age>90*60*1000?'超过90分钟未收到新同步 · ':'云端已验证同步 · ';
+  return ago+'上次 '+when(dev.lastSeenAt);
+ }
  function panel(){
   const count=loaded?candidates.length:null;
   const actions=loaded?
@@ -81,7 +90,7 @@
     '<div class="button-row"><button type="button" class="secondary" data-xu-wc-copy>复制凭据</button>'+
     '<button type="button" class="secondary" data-xu-wc-hide>隐藏并清除</button></div></div>':'')+
    (devices.length?devices.map(dev=>'<div class="config-row"><div><strong>'+esc(dev.name)+
-    '</strong><div class="small muted">'+(dev.revokedAt?'已撤销':dev.lastSeenAt?'最后同步 '+when(dev.lastSeenAt):'已绑定，尚未同步')+
+    '</strong><div class="small muted">'+deviceText(dev)+
     '</div></div>'+(dev.revokedAt?'':'<button type="button" class="secondary" data-xu-wc-revoke="'+esc(dev.id)+'"'+(busy?' disabled':'')+'>撤销</button>')+'</div>').join(''):
     '<p class="small muted">尚未绑定电脑</p>')+'</details>':'';
   return '<section class="card xu-wechat-panel" aria-label="微信待审核任务">'+
