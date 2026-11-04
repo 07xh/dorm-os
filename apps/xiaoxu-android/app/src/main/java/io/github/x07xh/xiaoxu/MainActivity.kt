@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.ChaoxingHomeworkPanel
 import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.NoticesPanel
@@ -186,7 +187,7 @@ private fun NativeShell(
                         Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS },
                             openMessages = { current = Page.MESSAGES }, openWebsite = openWebsite, cloud = cloud)
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud)
-                        Page.TASKS -> TasksPage(localTasks, dao, cloud)
+                        Page.TASKS -> TasksPage(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
                     }
@@ -285,7 +286,7 @@ private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient) {
 }
 
 @Composable
-private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao, cloud: CloudClient) {
+private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao, cloud: CloudClient, openWebsite: () -> Unit) {
     val scope = rememberCoroutineScope()
     var draft by rememberSaveable { mutableStateOf("") }
     fun addTask() {
@@ -342,6 +343,7 @@ private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao, cloud: CloudCli
                 }
             }
         }
+        item { ChaoxingHomeworkPanel(cloud, openWebsite) }
         item { CloudTasksPanel(cloud) }
     }
 }

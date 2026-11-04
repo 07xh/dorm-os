@@ -27,6 +27,25 @@ data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?
 )
+data class ChaoxingCourse(
+    val courseId: String, val classId: String, val cpi: String, val title: String
+) {
+    val key: String get() = "$courseId:$classId:$cpi"
+}
+data class ChaoxingHomework(
+    val workId: String, val title: String, val statusCode: String,
+    val platformVerified: Boolean, val statusText: String
+)
+data class ChaoxingQuestion(
+    val number: Int, val type: String, val stem: String,
+    val options: List<String>, val hasImage: Boolean
+)
+data class ChaoxingWorkPreview(
+    val workId: String, val title: String, val course: String,
+    val statusCode: String, val questionsAvailable: Boolean,
+    val declaredQuestionCount: Int?, val questions: List<ChaoxingQuestion>,
+    val note: String
+)
 data class VerifiedLesson(
     val id: String, val term: String, val title: String, val teacher: String,
     val location: String, val weekday: Int, val startSection: Int,
@@ -57,7 +76,17 @@ data class CloudUiState(
     val scheduleStatus: String = "not_connected",
     val scheduleFetchedAt: String? = null,
     val platforms: List<PlatformConnection> = emptyList(),
-    val pendingWechatCount: Int? = null, val lastSyncAt: String? = null
+    val pendingWechatCount: Int? = null, val lastSyncAt: String? = null,
+    val chaoxingBusy: Boolean = false,
+    val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
+    val chaoxingSelectedKey: String? = null,
+    val chaoxingHomework: List<ChaoxingHomework> = emptyList(),
+    val chaoxingCheckedAt: String? = null,
+    val chaoxingVerifiedEmpty: Boolean = false,
+    val chaoxingError: String? = null,
+    val chaoxingDetailBusy: Boolean = false,
+    val chaoxingPreview: ChaoxingWorkPreview? = null,
+    val chaoxingDetailError: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -200,7 +229,7 @@ class CloudClient(context: Context) {
     suspend fun refreshPrivate() {
         val epoch = sessionEpoch
         if (session.load() == null) {
-            state = state.copy(authenticated = false, authMessage = "云端未连接",
+            state = emptyChaoxing().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
                 privateError = null, lastSyncAt = null)
@@ -213,7 +242,7 @@ class CloudClient(context: Context) {
             if (epoch != sessionEpoch) return
             if (auth.code == 401) {
                 session.clear()
-                state = state.copy(authenticated = false, authMessage = "会话过期，请重新连接",
+                state = emptyChaoxing().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                     lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null)
                 return
@@ -323,6 +352,282 @@ class CloudClient(context: Context) {
         )
     }
 
+    private fun emptyChaoxing(): CloudUiState = state.copy(
+        chaoxingCourses = emptyList(),
+        chaoxingSelectedKey = null,
+        chaoxingHomework = emptyList(),
+        chaoxingCheckedAt = null,
+        chaoxingVerifiedEmpty = false,
+        chaoxingError = null,
+        chaoxingBusy = false,
+        chaoxingPreview = null, chaoxingDetailBusy = false, chaoxingDetailError = null
+    )
+
+    private fun chaoxingFailure(code: String, http: Int): String = when (code) {
+        "session_expired", "authorization_failed" ->
+            "学习通会话失效，请到校序连接中心重新登录本人账号"
+        "interactive_login_required" ->
+            "学习通要求官方登录或人机验证，请在官方页面完成后重试"
+        "courses_unverified" ->
+            "尚未核实本人课程所属学校和课程列表，不显示猜测结果"
+        "school_login_unavailable", "not_configured" ->
+            "学习通服务端适配器未就绪"
+        "work_not_available" ->
+            "官方作业页未开放或无法验证，已有任务保持不变"
+        "database_unavailable" -> "同步数据库暂时不可用，旧任务保持不变"
+        else -> if (http == 401) "校序云端会话过期，请重新连接"
+               else "学校接口暂时无法读取（HTTP $http），旧记录保持不变"
+    }
+
+    fun chooseChaoxingCourse(key: String) {
+        if (state.chaoxingBusy || state.chaoxingDetailBusy) return
+        if (state.chaoxingCourses.none { it.key == key }) return
+        state = state.copy(
+            chaoxingSelectedKey = key, chaoxingHomework = emptyList(),
+            chaoxingCheckedAt = null, chaoxingVerifiedEmpty = false, chaoxingError = null,
+            chaoxingPreview = null, chaoxingDetailError = null
+        )
+    }
+
+    fun clearChaoxingDetail() {
+        if (!state.chaoxingDetailBusy) {
+            state = state.copy(chaoxingPreview = null, chaoxingDetailError = null)
+        }
+    }
+
+    /** Explicit read; never poll the school's session merely because the screen opened. */
+    suspend fun loadChaoxingCourses() {
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
+        val epoch = sessionEpoch
+        state = state.copy(chaoxingBusy = true, chaoxingError = null,
+            chaoxingPreview = null, chaoxingDetailError = null)
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-homework?view=courses", authenticated = true)
+            }
+            if (epoch != sessionEpoch) return
+            if (response.code != 200) {
+                val err = response.json.optString("error")
+                state = emptyChaoxing().copy(
+                    chaoxingBusy = true,
+                    chaoxingError = chaoxingFailure(err, response.code)
+                )
+                return
+            }
+            val root = response.json
+            if (root.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                root.optString("view") != "courses" || !root.optBoolean("live")) {
+                throw IllegalStateException("invalid_schema")
+            }
+            val array = root.getJSONObject("data").getJSONArray("courses")
+            if (array.length() !in 1..120) throw IllegalStateException("invalid_courses")
+            val ids = Regex("^\\d{1,24}$")
+            val courses = buildList {
+                for (i in 0 until array.length()) {
+                    val item = array.getJSONObject(i)
+                    val id = item.getString("courseId")
+                    val clazz = item.getString("classId")
+                    val cpi = item.getString("cpi")
+                    val title = item.getString("title").trim()
+                    if (!ids.matches(id) || !ids.matches(clazz) || !ids.matches(cpi) ||
+                        title.isBlank() || title.length > 100) throw IllegalStateException("invalid_course")
+                    add(ChaoxingCourse(id, clazz, cpi, title))
+                }
+            }
+            if (courses.map { it.key }.toSet().size != courses.size)
+                throw IllegalStateException("duplicate_course")
+            state = state.copy(
+                chaoxingCourses = courses,
+                chaoxingSelectedKey = courses.first().key,
+                chaoxingHomework = emptyList(), chaoxingCheckedAt = null,
+                chaoxingVerifiedEmpty = false, chaoxingError = null
+            )
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(
+                chaoxingError = "官方课程读取失败或结构不可信，旧课程不会冒充最新结果",
+                chaoxingCourses = emptyList(), chaoxingSelectedKey = null,
+                chaoxingHomework = emptyList(), chaoxingCheckedAt = null
+            )
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(chaoxingBusy = false)
+        }
+    }
+
+    /** Official per-course read + server-side verified task-status persistence. */
+    suspend fun syncChaoxingCourse() {
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
+        val selected = state.chaoxingCourses.firstOrNull {
+            it.key == state.chaoxingSelectedKey
+        } ?: return
+        val epoch = sessionEpoch
+        state = state.copy(
+            chaoxingBusy = true, chaoxingError = null,
+            chaoxingCheckedAt = null, chaoxingHomework = emptyList(),
+            chaoxingVerifiedEmpty = false,
+            chaoxingPreview = null, chaoxingDetailError = null
+        )
+        try {
+            val body = JSONObject()
+                .put("courseId", selected.courseId)
+                .put("classId", selected.classId)
+                .put("cpi", selected.cpi)
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-homework/sync", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch || state.chaoxingSelectedKey != selected.key) return
+            if (response.code != 200) {
+                state = state.copy(
+                    chaoxingError = chaoxingFailure(response.json.optString("error"), response.code)
+                )
+                return
+            }
+            val root = response.json
+            if (root.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                root.optString("view") != "list" || !root.optBoolean("live"))
+                throw IllegalStateException("invalid_schema")
+            val data = root.getJSONObject("data")
+            val course = data.getJSONObject("course")
+            if (course.optString("courseId") != selected.courseId ||
+                course.optString("classId") != selected.classId ||
+                course.optString("cpi") != selected.cpi) throw IllegalStateException("wrong_course")
+            val raw = data.getJSONArray("items")
+            if (raw.length() > 200) throw IllegalStateException("too_many")
+            val verifiedEmpty = data.getBoolean("verifiedEmpty")
+            if ((raw.length() == 0) != verifiedEmpty) throw IllegalStateException("incomplete")
+            val ids = Regex("^\\d{1,24}$")
+            val statuses = setOf("todo","submitted","graded","returned","unknown")
+            val work = buildList {
+                for (i in 0 until raw.length()) {
+                    val item = raw.getJSONObject(i)
+                    val id = item.getString("workId")
+                    val title = item.getString("title").trim()
+                    val status = item.getString("statusCode")
+                    if (!ids.matches(id) || title.isBlank() || title.length > 100 ||
+                        status !in statuses || !item.optBoolean("platformVerified"))
+                        throw IllegalStateException("unverified_work")
+                    add(ChaoxingHomework(
+                        id,title,status,true,item.optString("status").take(60)
+                    ))
+                }
+            }
+            if (work.map { it.workId }.toSet().size != work.size)
+                throw IllegalStateException("duplicate_work")
+            state = state.copy(
+                chaoxingHomework = work,
+                chaoxingCheckedAt = Instant.now().toString(),
+                chaoxingVerifiedEmpty = verifiedEmpty,
+                chaoxingError = null
+            )
+            // The server has saved only verified statuses; reload first-party task data.
+            refreshPrivate()
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(
+                chaoxingError = "该课程作业读取或保存失败，未把未核验状态标为已完成",
+                chaoxingHomework = emptyList(), chaoxingCheckedAt = null
+            )
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(chaoxingBusy = false)
+        }
+    }
+
+    /** Single work detail, on demand. No answers, credentials or raw school HTML. */
+    suspend fun loadChaoxingWorkDetail(workId: String) {
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy ||
+            state.chaoxingCheckedAt == null) return
+        val selected = state.chaoxingCourses.firstOrNull {
+            it.key == state.chaoxingSelectedKey
+        } ?: return
+        val work = state.chaoxingHomework.firstOrNull { it.workId == workId }
+            ?: return // Never request a work outside the verified selected course list.
+        val epoch = sessionEpoch
+        state = state.copy(
+            chaoxingDetailBusy = true, chaoxingPreview = null, chaoxingDetailError = null
+        )
+        try {
+            val path = "/api/v1/chaoxing-homework?view=detail" +
+                "&courseId=" + selected.courseId +
+                "&classId=" + selected.classId +
+                "&cpi=" + selected.cpi +
+                "&workId=" + workId
+            val response = withContext(Dispatchers.IO) {
+                request(path, authenticated = true)
+            }
+            if (epoch != sessionEpoch || state.chaoxingSelectedKey != selected.key ||
+                state.chaoxingHomework.none { it.workId == workId }) return
+            if (response.code != 200) {
+                state = state.copy(
+                    chaoxingDetailError = chaoxingFailure(
+                        response.json.optString("error"), response.code
+                    )
+                )
+                return
+            }
+            val root = response.json
+            if (root.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                root.optString("view") != "detail" || !root.optBoolean("live")) {
+                throw IllegalStateException("invalid_wrapper")
+            }
+            val data = root.getJSONObject("data")
+            if (data.optString("schema") != "xiaoxu/chaoxing-work-preview-v1" ||
+                data.optString("source") != "chaoxing" ||
+                data.optString("workId") != workId ||
+                data.optString("course") != selected.title ||
+                data.optString("title") != work.title ||
+                data.optString("statusCode") != work.statusCode) {
+                throw IllegalStateException("wrong_work")
+            }
+            val available = data.getBoolean("questionsAvailable")
+            val raw = data.getJSONArray("questions")
+            if (raw.length() > 120 || (available && raw.length() == 0) ||
+                (!available && raw.length() != 0)) throw IllegalStateException("invalid_count")
+            val allowedTypes = setOf(
+                "multiple_choice", "single_choice", "true_false", "fill_blank",
+                "essay", "calculation", "unknown"
+            )
+            val questions = buildList {
+                for (i in 0 until raw.length()) {
+                    val q = raw.getJSONObject(i)
+                    val number = q.getInt("number")
+                    val type = q.getString("type")
+                    val stem = q.getString("stem").trim()
+                    val optionsRaw = q.getJSONArray("options")
+                    if (number != i + 1 || type !in allowedTypes ||
+                        stem.isBlank() || stem.length > 2000 || optionsRaw.length() > 30)
+                        throw IllegalStateException("invalid_question")
+                    val options = buildList {
+                        for (j in 0 until optionsRaw.length()) {
+                            val option = optionsRaw.getString(j).trim()
+                            if (option.isBlank() || option.length > 1000)
+                                throw IllegalStateException("invalid_option")
+                            add(option)
+                        }
+                    }
+                    add(ChaoxingQuestion(number, type, stem, options, q.getBoolean("hasImage")))
+                }
+            }
+            val declaredCount = if (data.isNull("declaredQuestionCount")) null
+                else data.optInt("declaredQuestionCount", -1)
+            if (declaredCount != null && declaredCount !in 0..120)
+                throw IllegalStateException("invalid_declared_count")
+            state = state.copy(
+                chaoxingPreview = ChaoxingWorkPreview(
+                    workId, work.title, selected.title, work.statusCode, available,
+                    declaredCount, questions, data.optString("note").take(200)
+                ),
+                chaoxingDetailError = null
+            )
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && state.chaoxingSelectedKey == selected.key) {
+                state = state.copy(
+                    chaoxingPreview = null,
+                    chaoxingDetailError = "该作业页面未能可信读取，未展示猜测题目或答案"
+                )
+            }
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(chaoxingDetailBusy = false)
+        }
+    }
+
     suspend fun signIn(passphrase: String): Boolean {
         if (passphrase.isBlank() || state.signingIn) return false
         state = state.copy(signingIn = true)
@@ -347,7 +652,7 @@ class CloudClient(context: Context) {
                     session.save(token, r.json.getString("expiresAt"))
                 }
                 sessionEpoch++
-                state = state.copy(authenticated = true, authMessage = "校序云端连接成功")
+                state = emptyChaoxing().copy(authenticated = true, authMessage = "校序云端连接成功")
                 refreshPrivate()
                 true
             }
@@ -376,6 +681,7 @@ class CloudClient(context: Context) {
 
     suspend fun signOut() {
         sessionEpoch++
+        state = emptyChaoxing()
         try {
             withContext(Dispatchers.IO) {
                 request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true)

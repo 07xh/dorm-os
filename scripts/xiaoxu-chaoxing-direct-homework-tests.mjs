@@ -112,3 +112,27 @@ const noFidReader=await noFid.forSession({session,userId:'owner1'});
 await noFidReader.verifySession();
 await assert.rejects(()=>noFidReader.readCourses(),e=>e.code==='courses_unverified',
  'missing school Fid must not return anonymous/wrong-school courses');
+
+
+// Regression: a redirect to official login is session expiry, not missing homework.
+const loginRedirect=()=>new Response('',{status:302,headers:{location:'https://passport2.chaoxing.com/login'}});
+const sessionLost=failAt=>createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return failAt==='middle'?loginRedirect():response(middle);
+ if(u.pathname==='/mooc2/work/list')return loginRedirect();
+ if(u.hostname==='passport2.chaoxing.com')return response('<body>登录超星</body>');
+ throw Error('unexpected route '+u.pathname);
+}});
+for(const failAt of ['middle','list']){
+ const lost=await sessionLost(failAt).forSession({session,userId:'owner1'});
+ await lost.verifySession();
+ await assert.rejects(()=>lost.readHomeworkList({courseId:'123',classId:'456',cpi:'789'}),
+  e=>e.code==='authorization_failed','login redirect at '+failAt+' means expired session');
+}
+const captchaTitle=workHtml.replace('循环练习','验证码识别实验');
+assert.equal(parseChaoxingWorkList(captchaTitle,{courseId:'123',classId:'456'}).items.length,1);
+assert.throws(()=>parseChaoxingWorkList('<body>请输入验证码</body>',{courseId:'123',classId:'456'}),
+ e=>e.code==='interactive_login_required');
+console.log('Chaoxing review: login-redirect and challenge-title regressions passed');
