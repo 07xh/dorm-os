@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-04T09:21:25.012Z",
+  "lastSuccessAt": "2026-11-04T18:00:19.386Z",
   "sources": [
     {
       "id": "jwc",
@@ -14,8 +14,8 @@
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-03T17:53:00.370Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-04T18:00:19.386Z",
       "count": 8
     },
     {
@@ -24,13 +24,6 @@
       "status": "error",
       "lastSuccessAt": "2026-11-02T17:20:09.934Z",
       "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
-      "status": "ok",
-      "lastSuccessAt": "2026-11-04T09:21:25.012Z",
-      "count": 29
     }
   ],
   "items": [
@@ -341,6 +334,15 @@
       "category": "考试"
     },
     {
+      "id": "ncwu-0b7c61a889ed8b92",
+      "title": "关于征集到江淮校区工作意愿的通知",
+      "url": "https://www.ncwu.edu.cn/info/1057/23352.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
       "id": "ncwu-45b5cc6c87917457",
       "title": "关于我校值班工作安排的通知",
       "url": "https://www.ncwu.edu.cn/info/1061/23346.htm",
@@ -389,6 +391,15 @@
       "id": "ncwu-ed4480181922d55a",
       "title": "关于我校2026年度专业技术二级岗位推荐结果的公示",
       "url": "https://www.ncwu.edu.cn/info/1065/23322.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-30a0b8ae802d3dd7",
+      "title": "关于做好2026年下半年高等学校教师资格认定工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1065/23353.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
