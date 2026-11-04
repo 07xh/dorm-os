@@ -71,6 +71,7 @@ import io.github.x07xh.xiaoxu.ui.ChaoxingHomeworkPanel
 import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.NoticesPanel
+import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.WechatCandidatesPanel
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
@@ -366,5 +367,6 @@ private fun ConnectionsPage(openWebsite: () -> Unit, cloud: CloudClient) {
     Content {
         item { Heading("我的", "本机优先、云端可选，学校登录保持独立") }
         item { ConnectionsPanel(cloud, openWebsite) }
+        item { SecondClassPanel(cloud, openWebsite) }
     }
 }
