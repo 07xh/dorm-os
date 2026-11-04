@@ -12,7 +12,6 @@ on:
     - cron: '17 2,10,16 * * *'
 permissions:
   contents: write
-  actions: write
 concurrency:
   group: ncwu-notice-collector
   cancel-in-progress: false
@@ -52,8 +51,6 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
           echo 'changed=true' >> "$GITHUB_OUTPUT"
-      - name: Deploy new public data via explicit workflow dispatch
-        if: steps.archive.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-cloudflare.yml --ref main
+      # Do not dispatch deployment here: pushing verified notices to main
+      # already runs DORM OS CI. deploy-cloudflare.yml is exclusively gated
+      # by that CI's successful workflow_run for the exact main revision.
