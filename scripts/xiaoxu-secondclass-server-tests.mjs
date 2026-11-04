@@ -15,6 +15,16 @@ const markup='<form method="POST" action="'+casUrl+'">'+
  '<input name="_eventId" type="hidden" value="submit"></form>';
 const response=(status,body='',headers={})=>new Response(body,{status,headers});
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
+// The returned CAS form can omit the service query even though the login
+// page was fetched with the exact trusted school-owned service.
+const serviceLessForm=markup.replace('action="'+casUrl+'"','action="/authserver/login"');
+assert.equal(inspectCasForm(serviceLessForm,casUrl).action,casUrl);
+assert.throws(()=>inspectCasForm(serviceLessForm,
+ 'https://authserver.ncwu.edu.cn/authserver/login?service=https://untrusted.example/'),
+ e=>e.code==='interactive_login_required'&&e.reason==='unexpected_cas_form_action');
+assert.throws(()=>inspectCasForm(markup.replace('action="'+casUrl+'"',
+ 'action="/authserver/login?service=https%3A%2F%2Funtrusted.example%2F"'),casUrl),
+ e=>e.code==='interactive_login_required'&&e.reason==='unexpected_cas_form_action');
 // The official CAS page offers optional alternative authentication widgets.
 // These must not veto an otherwise safe, self-contained ordinary password form.
 const optionalMethods='<section aria-label="其他登录方式">短信登录 · 图形验证码 · 滑块验证 · 人脸登录'+
