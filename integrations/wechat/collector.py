@@ -42,6 +42,7 @@ BOOTSTRAP_SECONDS = 72 * 3600
 TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|ddl|考试|测验|互评|报名|签到|考核|作图|结课|打卡", re.I)
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
+CLEAN_LONG_ID = re.compile(r"(?<!\d)\d{8,}(?!\d)")
 CLEAN_EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 DAY_ISO = re.compile(r"(?<!\d)(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})日?(?!\d)")
 DAY_SHORT = re.compile(r"(?<!\d)(\d{1,2})月(\d{1,2})日")
@@ -104,7 +105,9 @@ def validate_site(raw: str) -> str:
     u = urllib.parse.urlsplit(raw.rstrip("/"))
     if u.scheme != "https" or not u.hostname or u.username or u.password or u.port not in (None, 443) or u.path or u.query or u.fragment:
         raise BridgeError("校序网址必须是 HTTPS 站点根地址")
-    return f"https://{u.hostname.lower()}"
+    if u.hostname.lower() != "dorm-os-dk9.pages.dev":
+        raise BridgeError("仅允许连接校序正式域名，拒绝向未知站点发送设备凭据")
+    return "https://dorm-os-dk9.pages.dev"
 
 
 def load_config(path: Path = CONFIG) -> dict:
@@ -159,6 +162,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
     cleaned = CLEAN_URL.sub("[链接]", text)
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
+    cleaned = CLEAN_LONG_ID.sub("[编号]", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if len(cleaned) < 4:
         return None
@@ -331,20 +335,29 @@ def main(argv=None) -> int:
     token = opened(config["tokenDpapi"]).decode("utf-8")
     if not TOKEN.fullmatch(token):
         raise BridgeError("设备凭据无效")
-    for i in range(0, len(records), 25):
-        chunk = records[i:i + 25]
-        # Deterministic batch ID + capturedAt enables safe retry without
-        # storing raw messages or plaintext access tokens in an outbox.
-        fingerprint_input = json.dumps(chunk, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        batch_id = fingerprint(secret, "batch", fingerprint_input)
-        sent_at = max(x["sentAt"] for x in chunk)
+    # An empty scan must STILL reach the real server. Without this heartbeat,
+    # "同步完成" could be printed while the device never authenticated once.
+    # Server receives zero message bodies, updates the paired device's last_seen_at
+    # and acknowledges received:0. A failure never advances local checkpoints.
+    chunks = [records[i:i + 25] for i in range(0, len(records), 25)] or [[]]
+    for chunk in chunks:
+        if chunk:
+            # Stable retry ID for candidate-containing batches.
+            fingerprint_input = json.dumps(chunk, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            batch_id = fingerprint(secret, "batch", fingerprint_input)
+            captured_at = max(x["sentAt"] for x in chunk)
+        else:
+            # Heartbeats contain no messages; fresh identity avoids a prior
+            # successful heartbeat with another timestamp being a conflict.
+            batch_id = fingerprint(secret, "heartbeat", secrets.token_urlsafe(18))
+            captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         payload = {"schema": VERSION, "deviceId": config["deviceId"],
-                   "batchId": batch_id, "capturedAt": sent_at, "records": chunk}
+                   "batchId": batch_id, "capturedAt": captured_at, "records": chunk}
         submit(config["site"], token, payload)
-    # Only advance after every batch is acknowledged; partial HTTP failure
-    # retries stable IDs with no duplicate tasks on the next invocation.
+    # Advance only when the server has acknowledged every batch (or heartbeat).
     save_json(STATE, next_state)
-    print("同步完成；请在校序现有「任务 → 微信待审核」中审核，未自动创建正式作业。")
+    print("服务器已确认本次同步；请在校序「任务 → 微信待审核」中审核。"
+          if records else "服务器已确认设备在线，本次没有待审核任务。")
     return 0
 
 
