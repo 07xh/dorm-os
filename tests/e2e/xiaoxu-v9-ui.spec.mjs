@@ -45,5 +45,5 @@ test('V9 PWA includes its UI script, stylesheet and in-profile login stylesheet'
  const text=await page.locator('body').innerText();
  expect(text).toContain("'/xiaoxu-workspace.css'");
  expect(text).toContain("'/xiaoxu-workspace.js'");
- expect(text).toContain("'/xiaoxu-owner-auth.css'");
+ expect(text).toContain("'/xiaoxu-owner-auth.css?v=98-profile-styles'");
 });
