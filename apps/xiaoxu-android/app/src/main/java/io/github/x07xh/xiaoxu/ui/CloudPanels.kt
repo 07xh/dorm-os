@@ -1,6 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +21,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +30,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -121,6 +131,19 @@ fun ConnectionsPanel(
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var foreground by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) foreground = true
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP)
+                foreground = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     // Never save the passphrase across configuration changes.
     var passphrase by remember { mutableStateOf("") }
     var cloudAdvanced by rememberSaveable { mutableStateOf(true) }
@@ -175,6 +198,17 @@ fun ConnectionsPanel(
             "ncwu" to "青果教务",
             "second_class" to "第二课堂"
         )
+        val qrStartedAt = state.chaoxingQr.startedAt
+        LaunchedEffect(qrStartedAt, foreground) {
+            if (qrStartedAt == 0L || !foreground) return@LaunchedEffect
+            // Bounded, foreground-only: no always-on polling or worker.
+            repeat(24) {
+                delay(4500L)
+                if (client.state.chaoxingQr.status !in setOf("pending", "scanned"))
+                    return@LaunchedEffect
+                client.pollChaoxingQr()
+            }
+        }
         providers.forEach { (id, title) ->
             val platform = state.platforms.firstOrNull { it.id == id }
             val canRead = state.authenticated && platform?.sessionState == "active"
@@ -226,6 +260,59 @@ fun ConnectionsPanel(
                         }
                     }
                     if (id == "chaoxing") {
+                        val qr = state.chaoxingQr
+                        // Scan stays on this native page. No browser login,
+                        // WebView or new service connector is required.
+                        OutlinedButton(
+                            enabled = state.authenticated && !qr.busy && !state.busy,
+                            onClick = { scope.launch { client.startChaoxingQr() } }
+                        ) {
+                            Text(if (qr.status in setOf("pending", "scanned"))
+                                "重新生成扫码二维码" else "在 App 内扫码连接")
+                        }
+                        if (qr.status != "idle") {
+                            qr.message?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall,
+                                    color = if (qr.status == "failed")
+                                        MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (qr.status in setOf("pending", "scanned")) {
+                                val qrBitmap = remember(qr.image) {
+                                    qr.image?.let { raw ->
+                                        val bounds = BitmapFactory.Options().apply {
+                                            inJustDecodeBounds = true
+                                        }
+                                        BitmapFactory.decodeByteArray(
+                                            raw, 0, raw.size, bounds)
+                                        if (bounds.outWidth in 1..2048 &&
+                                            bounds.outHeight in 1..2048) {
+                                            BitmapFactory.decodeByteArray(
+                                                raw, 0, raw.size)?.asImageBitmap()
+                                        } else null
+                                    }
+                                }
+                                if (qrBitmap != null) {
+                                    Image(
+                                        bitmap = qrBitmap,
+                                        contentDescription = "学习通官方扫码登录二维码",
+                                        modifier = Modifier.size(208.dp)
+                                    )
+                                } else {
+                                    Text("二维码图片无法安全显示，请改用网页备用连接")
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = {
+                                        scope.launch { client.pollChaoxingQr() }
+                                    }, enabled = !qr.busy) {
+                                        Text("已扫码，立即检查")
+                                    }
+                                    TextButton(onClick = client::cancelChaoxingQr) {
+                                        Text("取消扫码")
+                                    }
+                                }
+                            }
+                        }
                         if (state.chaoxingCourses.isNotEmpty()) {
                             Text("本次读取到 " + state.chaoxingCourses.size +
                                 " 门课程，作业请在任务页按课程同步",
