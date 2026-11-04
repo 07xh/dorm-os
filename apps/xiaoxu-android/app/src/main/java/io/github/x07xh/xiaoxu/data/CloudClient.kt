@@ -397,7 +397,7 @@ class CloudClient(context: Context) {
 
     /** Explicit read; never poll the school's session merely because the screen opened. */
     suspend fun loadChaoxingCourses() {
-        if (!state.authenticated || state.chaoxingBusy) return
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
         val epoch = sessionEpoch
         state = state.copy(chaoxingBusy = true, chaoxingError = null,
             chaoxingPreview = null, chaoxingDetailError = null)
@@ -455,7 +455,7 @@ class CloudClient(context: Context) {
 
     /** Official per-course read + server-side verified task-status persistence. */
     suspend fun syncChaoxingCourse() {
-        if (!state.authenticated || state.chaoxingBusy) return
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
         val selected = state.chaoxingCourses.firstOrNull {
             it.key == state.chaoxingSelectedKey
         } ?: return
