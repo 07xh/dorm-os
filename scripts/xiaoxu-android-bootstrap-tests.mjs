@@ -93,6 +93,7 @@ assert.match(coursePanel, /默认关闭/);
 assert.match(coursePanel, /定时任务已登记；仍需验证服务端实际运行/);
 assert.doesNotMatch(coursePanel, /自动代交|后台自动提交|已经完成全部学校同步/);
 
+
 assert.match(cloud, /syncChaoxingCourse/);
 assert.match(cloud, /interactive_login_required/);
 assert.match(cloud, /courseId|classId|cpi/);
@@ -151,6 +152,30 @@ assert.match(messageCenter, /未连接校序云端/);
 assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
 assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
 
+// App 原生微信审核：只通过现有 Owner Session 读取真实候选、二次确认后提交。
+// 后端沿用已上线的同源 POST + 人工审核事务，绝不新增微信采集器。
+const wechatReview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WechatReviewPanel.kt');
+const reviewRoute = read('functions/api/v1/wechat/candidates/[id].js');
+assert.match(messageCenter, /WechatReviewPanel\(/);
+assert.doesNotMatch(messageCenter, /WechatSourceCard\(/);
+assert.match(cloud, /data class WechatCandidate/);
+assert.match(cloud, /wechatCandidates = candidates \?: state\.wechatCandidates/);
+assert.match(cloud, /reviewStatus"\) != "needs_review"/);
+assert.match(cloud, /suspend fun reviewWechatCandidate\(/);
+assert.match(cloud, /\/api\/v1\/wechat\/candidates\/\$candidateId/);
+assert.match(cloud, /JSONObject\(\)\.put\("decision", decision\)/);
+assert.match(cloud, /reviewWechatCandidate[\s\S]*?sessionEpoch/);
+assert.match(cloud, /clearAccountSnapshots\(/);
+assert.match(wechatReview, /ModalBottomSheet\(/);
+assert.match(wechatReview, /AlertDialog\(/);
+assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
+assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
+assert.match(wechatReview, /不等于学校官方作业/);
+assert.doesNotMatch(wechatReview, /HttpURLConnection|openConnection|WebView|CookieManager|READ_SMS|READ_CONTACTS/);
+assert.match(reviewRoute, /authorize\(context\)/);
+assert.match(reviewRoute, /sec-fetch-site/);
+assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
+
 // 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(taskBoard, /TASK_SOURCES/);
@@ -177,4 +202,4 @@ assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
-console.log('校序 Android V0.6：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
+console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
