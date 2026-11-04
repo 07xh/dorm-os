@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,12 +73,15 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val cloud by lazy { CloudClient(applicationContext) }
+    private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
+    private var returnedSchool by mutableStateOf<String?>(null)
     private var shouldRefreshAfterWebsite = false
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         localLessons = LocalScheduleStore.load(this)
+        receiveSchoolReturn(intent)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -88,6 +93,21 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     localLessons = localLessons,
+                    returnedSchool = returnedSchool,
+                    onSchoolReturnConsumed = { returnedSchool = null },
+                    startSchoolAuthorization = { provider ->
+                        val url = schoolAuthReturn.begin(provider, cloud.ownerSessionBinding())
+                        if (url != null) {
+                            shouldRefreshAfterWebsite = true
+                            try {
+                                CustomTabsIntent.Builder().setShowTitle(true)
+                                    .build().launchUrl(this@MainActivity, url)
+                            } catch (_: android.content.ActivityNotFoundException) {
+                                startActivity(Intent(Intent.ACTION_VIEW, url)
+                                    .addCategory(Intent.CATEGORY_BROWSABLE))
+                            }
+                        }
+                    },
                     openLocalImport = {
                         startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
                     },
@@ -122,6 +142,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        receiveSchoolReturn(intent)
+    }
+
+    private fun receiveSchoolReturn(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val provider = schoolAuthReturn.consume(intent.data, cloud.ownerSessionBinding())
+        if (provider != null) {
+            shouldRefreshAfterWebsite = false
+            returnedSchool = provider
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         localLessons = LocalScheduleStore.load(this)
@@ -143,6 +178,9 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     localLessons: List<VerifiedLesson>,
+    returnedSchool: String?,
+    onSchoolReturnConsumed: () -> Unit,
+    startSchoolAuthorization: (String) -> Unit,
     openLocalImport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
@@ -152,9 +190,18 @@ private fun NativeShell(
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
-    DisposableEffect(appLifecycle, cloud) {
+    LaunchedEffect(returnedSchool) {
+        val provider = returnedSchool ?: return@LaunchedEffect
+        current = Page.PROFILE
+        try {
+            cloud.completeSchoolReturn(provider)
+        } finally {
+            onSchoolReturnConsumed()
+        }
+    }
+    DisposableEffect(appLifecycle, cloud, returnedSchool) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
+            if (event == Lifecycle.Event.ON_RESUME && returnedSchool == null) {
                 val force = consumeWebsiteReturn()
                 scope.launch {
                     if (force) cloud.refresh() else cloud.refreshOnForeground()
@@ -223,7 +270,9 @@ private fun NativeShell(
                             localLessons = localLessons, openLocalImport = openLocalImport)
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                        Page.PROFILE -> ConnectionsPage(openWebsite, cloud, openLocalSchool)
+                        Page.PROFILE -> ConnectionsPage(
+                            openWebsite, cloud, openLocalSchool, startSchoolAuthorization
+                        )
                     }
                 }
             }
@@ -272,11 +321,14 @@ private fun MessagesPage(
 
 @Composable
 private fun ConnectionsPage(
-    openWebsite: () -> Unit, cloud: CloudClient, openLocalSchool: (String) -> Unit
+    openWebsite: () -> Unit, cloud: CloudClient,
+    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit
 ) {
     Content {
         item { Heading("我的", "本机连接三个平台，云端用于跨设备与消息") }
-        item { ConnectionsPanel(cloud, openWebsite, openLocalSchool) }
+        item {
+            ConnectionsPanel(cloud, openWebsite, openLocalSchool, startSchoolAuthorization)
+        }
         // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }
         // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
