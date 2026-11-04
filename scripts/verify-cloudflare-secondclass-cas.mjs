@@ -24,6 +24,15 @@ const evidence={
  casLoginPageReachable:data.casLoginPageReachable,
  currentPasswordFormCompatible:data.currentPasswordFormCompatible,
  mode:data.mode,reason:data.reason,
+ ...(data.reason==='interactive_challenge_required'&&data.challengeEvidence?
+ {challengeEvidence:{
+  passwordFormSeen:data.challengeEvidence.passwordFormSeen===true,
+  challengeControlSeen:data.challengeEvidence.challengeControlSeen===true,
+  challengeMarkupSeen:data.challengeEvidence.challengeMarkupSeen===true,
+  challengeScriptSeen:data.challengeEvidence.challengeScriptSeen===true,
+  passwordTransformationSeen:data.challengeEvidence.passwordTransformationSeen===true,
+  submitHandlerSeen:data.challengeEvidence.submitHandlerSeen===true
+ }}:{}),
  personalAccountLinked:false
 };
 console.log('Cloudflare second-class CAS public check: '+JSON.stringify(evidence));
