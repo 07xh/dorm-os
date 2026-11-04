@@ -42,6 +42,7 @@ BOOTSTRAP_SECONDS = 72 * 3600
 TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|ddl|考试|测验|互评|报名|签到|考核|作图|结课|打卡", re.I)
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
+CLEAN_LONG_ID = re.compile(r"(?<!\d)\d{8,}(?!\d)")
 CLEAN_EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 DAY_ISO = re.compile(r"(?<!\d)(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})日?(?!\d)")
 DAY_SHORT = re.compile(r"(?<!\d)(\d{1,2})月(\d{1,2})日")
@@ -104,7 +105,9 @@ def validate_site(raw: str) -> str:
     u = urllib.parse.urlsplit(raw.rstrip("/"))
     if u.scheme != "https" or not u.hostname or u.username or u.password or u.port not in (None, 443) or u.path or u.query or u.fragment:
         raise BridgeError("校序网址必须是 HTTPS 站点根地址")
-    return f"https://{u.hostname.lower()}"
+    if u.hostname.lower() != "dorm-os-dk9.pages.dev":
+        raise BridgeError("仅允许连接校序正式域名，拒绝向未知站点发送设备凭据")
+    return "https://dorm-os-dk9.pages.dev"
 
 
 def load_config(path: Path = CONFIG) -> dict:
@@ -159,6 +162,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
     cleaned = CLEAN_URL.sub("[链接]", text)
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
+    cleaned = CLEAN_LONG_ID.sub("[编号]", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if len(cleaned) < 4:
         return None
