@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                     // Fixed origin: never forward app credentials or a school session.
                     shouldRefreshAfterWebsite = true
                     startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://dorm-os-dk9.pages.dev/"))
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://dorm-os-dk9.pages.dev/#settings"))
                             .addCategory(Intent.CATEGORY_BROWSABLE)
                     )
                 }, openArticle = { url ->
