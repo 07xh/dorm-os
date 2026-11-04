@@ -245,6 +245,7 @@ class CloudClient(context: Context) {
             }
             if (epoch != sessionEpoch) return
             if (auth.code == 401) {
+                sessionEpoch++
                 session.clear()
                 state = emptyChaoxing().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -253,7 +254,16 @@ class CloudClient(context: Context) {
                 return
             }
             if (auth.code != 200 || !auth.json.optBoolean("authenticated")) {
-                state = state.copy(authenticated = false, privateError = "云端认证不可用")
+                // An explicit authorization denial must not leave private snapshots
+                // visible under a falsely disconnected account.
+                sessionEpoch++
+                state = emptyChaoxing().copy(
+                    authenticated = false, privateError = "云端认证不可用",
+                    tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
+                    lessons = emptyList(), scheduleStatus = "not_connected",
+                    scheduleFetchedAt = null, secondClass = null,
+                    secondClassBusy = false, secondClassError = null
+                )
                 return
             }
         } catch (_: Exception) {
@@ -372,6 +382,7 @@ class CloudClient(context: Context) {
             }
             if (epoch != sessionEpoch) return
             if (response.code == 401) {
+                sessionEpoch++
                 session.clear()
                 state = emptyChaoxing().copy(
                     authenticated = false,
