@@ -19,6 +19,20 @@
   qrImageBlobUrl=null;qrImageForUrl=null;
  }
  const expandedSchoolProviders=new Set();
+ let secondClassCasPanel=null;
+ function clearSecondClassCasPanel(){
+  secondClassCasPanel?.result.querySelectorAll('input').forEach(input=>{input.value='';});
+  secondClassCasPanel=null;
+ }
+ function restoreSecondClassCasPanel(){
+  const saved=secondClassCasPanel;
+  if(!saved||saved.epoch!==connectionEpoch)return;
+  const host=document.querySelector('[data-xu-second-class-connect]');
+  const target=host?.querySelector('[data-xu-cas-result]');
+  if(target&&target!==saved.result)target.replaceWith(saved.result);
+  const hint=host?.querySelector('[data-xu-second-class-hint]');
+  if(hint&&saved.hideHint)hint.hidden=true;
+ }
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
  const hasData=kind=>connected&&['ready','stale'].includes(state(kind).status);
@@ -39,6 +53,7 @@
   schoolAutoSyncBusy=false;ncwuAutoSyncBusy=false;secondClassAutoSyncBusy=false;
   lastSchoolAutoSyncAttempt=0;lastNcwuAutoSyncAttempt=0;lastSecondClassAutoSyncAttempt=0;
   expandedSchoolProviders.clear();
+  clearSecondClassCasPanel();
   connected=false;sources=[];error='';serviceHealth=null;healthError='';
   TYPES.forEach(kind=>feeds[kind]={status:'not_connected',records:[],lastSuccessAt:null});
  }
@@ -661,6 +676,13 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
+  // Existing page/status renders may replace the connection row while the
+  // owner is typing. Retain the same ephemeral form DOM, never serialize its
+  // credentials or store them in browser persistence.
+  if(typeof MutationObserver==='function'&&document.documentElement)
+   new MutationObserver(restoreSecondClassCasPanel).observe(document.documentElement,{
+    childList:true,subtree:true
+   });
   // Capture user intent before a concurrent status refresh can replace the row.
   document.addEventListener('click',event=>{
    const summary=event.target.closest?.('.xu-school-manage > summary');
@@ -776,6 +798,11 @@
    if(!result)return;
    const checkProvider=button.dataset.xuCasCheck;
    if(!['ncwu','second_class'].includes(checkProvider))return;
+   const checkEpoch=connectionEpoch;
+   if(checkProvider==='second_class'){
+    clearSecondClassCasPanel();
+    secondClassCasPanel={result,epoch:checkEpoch,hideHint:false};
+   }
    
    button.disabled=true;result.textContent='正在向学校确认登录方式…';
    try{
@@ -784,10 +811,12 @@
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
+    if(checkProvider==='second_class'&&checkEpoch!==connectionEpoch)return;
     if(checkProvider==='second_class'&&(!response.ok||info?.nativeLoginReady!==true||
        info?.loginSupported!==true||info?.sessionVaultReady!==true)){
      const hint=panel.querySelector('[data-xu-second-class-hint]');
      if(hint)hint.hidden=true;
+     if(secondClassCasPanel)secondClassCasPanel.hideHint=true;
      // Official WeChat QR availability never implies a linked Xiaoxu account.
      result.textContent=!response.ok?'检测暂不可用；校序仍未连接。':
       info?.officialWeChatEntryObserved===true?
@@ -820,6 +849,7 @@
     if(checkProvider==='second_class'){
      const hint=panel.querySelector('[data-xu-second-class-hint]');
      if(hint)hint.hidden=true;
+     if(secondClassCasPanel)secondClassCasPanel.hideHint=true;
     }
     // The trusted backend has verified the current school password transport.
     // Only now does this page request school account credentials.
@@ -998,7 +1028,9 @@
      showNcwuReview(form,outcome);return;
     }
     if(provider==='chaoxing')lastSchoolAutoSyncAttempt=Date.now();
-    if(provider==='second_class')lastSecondClassAutoSyncAttempt=Date.now();
+    if(provider==='second_class'){
+     lastSecondClassAutoSyncAttempt=Date.now();clearSecondClassCasPanel();
+    }
     await connect();
     if(provider==='chaoxing')await Promise.allSettled([
      root.XiaoxuChaoxingInbox?.refresh?.()||Promise.resolve(),

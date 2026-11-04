@@ -96,8 +96,12 @@ test('verified second-class password transport exposes login and connects only a
  await row.locator('[data-xu-cas-check="second_class"]').click();
  const form=row.locator('form[data-xu-school-login="second_class"]');
  await expect(form).toBeVisible();
+ await page.evaluate(()=>window.dispatchEvent(new Event('xiaoxu-school-connection-updated')));
+ await expect(form).toBeVisible();
  expect(loginAttempts).toBe(0);
  await form.locator('[name="username"]').fill('SYNTHETIC');
+ await page.evaluate(()=>window.dispatchEvent(new Event('xiaoxu-school-connection-updated')));
+ await expect(form.locator('[name="username"]')).toHaveValue('SYNTHETIC');
  await form.locator('[name="password"]').fill('TEST_ONLY');
  await form.locator('button[type="submit"]').click();
  await expect.poll(()=>loginAttempts).toBe(1);
