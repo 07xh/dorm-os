@@ -53,6 +53,9 @@ assert.equal((await good.adapter.preflight()).loginSupported,true);
 assert.equal(good.posts(),0);
 assert.equal((await good.adapter.login({username:'SYNTHETIC',password:'Synthetic_Pass123!'})).session.studentCode,'SYNTHETIC');
 assert.equal(good.posts(),1);
+const irrelevantDuplicate=school({html:markup+'<div class="a" class="b"></div>'});
+assert.equal((await irrelevantDuplicate.adapter.preflight()).loginSupported,true,
+ 'unrelated page markup must not be parsed as a credential form');
 for(const fixture of [
  {script:source+'\n/* modified */'},
  {html:markup.replace('</form>','<input id="authcode" name="authcode"></form>')},
