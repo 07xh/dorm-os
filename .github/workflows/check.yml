@@ -58,3 +58,13 @@ jobs:
             test-results/
             playwright-report/
           retention-days: 7
+
+  public-cas-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: node scripts/probe-sanitized-cas-form.mjs
