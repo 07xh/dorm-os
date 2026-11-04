@@ -456,7 +456,20 @@
  }
  async function ensureQrImage(attempt){
   if(!attempt||attempt!==chaoxingQrAttempt)return;
-  if(qrImageBlobUrl&&qrImageForUrl===attempt.qrImageUrl)return;
+  if(qrImageBlobUrl&&qrImageForUrl===attempt.qrImageUrl){
+   // A cached QR blob is not evidence that its DOM image still exists.
+   let slot=document.querySelector('[data-xu-qr-image]');
+   if(!slot){
+    announceUpdated();
+    slot=document.querySelector('[data-xu-qr-image]');
+   }
+   if(slot&&!slot.querySelector('img')){
+    const image=document.createElement('img');
+    image.src=qrImageBlobUrl;image.alt='学习通官方登录二维码';
+    image.width=190;image.height=190;slot.replaceChildren(image);
+   }
+   return;
+  }
   if(qrImageInFlight===attempt)return;
   qrImageInFlight=attempt;
   try{
@@ -479,7 +492,14 @@
    if(chaoxingQrAttempt!==attempt){URL.revokeObjectURL(objectUrl);return;}
    releaseQrImage();
    qrImageBlobUrl=objectUrl;qrImageForUrl=attempt.qrImageUrl;
-   const slot=document.querySelector('[data-xu-qr-image]');
+   // A simultaneous owner/session refresh can replace the host after the
+   // image HTTP response. Re-render from the sealed in-memory challenge and
+   // reattach the same blob URL; do not start a new upstream QR request.
+   let slot=document.querySelector('[data-xu-qr-image]');
+   if(!slot){
+    announceUpdated();
+    slot=document.querySelector('[data-xu-qr-image]');
+   }
    if(slot){
     const image=document.createElement('img');
     image.src=objectUrl;image.alt='学习通官方登录二维码';
@@ -764,9 +784,14 @@
       !Number.isFinite(Date.parse(result.expiresAt)))throw Error('登录二维码响应无效');
     chaoxingQrAttempt={ticket:result.ticket,expiresAt:Date.parse(result.expiresAt),
      qrImageUrl:safeImage,busy:false};saveQrAttempt(chaoxingQrAttempt);
-    if(host)host.innerHTML='<div class="xu-qr-image-slot" data-xu-qr-image>正在加载二维码…</div>'+
-     '<p class="tiny muted" data-xu-qr-feedback>请使用学习通 APP 扫码并确认。</p>'+
-     '<button type="button" class="secondary" data-xu-qr-check-now>已确认，立即检查</button>';
+    // The connection refresh may replace this row while the official
+    // challenge request is pending. Never write the QR to a detached node.
+    if(!host?.isConnected)announceUpdated();
+    const liveHost=document.querySelector('[data-xu-chaoxing-qr-output]');
+    if(liveHost&&!liveHost.querySelector('[data-xu-qr-image]'))
+     liveHost.innerHTML='<div class="xu-qr-image-slot" data-xu-qr-image>正在加载二维码…</div>'+
+      '<p class="tiny muted" data-xu-qr-feedback>请使用学习通 APP 扫码并确认。</p>'+
+      '<button type="button" class="secondary" data-xu-qr-check-now>已确认，立即检查</button>';
     await ensureQrImage(chaoxingQrAttempt);
     setTimeout(()=>{void checkChaoxingQr();},2500);
    }catch(error){

@@ -134,6 +134,11 @@ test('custom login duration is chosen in 我的 and reaches the actual login req
   await expect(page.locator('[data-owner-duration-choice="custom"]'))
    .toHaveAttribute('aria-pressed','true');
   await custom.fill('12');
+  // Input must persist before a background connection refresh replaces the form.
+  await expect.poll(()=>page.evaluate(()=>
+    localStorage.getItem('xiaoxu_owner_duration_days'))).toBe('12');
+  await page.evaluate(()=>window.setPage('profile'));
+  await expect(custom).toHaveValue('12');
   await custom.dispatchEvent('change');
   expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_duration_days'))).toBe('12');
   await page.reload();
