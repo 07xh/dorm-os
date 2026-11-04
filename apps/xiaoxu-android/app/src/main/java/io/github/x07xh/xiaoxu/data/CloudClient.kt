@@ -93,6 +93,8 @@ data class CloudUiState(
     val wechatCandidates: List<WechatCandidate> = emptyList(),
     val wechatError: String? = null, val wechatReviewingId: String? = null,
     val chaoxingBusy: Boolean = false,
+    val chaoxingBatchBusy: Boolean = false,
+    val chaoxingBatchStatus: String? = null,
     val chaoxingAutoSyncBusy: Boolean = false,
     val chaoxingAutoSyncError: String? = null,
     val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
@@ -687,6 +689,8 @@ class CloudClient(context: Context) {
         chaoxingVerifiedEmpty = false,
         chaoxingError = null,
         chaoxingBusy = false,
+        chaoxingBatchBusy = false,
+        chaoxingBatchStatus = null,
         chaoxingAutoSyncBusy = false,
         chaoxingAutoSyncError = null,
         chaoxingPreview = null, chaoxingDetailBusy = false, chaoxingDetailError = null
@@ -779,6 +783,7 @@ class CloudClient(context: Context) {
         if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
         val epoch = sessionEpoch
         state = state.copy(chaoxingBusy = true, chaoxingError = null,
+            chaoxingBatchStatus = null,
             chaoxingPreview = null, chaoxingDetailError = null)
         try {
             val response = withContext(Dispatchers.IO) {
@@ -832,35 +837,10 @@ class CloudClient(context: Context) {
         }
     }
 
-    /** Official per-course read + server-side verified task-status persistence. */
-    suspend fun syncChaoxingCourse() {
-        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
-        val selected = state.chaoxingCourses.firstOrNull {
-            it.key == state.chaoxingSelectedKey
-        } ?: return
-        val epoch = sessionEpoch
-        state = state.copy(
-            chaoxingBusy = true, chaoxingError = null,
-            chaoxingCheckedAt = null, chaoxingHomework = emptyList(),
-            chaoxingVerifiedEmpty = false,
-            chaoxingPreview = null, chaoxingDetailError = null
-        )
-        try {
-            val body = JSONObject()
-                .put("courseId", selected.courseId)
-                .put("classId", selected.classId)
-                .put("cpi", selected.cpi)
-            val response = withContext(Dispatchers.IO) {
-                request("/api/v1/chaoxing-homework/sync", "POST", body, authenticated = true)
-            }
-            if (epoch != sessionEpoch || state.chaoxingSelectedKey != selected.key) return
-            if (response.code != 200) {
-                state = state.copy(
-                    chaoxingError = chaoxingFailure(response.json.optString("error"), response.code)
-                )
-                return
-            }
-            val root = response.json
+    /** Existing official per-course response guard, reused by one-course and explicit batch reads. */
+    private fun verifiedChaoxingWork(
+        root: JSONObject, selected: ChaoxingCourse
+    ): Pair<List<ChaoxingHomework>, Boolean> {
             if (root.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
                 root.optString("view") != "list" || !root.optBoolean("live"))
                 throw IllegalStateException("invalid_schema")
@@ -891,6 +871,39 @@ class CloudClient(context: Context) {
             }
             if (work.map { it.workId }.toSet().size != work.size)
                 throw IllegalStateException("duplicate_work")
+            return work to verifiedEmpty
+    }
+
+    /** Official per-course read + server-side verified task-status persistence. */
+    suspend fun syncChaoxingCourse() {
+        if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
+        val selected = state.chaoxingCourses.firstOrNull {
+            it.key == state.chaoxingSelectedKey
+        } ?: return
+        val epoch = sessionEpoch
+        state = state.copy(
+            chaoxingBusy = true, chaoxingError = null,
+            chaoxingBatchStatus = null,
+            chaoxingCheckedAt = null, chaoxingHomework = emptyList(),
+            chaoxingVerifiedEmpty = false,
+            chaoxingPreview = null, chaoxingDetailError = null
+        )
+        try {
+            val body = JSONObject()
+                .put("courseId", selected.courseId)
+                .put("classId", selected.classId)
+                .put("cpi", selected.cpi)
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-homework/sync", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch || state.chaoxingSelectedKey != selected.key) return
+            if (response.code != 200) {
+                state = state.copy(
+                    chaoxingError = chaoxingFailure(response.json.optString("error"), response.code)
+                )
+                return
+            }
+            val (work, verifiedEmpty) = verifiedChaoxingWork(response.json, selected)
             state = state.copy(
                 chaoxingHomework = work,
                 chaoxingCheckedAt = Instant.now().toString(),
@@ -906,6 +919,91 @@ class CloudClient(context: Context) {
             )
         } finally {
             if (epoch == sessionEpoch) state = state.copy(chaoxingBusy = false)
+        }
+    }
+
+    /**
+     * Explicit, sequential one-tap read of the current owner's verified courses.
+     * Each course uses the EXISTING read-only POST endpoint and the same response
+     * validation as single-course sync. No parallel logins, answer submission,
+     * invented deadlines, or new credentials. Partial results are never called full sync.
+     */
+    suspend fun syncChaoxingAllCourses() {
+        val courses = state.chaoxingCourses.toList()
+        if (!state.authenticated || state.busy || state.chaoxingBusy ||
+            state.chaoxingDetailBusy || state.schoolSyncBusyProvider != null ||
+            courses.isEmpty()) return
+        val epoch = sessionEpoch
+        var checked = 0
+        var successful = 0
+        var failed = 0
+        var consecutiveFailures = 0
+        var stoppedForAuth = false
+        state = state.copy(chaoxingBusy = true, chaoxingBatchBusy = true,
+            chaoxingBatchStatus = "正在核验第 1 / ${courses.size} 门课程；仅同步本人可验证的作业状态",
+            chaoxingError = null)
+        try {
+            for (course in courses) {
+                if (epoch != sessionEpoch) return
+                val result = try {
+                    val body = JSONObject().put("courseId", course.courseId)
+                        .put("classId", course.classId).put("cpi", course.cpi)
+                    withContext(Dispatchers.IO) {
+                        request("/api/v1/chaoxing-homework/sync", "POST", body,
+                            authenticated = true)
+                    }
+                } catch (_: Exception) {
+                    failed++
+                    checked++
+                    consecutiveFailures++
+                    state = state.copy(chaoxingBatchStatus =
+                        "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed")
+                    if (consecutiveFailures >= 2) break // Avoid hammering an offline upstream.
+                    continue
+                }
+                if (epoch != sessionEpoch) return
+                if (result.code == 401 || result.json.optString("error") in
+                    setOf("session_expired", "authorization_failed", "interactive_login_required")) {
+                    stoppedForAuth = true
+                    break
+                }
+                val accepted = if (result.code == 200) {
+                    try {
+                        verifiedChaoxingWork(result.json, course)
+                        true
+                    } catch (_: Exception) { false }
+                } else false
+                if (accepted) {
+                    successful++
+                    consecutiveFailures = 0
+                } else {
+                    failed++
+                    consecutiveFailures++
+                }
+                checked++
+                state = state.copy(chaoxingBatchStatus =
+                    "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed")
+                if (consecutiveFailures >= 2) break
+            }
+            if (epoch != sessionEpoch) return
+            // Once, not after every course: refresh the existing official task ledger.
+            refreshPrivate()
+            if (epoch != sessionEpoch) return
+            val skipped = courses.size - checked
+            val status = "学习通本次核验 $checked / ${courses.size} 门，" +
+                "成功 $successful 门，失败 $failed 门" +
+                (if (skipped > 0) "，未检查 $skipped 门" else "") + "。"
+            val note = when {
+                !state.authenticated -> "校序会话已失效，需要重新连接；旧任务不会被当作新同步。"
+                stoppedForAuth -> "学校授权已失效或要求交互登录，请完成官方登录后重新读取。"
+                state.privateError != null -> "云端任务状态未能完整复核，结果仅供排查。"
+                skipped > 0 || failed > 0 -> "仅部分课程完成；未验证课程不标记为已同步。"
+                else -> "任务列表已重新读取；请与学习通官方逐项核对。"
+            }
+            state = state.copy(chaoxingBatchStatus = status + note)
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(
+                chaoxingBusy = false, chaoxingBatchBusy = false)
         }
     }
 
