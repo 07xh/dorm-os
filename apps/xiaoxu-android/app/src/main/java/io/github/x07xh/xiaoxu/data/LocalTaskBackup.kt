@@ -67,7 +67,7 @@ class LocalTaskBackup(
             .onUnmappableCharacter(CodingErrorAction.REPORT)
             .decode(ByteBuffer.wrap(raw)).toString()
         val root = JSONObject(contents)
-        require(root.keySet() == setOf("schema", "exportedAt", "tasks"))
+        require(root.keys().asSequence().toSet() == setOf("schema", "exportedAt", "tasks"))
         require(root.optString("schema") == FORMAT)
         require(Instant.parse(root.getString("exportedAt")).toEpochMilli() > 0L)
         val arr = root.getJSONArray("tasks")
@@ -76,7 +76,7 @@ class LocalTaskBackup(
         val parsed = buildList {
             for (i in 0 until arr.length()) {
                 val item = arr.getJSONObject(i)
-                require(item.keySet() == setOf("title", "completed", "createdAt"))
+                require(item.keys().asSequence().toSet() == setOf("title", "completed", "createdAt"))
                 val title = item.opt("title")
                 val completed = item.opt("completed")
                 val timestamp = item.opt("createdAt")
