@@ -784,7 +784,8 @@
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
-    if(checkProvider==='second_class'){
+    if(checkProvider==='second_class'&&(!response.ok||info?.nativeLoginReady!==true||
+       info?.loginSupported!==true||info?.sessionVaultReady!==true)){
      const hint=panel.querySelector('[data-xu-second-class-hint]');
      if(hint)hint.hidden=true;
      // Official WeChat QR availability never implies a linked Xiaoxu account.
@@ -816,7 +817,11 @@
       '暂不支持当前学校登录方式；校序未获得会话，官网登录不会自动绑定。';
      return;
     }
-    // The trusted backend has inspected a simple current CAS password form.
+    if(checkProvider==='second_class'){
+     const hint=panel.querySelector('[data-xu-second-class-hint]');
+     if(hint)hint.hidden=true;
+    }
+    // The trusted backend has verified the current school password transport.
     // Only now does this page request school account credentials.
     const form=document.createElement('form');
     form.dataset.xuSchoolLogin=checkProvider;
@@ -1035,3 +1040,4 @@
  }
  root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,hasVerifiedSchoolConnection:()=>connected&&sources.some(row=>row.accountAuthorization==='verified_session'&&row.sessionState==='active'),state,hasData,records,connectionPanel,panel,taskRows,statusLabel});
 })(globalThis);
+
