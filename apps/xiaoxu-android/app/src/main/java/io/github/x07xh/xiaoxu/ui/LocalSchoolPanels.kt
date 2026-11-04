@@ -19,7 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.x07xh.xiaoxu.data.NativeSchoolDatabase
+import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 
 private fun schoolLabel(provider: String) = when (provider) {
@@ -44,7 +44,7 @@ private fun kindLabel(kind: String) = when (kind) {
 @Composable
 fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
     val context = LocalContext.current
-    val dao = remember(context) { NativeSchoolDatabase.open(context).records() }
+    val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by dao.observe().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("手机本机连接", style = MaterialTheme.typography.titleLarge,
@@ -87,7 +87,7 @@ fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
 @Composable
 fun LocalSchoolRecordSection(types: Set<String>) {
     val context = LocalContext.current
-    val dao = remember(context) { NativeSchoolDatabase.open(context).records() }
+    val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val all by dao.observe().collectAsState(initial = emptyList())
     val rows = all.filter { it.kind in types }
     if (rows.isEmpty()) return
