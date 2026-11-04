@@ -114,6 +114,7 @@ class CloudClient(context: Context) {
     private val session = SessionStore(context)
     var state by mutableStateOf(CloudUiState())
         private set
+    private var sessionEpoch: Long = 0L
 
     private fun request(path: String, method: String = "GET",
                         body: JSONObject? = null, authenticated: Boolean = false): HttpResult {
@@ -156,8 +157,10 @@ class CloudClient(context: Context) {
                 }
                 result.toByteArray()
             } ?: ByteArray(0)
-            HttpResult(code, JSONObject(String(bytes, Charsets.UTF_8)),
-                conn.getHeaderField("Set-Cookie"))
+            val sessionCookie = conn.headerFields.entries
+                .firstOrNull { it.key?.equals("Set-Cookie", ignoreCase = true) == true }
+                ?.value?.firstOrNull { it.startsWith(COOKIE_NAME + "=") }
+            HttpResult(code, JSONObject(String(bytes, Charsets.UTF_8)), sessionCookie)
         } finally { conn.disconnect() }
     }
 
@@ -195,6 +198,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun refreshPrivate() {
+        val epoch = sessionEpoch
         if (session.load() == null) {
             state = state.copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -206,6 +210,7 @@ class CloudClient(context: Context) {
             val auth = withContext(Dispatchers.IO) {
                 request("/api/v1/auth/me", authenticated = true)
             }
+            if (epoch != sessionEpoch) return
             if (auth.code == 401) {
                 session.clear()
                 state = state.copy(authenticated = false, authMessage = "会话过期，请重新连接",
@@ -304,6 +309,8 @@ class CloudClient(context: Context) {
             candidates = r.json.getJSONArray("items").length()
         } catch (_: Exception) { failed.add("微信候选") }
 
+        // A logout or new login invalidates any in-flight older read.
+        if (epoch != sessionEpoch) return
         state = state.copy(
             tasks = tasks ?: state.tasks,
             lessons = lessons ?: state.lessons,
@@ -339,6 +346,7 @@ class CloudClient(context: Context) {
                 withContext(Dispatchers.IO) {
                     session.save(token, r.json.getString("expiresAt"))
                 }
+                sessionEpoch++
                 state = state.copy(authenticated = true, authMessage = "校序云端连接成功")
                 refreshPrivate()
                 true
@@ -367,6 +375,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun signOut() {
+        sessionEpoch++
         try {
             withContext(Dispatchers.IO) {
                 request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true)
