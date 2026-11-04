@@ -57,4 +57,16 @@ assert.match(main, /WechatCandidatesPanel/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTACTS|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET\s*=/);
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
+
+const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
+assert.match(main, /ChaoxingHomeworkPanel\(cloud, openWebsite\)/);
+assert.match(cloud, /\/api\/v1\/chaoxing-homework\?view=courses/);
+assert.match(cloud, /\/api\/v1\/chaoxing-homework\/sync/);
+assert.match(cloud, /loadChaoxingCourses/);
+assert.match(cloud, /syncChaoxingCourse/);
+assert.match(cloud, /interactive_login_required/);
+assert.match(cloud, /courseId|classId|cpi/);
+assert.match(cloud, /chaoxingVerifiedEmpty/);
+assert.match(coursePanel, /同步本课程真实作业及状态/);
+assert.doesNotMatch(coursePanel, /自动提交作业|自动作答/);
 console.log('校序 Android V0.2：原生启动、Room、本机与云端数据隔离及权限边界静态检查通过');
