@@ -119,12 +119,22 @@ console.log('Public academic source diagnostics verified: '+readiness.sources.ma
 // Cloudflare Access is configured or the private D1 binding is missing.
 for(const path of ['/api/v1/assignments','/api/v1/sources','/api/v1/connections','/api/v1/chaoxing-inbox','/api/v1/verified/connections','/api/v1/reminders','/api/v1/second-class','/api/v1/health']){
  let response,lastError;
- for(let attempt=0;attempt<5;attempt++){
+ for(let attempt=0;attempt<12;attempt++){
   try{
-   response=await fetch(base+path,{redirect:'manual',cache:'no-store',
+   const candidate=await fetch(base+path,{redirect:'manual',cache:'no-store',
     signal:AbortSignal.timeout(16000),headers:{accept:'application/json'}});
-   break;
-  }catch(error){lastError=error;if(attempt<4)await sleep(1100);}
+   // An immutable Pages URL may expose its static revision before all
+   // Functions routes propagate. Retry transient 404s, never accept them.
+   // A persistent missing route still fails the strict checks below.
+   if(candidate.status===404&&attempt<11){
+    console.warn('Private API Function route not ready: '+path+
+     ' (404, attempt '+(attempt+1)+'/12)');
+    await candidate.body?.cancel?.().catch(()=>{});
+    await sleep(1800);
+    continue;
+   }
+   response=candidate;break;
+  }catch(error){lastError=error;if(attempt<11)await sleep(1100);}
  }
  if(!response)throw Error('Private API anonymous safety check unreachable: '+path+' '+String(lastError));
  if([302,303,307,308].includes(response.status)){
