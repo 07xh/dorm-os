@@ -297,6 +297,39 @@ const noReplay=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
 await assert.rejects(()=>noReplay.login({username:'SYNTHETIC_ACCOUNT',
  password:'EPHEMERAL_PASSWORD'}), e=>e.code==='interactive_login_required');
 assert.equal(postAttempts,1);
+// The exact school-owned CAS callback can respond 200 HTML, not only 302.
+let htmlCallbackPasswordPosts=0;
+const casHtmlLanding=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
+  htmlCallbackPasswordPosts++;
+ if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/loginFromCas/')
+  return response(200,'<main>School-owned service</main>',{
+   'set-cookie':'school_ss=personal; Domain=ncwu.edu.cn; Path=/; Secure'
+  });
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/'&&
+    options.headers.cookie?.includes('school_ss=personal'))
+  return response(302,'',{location:school+'/sys'});
+ return fakeSchool(url,options);
+}});
+const verifiedHtmlCallback=await casHtmlLanding.login({
+ username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+});
+assert.equal(verifiedHtmlCallback.session.studentCode,student);
+assert.equal(htmlCallbackPasswordPosts,1,'password POST must never be replayed');
+// A school-branded callback page WITHOUT a verified personal read is not
+// permission to mark the school account connected.
+const emptyCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/loginFromCas/')
+  return response(200,'<main>School-owned service</main>');
+ if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname===NCWU_SECOND_CLASS_READS.scores)
+  return response(200,'<html>Login required</html>');
+ return fakeSchool(url,options);
+}});
+await assert.rejects(()=>emptyCallback.login({
+ username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+}),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
 // Distinguish a school CAS login that never returns to the service,
 // a rejected personal business endpoint, and a non-unique student identity.
 // These synthetic tests never use school credentials or external requests.
