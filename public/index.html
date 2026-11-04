@@ -23,7 +23,7 @@
 <div id="shell" class="shell">
   <header class="x-v7-header">
     <div class="x-v7-header-inner">
-      <a class="x-v7-brand" href="#dashboard" aria-label="校序总览"><span class="x-v7-brand-mark" aria-hidden="true">序</span><span class="x-v8-brand-text">校序<small>XIAOXU CAMPUS</small></span></a>
+      <a class="x-v7-brand" href="#dashboard" aria-label="校序总览"><span class="x-v7-brand-mark" aria-hidden="true">序</span><span class="x-v8-brand-text">校序</span></a>
       <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="顶部主导航">
         <button type="button" data-page="dashboard" class="nav-link active">总览</button>
         <button type="button" data-page="timetable" class="nav-link">课表</button>
@@ -36,8 +36,8 @@
   </header>
   <div class="workspace">
     <header class="topbar">
-      <div class="top-left"><span class="breadcrumb">PERSONAL / <strong id="breadcrumb">总览面板</strong></span></div>
-      <div class="top-right"><span id="dateChip" class="header-date">—</span><span id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-search"></use></svg><span class="x-v8-search-label">搜索课程、功能...</span><kbd class="x-v8-shortcut">Ctrl K</kbd></button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div>
+      <div class="top-left"><span class="breadcrumb"><strong id="breadcrumb">总览面板</strong></span></div>
+      <div class="top-right"><span id="dateChip" class="header-date">—</span><span id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-search"></use></svg><span class="x-v8-search-label">搜索</span><kbd class="x-v8-shortcut">Ctrl K</kbd></button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div>
     </header>
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>当前离线：已保存的课程、任务和个人场景仍可使用；天气与外部服务暂不可用。</div>
     <main id="app" tabindex="-1"></main>
@@ -474,7 +474,7 @@ function dashboard(){
   '<div class="x-v91-next-empty"><span>'+(courses.length?'当日课程已结束':'尚无已登记课程')+'</span>'
   +'<button type="button" data-page="timetable">查看课表 <span aria-hidden="true">›</span></button></div>';
  const hero='<section class="v4-hero x-v7-home-intro" aria-label="课程与任务概览">'
-  +'<div class="x-v7-home-top"><div class="x-v7-home-head"><span class="x-v7-overline">校序 · '+esc(CAMPUSES[state.settings.campus].name)+'</span><h1>'+scheduleTitle+'</h1><p class="x-v7-home-date">'+esc(fmtDate(date))+' · '+WEEKDAYS[day]+'</p></div>'
+  +'<div class="x-v7-home-top"><div class="x-v7-home-head"><h1>'+scheduleTitle+'</h1><p class="x-v7-home-date">'+esc(fmtDate(date))+' · '+WEEKDAYS[day]+'</p></div>'
   +'<div class="x-v7-day-selector" role="group" aria-label="选择日程日期">'+tabs+'</div></div>'
   +'<div class="x-v7-today-stats"><span><strong>'+courses.length+'</strong> 门本地课程</span><span><strong>'+due.length+'</strong> 项'+(homeDayOffset===0?'待处理':'截止任务')+'</span></div>'
   +'<div class="x-v91-next-area">'+nextSummary+'</div></section>';
