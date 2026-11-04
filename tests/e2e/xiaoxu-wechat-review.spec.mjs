@@ -36,6 +36,9 @@ test('WeChat candidates require deliberate read and owner confirmation',async({p
   await route.fulfill({status:code,contentType:'application/json',body:JSON.stringify(result)});
  });
  await page.goto('/#tasks');
+ // The new workspace keeps all private inboxes inside a deliberate Review tab.
+ // Navigating to that tab must NOT fetch any personal WeChat data.
+ await page.locator('[data-filter="review"]').click();
  const panel=page.getByRole('region',{name:'微信待审核任务'});
  await expect(panel).toBeVisible();
  expect(calls.length).toBe(0,'private candidate APIs must not be fetched at page load');
