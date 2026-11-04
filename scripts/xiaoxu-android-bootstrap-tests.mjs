@@ -39,6 +39,14 @@ for (const host of ['jwmis.ncwu.edu.cn','i.chaoxing.com','dekt.ncwu.edu.cn'])
 assert.match(nativeSchool, /navigationAllowed\(provider, request\.url\.toString\(\)\)/);
 assert.match(nativeSchool, /extractionAllowed\(provider, host\)/);
 assert.match(nativeSchool, /onReceivedSslError/);
+assert.match(nativeSchool, /finishAndReturn = Button\(this\)/);
+assert.match(nativeSchool, /text = "返回校序查看已保存数据"/);
+assert.match(nativeSchool, /finishAndReturn\.isEnabled = true/);
+assert.match(nativeSchool, /if \(!navigationAllowed\(provider, url\)\)/);
+assert.match(nativeSchool, /pageFailed = true/);
+assert.match(nativeSchool, /if \(!loaded \|\| pageFailed/);
+assert.match(nativeSchool, /if \(epoch != captureEpoch \|\| isFinishing\) return@launch/);
+
 assert.match(nativeSchool, /handler\.cancel\(\)/);
 assert.match(nativeSchool, /setAcceptThirdPartyCookies\(this, false\)/);
 assert.match(nativeSchool, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);
