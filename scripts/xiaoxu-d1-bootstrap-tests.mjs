@@ -43,7 +43,8 @@ assert.throws(()=>queryRows([{success:true}]),/d1_read_malformed/);
 assert.throws(()=>queryRows('{invalid json'),/wrangler_output_not_json/);
 
 const workflow=readFileSync(new URL('../.github/workflows/bootstrap-academic-d1.yml',import.meta.url),'utf8');
-assert.ok(workflow.includes("paths:\n      - '.github/workflows/bootstrap-academic-d1.yml'"));
+assert.ok(!/^on:\\s*\\n\\s*push:/m.test(workflow),
+ 'historical bootstrap must never auto-run on a production source push');
 assert.ok(workflow.includes('workflow_dispatch:'));
 assert.ok(workflow.includes("github.repository == '07xh/dorm-os'"));
 assert.ok(workflow.includes('scripts/bootstrap-academic-d1-production.mjs'));

@@ -125,6 +125,14 @@ test('custom login duration is chosen in 我的 and reaches the actual login req
   await page.locator('[data-owner-duration-choice="custom"]').click();
   const custom=page.locator('[data-owner-duration-custom]');
   await expect(custom).toBeVisible();
+  // A school/session refresh can redraw the current page between selecting
+  // "custom" and typing. Keep the mode and expanded panel, even when the
+  // previous selected value (7 days) was still one of the presets.
+  await page.evaluate(()=>window.setPage('profile'));
+  await expect(page.locator('[data-owner-duration-panel]')).toBeVisible();
+  await expect(custom).toBeVisible();
+  await expect(page.locator('[data-owner-duration-choice="custom"]'))
+   .toHaveAttribute('aria-pressed','true');
   await custom.fill('12');
   await custom.dispatchEvent('change');
   expect(await page.evaluate(()=>localStorage.getItem('xiaoxu_owner_duration_days'))).toBe('12');

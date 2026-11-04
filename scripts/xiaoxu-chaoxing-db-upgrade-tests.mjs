@@ -13,7 +13,10 @@ assert.equal(classifyChaoxingInboxSchema(table,cols.slice(0,-1)),'partial_inbox_
 assert.throws(()=>classifyChaoxingInboxSchema('bad',cols),/invalid_chaoxing_inbox_schema/);
 assert.throws(()=>classifyChaoxingInboxSchema(table,'bad'),/invalid_chaoxing_inbox_schema/);
 const workflow=readFileSync(new URL('../.github/workflows/upgrade-owner-auth-d1.yml',import.meta.url),'utf8');
-assert.ok(workflow.includes('migrations/0015_academic_chaoxing_notices.sql'));
+assert.ok(workflow.includes('workflow_dispatch:'),
+ 'Historical Chaoxing inbox migration is available for manual recovery');
+assert.ok(!/^on:\s*\n\s*push:/m.test(workflow),
+ 'Previously applied migration must not auto-replay on source edits');
 assert.ok(workflow.includes('scripts/xiaoxu-chaoxing-db-upgrade-tests.mjs'));
 assert.ok(workflow.includes("github.ref == 'refs/heads/main'"));
 assert.ok(workflow.includes('CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}'));

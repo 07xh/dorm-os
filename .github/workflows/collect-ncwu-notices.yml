@@ -52,6 +52,9 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
           echo 'changed=true' >> "$GITHUB_OUTPUT"
+      # GITHUB_TOKEN pushes do not trigger `on: push` workflows. Without this
+      # dispatch, the bot-written notice archive would never reach Pages.
+      # deploy-cloudflare.yml runs full E2E checks for workflow_dispatch.
       - name: Deploy new public data via explicit workflow dispatch
         if: steps.archive.outputs.changed == 'true'
         env:
