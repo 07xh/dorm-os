@@ -50,6 +50,7 @@ test('WeChat candidates require deliberate read and owner confirmation',async({p
  await expect(panel.getByText('请在周五前提交示例报告')).toHaveCount(0);
  expect(calls.some(x=>x.method==='POST'&&x.path.includes('/candidates/'))).toBe(true);
 
+ await panel.locator('.xu-wc-devices summary').click();
  await panel.getByPlaceholder('我的 Windows 电脑').fill('我的 Windows 电脑');
  await panel.getByRole('button',{name:'生成一次性设备凭据'}).click();
  await expect(panel.getByText(device)).toBeVisible();
