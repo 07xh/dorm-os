@@ -31,7 +31,10 @@ const evidence={
   challengeMarkupSeen:data.challengeEvidence.challengeMarkupSeen===true,
   challengeScriptSeen:data.challengeEvidence.challengeScriptSeen===true,
   passwordTransformationSeen:data.challengeEvidence.passwordTransformationSeen===true,
-  submitHandlerSeen:data.challengeEvidence.submitHandlerSeen===true
+  submitHandlerSeen:data.challengeEvidence.submitHandlerSeen===true,
+  submitHandlerKind:data.challengeEvidence.submitHandlerKind,
+  ...(typeof data.challengeEvidence.submitHandlerName==='string'?
+   {submitHandlerName:data.challengeEvidence.submitHandlerName}:{})
  }}:{}),
  personalAccountLinked:false
 };
