@@ -261,8 +261,7 @@ fun ConnectionsPanel(
                     }
                     if (id == "chaoxing") {
                         val qr = state.chaoxingQr
-                        // Scan stays on this native page. No browser login,
-                        // WebView or new service connector is required.
+                        // Scan stays on this native page. No additional login screen or server connector is required.
                         OutlinedButton(
                             enabled = state.authenticated && !qr.busy && !state.busy,
                             onClick = { scope.launch { client.startChaoxingQr() } }
