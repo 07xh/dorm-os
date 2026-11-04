@@ -136,3 +136,21 @@ html.theme-light body { background:#f6f8fc!important }
 #app .v4-task-list .task-actions .icon-btn:active{background:var(--xu-soft,#eaf1ff)}
 @media(max-width:430px){#app .v4-task-list .task-item{flex-wrap:wrap;gap:4px 10px}#app .v4-task-list .task-main{flex:1 1 calc(100% - 58px)}#app .v4-task-list .task-actions{margin-left:54px;margin-top:-2px}#app .v4-task-list .task-actions .icon-btn{min-width:44px;min-height:44px}}
 @media(prefers-reduced-motion:reduce){#app .v4-task-list .task-actions .icon-btn{transition:none!important}}
+
+
+/* V9.5: one calm, task-oriented My screen. Preserve original controls. */
+#app .v4-profile-card{padding:7px 20px 14px;box-shadow:none}
+#app .v4-profile-head{gap:0;padding:13px 0 12px}
+#app .v4-profile-head strong{font-size:15px;font-weight:720;letter-spacing:-.01em}
+#app .v4-profile-link{gap:12px;min-height:60px;padding:11px 3px}
+#app .v4-profile-link:hover{background:var(--xu-soft)}
+#app .v4-profile-link:focus-visible{outline:2px solid var(--xu-brand);outline-offset:-2px;border-radius:8px}
+#app .v4-profile-symbol{width:27px;height:27px;background:transparent;border-radius:0}
+#app .v4-profile-symbol svg{width:22px;height:22px}
+#app .v4-profile-link b{font-size:20px}
+#app .x-v7-legacy-links>summary,#app .xu-settings-more>summary{min-height:44px;display:flex;align-items:center}
+#app :is(.x-v7-legacy-links,.xu-settings-more,.xu-school-manage,.xu-connection-more)>summary:focus-visible{outline:2px solid var(--xu-brand);outline-offset:2px;border-radius:5px}
+@media(max-width:580px){
+ #app .v4-profile-card{padding:6px 14px 12px}
+ #app .v4-profile-link{min-height:60px}
+}
