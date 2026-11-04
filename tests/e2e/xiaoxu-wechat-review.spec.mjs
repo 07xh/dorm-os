@@ -25,7 +25,7 @@ test('WeChat candidates require deliberate read and owner confirmation',async({p
    const input=req.postDataJSON();
    expect(input.name).toBe('我的 Windows 电脑');
    devices=[{id:device,name:input.name,lastSeenAt:null,revokedAt:null}];
-   result={device:{id,name:input.name},token};code=201;
+   result={device:{id:device,name:input.name},token};code=201;
   }else if(url.pathname==='/api/v1/wechat/candidates/'+candidate&&req.method()==='POST'){
    expect(req.postDataJSON()).toEqual({decision:'accept'});
    records=[];result={id:candidate,status:'accepted',assignmentId:'task-accepted'};
