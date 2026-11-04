@@ -4,7 +4,7 @@ import {webcrypto} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {
  createWechatDevice,authenticateWechatDevice,ingestWechatCandidates,
- listWechatCandidates,listWechatDevices,revokeWechatDevice,WechatDeviceError
+ listWechatCandidates,listWechatDevices,revokeWechatDevice,reviewWechatCandidate,WechatDeviceError
 } from '../lib/academic-wechat-device-sync.mjs';
 import {WECHAT_CANDIDATE_SCHEMA} from '../lib/academic-wechat-candidate-contract.mjs';
 import {onRequestPost as ingestRoute} from '../functions/api/v1/wechat/ingest.js';
@@ -81,6 +81,26 @@ const forbidden=await ingestRoute({env:{ACADEMIC_DB:db},request:new Request(
   body:JSON.stringify(batch)
  })});
 assert.equal(forbidden.status,403);
+const pending=(await listWechatCandidates(db,owner))[0];
+await refused(reviewWechatCandidate(db,'owner-b',pending.id,'accept'),'candidate_not_found');
+const accepted=await reviewWechatCandidate(db,owner,pending.id,'accept');
+assert.equal(accepted.status,'accepted');
+assert.ok(accepted.assignmentId);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
+ 'one explicitly approved candidate becomes one existing manual task');
+assert.equal(sqlite.prepare('SELECT kind FROM academic_assignments').get().kind,'manual');
+assert.equal((await listWechatCandidates(db,owner)).length,0,
+ 'approved candidates are removed from pending inbox');
+await refused(reviewWechatCandidate(db,owner,pending.id,'accept'),'candidate_already_reviewed');
+await refused(reviewWechatCandidate(db,owner,pending.id,'dismiss'),'candidate_already_reviewed');
+await ingestWechatCandidates(db,device,{...batch,batchId:str('u'),records:[
+ {...batch.records[0],candidateKey:str('n')}
+]});
+const otherPending=(await listWechatCandidates(db,owner))[0];
+assert.equal((await reviewWechatCandidate(db,owner,otherPending.id,'dismiss')).status,'dismissed');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
+ 'dismissing a candidate never creates a task');
+
 await refused(revokeWechatDevice(db,'owner-b',device.id),'device_not_found');
 assert.equal((await revokeWechatDevice(db,owner,device.id)).revoked,true);
 await refused(authenticateWechatDevice(db,'Bearer '+paired.token),'device_unauthorized');
