@@ -589,6 +589,9 @@
    if(provider==='second_class'&&result?.error==='authorization_failed'){
     const casReturnReasonText={
      unexpected_response:'学校 CAS 提交后返回了非预期状态；本次没有保存会话。',
+     cas_request_rejected:'学校 CAS 返回请求拒绝（4xx），可能需要在官网完成额外验证；本次没有保存会话。',
+     cas_rate_limited:'学校 CAS 暂时限制了登录请求（429），请停止重复提交；本次没有保存会话。',
+     cas_server_failure:'学校 CAS 返回服务异常（5xx），无法确认账号状态；本次没有保存会话。',
      login_page_remained:'CAS 提交后仍停留在学校认证页面；可能需要在学校官网完成验证，本次没有保存会话。',
      service_callback_incomplete:'已到达学校 CAS 服务回调，但尚未确认第二课堂会话；本次没有保存会话。',
      unexpected_school_landing:'学校 CAS 回跳落点与已验证流程不同；本次没有保存会话。'
