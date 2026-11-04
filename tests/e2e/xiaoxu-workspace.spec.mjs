@@ -29,3 +29,33 @@ test('current shell replaces obsolete UI layers and keeps touch targets at phone
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
  }
 });
+
+test('mobile tasks filter includes school sources while review stays a separate workspace',async({page})=>{
+ await page.setViewportSize({width:393,height:852});
+ await page.goto('/');
+ await page.evaluate(()=>{
+  state.tasks=[
+   {id:'ncwu-mobile',title:'青果课业检查',source:'ncwu',done:false},
+   {id:'second-mobile',title:'第二课堂活动',source:'second_class',done:false}
+  ];
+  render();
+ });
+ await page.locator('#sidebarNav [data-page="tasks"]').click();
+ const source=page.locator('[data-task-source]');
+ await expect(source.locator('option[value="ncwu"]')).toHaveCount(1);
+ await expect(source.locator('option[value="second_class"]')).toHaveCount(1);
+ await source.selectOption('ncwu');
+ await expect(page.locator('.v4-task-list')).toContainText('青果课业检查');
+ await expect(page.locator('.v4-task-list')).not.toContainText('第二课堂活动');
+ await source.selectOption('second_class');
+ await expect(page.locator('.v4-task-list')).toContainText('第二课堂活动');
+ await expect(page.locator('.v4-task-list')).not.toContainText('青果课业检查');
+ await page.locator('[data-filter="review"]').click();
+ await expect(page.locator('[data-task-source]')).toBeHidden();
+ await expect(page.locator('.v4-export')).toBeHidden();
+ await expect(page.locator('[data-task-list-view]')).toBeHidden();
+ await expect(page.locator('[data-task-review-view]')).toBeVisible();
+ await expect(page.locator('#xuWechatTasksHost')).toBeVisible();
+ await expect(page.locator('#xuChaoxingInboxHost')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+});
