@@ -42,6 +42,16 @@ export async function runCloudflareSecondClassCasProbe({fetcher=fetch}={}){
   currentPasswordFormCompatible:casPageReached&&state.loginSupported===true,
   mode:STATUSES.has(state.mode)?state.mode:'upstream_unavailable',
   reason:REASONS.has(state.reason)?state.reason:null,
+  ...(state.reason==='interactive_challenge_required'&&
+   state.challengeEvidence?.passwordFormSeen===true?
+   {challengeEvidence:{
+    passwordFormSeen:true,
+    challengeControlSeen:state.challengeEvidence.challengeControlSeen===true,
+    challengeMarkupSeen:state.challengeEvidence.challengeMarkupSeen===true,
+    challengeScriptSeen:state.challengeEvidence.challengeScriptSeen===true,
+    passwordTransformationSeen:state.challengeEvidence.passwordTransformationSeen===true,
+    submitHandlerSeen:state.challengeEvidence.submitHandlerSeen===true
+   }}:{}),
   // Reaching CAS does not confer access to an owner's school account.
   userAuthenticated:false,sessionLinked:false,personalRecordsRead:false
  };
