@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
-const handlers={};let calls=[],renderEvents=[],name='本人电脑';
+const handlers={};let calls=[],renderEvents=[],name='本人电脑',verifiedOwner=false;
+const host={querySelector:()=>null,innerHTML:''};
 const client='wxd_'+'a'.repeat(24);
 const candidate='a'.repeat(20);
 const token='wxu_'+'s'.repeat(43);
@@ -17,9 +18,10 @@ let devices=[],pending=[record];
 const json=data=>({ok:true,status:200,headers:{get:()=> 'application/json'},
  json:async()=>data});
 const context={
- location:{origin:'https://academic.test'},navigator:{clipboard:{writeText:async()=>{}}},
+ location:{origin:'https://academic.test'},navigator:{onLine:true,clipboard:{writeText:async()=>{}}},
+ XiaoxuOwnerAuth:{connected:()=>verifiedOwner},
  document:{
-  getElementById:()=>null,
+  hidden:false,getElementById:id=>id==='xuWechatTasksHost'?host:null,
   querySelector:()=>({value:name}),
   addEventListener(type,fn){(handlers[type]??=[]).push(fn);}
  },
@@ -51,8 +53,21 @@ vm.runInNewContext(readFileSync(new URL('../public/xiaoxu-wechat-sync.js',import
 const ui=context.XiaoxuWechat;
 assert.ok(ui&&typeof ui.panel==='function');
 assert.equal(calls.length,0,'importing the UI must never poll personal data');
+assert.doesNotMatch(ui.panel(),/确认加入待办/,'before login there is no data to accept');
+await ui.refreshIfStale();
+assert.equal(calls.length,0,'no private auto read before verified owner login');
+verifiedOwner=true;
+await ui.refreshIfStale();
+assert.equal(calls.length,2,'verified owner automatically reads candidates and devices');
+assert.match(ui.panel(),/1 条待确认/);
+await ui.refreshIfStale();
+assert.equal(calls.length,2,'repeated UI render must not poll within throttle window');
+context.document.hidden=true;
+await ui.refreshIfStale(0);
+assert.equal(calls.length,2,'background tab must not auto poll');
+context.document.hidden=false;
 assert.match(ui.panel(),/微信待审核/);
-assert.doesNotMatch(ui.panel(),/确认加入待办/);
+assert.match(ui.panel(),/确认加入待办/,'verified owner sees candidates but must manually accept');
 const click=async attrs=>{
  const button={
   hasAttribute:k=>Object.hasOwn(attrs,k),
@@ -64,7 +79,7 @@ const click=async attrs=>{
  for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
 };
 await click({'data-xu-wc-refresh':''});
-assert.equal(calls.length,2,'private requests require the user to request them');
+assert.equal(calls.length,4,'manual refresh remains available');
 assert.match(ui.panel(),/确认加入待办/);
 assert.ok(ui.panel().includes('&lt;script&gt;'));
 assert.ok(!ui.panel().includes('<script>'),'message titles must be escaped');
@@ -79,5 +94,8 @@ assert.ok(renderEvents.includes('xiaoxu-wechat-task-reviewed'));
 assert.doesNotMatch(ui.panel(),/实验报告/,'accepted candidate leaves the review list');
 ui.disconnect();
 assert.ok(!ui.panel().includes(token),'logout clears one-time secret');
-assert.equal(calls.length,5,'logout does not trigger a new server request');
-console.log('微信 App 面板：无静默私有访问、输入转义、显式绑定、本人审核、任务刷新事件、登出清密钥通过');
+assert.equal(calls.length,7,'logout does not trigger a new server request');
+verifiedOwner=false;
+await ui.refreshIfStale();
+assert.equal(calls.length,7,'logout prevents private automatic reads');
+console.log('微信 App 面板：登录后自动查询、节流/后台保护、人工审核、输入转义、登出清密钥通过');

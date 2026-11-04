@@ -993,7 +993,7 @@ function render(){const previousApp=$('app');const focusedEl=document.activeElem
   .find(el=>el.dataset.xuSchoolProvider===item.provider);
  const panel=group?.querySelectorAll('details')[item.index];
  if(panel)panel.open=true;
-}const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
+}const selected=({campus:'academic',scenes:'profile',nfc:'profile',life:'profile',settings:'profile',study:'timetable'})[page]||page;document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
 
 
  // After owner authentication, the connection-center page may read its status.
@@ -1376,7 +1376,7 @@ function refreshVisibleCloudTasks(minAgeMs=15000){
   if(changed&&['tasks','settings','dashboard'].includes(page))render();
  }).catch(()=>{if(page==='settings')render();});
 }
-window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);refreshVisibleCloudTasks(0);});
+window.addEventListener('online',()=>{updateOfflineBanner();fetchWeather();if(noticeStatus!=='loading')loadPublicNotices(true);refreshVisibleCloudTasks(0);if(page==='tasks')void XiaoxuWechat.refreshIfStale();});
 window.addEventListener('offline',updateOfflineBanner);
 // The login controller emits this only after an authenticated /auth/me, a
 // successful owner login, or a verified logout; local hints cannot authorize.
@@ -1384,14 +1384,15 @@ window.addEventListener('xiaoxu-owner-auth-changed',event=>{
  if(event.detail?.authenticated===true){
   if(cloudWasOptedIn())void resumeOptedCloudWorkspace();
   else maybeReadMyConnections();
+  if(page==='tasks')void XiaoxuWechat.refreshIfStale();
  }else{
   myConnectionStatusRequested=false;
   clearPrivateCloudWorkspace();
   if(['settings','tasks','academic','dashboard','profile'].includes(page))render();
  }
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();refreshVisibleCloudTasks();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
-setInterval(()=>{if(!document.hidden)refreshVisibleCloudTasks(60000);},60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerSync();refreshVisibleCloudTasks();if(page==='tasks')void XiaoxuWechat.refreshIfStale();if((page==='dashboard'||page==='academic'&&academicTab==='notices')&&noticeStatus!=='loading')loadPublicNotices(true);if(XiaoxuReminders.isConnected())XiaoxuReminders.refresh().then(()=>{if(page==='settings')render();}).catch(()=>{});}});
+setInterval(()=>{if(!document.hidden){refreshVisibleCloudTasks(60000);if(page==='tasks')void XiaoxuWechat.refreshIfStale();}},60*1000);
 setInterval(()=>{if(!document.hidden&&(page==='dashboard'||page==='academic'&&academicTab==='notices'))loadPublicNotices(true);},30*60*1000);
 window.addEventListener('storage',event=>{
  if(event.key===NOTICE_ALERT_PREF){
