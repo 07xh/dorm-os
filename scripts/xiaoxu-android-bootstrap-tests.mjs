@@ -82,6 +82,17 @@ assert.match(main, /ChaoxingHomeworkPanel\(cloud, openWebsite\)/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\?view=courses/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\/sync/);
 assert.match(cloud, /loadChaoxingCourses/);
+assert.match(cloud, /setChaoxingAutoSync\(enabled: Boolean\)/);
+assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/auto-sync/);
+assert.match(cloud, /JSONObject\(\)\.put\("enabled", enabled\)/);
+assert.match(cloud, /autoSyncAvailable/);
+assert.match(cloud, /autoSyncLastResult/);
+assert.match(coursePanel, /开启每小时自动同步/);
+assert.match(coursePanel, /关闭每小时自动同步/);
+assert.match(coursePanel, /默认关闭/);
+assert.match(coursePanel, /定时任务已登记；仍需验证服务端实际运行/);
+assert.doesNotMatch(coursePanel, /自动代交|后台自动提交|已经完成全部学校同步/);
+
 assert.match(cloud, /syncChaoxingCourse/);
 assert.match(cloud, /interactive_login_required/);
 assert.match(cloud, /courseId|classId|cpi/);
