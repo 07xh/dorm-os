@@ -1,6 +1,7 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 const manifest = read('apps/xiaoxu-android/app/src/main/AndroidManifest.xml');
@@ -234,4 +235,51 @@ assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
+
+/* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
+const importer = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/LocalQingguoImportActivity.kt');
+const localStore = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
+const script = read('apps/xiaoxu-android/app/src/main/assets/ncwu_qingguo_local.js');
+assert.match(manifest, /android:name="\.LocalQingguoImportActivity"[\s\S]*?android:exported="false"/);
+assert.match(main, /openLocalImport = /);
+assert.match(main, /LocalScheduleStore\.load\(this\)/);
+assert.match(schedulePanel, /本机导入/);
+assert.match(schedulePanel, /待本人核对/);
+assert.match(importer, /https:\/\/jwmis\.ncwu\.edu\.cn\//);
+assert.match(importer, /uri\.scheme == "https"/);
+assert.match(importer, /setAcceptThirdPartyCookies\(this, false\)/);
+assert.match(importer, /MIXED_CONTENT_NEVER_ALLOW/);
+assert.match(importer, /browser\.evaluateJavascript\(/);
+assert.doesNotMatch(importer + script + localStore, /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY|http:\/\//);
+assert.match(localStore, /getSharedPreferences\(/);
+assert.match(localStore, /LocalScheduleStore/);
+assert.match(localStore, /JSONArray\(item\.weeks\)/);
+assert.match(localStore, /没有找到完整课程，未覆盖旧课表/);
+
+function mockGrid(time) {
+    const div = { getAttribute: () => 'padding-bottom: 5px', innerText: '工程制图\n任课教师\n' + time + '\nA101' };
+    const cells = Array.from({ length: 7 }, (_, i) => ({
+        matches: selector => selector === 'td.td',
+        getAttribute: () => null,
+        querySelectorAll: () => i === 0 ? [div] : []
+    }));
+    const row = { querySelector: () => cells[0], children: cells };
+    const table = {
+        querySelector: () => cells[0],
+        querySelectorAll: () => [row]
+    };
+    return { document: { querySelectorAll: () => [table] }, frames: [] };
+}
+const officialLike = mockGrid('1-16周[1-2]');
+runInNewContext(script, {window: officialLike});
+const parsed = officialLike.__xiaoxuExtract();
+assert.equal(parsed.items.length, 1);
+assert.equal(parsed.items[0].name, '工程制图');
+assert.equal(parsed.items[0].day, 1);
+assert.equal(parsed.items[0].startSection, 1);
+assert.equal(parsed.items[0].weeks.length, 16);
+const broken = mockGrid('缺少合法节次');
+runInNewContext(script, {window: broken});
+assert.match(broken.__xiaoxuExtract().error, /无法识别|不完整/);
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

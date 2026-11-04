@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
@@ -70,9 +72,11 @@ class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val cloud by lazy { CloudClient(applicationContext) }
     private var shouldRefreshAfterWebsite = false
+    private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        localLessons = LocalScheduleStore.load(this)
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -83,6 +87,10 @@ class MainActivity : ComponentActivity() {
             ) {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    localLessons = localLessons,
+                    openLocalImport = {
+                        startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
+                    },
                     consumeWebsiteReturn = {
                         val pending = shouldRefreshAfterWebsite
                         shouldRefreshAfterWebsite = false
@@ -105,6 +113,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        localLessons = LocalScheduleStore.load(this)
+    }
 }
 
 private enum class Page(val label: String, val symbol: ImageVector) {
@@ -121,6 +134,8 @@ private fun NativeShell(
     dao: LocalTaskDao,
     cloud: CloudClient,
     appLifecycle: Lifecycle,
+    localLessons: List<VerifiedLesson>,
+    openLocalImport: () -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
@@ -195,7 +210,8 @@ private fun NativeShell(
                             openMessages = { current = Page.MESSAGES },
                             openProfile = { current = Page.PROFILE })
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
-                            openProfile = { current = Page.PROFILE })
+                            openProfile = { current = Page.PROFILE },
+                            localLessons = localLessons, openLocalImport = openLocalImport)
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
@@ -227,9 +243,12 @@ private fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit) {
+private fun SchedulePage(
+    openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit,
+    localLessons: List<VerifiedLesson>, openLocalImport: () -> Unit
+) {
     // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
-    CloudTimetablePanel(cloud, openWebsite, openProfile)
+    CloudTimetablePanel(cloud, openWebsite, openProfile, localLessons, openLocalImport)
 }
 
 @Composable
