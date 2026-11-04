@@ -253,7 +253,7 @@ class CloudClient(context: Context) {
     suspend fun refreshPrivate() {
         val epoch = sessionEpoch
         if (session.load() == null) {
-            state = emptyChaoxing().copy(authenticated = false, authMessage = "云端未连接",
+            state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
                 privateError = null, lastSyncAt = null,
@@ -268,7 +268,7 @@ class CloudClient(context: Context) {
             if (auth.code == 401) {
                 sessionEpoch++
                 session.clear()
-                state = emptyChaoxing().copy(authenticated = false, authMessage = "会话过期，请重新连接",
+                state = clearAccountSnapshots().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                     lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
                     secondClass = null, secondClassError = null, secondClassBusy = false)
@@ -278,7 +278,7 @@ class CloudClient(context: Context) {
                 // An explicit authorization denial must not leave private snapshots
                 // visible under a falsely disconnected account.
                 sessionEpoch++
-                state = emptyChaoxing().copy(
+                state = clearAccountSnapshots().copy(
                     authenticated = false, privateError = "云端认证不可用",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                     lessons = emptyList(), scheduleStatus = "not_connected",
@@ -487,7 +487,7 @@ class CloudClient(context: Context) {
             if (response.code == 401) {
                 sessionEpoch++
                 session.clear()
-                state = emptyChaoxing().copy(
+                state = clearAccountSnapshots().copy(
                     authenticated = false,
                     authMessage = "校序会话已过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -511,6 +511,10 @@ class CloudClient(context: Context) {
             if (epoch == sessionEpoch) state = state.copy(secondClassBusy = false)
         }
     }
+
+    private fun clearAccountSnapshots(): CloudUiState = emptyChaoxing().copy(
+        wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null
+    )
 
     private fun emptyChaoxing(): CloudUiState = state.copy(
         chaoxingCourses = emptyList(),
@@ -812,7 +816,7 @@ class CloudClient(context: Context) {
                     session.save(token, r.json.getString("expiresAt"))
                 }
                 sessionEpoch++
-                state = emptyChaoxing().copy(
+                state = clearAccountSnapshots().copy(
                     authenticated = true, authMessage = "校序云端连接成功",
                     secondClass = null, secondClassError = null, secondClassBusy = false
                 )
@@ -844,7 +848,7 @@ class CloudClient(context: Context) {
 
     suspend fun signOut() {
         sessionEpoch++
-        state = emptyChaoxing()
+        state = clearAccountSnapshots()
         try {
             withContext(Dispatchers.IO) {
                 request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true)
