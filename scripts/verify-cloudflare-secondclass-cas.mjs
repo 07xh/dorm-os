@@ -24,6 +24,8 @@ const evidence={
  casLoginPageReachable:data.casLoginPageReachable,
  currentPasswordFormCompatible:data.currentPasswordFormCompatible,
  mode:data.mode,reason:data.reason,
+ ...(typeof data.failureStage==='string'?{failureStage:data.failureStage}:{}),
+ ...(typeof data.actionHasPathParameters==='boolean'?{actionHasPathParameters:data.actionHasPathParameters}:{}),
  ...(data.reason==='interactive_challenge_required'&&data.challengeEvidence?
  {challengeEvidence:{
   passwordFormSeen:data.challengeEvidence.passwordFormSeen===true,

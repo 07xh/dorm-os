@@ -30,6 +30,13 @@ assert.equal(summarizeSchoolSubmitFunctionScript(
  'function unrelatedHandler() { return true; }',handler).definitionSeen,false);
 
 assert.deepEqual(inspectCasForm(markup,casUrl).hidden,{execution:'e1s1',_eventId:'submit'});
+for(const [html,stage] of [
+ [markup.replace('name="username"','name="username" class="a" class="b"'),'input_attributes'],
+ [markup.replace('value="e1s1"','value="'+'s'.repeat(1001)+'"'),'hidden_length'],
+ [markup.replace('action="'+casUrl+'"','action="/authserver/login;jsessionid=SYNTHETIC"'),'action_url']
+]){
+ assert.throws(()=>inspectCasForm(html,casUrl),e=>e.failureStage===stage);
+}
 // The returned CAS form can omit the service query even though the login
 // page was fetched with the exact trusted school-owned service.
 const serviceLessForm=markup.replace('action="'+casUrl+'"','action="/authserver/login"');

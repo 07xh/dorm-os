@@ -41,6 +41,9 @@ export async function runCloudflareSecondClassCasProbe({fetcher=fetch}={}){
   casLoginPageReachable:casPageReached,
   currentPasswordFormCompatible:casPageReached&&state.loginSupported===true,
   mode:STATUSES.has(state.mode)?state.mode:'upstream_unavailable',
+  ...(['form_attributes','input_attributes','page_url','action_url','hidden_name','hidden_length'].includes(state.failureStage)?
+   {failureStage:state.failureStage,...(typeof state.actionHasPathParameters==='boolean'?
+    {actionHasPathParameters:state.actionHasPathParameters}:{})}:{}),
   reason:REASONS.has(state.reason)?state.reason:null,
   ...(state.reason==='interactive_challenge_required'&&
    state.challengeEvidence?.passwordFormSeen===true?
