@@ -18,3 +18,18 @@ const courses=model.courses({classes:[{id:'a',day:3,start:'08:00',end:'09:40',su
 assert.equal(courses.length,2,'overview includes date-specific imported classes');
 assert.equal(model.courses({classes:[],calendarEvents:[{date:'2026-11-05',subject:'Tomorrow'}]},'2026-11-04',3).length,0);
 console.log('Workspace projection: dedup, source filters, personal/platform separation, deadline precision and dated courses passed');
+
+const mixed=model.tasks({
+ local:[{id:'local-early',title:'北京时间八点',dueAt:'2026-11-04T08:00:00+08:00',done:false}],
+ cloud:[{id:'cloud-later',title:'北京时间九点',due_precision:'exact',due_at_utc:'2026-11-04T01:00:00Z',local_status:'todo'}]
+});
+assert.deepEqual(Array.from(mixed,r=>r.id),['local-early','cloud-later'],'compare instants across local +08 and cloud UTC');
+const boundary=model.tasks({
+ local:[{id:'local-next',title:'次日凌晨',dueAt:'2026-11-05T00:30:00+08:00',done:false}],
+ cloud:[{id:'cloud-first',title:'当天夜间',due_precision:'exact',due_at_utc:'2026-11-04T15:00:00Z',local_status:'todo'}]
+});
+assert.deepEqual(Array.from(boundary,r=>r.id),['cloud-first','local-next'],'UTC date boundaries must not reverse deadlines');
+const dateOnly=model.tasks({local:[{id:'date-only',title:'当日时间未知',due:'2026-11-04'}],cloud:[{id:'exact',title:'当日精确时间',due_precision:'exact',due_at_utc:'2026-11-03T18:00:00Z'}]});
+assert.deepEqual(Array.from(dateOnly,r=>r.id),['date-only','exact'],'unknown time groups by the Beijing calendar date, before timed tasks on that date');
+assert.equal(dateOnly[0].dueAt,'','sorting must not invent a precise deadline');
+console.log('Workspace deadline ordering: UTC/+08, midnight boundaries and unknown time passed');
