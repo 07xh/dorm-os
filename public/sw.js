@@ -1,7 +1,7 @@
 // CI stamps this placeholder with the exact deployed commit. A new deploy
 // activates a new app-shell cache instead of retaining yesterday's files.
 const CACHE='dorm-os-shell-__XIAOXU_RELEASE_SHA__';
-const ASSETS=['/xiaoxu-updates.js','/','/xiaoxu-base.css','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-chaoxing-homework.js','/xiaoxu-chaoxing-inbox.js','/xiaoxu-chaoxing-inbox.css','/xiaoxu-notices.js','/xiaoxu-academic-client.js','/xiaoxu-cloud-tasks.js','/xiaoxu-wechat-sync.js','/xiaoxu-deadline-reminders.js','/xiaoxu-reminders.js','/xiaoxu-owner-auth-ui.js','/xiaoxu-owner-auth.css?v=98-profile-styles','/xiaoxu-workspace.css','/xiaoxu-workspace.js'];
+const ASSETS=['/xiaoxu-android-return.js','/xiaoxu-updates.js','/','/xiaoxu-base.css','/manifest.webmanifest','/icons/dorm-os.svg','/icons/icon-192.png','/icons/icon-512.png','/xiaoxu-academic.css','/xiaoxu-task-import.js','/xiaoxu-chaoxing-cli.js','/xiaoxu-chaoxing-homework.js','/xiaoxu-chaoxing-inbox.js','/xiaoxu-chaoxing-inbox.css','/xiaoxu-notices.js','/xiaoxu-academic-client.js','/xiaoxu-cloud-tasks.js','/xiaoxu-wechat-sync.js','/xiaoxu-deadline-reminders.js','/xiaoxu-reminders.js','/xiaoxu-owner-auth-ui.js','/xiaoxu-owner-auth.css?v=98-profile-styles','/xiaoxu-workspace.css','/xiaoxu-workspace.js'];
 self.addEventListener('install',e=>{e.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  // Keep the complete old offline app until the new HTML, scripts and styles
