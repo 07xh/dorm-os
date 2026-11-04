@@ -108,5 +108,22 @@ class CollectorTests(TestCase):
                 bridge.STATE = old_state
 
 
+    def test_server_must_ack_exact_received_count(self):
+        payload = {"records": [{"messageKey": "synthetic-record"}]}
+        with patch.object(bridge.urllib.request, "build_opener") as build:
+            response = build.return_value.open.return_value.__enter__.return_value
+            response.status = 202
+            for returned in (0, 2, None, True):
+                response.read.return_value = json.dumps({
+                    "reviewStatus": "needs_review", "received": returned
+                }).encode("utf-8")
+                with self.assertRaises(bridge.BridgeError):
+                    bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_"+"x"*43, payload)
+            response.read.return_value = b'{"reviewStatus":"needs_review","received":1}'
+            self.assertEqual(bridge.submit(
+                "https://dorm-os-dk9.pages.dev", "wxu_"+"x"*43, payload
+            )["received"], 1)
+
+
 if __name__ == "__main__":
     main()
