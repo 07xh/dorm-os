@@ -282,4 +282,40 @@ const broken = mockGrid('缺少合法节次');
 runInNewContext(script, {window: broken});
 assert.match(broken.__xiaoxuExtract().error, /无法识别|不完整/);
 
+function mockHeaderGrid({day = 3, time = '1-16(单)周[3-4]', invalid = false} = {}) {
+    const weekNames = ['一', '二', '三', '四', '五', '六', '日'];
+    const cell = text => ({
+        innerText: text,
+        getAttribute: () => null,
+        querySelectorAll: () => []
+    });
+    const header = { cells: [
+        cell('节次'), ...weekNames.map(name => cell('星期' + name))
+    ] };
+    const course = invalid ? '缺少时间信息' :
+        '大学英语\n任课教师\n' + time + '\nB201';
+    const row = { cells: [
+        cell('第一大节'), ...weekNames.map((_, index) =>
+            cell(index + 1 === day ? course : ''))
+    ] };
+    const table = {
+        querySelector: () => null,
+        querySelectorAll: selector => selector === 'tr' ? [header, row] : []
+    };
+    return { document: { querySelectorAll: () => [table] }, frames: [] };
+}
+const header = mockHeaderGrid();
+runInNewContext(script, {window: header});
+const headerResult = header.__xiaoxuExtract();
+assert.equal(headerResult.items.length, 1);
+assert.equal(headerResult.items[0].day, 3);
+assert.equal(headerResult.items[0].weeks.length, 8);
+assert.equal(headerResult.items[0].startSection, 3);
+const invalidHeader = mockHeaderGrid({invalid:true});
+runInNewContext(script, {window: invalidHeader});
+assert.match(invalidHeader.__xiaoxuExtract().error, /未找到|无法识别/);
+const friday = mockHeaderGrid({day:5,time:'2-10周[5-6]'});
+runInNewContext(script, {window: friday});
+assert.equal(friday.__xiaoxuExtract().items[0].day, 5);
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
