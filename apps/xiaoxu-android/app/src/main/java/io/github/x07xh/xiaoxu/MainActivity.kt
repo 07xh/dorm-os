@@ -13,27 +13,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,7 +36,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,26 +47,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ChaoxingHomeworkPanel
 import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
-import io.github.x07xh.xiaoxu.ui.NoticesPanel
-import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
-import io.github.x07xh.xiaoxu.ui.WechatCandidatesPanel
+import io.github.x07xh.xiaoxu.ui.LocalTaskBoard
+import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
+import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -188,7 +178,8 @@ private fun NativeShell(
                     when (current) {
                         Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS },
                             openMessages = { current = Page.MESSAGES }, openWebsite = openWebsite, cloud = cloud)
-                        Page.SCHEDULE -> SchedulePage(openWebsite, cloud)
+                        Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
+                            openProfile = { current = Page.PROFILE })
                         Page.TASKS -> TasksPage(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
@@ -280,71 +271,22 @@ private fun HomePage(
 }
 
 @Composable
-private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient) {
-    Content {
-        item { Heading("课表", "仅展示青果可信来源的本人课程，不混入演示课表") }
-        item { CloudTimetablePanel(cloud, openWebsite) }
-    }
+private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit) {
+    // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
+    CloudTimetablePanel(cloud, openWebsite, openProfile)
 }
 
 @Composable
-private fun TasksPage(tasks: List<LocalTask>, dao: LocalTaskDao, cloud: CloudClient, openWebsite: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    var draft by rememberSaveable { mutableStateOf("") }
-    fun addTask() {
-        val title = draft.trim()
-        if (title.isEmpty()) return
-        draft = ""
-        scope.launch { dao.insert(LocalTask(title = title)) }
-    }
+private fun TasksPage(
+    tasks: List<LocalTask>,
+    dao: LocalTaskDao,
+    cloud: CloudClient,
+    openWebsite: () -> Unit
+) {
     Content {
-        item { Heading("任务", "本机创建、离线保存；暂不与云端作业混为一谈。") }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it.take(120) },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("添加本机任务") },
-                        singleLine = true
-                    )
-                    Button(onClick = ::addTask, enabled = draft.isNotBlank()) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("添加任务")
-                    }
-                }
-            }
-        }
-        if (tasks.isEmpty()) {
-            item { InfoCard("还没有本机任务", "可以先记录自己的待办。学习通真实作业接入后将明确标识来源。") }
-        }
-        items(tasks, key = { it.id }) { task ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = task.completed,
-                        onCheckedChange = { checked -> scope.launch { dao.setCompleted(task.id, checked) } }
-                    )
-                    Text(
-                        text = task.title,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge,
-                        textDecoration = if (task.completed) TextDecoration.LineThrough else null
-                    )
-                    IconButton(onClick = { scope.launch { dao.remove(task.id) } }) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = "删除任务")
-                    }
-                }
-            }
-        }
+        item { Heading("任务", "本机待办离线保存，来源与截止由本人填写；云端作业单独显示。") }
+        item { LocalTaskBoard(tasks, dao) }
+        // 学习通真实课程/作业读取（PR #210）保持原样，不与本机待办合并。
         item { ChaoxingHomeworkPanel(cloud, openWebsite) }
         item { CloudTasksPanel(cloud) }
     }
@@ -356,11 +298,8 @@ private fun MessagesPage(
     cloud: CloudClient,
     openArticle: (String) -> Unit
 ) {
-    Content {
-        item { Heading("消息", "学校公开通知与微信待审核分开管理") }
-        item { WechatCandidatesPanel(cloud, openWebsite) }
-        item { NoticesPanel(cloud, openArticle) }
-    }
+    // 消息中心自持整屏滚动（搜索 / 来源筛选 / 全文 sheet），因此不再外包一层 Content。
+    MessageCenterPanel(cloud, openWebsite, openArticle)
 }
 
 @Composable
@@ -368,7 +307,9 @@ private fun ConnectionsPage(openWebsite: () -> Unit, cloud: CloudClient) {
     Content {
         item { Heading("我的", "本机优先、云端可选，学校登录保持独立") }
         item { ConnectionsPanel(cloud, openWebsite) }
+        // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }
+        // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
         item { LocalTaskBackupPanel() }
     }
 }

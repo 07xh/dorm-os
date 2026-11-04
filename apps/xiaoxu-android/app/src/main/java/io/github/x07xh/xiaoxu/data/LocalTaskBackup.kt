@@ -7,10 +7,14 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val FORMAT = "xiaoxu/local-tasks-backup-v1"
+private const val FORMAT_V1 = "xiaoxu/local-tasks-backup-v1"
+private const val FORMAT_V2 = "xiaoxu/local-tasks-backup-v2"
+private val VALID_SOURCES = setOf("local", "course", "chaoxing", "second_class", "other")
 private const val MAX_BYTES = 1_048_576
 private const val MAX_TASKS = 3_000
 
@@ -29,13 +33,17 @@ class LocalTaskBackup(
         require(tasks.size <= MAX_TASKS) { "too_many_local_tasks" }
         val records = JSONArray()
         for (task in tasks) {
+            require(task.source == null || task.source in VALID_SOURCES)
+            require(task.due == null || validDue(task.due))
             records.put(JSONObject()
                 .put("title", task.title)
                 .put("completed", task.completed)
-                .put("createdAt", task.createdAt))
+                .put("createdAt", task.createdAt)
+                .put("source", task.source ?: JSONObject.NULL)
+                .put("due", task.due ?: JSONObject.NULL))
         }
         val payload = JSONObject()
-            .put("schema", FORMAT)
+            .put("schema", FORMAT_V2)
             .put("exportedAt", Instant.now().toString())
             .put("tasks", records)
             .toString().toByteArray(Charsets.UTF_8)
@@ -44,6 +52,11 @@ class LocalTaskBackup(
             ?: throw IllegalStateException("document_write_unavailable")
         output.use { it.write(payload) }
         return tasks.size
+    }
+
+    private fun validDue(value: String): Boolean {
+        if (!Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(value)) return false
+        return try { LocalDate.parse(value); true } catch (_: DateTimeParseException) { false }
     }
 
     /** Merge only; never clear the database or overwrite an existing task. */
@@ -68,7 +81,8 @@ class LocalTaskBackup(
             .decode(ByteBuffer.wrap(raw)).toString()
         val root = JSONObject(contents)
         require(root.keys().asSequence().toSet() == setOf("schema", "exportedAt", "tasks"))
-        require(root.optString("schema") == FORMAT)
+        val schema = root.getString("schema")
+        require(schema == FORMAT_V1 || schema == FORMAT_V2)
         require(Instant.parse(root.getString("exportedAt")).toEpochMilli() > 0L)
         val arr = root.getJSONArray("tasks")
         require(arr.length() <= MAX_TASKS) { "too_many_local_tasks" }
@@ -76,7 +90,9 @@ class LocalTaskBackup(
         val parsed = buildList {
             for (i in 0 until arr.length()) {
                 val item = arr.getJSONObject(i)
-                require(item.keys().asSequence().toSet() == setOf("title", "completed", "createdAt"))
+                require(item.keys().asSequence().toSet() == if (schema == FORMAT_V1)
+                    setOf("title", "completed", "createdAt")
+                    else setOf("title", "completed", "createdAt", "source", "due"))
                 val title = item.opt("title")
                 val completed = item.opt("completed")
                 val timestamp = item.opt("createdAt")
@@ -85,7 +101,18 @@ class LocalTaskBackup(
                 val at = timestamp.toLong()
                 require(at > 0L && at <= now + 86_400_000L &&
                     timestamp.toDouble() == at.toDouble())
-                add(LocalTask(title = title, completed = completed, createdAt = at))
+                val source = if (schema == FORMAT_V2 && !item.isNull("source")) {
+                    val value = item.getString("source")
+                    require(value in VALID_SOURCES)
+                    value
+                } else null
+                val due = if (schema == FORMAT_V2 && !item.isNull("due")) {
+                    val value = item.getString("due")
+                    require(validDue(value))
+                    value
+                } else null
+                add(LocalTask(title = title, completed = completed,
+                    createdAt = at, source = source, due = due))
             }
         }
         // A single Room transaction makes repeat imports idempotent even when

@@ -9,18 +9,30 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
+
+/** 本机来源代码。source 只表示"本人标注"，不代表已与学校平台核实。 */
+const val TASK_SOURCE_LOCAL = "local"
 
 /**
  * Only locally created tasks live here. Verified school records must use a separate
  * source-aware model and are never inferred from manual tasks.
+ *
+ * source / due 都是本人填写：source 是自选标签，due 是本地提醒日期（yyyy-MM-dd）。
+ * 它们不是学校平台的官方字段，任何界面都必须按"本人标注"表述。
  */
 @Entity(tableName = "local_tasks")
 data class LocalTask(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val completed: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** null = 升级前的旧任务确实没有来源标注，不推断、不补默认值。 */
+    val source: String? = null,
+    /** null = 本人没有填写截止日期。 */
+    val due: String? = null
 )
 
 @Dao
@@ -28,6 +40,7 @@ interface LocalTaskDao {
     @Query("SELECT * FROM local_tasks ORDER BY createdAt DESC, id DESC")
     fun observe(): Flow<List<LocalTask>>
 
+    /** 备份导出用：按创建时间正序的整体快照（PR #213 的 LocalTaskBackup 依赖它）。 */
     @Query("SELECT * FROM local_tasks ORDER BY createdAt ASC, id ASC")
     suspend fun snapshot(): List<LocalTask>
 
@@ -41,7 +54,20 @@ interface LocalTaskDao {
     suspend fun remove(id: Long)
 }
 
-@Database(entities = [LocalTask::class], version = 1, exportSchema = false)
+/**
+ * v1 -> v2：新增 source / due 两列。
+ * 两列都可空、都不带 SQL 默认值，因此与实体声明逐字段一致（不让 Room 在运行期因
+ * defaultValue 不匹配抛 IllegalStateException）。旧任务的标题、完成状态、创建时间原样
+ * 保留；旧任务的 source 保持 null，界面显示"未标注来源"，而不是替它编一个来源。
+ */
+internal val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE local_tasks ADD COLUMN source TEXT")
+        db.execSQL("ALTER TABLE local_tasks ADD COLUMN due TEXT")
+    }
+}
+
+@Database(entities = [LocalTask::class], version = 2, exportSchema = false)
 abstract class LocalTaskDatabase : RoomDatabase() {
     abstract fun tasks(): LocalTaskDao
 
@@ -54,7 +80,7 @@ abstract class LocalTaskDatabase : RoomDatabase() {
                     context.applicationContext,
                     LocalTaskDatabase::class.java,
                     "xiaoxu-local-tasks.db"
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }
