@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -23,11 +20,8 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,7 +33,6 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -57,14 +50,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
-import io.github.x07xh.xiaoxu.ui.ChaoxingHomeworkPanel
-import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
-import io.github.x07xh.xiaoxu.ui.LocalTaskBoard
+import io.github.x07xh.xiaoxu.ui.RealAcademicHome
+import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.SecondClassPanel
-import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.Lifecycle
@@ -200,11 +191,14 @@ private fun NativeShell(
                 }
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
                     when (current) {
-                        Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS },
-                            openMessages = { current = Page.MESSAGES }, openWebsite = openWebsite, cloud = cloud)
+                        Page.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            openSchedule = { current = Page.SCHEDULE },
+                            openTasks = { current = Page.TASKS },
+                            openMessages = { current = Page.MESSAGES },
+                            openProfile = { current = Page.PROFILE })
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                             openProfile = { current = Page.PROFILE })
-                        Page.TASKS -> TasksPage(localTasks, dao, cloud, openWebsite)
+                        Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
                     }
@@ -235,85 +229,9 @@ private fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun InfoCard(title: String, message: String, action: String? = null, onClick: (() -> Unit)? = null) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (action != null && onClick != null) {
-                TextButton(onClick = onClick) {
-                    Text(action)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomePage(
-    tasks: List<LocalTask>, openTasks: () -> Unit,
-    openMessages: () -> Unit, openWebsite: () -> Unit, cloud: CloudClient
-) {
-    val state = cloud.state
-    Content {
-        item { Heading("今天", "课程与作业仅展示已成功同步的本人数据") }
-        item {
-            InfoCard(
-                title = "本机待办：" + tasks.count { !it.completed },
-                message = "本地独立保存，断网也能查看和编辑。",
-                action = "查看任务", onClick = openTasks
-            )
-        }
-        item {
-            InfoCard(
-                title = if (state.authenticated) "云端任务：" + state.tasks.size
-                    else "云端任务未连接",
-                message = if (state.authenticated)
-                    "来自现有校序 API；学校作业的完成状态仍需与平台逐项核验。"
-                    else "连接校序云端后可查看已保存的任务。",
-                action = "管理任务", onClick = openTasks
-            )
-        }
-        item {
-            InfoCard(
-                title = "真实课表尚未在 Android 验收",
-                message = "沿用现有青果连接器，未获取可验证课程前不显示示例课程。",
-                action = "查看网站连接状态", onClick = openWebsite
-            )
-        }
-        item {
-            InfoCard(
-                title = "官方通知：" + state.notices.size + " 条",
-                message = if (state.publicError == null) "来自华水官方教务公告接口。"
-                    else "刷新失败，当前结果可能过期。",
-                action = "查看消息", onClick = openMessages
-            )
-        }
-    }
-}
-
-@Composable
 private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit) {
     // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
     CloudTimetablePanel(cloud, openWebsite, openProfile)
-}
-
-@Composable
-private fun TasksPage(
-    tasks: List<LocalTask>,
-    dao: LocalTaskDao,
-    cloud: CloudClient,
-    openWebsite: () -> Unit
-) {
-    Content {
-        item { Heading("任务", "本机待办离线保存，来源与截止由本人填写；云端作业单独显示。") }
-        item { LocalTaskBoard(tasks, dao) }
-        // 学习通真实课程/作业读取（PR #210）保持原样，不与本机待办合并。
-        item { ChaoxingHomeworkPanel(cloud, openWebsite) }
-        item { CloudTasksPanel(cloud) }
-    }
 }
 
 @Composable
