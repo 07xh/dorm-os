@@ -118,5 +118,5 @@ jobs:
             --target "$GITHUB_SHA" \
             --title '校序 Android V0.7.0 · 本机三平台连接预览' \
             --prerelease \
-            --notes 'Android V0.7.0 debug preview. The local Qingguo timetable importer and in-app school login entry have been implemented; Chaoxing and second-class local read flows are experimental. Automated CI build success is not proof that the owner\''s actual timetable, homework, activities or credits have been fully connected. Sign in only on official pages, verify all imported records against the source, and back up local data before replacing an older installation.'
+            --notes 'Android V0.7.0 debug preview. The local Qingguo timetable importer and in-app school login entry have been implemented; Chaoxing and second-class local read flows are experimental. Automated CI build success is not proof that the personal timetable, homework, activities or credits have been fully connected. Sign in only on official pages, verify all imported records against the source, and back up local data before replacing an older installation.'
           echo "Direct APK URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK}"
