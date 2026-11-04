@@ -228,7 +228,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun refresh() {
-        if (state.busy) return
+        if (state.busy || state.schoolSyncBusyProvider != null) return
         lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
@@ -505,7 +505,8 @@ class CloudClient(context: Context) {
             state = state.copy(schoolSyncMessage = "$label 已返回只读刷新成功；正在核对可信快照")
             refreshPrivate()
             if (epoch != sessionEpoch) return false
-            val verified = state.platforms.firstOrNull { it.id == provider }?.verified == true
+            val verified = state.privateError == null &&
+                state.platforms.firstOrNull { it.id == provider }?.verified == true
             state = state.copy(schoolSyncResultProvider = provider,
                 schoolSyncMessage = if (verified)
                     "$label 已取得可信连接状态；请与学校官网逐项对照"
