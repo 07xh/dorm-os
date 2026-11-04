@@ -139,6 +139,7 @@ jobs:
           test -n "$site"
           node scripts/verify-cloudflare-secondclass-cas.mjs "$site"
       - name: Deploy authenticated hourly Chaoxing Cron Worker
+        id: chaoxing_cron
         if: steps.publish_guard.outputs.fresh == 'true'
         # An unrelated optional Cron outage must not mark an already verified
         # second-class Pages release as failed. CI still logs this failure.
@@ -147,6 +148,17 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/deploy-chaoxing-hourly-cron.mjs
+      - name: Report exact optional Chaoxing Cron deployment outcome
+        if: always() && steps.publish_guard.outputs.fresh == 'true'
+        env:
+          XU_CRON_OUTCOME: ${{ steps.chaoxing_cron.outcome }}
+        run: |
+          if [ "$XU_CRON_OUTCOME" = "success" ]; then
+            echo "✅ Learning platform hourly Worker deployment completed (does not prove personal account sync)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Chaoxing hourly Worker deployment failed; Pages is deployed, but hourly school sync is NOT confirmed."
+            echo "⚠️ Learning platform hourly Worker deployment FAILED; examine the sanitized failure category above. Do not claim auto-sync is available." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Read-only audit of Academic OS D1 and Access binding names
         if: steps.publish_guard.outputs.fresh == 'true'
         continue-on-error: true
