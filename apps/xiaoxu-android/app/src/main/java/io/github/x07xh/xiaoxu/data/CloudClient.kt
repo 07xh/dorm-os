@@ -336,8 +336,8 @@ class CloudClient(context: Context) {
                     val o = array.optJSONObject(i) ?: continue
                     val id = o.optString("id")
                     val auto = o.optJSONObject("autoSync")
-                    val trustedAuto = id == "chaoxing" && o.optBoolean("autoSyncAvailable") &&
-                        auto != null
+                    val isChaoxingAuto = id == "chaoxing" && auto != null
+                    val trustedAuto = isChaoxingAuto && o.optBoolean("autoSyncAvailable")
                     add(PlatformConnection(
                         id = id, name = o.optString("name"),
                         status = o.optString("status"),
@@ -346,15 +346,15 @@ class CloudClient(context: Context) {
                         lastSuccessAt = o.optString("lastSuccessAt")
                             .takeIf { it.isNotBlank() && it != "null" },
                         autoSyncAvailable = trustedAuto,
-                        autoSyncEnabled = trustedAuto && auto!!.optBoolean("enabled"),
-                        autoSyncNextAt = if (trustedAuto) auto!!.optString("nextAt")
+                        autoSyncEnabled = isChaoxingAuto && auto!!.optBoolean("enabled"),
+                        autoSyncNextAt = if (isChaoxingAuto) auto!!.optString("nextAt")
                             .takeIf { it.isNotBlank() && it != "null" } else null,
-                        autoSyncLastRunAt = if (trustedAuto) auto!!.optString("lastRunAt")
+                        autoSyncLastRunAt = if (isChaoxingAuto) auto!!.optString("lastRunAt")
                             .takeIf { it.isNotBlank() && it != "null" } else null,
-                        autoSyncLastResult = if (trustedAuto) auto!!.optString("lastResult")
+                        autoSyncLastResult = if (isChaoxingAuto) auto!!.optString("lastResult")
                             .takeIf { it in setOf("success","partial","failed","expired","idle") }
                             else null,
-                        autoSyncFailureCount = if (trustedAuto)
+                        autoSyncFailureCount = if (isChaoxingAuto)
                             auto!!.optInt("failureCount", 0).coerceIn(0, 100) else 0
                     ))
                 }
