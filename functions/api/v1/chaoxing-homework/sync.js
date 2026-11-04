@@ -36,6 +36,7 @@ export async function onRequestPost(context){
   const code=e?.code;
   if(code==='session_expired'||code==='authorization_failed')
    return json({error:'session_expired'},409);
+  if(code==='interactive_login_required')return json({error:code},409);
   if(code==='work_not_available'||code==='courses_unverified')
    return json({error:code},422);
   if(code==='invalid_query')return json({error:code},400);
