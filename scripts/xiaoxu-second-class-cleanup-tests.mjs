@@ -24,18 +24,16 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
 assert.ok(ui.includes('打开第二课堂官网'),'official school link remains');
-assert.ok(ui.includes('学校账号真实登录尚待验收'),'honest unverified status remains');
-assert.ok(ui.includes('data-xu-cas-check="second_class"'),'explicit school CAS preflight remains');
+assert.ok(ui.includes('尚未通过本人真实学校登录验证'),'honest unverified status remains');
+assert.equal(ui.includes('data-xu-second-cas-check'),false,'retired CAS password probe must not appear');
 assert.equal(ui.includes('maybeAutoRefreshSecondClass'),false);
-assert.equal(ui.includes('data-xu-second-class-official-only'),false,'obsolete official-only blockade removed');
-assert.ok(ui.includes('form.dataset.xuSchoolLogin=checkProvider'));
-
+assert.ok(ui.includes('data-xu-second-class-official-only'),'official-only status should remain');
+assert.equal(ui.includes('form.dataset.xuSchoolLogin=\'second_class\''),false);
 assert.equal(read('functions/api/v1/_middleware.js').includes('makeNcwuCasServerAdapter'),false);
-assert.equal(read('functions/api/v1/connections/[provider]/login.js').includes('official_sso_only'),false);
-assert.ok(read('functions/api/v1/connections/[provider]/preflight.js').includes("provider==='second_class'"));
-assert.ok(read('functions/api/v1/connections.js').includes('nativeCasPreflight:available'));
-assert.ok(read('lib/academic-ncwu-secondclass-server.mjs').includes('makeNcwuSecondClassServerAdapter'));
-assert.ok(read('scripts/xiaoxu-secondclass-server-tests.mjs').includes('SYNTHETIC_ACCOUNT'));
+assert.ok(read('functions/api/v1/connections/[provider]/login.js').includes("provider==='second_class')return json({error:'official_sso_only'},410)"),
+ 'legacy login endpoint must reject old clients before reading credentials');
+assert.ok(read('functions/api/v1/connections/[provider]/preflight.js').includes("status:'official_sso_only'"));
+assert.ok(read('functions/api/v1/connections.js').includes("nativeCasPreflight:false"));
 assert.ok(!read('lib/academic-ncwu-qingguo-cas-shared.mjs').includes('dekt.ncwu.edu.cn'));
 assert.ok(read('lib/academic-ncwu-second-class.mjs').includes('NCWU_SECOND_CLASS_READS'),
  'real school HAR adapter must remain');

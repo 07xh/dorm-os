@@ -1,0 +1,7 @@
+{
+  "name": "dorm-os-chaoxing-cron",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "triggers": { "crons": ["17 * * * *"] }
+}

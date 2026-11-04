@@ -236,9 +236,19 @@
    const qrQuickAction=provider.id==='chaoxing'&&!authorized&&
     record?.qrLoginAvailable===true?
      '<button type="button" class="primary" data-xu-chaoxing-qr-start>扫码连接</button>':'';
+   const autoAction=provider.id==='chaoxing'&&record?.autoSyncAvailable&&
+    (authorized||record?.autoSync?.enabled)?
+    '<button type="button" class="secondary" data-xu-chaoxing-auto-switch="'+
+    (record.autoSync.enabled?'off':'on')+'">'+
+    (record.autoSync.enabled?'暂停后台同步':'开启每小时同步')+'</button>':'';
+   const autoSummary=provider.id==='chaoxing'&&record?.autoSync?.enabled?
+    '<small>后台每小时检查（单次最多三门）'+
+    (record.autoSync.lastRunAt?' · 上次运行 '+escapeHtml(stamp(record.autoSync.lastRunAt)):' · 等待首次运行')+
+    (record.autoSync.lastResult==='expired'?' · 会话已过期':'')+'</small>':'';
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
-    '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
+    autoAction+
+    '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':autoAction;
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
     '<p>打开官网不等于绑定成功；校序不能读取其他网站的登录 Cookie。本人课表来源验证通过后才同步。</p>'+
@@ -247,7 +257,7 @@
     '</details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
-    '<p>学校统一认证和超星独立账号是两种不同的登录方式。第三方 APK 的本机会话不自动共享给校序；会话过期可在此重新连接。网页打开时才尝试更新收件箱，暂无后台推送，提交状态待核实。</p></details>':
+    '<p>学校统一认证和超星独立账号是两种不同的登录方式。第三方 APK 的本机会话不自动共享给校序；会话过期可在此重新连接。启用后由 Cloudflare 每小时逐批核实作业；收件箱提醒仍不是已提交凭据，暂不发送系统推送。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
     '<p>学校账号真实登录尚待验收。打开官网不等于账号已绑定。本人身份与真实活动、官方积分验证后才保存加密会话；网页关闭后不执行后台同步。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
@@ -259,7 +269,7 @@
    return '<div class="xu-connection-source"><div class="xu-connection-copy">'+
     '<strong>'+escapeHtml(provider.name)+'</strong><small>'+escapeHtml(provider.what)+'</small>'+
     (record?.lastSuccessAt?'<span>上次同步 '+escapeHtml(stamp(record.lastSuccessAt))+'</span>':'')+
-    managePanel+'</div>'+
+    autoSummary+managePanel+'</div>'+
     '<div class="xu-connection-actions"><span class="xu-private-status">'+escapeHtml(schoolScopeStatus)+'</span>'+qrQuickAction+sessionTools+
     ((officialCas||nativeNcwu||provider.id==='chaoxing')?'':'<a class="secondary xu-connection-link" target="_blank" rel="noopener noreferrer" href="'+
     escapeHtml(provider.url)+'">打开学校官网</a>')+'</div></div>';
@@ -654,6 +664,30 @@
    if(details.open)expandedSchoolProviders.delete(id);
    else expandedSchoolProviders.add(id);
   },true);
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-chaoxing-auto-switch]');
+   if(!button)return;
+   const epoch=connectionEpoch,on=button.dataset.xuChaoxingAutoSwitch==='on';
+   button.disabled=true;button.textContent='正在保存…';
+   try{
+    const r=await fetch('/api/v1/connections/chaoxing/auto-sync',{
+     method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
+     headers:{accept:'application/json','content-type':'application/json'},
+     body:JSON.stringify({enabled:on})
+    });
+    const data=await r.json().catch(()=>null);
+    if(!r.ok)throw Error(data?.error==='session_expired'?'请先重新连接学习通':
+     data?.error==='autosync_not_ready'?'后台定时服务尚未启用':'自动同步设置失败');
+    if(epoch!==connectionEpoch)return;
+    const overview=await get('connections');
+    if(epoch!==connectionEpoch)return;
+    if(overview?.schema==='xiaoxu/connections-v1'&&overview.platforms?.length===3){
+     sources=overview.platforms;connectionStatusRead=true;announceUpdated();
+    }
+   }catch(e){
+    if(epoch===connectionEpoch){error=e.message||'无法保存后台同步设置';announceUpdated();}
+   }finally{if(button.isConnected)button.disabled=false;}
+  });
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-chaoxing-qr-start]');
    if(!button)return;

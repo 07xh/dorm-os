@@ -1,6 +1,6 @@
-/* Only server-owned verified adapters; third-party authorization cannot be inferred from CAS redirects. */
+/* Register active school adapters. The old second-class password CAS
+ * proxy was removed; school-owned SSO is not a third-party grant. */
 import {makeNcwuQingguoServerAdapter} from '../../../lib/academic-ncwu-qingguo-server.mjs';
-import {makeNcwuSecondClassServerAdapter} from '../../../lib/academic-ncwu-secondclass-server.mjs';
 import {createChaoxingSchoolAdapter} from '../../../lib/academic-chaoxing-provider.mjs';
 import {diagnoseChaoxingReadiness} from '../../../lib/academic-chaoxing-readiness.mjs';
 const CHAOXING_ROUTES=/^\/api\/v1\/connections(?:\/chaoxing\/(?:login|sync|import|qr\/(?:start|status|image)))?\/?$/;
@@ -17,12 +17,6 @@ export async function onRequest(context){
      /^[A-Za-z0-9_-]{43}$/.test(context.env.SCHOOL_SESSION_KEY)&&
      typeof context.env?.ACADEMIC_DB?.prepare==='function'?{
     ncwu:makeNcwuQingguoServerAdapter({trustedSyncEnabled:true})
-   }:{}),
-   ...(context.env?.NCWU_SECONDCLASS_TRUSTED_SYNC_ENABLED!=='false'&&
-     typeof context.env?.SCHOOL_SESSION_KEY==='string'&&
-     /^[A-Za-z0-9_-]{43}$/.test(context.env.SCHOOL_SESSION_KEY)&&
-     typeof context.env?.ACADEMIC_DB?.prepare==='function'?{
-    second_class:makeNcwuSecondClassServerAdapter()
    }:{})
   };
  }

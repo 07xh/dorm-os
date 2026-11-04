@@ -25,7 +25,5 @@ const denied=await loginPost({
 assert.equal(denied.status,503,'school login still requires owner authentication');
 assert.ok(!JSON.stringify(await denied.json()).includes('DO_NOT_STORE'));
 const schoolLogin=readFileSync(new URL('../functions/api/v1/connections/[provider]/login.js',import.meta.url),'utf8');
-assert.ok(!schoolLogin.includes('official_sso_only'));
-assert.ok(schoolLogin.includes('availableSchoolAdapter(context,provider)'));
-assert.ok(readFileSync(new URL('../lib/academic-ncwu-secondclass-server.mjs',import.meta.url),'utf8').includes('makeNcwuSecondClassServerAdapter'));
-console.log('Second-class official CAS: anonymous login blocked and registered server adapter required');
+assert.ok(schoolLogin.includes("provider==='second_class')return json({error:'official_sso_only'},410)"));
+console.log('Second-class official SSO only: no third-party callback or password proxy passed');

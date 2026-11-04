@@ -6,7 +6,8 @@ export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
  const provider=context.params?.provider;
- // Only a registered server-side official adapter may accept credentials.
+ // Retired second-class password submission: reject BEFORE reading any body.
+ if(provider==='second_class')return json({error:'official_sso_only'},410);
  // A school CAS round trip is only attempted through the trusted server
  // adapter. The adapter rejects interactive/unsupported challenges and only
  // saves sessions after a verified read of this owner's school records.
