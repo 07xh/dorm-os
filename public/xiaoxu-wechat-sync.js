@@ -75,6 +75,7 @@
    '<div class="button-row"><button class="secondary" type="button" data-xu-wc-pair'+
    (busy?' disabled':'')+'>生成一次性设备凭据</button></div>'+
    (oneTimeToken?'<div class="notice neutral"><strong>仅显示一次的设备凭据</strong>'+
+    '<p class="small muted">设备 ID：<code>'+esc(tokenDevice)+'</code>（电脑初始化时需要填写）</p>'+
     '<p class="small muted">此凭据相当于授权密码。仅通过可信方式传至你的电脑，切勿发送到聊天、Issue 或截图中。</p>'+
     '<code data-xu-wc-token>'+esc(oneTimeToken)+'</code>'+
     '<div class="button-row"><button type="button" class="secondary" data-xu-wc-copy>复制凭据</button>'+
