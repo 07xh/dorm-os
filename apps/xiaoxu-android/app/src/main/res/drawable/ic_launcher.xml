@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <!-- Match the existing PWA brand's geometry; the Android mask clips its square. -->
+    <path android:fillColor="#2563EB" android:pathData="M0,0 H512 V512 H0 Z" />
+    <path android:pathData="M113,258 L256,138 L399,258"
+        android:strokeColor="#FFFFFF" android:strokeWidth="32"
+        android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M157,244 V373 H355 V244 M225,373 V278 H287 V373"
+        android:strokeColor="#FFFFFF" android:strokeWidth="30"
+        android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:fillColor="#93C5FD"
+        android:pathData="M365,113 A26,26 0,1 1,365 165 A26,26 0,1 1,365 113 Z" />
+</vector>
