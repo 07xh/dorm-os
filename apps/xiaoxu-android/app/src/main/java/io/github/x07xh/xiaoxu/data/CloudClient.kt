@@ -645,7 +645,7 @@ class CloudClient(context: Context) {
             val bytes = result.toByteArray()
             if (bytes.size < 64) throw IllegalStateException("image_too_small")
             // School sometimes returns the strictly generated fallback SVG.
-            // Convert in memory without ever embedding untrusted SVG in WebView.
+            // Convert in memory without sending raw SVG to an embedded browser.
             if (type == "image/svg+xml") return NativeQrSvgRenderer.rasterize(bytes)
             val png = bytes.size >= 8 && bytes.sliceArray(0 until 8)
                 .contentEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10))
