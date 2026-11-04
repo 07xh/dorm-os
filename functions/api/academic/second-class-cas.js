@@ -63,7 +63,11 @@ export async function runCloudflareSecondClassCasProbe({fetcher=fetch}={}){
     passwordProcessingSeen:state.challengeEvidence.passwordProcessingSeen===true,
     verificationSeen:state.challengeEvidence.verificationSeen===true,
     formSubmissionSeen:state.challengeEvidence.formSubmissionSeen===true,
-    asyncSubmissionSeen:state.challengeEvidence.asyncSubmissionSeen===true
+    asyncSubmissionSeen:state.challengeEvidence.asyncSubmissionSeen===true,
+    ...Object.fromEntries(['inlineScriptCount','externalScriptTagsSeen',
+     'eligibleExternalScripts','fetchedExternalScripts','failedExternalScripts']
+     .map(k=>[k,Number.isSafeInteger(state.challengeEvidence[k])?
+      Math.max(0,Math.min(99,state.challengeEvidence[k])):0]))
    }}:{}),
   // Reaching CAS does not confer access to an owner's school account.
   userAuthenticated:false,sessionLinked:false,personalRecordsRead:false
