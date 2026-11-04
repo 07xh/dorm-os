@@ -32,6 +32,8 @@
   if(target&&target!==saved.result)target.replaceWith(saved.result);
   const hint=host?.querySelector('[data-xu-second-class-hint]');
   if(hint&&saved.hideHint)hint.hidden=true;
+  const button=host?.querySelector('[data-xu-cas-check]');
+  if(button)button.disabled=saved.busy;
  }
  const feeds=Object.fromEntries(TYPES.map(kind=>[kind,{status:'not_connected',records:[],lastSuccessAt:null}]));
  const state=kind=>feeds[kind]||{status:'not_connected',records:[]};
@@ -799,9 +801,11 @@
    const checkProvider=button.dataset.xuCasCheck;
    if(!['ncwu','second_class'].includes(checkProvider))return;
    const checkEpoch=connectionEpoch;
+   let casAttempt=null;
    if(checkProvider==='second_class'){
     clearSecondClassCasPanel();
-    secondClassCasPanel={result,epoch:checkEpoch,hideHint:false};
+    casAttempt={result,epoch:checkEpoch,hideHint:false,busy:true};
+    secondClassCasPanel=casAttempt;
    }
    
    button.disabled=true;result.textContent='正在向学校确认登录方式…';
@@ -811,7 +815,8 @@
      headers:{accept:'application/json'}
     });
     const info=await response.json().catch(()=>null);
-    if(checkProvider==='second_class'&&checkEpoch!==connectionEpoch)return;
+    if(checkProvider==='second_class'&&(checkEpoch!==connectionEpoch||
+       secondClassCasPanel!==casAttempt))return;
     if(checkProvider==='second_class'&&(!response.ok||info?.nativeLoginReady!==true||
        info?.loginSupported!==true||info?.sessionVaultReady!==true)){
      const hint=panel.querySelector('[data-xu-second-class-hint]');
@@ -898,8 +903,14 @@
     status.setAttribute('aria-live','polite');
     form.append(accountLabel,passwordLabel,hint,submit,status);
     result.replaceChildren(form);
-   }catch{result.textContent='连接状态检查失败；没有获取学校账号信息。';}
-   finally{if(button.isConnected)button.disabled=false;}
+   }catch{
+    if(checkProvider!=='second_class'||secondClassCasPanel===casAttempt)
+     result.textContent='连接状态检查失败；没有获取学校账号信息。';
+   }finally{
+    if(checkProvider==='second_class'&&secondClassCasPanel===casAttempt){
+     casAttempt.busy=false;restoreSecondClassCasPanel();
+    }else if(checkProvider!=='second_class'&&button.isConnected)button.disabled=false;
+   }
   });
 
   function showNcwuReview(form,preview){

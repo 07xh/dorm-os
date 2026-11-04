@@ -66,7 +66,9 @@ test('second-class preflight needing interactive school login never reveals pass
 
 test('verified second-class password transport exposes login and connects only after successful sync',async({page})=>{
  let linked=false,loginAttempts=0;
- await page.route('**/api/v1/**',route=>{
+ let releasePreflight;
+ const preflightGate=new Promise(resolve=>{releasePreflight=resolve;});
+ await page.route('**/api/v1/**',async route=>{
   const url=new URL(route.request().url());
   const reply=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   if(url.pathname==='/api/v1/connections')return reply({schema:'xiaoxu/connections-v1',platforms:[
@@ -77,10 +79,11 @@ test('verified second-class password transport exposes login and connects only a
     accountAuthorization:linked?'verified_session':'not_verified',
     trustedKinds:linked?['second-class']:[],importedKinds:[]}
   ]});
-  if(url.pathname==='/api/v1/connections/second_class/preflight')return reply({
-   status:'password_form_verified',nativeLoginReady:true,loginSupported:true,sessionVaultReady:true,
-   officialWeChatEntryObserved:true,qrSessionLinked:false
-  });
+  if(url.pathname==='/api/v1/connections/second_class/preflight'){
+   await preflightGate;
+   return reply({status:'password_form_verified',nativeLoginReady:true,
+    loginSupported:true,sessionVaultReady:true,officialWeChatEntryObserved:true,qrSessionLinked:false});
+  }
   if(url.pathname==='/api/v1/connections/second_class/login'){
    expect(route.request().postDataJSON()).toMatchObject({username:'SYNTHETIC',password:'TEST_ONLY'});
    linked=true;loginAttempts++;return reply({connected:true,provider:'second_class'});
@@ -94,6 +97,9 @@ test('verified second-class password transport exposes login and connects only a
  await row.locator('.xu-school-manage > summary').click();
  await expect(row.locator('input[type="password"]')).toHaveCount(0);
  await row.locator('[data-xu-cas-check="second_class"]').click();
+ await page.evaluate(()=>window.dispatchEvent(new Event('xiaoxu-school-connection-updated')));
+ await expect(row.locator('[data-xu-cas-check="second_class"]')).toBeDisabled();
+ releasePreflight();
  const form=row.locator('form[data-xu-school-login="second_class"]');
  await expect(form).toBeVisible();
  await page.evaluate(()=>window.dispatchEvent(new Event('xiaoxu-school-connection-updated')));
