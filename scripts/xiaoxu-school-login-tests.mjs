@@ -16,6 +16,8 @@ assert.equal(availableSchoolAdapter({data:{academicSchoolAdapters:{ncwu:{provide
 assert.equal(availableSchoolAdapter({},'second_class'),null);
 assert.equal(new SchoolLoginError('authorization_failed','cas_return').failureStage,'cas_return');
 assert.equal(new SchoolLoginError('authorization_failed','cas_return','login_page_remained').casReturnReason,'login_page_remained');
+for(const reason of ['cas_request_rejected','cas_rate_limited','cas_server_failure'])
+ assert.equal(new SchoolLoginError('authorization_failed','cas_return',reason).casReturnReason,reason);
 assert.equal(new SchoolLoginError('authorization_failed','cas_return','PRIVATE_DETAIL').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);

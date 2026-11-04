@@ -43,7 +43,8 @@ export async function onRequestPost(context){
   // second-class attempt. Never return CAS URLs, form values or credentials.
   const stages=new Set(['cas_return','personal_data','identity_evidence']);
   const reasons=new Set(['unexpected_response','login_page_remained',
-   'service_callback_incomplete','unexpected_school_landing']);
+   'service_callback_incomplete','unexpected_school_landing',
+   'cas_request_rejected','cas_rate_limited','cas_server_failure']);
   const secondFailure=provider==='second_class'&&
    code==='authorization_failed'&&stages.has(e?.failureStage);
   return json({error:code,...(secondFailure?{failureStage:e.failureStage}:{}),

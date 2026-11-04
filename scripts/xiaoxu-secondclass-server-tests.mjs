@@ -341,14 +341,23 @@ const casNoReturn=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>
 await assert.rejects(()=>casNoReturn.login({username:'SYNTHETIC_ACCOUNT',
  password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
  e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained');
-const abnormalStatus=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
-  return response(403,'Rejected by school');
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='unexpected_response');
+// The final CAS response class is safely identified without exposing an
+// upstream status code, response text, redirect target, or account signal.
+for(const [status,reason] of [
+ [400,'cas_request_rejected'],[401,'cas_request_rejected'],
+ [403,'cas_request_rejected'],[429,'cas_rate_limited'],
+ [500,'cas_server_failure'],[503,'cas_server_failure']
+]){
+ const abnormalStatus=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+  if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
+   return response(status,'Synthetic school response');
+  return fakeSchool(url,options);
+ }});
+ await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
+  password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
+  e.failureStage==='cas_return'&&e.casReturnReason===reason&&
+  !JSON.stringify(e).includes('Synthetic school response'));
+}
 let afterSchoolCallback=false;
 const unfinishedCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
  const u=new URL(url);
