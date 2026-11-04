@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f6f8fc">
   <meta name="description" content="校序：华水个人课表、学习任务、校园生活与 NFC 场景中心。">
   <meta name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__">
+  <script src="/xiaoxu-updates.js"></script>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/dorm-os.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1424,59 +1425,6 @@ if((requestedTag||deepLink.has('dormScene'))&&linkedTag&&encodedScene&&encodedSc
 page=location.hash.slice(1)==='devices'?'profile':nameMap[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
 loadWeather();restoreTimerState();render();fetchWeather();setInterval(tick,10000);
 updateOfflineBanner();
-// Always check the current service-worker source rather than a cached copy.
-if('serviceWorker' in navigator &&
-   (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
- navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'})
-  .then(reg=>reg.update().catch(()=>{}))
-  .catch(e=>console.warn('离线缓存注册失败',e));
-}
-// The release SHA is stamped into this HTML at publish time. Checking it
-// against the canonical site's revision catches a stale PWA tab on resume,
-// without removing the user's courses, pending tasks, or local preferences.
-let releaseProbeBusy=false;
-async function checkPublishedRelease(){
- if(releaseProbeBusy||document.hidden||!navigator.onLine)return;
- const built=document.querySelector('meta[name="xiaoxu-release"]')?.content||'';
- if(!/^[a-f0-9]{40}$/.test(built))return; // local dev, never auto-reload
- releaseProbeBusy=true;
- try{
-  const response=await fetch('/revision.json?release_check='+Date.now(),{
-   credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}
-  });
-  if(!response.ok)return;
-  const latest=await response.json();
-  if(!/^[a-f0-9]{40}$/.test(latest?.commit)||latest.commit===built)return;
-  // Never discard an unsaved form because a release happened in the background.
-  if(document.querySelector('dialog[open],input:focus,textarea:focus,[contenteditable]:focus')){
-   toast('校序有新版本，请先保存正在编辑的内容，随后重开页面更新');return;
-  }
-  const previous=sessionStorage.getItem('xiaoxu-release-reload-target');
-  if(previous===latest.commit){
-   toast('新版本已发布但当前仍有旧缓存，请关闭此标签后重新打开校序');return;
-  }
-  sessionStorage.setItem('xiaoxu-release-reload-target',latest.commit);
-  if('serviceWorker' in navigator){
-   const reg=await navigator.serviceWorker.getRegistration();
-   await reg?.update().catch(()=>{});
-  }
-  const next=new URL(location.href);
-  next.searchParams.set('_xu_release',latest.commit.slice(0,12));
-  location.replace(next.href);
- }catch{/* Offline/bad response: continue with the last usable app shell. */}
- finally{releaseProbeBusy=false;}
-}
-const releaseMarker=new URL(location.href);
-if(releaseMarker.searchParams.has('_xu_release')&&
-   releaseMarker.searchParams.get('_xu_release')===
-    document.querySelector('meta[name="xiaoxu-release"]')?.content?.slice(0,12)){
- releaseMarker.searchParams.delete('_xu_release');
- history.replaceState(null,'',releaseMarker.pathname+releaseMarker.search+releaseMarker.hash);
-}
-void checkPublishedRelease();
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkPublishedRelease();});
-setInterval(()=>{if(!document.hidden)void checkPublishedRelease();},5*60*1000);
-
 </script>
 
 </body>
