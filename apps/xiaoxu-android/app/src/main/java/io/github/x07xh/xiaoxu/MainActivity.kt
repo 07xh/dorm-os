@@ -66,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.CloudTasksPanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.NoticesPanel
@@ -184,7 +185,7 @@ private fun NativeShell(
                     when (current) {
                         Page.HOME -> HomePage(localTasks, openTasks = { current = Page.TASKS },
                             openMessages = { current = Page.MESSAGES }, openWebsite = openWebsite, cloud = cloud)
-                        Page.SCHEDULE -> SchedulePage(openWebsite)
+                        Page.SCHEDULE -> SchedulePage(openWebsite, cloud)
                         Page.TASKS -> TasksPage(localTasks, dao, cloud)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(openWebsite, cloud)
@@ -276,17 +277,10 @@ private fun HomePage(
 }
 
 @Composable
-private fun SchedulePage(openWebsite: () -> Unit) {
+private fun SchedulePage(openWebsite: () -> Unit, cloud: CloudClient) {
     Content {
-        item { Heading("课表", "手机与平板共用的原生页面") }
-        item {
-            InfoCard(
-                "尚无已验证的本机课程",
-                "正在保留青果官方登录与来源核验门禁。本版本不会凭空生成课表。",
-                "在网站查看真实连接状态",
-                openWebsite
-            )
-        }
+        item { Heading("课表", "仅展示青果可信来源的本人课程，不混入演示课表") }
+        item { CloudTimetablePanel(cloud, openWebsite) }
     }
 }
 
