@@ -93,11 +93,11 @@ class LocalTaskBackup(
         val added = database.withTransaction {
             val existing = database.tasks().snapshot()
             val seen = existing.mapTo(mutableSetOf()) {
-                Triple(it.title, it.completed, it.createdAt)
+                Pair(it.title, it.createdAt)
             }
             var count = 0
             for (task in parsed) {
-                if (seen.add(Triple(task.title, task.completed, task.createdAt))) {
+                if (seen.add(Pair(task.title, task.createdAt))) {
                     database.tasks().insert(task)
                     count++
                 }
