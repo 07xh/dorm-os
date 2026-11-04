@@ -210,6 +210,7 @@ class CloudClient(context: Context) {
 
     suspend fun refresh() {
         if (state.busy) return
+        lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
             refreshNotices()
