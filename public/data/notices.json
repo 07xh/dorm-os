@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-04T08:20:57.020Z",
+  "lastSuccessAt": "2026-11-04T09:21:25.012Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,7 +29,7 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-04T08:20:57.020Z",
+      "lastSuccessAt": "2026-11-04T09:21:25.012Z",
       "count": 29
     }
   ],
