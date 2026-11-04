@@ -206,7 +206,10 @@ assert.ok(sw.includes("const CACHE='dorm-os-shell-__XIAOXU_RELEASE_SHA__'"),
 assert.ok(html.includes('name="xiaoxu-release" content="__XIAOXU_RELEASE_SHA__"'),
  'Published HTML and worker must share the deployment revision');
 assert.ok(sw.includes("'/xiaoxu-owner-auth-ui.js'"),'PWA shell retains owner-session navigation behavior');
-assert.ok(sw.includes("'/xiaoxu-owner-auth.css'"),'PWA shell retains modal styles');
+assert.ok(html.includes('href="/xiaoxu-owner-auth.css?v=98-profile-styles"'),
+ 'Home page must keep the versioned owner modal stylesheet');
+assert.ok(sw.includes("'/xiaoxu-owner-auth.css?v=98-profile-styles'"),
+ 'PWA shell must cache the same stylesheet actually referenced by home');
 assert.ok(sw.includes("if(resp.ok && u.pathname==='/')"),'login page must never be persisted as cached home HTML');
 const calls=[];
 const mock={kind:'second-class',status:'ready',provenance:'user_import',

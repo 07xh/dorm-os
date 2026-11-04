@@ -15,8 +15,11 @@ assert.ok(!html.includes('androidAutomationGuide')&&!html.includes('MacroDroid')
  'Retired Android automation tutorial and handlers must be removed');
 const literalAssets=sw.match(/const ASSETS=\[([\s\S]*?)\];/)?.[1];
 assert.ok(literalAssets,'Expected explicit PWA app-shell asset list');
-const assets=new Set([...literalAssets.matchAll(/'([^']+)'/g)]
- .map(m=>m[1].split('?')[0]));
+const listedAssets=[...literalAssets.matchAll(/'([^']+)'/g)]
+ .map(m=>m[1].split('?')[0]);
+assert.equal(new Set(listedAssets).size,listedAssets.length,
+ 'PWA precache must not download duplicate copies of the same static asset');
+const assets=new Set(listedAssets);
 const linked=[...html.matchAll(/<(?:script|link)\b[^>]*?(?:src|href)="(\/xiaoxu-[^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)]
  .map(m=>m[1].split('?')[0]);
 assert.ok(linked.length>=12,'Expected real page asset references');
