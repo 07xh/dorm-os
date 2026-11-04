@@ -7,6 +7,22 @@ on:
 permissions:
   contents: read
 jobs:
+  wechat-windows-scheduler:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate optional Windows schedule script without registering tasks
+        shell: powershell
+        run: |
+          $tokens=$null; $parseErrors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile(".\integrations\wechat\schedule.ps1", [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -ne 0) { $parseErrors | ForEach-Object { Write-Host ("Syntax: line " + $_.Extent.StartLineNumber + " " + $_.Message) }; throw "PowerShell scheduling script syntax invalid" }
+          Import-Module ScheduledTasks -ErrorAction Stop
+          $trigger = New-ScheduledTaskTrigger -Daily -At "00:00"
+          $repeat = New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="P1D";StopAtDurationEnd=$false}
+          $trigger.Repetition = $repeat
+          if ($trigger.Repetition.Interval -ne "PT15M" -or $trigger.Repetition.Duration -ne "P1D") { throw "Repetition pattern mismatch" }
+          & .\integrations\wechat\schedule.ps1 status
   check:
     runs-on: ubuntu-latest
     steps:
