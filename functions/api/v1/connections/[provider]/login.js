@@ -39,6 +39,11 @@ export async function onRequestPost(context){
   return json(result,200);
  }catch(e){
   const code=e instanceof SchoolLoginError?e.code:'sync_failed';
-  return json({error:code},responseCode({code}));
+  // Emit only fixed, non-sensitive failure phases for the owner's own
+  // second-class attempt. Never return CAS URLs, form values or credentials.
+  const stages=new Set(['cas_return','personal_data','identity_evidence']);
+  return json({error:code,...(provider==='second_class'&&
+   code==='authorization_failed'&&stages.has(e?.failureStage)?
+   {failureStage:e.failureStage}:{})},responseCode({code}));
  }
 }
