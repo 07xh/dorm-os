@@ -56,7 +56,7 @@ test('second-class personal API renders accurate source, known-only totals and d
  await page.evaluate(()=>window.setPage('settings'));
  await expect(page.locator('.xu-private-panel')).toBeVisible();
  await page.getByRole('button',{name:'刷新状态'}).click();
- await expect(page.locator('.xu-private-panel')).toContainText('可信只读记录');
+ await expect(page.locator('.xu-private-panel')).toContainText('上次同步');
  await page.evaluate(()=>window.setPage('academic'));
  await page.locator('[data-academic-tab="second"]').click();
  await expect(panel).toContainText('授权只读同步');

@@ -28,7 +28,7 @@ test('private reminder inbox requires active authorization, saves read state and
  });
  await page.goto('/#settings');
  await page.locator('.xu-settings-more > summary').click();
- await page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'云端任务、提醒与旧数据迁移'}).locator('summary').first().click();
+ await page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'云端任务与提醒'}).locator('summary').first().click();
  const panel=page.getByRole('region',{name:'个人云端提醒'});
  await expect(panel).toContainText('未连接');
  expect(calls).toBe(0,'no private API should be fetched before opt-in access');
@@ -46,7 +46,7 @@ test('private reminder inbox requires active authorization, saves read state and
  await expect(panel).not.toContainText('联动验收用考试');
  await page.reload();
  await page.locator('.xu-settings-more > summary').click();
- await page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'云端任务、提醒与旧数据迁移'}).locator('summary').first().click();
+ await page.locator('.xu-advanced-tools:not(.xu-settings-more)').filter({hasText:'云端任务与提醒'}).locator('summary').first().click();
  await expect(panel).toContainText('未连接');
  expect(enabled).toBe(true,'server-side preference persisted independently of page reload');
  expect(read).toBe(true,'server-side receipt persisted independently of page reload');
