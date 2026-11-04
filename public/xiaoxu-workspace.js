@@ -4,6 +4,17 @@
  'use strict';
  const names={chaoxing:'学习通',ncwu:'青果教务',second_class:'第二课堂',wechat:'微信',manual:'个人'};
  const sourceKey=(provider,id)=>provider&&id?provider+'|'+id:'';
+ const chinaDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'});
+ function deadlineOrder(row){
+  const instant=row.dueAt?Date.parse(row.dueAt):NaN;
+  if(Number.isFinite(instant)){
+   const parts=Object.fromEntries(chinaDate.formatToParts(new Date(instant)).map(p=>[p.type,p.value]));
+   return {day:parts.year+'-'+parts.month+'-'+parts.day,instant};
+  }
+  // A date-only task has no known hour. Group it first on its calendar date;
+  // never write a guessed time back into the task or its displayed deadline.
+  return {day:/^\d{4}-\d{2}-\d{2}$/.test(row.due)?row.due:'9999',instant:null};
+ }
  function tasks({local=[],cloud=[],remote=[]}={}, {filter='all',source='all'}={}){
   const rows=[],keys=new Set(),localIds=new Set(local.map(r=>r.id));
   function add(row){
@@ -28,8 +39,10 @@
     sourceId:r.externalId,done:false,due:'',dueAt:r.dueAt||'',platformStatus:r.platformStatus||'unknown',raw:r});
   }
   return rows.filter(r=>(filter==='open'?!r.done:filter==='done'?r.done:true)&&
-   (source==='all'||r.source===source)).sort((a,b)=>Number(a.done)-Number(b.done)||
-    (a.dueAt||a.due||'9999').localeCompare(b.dueAt||b.due||'9999')||String(a.id).localeCompare(String(b.id)));
+   (source==='all'||r.source===source)).map(row=>({row,deadline:deadlineOrder(row)}))
+   .sort((a,b)=>Number(a.row.done)-Number(b.row.done)||a.deadline.day.localeCompare(b.deadline.day)||
+    (a.deadline.instant===null?b.deadline.instant===null?0:-1:b.deadline.instant===null?1:a.deadline.instant-b.deadline.instant)||
+    String(a.row.id).localeCompare(String(b.row.id))).map(entry=>entry.row);
  }
  function courses({classes=[],calendarEvents=[]}={},date,day){
   return [...classes.filter(r=>r.day===day).map(r=>({...r,origin:'local'})),
