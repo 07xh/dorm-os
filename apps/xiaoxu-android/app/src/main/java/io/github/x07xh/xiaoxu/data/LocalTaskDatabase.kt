@@ -28,6 +28,9 @@ interface LocalTaskDao {
     @Query("SELECT * FROM local_tasks ORDER BY createdAt DESC, id DESC")
     fun observe(): Flow<List<LocalTask>>
 
+    @Query("SELECT * FROM local_tasks ORDER BY createdAt ASC, id ASC")
+    suspend fun snapshot(): List<LocalTask>
+
     @Insert
     suspend fun insert(task: LocalTask)
 

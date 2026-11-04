@@ -1,0 +1,110 @@
+package io.github.x07xh.xiaoxu.ui
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import io.github.x07xh.xiaoxu.data.LocalTaskBackup
+import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** Backup is manually initiated and uses the Android system document picker. */
+@Composable
+fun LocalTaskBackupPanel() {
+    val context = LocalContext.current
+    val backup = remember(context) {
+        LocalTaskBackup(LocalTaskDatabase.open(context), context.contentResolver)
+    }
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    val create = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null && !busy) {
+            busy = true
+            scope.launch {
+                message = try {
+                    val count = withContext(Dispatchers.IO) { backup.exportTo(uri) }
+                    "导出完成：$count 条本机手动任务。请妥善保管此文件。"
+                } catch (_: Exception) {
+                    "导出失败，备份文件可能不完整，请重新导出。"
+                }
+                busy = false
+            }
+        }
+    }
+
+    val open = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && !busy) {
+            busy = true
+            scope.launch {
+                message = try {
+                    val (added, skipped) = withContext(Dispatchers.IO) {
+                        backup.mergeFrom(uri)
+                    }
+                    "恢复完成：新增加 $added 条，跳过重复 $skipped 条，原有任务未被删除。"
+                } catch (_: Exception) {
+                    "恢复失败：文件格式、内容或读取权限不符合要求。本机原有任务未更改。"
+                }
+                busy = false
+            }
+        }
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("本机任务备份与恢复", style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold)
+            Text(
+                "安装 V0.6 后可以先导出手动任务，再为后续版本升级做备份。旧版若因签名不同无法升级，不能使用此新版功能取回旧版数据，请勿直接卸载。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { create.launch("xiaoxu-local-tasks.json") },
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f)
+                ) { Text("导出本机任务") }
+                OutlinedButton(
+                    onClick = { open.launch(arrayOf("application/json", "text/plain")) },
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f)
+                ) { Text("恢复备份") }
+            }
+            Text(
+                "仅包含本机手动任务的标题、完成状态和创建时间。JSON 文件未加密；不会导出账号、Cookie、学校作业或云端任务。请勿分享含个人信息的备份。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        }
+    }
+}
