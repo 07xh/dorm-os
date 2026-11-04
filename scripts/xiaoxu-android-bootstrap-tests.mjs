@@ -69,7 +69,19 @@ assert.match(main, /CloudTimetablePanel/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
-assert.match(main, /CloudTasksPanel/);
+const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
+assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite\)/);
+assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
+assert.match(workspace, /fun combineWorkspaceTasks\(/);
+assert.match(workspace, /fun RealAcademicHome\(/);
+assert.match(workspace, /fun RealAcademicTaskHub\(/);
+assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
+assert.match(workspace, /CloudTasksPanel\(client\)/);
+assert.match(workspace, /不能据此推断学校没有作业/);
+assert.match(workspace, /当前教学周未核实/);
+assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
+assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
@@ -95,7 +107,7 @@ assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTAC
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
 const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
-assert.match(main, /ChaoxingHomeworkPanel\(cloud, openWebsite\)/);
+assert.match(workspace, /ChaoxingHomeworkPanel\(client, openWebsite\)/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\?view=courses/);
 assert.match(cloud, /\/api\/v1\/chaoxing-homework\/sync/);
 assert.match(cloud, /loadChaoxingCourses/);
