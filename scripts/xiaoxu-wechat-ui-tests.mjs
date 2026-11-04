@@ -53,6 +53,7 @@ vm.runInNewContext(readFileSync(new URL('../public/xiaoxu-wechat-sync.js',import
 const ui=context.XiaoxuWechat;
 assert.ok(ui&&typeof ui.panel==='function');
 assert.equal(calls.length,0,'importing the UI must never poll personal data');
+assert.doesNotMatch(ui.panel(),/确认加入待办/,'before login there is no data to accept');
 await ui.refreshIfStale();
 assert.equal(calls.length,0,'no private auto read before verified owner login');
 verifiedOwner=true;
@@ -66,7 +67,7 @@ await ui.refreshIfStale(0);
 assert.equal(calls.length,2,'background tab must not auto poll');
 context.document.hidden=false;
 assert.match(ui.panel(),/微信待审核/);
-assert.doesNotMatch(ui.panel(),/确认加入待办/);
+assert.match(ui.panel(),/确认加入待办/,'verified owner sees candidates but must manually accept');
 const click=async attrs=>{
  const button={
   hasAttribute:k=>Object.hasOwn(attrs,k),
