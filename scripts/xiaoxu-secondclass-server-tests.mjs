@@ -89,6 +89,9 @@ async function fakeSchool(url,options){
   return response(200,markup,{'set-cookie':'school_auth=auth-opaque; Path=/authserver/; Secure'});
  if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login'&&method==='POST'){
   assert.ok(options.headers.cookie?.includes('school_auth=auth-opaque'));
+  // Preserve ordinary official CAS form metadata, not a caller URL.
+  assert.equal(options.headers.origin,'https://authserver.ncwu.edu.cn');
+  assert.equal(options.headers.referer,casUrl);
   const data=new URLSearchParams(options.body);
   assert.deepEqual(Object.fromEntries(data),{
    execution:'e1s1',_eventId:'submit',username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
