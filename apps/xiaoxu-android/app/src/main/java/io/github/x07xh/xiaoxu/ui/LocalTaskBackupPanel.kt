@@ -82,7 +82,7 @@ fun LocalTaskBackupPanel() {
             Text("本机任务备份与恢复", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
             Text(
-                "升级调试 APK 可能遇到签名不同、无法覆盖安装。先导出手动任务，重装后再恢复。",
+                "安装 V0.6 后可以先导出手动任务，再为后续版本升级做备份。旧版若因签名不同无法升级，不能使用此新版功能取回旧版数据，请勿直接卸载。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
