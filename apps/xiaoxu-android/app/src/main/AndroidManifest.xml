@@ -23,6 +23,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".NativeSchoolConnectActivity"
+            android:exported="false"
+            android:label="校序 · 官方页面本机连接" />
         <!-- Backwards-compatible real-site entry, never the main launcher. -->
         <activity
             android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
