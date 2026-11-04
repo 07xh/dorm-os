@@ -57,7 +57,9 @@ assert.deepEqual(challenge.challengeEvidence,{
  challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:false,
  submitHandlerKind:'none',schoolScriptDefinitionSeen:false,sourceType:'unknown',
  passwordProcessingSeen:false,verificationSeen:false,formSubmissionSeen:false,
- asyncSubmissionSeen:false
+ asyncSubmissionSeen:false,
+ inlineScriptCount:0,externalScriptTagsSeen:0,
+ eligibleExternalScripts:0,fetchedExternalScripts:0,failedExternalScripts:0
 });
 assert.equal(challenge.sessionLinked,false);
 const submitOnly=await runCloudflareSecondClassCasProbe({fetcher:async(url,options)=>{
@@ -77,7 +79,9 @@ assert.deepEqual(submitOnly.challengeEvidence,{
  submitHandlerKind:'named_function_call',submitHandlerName:'checkLogin',
  schoolScriptDefinitionSeen:false,sourceType:'unknown',
  passwordProcessingSeen:false,verificationSeen:false,formSubmissionSeen:false,
- asyncSubmissionSeen:false
+ asyncSubmissionSeen:false,
+ inlineScriptCount:0,externalScriptTagsSeen:0,
+ eligibleExternalScripts:0,fetchedExternalScripts:0,failedExternalScripts:0
 });
 assert.equal(submitOnly.userAuthenticated,false);
 assert.equal(submitOnly.sessionLinked,false);
@@ -105,6 +109,10 @@ assert.equal(scripted.challengeEvidence?.schoolScriptDefinitionSeen,true);
 assert.equal(scripted.challengeEvidence?.sourceType,'school_static_js');
 assert.equal(scripted.challengeEvidence?.formSubmissionSeen,true);
 assert.equal(scripted.challengeEvidence?.verificationSeen,false);
+assert.equal(scripted.challengeEvidence?.externalScriptTagsSeen,1);
+assert.equal(scripted.challengeEvidence?.eligibleExternalScripts,1);
+assert.equal(scripted.challengeEvidence?.fetchedExternalScripts,1);
+assert.equal(scripted.challengeEvidence?.failedExternalScripts,0);
 assert.equal(scripted.sessionLinked,false);
 assert.deepEqual(observedScripts,[{host:'authserver.ncwu.edu.cn',
  method:'GET',credentialHeaders:false}]);
