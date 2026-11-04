@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 
 // Browser-level App-first test. All messages and tokens are synthetic and
 // intercepted before reaching a server. No real WeChat or school account.
-test('WeChat candidates require deliberate read and owner confirmation',async({page})=>{
+test('WeChat candidates auto-read after verified login but require manual confirmation',async({page})=>{
  const device='wxd_'+'a'.repeat(24),candidate='b'.repeat(20);
  const token='wxu_'+'c'.repeat(43);
  let devices=[],records=[{
@@ -13,6 +13,10 @@ test('WeChat candidates require deliberate read and owner confirmation',async({p
   reviewStatus:'needs_review'
  }];
  const calls=[];
+ await page.addInitScript(()=>localStorage.setItem('xiaoxu_owner_login_seen','1'));
+ await page.route('**/api/v1/auth/me',async route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({authenticated:true,expiresAt:'2026-11-07T00:00:00Z'})
+ }));
  await page.route('**/api/v1/wechat/**',async route=>{
   const req=route.request(),url=new URL(req.url());
   calls.push({path:url.pathname,method:req.method(),origin:req.headers()['origin']||''});
@@ -36,16 +40,16 @@ test('WeChat candidates require deliberate read and owner confirmation',async({p
   await route.fulfill({status:code,contentType:'application/json',body:JSON.stringify(result)});
  });
  await page.goto('/#tasks');
- // The new workspace keeps all private inboxes inside a deliberate Review tab.
- // Navigating to that tab must NOT fetch any personal WeChat data.
+ // Auto-read only follows a verified owner session; the Review tab shows cached candidates.
+ await expect.poll(()=>calls.filter(x=>x.method==='GET').length).toBe(2);
  await page.locator('[data-filter="review"]').click();
  const panel=page.getByRole('region',{name:'微信待审核任务'});
  await expect(panel).toBeVisible();
- expect(calls.length).toBe(0,'private candidate APIs must not be fetched at page load');
+ await expect(panel.locator('.xu-wc-details')).toContainText('1 条待确认');
  await panel.locator('summary').click();
- await panel.getByRole('button',{name:'读取我的候选消息'}).click();
  await expect(panel.getByText('请在周五前提交示例报告')).toBeVisible();
- expect(calls.map(x=>x.method)).toEqual(['GET','GET']);
+ expect(calls.filter(x=>x.method==='GET').length).toBe(2);
+ expect(calls.some(x=>x.method==='POST'&&x.path.includes('/candidates/'))).toBe(false);
 
  // The same original tasks page is responsible for reviewing and confirming.
  await panel.getByRole('button',{name:'确认加入待办'}).click();
