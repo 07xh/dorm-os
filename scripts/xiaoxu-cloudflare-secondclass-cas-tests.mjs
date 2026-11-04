@@ -52,5 +52,9 @@ assert.equal(challenge.officialEntryReachable,true);
 assert.equal(challenge.casLoginPageReachable,true);
 assert.equal(challenge.currentPasswordFormCompatible,false);
 assert.equal(challenge.reason,'interactive_challenge_required');
+assert.deepEqual(challenge.challengeEvidence,{
+ passwordFormSeen:true,challengeControlSeen:true,challengeMarkupSeen:true,
+ challengeScriptSeen:false,passwordTransformationSeen:false,submitHandlerSeen:false
+});
 assert.equal(challenge.sessionLinked,false);
 console.log('Cloudflare CAS public-only edge probe: public redirect, service binding, challenge and no-session proof passed');
