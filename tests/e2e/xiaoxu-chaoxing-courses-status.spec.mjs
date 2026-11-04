@@ -21,10 +21,9 @@ test('verified owner reads courses then official homework statuses in one click'
  await page.route('**/api/v1/second-class',route=>route.fulfill({
   status:200,contentType:'application/json',body:'{"status":"not_connected","records":[]}'
  }));
- await page.route('**/api/v1/chaoxing-homework?**',route=>{
-  const q=new URL(route.request().url()).searchParams;
-  requests.push(q.get('view')+':'+(q.get('courseId')||''));
-  const data=q.get('view')==='courses'?{courses:[
+ const respond=(route,view,courseId)=>{
+  requests.push(view+':'+(courseId||''));
+  const data=view==='courses'?{courses:[
    {courseId:'123',classId:'456',cpi:'789',title:'Python 基础'},
    {courseId:'321',classId:'654',cpi:'987',title:'工程制图'}
   ]}:q.get('courseId')==='123'?{
@@ -34,9 +33,20 @@ test('verified owner reads courses then official homework statuses in one click'
    ]}:{verifiedEmpty:false,items:[
     {workId:'333',title:'三视图练习',status:'待公布',statusCode:'unknown',platformVerified:true}
    ]};
+  if(view==='list')data.sync={received:data.items.length,coverage:'partial'};
   return route.fulfill({status:200,contentType:'application/json',
-   body:JSON.stringify({schema:'xiaoxu/chaoxing-work-browser-v1',view:q.get('view'),
+   body:JSON.stringify({schema:'xiaoxu/chaoxing-work-browser-v1',view,
     live:true,data})});
+ };
+ await page.route('**/api/v1/chaoxing-homework/sync',route=>{
+  expect(route.request().method()).toBe('POST');
+  const params=route.request().postDataJSON();
+  expect(Object.keys(params).sort()).toEqual(['classId','courseId','cpi']);
+  return respond(route,'list',params.courseId);
+ });
+ await page.route('**/api/v1/chaoxing-homework?**',route=>{
+  const q=new URL(route.request().url()).searchParams;
+  return respond(route,q.get('view'),q.get('courseId'));
  });
  await page.goto('/#settings');
  await page.locator('[data-action="academic-connect"]').click();
