@@ -31,6 +31,8 @@ internal fun NativeScenesSection(
     var scenes by remember { mutableStateOf(store.list()) }
     var editing by remember { mutableStateOf<NativeScene?>(null) }
     var rootApproval by remember { mutableStateOf<NativeScene?>(null) }
+    var adoptTagOpen by remember { mutableStateOf(false) }
+    var existingTagUri by remember { mutableStateOf("") }
     val p = LocalV2Palette.current
     Spacer(Modifier.height(18.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -45,7 +47,11 @@ internal fun NativeScenesSection(
             }, shape = RoundedCornerShape(12.dp)
         ) { Text("＋ 新建", fontSize = 13.sp) }
     }
-    Spacer(Modifier.height(8.dp))
+    TextButton(onClick = {
+        existingTagUri = ""
+        adoptTagOpen = true
+    }) { Text("沿用已有 NFC 标签（无需重写）", color = p.blue, fontSize = 12.sp) }
+    Spacer(Modifier.height(4.dp))
     Surface(color = p.surface, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, p.line)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)) {
             if (scenes.isEmpty()) {
@@ -81,6 +87,61 @@ internal fun NativeScenesSection(
     Text("原生场景存于本机；旧 KernelSU 场景独立保留。微信消息始终由你手动发送。",
         fontSize = 11.sp, color = p.muted,
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 7.dp))
+    if (adoptTagOpen) {
+        val existingId = NativeSceneRules.existingTagSceneId(existingTagUri)
+        AlertDialog(
+            onDismissRequest = { adoptTagOpen = false },
+            title = { Text("沿用已有 NFC 标签") },
+            text = {
+                Column {
+                    Text(
+                        "输入 NFC Tools 读取的完整场景 URI，或提示里的场景编号。"
+                            + "这里只配置当前安装的 TapFlow，不覆盖原贴纸；旧 App 的动作不会自动迁移。",
+                        color = p.muted, fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = existingTagUri,
+                        onValueChange = { if (it.length <= 160) existingTagUri = it },
+                        label = { Text("标签 URI 或场景编号") },
+                        placeholder = { Text("tapflow://scene/wechat-group-01") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (existingTagUri.isNotBlank() && existingId == null) {
+                        Text("地址无效：仅支持 tapflow://scene/<场景编号> 或已有场景编号",
+                            color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                    }
+                    if (existingId != null) {
+                        Text(
+                            if (scenes.any { it.id == existingId })
+                                "这个场景已存在，可以直接编辑。"
+                            else "将建立本机场景 $existingId，保存后即可识别旧标签。",
+                            color = p.muted, fontSize = 11.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = existingId != null,
+                    onClick = {
+                        val id = existingId ?: return@TextButton
+                        editing = scenes.firstOrNull { it.id == id }
+                            ?: NativeScene(
+                                id,
+                                "沿用 NFC 标签",
+                                listOf(NativeStep(NativeKind.COPY, "请填写要复制的文字"))
+                            )
+                        adoptTagOpen = false
+                    }
+                ) { Text("配置此场景") }
+            },
+            dismissButton = {
+                TextButton(onClick = { adoptTagOpen = false }) { Text("取消") }
+            }
+        )
+    }
     editing?.let { scene ->
         NativeSceneEditorSheet(
             scene = scene, scripts = scripts,
