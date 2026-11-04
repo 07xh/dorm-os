@@ -50,15 +50,15 @@
     const n = Number(value);
     return n <= 80 ? n : -1;
   }
-  function findGrids(win, depth) {
+  function findTables(win, depth) {
     if (depth > 4) return [];
     const found = [];
     try {
       const doc = win.document;
       for (const table of doc.querySelectorAll("table")) {
-        if (table.querySelector("td.td")) found.push(table);
+        found.push(table);
       }
-      for (let i = 0; i < win.frames.length; i++) found.push(...findGrids(win.frames[i], depth + 1));
+      for (let i = 0; i < win.frames.length; i++) found.push(...findTables(win.frames[i], depth + 1));
     } catch (_) { /* cross-origin frame; no cookie or network fallback */ }
     return found;
   }
@@ -105,6 +105,70 @@
     if (carried.some(n => n > 0)) bad++;
     return { items: courses, seen: blocksSeen, blocked: bad };
   }
+
+  /*
+   * The upstream MIT Qingguo adapter also supports tables identified by
+   * 星期一…星期日 headers instead of td.td classes. This fallback maps each day
+   * to its actual header column; it does NOT guess weekday from cell offsets.
+   * Merged data cells or incomplete course blocks are fail-closed.
+   */
+  function parseHeaderGrid(table) {
+    const rows = [...table.querySelectorAll("tr")];
+    if (rows.length < 2 || rows.length > 100) return null;
+    const dayMap = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 7, "天": 7 };
+    let headerIndex = -1, columnForDay = null, expectedCells = 0;
+    for (let rowIndex = 0; rowIndex < Math.min(rows.length, 4); rowIndex++) {
+      const headers = [...(rows[rowIndex].cells || [])];
+      const columns = new Map();
+      headers.forEach((cell, col) => {
+        const matched = /^(?:星期|周)([一二三四五六日天])$/.exec(tidy(cell.innerText || ""));
+        if (matched) columns.set(dayMap[matched[1]], col);
+      });
+      if (columns.size === 7 && new Set(columns.values()).size === 7 &&
+          headers.every(cell => span(cell.getAttribute("colspan")) === 1)) {
+        headerIndex = rowIndex;
+        columnForDay = columns;
+        expectedCells = headers.length;
+        break;
+      }
+    }
+    if (headerIndex < 0) return null;
+    const courses = [];
+    let seen = 0, blocked = 0;
+    for (const row of rows.slice(headerIndex + 1)) {
+      const cells = [...(row.cells || [])];
+      // Treat visible bracketed course markers as evidence of a data row.
+      const hasCourse = cells.some(cell => /[\[【]\s*\d{1,2}\s*[-~～至]/.test(cell.innerText || ""));
+      if (!hasCourse) continue;
+      if (cells.length !== expectedCells ||
+          cells.some(cell => span(cell.getAttribute("rowspan")) !== 1 ||
+            span(cell.getAttribute("colspan")) !== 1)) {
+        blocked++;
+        continue;
+      }
+      for (let day = 1; day <= 7; day++) {
+        const cell = cells[columnForDay.get(day)];
+        if (!cell) { blocked++; continue; }
+        const formatted = [...cell.querySelectorAll("div")].filter(div =>
+          /padding-bottom\s*:\s*5px/i.test(div.getAttribute("style") || ""));
+        const lineGroups = formatted.length
+          ? formatted.map(readLines)
+          : (() => {
+              const lines = readLines(cell);
+              if (!lines.some(line => /[\[【]\s*\d{1,2}\s*[-~～至]/.test(line))) return [];
+              if (lines.length % 4 !== 0) return [lines];
+              return Array.from({ length: lines.length / 4 }, (_, n) => lines.slice(n * 4, n * 4 + 4));
+            })();
+        for (const lines of lineGroups) {
+          seen++;
+          const result = parseBlock(lines, day);
+          if (result) courses.push(result); else blocked++;
+        }
+      }
+    }
+    return { items: courses, seen, blocked };
+  }
+
   function merge(items) {
     // Combine identical meetings by explicit week/section occupancy, not by
     // silently choosing a weekday or discarding teacher/location differences.
@@ -144,15 +208,22 @@
     return output;
   }
   window.__xiaoxuExtract = function () {
-    const grids = findGrids(window, 0);
-    // The NCWU page also contains a details table with duplicated IDs. Only
-    // its explicit 7-day timetable grid is suitable for this local importer.
-    const candidates = grids.map(parseGrid).filter(x => x && x.seen > 0);
+    const tables = findTables(window, 0);
+    // Prefer explicitly marked seven-day grids. Different sites/versions can
+    // use normal <td> without a .td class, so use the weekday-header fallback
+    // only when no recognized class grid exists.
+    const classGrids = tables.filter(t => t.querySelector("td.td"));
+    let candidates = classGrids.map(parseGrid).filter(x => x && x.seen > 0);
+    if (!candidates.length) {
+      candidates = tables.filter(t => !t.querySelector("td.td"))
+        .map(parseHeaderGrid).filter(x => x && x.seen > 0);
+    }
     if (candidates.length !== 1)
-      return { error: candidates.length ? "多个课表网格，无法确认目标" : "当前页面没有可识别的七日课表网格" };
+      return { error: candidates.length ? "识别到多个课表，无法确定应导入哪一个" :
+        "当前页未找到可完整识别的七日课表；请在官网进入个人课表页面（必要时切换电脑版）" };
     const result = candidates[0];
     if (result.blocked > 0 || result.items.length !== result.seen)
-      return { error: "课表存在无法识别的课块，请勿导入不完整结果" };
+      return { error: "识别到 " + result.seen + " 个课块，其中 " + result.blocked + " 个结构不完整；已保护原有课表，请在官方课表核对后重试" };
     const items = merge(result.items);
     if (!items.length || items.length > 300)
       return { error: "未获得完整课程，旧课表保持不变" };
