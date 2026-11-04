@@ -64,4 +64,9 @@ test('verified owner reads courses then official homework statuses in one click'
  await expect(host).toContainText('官方状态未知');
  await expect(host).not.toContainText('循环练习');
  expect(requests).toContain('list:321');
+ await host.locator('[data-xu-work-all]').click();
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('已处理 2 / 2');
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('成功 2 门');
+ expect(requests.filter(x=>x==='list:123').length).toBeGreaterThanOrEqual(2);
+ expect(requests.filter(x=>x==='list:321').length).toBeGreaterThanOrEqual(2);
 });
