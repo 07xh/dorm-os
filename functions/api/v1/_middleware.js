@@ -20,7 +20,7 @@ export async function onRequest(context){
    }:{})
   };
  }
- if(CHAOXING_ROUTES.test(path)||path==='/api/v1/chaoxing-homework'){
+ if(CHAOXING_ROUTES.test(path)||(path==='/api/v1/chaoxing-homework'||path==='/api/v1/chaoxing-homework/sync')){
   context.data??={};
   const state=await diagnoseChaoxingReadiness(context);
   context.data.academicChaoxingReadiness=state;

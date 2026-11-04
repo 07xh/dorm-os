@@ -108,8 +108,14 @@
    .map(r=>{
     const done=r.local_status==='done';
     const platform=r.platform_status;
-    const status=platform?({todo:'平台待交',submitted:'平台已提交',graded:'平台已批阅',returned:'平台已退回',unknown:'平台状态未核实'}[platform]||'平台未核实'):
+    const inboxNotice=r.source_provider==='chaoxing'&&
+     typeof r.source_external_id==='string'&&r.source_external_id.startsWith('cxn:');
+    const officialWork=r.source_provider==='chaoxing'&&
+     typeof r.source_external_id==='string'&&r.source_external_id.startsWith('work:');
+    const label=platform?({todo:'官方待提交',submitted:'官方已提交',graded:'官方已批阅',returned:'官方已退回',unknown:'官方状态未知'}[platform]||'平台未核实'):
       r.kind==='platform'?'历史平台记录 · 尚未验证':'云端个人任务';
+    const status=inboxNotice?'收件箱提醒 · 未关联官方作业':
+     officialWork?label:platform?({todo:'平台待交',submitted:'平台已提交',graded:'平台已批阅',returned:'平台已退回',unknown:'平台状态未核实'}[platform]||label):label;
     const action=done?'todo':'done';
     return '<div class="task-item xu-cloud-task" data-origin="cloud-workspace">'+
      '<div class="task-main '+(done?'done':'')+'"><div class="entry-title">'+esc(r.title)+'</div>'+

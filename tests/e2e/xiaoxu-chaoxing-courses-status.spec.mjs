@@ -21,22 +21,32 @@ test('verified owner reads courses then official homework statuses in one click'
  await page.route('**/api/v1/second-class',route=>route.fulfill({
   status:200,contentType:'application/json',body:'{"status":"not_connected","records":[]}'
  }));
- await page.route('**/api/v1/chaoxing-homework?**',route=>{
-  const q=new URL(route.request().url()).searchParams;
-  requests.push(q.get('view')+':'+(q.get('courseId')||''));
-  const data=q.get('view')==='courses'?{courses:[
+ const respond=(route,view,courseId)=>{
+  requests.push(view+':'+(courseId||''));
+  const data=view==='courses'?{courses:[
    {courseId:'123',classId:'456',cpi:'789',title:'Python 基础'},
    {courseId:'321',classId:'654',cpi:'987',title:'工程制图'}
-  ]}:q.get('courseId')==='123'?{
+  ]}:courseId==='123'?{
    verifiedEmpty:false,items:[
     {workId:'111',title:'循环练习',status:'已提交',statusCode:'submitted',platformVerified:true},
     {workId:'222',title:'列表作业',status:'未提交',statusCode:'todo',platformVerified:true}
    ]}:{verifiedEmpty:false,items:[
     {workId:'333',title:'三视图练习',status:'待公布',statusCode:'unknown',platformVerified:true}
    ]};
+  if(view==='list')data.sync={received:data.items.length,coverage:'partial'};
   return route.fulfill({status:200,contentType:'application/json',
-   body:JSON.stringify({schema:'xiaoxu/chaoxing-work-browser-v1',view:q.get('view'),
+   body:JSON.stringify({schema:'xiaoxu/chaoxing-work-browser-v1',view,
     live:true,data})});
+ };
+ await page.route('**/api/v1/chaoxing-homework/sync',route=>{
+  expect(route.request().method()).toBe('POST');
+  const params=route.request().postDataJSON();
+  expect(Object.keys(params).sort()).toEqual(['classId','courseId','cpi']);
+  return respond(route,'list',params.courseId);
+ });
+ await page.route('**/api/v1/chaoxing-homework?**',route=>{
+  const q=new URL(route.request().url()).searchParams;
+  return respond(route,q.get('view'),q.get('courseId'));
  });
  await page.goto('/#settings');
  await page.locator('[data-action="academic-connect"]').click();
@@ -54,4 +64,9 @@ test('verified owner reads courses then official homework statuses in one click'
  await expect(host).toContainText('官方状态未知');
  await expect(host).not.toContainText('循环练习');
  expect(requests).toContain('list:321');
+ await host.locator('[data-xu-work-all]').click();
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('已处理 2 / 2');
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('成功 2 门');
+ expect(requests.filter(x=>x==='list:123').length).toBeGreaterThanOrEqual(2);
+ expect(requests.filter(x=>x==='list:321').length).toBeGreaterThanOrEqual(2);
 });
