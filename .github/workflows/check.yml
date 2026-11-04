@@ -16,7 +16,7 @@ jobs:
         run: |
           $tokens=$null; $parseErrors=$null
           [System.Management.Automation.Language.Parser]::ParseFile(".\integrations\wechat\schedule.ps1", [ref]$tokens, [ref]$parseErrors) | Out-Null
-          if ($parseErrors.Count -ne 0) { throw "PowerShell scheduling script syntax invalid" }
+          if ($parseErrors.Count -ne 0) { $parseErrors | ForEach-Object { Write-Host ("Syntax: line " + $_.Extent.StartLineNumber + " " + $_.Message) }; throw "PowerShell scheduling script syntax invalid" }
           Import-Module ScheduledTasks -ErrorAction Stop
           $trigger = New-ScheduledTaskTrigger -Daily -At "00:00"
           $repeat = New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="P1D";StopAtDurationEnd=$false}
