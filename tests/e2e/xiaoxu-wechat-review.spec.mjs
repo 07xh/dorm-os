@@ -46,7 +46,7 @@ test('WeChat candidates auto-read after verified login but require manual confir
  const panel=page.getByRole('region',{name:'微信待审核任务'});
  await expect(panel).toBeVisible();
  await expect(panel.locator('.xu-wc-details')).toContainText('1 条待确认');
- await panel.locator('summary').click();
+ await panel.locator('.xu-wc-details > summary').click();
  await expect(panel.getByText('请在周五前提交示例报告')).toBeVisible();
  expect(calls.filter(x=>x.method==='GET').length).toBe(2);
  expect(calls.some(x=>x.method==='POST'&&x.path.includes('/candidates/'))).toBe(false);
