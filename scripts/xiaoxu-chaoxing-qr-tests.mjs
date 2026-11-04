@@ -76,8 +76,8 @@ const badImage=createChaoxingSchoolAdapter({fetchImpl:async()=>new Response('<ht
 const fallback=await badImage.readQrImage({challenge:decoded});
 assert.equal(fallback.contentType,'image/svg+xml');
 assert.equal(fallback.source,'local');
-assert.match(fallback.body,/<svg[\\s>]/);
-assert.match(fallback.body,/<\\/svg>/);
+assert.ok(fallback.body.includes('<svg'));
+assert.ok(fallback.body.includes('</svg>'));
 assert.ok(fallback.body.length>500&&fallback.body.length<220000);
 assert.ok(!fallback.body.includes(enc)&&!fallback.body.includes(uuid),
  'fallback SVG must encode ticket only as QR modules, never as raw markup');
