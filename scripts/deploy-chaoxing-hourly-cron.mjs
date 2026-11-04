@@ -27,7 +27,14 @@ function wrangler(args,input){
   env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}
  });
  // stdout/stderr can contain Cloudflare internals. Do not echo them in CI.
- if(out.error||out.status!==0)throw Error('wrangler_operation_failed');
+ if(out.error||out.status!==0){
+  // Stage name alone is safe; do not log shell stdout/stderr, database names,
+  // Cloudflare IDs, secret values, response bodies or URLs.
+  const stage=args[0]==='deploy'?'worker_deploy':
+   args[0]==='secret'?'worker_secret':
+   args.some(v=>String(v).startsWith('--file='))?'d1_migration':'d1_query';
+  throw Error('wrangler_'+stage+'_failed');
+ }
  return out.stdout;
 }
 function rows(dbName,sql){
