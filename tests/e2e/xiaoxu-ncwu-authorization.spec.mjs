@@ -69,8 +69,7 @@ test('website password fields appear only when trusted server advertises a valid
  const center=page.getByRole('region',{name:'统一数据连接中心'});
  const ncwu=center.locator('.xu-connection-source').filter({hasText:'华水青果教务'});
  await ncwu.locator('.xu-school-manage > summary').click();
- await expect(ncwu.getByText('在校序网页登录连接')).toBeVisible();
- await ncwu.locator('.xu-school-connect summary').click();
+ await expect(ncwu.locator('form[data-xu-school-login="ncwu"]')).toBeVisible();
  await expect(ncwu.locator('input[name="username"]')).toHaveCount(1);
  await expect(ncwu.locator('input[name="password"]')).toHaveCount(1);
  await expect(center.locator('.xu-connection-source').filter({hasText:'学习通'}).locator('input[name="password"]')).toHaveCount(0);

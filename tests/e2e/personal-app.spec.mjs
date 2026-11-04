@@ -190,7 +190,7 @@ test('V7 academic navigation retains legacy management entry points',async({page
  const nav=page.locator('#sidebarNav');
  await expect(nav.locator('[data-page]')).toHaveCount(5);
  await nav.locator('[data-page="profile"]').click();
- await expect(page.locator('#app')).toContainText('个人设置与数据连接');
+ await expect(page.locator('#app')).toContainText('账户与设备');
  await page.locator('.x-v7-legacy-links summary').click();
  for(const id of ['nfc','scenes','life'])
   await expect(page.locator('.x-v7-legacy-list [data-page="'+id+'"]')).toBeVisible();

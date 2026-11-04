@@ -46,7 +46,7 @@ test('official Chaoxing session import uses existing connection center and owner
  const source=panel.locator('.xu-connection-source').filter({hasText:'学习通'});
  await source.locator('.xu-school-manage > summary').click();
  const importPanel=source.locator('.xu-chaoxing-import');
- await expect(importPanel.getByText('已在官方学习通登录？导入本人有效会话（无需校园密码）')).toBeVisible();
+ await expect(importPanel.getByText('导入本人官方会话（高级）')).toBeVisible();
  await expect(importPanel.locator('textarea[name="cookieExport"]')).toBeHidden();
  await importPanel.locator('summary').click();
  const textarea=importPanel.locator('textarea[name="cookieExport"]');

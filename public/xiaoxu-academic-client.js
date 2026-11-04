@@ -213,12 +213,12 @@
      '<p class="tiny muted">仅本次向超星官方接口认证；校序不保存密码，验证本人身份与课程数据后才保存加密会话。</p>'+
      '<button type="submit" class="primary">使用超星独立账号连接</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p>'+
      '</form></details></div>':
-     '<details class="xu-school-connect"><summary>'+ (authorized?'账号管理 / 重新连接':'在校序网页登录连接')+'</summary>'+
+     '<div class="xu-school-connect">'+
      '<form data-xu-school-login="'+escapeHtml(provider.id)+'" autocomplete="on">'+
      '<label>学校账号<input name="username" type="text" autocomplete="username" maxlength="128" required placeholder="学校系统登录账号"></label>'+
      '<label>学校密码<input name="password" type="password" autocomplete="current-password" maxlength="512" required placeholder="仅本次登录使用"></label>'+
      '<p class="tiny muted">仅提交安全服务端验证，不在浏览器保存密码。</p>'+
-     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></details>'):
+     '<button type="submit" class="primary">登录并同步</button><p class="tiny" role="status" aria-live="polite" data-xu-school-result></p></form></div>'):
     chaoxingBlocked||(active?'<p class="tiny muted xu-school-pending" data-school-unavailable="'+escapeHtml(provider.id)+'">此平台暂不支持站内登录，不接收学校账号或密码。</p>':'');
    const schoolScopeStatus=provider.id==='second_class'?'官方登录尚未接入':
     authorized&&provider.id==='chaoxing'&&record.syncPending===true?'已认证 · 数据待同步':
@@ -235,15 +235,15 @@
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':'';
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
-    '<p>打开官网不会自动绑定校序；仅在本人身份与课表来源通过验证后同步。</p>'+
+    '<p>打开官网不等于绑定成功；校序不能读取其他网站的登录 Cookie。本人课表来源验证通过后才同步。</p>'+
     (!nativeNcwu?'<button type="button" class="secondary" data-xu-ncwu-check>只读诊断华水教务入口</button>'+
     '<p class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-result>仅检测学校登录页面，不收集账号或密码，也不表示绑定成功。</p>':'')+
     '</details>':
     provider.id==='chaoxing'?
     '<details class="xu-provider-guide"><summary>学习通连接方式</summary>'+
-    '<p>学校统一认证和超星独立账号不同。第三方 APK 的本机会话不自动共享给校序。验证成功后仅在网页打开时尝试更新收件箱；暂无后台推送，提交状态待核实。</p></details>':
+    '<p>学校统一认证和超星独立账号是两种不同的登录方式。第三方 APK 的本机会话不自动共享给校序；会话过期可在此重新连接。网页打开时才尝试更新收件箱，暂无后台推送，提交状态待核实。</p></details>':
     '<details class="xu-provider-guide"><summary>第二课堂连接状态</summary>'+
-    '<p>本人授权会话尚未通过本人真实学校登录验证；只展示已保存记录，不获取学校密码或 Cookie。</p></details>';
+    '<p>尚未通过本人真实学校登录验证；打开官网不等于账号已绑定。仅显示已保存记录，不获取学校密码或 Cookie。</p></details>';
    const managePanel=authPanel||guidance||ncwuAutoHint?
     '<details class="xu-school-manage" data-xu-school-provider="'+escapeHtml(provider.id)+'"'+
      (qrResuming||expandedSchoolProviders.has(provider.id)?' open':'')+'><summary>'+
@@ -271,7 +271,7 @@
    '</div>'+
    (!active?'<p class="tiny muted xu-connection-not-loaded" role="status">先登录校序，再读取连接状态。</p>':'')+
    '<div class="xu-connection-list">'+entries+'</div>'+(error?'<p class="small xu-private-error" role="alert">'+escapeHtml(error)+'</p>':'')+
-   '<details class="xu-connection-more"><summary>高级设置与诊断</summary>'+ 
+   '<details class="xu-connection-more"><summary>高级设置与诊断</summary>'+ '<p class="tiny muted">校序登录与学校账号授权是两回事。</p>'+ 
    '<button type="button" class="secondary" data-action="academic-disconnect">清除此页私人数据</button>'+ 
    '<details class="xu-connection-diagnostics"><summary>校序数据服务自检</summary>'+
    '<p class="tiny muted">仅检测本人登录和 D1 学业表结构，不检查学校账号是否已连接，也不会修改数据。</p>'+
