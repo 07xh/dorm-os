@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.net.URL
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
 import javax.crypto.Cipher
@@ -166,6 +167,13 @@ class CloudClient(context: Context) {
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
+
+    /** Hash of this App's owner session, never the Cookie itself. */
+    fun ownerSessionBinding(): String? = session.load()?.let { token ->
+        Base64.getUrlEncoder().withoutPadding().encodeToString(
+            MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))
+        )
+    }
 
     private fun request(path: String, method: String = "GET",
                         body: JSONObject? = null, authenticated: Boolean = false): HttpResult {
@@ -519,6 +527,62 @@ class CloudClient(context: Context) {
             return false
         } finally {
             if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+
+    /**
+     * One-time browser return is only a navigation event, never a grant.
+     * Reuse the existing encrypted owner session + verified school API to
+     * read actual records. Do not trust the browser or return URI as proof.
+     */
+    suspend fun completeSchoolReturn(provider: String) {
+        if (provider !in setOf("chaoxing", "ncwu", "second_class")) return
+        val epoch = sessionEpoch
+        state = state.copy(schoolSyncResultProvider = provider,
+            schoolSyncMessage = "已返回校序；正在通过本人会话核验学校授权和真实数据")
+        // Read the current owner /auth/me and fresh provider connection state.
+        refreshPrivate()
+        if (epoch != sessionEpoch) return
+        if (!state.authenticated) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "校序本人会话失效；请在 App 内重新连接后再尝试")
+            return
+        }
+        if (state.privateError?.contains("连接状态") == true) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "无法核验最新学校连接状态，暂不显示授权成功")
+            return
+        }
+        val platform = state.platforms.firstOrNull { it.id == provider }
+        if (platform?.sessionState != "active") {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (platform?.sessionState == "review_pending")
+                    "青果课表仍需要在学校连接中心确认预览；未标记已连接"
+                else "尚未证实学校本人授权；请完成官方登录后再返回")
+            return
+        }
+        if (provider == "chaoxing") {
+            loadChaoxingCourses()
+            if (epoch != sessionEpoch) return
+            val count = state.chaoxingCourses.size
+            if (count > 0 && state.chaoxingError == null) {
+                // Only first course, bounded by the existing owner-scoped
+                // server endpoint. Never imply every course was synced.
+                syncChaoxingCourse()
+            }
+            if (epoch != sessionEpoch) return
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = when {
+                    count == 0 -> "学习通会话可用，但本人课程读取未成功；未确认接入"
+                    state.chaoxingError != null ->
+                        "已读取 $count 门课程；首门课程作业尚未核验，仍可在任务页手动检查"
+                    else -> "已读取 $count 门课程并检查首门课程作业；请与官方学习通逐项核对"
+                })
+        } else {
+            // Uses existing POST /connections/{provider}/sync and its
+            // trusted GET validation. No new CAS client or school parser.
+            syncAuthorizedSchool(provider)
         }
     }
 
