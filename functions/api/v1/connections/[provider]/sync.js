@@ -4,7 +4,6 @@ export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
  const provider=context.params?.provider;
- if(provider==='second_class')return json({error:'official_sso_only'},410);
  const adapter=availableSchoolAdapter(context,provider);
  if(!adapter)return json({error:'school_login_unavailable'},503);
  try{
