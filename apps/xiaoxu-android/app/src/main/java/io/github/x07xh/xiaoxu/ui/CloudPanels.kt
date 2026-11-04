@@ -116,21 +116,24 @@ fun CloudTasksPanel(client: CloudClient) {
 
 @Composable
 fun ConnectionsPanel(
-    client: CloudClient, openWebsite: () -> Unit, openLocalSchool: (String) -> Unit
+    client: CloudClient, openWebsite: () -> Unit,
+    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
     // Never save the passphrase across configuration changes.
     var passphrase by remember { mutableStateOf("") }
-    var cloudAdvanced by rememberSaveable { mutableStateOf(false) }
+    var cloudAdvanced by rememberSaveable { mutableStateOf(true) }
+    var localAdvanced by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LocalSchoolConnectionPanel(openLocalSchool)
-        HorizontalDivider()
+        Text("学校数据连接", style = MaterialTheme.typography.titleLarge)
+        Text("优先使用校序既有服务端授权和可信读取；原有本机读取保留为备选。",
+            style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { cloudAdvanced = !cloudAdvanced }) {
-            Text(if (cloudAdvanced) "收起可选云端连接" else "可选：校序云端连接与旧版学校适配")
+            Text(if (cloudAdvanced) "收起校序服务端连接" else "显示校序服务端连接")
         }
         if (cloudAdvanced) {
-        Text("校序云端（可选）", style = MaterialTheme.typography.titleLarge,
+        Text("校序安全连接", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
         Text(state.authMessage,
             style = MaterialTheme.typography.bodyMedium,
@@ -160,9 +163,6 @@ fun ConnectionsPanel(
                 Text("最近读取校序云端：" + state.lastSyncAt,
                     style = MaterialTheme.typography.labelSmall)
             }
-        }
-        TextButton(onClick = openWebsite) {
-            Text("打开现有数据连接中心（官方登录与诊断）")
         }
         HorizontalDivider()
         Text("学校数据连接", style = MaterialTheme.typography.titleLarge,
@@ -213,10 +213,17 @@ fun ConnectionsPanel(
                                 Text(if (refreshing) "正在读取…" else "刷新本人数据")
                             }
                         }
-                        TextButton(
-                            onClick = openWebsite,
+                        Button(
+                            enabled = client.ownerSessionBinding() != null,
+                            onClick = { startSchoolAuthorization(id) },
                             modifier = Modifier.heightIn(min = 48.dp)
-                        ) { Text("学校授权") }
+                        ) {
+                            Text(when (platform?.sessionState) {
+                                "expired", "unreadable" -> "重新授权"
+                                "active" -> "管理授权"
+                                else -> "连接账号"
+                            })
+                        }
                     }
                     if (id == "chaoxing") {
                         if (state.chaoxingCourses.isNotEmpty()) {
@@ -244,6 +251,12 @@ fun ConnectionsPanel(
         if (state.privateError != null) {
             Text(state.privateError, color = MaterialTheme.colorScheme.error)
         }
-        } // optional Cloudflare-based school connector management
+        TextButton(onClick = openWebsite) { Text("网页备用连接 / 诊断") }
+        } // Existing Cloudflare-based school connector management
+        HorizontalDivider()
+        TextButton(onClick = { localAdvanced = !localAdvanced }) {
+            Text(if (localAdvanced) "收起本机读取（备选）" else "本机读取（备选）")
+        }
+        if (localAdvanced) LocalSchoolConnectionPanel(openLocalSchool)
     }
 }

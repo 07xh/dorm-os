@@ -248,7 +248,22 @@ assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?andr
 assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
 assert.match(main, /provider == "ncwu"/);
 assert.match(main, /LocalQingguoImportActivity::class\.java/);
-assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool\)/);
+assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool, startSchoolAuthorization\)/);
+assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
+assert.match(panels, /startSchoolAuthorization\(id\)/);
+assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
+assert.match(manifest, /android:scheme="xiaoxu" android:host="school-auth-return"/);
+const handoff = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SchoolAuthReturn.kt');
+assert.match(handoff, /SecureRandom\(\)\.nextBytes\(bytes\)/);
+assert.match(handoff, /MessageDigest\.isEqual/);
+assert.match(handoff, /ownerBinding != savedOwner/);
+assert.match(handoff, /prefs\.edit\(\)\.clear\(\)\.commit\(\)/);
+assert.doesNotMatch(handoff, /CookieManager|document\.cookie|SCHOOL_SESSION_KEY|WebView/);
+const appReturn = read('public/xiaoxu-android-return.js');
+assert.match(read('public/index.html'), /xiaoxu-android-return\.js/);
+assert.match(appReturn, /sessionStorage\.removeItem\(KEY\)/);
+assert.match(appReturn, /xiaoxu:\/\/school-auth-return/);
+assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
 assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
@@ -271,7 +286,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.1'/);
+assert.match(appGradle, /versionName '0\.7\.2'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
