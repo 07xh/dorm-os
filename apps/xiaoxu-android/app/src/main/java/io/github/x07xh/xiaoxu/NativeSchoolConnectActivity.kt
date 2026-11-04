@@ -19,7 +19,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
-import io.github.x07xh.xiaoxu.data.NativeSchoolDatabase
+import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
@@ -234,8 +234,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         withContext(Dispatchers.IO) {
-                            NativeSchoolDatabase.open(applicationContext)
-                                .records().replaceKind(provider, kind, accepted)
+                            LocalTaskDatabase.open(applicationContext)
+                                .nativeSchoolRecords().replaceKind(provider, kind, accepted)
                         }
                         tell("已保存 " + accepted.size +
                             " 条本机官方页面记录。尚需与你的学校／学习通页面核对；不是云端自动同步。")
