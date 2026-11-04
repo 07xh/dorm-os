@@ -578,7 +578,19 @@
    headers:{'content-type':'application/json','accept':'application/json'},
    body:JSON.stringify(payload)});
   const result=await response.json().catch(()=>null);
-  if(!response.ok)throw Error(schoolMessage[result?.error]||'连接操作失败');
+  if(!response.ok){
+   // An authorization_failed response alone is NOT evidence of a wrong
+   // password or an unlinked school account. Distinguish trusted phases.
+   const secondClassStageText={
+    cas_return:'学校 CAS 提交后未进入第二课堂。可能是账号验证未完成或学校跳转发生变化，请先在官网确认登录是否正常。',
+    personal_data:'学校活动或积分接口未返回可核验的本人数据，不能判定账号未关联；本次没有保存会话。',
+    identity_evidence:'学校接口未提供唯一、可信的本人身份标识；本次没有保存会话。'
+   };
+   if(provider==='second_class'&&result?.error==='authorization_failed'&&
+      Object.hasOwn(secondClassStageText,result?.failureStage))
+    throw Error(secondClassStageText[result.failureStage]);
+   throw Error(schoolMessage[result?.error]||'连接操作失败');
+  }
   return result;
  }
  // Reuse only a verified owner-bound encrypted NCWU session.
