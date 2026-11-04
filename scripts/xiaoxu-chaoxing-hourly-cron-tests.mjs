@@ -71,7 +71,11 @@ const readOwner=async({userId,reader})=>{
  assert.equal(userId,'owner-1');reads++;return reader(source,proof);
 };
 const adapter={provider:'chaoxing',forSession:async()=>source};
-const opt={now,readOwner};
+let renewed=0;
+const renew=async({userId,proof})=>{
+ assert.equal(userId,'owner-1');assert.equal(proof.session.uid,'1001');renewed++;
+};
+const opt={now,readOwner,renew};
 let first=await runChaoxingAutoCycle(db,adapter,'synthetic-secret',opt);
 assert.equal(first.status,'success');assert.equal(first.coursesChecked,3);
 assert.deepEqual(calls,['100','101','102']);
@@ -84,12 +88,12 @@ let second=await runChaoxingAutoCycle(db,adapter,'synthetic-secret',opt);
 assert.equal(second.status,'success');
 assert.deepEqual(calls.slice(3),['103','104','100']);
 assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM academic_assignments").get().n,5);
-assert.equal(reads,2);
+assert.equal(reads,2);assert.equal(renewed,2);
 sqlite.prepare("UPDATE academic_sync_jobs SET enabled=0,next_at=?,lease_until=NULL").run(now());
 assert.equal((await runChaoxingAutoCycle(db,adapter,'synthetic-secret',opt)).status,'idle');
 sqlite.prepare("UPDATE academic_sync_jobs SET enabled=1,next_at=?,lease_until=NULL").run(now());
 let failing=async()=>{const error=Error('hidden school data');error.code='session_expired';throw error;};
-const expired=await runChaoxingAutoCycle(db,adapter,'synthetic-secret',{now,readOwner:failing});
+const expired=await runChaoxingAutoCycle(db,adapter,'synthetic-secret',{now,readOwner:failing,renew});
 assert.equal(expired.status,'expired');
 assert.equal(sqlite.prepare("SELECT enabled FROM academic_sync_jobs").get().enabled,0);
 assert.equal((await runChaoxingAutoCycle(db,adapter,'synthetic-secret',opt)).status,'idle');
