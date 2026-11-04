@@ -25,6 +25,10 @@ assert.equal(source.includes('browserBridge'),false,'obsolete provider state rem
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
 assert.ok(ui.includes('打开官网（不会绑定校序）'),'official link remains but cannot be mistaken for binding');
 assert.ok(ui.includes('官网登录不会自动关联校序'),'honest unverified CAS status remains');
+assert.ok(ui.includes('扫码会话尚未接入校序'),'QR not a linked session');
+assert.ok(ui.includes('检测扫码接入'),'QR discovery actionable');
+assert.equal(ui.includes('第二课堂连接状态'),false,'duplicate guide removed');
+assert.ok(read('functions/api/v1/connections/[provider]/preflight.js').includes('qrSessionLinked:false'));
 assert.ok(ui.includes('data-xu-cas-check="second_class"'),'explicit school CAS preflight remains');
 assert.equal(ui.includes('maybeAutoRefreshSecondClass'),false);
 assert.equal(ui.includes('data-xu-second-class-official-only'),false,'obsolete official-only blockade removed');
