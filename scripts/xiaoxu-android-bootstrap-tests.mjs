@@ -101,7 +101,7 @@ assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v1/);
 assert.match(taskBackup, /withTransaction/);
 assert.match(taskBackup, /MAX_BYTES/);
 assert.match(taskBackup, /MAX_TASKS/);
-assert.match(taskBackup, /seen\.add\(Triple/);
+assert.match(taskBackup, /seen\.add\(Pair/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.CreateDocument/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
