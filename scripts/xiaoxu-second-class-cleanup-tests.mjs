@@ -24,7 +24,11 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
 assert.ok(ui.includes('打开第二课堂官网'),'official school link remains');
-assert.ok(ui.includes('学校账号真实登录尚待验收'),'honest unverified status remains');
+assert.ok(ui.includes('扫码会话尚未接入校序'),'honest unverified QR status remains');
+assert.ok(ui.includes('检测扫码接入'),'QR discovery is actionable');
+assert.equal(ui.includes('第二课堂连接状态'),false,'duplicate second-class details removed');
+assert.ok(read('functions/api/v1/connections/[provider]/preflight.js').includes('qrSessionLinked:false'),
+ 'never return a verified QR session without a real session-binding flow');
 assert.ok(ui.includes('data-xu-cas-check="second_class"'),'explicit school CAS preflight remains');
 assert.equal(ui.includes('maybeAutoRefreshSecondClass'),false);
 assert.equal(ui.includes('data-xu-second-class-official-only'),false,'obsolete official-only blockade removed');

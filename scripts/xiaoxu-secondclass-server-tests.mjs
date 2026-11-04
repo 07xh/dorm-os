@@ -2,7 +2,7 @@
  * No real credentials, student records, HTTP requests or CAS tickets.
  */
 import assert from 'node:assert/strict';
-import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError}
+import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError,observeOfficialWeChatEntry}
  from '../lib/academic-ncwu-secondclass-server.mjs';
 import {NCWU_SECOND_CLASS_READS} from '../lib/academic-ncwu-second-class.mjs';
 const school='https://dekt.ncwu.edu.cn';
@@ -84,6 +84,29 @@ const adapter=makeNcwuSecondClassServerAdapter({fetcher:fakeSchool});
 const preflight=await adapter.preflight();
 assert.deepEqual(preflight,{loginSupported:true,mode:'password_form_verified'});
 assert.equal(receivedCredential,false,'preflight must not collect or submit credentials');
+assert.equal(observeOfficialWeChatEntry('<p>请使用微信扫码登录</p>'),true);
+assert.equal(observeOfficialWeChatEntry('<script>请使用微信扫码登录</script>'),false,
+ 'script-only text does not prove a visible school QR option');
+assert.equal(observeOfficialWeChatEntry('<div>学校官方密码登录</div>'),false);
+// Discover the visible school option without QR token, secret, callback or cookies.
+const qrEntry=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
+  return response(200,'<section>请使用微信扫码登录</section>'+markup);
+ return fakeSchool(url,options);
+}});
+assert.deepEqual(await qrEntry.preflight(),{
+ loginSupported:true,mode:'password_form_verified',officialWeChatEntryObserved:true
+});
+const qrWithChallenge=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
+  return response(200,'<p>请使用微信扫码登录</p>'+markup.replace('</form>',
+   '<input name="captcha" type="text"></form>'));
+ return fakeSchool(url,options);
+}});
+assert.deepEqual(await qrWithChallenge.preflight(),{
+ loginSupported:false,mode:'interactive_login_required',
+ reason:'interactive_challenge_required',officialWeChatEntryObserved:true
+});
 const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
 assert.equal(receivedCredential,true);
 assert.equal(connected.session.studentCode,student);
