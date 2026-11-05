@@ -170,20 +170,42 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     val items = result.optJSONArray("items")
                         ?: throw IllegalArgumentException("课表数据为空")
                     val count = LocalScheduleStore.parseCourses(items.toString()).size
+                    val previous = LocalScheduleStore.load(this).size
+                    val fewer = previous > 0 && count < previous
+                    val summary = "本次识别到 ${count} 个课程课块" +
+                        (if (previous > 0) "，本机原有 ${previous} 个" else "") +
+                        "。请与官网逐项核对星期、周次、节次、教师、教室。\n\n" +
+                        (if (fewer)
+                            "注意：本次课块数量比原本少。可能是本学期课程调整，也可能是网站课表识别不全；未确认前建议保留旧课表。\n\n"
+                         else "") +
+                        "这是本机页面导入，不等于学校官方实时同步。"
+                    val commitImport = {
+                        try {
+                            val saved = LocalScheduleStore.save(this, items.toString())
+                            Toast.makeText(this, "已保存 ${saved} 个课块", Toast.LENGTH_LONG).show()
+                            finish()
+                        } catch (e: Exception) {
+                            status.text = e.message ?: "本机保存失败，旧课表未修改"
+                        }
+                    }
                     AlertDialog.Builder(this)
-                        .setTitle("确认本机导入")
-                        .setMessage("读取到 ${count} 个课程课块。请与官方课表逐项核对星期、周次、节次、教师和教室。此操作不会上传到云端，也不代表官方认证。\n\n保存后可在校序“课表”页直接查看。")
-                        .setNegativeButton("取消", null)
-                        .setPositiveButton("保存到本机") { _, _ ->
-                            try {
-                                val saved = LocalScheduleStore.save(this, items.toString())
-                                Toast.makeText(this, "已保存 ${saved} 个课块", Toast.LENGTH_LONG).show()
-                                finish()
-                            } catch (e: Exception) {
-                                status.text = e.message ?: "本机保存失败，旧课表未修改"
+                        .setTitle(if (fewer) "本次课表可能不完整" else "确认本机导入")
+                        .setMessage(summary)
+                        .setNegativeButton("保留旧课表", null)
+                        .setPositiveButton(if (fewer) "继续核对" else "保存到本机") { _, _ ->
+                            if (fewer) {
+                                AlertDialog.Builder(this)
+                                    .setTitle("确认替换已有课表")
+                                    .setMessage("本机原有 ${previous} 个课块，本次仅识别 ${count} 个。请确认你已经与学校官方课表逐项核对；否则选择保留旧课表。")
+                                    .setNegativeButton("保留旧课表", null)
+                                    .setPositiveButton("已核对，仍要替换") { _, _ ->
+                                        commitImport()
+                                    }.show()
+                            } else {
+                                commitImport()
                             }
                         }.show()
-                    status.text = "已生成导入预览，等待本人确认。"
+                    status.text = "已生成课程数对照预览，等待本人确认；保存前旧课表不变。"
                 } catch (e: Exception) {
                     status.text = (e.message ?: "无法解析当前页面") + "；旧课表保持不变。"
                 }
