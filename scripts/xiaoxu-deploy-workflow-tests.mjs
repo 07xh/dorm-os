@@ -68,10 +68,14 @@ const expectedBuildTriggers = [
  '  push:',
  '    branches: [main]',
  '    paths:',
- "      - '.github/xiaoxu-apk-build-requests/**'"
+ "      - '.github/xiaoxu-apk-build-requests/pending/*.txt'"
 ].join('\n');
 assert.ok(androidBuild.includes(expectedBuildTriggers+'\n\npermissions:'),
  'APK source pushes must never trigger builds except an explicit reviewed request marker');
+assert.doesNotMatch(androidBuild,/xiaoxu-apk-build-requests\/\*\*/,
+ 'Build requests must match pending files only, never the whole archive directory');
+assert.match(androidBuild,/xiaoxu-apk-build-requests\/pending\/\*\.txt/,
+ 'Reviewed pending markers must remain an allowed APK build trigger');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');
