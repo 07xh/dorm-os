@@ -839,5 +839,52 @@ runInNewContext(script, {window: plainInvalid});
 assert.match(plainInvalid.__xiaoxuExtract().error, /不完整/,
  '字段数量异常必须失败，不能只导入可识别子集');
 
+// Issue #268 第一阶段：统一设计系统 + 五页 Shell + 首页样板（纯 UI，不改数据来源）。
+const design = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
+assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色板');
+assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
+assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
+assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
+assert.match(design, /val card: Dp = 18\.dp/, '基础卡圆角须为 18dp');
+assert.match(design, /val hero: Dp = 22\.dp/, '重要卡圆角须为 22dp');
+assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
+assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
+assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
+assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
+assert.match(design, /fun XiaoxuHero\(/, '须有渐变主卡');
+assert.match(design, /fun MetricCard\(/, '须有统计卡');
+assert.match(design, /fun CourseTile\(/, '须有课程色块');
+assert.match(design, /fun SectionHeader\(/, '须有分区标题');
+assert.match(design, /fun SourceBadge\(/, '须有来源徽标');
+assert.match(design, /fun StatusChip\(/, '须有状态标签');
+assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
+assert.match(design, /fun XiaoxuLoading\(/, '须有统一加载态');
+assert.match(design, /fun XiaoxuEmpty\(/, '须有统一空态');
+assert.match(design, /fun XiaoxuError\(/, '须有统一错误态');
+assert.match(design, /fun XiaoxuUnverified\(/, '须有统一未核验态');
+assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
+assert.match(design, /fun QuickEntry\(/, '快捷入口须是共享组件');
+assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/,
+  '设计系统只画界面，不得触碰网络');
+assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./,
+  '设计系统不得依赖数据层');
+assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
+assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
+assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
+assert.match(main, /NavigationBarItemDefaults\.colors/, '底部导航选中态须统一配色');
+assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
+assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
+assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
+assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
+assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页面');
+assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
+  '首页课表结论须复用课表页判定');
+assert.match(workspace, /当前教学周未核实/);
+assert.match(workspace, /不显示上课倒计时/, '缺少节次作息时必须声明不倒计时');
+assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
+assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
+assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得打印日志');
+
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
