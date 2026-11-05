@@ -15,6 +15,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -61,6 +64,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -313,6 +317,7 @@ class MainActivity : ComponentActivity() {
 private enum class Page(val label: String, val symbol: ImageVector) {
     HOME("首页", Icons.Outlined.Home),
     SCHEDULE("课表", Icons.Outlined.DateRange),
+    ACADEMIC("教务", Icons.Outlined.DateRange),
     TASKS("任务", Icons.Outlined.CheckCircle),
     MESSAGES("消息", Icons.Outlined.MailOutline),
     PROFILE("我的", Icons.Outlined.PersonOutline)
@@ -337,14 +342,23 @@ private fun NativeShell(
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
+    val pageStateHolder = rememberSaveableStateHolder()
+    var academic by rememberSaveable { mutableStateOf(AcademicDestination.NOTICES) }
+    fun openSecondClass() {
+        val next = AcademicNavigation(academic = academic).openSecondClass()
+        academic = next.academic
+        current = Page.valueOf(next.destination.name)
+    }
+    BackHandler(enabled = current == Page.MESSAGES) {
+        current = Page.valueOf(AcademicNavigation(academic = academic).openMessages().closeMessages().destination.name)
+    }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {
         if (localCaptureReturn != null) {
-            // Imported courses/homework belong in Tasks; second-class records
-            // currently have their full saved-record view under Profile.
+            // Return to the matching feature after a successful local capture.
             current = if (localCaptureReturn.provider == "chaoxing") Page.TASKS
-                      else Page.PROFILE
+                      else { academic = AcademicDestination.SECOND_CLASS; Page.ACADEMIC }
         }
     }
     LaunchedEffect(returnedSchool) {
@@ -379,7 +393,8 @@ private fun NativeShell(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = cloud.state.busy,
-                    onRefresh = { scope.launch { cloud.refresh() } }
+                    onRefresh = { scope.launch { cloud.refresh() } },
+                    onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null
                 )
             },
             bottomBar = {
@@ -389,7 +404,7 @@ private fun NativeShell(
                         contentColor = XiaoxuPalette.Ink2,
                         tonalElevation = 0.dp
                     ) {
-                        Page.entries.forEach { page ->
+                        Page.entries.filter { it != Page.MESSAGES }.forEach { page ->
                             NavigationBarItem(
                                 selected = current == page,
                                 onClick = { current = page },
@@ -415,7 +430,7 @@ private fun NativeShell(
                         contentColor = XiaoxuPalette.Ink2
                     ) {
                         Spacer(Modifier.height(12.dp))
-                        Page.entries.forEach { page ->
+                        Page.entries.filter { it != Page.MESSAGES }.forEach { page ->
                             NavigationRailItem(
                                 selected = current == page,
                                 onClick = { current = page },
@@ -456,16 +471,26 @@ private fun NativeShell(
                                 openTasks = { current = Page.TASKS },
                                 openMessages = { current = Page.MESSAGES },
                                 openProfile = { current = Page.PROFILE },
-                                openLocalSchool = openLocalSchool)
+                                openLocalSchool = { provider ->
+                                    if (provider == "second_class") openSecondClass()
+                                    else openLocalSchool(provider)
+                                })
                             Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                                 openProfile = { current = Page.PROFILE },
                                 localLessons = localLessons, openLocalImport = openLocalImport,
                                 openFileImport = openFileImport)
+                            Page.ACADEMIC -> pageStateHolder.SaveableStateProvider("academic") {
+                                AcademicPage(academic, { academic = it }, cloud, openWebsite, openArticle,
+                                    openProfile = { current = Page.PROFILE })
+                            }
                             Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool)
                             Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                             Page.PROFILE -> ConnectionsPage(
-                                openWebsite, cloud, openLocalSchool,
+                                openWebsite, cloud, { provider ->
+                                    if (provider == "second_class") openSecondClass()
+                                    else openLocalSchool(provider)
+                                },
                                 startSchoolAuthorization, localCaptureReturn
                             )
                         }
@@ -541,5 +566,32 @@ private fun ConnectionsPage(
         }
         // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
         item { LocalTaskBackupPanel() }
+    }
+}
+
+@Composable
+private fun AcademicPage(selected: AcademicDestination, select: (AcademicDestination) -> Unit,
+    cloud: CloudClient, openWebsite: () -> Unit, openArticle: (String) -> Unit, openProfile: () -> Unit) {
+    val labels = listOf("通知", "成绩", "考试", "第二课堂", "校园服务")
+    val tabStateHolder = rememberSaveableStateHolder()
+    Column(Modifier.fillMaxSize()) {
+        ScrollableTabRow(selectedTabIndex = selected.ordinal, edgePadding = 0.dp) {
+            AcademicDestination.entries.forEachIndexed { index, item ->
+                Tab(selected = selected == item, onClick = { select(item) }, text = { Text(labels[index]) })
+            }
+        }
+        when (selected) {
+            AcademicDestination.NOTICES -> MessageCenterPanel(cloud, openWebsite, openArticle)
+            AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") { SecondClassPage() }
+            AcademicDestination.GRADES, AcademicDestination.EXAMS -> Content {
+                item { Heading(labels[selected.ordinal], "尚未连接可验证的本人数据") }
+                item { TextButton(onClick = openProfile) { Text("查看数据连接") } }
+            }
+            AcademicDestination.SERVICES -> Content {
+                item { Heading("校园服务", "学校数据连接与服务") }
+                item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
+                item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
+            }
+        }
     }
 }
