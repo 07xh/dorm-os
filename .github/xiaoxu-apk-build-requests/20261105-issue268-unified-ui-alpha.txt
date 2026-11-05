@@ -1,0 +1,6 @@
+校序 UI Alpha 一次性 Android Debug APK 构建请求｜2026-11-05
+用户明确要求继续开发校序：优先让最新已合并的统一 UI 框架在原生 APK 中可安装测试。
+源码基线：main 56afb70b2655526389e004db20f88e36bd84cd8c；已合并 PR #269、Issue #268。
+本 marker 不修改 App 代码、业务登录、课表/学习通/青果/微信/第二课堂和服务器接口，仅触发既有 build-xiaoxu-android.yml：静态安全检查，assembleDebug，testDebugUnitTest，APK 完整性及 SHA-256，上传可下载的 Debug APK artifact。
+验收严格区分：CI/成功构建/上传产物/校验 SHA-256 与 Android16 本人真机视觉和真实账号数据核验。不得以生成 APK 声称五个页面均按海报复刻；本次仅验证首页与 Shell 的 #269 首轮样板。
+此标记必须经 PR CI 通过并合并到 main 后才触发构建；不改工作流触发范围。
