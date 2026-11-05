@@ -1,0 +1,1 @@
+一次性重试：上次学习通非本人验收 Android assembleDebug + testDebugUnitTest 均成功（Run 41990196378），但新加的 shell 校验命令正则缺失结束引号导致 APK Artifact 上传未执行。此构建请求经 PR CI 后合并，仅修复校验脚本且重新执行真实单测和 APK 校验。不能据此宣称本人学习通授权与数据已通过。

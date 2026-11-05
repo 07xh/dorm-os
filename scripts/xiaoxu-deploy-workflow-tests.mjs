@@ -79,6 +79,9 @@ assert.match(androidBuild,/unzip -t "\$out\/app-debug\.apk"/,
  'APK archive must be verified before upload');
 assert.match(androidBuild,/sha256sum app-debug\.apk > app-debug\.apk\.sha256/,
  'APK checksum must be emitted alongside its artifact');
+const dexCommand = "grep -Eq '^classes[0-9]*[.]dex$'";
+assert.ok(androidBuild.includes(dexCommand),
+ 'APK DEX integrity expression must be a complete, quoted shell command');
 
 assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
  'Every PR still validates Android security and contract boundaries');

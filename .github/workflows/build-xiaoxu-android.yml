@@ -38,8 +38,10 @@ jobs:
           out=apps/xiaoxu-android/app/build/outputs/apk/debug
           test -s "$out/app-debug.apk"
           unzip -t "$out/app-debug.apk" >/dev/null
-          unzip -Z1 "$out/app-debug.apk" | grep -qx 'AndroidManifest.xml'
-          unzip -Z1 "$out/app-debug.apk" | grep -Eq '^classes[0-9]*\.dex
+          # Avoid grep -q closing an unzip pipe under set -o pipefail.
+          unzip -Z1 "$out/app-debug.apk" > "$RUNNER_TEMP/xiaoxu-apk-entries.txt"
+          grep -qx 'AndroidManifest.xml' "$RUNNER_TEMP/xiaoxu-apk-entries.txt"
+          grep -Eq '^classes[0-9]*[.]dex$' "$RUNNER_TEMP/xiaoxu-apk-entries.txt"
 
           (cd "$out" && sha256sum app-debug.apk > app-debug.apk.sha256)
           cat "$out/app-debug.apk.sha256"
