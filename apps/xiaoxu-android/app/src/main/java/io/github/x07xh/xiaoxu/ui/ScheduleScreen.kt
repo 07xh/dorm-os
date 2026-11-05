@@ -253,7 +253,8 @@ fun CloudTimetablePanel(
     openWebsite: () -> Unit,
     openProfile: (() -> Unit)? = null,
     localLessons: List<VerifiedLesson> = emptyList(),
-    openLocalImport: () -> Unit = {}
+    openLocalImport: () -> Unit = {},
+    openFileImport: () -> Unit = {}
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -271,9 +272,17 @@ fun CloudTimetablePanel(
         else { { scope.launch { client.refresh() } } }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = openLocalImport) { Text("本机导入 / 更新华水课表") }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedButton(
+                onClick = openFileImport,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text("从手机文件导入课表（.ics / .json）")
+            }
+            TextButton(onClick = openLocalImport) {
+                Text("从华水青果官网读取（另一种方式）")
+            }
         }
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
         val expanded = maxWidth >= 840.dp
