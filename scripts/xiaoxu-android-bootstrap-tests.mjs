@@ -297,6 +297,14 @@ assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
 assert.match(nativeWeekGrid, /section in it\.startSection\.\.it\.endSection/);
 assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
 assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
+assert.match(nativeWeekGrid, /BoxWithConstraints\(Modifier\.fillMaxWidth\(\)\)/,
+  'seven-day grid must calculate responsive phone widths');
+assert.match(nativeWeekGrid, /\(\(maxWidth - labelWidth - 8\.dp\) \/ 7\)\.coerceAtLeast\(44\.dp\)/,
+  'week grid should fit all seven days when phone width allows');
+assert.match(nativeWeekGrid, /if \(next != available\) break/,
+  'only contiguous sections with identical class sets may merge into one block');
+assert.match(nativeWeekGrid, /rowHeight \* span/);
+
 assert.match(nativeWeekGrid, /overlapChoices = available/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 
