@@ -799,6 +799,7 @@ fun RealAcademicTaskHub(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
+    var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     var showCourseTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
     var showCandidates by rememberSaveable { mutableStateOf(true) }
@@ -806,14 +807,16 @@ fun RealAcademicTaskHub(
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
-    // 管理面板仅按需展开；所有滚动均由同一个 LazyColumn 承担。
+    // Source and filters share the same LazyColumn, including all management forms.
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(jumpTo, showLocal, showCloud) {
+    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
+        val managerStart = 4 + (if (showSearch) 1 else 0) +
+            (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
         val targetIndex = when (jumpTo) {
-            "local" -> if (showLocal) 4 else null
-            "cloud" -> if (showCloud) 4 + (if (showLocal) 1 else 0) else null
-            "filters" -> 4 + (if (showLocal) 1 else 0) + (if (showCloud) 1 else 0)
+            "local" -> if (showLocal) managerStart else null
+            "cloud" -> if (showCloud) managerStart + (if (showLocal) 1 else 0) else null
+            "filters" -> 1
             else -> null
         }
         if (targetIndex != null) {
@@ -914,40 +917,7 @@ fun RealAcademicTaskHub(
                 color = XiaoxuPalette.Ink2
             )
         }
-        // 默认直接查看任务；低频的 Room/D1 管理只在点击时展开。
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        showLocal = !showLocal
-                        if (showLocal) jumpTo = "local"
-                    },
-                    modifier = Modifier.weight(1f)
-                ) { Text(if (showLocal) "收起本机管理" else "新建 / 管理本机") }
-                OutlinedButton(
-                    onClick = {
-                        showCloud = !showCloud
-                        if (showCloud) jumpTo = "cloud"
-                    },
-                    modifier = Modifier.weight(1f)
-                ) { Text(if (showCloud) "收起云端管理" else "云端任务管理") }
-            }
-        }
-        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
-        if (showCloud) item { CloudTasksPanel(client) }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                items(count = filters.size) { i ->
-                    val (key, label) = filters[i]
-                    FilterChip(selected = filter == key, onClick = { filter = key },
-                        label = { Text(label) })
-                }
-            }
-        }
-        item {
+        if (showSearch) item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it.take(100) },
@@ -964,6 +934,47 @@ fun RealAcademicTaskHub(
                 } else null
             )
         }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("任务来源分开保存，学校提交状态需另行核验",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
+                TextButton(onClick = { showAdvancedFilters = !showAdvancedFilters }) {
+                    Icon(Icons.Outlined.Tune, contentDescription = null,
+                        modifier = Modifier.size(16.dp))
+                    Text("筛选")
+                }
+                TextButton(onClick = { showManager = !showManager }) {
+                    Text(if (showManager) "收起管理" else "任务管理")
+                }
+            }
+        }
+        if (showAdvancedFilters) item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                items(count = filters.size) { i ->
+                    val (key, label) = filters[i]
+                    FilterChip(selected = filter == key, onClick = { filter = key },
+                        label = { Text(label) })
+                }
+            }
+        }
+        if (showManager) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { showLocal = !showLocal; if (showLocal) jumpTo = "local" },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showLocal) "收起本机管理" else "新建 / 管理本机") }
+                OutlinedButton(
+                    onClick = { showCloud = !showCloud; if (showCloud) jumpTo = "cloud" },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showCloud) "收起云端管理" else "云端任务管理") }
+            }
+        }
+        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
+        if (showCloud) item { CloudTasksPanel(client) }
         item {
             Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
                 style = MaterialTheme.typography.labelSmall,
