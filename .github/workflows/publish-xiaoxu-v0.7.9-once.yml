@@ -1,0 +1,42 @@
+name: Publish compiled Xiaoxu 0.7.9 test APK direct link
+
+on:
+  push:
+    branches:
+      - ci/xiaoxu-v079-verify-20261105
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve compiled Android 0.7.9 APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk"
+          gh run download 41964008788 --repo "$GITHUB_REPOSITORY" --name xiaoxu-android-v0.7.9-local-records-debug --dir "$RUNNER_TEMP/apk"
+          test -s "$RUNNER_TEMP/apk/app-debug.apk"
+          unzip -tq "$RUNNER_TEMP/apk/app-debug.apk"
+      - name: Place only signed debug artifact on public binary branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan apk-v0.7.9-20261105
+          mkdir -p download
+          cp "$RUNNER_TEMP/apk/app-debug.apk" download/xiaoxu-android-v0.7.9-local-records-debug.apk
+          ( cd download && sha256sum xiaoxu-android-v0.7.9-local-records-debug.apk > SHA256SUMS.txt )
+          git add -f download/xiaoxu-android-v0.7.9-local-records-debug.apk download/SHA256SUMS.txt
+          git commit -m "artifact: verified Xiaoxu Android 0.7.9 debug APK"
+          git push origin HEAD:refs/heads/apk-v0.7.9-20261105
+      - name: Confirm no-login direct URL is reachable
+        run: |
+          curl -fL --retry 5 --retry-delay 2 -r 0-15 \
+            "https://raw.githubusercontent.com/07xh/dorm-os/apk-v0.7.9-20261105/download/xiaoxu-android-v0.7.9-local-records-debug.apk" \
+            -o "$RUNNER_TEMP/download-probe"
+          test -s "$RUNNER_TEMP/download-probe"
