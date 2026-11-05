@@ -480,9 +480,6 @@ private fun ScheduleVerifiedContent(
                                 openCourse(item.toUi().key)
                             }
                         }
-                        TextButton(onClick = openLocalImport) {
-                            Text("重新导入课表文件")
-                        }
                     }
                     DayLessonList(
                         dayLessons = tabletDayLessons,
@@ -510,9 +507,6 @@ private fun ScheduleVerifiedContent(
                         ) { item ->
                             openCourse(item.toUi().key)
                         }
-                    }
-                    TextButton(onClick = openLocalImport) {
-                        Text("重新导入课表文件")
                     }
                 }
             }
@@ -651,9 +645,6 @@ private fun DayLessonList(
             LessonCard(lesson = lesson, onOpen = { onOpen(lesson.key) })
         }
         ScheduleFooterNote()
-        TextButton(onClick = openLocalImport) {
-            Text("重新导入课表文件")
-        }
     }
 }
 
