@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import java.text.DateFormat
+import java.util.Date
 
 private fun schoolLabel(provider: String) = when (provider) {
     "ncwu" -> "青果教务"
@@ -69,6 +71,11 @@ fun LocalSchoolConnectionPanel(
             "second_class" to "第二课堂")) {
             val list = records.filter { it.provider == provider }
             val justImported = recentImport?.takeIf { it.provider == provider }
+            // Always put the just-confirmed source/type first, even if another
+            // course or activity was saved more recently.
+            val prioritized = if (justImported == null) list else
+                list.filter { it.kind == justImported.kind } +
+                    list.filter { it.kind != justImported.kind }
             var expanded by rememberSaveable(provider, recentImport?.serial) {
                 mutableStateOf(false)
             }
@@ -111,7 +118,8 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
-                    list.take(if (expanded) list.size else if (justImported != null) 12 else 3)
+                    prioritized.take(if (expanded) prioritized.size
+                        else if (justImported != null) 12 else 3)
                         .forEach { item ->
                             Text(kindLabel(item.kind) + " · " + item.title,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -119,6 +127,13 @@ fun LocalSchoolConnectionPanel(
                             if (item.details.isNotBlank()) Text(
                                 item.details,
                                 maxLines = if (expanded) 8 else 2,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "本机采集：${DateFormat.getDateTimeInstance(
+                                    DateFormat.SHORT, DateFormat.SHORT
+                                ).format(Date(item.capturedAt))} · 不代表当前官网状态",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

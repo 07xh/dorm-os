@@ -337,6 +337,11 @@ private const val READ_VISIBLE_PAGE = """
   const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
   const rows = [];
   let kind = '';
+  // The all-task page may also contain course/summary tables. Those are NOT
+  // evidence that a homework title was read from an official work row.
+  const homeworkOverview = provider === 'chaoxing' &&
+    host === 'mooc1-api.chaoxing.com' &&
+    location.pathname === '/mooc-ans/mooc2/work/all-task';
   for (const doc of docs) {
     for (const table of Array.from(doc.querySelectorAll('table')).slice(0,35)) {
       if (!onScreen(table)) continue;
@@ -360,12 +365,15 @@ private const val READ_VISIBLE_PAGE = """
         : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
       if (kind && foundKind !== kind) continue;
       const titleIndex = foundKind === 'homework'
-        ? compact.findIndex(h => /^(作业名称|作业名|任务名称|作业标题)$/.test(h))
+        ? compact.findIndex(h => /^(作业名称|作业名|任务名称|作业标题|作业)$/.test(h))
         : compact.findIndex(h => /^(课程名称|课程名|活动名称|项目名称|积分项目|学时项目)$/.test(h));
-      const first = titleIndex >= 0 ? titleIndex :
-        compact.findIndex(h => /^(课程|作业|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
-      if (first < 0) continue;
-      kind = foundKind;
+      // Never substitute course name or a status column for the work title.
+      // On the official all-task page, ignore course-only summary tables.
+      const first = foundKind === 'homework' ? titleIndex :
+        titleIndex >= 0 ? titleIndex :
+        compact.findIndex(h => /^(课程|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
+      if (first < 0 || (homeworkOverview && foundKind !== 'homework')) continue;
+      let appended = false;
       for (const tr of trs.slice(1,121)) {
         const cells = Array.from(tr.querySelectorAll(':scope > th,:scope > td')).map(el => clean(el.innerText));
         if (cells.length !== header.length || !cells[first]) continue;
@@ -373,10 +381,14 @@ private const val READ_VISIBLE_PAGE = """
         const details = cells.map((value,i) =>
           i !== first && value ? compact[i] + '：' + value.slice(0,90) : ''
         ).filter(Boolean).join(' · ').slice(0,350);
-        if (title.length >= 2 && !/登录|验证码|退出系统/.test(title))
+        if (title.length >= 2 && !/登录|验证码|退出系统/.test(title)) {
           rows.push({title,details});
+          appended = true;
+        }
         if (rows.length >= 120) break;
       }
+      // A header without valid visible records must not block another table.
+      if (appended) kind = foundKind;
     }
   }
   if (!rows.length && provider === 'chaoxing' &&
