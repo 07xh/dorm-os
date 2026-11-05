@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -35,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -780,6 +782,21 @@ fun RealAcademicTaskHub(
     var filter by rememberSaveable { mutableStateOf("pending") }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
+    // 管理入口靠近页面顶端，抽屉跳转后精确滚动到真正的可编辑区域。
+    val taskListState = rememberLazyListState()
+    var jumpTo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(jumpTo, showLocal, showCloud) {
+        val targetIndex = when (jumpTo) {
+            "local" -> if (showLocal) 4 else null
+            "cloud" -> if (showCloud) 5 + (if (showLocal) 1 else 0) else null
+            "filters" -> 5 + (if (showLocal) 1 else 0) + (if (showCloud) 1 else 0)
+            else -> null
+        }
+        if (targetIndex != null) {
+            taskListState.animateScrollToItem(targetIndex)
+            jumpTo = null
+        }
+    }
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
@@ -789,6 +806,7 @@ fun RealAcademicTaskHub(
     val localRows = shown.filter { it.storage == "local" }
     val cloudRows = shown.filter { it.storage == "cloud" }
     LazyColumn(
+        state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -799,15 +817,20 @@ fun RealAcademicTaskHub(
                     title = "任务中心",
                     caption = "我的待办 · 已保存记录",
                     actionLabel = "新增本机任务",
-                    onAction = { showLocal = true }
+                    onAction = {
+                        showLocal = true
+                        jumpTo = "local"
+                    }
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SourceBadge("本机任务", XiaoxuTone.Brand)
-                    SourceBadge(
-                        if (state.tasksFresh) "校序云端 · 本次读取"
-                        else "云端记录 · 待刷新",
-                        if (state.tasksFresh) XiaoxuTone.Success else XiaoxuTone.Warning
-                    )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    item { SourceBadge("本机任务", XiaoxuTone.Brand) }
+                    item {
+                        SourceBadge(
+                            if (state.tasksFresh) "校序云端 · 本次读取"
+                            else "云端记录 · 待刷新",
+                            if (state.tasksFresh) XiaoxuTone.Success else XiaoxuTone.Warning
+                        )
+                    }
                 }
                 Text(
                     "学校提交状态需官方核验；任务统计不等于全部课程作业。",
@@ -818,11 +841,32 @@ fun RealAcademicTaskHub(
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricCard("待完成", all.count { !it.done }.toString(), Modifier.weight(1f))
-                MetricCard("本周截止", all.count { !it.done && thisWeek(it.date, today) }.toString(),
-                    Modifier.weight(1f), tone = XiaoxuTone.Warning)
-                MetricCard("已完成", all.count { it.done }.toString(), Modifier.weight(1f),
-                    tone = XiaoxuTone.Success)
+                MetricCard(
+                    "待完成", all.count { !it.done }.toString(), Modifier.weight(1f),
+                    caption = if (filter == "pending") "当前筛选" else "点击查看",
+                    onClick = {
+                        filter = "pending"
+                        jumpTo = "filters"
+                    }
+                )
+                MetricCard(
+                    "本周截止", all.count { !it.done && thisWeek(it.date, today) }.toString(),
+                    Modifier.weight(1f), caption = if (filter == "week") "当前筛选" else "点击查看",
+                    tone = XiaoxuTone.Warning,
+                    onClick = {
+                        filter = "week"
+                        jumpTo = "filters"
+                    }
+                )
+                MetricCard(
+                    "已完成", all.count { it.done }.toString(), Modifier.weight(1f),
+                    caption = if (filter == "done") "当前筛选" else "点击查看",
+                    tone = XiaoxuTone.Success,
+                    onClick = {
+                        filter = "done"
+                        jumpTo = "filters"
+                    }
+                )
             }
         }
         item {
@@ -841,11 +885,30 @@ fun RealAcademicTaskHub(
                     title = "我的本机待办",
                     caption = "离线保存 · 只修改本人创建的任务",
                     actionLabel = if (showLocal) "收起管理" else "新增 / 管理",
-                    onAction = { showLocal = !showLocal }
+                    onAction = {
+                        val next = !showLocal
+                        showLocal = next
+                        if (next) jumpTo = "local"
+                    }
                 )
             }
         }
         if (showLocal) item { LocalTaskBoard(localTasks, dao) }
+        item {
+            XiaoxuCard {
+                SectionHeader(
+                    title = "校序云端任务管理",
+                    caption = if (state.tasksFresh) "本次云端记录" else "云端数据待重新核验",
+                    actionLabel = if (showCloud) "收起管理" else "展开管理",
+                    onAction = {
+                        val next = !showCloud
+                        showCloud = next
+                        if (next) jumpTo = "cloud"
+                    }
+                )
+            }
+        }
+        if (showCloud) item { CloudTasksPanel(client) }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 items(count = filters.size) { i ->
@@ -868,7 +931,10 @@ fun RealAcademicTaskHub(
                         "校序云端尚未连接，可先新增本机待办。"
                     else "当前筛选没有任务，不能据此推断学校没有作业。",
                     actionLabel = "新增 / 管理本机任务",
-                    onAction = { showLocal = true }
+                    onAction = {
+                        showLocal = true
+                        jumpTo = "local"
+                    }
                 )
             }
         } else {
@@ -974,15 +1040,6 @@ fun RealAcademicTaskHub(
         item { LocalSchoolRecordSection(setOf("course", "activity", "credits")) }
         item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
          item {
-            OutlinedButton(
-                onClick = { showCloud = !showCloud },
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) {
-                Text(if (showCloud) "收起云端任务管理" else "新增／管理云端任务")
-            }
-        }
-        if (showCloud) item { CloudTasksPanel(client) }
-        item {
             Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1025,7 +1082,13 @@ fun RealAcademicTaskHub(
             )
             OutlinedButton(
                 onClick = {
-                    if (selectedTask.storage == "local") showLocal = true else showCloud = true
+                    if (selectedTask.storage == "local") {
+                        showLocal = true
+                        jumpTo = "local"
+                    } else {
+                        showCloud = true
+                        jumpTo = "cloud"
+                    }
                     openedTaskKey = null
                 },
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
@@ -1060,11 +1123,9 @@ private fun TaskSectionHeader(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.semantics { heading() }
+                maxLines = 2,
+                modifier = Modifier.weight(1f).semantics { heading() }
             )
-            Spacer(Modifier.width(8.dp))
-            TaskSourceBadge(badge, emphasized = true)
-            Spacer(Modifier.weight(1f))
             if (showCount) {
                 Text(
                     text = "$count 条",
@@ -1074,6 +1135,7 @@ private fun TaskSectionHeader(
                 )
             }
         }
+        TaskSourceBadge(badge, emphasized = true)
         Text(
             text = note,
             style = MaterialTheme.typography.labelSmall,
