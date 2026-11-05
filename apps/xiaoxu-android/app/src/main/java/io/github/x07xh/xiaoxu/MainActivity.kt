@@ -395,7 +395,7 @@ private fun NativeShell(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
                 // 消息页独立标题；所有页面仍使用同一真实数据源。
-                if (current != Page.MESSAGES) XiaoxuTopBar(
+                if (current != Page.MESSAGES && current != Page.SCHEDULE) XiaoxuTopBar(
                         title = "校序",
                         subtitle = current.label,
                         // The timetable has a dedicated local import action,
