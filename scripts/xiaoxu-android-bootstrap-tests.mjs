@@ -103,7 +103,20 @@ assert.match(cloud, /linked\?\.sessionState != "active"/);
 assert.match(cloud, /\/api\/v1\/connections\/\$provider\/sync/);
 assert.match(cloud, /result\.json\.optBoolean\("refreshed"\)/);
 assert.match(cloud, /schoolSyncBusyProvider/);
-assert.match(cloud, /state\.privateError == null/);
+// A failed unrelated WeChat/tasks read must not negate a fresh school sync,
+// while a failed connection/snapshot read must not reuse stale "connected" UI.
+assert.match(cloud, /connectionsFresh = platforms != null/);
+assert.match(cloud, /scheduleFresh = scheduleLoaded/);
+assert.match(cloud, /state = state\.copy\(connectionsFresh = false, scheduleFresh = false,/);
+assert.match(cloud, /secondClassBusy = true, secondClassFresh = false/);
+assert.match(cloud, /secondClass = snapshot, secondClassFresh = true/);
+assert.match(cloud, /state\.connectionsFresh &&/);
+assert.match(cloud, /state\.scheduleFresh && state\.scheduleStatus == "ready"/);
+assert.match(cloud, /state\.secondClassFresh &&/);
+assert.match(cloud, /state\.secondClass\?\.provenance == "trusted_readonly"/);
+assert.doesNotMatch(cloud, /val verified = state\.privateError == null/);
+assert.match(panels, /本次无法核验连接状态/);
+assert.match(panels, /val canRead = state\.authenticated && state\.connectionsFresh/);
 assert.match(cloud, /clearAccountSnapshots/);
 assert.doesNotMatch(panels, /schoolPassword|CookieManager|WebView|READ_SMS/);
 
