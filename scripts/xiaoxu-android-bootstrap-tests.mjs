@@ -401,7 +401,8 @@ assert.match(messageCenter, /SourceChip\(/);
 assert.match(messageCenter, /label = "华水官方公告"/);
 
 // 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
-assert.match(messageCenter, /text = "查看详情"/);
+assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/,
+  '紧凑海报式公告卡仍须打开真实官方详情');
 assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
 assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/);
 assert.match(messageCenter, /sheetState = sheetState/);
