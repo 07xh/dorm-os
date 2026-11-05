@@ -47,3 +47,45 @@ jobs:
             apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
+
+  screenshot-empty-state:
+    needs: compile-android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xiaoxu-287-real-message-ui-debug
+          path: ./android-apk
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Render native messages on Android emulator (no demo account/data)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -e
+            apk=$(find ./android-apk -type f -name '*.apk' -print -quit)
+            test -s "$apk"
+            adb install -r "$apk"
+            adb shell am start -n io.github.x07xh.xiaoxu/.MainActivity
+            sleep 15
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb pull /sdcard/window.xml ./window.xml || true
+            python3 -c 'import xml.etree.ElementTree as E, re, subprocess, os; p="window.xml"; nodes=list(E.parse(p).iter("node")) if os.path.exists(p) else []; a=[n.attrib["bounds"] for n in nodes if (n.attrib.get("text")=="消息" or n.attrib.get("content-desc")=="消息") and "bounds" in n.attrib]; b=list(map(int,re.findall(r"\d+",a[0]))) if a else [680,2150,830,2370]; subprocess.run(["adb","shell","input","tap",str((b[0]+b[2])//2),str((b[1]+b[3])//2)],check=True)'
+            sleep 8
+            adb exec-out screencap -p > message-center-empty.png
+            test -s message-center-empty.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-287-android35-message-empty-screenshot
+          path: |
+            message-center-empty.png
+            window.xml
+          if-no-files-found: error
+          retention-days: 7
