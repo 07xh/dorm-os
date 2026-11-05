@@ -298,6 +298,7 @@ private fun NativeShell(
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
                     when (current) {
                         Page.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            localLessons = localLessons,
                             openSchedule = { current = Page.SCHEDULE },
                             openTasks = { current = Page.TASKS },
                             openMessages = { current = Page.MESSAGES },
