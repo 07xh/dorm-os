@@ -1,0 +1,59 @@
+name: Xiaoxu PR287 Actual Android Screenshot
+on:
+  push:
+    branches: [fix/286-real-message-poster-layout]
+    paths:
+      - '.github/workflows/xiaoxu-pr287-screenshot.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-screenshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download compiled PR287 Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: xiaoxu-287-real-message-ui-debug
+          run-id: 42068257323
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./android-apk
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Actual Android message screen (no simulated user data)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s ./android-apk/app-debug.apk
+            adb install -r ./android-apk/app-debug.apk
+            adb shell am start -n io.github.x07xh.xiaoxu/.MainActivity
+            sleep 12
+            adb exec-out screencap -p > home.png
+            adb shell uiautomator dump /sdcard/window.xml
+            adb pull /sdcard/window.xml window.xml
+            python3 -c 'import xml.etree.ElementTree as E,re,subprocess; nodes=list(E.parse("window.xml").iter("node")); matches=[n.attrib.get("bounds","") for n in nodes if n.attrib.get("text")=="消息" or n.attrib.get("content-desc")=="消息"]; print("Message node bounds",matches); b=list(map(int,re.findall(r"\d+",matches[-1]))) if matches else [740,2200,880,2360]; subprocess.run(["adb","shell","input","tap",str((b[0]+b[2])//2),str((b[1]+b[3])//2)],check=True)'
+            sleep 8
+            adb exec-out screencap -p > message-screen.png
+            test -s message-screen.png
+            adb shell uiautomator dump /sdcard/message.xml
+            adb pull /sdcard/message.xml message.xml
+      - name: Upload actual screenshots and semantic view tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-pr287-actual-android-ui
+          path: |
+            home.png
+            message-screen.png
+            window.xml
+            message.xml
+          if-no-files-found: error
+          retention-days: 14
