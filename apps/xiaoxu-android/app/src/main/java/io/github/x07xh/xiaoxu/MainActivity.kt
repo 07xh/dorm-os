@@ -545,7 +545,7 @@ private fun MessagesPage(
     openArticle: (String) -> Unit
 ) {
     // 消息中心自持整屏滚动（搜索 / 来源筛选 / 全文 sheet），因此不再外包一层 Content。
-    MessageCenterPanel(cloud, openWebsite, openArticle)
+    MessageCenterPanel(cloud, openWebsite, openArticle, useStatusBarInset = true)
 }
 
 @Composable
