@@ -96,6 +96,17 @@ assert.match(panels, /本机打开青果官方课表/);
 assert.match(panels, /本机打开第二课堂官网/);
 assert.match(panels, /本机官网读取仅保存当前可见记录/);
 assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
+assert.match(cloud, /val tasksFresh: Boolean = false/);
+assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
+assert.match(cloud, /tasksFresh = tasks != null/);
+assert.match(cloud, /!state\.tasksFresh -> "最新云端任务列表读取失败/);
+assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
+assert.match(panels, /if \(!state\.tasksFresh\)/);
+assert.match(panels, /本次任务列表未能核验最新结果/);
+assert.match(panels, /client\.syncChaoxingAllCourses\(\)/);
+assert.match(panels, /platform\?\.verified == true && !state\.chaoxingBusy/);
+assert.match(panels, /一键核验全部课程作业/);
+assert.match(panels, /state\.chaoxingBatchStatus\?\.let/);
 assert.match(cloud, /val workChecked = state.chaoxingCheckedAt != null/);
 assert.match(cloud, /!connectionTrusted/);
 assert.match(cloud, /!workChecked/);
@@ -382,7 +393,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.6'/);
+assert.match(appGradle, /versionName '0\.7\.7'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
