@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -61,9 +63,9 @@ fun LocalSchoolConnectionPanel(
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by dao.observe().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("手机本机连接", style = MaterialTheme.typography.titleLarge,
+        Text("三个平台 · 本机读取", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
-        Text("在手机上登录学校或学习通官网，再读取当前已显示的列表；数据只保存在本机，不经过校序 Cloudflare。",
+        Text("下方是 App 内入口。学校的正式登录页仍属于学校；本人登录并读取当前可见列表后，记录仅保存在此设备。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         for ((provider, name) in listOf(
@@ -81,9 +83,11 @@ fun LocalSchoolConnectionPanel(
             }
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(name, fontWeight = FontWeight.SemiBold)
                         Text(if (provider == "ncwu") "专用课表导入 · 课表页查看"
@@ -92,10 +96,21 @@ fun LocalSchoolConnectionPanel(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Button(onClick = { openLocal(provider) }) {
-                        Text(if (provider == "ncwu") "本机导入青果课表"
-                             else if (list.isEmpty()) "手机登录并读取"
-                             else "打开官网／更新")
+                    Text(when (provider) {
+                        "chaoxing" -> "本人课程、作业列表 · 读取后在任务页查看"
+                        "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
+                        else -> "本人活动、积分记录 · 读取后在任务页查看"
+                    }, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        onClick = { openLocal(provider) }
+                    ) {
+                        Text(when (provider) {
+                            "chaoxing" -> "在 App 中打开学习通"
+                            "ncwu" -> "在 App 中导入青果课表"
+                            else -> "在 App 中打开第二课堂"
+                        })
                     }
                     if (justImported != null) {
                         val stored = list.filter { it.kind == justImported.kind }

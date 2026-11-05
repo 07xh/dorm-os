@@ -153,17 +153,19 @@ fun ConnectionsPanel(
     }
     // Never save the passphrase across configuration changes.
     var passphrase by remember { mutableStateOf("") }
-    var cloudAdvanced by rememberSaveable { mutableStateOf(true) }
-    var localAdvanced by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(recentImport) {
-        if (recentImport != null) localAdvanced = true
-    }
+    var cloudAdvanced by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("学校数据连接", style = MaterialTheme.typography.titleLarge)
-        Text("优先使用校序既有服务端授权和可信读取；原有本机读取保留为备选。",
-            style = MaterialTheme.typography.bodySmall)
+        Text("学校数据", style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold)
+        Text("在 App 内打开学校官方页面，登录本人账号后主动读取；不需要先访问校序网站或连接云端。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Native-first path already implemented in the existing local school activities.
+        // This is deliberately separate from verified Cloudflare sessions.
+        LocalSchoolConnectionPanel(openLocalSchool, recentImport)
+        HorizontalDivider()
         TextButton(onClick = { cloudAdvanced = !cloudAdvanced }) {
-            Text(if (cloudAdvanced) "收起校序服务端连接" else "显示校序服务端连接")
+            Text(if (cloudAdvanced) "收起云端授权与高级同步" else "云端授权与高级同步（可选）")
         }
         if (cloudAdvanced) {
         Text("校序安全连接", style = MaterialTheme.typography.titleLarge,
@@ -198,9 +200,9 @@ fun ConnectionsPanel(
             }
         }
         HorizontalDivider()
-        Text("学校数据连接", style = MaterialTheme.typography.titleLarge,
+        Text("云端学校授权", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
-        Text("校序云端登录、学校授权、本人真实数据读取是三个不同状态。",
+        Text("仅用于云端可信同步。本机读取和云端授权是不同的数据来源。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         val providers = listOf(
@@ -387,11 +389,6 @@ fun ConnectionsPanel(
             style = MaterialTheme.typography.labelSmall
         )
         TextButton(onClick = openWebsite) { Text("网页备用连接 / 诊断") }
-        } // Existing Cloudflare-based school connector management
-        HorizontalDivider()
-        TextButton(onClick = { localAdvanced = !localAdvanced }) {
-            Text(if (localAdvanced) "收起本机已保存记录" else "查看本机已保存记录")
-        }
-        if (localAdvanced) LocalSchoolConnectionPanel(openLocalSchool, recentImport)
+        } // Optional Cloudflare-based school connector management
     }
 }
