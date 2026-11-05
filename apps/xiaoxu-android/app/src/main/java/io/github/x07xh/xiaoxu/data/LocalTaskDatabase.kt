@@ -44,6 +44,9 @@ interface LocalTaskDao {
     @Query("SELECT * FROM local_tasks ORDER BY createdAt ASC, id ASC")
     suspend fun snapshot(): List<LocalTask>
 
+    @Query("SELECT * FROM local_tasks WHERE id = :id LIMIT 1")
+    suspend fun findById(id: Long): LocalTask?
+
     @Insert
     suspend fun insert(task: LocalTask)
 

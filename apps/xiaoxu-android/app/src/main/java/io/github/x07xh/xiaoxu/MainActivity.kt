@@ -62,11 +62,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,6 +87,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
+import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
@@ -132,9 +135,13 @@ class MainActivity : ComponentActivity() {
     }
     private var shouldRefreshAfterWebsite = false
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
+    private var taskReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
+            taskReminderOpenCount++
+        }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
         localLessons = LocalScheduleStore.load(this)
@@ -144,6 +151,7 @@ class MainActivity : ComponentActivity() {
             XiaoxuTheme {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
+                    taskReminderOpenCount = taskReminderOpenCount,
                     localLessons = localLessons,
                     returnedSchool = returnedSchool,
                     localCaptureReturn = lastLocalCapture,
@@ -298,6 +306,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSchoolReturn(intent)
+        if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
+            taskReminderOpenCount++
+        }
     }
 
     private fun receiveSchoolReturn(intent: Intent?) {
@@ -333,6 +344,7 @@ private fun NativeShell(
     dao: LocalTaskDao,
     cloud: CloudClient,
     appLifecycle: Lifecycle,
+    taskReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
     returnedSchool: String?,
     localCaptureReturn: LocalSchoolImportReceipt?,
@@ -345,7 +357,12 @@ private fun NativeShell(
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
 ) {
-    var current by rememberSaveable { mutableStateOf(Page.HOME) }
+    var current by rememberSaveable {
+        mutableStateOf(if (taskReminderOpenCount > 0) Page.TASKS else Page.HOME)
+    }
+    LaunchedEffect(taskReminderOpenCount) {
+        if (taskReminderOpenCount > 0) current = Page.TASKS
+    }
     // 海报版式（Issue #284）：默认开启，用户可在真实数据模式顶栏切回。
     val pageStateHolder = rememberSaveableStateHolder()
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.NOTICES) }
@@ -359,6 +376,11 @@ private fun NativeShell(
         current = Page.HOME
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
+    val reminderContext = LocalContext.current
+    // Room emits after create / complete / delete / import; WorkManager refreshes only local opt-in jobs.
+    LaunchedEffect(localTasks) {
+        LocalDeadlineReminders.reconcile(reminderContext, localTasks)
+    }
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {
         if (localCaptureReturn != null) {

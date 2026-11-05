@@ -42,6 +42,32 @@ assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
+const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
+const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/,
+  'Notification permission must be explicitly declared for Android 13+');
+assert.match(appGradle, /androidx\.work:work-runtime-ktx:2\.11\.0/,
+  'Local reminders must use OS-persistent WorkManager, not a fragile timer');
+assert.match(db, /suspend fun findById\(id: Long\): LocalTask\?/,
+  'Notification must re-read the live Room row before delivery');
+assert.match(reminder, /getBoolean\(ENABLED, false\)/,
+  'Deadline notifications must be opt-in, never enabled by default');
+assert.match(reminder, /cancelAllWorkByTag\(TAG\)/,
+  'Disabling reminders must cancel scheduled work');
+assert.match(reminder, /task\.completed \|\| task\.due != due/,
+  'Completed or edited tasks cannot emit stale notifications');
+assert.match(reminder, /LocalDate\.now\(\) != expected/,
+  'Late work must not invent a new deadline');
+assert.match(reminder, /LocalTaskDatabase\.open\(applicationContext\)\.tasks\(\)\.findById\(id\)/,
+  'Reminder worker must only read local tasks, not school snapshots');
+assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
+  'Local notifications may not use school accounts, credentials or cached homework');
+assert.match(localTaskUi, /rememberLauncherForActivityResult\(/,
+  'Android notification permission must follow user activation');
+assert.match(localTaskUi, /LocalDeadlineReminders\.setEnabled\(context, false\)/);
+assert.match(main, /LocalDeadlineReminders\.reconcile\(reminderContext, localTasks\)/,
+  'Room edits must re-plan notifications even when the task manager is collapsed');
+
 assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
 
@@ -634,8 +660,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.6'/, '0.8.6 构建须准确标注版本名');
-assert.match(appGradle, /versionCode 27\b/, '0.8.6 构建须递增版本号');
+assert.match(appGradle, /versionName '0\.8\.7'/, '0.8.7 构建须准确标注版本名');
+assert.match(appGradle, /versionCode 28\b/, '0.8.7 构建须递增版本号');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
