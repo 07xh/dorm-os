@@ -418,6 +418,7 @@ assert.match(localNative, /dao\.appendKind\(provider, kind, accepted\)/);
 assert.match(main, /if \(permitted && count in 1\.\.500\)/);
 assert.match(nativeRecords, /@Transaction\s+suspend fun appendKind\(/);
 assert.match(nativeRecords, /require\(keys\.size <= 500\)/);
+assert.match(workspace, /items\(count = minOf\(capturedHomework\.size, 500\)/);
 assert.match(localNative, /\.replaceKind\(provider, kind, accepted\)/);
 assert.doesNotMatch(main + localSchoolUi, /ownerCookie|schoolPassword|CAS_TICKET/);
 for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
