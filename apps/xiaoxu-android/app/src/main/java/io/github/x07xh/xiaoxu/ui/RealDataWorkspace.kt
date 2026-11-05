@@ -356,7 +356,7 @@ fun RealAcademicTaskHub(
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
     val visible = selectTasks(all, filter, today)
-    // 上限与旧实现一致：只截断展示，不隐藏数据来源（分区标题里给出当前组条数）。
+    // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
     val localRows = shown.filter { it.storage == "local" }
     val cloudRows = shown.filter { it.storage == "cloud" }
@@ -396,7 +396,7 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            Text("当前显示 " + shown.size + " 条 · 同屏查看不等于合并数据库",
+            Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -594,7 +594,7 @@ private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
     val spokenPrefix = if (task.storage == "cloud") "云端待核对，" else ""
     return when {
         !task.done && date.isBefore(today) ->
-            DueUi("已逾期 · $text", spokenPrefix + "已逾期，截止 $text", DUE_OVERDUE)
+            DueUi(prefix + "已逾期 · $text", spokenPrefix + "已逾期，截止 $text", DUE_OVERDUE)
         !task.done && date.isEqual(today) ->
             DueUi(prefix + "今天截止", spokenPrefix + "今天截止", DUE_TODAY)
         !task.done && thisWeek(date, today) ->
