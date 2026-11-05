@@ -54,13 +54,24 @@ for(const [name,path] of [
   name+' must remain limited to main');
 }
 
-// Pause APK packaging while school account integrations are stabilized.
-// Source-level Android boundary checks must still run on every PR/main CI.
+// APK packaging is never triggered by routine source pushes. A reviewed,
+// intentionally committed request marker is equivalent to an explicit manual
+// build request and cannot be induced by unrelated source or web releases.
 const androidBuild=readFileSync(new URL('../.github/workflows/build-xiaoxu-android.yml',import.meta.url),'utf8');
 const regularCI=readFileSync(new URL('../.github/workflows/check.yml',import.meta.url),'utf8');
 assert.match(androidBuild,/on:\s*\n\s*workflow_dispatch:/);
-assert.doesNotMatch(androidBuild,/^\s{2}(?:push|pull_request|schedule):/m,
- 'APK compilation must remain manual until explicitly resumed');
+assert.doesNotMatch(androidBuild,/^\s{2}(?:pull_request|schedule):/m,
+ 'APK packaging must not run automatically for PRs or scheduled jobs');
+const expectedBuildTriggers = [
+ 'on:',
+ '  workflow_dispatch:',
+ '  push:',
+ '    branches: [main]',
+ '    paths:',
+ "      - '.github/xiaoxu-apk-build-requests/**'"
+].join('\n');
+assert.ok(androidBuild.includes(expectedBuildTriggers+'\n\npermissions:'),
+ 'APK source pushes must never trigger builds except an explicit reviewed request marker');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
  'Every PR still validates Android security and contract boundaries');

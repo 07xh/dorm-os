@@ -1,9 +1,14 @@
 name: Build Xiaoxu Android Alpha
 
-# Manual build only while the three school integrations are being completed.
+# Build only by an explicit user request: GitHub manual dispatch or a
+# reviewed request marker merged into main. No build on routine pushes.
 # Web/Cloudflare releases still follow independent main CI.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/xiaoxu-apk-build-requests/**'
 
 permissions:
   contents: read
