@@ -880,11 +880,31 @@ assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页�
 assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
   '首页课表结论须复用课表页判定');
 assert.match(workspace, /当前教学周未核实/);
-assert.match(workspace, /不显示上课倒计时/, '缺少节次作息时必须声明不倒计时');
+assert.match(workspace, /不能确认今天实际开课|不显示上课倒计时/,
+  '缺少节次作息与教学周时必须显式声明不能确认当天实际上课');
 assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
 assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
 assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得打印日志');
 
+
+// PR #269 review 修复：stale 不得算已核验 / 无教学周不得称今日实际课程 / 统计须说明云端快照。
+assert.match(workspace, /val verified = state as\? ScheduleUiState\.Verified/,
+  '首页须读取课表四态里的 stale 与刷新提示');
+assert.match(workspace, /val stale = verified\?\.stale == true/, 'stale 必须单独判定');
+assert.match(workspace, /stale -> "待刷新"/, 'stale 课表徽标须为待刷新，不得写已核验');
+assert.match(workspace, /本日课表 · 上次读取 · 待刷新核对/, 'stale 文案须说明是上次读取');
+assert.match(workspace, /refreshWarning/, '刷新失败提示须展示');
+assert.doesNotMatch(workspace, /今日课程|今日安排/,
+  '未知教学周时不得把按星期筛选的记录称为今日课程/今日安排');
+assert.match(workspace, /本日课表/, '课表区须按本日课表描述');
+assert.match(workspace, /按星期匹配，当前教学周未核实，不能确认今天实际开课/,
+  '须显式声明不能确认今天实际开课');
+assert.match(workspace, /formatWeeks\(it\.weeks\)/, '须展示课程适用周次');
+assert.match(workspace, /不代表今天停课/, '无该星期记录时不得推断停课');
+assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '统计须知道云端快照条数');
+assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注本次读取');
+assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
+assert.match(workspace, /本人标记完成 · 含云端快照/, '已完成口径须同步披露快照');
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

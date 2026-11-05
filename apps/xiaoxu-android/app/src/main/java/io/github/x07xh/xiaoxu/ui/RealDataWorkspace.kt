@@ -197,7 +197,18 @@ fun RealAcademicHome(
     val pending = all.count { !it.done }
     val doneCount = all.count { it.done }
     val upcoming = all.filter { !it.done }.take(3)
-    val metricCaption = if (state.tasksFresh) "本机 + 云端已有记录" else "仅本机记录"
+    // 云端任务在刷新失败时会保留上次快照（CloudClient 不清空 state.tasks），
+    // 因此口径必须区分"本次读取"与"上次快照"，不能一律写成"仅本机"。
+    val cloudSnapshotRows = state.tasks.size
+    val metricCaption = when {
+        state.tasksFresh -> "本机 + 云端本次读取"
+        cloudSnapshotRows > 0 -> "含上次云端快照 " + cloudSnapshotRows + " 条，未重新核验"
+        else -> "仅本机记录"
+    }
+    val doneCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "本人标记完成 · 含云端快照"
+    else "本人标记完成"
+    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "含上次云端快照，未重新核验"
+    else "缺截止日期会单独标注，不推测"
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wideLayout = maxWidth >= 700.dp
@@ -214,6 +225,7 @@ fun RealAcademicHome(
                             lesson = sameWeekday.firstOrNull(),
                             isLocalTimetable = isLocalTimetable,
                             hasTimetable = timetable.isNotEmpty(),
+                            weekdayLabel = weekdayLabel,
                             state = cloudScheduleState,
                             openSchedule = openSchedule,
                             openProfile = openProfile
@@ -228,7 +240,7 @@ fun RealAcademicHome(
                             )
                         }
                     }
-                    item { HomeMetricsBlock(pending, doneCount, metricCaption, openTasks) }
+                    item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
                     item { HomeQuickBlock(openSchedule, openTasks, openMessages, openProfile) }
                 }
                 LazyColumn(
@@ -236,7 +248,7 @@ fun RealAcademicHome(
                     contentPadding = PaddingValues(end = 20.dp, top = 14.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item { HomeTodoBlock(upcoming, today, openTasks) }
+                    item { HomeTodoBlock(upcoming, today, todoCaption, openTasks) }
                     item { HomeNoticesBlock(state, openMessages) }
                     item {
                         HomeHomeworkBlock(
@@ -258,6 +270,7 @@ fun RealAcademicHome(
                         lesson = sameWeekday.firstOrNull(),
                         isLocalTimetable = isLocalTimetable,
                         hasTimetable = timetable.isNotEmpty(),
+                        weekdayLabel = weekdayLabel,
                         state = cloudScheduleState,
                         openSchedule = openSchedule,
                         openProfile = openProfile
@@ -273,9 +286,9 @@ fun RealAcademicHome(
                         )
                     }
                 }
-                item { HomeMetricsBlock(pending, doneCount, metricCaption, openTasks) }
+                item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
                 item { HomeQuickBlock(openSchedule, openTasks, openMessages, openProfile) }
-                item { HomeTodoBlock(upcoming, today, openTasks) }
+                item { HomeTodoBlock(upcoming, today, todoCaption, openTasks) }
                 item { HomeNoticesBlock(state, openMessages) }
                 item {
                     HomeHomeworkBlock(
@@ -338,39 +351,64 @@ private fun HomeSection(
 }
 
 /**
- * Hero：有真实课程才用蓝色渐变；没有可信课表就转深灰蓝并说明原因，
- * 不允许用蓝卡 + 占位课程冒充真实课程。
+ * Hero：有真实课表记录才用蓝色渐变；没有可信课表就转深灰蓝并说明原因。
+ *
+ * 两条真值约束（PR #269 review）：
+ * 1. stale 的官方课表只能说"上次读取 · 待刷新"，不得写成"已核验"；
+ * 2. 只有星期与节次、没有当前教学周，所以这里描述的是"该星期的课表记录"，
+ *    不是"今天确实在上课"。
  */
 @Composable
 private fun HomeHero(
     lesson: VerifiedLesson?,
     isLocalTimetable: Boolean,
     hasTimetable: Boolean,
+    weekdayLabel: String,
     state: ScheduleUiState,
     openSchedule: () -> Unit,
     openProfile: () -> Unit
 ) {
-    val sourceNote = if (isLocalTimetable) "本机文件导入，不等于学校实时同步"
-    else "来源与核验状态以课表页为准"
+    val verified = state as? ScheduleUiState.Verified
+    val stale = verified?.stale == true
+    val fetched = verified?.fetchedAt?.takeIf { it.isNotBlank() }
+    val refreshNote = verified?.refreshWarning?.takeIf { it.isNotBlank() }
+    // 徽标只描述这份课的来源与新鲜度，不代替核验结论。
+    val badge = when {
+        isLocalTimetable -> "待核对"
+        stale -> "待刷新"
+        else -> "已核验"
+    }
+    val weekNote = lesson?.let { "适用" + formatWeeks(it.weeks) }
+    val sourceNote = when {
+        isLocalTimetable -> "本机文件导入，不等于学校实时同步。"
+        stale -> "上次成功读取" + (if (fetched != null) "于 $fetched " else "") +
+            "未确认是否调整，待刷新核对。"
+        else -> "来源与核验状态以课表页为准。"
+    }
     when {
         lesson != null -> XiaoxuHero(
-            kicker = if (isLocalTimetable) "今日课程 · 本机导入 · 待核对"
-            else "今日课程 · 官方已核验",
+            kicker = when {
+                isLocalTimetable -> "本日课表 · 本机导入 · 待核对"
+                stale -> "本日课表 · 上次读取 · 待刷新核对"
+                else -> "本日课表 · 官方本次读取"
+            },
             title = lesson.title,
             supporting = "第" + lesson.startSection + "–" + lesson.endSection + "节 · " +
                 lesson.location.ifBlank { "教室未提供" } + " · " +
                 lesson.teacher.ifBlank { "教师未提供" },
-            badge = if (isLocalTimetable) "待核对" else "已核验",
-            meta = "按节次排序；未接入节次作息与开学日期，当前教学周未核实，不显示上课倒计时。$sourceNote",
+            badge = badge,
+            meta = (weekNote?.plus("；") ?: "") +
+                "按星期匹配，当前教学周未核实，不能确认今天实际开课。" + sourceNote +
+                (refreshNote?.let { " 刷新提示：" + it } ?: ""),
             actionLabel = "全部课表",
             onAction = openSchedule
         )
         hasTimetable -> XiaoxuHero(
-            kicker = "今日课程",
-            title = "今天没有已保存的课程",
-            supporting = "课表里今天没有课块；未接入开学日期，不能据此判断停课或调课。",
-            badge = if (isLocalTimetable) "待核对" else "已核验",
-            meta = "当前教学周未核实。",
+            kicker = "本日课表",
+            title = "课表里" + weekdayLabel + "没有课程记录",
+            supporting = "不代表今天停课；适用周次与当前教学周都未核实，请以学校官网为准。",
+            badge = badge,
+            meta = sourceNote + (refreshNote?.let { " 刷新提示：" + it } ?: ""),
             actionLabel = "打开课表",
             onAction = openSchedule
         )
@@ -404,14 +442,14 @@ private fun HomeHero(
         state is ScheduleUiState.Loading -> XiaoxuHero(
             kicker = "课程数据",
             title = "正在读取课表",
-            supporting = "读取完成后这里显示今天的课程。",
+            supporting = "读取完成后这里显示当天的课表记录。",
             tone = XiaoxuTone.Neutral,
             badge = "读取中"
         )
         else -> XiaoxuHero(
             kicker = "课程数据",
             title = "还没有可信课表",
-            supporting = "连接学校，或在「我的」导入课表文件后，这里显示今天的课程。",
+            supporting = "连接学校，或在「我的」导入课表文件后，这里显示当天的课表记录。",
             tone = XiaoxuTone.Neutral,
             badge = "未连接",
             actionLabel = "去连接",
@@ -420,7 +458,7 @@ private fun HomeHero(
     }
 }
 
-/** 今日安排：按节次排序的课程色块；今天没课时给与来源一致的说明。 */
+/** 本日课表：按节次排序的课程色块；该星期无记录时说明来源边界，不推断停课。 */
 @Composable
 private fun TodayScheduleBlock(
     sameWeekday: List<VerifiedLesson>,
@@ -429,19 +467,19 @@ private fun TodayScheduleBlock(
     openProfile: () -> Unit
 ) {
     HomeSection(
-        title = "今日安排",
+        title = "本日课表",
         caption = when {
-            sameWeekday.isEmpty() -> "今天没有已保存的课程"
-            isLocalTimetable -> "本机读取 · 待与学校官网核对"
-            else -> "按节次排序 · 非实时倒计时"
+            sameWeekday.isEmpty() -> "本星期没有对应课程记录"
+            isLocalTimetable -> "本机读取 · 待与学校官网核对 · 仅按星期匹配"
+            else -> "仅按星期匹配 · 适用周次与教学周待核实"
         },
         actionLabel = "课表",
         onAction = openSchedule
     ) {
         if (sameWeekday.isEmpty()) {
             XiaoxuEmpty(
-                title = "今天没有已保存的课程",
-                message = "课表里今天没有课块；未接入开学日期，不能据此判断停课或调课。",
+                title = "课表里这一星期没有课程记录",
+                message = "不代表今天停课：适用周次与当前教学周都未核实，请以学校官网为准。",
                 actionLabel = "打开课表",
                 onAction = openSchedule
             )
@@ -474,6 +512,7 @@ private fun HomeMetricsBlock(
     pending: Int,
     doneCount: Int,
     caption: String,
+    doneCaption: String,
     openTasks: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -482,7 +521,7 @@ private fun HomeMetricsBlock(
             modifier = Modifier.weight(1f), onClick = openTasks
         )
         MetricCard(
-            label = "已完成", value = doneCount.toString(), caption = "本人标记完成",
+            label = "已完成", value = doneCount.toString(), caption = doneCaption,
             tone = XiaoxuTone.Success, modifier = Modifier.weight(1f), onClick = openTasks
         )
     }
@@ -514,11 +553,12 @@ private fun HomeQuickBlock(
 private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
     today: LocalDate,
+    caption: String,
     openTasks: () -> Unit
 ) {
     HomeSection(
         title = "待办与提醒",
-        caption = "缺截止日期会单独标注，不推测",
+        caption = caption,
         actionLabel = "全部任务",
         onAction = openTasks
     ) {
