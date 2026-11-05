@@ -1008,4 +1008,26 @@ assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImp
 assert.ok(panels.includes('if (cloudAdvanced) {'),
   '云端授权仍是可展开的独立可选入口');
 
+// Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
+assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
+  '任务中心必须保留独立可滚动列表状态');
+assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
+  '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
+assert.match(workspace, /"cloud" -> if \(showCloud\) 5 \+ \(if \(showLocal\) 1 else 0\)/,
+  '云端管理滚动下标须考虑本机管理展开与否');
+assert.match(workspace, /"filters" -> 5 \+ \(if \(showLocal\) 1 else 0\) \+ \(if \(showCloud\) 1 else 0\)/,
+  '筛选列表跳转下标须考虑两个管理区状态');
+assert.match(workspace, /caption = if \(filter == "week"\) "当前筛选" else "点击查看"/,
+  '本周截止统计卡应体现当前筛选并能点击');
+assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
+  '待完成统计卡应真实切换过滤器');
+assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
+  '已完成统计卡应真实切换过滤器');
+assert.match(workspace, /jumpTo = "local"/,
+  '本机任务按钮应自动定位管理区域');
+assert.match(workspace, /jumpTo = "cloud"/,
+  '云端任务按钮应自动定位管理区域');
+assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
+  '窄屏任务分区标题必须给来源和条数预留空间');
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
