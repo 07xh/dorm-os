@@ -1,5 +1,5 @@
 // Fixed, device-local read. Never read inputs, cookies, storage or full URLs.
-(async function readSecondClassScores(accountSalt = '') {
+(async function readSecondClassScores(accountSalt = '', includeActivities = false) {
   const host = 'https://dekt.ncwu.edu.cn';
   const path = '/sys/stu/score/list';
   const base = {schema:'xiaoxu/local-secondclass-scores-v1',
@@ -16,7 +16,8 @@
   if (unique.length !== 1) return fail('identity','visible_account_required');
   const expected = unique[0];
   const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(),15000);
+  const timer = setTimeout(()=>controller.abort(),includeActivities?60000:15000);
+  let requestStage = 'score_request';
   try {
     const response = await fetch(host+path,{
       method:'POST',credentials:'same-origin',redirect:'error',cache:'no-store',
@@ -69,6 +70,68 @@
       rows.push({termIndex:index,qualityScore:row.score_value,
         volunteerHours:row.score_plus,categories});
     }
+    const activities = [];
+    if (includeActivities) {
+      requestStage = 'activity_request';
+      const activityPath = '/sys/stu/center/signupactivity/list';
+      let total = null, pageCount = null;
+      const ids = new Set();
+      for (let page=1;page<=25;page++) {
+        diagnostic.httpStatus = null;
+        diagnostic.contentType = null;
+        const res = await fetch(host+activityPath,{
+          method:'POST',credentials:'same-origin',redirect:'error',cache:'no-store',
+          headers:{accept:'application/json','content-type':'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with':'XMLHttpRequest'},body:'page='+page+'&pagesize=50',signal:controller.signal
+        });
+        diagnostic.httpStatus = res.status;
+        const activityType=res.headers.get('content-type');
+        diagnostic.contentType=activityType&&/^[\w.+-]+\/[\w.+-]+(?:\s*;\s*charset=[\w-]+)?$/i.test(activityType)?activityType:null;
+        if (res.status !== 200) return fail('activity_http','http_failure');
+        if (res.redirected || res.url !== host+activityPath || !context()) return fail('context','page_changed');
+        let batch;
+        try { const text=await res.text();if(text.length>300000)return fail('activity_response','response_too_large');batch=JSON.parse(text); }
+        catch { return fail('activity_response','not_business_json'); }
+        const nowIdentity=visibleIdentity();
+        if(!context()||nowIdentity.length!==1||nowIdentity[0]!==expected)return fail('identity','visible_account_changed');
+        if(!batch||!Array.isArray(batch.data)||batch.data.length>50||
+          !Number.isSafeInteger(batch.totalPage)||batch.totalPage<0||batch.totalPage>25||
+          !Number.isSafeInteger(batch.totalSize)||batch.totalSize<0||batch.totalSize>250||
+          !Number.isSafeInteger(batch.startIndex)||batch.startIndex<0)
+          return fail('activity_response','invalid_pagination');
+        if(total===null){total=batch.totalSize;pageCount=batch.totalPage;}
+        if(total!==batch.totalSize||pageCount!==batch.totalPage)return fail('activity_response','inconsistent_total');
+        if(page===1&&total===0&&pageCount===0&&batch.data.length===0)break;
+        if(pageCount<page||!batch.data.length||total<batch.data.length)return fail('activity_response','incomplete_page');
+        for(const item of batch.data){
+          if(!item||item.student_code!==expected)return fail('identity','activity_account_mismatch');
+          if(typeof item.id!=='string'||!/^[A-Za-z0-9:_-]{1,120}$/.test(item.id)||ids.has(item.id)||
+            typeof item.activity_name!=='string'||!item.activity_name.trim()||item.activity_name.length>120)
+            return fail('activity_record','invalid_or_duplicate_activity');
+          let startTime=null;
+          if(item.activity_start!=null&&item.activity_start!==''){
+            if(typeof item.activity_start!=='string'||!/^20\d{2}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2})?$/.test(item.activity_start))
+              return fail('activity_record','invalid_activity_time');
+            const date=new Date(item.activity_start.replace(' ','T')+(item.activity_start.length===10?'T00:00:00':'')+'Z');
+            if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==item.activity_start.slice(0,10))
+              return fail('activity_record','invalid_activity_time');
+            startTime=item.activity_start;
+          }
+          const settlementStatus=item.verify_state==='2'||item.verify_state==='1'&&item.activity_state==='5'?'settled':
+            item.verify_state==='1'&&item.activity_state==='4'?'unsettled':
+            item.verify_state==='1'&&item.activity_state==='6'?'awaiting_settlement':
+            'unknown';
+          if(item.score_value!=null&&!number(item.score_value))return fail('activity_record','invalid_points');
+          ids.add(item.id);
+          activities.push({id:item.id,title:item.activity_name.trim(),startTime,
+            signupStatus:item.signup_state==='1'?'registered':'unknown',reviewStatus:'unknown',
+            verificationCode:typeof item.verify_state==='string'&&/^[0-9]$/.test(item.verify_state)?item.verify_state:null,
+            settlementStatus,...(settlementStatus==='settled'&&item.score_value!=null?{points:item.score_value}:{})});
+        }
+        if(activities.length>250||activities.length>total)return fail('activity_response','too_many_records');
+        if(page===pageCount){if(activities.length!==total)return fail('activity_response','incomplete_total');break;}
+      }
+    }
     let accountHash;
     if (/^[a-f0-9]{32}$/.test(accountSalt)) {
       const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(accountSalt+':'+expected));
@@ -77,7 +140,8 @@
       if (!context() || finalIdentity.length !== 1 || finalIdentity[0] !== expected)
         return fail('identity','visible_account_changed');
     }
-    return {...base,...diagnostic,ok:true,identityMatched:true,rows,...(accountHash?{accountHash}:{})};
-  } catch { return fail('score_request','network_redirect_or_timeout'); }
+    return {...base,...diagnostic,ok:true,identityMatched:true,rows,...(accountHash?{accountHash}:{}),
+      ...(includeActivities?{activitiesComplete:true,activities}: {})};
+  } catch { return fail(requestStage,'network_redirect_or_timeout'); }
   finally { clearTimeout(timer); }
 })

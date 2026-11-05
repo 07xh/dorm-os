@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
+import io.github.x07xh.xiaoxu.data.parseLocalSecondClassActivities
 import java.util.UUID
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
@@ -471,7 +472,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (!payload.optBoolean("ok")) {
                 val code = payload.optInt("httpStatus", 0)
                 val stage = payload.optString("stage").takeIf {
-                    it in setOf("context", "identity", "score_http", "score_request", "score_response", "score_record")
+                    it in setOf("context", "identity", "score_http", "score_request", "score_response", "score_record", "activity_http", "activity_request", "activity_response", "activity_record")
                 } ?: "score_response"
                 tell((if (code == 401 || code == 403) "登录已失效，请在官网重新登录。"
                       else "积分读取失败，请检查官网或稍后重试。") +
@@ -482,6 +483,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
             val rows = try { parseLocalSecondClassScores(payload, System.currentTimeMillis()) }
                 catch (_: Exception) { tell("积分字段校验失败，未更改旧数据。"); unlock(); return }
+            val activities = try { parseLocalSecondClassActivities(payload, rows.first().capturedAt) }
+                catch (_: Exception) { tell("活动分页或字段校验失败，积分与活动旧记录均保持不变。"); unlock(); return }
             val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
             val accountHash = payload.optString("accountHash")
             if (!accountHash.matches(Regex("^[a-f0-9]{64}$"))) {
@@ -496,7 +499,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) {
                                 currentCoroutineContext().ensureActive()
                                 LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
-                                    .replaceKind("second_class", "credits", rows)
+                                    .replaceSecondClassSnapshot(rows, activities)
                             }
                             if (!valid()) return@launch
                             scoreIdentity.edit().putString("account", accountHash).commit()
@@ -521,7 +524,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (autoMode && scoreIdentity.getString("account", null) == accountHash) saveScores()
             else AlertDialog.Builder(this)
                 .setTitle("确认保存本人积分")
-                .setMessage("已核对官网当前账号。\n$summary\n保存后，同一账号可在进入第二课堂时自动更新。切换账号将再次询问。")
+                .setMessage("已核对官网当前账号。\n$summary\n本人报名活动：${activities.size - 1} 条，已完整分页读取。\n保存后，同一账号可在进入第二课堂时自动更新。切换账号将再次询问。")
                 .setNegativeButton("取消") { _, _ -> unlock() }
                 .setOnCancelListener { unlock() }
                 .setPositiveButton("保存到校序") { _, _ -> saveScores() }.show()
@@ -545,9 +548,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         browser.evaluateJavascript(
-            "window[$key]=null;($script)('" + salt + "').then(function(result){window[$key]=JSON.stringify(result);}," +
+            "window[$key]=null;($script)('" + salt + "',true).then(function(result){window[$key]=JSON.stringify(result);}," +
                 "function(){window[$key]=JSON.stringify({ok:false,stage:'score_request'});});"
-        ) { if (valid()) poll(80) }
+        ) { if (valid()) poll(280) }
     }
 
     override fun onPause() {

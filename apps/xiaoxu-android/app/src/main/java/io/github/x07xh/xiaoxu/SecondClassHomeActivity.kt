@@ -41,6 +41,10 @@ class SecondClassHomeActivity : ComponentActivity() {
         setContent { XiaoxuTheme {
             val all by dao.observe().collectAsState(initial = emptyList())
             val rows = all.filter { it.provider == "second_class" && it.kind == "credits" }
+            val activityCandidates = all.filter { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") }
+            val activityBatch = activityCandidates.singleOrNull { it.kind == "activity_summary" }
+            val activities = if (activityBatch != null && activityCandidates.all { it.capturedAt == activityBatch.capturedAt })
+                activityCandidates else emptyList()
             var attempted by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(rows.isNotEmpty()) {
                 if (rows.isNotEmpty() && !attempted) { attempted = true; refresh() }
@@ -54,10 +58,22 @@ class SecondClassHomeActivity : ComponentActivity() {
                     Text("进入此页会尝试刷新已连接账号。会话有效时无需重新登录；过期时在官网授权。首次保存或切换账号须确认。",
                         style = MaterialTheme.typography.bodySmall)
                     Button(onClick = { attempted = true; refresh() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (rows.isEmpty()) "连接并读取本人积分" else "立即刷新积分")
+                        Text(if (rows.isEmpty()) "连接并读取本人积分与活动" else "刷新积分与报名活动")
                     }
                     if (rows.isEmpty()) Text("尚无本机积分，请先连接学校官网。")
                     rows.sortedBy { if (it.title == "学校积分合计") 0 else 1 }.forEach { row ->
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(row.title, fontWeight = FontWeight.SemiBold)
+                                Text(row.details)
+                                Text("上次更新：" + DateFormat.getDateTimeInstance().format(Date(row.capturedAt)),
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    Text("本人报名活动", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    if (activities.isEmpty()) Text("尚未完成活动分页读取，请刷新；不以旧手动采集记录冒充完整同步。")
+                    activities.sortedBy { if (it.kind == "activity_summary") 0 else 1 }.forEach { row ->
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(row.title, fontWeight = FontWeight.SemiBold)
