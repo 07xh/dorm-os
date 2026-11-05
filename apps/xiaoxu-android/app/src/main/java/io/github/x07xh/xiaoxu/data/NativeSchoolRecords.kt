@@ -27,6 +27,19 @@ data class NativeSchoolRecord(
 
 @Dao
 interface NativeSchoolRecordDao {
+    /** Atomically replace a complete score+activity read, including verified zero activities. */
+    @Transaction
+    suspend fun replaceSecondClassSnapshot(scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>) {
+        require(scores.isNotEmpty() && scores.size <= 50)
+        require(scores.all { it.provider == "second_class" && it.kind == "credits" })
+        require(activities.size in 1..251)
+        require(activities.count { it.kind == "activity_summary" } == 1)
+        require(activities.all { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") })
+        deleteKind("second_class", "credits")
+        deleteKind("second_class", "activity")
+        deleteKind("second_class", "activity_summary")
+        insertAll(scores + activities)
+    }
     @Query("SELECT * FROM native_school_records ORDER BY capturedAt DESC, provider, kind, title")
     fun observe(): Flow<List<NativeSchoolRecord>>
 

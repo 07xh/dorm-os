@@ -39,7 +39,7 @@ jobs:
       - name: Android static safety checks (no SDK or APK compilation)
         run: node scripts/xiaoxu-android-bootstrap-tests.mjs
       - name: Second-class local score reader contract and failure paths
-        run: node --test scripts/xiaoxu-secondclass-local-reader-tests.mjs
+        run: node --test scripts/xiaoxu-secondclass-local-reader-tests.mjs scripts/xiaoxu-secondclass-local-activities-tests.mjs
       - name: Windows WeChat collector logic tests (synthetic only)
         run: python3 -m unittest discover -s integrations/wechat -p 'test_*.py'
       - name: Read-only current NCWU second-class CAS compatibility (no login)
