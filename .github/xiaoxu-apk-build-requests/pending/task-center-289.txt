@@ -1,0 +1,5 @@
+校序 Android 原生任务中心重构构建请求
+PR: #289
+触发条件：PR 检查通过并合并到 main 后，使用现有 Build Xiaoxu Android Alpha 运行 :app:testDebugUnitTest 和 :app:assembleDebug。
+来源：用户明确要求开发上线；只做现有真实任务中心 UI，禁止演示数据与新的登录器。
+版本号：沿用 main 的版本号，不宣称新正式发行版或可覆盖安装签名。
