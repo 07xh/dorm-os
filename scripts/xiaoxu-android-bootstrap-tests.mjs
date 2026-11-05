@@ -373,7 +373,7 @@ assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
-assert.match(panels, /if \(recentImport != null\) localAdvanced = true/);
+assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
 assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
 assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider \}/);
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
