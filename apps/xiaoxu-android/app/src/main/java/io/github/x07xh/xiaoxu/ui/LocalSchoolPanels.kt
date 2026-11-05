@@ -123,7 +123,7 @@ fun LocalSchoolConnectionPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    if (list.size > if (justImported != null) 12 else 3) {
+                    if (list.size > (if (justImported != null) 12 else 3)) {
                         TextButton(onClick = { expanded = !expanded }) {
                             Text(if (expanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
                         }
