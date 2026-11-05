@@ -305,15 +305,7 @@ fun MessageCenterPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item {
-                    MessageHeader(
-                        noticeTotal = state.notices.size,
-                        matched = filtered.size,
-                        filterKey = filterKey,
-                        pendingCount = state.pendingWechatCount,
-                        authenticated = state.authenticated,
-                        wechatError = state.wechatError,
-                        onRefresh = refresh
-                    )
+                    MessageHeader(onRefresh = refresh)
                 }
                 item {
                     MessageSearchField(
@@ -361,8 +353,7 @@ fun MessageCenterPanel(
                         )
                     }
                 }
-                if (!state.authenticated && filterKey != MSG_FILTER_NOTICE &&
-                    filterKey != MSG_FILTER_EXAM) {
+                if (!state.authenticated && filterKey != MSG_FILTER_NOTICE) {
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Info,
@@ -429,15 +420,7 @@ fun MessageCenterPanel(
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun MessageHeader(
-    noticeTotal: Int,
-    matched: Int,
-    filterKey: String,
-    pendingCount: Int?,
-    authenticated: Boolean,
-    wechatError: String?,
-    onRefresh: () -> Unit
-) {
+private fun MessageHeader(onRefresh: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
