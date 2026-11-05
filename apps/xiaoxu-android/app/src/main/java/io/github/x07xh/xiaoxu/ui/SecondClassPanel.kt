@@ -2,128 +2,240 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.SecondClassActivity
+import io.github.x07xh.xiaoxu.data.SecondClassSnapshot
 import kotlinx.coroutines.launch
 
-/**
- * Native read-only view over the EXISTING /api/v1/second-class snapshot.
- * Imported/user-entered totals are never labelled as official school scores.
+/*
+ * Real three-section second-class workspace. The activity discovery source
+ * has NOT been attested: only the existing owner-protected personal D1
+ * snapshot may display activity rows or official scores. No fake events,
+ * campus network calls, enrollment submission, or background polling.
  */
 @Composable
 fun SecondClassPanel(client: CloudClient, openWebsite: () -> Unit) {
     val state = client.state
     val scope = rememberCoroutineScope()
     val result = state.secondClass
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("第二课堂 · 活动与积分",
-            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text("复用校序现有的本人只读数据，不重新登录或采集学校账号。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (!state.authenticated) {
-            Text("连接校序云端后才能查看本人第二课堂记录。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            Button(
-                enabled = !state.secondClassBusy && !state.busy,
-                onClick = { scope.launch { client.loadSecondClass() } }
-            ) {
-                Text(if (state.secondClassBusy) "正在读取…" else "刷新活动与积分")
-            }
-        }
-        state.secondClassError?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-        if (result == null) {
-            Text(if (state.authenticated) "未读取到第二课堂个人数据。" else "云端尚未连接。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else if (result.status == "not_connected") {
-            Text("尚无第二课堂个人数据。请先完成官方登录和可信读取。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            val trusted = result.provenance == "trusted_readonly"
-            val source = if (trusted) "服务端已验证只读来源"
-                else "用户自行导入的数据（非官方实时同步）"
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(source, fontWeight = FontWeight.SemiBold)
-                    if (result.status == "stale") {
-                        Text("数据已超过36小时，仅供参考，不代表学校当前记录。",
-                            color = MaterialTheme.colorScheme.error)
-                    }
-                    Text("上次数据时间：" + (result.lastSuccessAt ?: "未知"),
-                        style = MaterialTheme.typography.bodySmall)
-                    Text("活动记录：" + result.activities.size + " 条",
-                        style = MaterialTheme.typography.bodyMedium)
+    var tab by rememberSaveable { mutableStateOf("catalog") }
+    val tabs = listOf(
+        "catalog" to "活动广场",
+        "mine" to "我的活动",
+        "score" to "素质积分"
+    )
 
-                    val official = result.officialScore
-                    if (trusted && official != null) {
-                        Text("学校官方汇总", fontWeight = FontWeight.SemiBold)
-                        Text("素质分：" + (official.qualityScore?.toString() ?: "未公布"))
-                        Text("志愿服务时长：" +
-                            (official.volunteerHours?.toString() ?: "未公布"))
-                        Text("官方汇总不与逐条活动分数相加，避免重复计算。",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else if (!trusted && result.personalScore != null) {
-                        Text("用户导入的个人汇总（未获学校独立证明）",
-                            fontWeight = FontWeight.SemiBold)
-                        Text("素质分：" +
-                            (result.personalScore.qualityScore?.toString() ?: "未知"))
-                        Text("志愿服务时长：" +
-                            (result.personalScore.volunteerHours?.toString() ?: "未知"))
-                    } else {
-                        Text("暂无可核验的学校官方汇总分数。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            if (result.activities.isEmpty()) {
-                Text("此数据批次无可显示的活动记录；请核实官方页面。",
-                    style = MaterialTheme.typography.bodySmall)
-            }
-            result.activities.take(60).forEach { activity ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(activity.title, fontWeight = FontWeight.SemiBold)
-                        Text(listOfNotNull(
-                            activity.date?.takeIf { it.isNotBlank() },
-                            activity.activityStatus?.let { "活动：$it" },
-                            activity.reviewStatus?.let { "审核：$it" }
-                        ).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            "活动记录：素质分 " +
-                                (activity.points?.toString() ?: "未知") +
-                                " · 志愿时长 " +
-                                (activity.hours?.toString() ?: "未知"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            if (result.activities.size > 60) {
-                Text("仅展示前60条；完整记录请在校序网站查看。",
-                    style = MaterialTheme.typography.labelSmall)
+    // Reuse the existing authenticated snapshot API on entering the screen.
+    // It does not log into the school or trigger any CAS / upstream sync.
+    LaunchedEffect(state.authenticated) {
+        if (state.authenticated) client.loadSecondClass()
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("第二课堂", style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tabs.forEach { (key, title) ->
+                FilterChip(
+                    selected = tab == key,
+                    onClick = { tab = key },
+                    label = { Text(title) }
+                )
             }
         }
-        TextButton(onClick = openWebsite) { Text("打开现有第二课堂连接与诊断") }
+
+        // A verified personal activity snapshot does not prove that the
+        // school's ALL-ACTIVITIES discovery source is connected.
+        if (tab == "catalog") {
+            SectionCard {
+                Text("活动广场 · 官方数据接入中", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "目前只验证过“我的报名活动”接口，尚未验证学校正在报名的全部活动目录。" +
+                        "因此不显示示例活动、虚构名额或报名时间。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = openWebsite) {
+                    Text("打开现有学校连接入口")
+                }
+            }
+        } else {
+            if (!state.authenticated) {
+                SectionCard {
+                    Text("尚未连接校序云端", fontWeight = FontWeight.SemiBold)
+                    Text("本页只显示已读取的本人活动与积分；未登录时不填充模拟数据。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = openWebsite) { Text("前往学校数据连接") }
+                }
+            } else {
+                Button(
+                    enabled = !state.secondClassBusy && !state.busy,
+                    onClick = { scope.launch { client.loadSecondClass() } }
+                ) {
+                    Text(if (state.secondClassBusy) "正在读取…" else "刷新个人活动与积分")
+                }
+                state.secondClassError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                if (result != null && !state.secondClassFresh) {
+                    Text("本次尚未确认最新记录；以下如有内容，仅为上次读取的快照。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
+                if (result?.status == "stale") {
+                    Text("数据已超过36小时，仅供参考，不代表学校当前记录。",
+                        color = MaterialTheme.colorScheme.error)
+                }
+                if (result == null || result.status == "not_connected") {
+                    SectionCard {
+                        Text("尚无可核验的第二课堂个人数据")
+                        Text("请先在学校官方页面完成本人登录和真实读取。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = openWebsite) { Text("查看现有连接和诊断") }
+                    }
+                } else {
+                    Text(
+                        if (result.provenance == "trusted_readonly") "服务端已验证只读来源"
+                        else "用户自行导入的数据（非官方实时同步）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("上次成功读取：" + (result.lastSuccessAt ?: "未知"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (tab == "mine") {
+                        MySecondClassActivities(result)
+                    } else {
+                        SecondClassScores(result)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            content()
+        }
+    }
+}
+
+private fun schoolActivityStatus(value: String?): String = when (value) {
+    "registered" -> "已报名"
+    "completed" -> "已完成"
+    "cancelled" -> "已取消"
+    else -> "活动状态未核实"
+}
+
+private fun schoolReviewStatus(value: String?): String = when (value) {
+    "pending" -> "待审核"
+    "approved" -> "已通过"
+    "rejected" -> "未通过"
+    "attended" -> "已参与"
+    else -> "审核状态未核实"
+}
+
+@Composable
+private fun MySecondClassActivities(result: SecondClassSnapshot) {
+    var filter by rememberSaveable { mutableStateOf("all") }
+    val filters = listOf("all" to "全部", "registered" to "已报名", "completed" to "已完成")
+    val rows = result.activities.filter { activity ->
+        filter == "all" || activity.activityStatus == filter
+    }
+    Text("个人活动记录 " + result.activities.size + " 条",
+        style = MaterialTheme.typography.titleMedium)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        filters.forEach { (key, label) ->
+            FilterChip(selected = filter == key, onClick = { filter = key },
+                label = { Text(label) })
+        }
+    }
+    if (rows.isEmpty()) {
+        SectionCard {
+            Text(if (result.activities.isEmpty()) "本次快照没有个人活动记录"
+                else "当前筛选条件下没有记录")
+            Text("列表仅来自本人已授权的记录，不代表学校没有可报名活动。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    rows.take(60).forEach { activity: SecondClassActivity ->
+        SectionCard {
+            Text(activity.title, fontWeight = FontWeight.SemiBold)
+            activity.date?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            Text(schoolActivityStatus(activity.activityStatus) +
+                " · " + schoolReviewStatus(activity.reviewStatus),
+                style = MaterialTheme.typography.bodySmall)
+            Text("记录分数：" + (activity.points?.toString() ?: "未知") +
+                " · 记录时长：" + (activity.hours?.toString() ?: "未知"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    if (rows.size > 60) {
+        Text("当前仅展示前60条；可通过上方筛选查看其他活动。",
+            style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun SecondClassScores(result: SecondClassSnapshot) {
+    val trusted = result.provenance == "trusted_readonly"
+    val official = result.officialScore
+    val personal = result.personalScore
+    SectionCard {
+        when {
+            trusted && official != null -> {
+                Text("学校官方汇总", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Text("素质分：" + (official.qualityScore?.toString() ?: "未公布"))
+                Text("志愿服务时长：" +
+                    (official.volunteerHours?.toString() ?: "未公布"))
+                Text("官方汇总不与逐条活动分数相加，避免重复计算。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            !trusted && personal != null -> {
+                Text("本人导入的个人汇总（非学校独立认证）",
+                    fontWeight = FontWeight.SemiBold)
+                Text("素质分：" + (personal.qualityScore?.toString() ?: "未知"))
+                Text("志愿服务时长：" +
+                    (personal.volunteerHours?.toString() ?: "未知"))
+            }
+            else -> {
+                Text("暂无可核验的学校官方汇总分数。")
+                Text("个人活动列表的逐条分数不等于学校官方已结算总分。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
