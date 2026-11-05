@@ -402,7 +402,9 @@ fun RealAcademicTaskHub(
             item { Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
-            items(count = minOf(capturedHomework.size, 120),
+            // Bounded Room pagination allows 500 stored records; LazyColumn
+            // must not silently hide pages after the first 120.
+            items(count = minOf(capturedHomework.size, 500),
                 key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
                 val work = capturedHomework[index]
                 WorkspaceCard {
