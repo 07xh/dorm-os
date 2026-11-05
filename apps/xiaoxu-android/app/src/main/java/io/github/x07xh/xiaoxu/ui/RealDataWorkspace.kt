@@ -690,20 +690,7 @@ private fun HomeHomeworkBlock(
                     Text("重新读取官网当前页面")
                 }
             }
-            if (localSecondClass.isNotEmpty()) {
-                HorizontalDivider(color = XiaoxuPalette.Line)
-                Text(
-                    text = "第二课堂 · 本机保存 ${localSecondClass.size} 条活动／积分页面记录",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink
-                )
-                Text(
-                    text = "不是官方累计积分，查看和核对请到「我的」。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3
-                )
-                TextButton(onClick = openProfile) { Text("查看第二课堂") }
-            }
+            TextButton(onClick = { openLocalSchool("second_class") }) { Text("第二课堂 ›") }
         }
     }
 }
@@ -1033,11 +1020,11 @@ fun RealAcademicTaskHub(
                 title = "本机其他已读取记录",
                 count = 0,
                 badge = "本机页面快照",
-                note = "课程、活动与学分记录，同样不参与任务统计。",
+                note = "课程记录不参与任务统计。",
                 showCount = false
             )
         }
-        item { LocalSchoolRecordSection(setOf("course", "activity", "credits")) }
+        item { LocalSchoolRecordSection(setOf("course")) }
         item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
          item {
             Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",

@@ -35,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -752,7 +753,8 @@ fun XiaoxuTopBar(
     title: String,
     subtitle: String? = null,
     refreshing: Boolean = false,
-    onRefresh: (() -> Unit)? = null
+    onRefresh: (() -> Unit)? = null,
+    onMessages: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -798,6 +800,9 @@ fun XiaoxuTopBar(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        if (onMessages != null) {
+            TextButton(onClick = onMessages) { Text("消息") }
         }
         if (onRefresh != null) {
             IconButton(onClick = onRefresh, enabled = !refreshing) {
