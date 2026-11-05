@@ -250,6 +250,7 @@ private fun weekdayLong(weekday: Int): String =
 @Immutable
 private data class LessonUi(
     val key: String,
+    val colorKey: String,
     val title: String,
     val sectionLabel: String,
     val teacher: String,
@@ -262,6 +263,8 @@ private data class LessonUi(
 
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
     key = (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday",
+    // 与首页 CourseTile 共用相同的稳定课程标识，跨页面保持六色一致。
+    colorKey = id.ifBlank { title },
     title = title.ifBlank { "未命名课程" },
     sectionLabel = "第$startSection–$endSection 节",
     teacher = teacher.ifBlank { "教师未排" },
@@ -427,7 +430,9 @@ private fun ScheduleVerifiedContent(
                 data.fetchedAt?.let { "上次可信读取 $it" }
             ).joinToString(" · "),
             onRefresh = onRefresh,
-            localImport = localImport
+            localImport = localImport,
+            stale = data.stale,
+            refreshing = data.refreshing
         )
         ScheduleQuickActions(openFileImport, openLocalImport)
         if (localImport) {
@@ -723,65 +728,57 @@ private fun DayLessonList(
     }
 }
 
+/**
+ * 课表 P1 视觉统一：复用首页白卡与来源徽标，不复制另一套颜色。
+ * badge 严格使用现有 Verified.stale/refreshing 与本机来源，不更改学校数据判断。
+ */
 @Composable
 private fun ScheduleHeader(
-    subtitle: String, onRefresh: () -> Unit, localImport: Boolean
+    subtitle: String,
+    onRefresh: () -> Unit,
+    localImport: Boolean,
+    stale: Boolean,
+    refreshing: Boolean
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val badgeLabel = when {
+        localImport -> "本机导入 · 待核对"
+        refreshing -> "刷新中 · 上次课表"
+        stale -> "上次读取 · 待刷新"
+        else -> "官网可信读取"
+    }
+    val badgeTone = if (localImport || stale || refreshing) XiaoxuTone.Warning
+        else XiaoxuTone.Success
+    XiaoxuCard(
+        modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
+        contentPadding = 16.dp
     ) {
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = "我的课表",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    color = XiaoxuPalette.Ink,
                     modifier = Modifier.semantics { heading() }
                 )
-                Spacer(Modifier.width(8.dp))
-                SourceBadge(localImport)
+                SourceBadge(text = badgeLabel, tone = badgeTone)
             }
-            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (localImport) "核对" else "刷新")
+            }
+        }
+        if (subtitle.isNotBlank()) {
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = XiaoxuPalette.Ink2
             )
         }
-        TextButton(onClick = onRefresh) {
-            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("刷新")
-        }
-    }
-}
-
-@Composable
-private fun SourceBadge(localImport: Boolean) {
-    val bg = if (localImport) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.tertiaryContainer
-    val fg = if (localImport) MaterialTheme.colorScheme.onSecondaryContainer
-        else MaterialTheme.colorScheme.onTertiaryContainer
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(bg)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            if (localImport) Icons.Outlined.Info else Icons.Outlined.CheckCircle,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = fg
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = if (localImport) "本机导入 · 待核对" else "已验证",
-            style = MaterialTheme.typography.labelSmall,
-            color = fg
-        )
     }
 }
 
@@ -1065,6 +1062,7 @@ private fun NoLessonCard(selectedWeek: Int) {
 
 @Composable
 private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
+    val courseColor = xiaoxuCourseColor(lesson.colorKey)
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -1087,18 +1085,20 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
                     onOpen()
                 }
             ),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(XiaoxuRadius.card),
+        colors = CardDefaults.cardColors(containerColor = courseColor.background)
     ) {
         Row(Modifier.fillMaxWidth()) {
             Box(
                 Modifier.width(4.dp).heightIn(min = 76.dp)
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(courseColor.accent)
             )
             Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = lesson.title,
                         style = MaterialTheme.typography.titleSmall,
+                        color = courseColor.foreground,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1402,13 +1402,12 @@ private fun StateScaffold(
     accent: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    Column(
+    XiaoxuCard(
         modifier = Modifier
-            .fillMaxWidth()
             .pageWidth(StateMaxWidth)
             .padding(horizontal = 18.dp, vertical = 16.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = 18.dp
     ) {
         Box(
             modifier = Modifier

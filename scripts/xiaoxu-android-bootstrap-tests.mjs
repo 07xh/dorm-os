@@ -934,4 +934,26 @@ assert.match(freshnessTest, /freshSuccessfulReadIsVerifiedForThisRead/);
 assert.match(freshnessTest, /taskOrWechatFailureDoesNotTaintSuccessfulScheduleRead/);
 assert.match(freshnessTest, /localImportedTimetableIsIndependentFromCloudFreshness/);
 
+// Issue #268 P1 课表视觉统一：复用 DesignSystem，保留真正课表网格与来源状态。
+const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+assert.match(scheduleVisual, /XiaoxuCard\(/, '课表状态与头部共用白卡组件');
+assert.match(scheduleVisual, /SourceBadge\(text = badgeLabel, tone = badgeTone\)/,
+    '课表来源使用统一标签而非自建不同样式');
+assert.match(scheduleVisual, /stale -> "上次读取 · 待刷新"/,
+    '旧课表必须明确待刷新');
+assert.match(scheduleVisual, /refreshing -> "刷新中 · 上次课表"/,
+    '刷新中不得将保留课表当作本次已核验');
+assert.match(scheduleVisual, /localImport -> "本机导入 · 待核对"/,
+    '本机导入不能冒充官方新鲜记录');
+assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/,
+    '课程六色使用与首页一致的稳定课程标识');
+assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/,
+    '课表课程卡统一使用设计系统课程配色');
+assert.match(scheduleVisual, /WeeklyTimetableGrid\(/,
+    '不得删除已有七日网格');
+assert.match(scheduleVisual, /WeekSelector\(/,
+    '不得删除按真实周次筛选');
+assert.match(scheduleVisual, /ModalBottomSheet\(/,
+    '不得删除既有课程详情抽屉');
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
