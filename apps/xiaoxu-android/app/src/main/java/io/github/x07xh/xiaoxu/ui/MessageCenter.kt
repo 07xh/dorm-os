@@ -224,7 +224,8 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 fun MessageCenterPanel(
     client: CloudClient,
     openWebsite: () -> Unit,
-    openArticle: (String) -> Unit
+    openArticle: (String) -> Unit,
+    useStatusBarInset: Boolean = false
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -244,7 +245,10 @@ fun MessageCenterPanel(
     val showOfficialSection = filterKey != MSG_FILTER_WECHAT &&
         (phase is MessagePhase.Content || phase is MessagePhase.Empty)
 
-    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding()) {
+    BoxWithConstraints(
+        if (useStatusBarInset) Modifier.fillMaxSize().statusBarsPadding()
+        else Modifier.fillMaxSize()
+    ) {
         val wide = maxWidth >= 840.dp
         val sidePadding = when {
             wide -> 28.dp
