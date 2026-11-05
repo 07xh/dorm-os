@@ -13,8 +13,8 @@ android {
         applicationId 'io.github.x07xh.xiaoxu'
         minSdk 26
         targetSdk 35
-        versionCode 20
-        versionName '0.7.9'
+        versionCode 21
+        versionName '0.8.0'
     }
 
     compileOptions {
@@ -43,6 +43,7 @@ dependencies {
     implementation 'androidx.room:room-runtime:2.8.5'
     implementation 'androidx.room:room-ktx:2.8.5'
     ksp 'androidx.room:room-compiler:2.8.5'
+    testImplementation 'junit:junit:4.13.2'
 
     // Preserve the reviewed TWA launcher only as an explicitly named legacy fallback.
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'

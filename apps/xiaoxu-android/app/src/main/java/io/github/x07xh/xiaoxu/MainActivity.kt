@@ -1,6 +1,12 @@
 package io.github.x07xh.xiaoxu
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.provider.OpenableColumns
+import android.widget.Toast
+import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -66,6 +72,7 @@ import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.launch
@@ -76,6 +83,11 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
+    private val timetableFilePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) importTimetableFile(uri)
+    }
     private val cloud by lazy { CloudClient(applicationContext) }
     private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
     private var returnedSchool by mutableStateOf<String?>(null)
@@ -141,6 +153,9 @@ class MainActivity : ComponentActivity() {
                     openLocalImport = {
                         startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
                     },
+                    openFileImport = {
+                        timetableFilePicker.launch(arrayOf("*/*"))
+                    },
                     openLocalSchool = { provider ->
                         if (provider == "ncwu") {
                             startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
@@ -171,6 +186,83 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
                     }
                 })
+            }
+        }
+    }
+
+    /** SAF-only local file import. File bytes never leave the device. */
+    private fun importTimetableFile(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val parsed = withContext(Dispatchers.IO) {
+                    val fileName = contentResolver.query(uri,
+                        arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    } ?: "未命名文件"
+                    val bytes = ByteArrayOutputStream()
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            require(bytes.size() + count <= 1_000_000) {
+                                "文件超过 1 MB，未导入"
+                            }
+                            bytes.write(buffer, 0, count)
+                        }
+                    } ?: throw IllegalArgumentException("无法打开所选文件")
+                    val text = bytes.toString(Charsets.UTF_8.name())
+                    val lowered = fileName.lowercase()
+                    val lessons = when {
+                        lowered.endsWith(".ics") || text.trimStart()
+                            .removePrefix("\uFEFF").startsWith("BEGIN:VCALENDAR") ->
+                            LocalScheduleStore.parseIcs(text)
+                        lowered.endsWith(".json") -> LocalScheduleStore.parseCourses(text)
+                        else -> throw IllegalArgumentException(
+                            "请选择已转换的 .ics 或标准课表 .json；原始 .sleepdown 备份暂不支持直接读取")
+                    }
+                    fileName to lessons
+                }
+                val oldCount = localLessons.size
+                val newCount = parsed.second.size
+                val less = oldCount > 0 && newCount < oldCount
+                val summary = "文件：" + parsed.first +
+                    "\n解析到 " + newCount + " 个课程课块" +
+                    (if (oldCount > 0) "，原有 " + oldCount + " 个" else "") +
+                    "。请确认课程、星期、节次、周次与教室。" +
+                    (if (less) "\n\n本次课程课块更少，可能是识别不全；请优先保留旧课表。" else "") +
+                    "\n\n导入文件仅保存在本机，不代表青果官方实时同步。"
+                val saveImported = {
+                    try {
+                        val count = LocalScheduleStore.saveParsed(this@MainActivity, parsed.second)
+                        localLessons = LocalScheduleStore.load(this@MainActivity)
+                        Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
+                            Toast.LENGTH_LONG).show()
+                    } catch (error: Exception) {
+                        Toast.makeText(this@MainActivity, error.message ?: "导入失败，旧课表未修改",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(if (less) "课表数量减少，请核对" else "确认导入课表文件")
+                    .setMessage(summary)
+                    .setNegativeButton("保留旧课表", null)
+                    .setPositiveButton(if (less) "继续核对" else "确认保存") { _, _ ->
+                        if (less) {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("再次确认替换")
+                                .setMessage("本次 " + newCount + " 个课块少于原有 " +
+                                    oldCount + " 个；确定已经核对所有课程吗？")
+                                .setNegativeButton("取消", null)
+                                .setPositiveButton("已核对，替换") { _, _ -> saveImported() }
+                                .show()
+                        } else saveImported()
+                    }
+                    .show()
+            } catch (error: Exception) {
+                Toast.makeText(this@MainActivity,
+                    (error.message ?: "课表文件无法识别") + "；原有课表未修改",
+                    Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -216,6 +308,7 @@ private fun NativeShell(
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
     openLocalImport: () -> Unit,
+    openFileImport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
@@ -311,7 +404,8 @@ private fun NativeShell(
                             openLocalSchool = openLocalSchool)
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                             openProfile = { current = Page.PROFILE },
-                            localLessons = localLessons, openLocalImport = openLocalImport)
+                            localLessons = localLessons, openLocalImport = openLocalImport,
+                            openFileImport = openFileImport)
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                             openLocalSchool = openLocalSchool)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
@@ -349,10 +443,12 @@ private fun Heading(title: String, subtitle: String) {
 @Composable
 private fun SchedulePage(
     openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit,
-    localLessons: List<VerifiedLesson>, openLocalImport: () -> Unit
+    localLessons: List<VerifiedLesson>, openLocalImport: () -> Unit,
+    openFileImport: () -> Unit
 ) {
     // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
-    CloudTimetablePanel(cloud, openWebsite, openProfile, localLessons, openLocalImport)
+    CloudTimetablePanel(cloud, openWebsite, openProfile, localLessons, openLocalImport,
+        openFileImport)
 }
 
 @Composable
