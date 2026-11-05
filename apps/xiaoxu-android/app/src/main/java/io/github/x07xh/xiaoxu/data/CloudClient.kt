@@ -1094,6 +1094,47 @@ class CloudClient(context: Context) {
         }
     }
 
+    /**
+     * Owner-triggered resume path after an App restart: re-read official courses
+     * before using the EXISTING per-course read-only sync. No school polling on
+     * app open, no parallel calls, and no new login/API/database.
+     *
+     * A resumed Cloudflare owner token is NOT proof of a usable school session.
+     * Both calls independently verify their school-scoped responses; a failed
+     * course-list read must never fall through to stale homework records.
+     */
+    suspend fun refreshChaoxingCoursesAndHomework() {
+        if (!state.authenticated || state.busy || state.chaoxingBusy ||
+            state.chaoxingBatchBusy || state.chaoxingDetailBusy ||
+            state.schoolSyncBusyProvider != null ||
+            state.platforms.none {
+                it.id == "chaoxing" && it.sessionState == "active"
+            }) return
+        val epoch = sessionEpoch
+        state = state.copy(
+            chaoxingBatchBusy = true,
+            chaoxingBatchStatus = "开始重新核验本人课程与作业；不会自动提交或代替官网验收",
+            chaoxingPageProgress = null
+        )
+        try {
+            loadChaoxingCourses()
+            if (epoch != sessionEpoch) return
+            if (state.chaoxingError != null || state.chaoxingCourses.isEmpty()) {
+                state = state.copy(
+                    chaoxingBatchStatus =
+                        "本人课程列表未通过核验，因此没有继续读取作业；旧云端任务保持不变。"
+                )
+                return
+            }
+            // Already loaded authenticated course IDs, class IDs and CPI.
+            // Reuse the bounded sequential owner-scoped sync unchanged.
+            syncChaoxingAllCourses()
+        } finally {
+            if (epoch == sessionEpoch)
+                state = state.copy(chaoxingBatchBusy = false)
+        }
+    }
+
     /** Existing official per-course response guard, reused by one-course and explicit batch reads. */
     private fun verifiedChaoxingWork(
         root: JSONObject, selected: ChaoxingCourse

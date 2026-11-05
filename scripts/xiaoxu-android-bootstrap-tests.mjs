@@ -241,6 +241,19 @@ assert.match(cloud,/chaoxingBatchBusy = false/);
 assert.match(coursePanel,/client\.syncChaoxingAllCourses\(\)/);
 assert.match(coursePanel,/一键核验全部课程作业/);
 assert.match(coursePanel,/state\.chaoxingBatchStatus/);
+// App restart must not require two separate owner actions to refresh the
+// course list and each verified course's homework. Never poll automatically.
+assert.match(cloud,/suspend fun refreshChaoxingCoursesAndHomework\(\)/);
+assert.match(cloud,/loadChaoxingCourses\(\)[\s\S]*?syncChaoxingAllCourses\(\)/);
+assert.match(cloud,/if \(state\.chaoxingError != null \|\| state\.chaoxingCourses\.isEmpty\(\)\)/);
+assert.match(coursePanel,/client\.refreshChaoxingCoursesAndHomework\(\)/);
+assert.match(coursePanel,/connection\?\.sessionState == "active"/);
+assert.match(coursePanel,/仅读取本人课程列表/);
+assert.match(coursePanel,/var showAllHomework by rememberSaveable/);
+assert.match(coursePanel,/本次实际读取 \$count 条作业；当前展示 \$visible \/ \$count 条/);
+assert.match(coursePanel,/查看剩余/);
+assert.match(coursePanel,/state\.chaoxingHomework\.size > 50/);
+
 assert.match(cloud, /interactive_login_required/);
 assert.match(cloud, /work_list_incomplete/);
 assert.match(cloud, /courseId|classId|cpi/);
