@@ -189,13 +189,13 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean): String = when 
 // ---------------------------------------------------------------------------
 
 private val ContentMaxWidth = 860.dp
-private val CardShape = RoundedCornerShape(18.dp)
-private val TileShape = RoundedCornerShape(13.dp)
+private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
+private val TileShape = RoundedCornerShape(XiaoxuRadius.tile)
 
-private val ExamTile = Color(0xFFFFF1DE)
-private val ExamInk = Color(0xFFB0741F)
-private val NoticeTile = Color(0xFFE7EFFF)
-private val NoticeInk = Color(0xFF2563EB)
+private val ExamTile = XiaoxuPalette.WarningSoft
+private val ExamInk = XiaoxuPalette.Warning
+private val NoticeTile = XiaoxuPalette.BrandSoft
+private val NoticeInk = XiaoxuPalette.Brand
 
 private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
     this.widthIn(max = max).fillMaxWidth()
@@ -398,7 +398,7 @@ private fun MessageHeader(
     authenticated: Boolean,
     onRefresh: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
+    XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "消息中心",
@@ -527,10 +527,9 @@ private fun SourceSectionHeader(
             )
         }
         Spacer(Modifier.height(2.dp))
-        Text(
+        SourceBadge(
             text = badge,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            tone = if (title == "微信候选") XiaoxuTone.Warning else XiaoxuTone.Brand
         )
     }
 }
@@ -658,7 +657,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     append("。详情不含正文，正文需到学校官网查看")
                 }
             },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = XiaoxuPalette.Surface),
         shape = CardShape
     ) {
         Row(
@@ -861,14 +860,8 @@ private fun MessageBanner(
 
 @Composable
 private fun MessageErrorCard(message: String, onRefresh: () -> Unit, openWebsite: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        ),
-        shape = CardShape
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    XiaoxuCard(container = XiaoxuPalette.DangerSoft) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 text = "官方公告读取失败",
                 style = MaterialTheme.typography.titleSmall,
