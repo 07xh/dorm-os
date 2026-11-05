@@ -164,7 +164,8 @@ fun RealAcademicHome(
     openSchedule: () -> Unit,
     openTasks: () -> Unit,
     openMessages: () -> Unit,
-    openProfile: () -> Unit
+    openProfile: () -> Unit,
+    openLocalSchool: (String) -> Unit = {}
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -259,11 +260,16 @@ fun RealAcademicHome(
                     }
                     if (localHomework.isEmpty()) {
                         Text("还没有本机读取到的作业标题")
-                        TextButton(onClick = openProfile) { Text("打开 App 内学习通入口") }
+                        OutlinedButton(onClick = { openLocalSchool("chaoxing") }) {
+                            Text("在 App 内读取学习通作业")
+                        }
                     } else {
                         Text("已保存 ${localHomework.size} 条当前可见页面记录；提交状态及截止时间尚未核验。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { openLocalSchool("chaoxing") }) {
+                            Text("重新读取官网当前页面")
+                        }
                         localHomework.take(3).forEach { work ->
                             HorizontalDivider()
                             Text(work.title, maxLines = 2,
@@ -313,7 +319,8 @@ fun RealAcademicHome(
 @Composable
 fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
-    openWebsite: () -> Unit
+    openWebsite: () -> Unit,
+    openLocalSchool: (String) -> Unit = {}
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -386,6 +393,10 @@ fun RealAcademicTaskHub(
             Text("本机读取到的作业名称单独展示，不纳入待完成/已完成数量，不推定截止日期或学校提交状态。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = { openLocalSchool("chaoxing") }) {
+                Text(if (capturedHomework.isEmpty()) "在 App 内读取学习通作业"
+                     else "更新本机学习通作业")
+            }
         }
         if (capturedHomework.isEmpty()) {
             item { Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
