@@ -103,15 +103,22 @@ private fun dueLabel(item: WechatCandidate): String = when (item.duePrecision) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -> Unit) {
+fun WechatReviewPanel(
+    client: CloudClient,
+    pendingCount: Int?,
+    openWebsite: () -> Unit,
+    showList: Boolean = true,
+    externalSelectedId: String? = null,
+    onExternalClose: () -> Unit = {}
+) {
     val state = client.state
     val scope = rememberCoroutineScope()
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDecision by remember { mutableStateOf<String?>(null) }
-    val selected = state.wechatCandidates.firstOrNull { it.id == selectedId }
+    val selected = state.wechatCandidates.firstOrNull { it.id == (externalSelectedId ?: selectedId) }
     val reviewing = state.wechatReviewingId != null
 
-    Column(
+    if (showList) Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -229,7 +236,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     if (selected != null && state.authenticated) {
         val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
-            onDismissRequest = { if (!reviewing) selectedId = null },
+            onDismissRequest = { if (!reviewing) { selectedId = null; onExternalClose() } },
             sheetState = sheet,
             containerColor = XiaoxuPalette.Surface
         ) {
@@ -312,7 +319,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable(enabled = !reviewing, onClick = { selectedId = null }, role = Role.Button),
+                        .clickable(enabled = !reviewing, onClick = { selectedId = null; onExternalClose() }, role = Role.Button),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -342,7 +349,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                         pendingDecision = null
                         scope.launch {
                             val ok = client.reviewWechatCandidate(selected.id, decision)
-                            if (ok) selectedId = null
+                            if (ok) { selectedId = null; onExternalClose() }
                         }
                     }
                 ) { Text("确认") }
@@ -359,7 +366,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
 
 /** 候选行：类型图标块 + 标题 + 群聊/时间 + 截止，右侧箭头。整行可点开详情。 */
 @Composable
-private fun WechatCandidateRow(
+internal fun WechatCandidateRow(
     item: WechatCandidate,
     enabled: Boolean,
     onClick: () -> Unit
@@ -403,20 +410,36 @@ private fun WechatCandidateRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = (item.chatLabel ?: "群聊未标注") + " · " + wechatKindLabel(item.kind) +
-                    " · " + sentTime(item.sentAt),
+                text = (item.chatLabel ?: "群聊未标注") + " · " + sentTime(item.sentAt),
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink3,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = dueLabel(item),
-                style = MaterialTheme.typography.labelSmall,
-                color = tone.contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            item.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
+                Text(
+                    text = excerpt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SourceBadge(
+                    text = "待审核",
+                    tone = XiaoxuTone.Warning
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = dueLabel(item),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = tone.contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         Spacer(Modifier.width(6.dp))
         Icon(
