@@ -10,10 +10,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,12 +41,20 @@ private fun kindLabel(kind: String) = when (kind) {
     else -> "记录"
 }
 
+/** A bounded, data-free Activity result after Room commit (not official verification). */
+data class LocalSchoolImportReceipt(
+    val provider: String, val kind: String, val savedCount: Int, val serial: Long
+)
+
 /**
  * Explicit mobile-only school authorization and local snapshots.
  * This is independent of Cloudflare, school passwords and the cloud task ledger.
  */
 @Composable
-fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
+fun LocalSchoolConnectionPanel(
+    openLocal: (String) -> Unit,
+    recentImport: LocalSchoolImportReceipt? = null
+) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by dao.observe().collectAsState(initial = emptyList())
@@ -56,6 +68,10 @@ fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
             val list = records.filter { it.provider == provider }
+            val justImported = recentImport?.takeIf { it.provider == provider }
+            var expanded by rememberSaveable(provider, recentImport?.serial) {
+                mutableStateOf(false)
+            }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -74,10 +90,43 @@ fun LocalSchoolConnectionPanel(openLocal: (String) -> Unit) {
                              else if (list.isEmpty()) "手机登录并读取"
                              else "打开官网／更新")
                     }
-                    list.take(3).forEach { item ->
-                        Text(kindLabel(item.kind) + " · " + item.title,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodySmall)
+                    if (justImported != null) {
+                        val stored = list.filter { it.kind == justImported.kind }
+                        Text(
+                            if (stored.size == justImported.savedCount)
+                                "本机保存完成：${kindLabel(justImported.kind)} " +
+                                    "${stored.size} 条，已从本机数据库重新读取"
+                            else
+                                "保存回执：${justImported.savedCount} 条；" +
+                                    "正在核对本机数据库显示的记录",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (stored.isNotEmpty()) {
+                            Text(
+                                "来源：${stored.first().sourceHost} · " +
+                                    "仅为本次官方网页可见部分，请逐项比对名称和状态",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                    list.take(if (expanded) list.size else if (justImported != null) 12 else 3)
+                        .forEach { item ->
+                            Text(kindLabel(item.kind) + " · " + item.title,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall)
+                            if (item.details.isNotBlank()) Text(
+                                item.details,
+                                maxLines = if (expanded) 8 else 2,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    if (list.size > if (justImported != null) 12 else 3) {
+                        TextButton(onClick = { expanded = !expanded }) {
+                            Text(if (expanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
+                        }
                     }
                 }
             }
