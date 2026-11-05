@@ -475,8 +475,8 @@ private fun TodayScheduleBlock(
         title = "本日课表",
         caption = when {
             sameWeekday.isEmpty() -> "本星期没有课程记录"
-            isLocalTimetable -> "本机导入 · 待核对"
-            else -> "按星期匹配"
+            isLocalTimetable -> "本机导入 · 待核对 · 教学周待核实"
+            else -> "按星期匹配 · 教学周待核实"
         },
         actionLabel = "课表",
         onAction = openSchedule

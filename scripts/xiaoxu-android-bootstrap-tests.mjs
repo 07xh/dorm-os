@@ -85,6 +85,7 @@ assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
 assert.match(workspace, /CloudTasksPanel\(client\)/);
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /按星期匹配/);
+assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实，避免误以为今天必有课');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -877,6 +878,7 @@ assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页�
 assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
   '首页课表结论须复用课表页判定');
 assert.match(workspace, /按星期匹配/);
+assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实');
 assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
 assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
 assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
@@ -895,6 +897,8 @@ assert.doesNotMatch(workspace, /今日课程|今日安排/,
 assert.match(workspace, /本日课表/, '课表区须按本日课表描述');
 assert.match(workspace, /按星期匹配/,
   '课表按星期匹配，不宣称当天实际开课');
+assert.match(workspace, /教学周待核实/,
+  '课表区须标注教学周待核实，避免把按星期匹配误读为今天确有课');
 assert.match(workspace, /formatWeeks\(it\.weeks\)/, '须展示课程适用周次');
 assert.match(workspace, /请以学校官网为准/, '无该星期记录时须以官网为准');
 assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '统计须知道云端快照条数');
