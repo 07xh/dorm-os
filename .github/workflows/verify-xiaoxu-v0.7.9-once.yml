@@ -1,0 +1,38 @@
+name: Verify Xiaoxu Android 0.7.9 actual native snapshot integration
+
+on:
+  push:
+    branches:
+      - ci/xiaoxu-v079-verify-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native data provenance and version
+        run: |
+          grep -F "versionName '0.7.9'" apps/xiaoxu-android/app/build.gradle
+          node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Assemble debug APK
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-android-v0.7.9-local-records-debug
+          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
