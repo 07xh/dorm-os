@@ -137,14 +137,6 @@ class MainActivity : ComponentActivity() {
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
     private var taskReminderOpenCount by mutableIntStateOf(0)
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
-            taskReminderOpenCount++
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
@@ -314,6 +306,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSchoolReturn(intent)
+        if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
+            taskReminderOpenCount++
+        }
     }
 
     private fun receiveSchoolReturn(intent: Intent?) {
