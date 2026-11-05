@@ -319,6 +319,7 @@ private fun ScheduleVerifiedContent(
     onRefresh: () -> Unit,
     openLocalImport: () -> Unit
 ) {
+    val localImport = data.sourceLabel.contains("本机导入")
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
     val weekNumbers = remember(data.lessons) {
         data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
@@ -359,8 +360,19 @@ private fun ScheduleVerifiedContent(
                 "来源：" + data.sourceLabel,
                 data.fetchedAt?.let { "上次可信读取 $it" }
             ).joinToString(" · "),
-            onRefresh = onRefresh
+            onRefresh = onRefresh,
+            localImport = localImport
         )
+        if (localImport) {
+            ScheduleBanner(
+                icon = Icons.Outlined.Info,
+                title = "本机文件课表 · 待与官方核对",
+                message = "这是你保存的课表文件，不会自动同步青果教务。请逐项核查课程、周次、节次及教室。",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                compact = true
+            )
+        }
         if (data.stale) {
             ScheduleBanner(
                 icon = Icons.Outlined.Warning,
@@ -382,6 +394,13 @@ private fun ScheduleVerifiedContent(
         }
         if (weekNumbers.size > 1) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek, onSelect = { selectedWeek = it })
+        }
+        if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
+            Text(
+                text = "当前混合展示整学期课块；选择具体周次才能判断那周是否有课。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (expanded) {
@@ -459,12 +478,17 @@ private fun ScheduleVerifiedContent(
     // 详情始终从本次已验证的课程集合查找，不保留旧课程快照。
     val opened = filtered.firstOrNull { it.key == selectedCourseKey }
     if (opened != null) {
-        CourseDetailBottomSheet(lesson = opened, onDismiss = { selectedCourseKey = null })
+        CourseDetailBottomSheet(
+            lesson = opened, localImport = localImport,
+            onDismiss = { selectedCourseKey = null }
+        )
     }
 }
 
 @Composable
-private fun ScheduleHeader(subtitle: String, onRefresh: () -> Unit) {
+private fun ScheduleHeader(
+    subtitle: String, onRefresh: () -> Unit, localImport: Boolean
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -478,7 +502,7 @@ private fun ScheduleHeader(subtitle: String, onRefresh: () -> Unit) {
                     modifier = Modifier.semantics { heading() }
                 )
                 Spacer(Modifier.width(8.dp))
-                SourceBadge()
+                SourceBadge(localImport)
             }
             Spacer(Modifier.height(4.dp))
             Text(
@@ -496,25 +520,29 @@ private fun ScheduleHeader(subtitle: String, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun SourceBadge() {
+private fun SourceBadge(localImport: Boolean) {
+    val bg = if (localImport) MaterialTheme.colorScheme.secondaryContainer
+        else MaterialTheme.colorScheme.tertiaryContainer
+    val fg = if (localImport) MaterialTheme.colorScheme.onSecondaryContainer
+        else MaterialTheme.colorScheme.onTertiaryContainer
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .background(bg)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            Icons.Outlined.CheckCircle,
+            if (localImport) Icons.Outlined.Info else Icons.Outlined.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.onTertiaryContainer
+            tint = fg
         )
         Spacer(Modifier.width(4.dp))
         Text(
-            text = "已验证",
+            text = if (localImport) "本机导入 · 待核对" else "已验证",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
+            color = fg
         )
     }
 }
@@ -671,7 +699,7 @@ private fun DayCell(
                 role = Role.Tab
                 selected = isSelected
                 contentDescription = weekdayLong(weekday) +
-                    (if (isToday) "，今天" else "") + "，$count 节课"
+                    (if (isToday) "，今天" else "") + "，$count 个课块"
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -730,7 +758,7 @@ private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onS
                         // 必须显式 this.：外层参数 selected: Int 会遮蔽 semantics 的 selected: Boolean。
                         this.selected = isSelected
                         this.contentDescription = weekdayLong(day) +
-                            (if (day == today) "，今天" else "") + "，${counts[day] ?: 0} 节课"
+                            (if (day == today) "，今天" else "") + "，${counts[day] ?: 0} 个课块"
                     },
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -741,7 +769,7 @@ private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onS
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                     )
                     Text(
-                        text = "${counts[day] ?: 0} 节",
+                        text = "${counts[day] ?: 0} 个课块",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -780,7 +808,7 @@ private fun DaySummary(weekday: Int, count: Int, isToday: Boolean) {
         }
         Spacer(Modifier.weight(1f))
         Text(
-            text = if (count == 0) "无课" else "$count 节",
+            text = if (count == 0) "无课" else "$count 个课块",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -792,8 +820,8 @@ private fun NoLessonCard(selectedWeek: Int) {
     EmptyHint(
         icon = Icons.Outlined.DateRange,
         title = "这一天没有已读取的课程",
-        message = if (selectedWeek == ALL_WEEKS) "整学期该星期都没有已通过校验的课程记录。"
-        else "第 $selectedWeek 周该星期没有已通过校验的课程记录。"
+        message = if (selectedWeek == ALL_WEEKS) "整学期该星期没有已保存的课程课块。"
+        else "第 $selectedWeek 周该星期没有已保存的课程课块。"
     )
 }
 
@@ -882,7 +910,9 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
 /** 真实课程详情：原生模态抽屉，不推断作息时间，不提供未实现的提醒开关。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CourseDetailBottomSheet(lesson: LessonUi, onDismiss: () -> Unit) {
+private fun CourseDetailBottomSheet(
+    lesson: LessonUi, localImport: Boolean, onDismiss: () -> Unit
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -902,7 +932,8 @@ private fun CourseDetailBottomSheet(lesson: LessonUi, onDismiss: () -> Unit) {
                 modifier = Modifier.semantics { heading() }
             )
             Text(
-                text = "华水青果 · 已验证的只读课程",
+                text = if (localImport) "本机课表文件 · 待与青果核对"
+                    else "华水青果 · 可信只读课程",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -914,7 +945,9 @@ private fun CourseDetailBottomSheet(lesson: LessonUi, onDismiss: () -> Unit) {
             CourseSheetRow("节次", lesson.sectionLabel)
             CourseSheetRow("学期", lesson.term)
             Text(
-                text = "课程详情来自最近一次可信读取；若出现旧数据提示，请先刷新核对。",
+                text = if (localImport)
+                    "课程详情来自本机导入文件，不代表官方实时同步；有调整时请重新核对和导入。"
+                    else "课程详情来自最近一次可信读取；若出现旧数据提示，请先刷新核对。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
