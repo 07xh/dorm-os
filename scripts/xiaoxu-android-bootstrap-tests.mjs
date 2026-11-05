@@ -42,6 +42,32 @@ assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
+const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
+const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/,
+  'Notification permission must be explicitly declared for Android 13+');
+assert.match(appGradle, /androidx\.work:work-runtime-ktx:2\.11\.0/,
+  'Local reminders must use OS-persistent WorkManager, not a fragile timer');
+assert.match(db, /suspend fun findById\(id: Long\): LocalTask\?/,
+  'Notification must re-read the live Room row before delivery');
+assert.match(reminder, /getBoolean\(ENABLED, false\)/,
+  'Deadline notifications must be opt-in, never enabled by default');
+assert.match(reminder, /cancelAllWorkByTag\(TAG\)/,
+  'Disabling reminders must cancel scheduled work');
+assert.match(reminder, /task\.completed \|\| task\.due != due/,
+  'Completed or edited tasks cannot emit stale notifications');
+assert.match(reminder, /LocalDate\.now\(\) != expected/,
+  'Late work must not invent a new deadline');
+assert.match(reminder, /LocalTaskDatabase\.open\(applicationContext\)\.tasks\(\)\.findById\(id\)/,
+  'Reminder worker must only read local tasks, not school snapshots');
+assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
+  'Local notifications may not use school accounts, credentials or cached homework');
+assert.match(localTaskUi, /rememberLauncherForActivityResult\(/,
+  'Android notification permission must follow user activation');
+assert.match(localTaskUi, /LocalDeadlineReminders\.setEnabled\(context, false\)/);
+assert.match(main, /LocalDeadlineReminders\.reconcile\(reminderContext, localTasks\)/,
+  'Room edits must re-plan notifications even when the task manager is collapsed');
+
 assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
 
