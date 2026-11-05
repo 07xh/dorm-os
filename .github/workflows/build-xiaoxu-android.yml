@@ -30,12 +30,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Assemble installable debug APK (no release keystore)
-        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
+      - name: Compile APK and run existing Android JVM unit tests
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest --no-daemon
+      - name: Validate APK archive and produce verifiable SHA-256
+        run: |
+          set -euo pipefail
+          out=apps/xiaoxu-android/app/build/outputs/apk/debug
+          test -s "$out/app-debug.apk"
+          unzip -t "$out/app-debug.apk" >/dev/null
+          unzip -Z1 "$out/app-debug.apk" | grep -qx 'AndroidManifest.xml'
+          unzip -Z1 "$out/app-debug.apk" | grep -Eq '^classes[0-9]*\.dex
+
+          (cd "$out" && sha256sum app-debug.apk > app-debug.apk.sha256)
+          cat "$out/app-debug.apk.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: xiaoxu-android-alpha-debug
-          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+            apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
 

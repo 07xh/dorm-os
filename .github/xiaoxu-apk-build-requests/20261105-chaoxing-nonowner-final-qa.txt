@@ -1,0 +1,6 @@
+校序 · 学习通非本人验收收尾构建（用户于 2026-11-05 明确要求开始收尾）
+
+目的：在 PR #254 / #260 / #264 合并后的最新原生 Android 源码上，使用已有 Build Xiaoxu Android Alpha workflow 一次执行真实 Gradle 编译与 JVM 单测、APK 格式和 SHA-256 校验。与非本人验收清单 docs/XIAOXU-CHAOXING-NONOWNER-CLOSEOUT-20261105.md 配套。
+
+仅此经过审查合并到 main 的请求文件可触发 APK；常规源码 push 不触发。
+不得在 CI 中收集学校登录凭据、请求真实账号、调用学校私有接口或标注“真实学习通接入验收完成”。
