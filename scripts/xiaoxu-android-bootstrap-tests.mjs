@@ -275,6 +275,15 @@ assert.match(schedulePanel, /CourseDetailBottomSheet\(/, '可信课程应有原�
 assert.match(schedulePanel, /ModalBottomSheet\(/, '课程详情应使用原生底部抽屉');
 assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/, '抽屉只能读取当前可信课程');
 assert.match(schedulePanel, /onClickLabel = "查看课程详情"/);
+assert.match(schedulePanel, /ScheduleNotConnectedState\(openLocalImport, openProfile\)/);
+assert.match(schedulePanel, /ScheduleSourceMissingState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleUnverifiedState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleFailedState\(current\.message, openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleEmptyState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /Text\("在 App 内导入青果课表"\)/);
+assert.match(schedulePanel, /Text\("在 App 内核对 \/ 更新青果课表"\)/);
+assert.doesNotMatch(schedulePanel, /去「我的」连接校序云端|打开官方连接中心|查看官方连接状态或重新授权/);
+
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
@@ -572,6 +581,13 @@ assert.match(importer, /epoch != pageEpoch/);
 assert.match(importer, /isOfficialPage\(currentUrl\)/);
 assert.match(importer, /CookieManager.getInstance\(\).flush\(\)/);
 assert.match(importer, /browser\.evaluateJavascript\(/);
+assert.match(importer, /val previous = LocalScheduleStore\.load\(this\)\.size/);
+assert.match(importer, /val fewer = previous > 0 && count < previous/);
+assert.match(importer, /本次课块数量比原本少/);
+assert.match(importer, /已核对，仍要替换/);
+assert.match(importer, /保留旧课表/);
+assert.match(importer, /val saved = LocalScheduleStore\.save\(this, items\.toString\(\)\)/);
+
 assert.doesNotMatch(importer + script + localStore, /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY|http:\/\//);
 assert.match(localStore, /getSharedPreferences\(/);
 assert.match(localStore, /LocalScheduleStore/);
