@@ -20,6 +20,8 @@ permissions:
 
 jobs:
   build-android:
+    # A fork must not turn a marker into an unreviewed cross-repo build request.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
