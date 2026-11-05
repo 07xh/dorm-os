@@ -355,7 +355,8 @@ private fun NativeShell(
         current = Page.valueOf(next.destination.name)
     }
     BackHandler(enabled = current == Page.MESSAGES) {
-        current = Page.valueOf(AcademicNavigation(academic = academic).openMessages().closeMessages().destination.name)
+        // 消息现为主导航页，返回首页而非隐藏的教务子页面。
+        current = Page.HOME
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
