@@ -1,0 +1,5 @@
+校序 Android 本机课表改版 #288 APK 编译请求。
+源代码已合并 main：d8a2f96ab06ea1c709bd9d1c9e55837f77cf8153。
+请按 build-xiaoxu-android.yml 执行真实 assembleDebug + testDebugUnitTest，验证 APK ZIP / AndroidManifest / DEX 与 SHA-256，并上传 GitHub Actions artifact。
+核验范围：本机 ICS/JSON 导入、周/日课表、原生课程详情、七日网格、首页本机课表、成绩页保留独立青果云端授权（未实现真实成绩读取，不冒充成功）。
+仅触发一次构建，部署和校验不得使用演示课程代替本人数据。
