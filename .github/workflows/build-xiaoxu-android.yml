@@ -1,10 +1,15 @@
 name: Build Xiaoxu Android Alpha
 
-# Build only by an explicit user request: GitHub manual dispatch or a
-# reviewed request marker in pending/ merged into main. Historical archives do not trigger APK builds.
+# Build only by explicit user request. A pending request on a PR first compiles
+# the Android APK and JVM tests before merge; the same approved marker on main
+# triggers the distributable artifact after merge. No signing credentials used.
 # Web/Cloudflare releases still follow independent main CI.
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/xiaoxu-apk-build-requests/pending/*.txt'
   push:
     branches: [main]
     paths:
@@ -15,6 +20,8 @@ permissions:
 
 jobs:
   build-android:
+    # A fork must not turn a marker into an unreviewed cross-repo build request.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
