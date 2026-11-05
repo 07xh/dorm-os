@@ -61,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -324,7 +325,17 @@ private fun ScheduleVerifiedContent(
     val weekNumbers = remember(data.lessons) {
         data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
     }
-    var selectedWeek by rememberSaveable { mutableStateOf(ALL_WEEKS) }
+    // The first available teaching week is a safe, deterministic preview.
+    // Without an official semester start it must NOT be labeled current week.
+    var selectedWeek by rememberSaveable {
+        mutableStateOf(weekNumbers.firstOrNull() ?: ALL_WEEKS)
+    }
+    var viewMode by rememberSaveable { mutableStateOf("week") }
+    LaunchedEffect(weekNumbers) {
+        if (selectedWeek != ALL_WEEKS && selectedWeek !in weekNumbers) {
+            selectedWeek = weekNumbers.firstOrNull() ?: ALL_WEEKS
+        }
+    }
     var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
     var selectedCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -402,8 +413,56 @@ private fun ScheduleVerifiedContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (viewMode == "week") {
+                Button(onClick = { viewMode = "week" }, modifier = Modifier.heightIn(min = 44.dp)) {
+                    Text("周视图")
+                }
+                OutlinedButton(onClick = { viewMode = "day" },
+                    modifier = Modifier.heightIn(min = 44.dp)) { Text("日视图") }
+            } else {
+                OutlinedButton(onClick = { viewMode = "week" },
+                    modifier = Modifier.heightIn(min = 44.dp)) { Text("周视图") }
+                Button(onClick = { viewMode = "day" },
+                    modifier = Modifier.heightIn(min = 44.dp)) { Text("日视图") }
+            }
+        }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
-        if (expanded) {
+        if (viewMode == "week") {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    Text(
+                        text = if (selectedWeek == ALL_WEEKS)
+                            "请先选择一个具体周次，避免把不同周的课程混为一周。"
+                        else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (selectedWeek != ALL_WEEKS) {
+                    item {
+                        val weekLessons = remember(data.lessons, selectedWeek) {
+                            data.lessons.filter { selectedWeek in it.weeks }
+                        }
+                        WeeklyTimetableGrid(weekLessons) { item ->
+                            openCourse(item.toUi().key)
+                        }
+                    }
+                }
+                item {
+                    TextButton(onClick = openLocalImport) {
+                        Text("从华水青果官网重新核对课表")
+                    }
+                }
+            }
+        } else if (expanded) {
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 WeekdaySideBar(
                     counts = counts,
