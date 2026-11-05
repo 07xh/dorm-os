@@ -127,7 +127,8 @@ fun CloudTasksPanel(client: CloudClient) {
 @Composable
 fun ConnectionsPanel(
     client: CloudClient, openWebsite: () -> Unit,
-    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit
+    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
+    recentImport: LocalSchoolImportReceipt? = null
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -148,6 +149,9 @@ fun ConnectionsPanel(
     var passphrase by remember { mutableStateOf("") }
     var cloudAdvanced by rememberSaveable { mutableStateOf(true) }
     var localAdvanced by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(recentImport) {
+        if (recentImport != null) localAdvanced = true
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("学校数据连接", style = MaterialTheme.typography.titleLarge)
         Text("优先使用校序既有服务端授权和可信读取；原有本机读取保留为备选。",
@@ -364,6 +368,6 @@ fun ConnectionsPanel(
         TextButton(onClick = { localAdvanced = !localAdvanced }) {
             Text(if (localAdvanced) "收起本机已保存记录" else "查看本机已保存记录")
         }
-        if (localAdvanced) LocalSchoolConnectionPanel(openLocalSchool)
+        if (localAdvanced) LocalSchoolConnectionPanel(openLocalSchool, recentImport)
     }
 }

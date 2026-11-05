@@ -310,7 +310,14 @@ assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?andr
 assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
 assert.match(main, /provider == "ncwu"/);
 assert.match(main, /LocalQingguoImportActivity::class\.java/);
-assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool, startSchoolAuthorization\)/);
+assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool,/);
+assert.match(main, /startSchoolAuthorization, localCaptureReturn\)/);
+assert.match(main, /ActivityResultContracts\.StartActivityForResult/);
+assert.match(main, /nativeSchoolLauncher\.launch\(/);
+assert.match(main, /result\.resultCode == Activity\.RESULT_OK/);
+assert.match(main, /LocalSchoolImportReceipt\(/);
+assert.match(main, /localCaptureReturn = lastLocalCapture/);
+assert.match(main, /if \(localCaptureReturn != null\) current = Page\.PROFILE/);
 assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
 assert.match(panels, /startSchoolAuthorization\(id\)/);
 assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
@@ -329,7 +336,20 @@ assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
 assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
-assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool\)/);
+assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
+assert.match(panels, /if \(recentImport != null\) localAdvanced = true/);
+assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
+assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider \}/);
+assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
+assert.match(localSchoolUi, /已从本机数据库重新读取/);
+assert.match(localSchoolUi, /查看本机全部/);
+assert.match(localNative, /EXTRA_RETURN_KIND/);
+assert.match(localNative, /EXTRA_SAVED_COUNT/);
+assert.match(localNative, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
+assert.match(localNative, /savedKind = kind/);
+assert.match(localNative, /savedCount = accepted\.size/);
+assert.match(localNative, /\.replaceKind\(provider, kind, accepted\)/);
+assert.doesNotMatch(main + localSchoolUi, /ownerCookie|schoolPassword|CAS_TICKET/);
 for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
 assert.doesNotMatch(localNative, /"ncwu" to "https:/);
 assert.match(localNative, /finishAndReturn = Button\(this\)/);
@@ -348,7 +368,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.4'/);
+assert.match(appGradle, /versionName '0\.7\.5'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */

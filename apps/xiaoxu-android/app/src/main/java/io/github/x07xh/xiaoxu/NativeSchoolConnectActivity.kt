@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -41,6 +43,8 @@ import org.json.JSONTokener
 class NativeSchoolConnectActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROVIDER = "provider"
+        const val EXTRA_RETURN_KIND = "saved_kind"
+        const val EXTRA_SAVED_COUNT = "saved_count"
         // Official personal homework overview; still requires the owner's normal login.
         private const val CHAOXING_HOMEWORK =
             "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
@@ -99,6 +103,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var loaded = false
     private var pageFailed = false
     private var captureEpoch = 0
+    private var savedKind = ""
+    private var savedCount = 0
 
     private fun tell(message: String) {
         status.text = message
@@ -140,7 +146,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
-            setOnClickListener { finish() }
+            setOnClickListener {
+                // Only a committed Room write enables this button.
+                setResult(Activity.RESULT_OK, Intent()
+                    .putExtra(EXTRA_PROVIDER, provider)
+                    .putExtra(EXTRA_RETURN_KIND, savedKind)
+                    .putExtra(EXTRA_SAVED_COUNT, savedCount))
+                finish()
+            }
         }
 
         browser = WebView(this).apply {
@@ -277,6 +290,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                                 .nativeSchoolRecords().replaceKind(provider, kind, accepted)
                         }
                         if (epoch != captureEpoch || isFinishing) return@launch
+                        // The result contract never contains raw course names,
+                        // student identifiers, school credentials or HTML.
+                        savedKind = kind
+                        savedCount = accepted.size
                         finishAndReturn.isEnabled = true
                         tell("已保存 " + accepted.size +
                             " 条本机页面记录。可继续读取其他列表，或返回校序查看；这不是学校官方同步验收。")

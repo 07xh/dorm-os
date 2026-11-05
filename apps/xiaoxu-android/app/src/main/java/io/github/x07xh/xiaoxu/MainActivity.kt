@@ -1,9 +1,11 @@
 package io.github.x07xh.xiaoxu
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +57,7 @@ import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
+import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
@@ -75,6 +78,31 @@ class MainActivity : ComponentActivity() {
     private val cloud by lazy { CloudClient(applicationContext) }
     private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
     private var returnedSchool by mutableStateOf<String?>(null)
+    private var lastLocalCapture by mutableStateOf<LocalSchoolImportReceipt?>(null)
+    private var captureSerial = 0L
+    // A receipt is emitted ONLY by a successfully committed local Room import.
+    // The result Intent contains no raw school record or credential.
+    private val nativeSchoolLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val source = result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER)
+            val kind = result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_RETURN_KIND)
+            val count = result.data?.getIntExtra(
+                NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
+            val permitted = when (source) {
+                "chaoxing" -> kind in setOf("course", "homework")
+                "second_class" -> kind in setOf("activity", "credits")
+                else -> false
+            }
+            if (permitted && count in 1..120) {
+                captureSerial++
+                lastLocalCapture = LocalSchoolImportReceipt(
+                    source!!, kind!!, count, captureSerial
+                )
+            }
+        }
+    }
     private var shouldRefreshAfterWebsite = false
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
 
@@ -94,6 +122,7 @@ class MainActivity : ComponentActivity() {
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     localLessons = localLessons,
                     returnedSchool = returnedSchool,
+                    localCaptureReturn = lastLocalCapture,
                     onSchoolReturnConsumed = { returnedSchool = null },
                     startSchoolAuthorization = { provider ->
                         val url = schoolAuthReturn.begin(provider, cloud.ownerSessionBinding())
@@ -115,8 +144,11 @@ class MainActivity : ComponentActivity() {
                         if (provider == "ncwu") {
                             startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
                         } else if (provider == "chaoxing" || provider == "second_class") {
-                            startActivity(Intent(this@MainActivity, NativeSchoolConnectActivity::class.java)
-                                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider))
+                            lastLocalCapture = null
+                            nativeSchoolLauncher.launch(
+                                Intent(this@MainActivity, NativeSchoolConnectActivity::class.java)
+                                    .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider)
+                            )
                         }
                     },
                     consumeWebsiteReturn = {
@@ -179,6 +211,7 @@ private fun NativeShell(
     appLifecycle: Lifecycle,
     localLessons: List<VerifiedLesson>,
     returnedSchool: String?,
+    localCaptureReturn: LocalSchoolImportReceipt?,
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
     openLocalImport: () -> Unit,
@@ -190,6 +223,9 @@ private fun NativeShell(
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
+    LaunchedEffect(localCaptureReturn) {
+        if (localCaptureReturn != null) current = Page.PROFILE
+    }
     LaunchedEffect(returnedSchool) {
         val provider = returnedSchool ?: return@LaunchedEffect
         current = Page.PROFILE
@@ -271,7 +307,8 @@ private fun NativeShell(
                         Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(
-                            openWebsite, cloud, openLocalSchool, startSchoolAuthorization
+                            openWebsite, cloud, openLocalSchool,
+                            startSchoolAuthorization, localCaptureReturn
                         )
                     }
                 }
@@ -322,12 +359,14 @@ private fun MessagesPage(
 @Composable
 private fun ConnectionsPage(
     openWebsite: () -> Unit, cloud: CloudClient,
-    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit
+    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
+    localCaptureReturn: LocalSchoolImportReceipt?
 ) {
     Content {
         item { Heading("我的", "本机连接三个平台，云端用于跨设备与消息") }
         item {
-            ConnectionsPanel(cloud, openWebsite, openLocalSchool, startSchoolAuthorization)
+            ConnectionsPanel(cloud, openWebsite, openLocalSchool,
+                startSchoolAuthorization, localCaptureReturn)
         }
         // 第二课堂原生展示（PR #211）保持原样。
         item { SecondClassPanel(cloud, openWebsite) }
