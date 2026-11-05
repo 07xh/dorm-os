@@ -266,6 +266,20 @@ assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPasswor
 
 // 课表页（Issue #209）：只读 CloudClient.state，四态显式，不伪造课程与当前周。
 const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WeeklyTimetableGrid.kt');
+assert.match(schedulePanel, /var viewMode by rememberSaveable \{ mutableStateOf\("week"\) \}/);
+assert.match(schedulePanel, /Text\("周视图"\)/);
+assert.match(schedulePanel, /Text\("日视图"\)/);
+assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
+assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
+assert.match(schedulePanel, /并非自动判断的当前教学周/);
+assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
+assert.match(nativeWeekGrid, /section in it\.startSection\.\.it\.endSection/);
+assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
+assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
+assert.match(nativeWeekGrid, /overlapChoices = available/);
+assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
+
 assert.match(schedulePanel, /fun CloudTimetablePanel\(/);
 assert.match(schedulePanel, /deriveScheduleUiState/);
 assert.match(schedulePanel, /ScheduleUiState\.Loading/);
