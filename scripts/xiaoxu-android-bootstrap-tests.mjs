@@ -391,6 +391,9 @@ assert.match(localNative, /li\[onclick\*="goTask"\]/);
 assert.match(localNative, /p\.overHidden2\.fl/);
 assert.match(localNative, /p\.status\.fl/);
 assert.match(localNative, /foundKind === 'homework'/);
+assert.match(localNative, /homeworkOverview && foundKind !== 'homework'/);
+assert.match(localNative, /foundKind === 'homework' \? titleIndex/);
+assert.match(localNative, /if \(appended\) kind = foundKind/);
 assert.doesNotMatch(localNative, /getAttribute\(['"]data['"]\)/);
 const inlineMatch = localNative.match(/private const val READ_VISIBLE_PAGE = """([\s\S]*?)"""/);
 assert.ok(inlineMatch, 'on-device readonly DOM script must be testable');
@@ -399,7 +402,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
     return {
       querySelectorAll(selector) {
         if(selector==='iframe')return [];
-        if(selector==='table')return table?[table]:[];
+        if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
         if(selector==='li[onclick*="goTask"]')return li;
         if(selector.includes('.course-name'))return courses;
         return [];
@@ -450,6 +453,35 @@ assert.equal(homeworkOverview.kind,'homework');
 assert.equal(homeworkOverview.records[0].title,'作业测试',
  'must prefer homework column, not course column');
 assert.match(homeworkOverview.records[0].details,/高数/);
+// A course title plus a homework-status column is NOT an assignment title.
+const statusOnlyOverview=parseNativePage(fixtureDocument({
+ table:nativeTable(['课程名称','作业状态'],['高等数学','未提交'])
+}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(statusOnlyOverview.records.length,0,
+ 'do not save a course title as homework when only status is visible');
+assert.equal(statusOnlyOverview.kind,'',
+ 'no official homework kind without an explicit work title');
+const courseSummary=parseNativePage(fixtureDocument({
+ table:nativeTable(['课程名称','教师'],['高等数学','李老师'])
+}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(courseSummary.records.length,0,
+ 'course summary in the homework page is not a homework item');
+const blankWork=parseNativePage(fixtureDocument({
+ table:nativeTable(['课程名称','作业名称','提交状态'],['高等数学','','未交'])
+}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(blankWork.records.length,0, 'blank work title must fail closed');
+const multiTable=parseNativePage(fixtureDocument({table:[
+ nativeTable(['课程名称','作业状态'],['高等数学','未提交']),
+ nativeTable(['课程名称','作业名称','提交状态'],['工程制图','第三次作业','已交'])
+]}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(multiTable.kind,'homework');
+assert.equal(multiTable.records.length,1);
+assert.equal(multiTable.records[0].title,'第三次作业');
+assert.match(multiTable.records[0].details,/已交/);
+const explicitWorkHeader=parseNativePage(fixtureDocument({
+ table:nativeTable(['课程名称','作业','提交状态'],['工程制图','第三次作业','未交'])
+}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
+assert.equal(explicitWorkHeader.records[0].title,'第三次作业');
 const activityWithPoints=parseNativePage(fixtureDocument({
  table:nativeTable(['活动名称','积分'],['校园公益活动','2'])
 }), 'dekt.ncwu.edu.cn','/student/activities');
