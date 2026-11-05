@@ -282,6 +282,10 @@ const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x0
 assert.match(main, /AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider\("second_class"\) \{ SecondClassPage\(\) \}/);
 assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
 assert.match(secondClassMain, /第二课堂官方平台/);
+assert.match(secondClassMain, /在校序内检查活动列表来源/);
+assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
+assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
+
 assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
 assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
@@ -484,6 +488,19 @@ assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANA
  * use the generic official WebView reader. This is NOT a trusted school sync. */
 const localNative = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
 const nativeRecords = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
+
+// User-activated path-only observation of the school's genuine activity list:
+// no automatic page instrumentation, session export or guessed catalog URL.
+const catalogObserver = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_source_observer.js');
+assert.match(localNative, /观测活动列表请求（手动）/);
+assert.match(localNative, /setOnClickListener \{ toggleCatalogObserver\(\) \}/);
+assert.match(localNative, /assets\.open\("ncwu_secondclass_source_observer\.js"\)/);
+assert.match(localNative, /if \(provider == "second_class"\) root\.addView\(catalogProbe\)/);
+assert.match(catalogObserver, /window\.fetch=wrappedFetch/);
+assert.match(catalogObserver, /XMLHttpRequest\.prototype\.open=wrappedOpen/);
+assert.match(catalogObserver, /window\.fetch===wrappedFetch/);
+assert.doesNotMatch(catalogObserver, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|XMLHttpRequest\.prototype\.send\s*=/);
+
 const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
 assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
