@@ -528,8 +528,10 @@ assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是�
 assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
 assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
-assert.match(workspace, /三项统计只算本机待办与校序云端记录/,
-  '统计口径须显式说明不包含本机快照');
+assert.match(workspace, /学习通本机页面快照不计入/,
+  '任务统计口径必须说明学习通本机快照不参与汇总');
+assert.match(workspace, /统计包括上次云端任务快照/,
+  '上次云端任务必须明确未重新核验，不可冒充新读取');
 assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
 assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
 assert.match(workspace, /DueUi\(prefix \+ "已逾期/, '云端过期日期必须保留待核对前缀');
@@ -955,5 +957,42 @@ assert.match(scheduleVisual, /WeekSelector\(/,
     '不得删除按真实周次筛选');
 assert.match(scheduleVisual, /ModalBottomSheet\(/,
     '不得删除既有课程详情抽屉');
+
+
+// Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
+// 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
+assert.ok(workspace.includes('MetricCard("待完成"'), '任务统计使用首页共享数字卡');
+assert.ok(workspace.includes('MetricCard("本周截止"'), '任务本周截止卡保持独立');
+assert.ok(workspace.includes('MetricCard("已完成"'), '任务已完成卡保持独立');
+assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
+  '本机任务仍用实际 Room 管理器，非假按钮');
+assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(localRows[i], today) }'),
+  '本机任务使用统一卡片');
+assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(cloudRows[i], today) }'),
+  '云端任务使用统一卡片且保留来源隔离');
+assert.ok(workspace.includes('统计包括上次云端任务快照'),
+  '未核验云端数据不得被统计描述为最新');
+assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
+  '任务来源必须复用共享来源标签');
+assert.ok(workspace.includes('WechatReviewPanel('),
+  '任务中心只能复用既有原生微信审核组件，禁止重复实现候选审核器');
+assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
+  '未知审核数量不得在任务页显示为 0 条');
+assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
+  '消息页头部使用共享卡片');
+assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
+  '官方公告与微信候选使用共享来源徽标');
+assert.match(messageCenter, /WechatReviewPanel\(/,
+  '保留原生微信候选逐条审核');
+assert.match(messageCenter, /NoticeDetailSheet\(/,
+  '保留公告真实详情及官方链接');
+assert.ok(panels.includes('XiaoxuCard {'),
+  '个人中心和学校连接卡采用共享样式');
+assert.ok(panels.includes('title = "学校数据连接"'),
+  '个人中心保留本机学校官方读取入口');
+assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImport)'),
+  '不得移除原生学校读取入口');
+assert.ok(panels.includes('if (cloudAdvanced) {'),
+  '云端授权仍是可展开的独立可选入口');
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

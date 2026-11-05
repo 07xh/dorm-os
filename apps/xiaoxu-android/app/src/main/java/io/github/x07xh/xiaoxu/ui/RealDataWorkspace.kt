@@ -799,17 +799,34 @@ fun RealAcademicTaskHub(
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Metric("待完成", all.count { !it.done }.toString(), Modifier.weight(1f))
-                Metric("本周截止", all.count { !it.done && thisWeek(it.date, today) }.toString(),
-                    Modifier.weight(1f))
-                Metric("已完成", all.count { it.done }.toString(), Modifier.weight(1f))
+                MetricCard("待完成", all.count { !it.done }.toString(), Modifier.weight(1f))
+                MetricCard("本周截止", all.count { !it.done && thisWeek(it.date, today) }.toString(),
+                    Modifier.weight(1f), tone = XiaoxuTone.Warning)
+                MetricCard("已完成", all.count { it.done }.toString(), Modifier.weight(1f),
+                    tone = XiaoxuTone.Success)
             }
         }
         item {
-            Text("三项统计只算本机待办与校序云端记录，学习通本机页面快照不计入。",
+            Text(
+                if (!state.tasksFresh && state.tasks.isNotEmpty())
+                    "统计包括上次云端任务快照 " + state.tasks.size + " 条，尚未重新核验；学习通本机快照不计入。"
+                else "仅统计已保存的本机与云端任务；学习通本机页面快照不计入。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                color = XiaoxuPalette.Ink2
+            )
         }
+        // 本机任务操作直接在任务统计后出现，不再藏在长列表最底部。
+        item {
+            XiaoxuCard {
+                SectionHeader(
+                    title = "我的本机待办",
+                    caption = "离线保存 · 只修改本人创建的任务",
+                    actionLabel = if (showLocal) "收起管理" else "新增 / 管理",
+                    onAction = { showLocal = !showLocal }
+                )
+            }
+        }
+        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 items(count = filters.size) { i ->
@@ -826,11 +843,14 @@ fun RealAcademicTaskHub(
         }
         if (visible.isEmpty()) {
             item {
-                WorkspaceCard {
-                    Text(if (!state.authenticated) "暂无本机匹配记录；校序云端尚未连接"
-                    else "当前没有匹配的已保存任务；不能据此推断学校没有作业",
-                        modifier = Modifier.padding(18.dp))
-                }
+                XiaoxuEmpty(
+                    title = "没有匹配的已保存任务",
+                    message = if (!state.authenticated)
+                        "校序云端尚未连接，可先新增本机待办。"
+                    else "当前筛选没有任务，不能据此推断学校没有作业。",
+                    actionLabel = "新增 / 管理本机任务",
+                    onAction = { showLocal = true }
+                )
             }
         } else {
             if (localRows.isNotEmpty()) {
@@ -843,7 +863,7 @@ fun RealAcademicTaskHub(
                     )
                 }
                 items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
-                    WorkspaceCard { TaskRow(localRows[i], today) }
+                    XiaoxuCard(contentPadding = 8.dp) { TaskRow(localRows[i], today) }
                 }
             }
             if (cloudRows.isNotEmpty()) {
@@ -856,7 +876,7 @@ fun RealAcademicTaskHub(
                     )
                 }
                 items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                    WorkspaceCard { TaskRow(cloudRows[i], today) }
+                    XiaoxuCard(contentPadding = 8.dp) { TaskRow(cloudRows[i], today) }
                 }
             }
         }
@@ -865,6 +885,26 @@ fun RealAcademicTaskHub(
                 Text("云端部分数据刷新失败，已有记录可能过期",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error)
+            }
+        }
+        // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。
+        // 候选在本人确认前不是课程作业，也不进入三项统计。
+        if (state.authenticated || state.pendingWechatCount != null) {
+            item {
+                TaskSectionHeader(
+                    title = "微信消息候选",
+                    count = state.pendingWechatCount ?: 0,
+                    badge = "本人云端 · 待审核",
+                    note = "仅展示真实候选摘要，逐条核对后才能加入普通云端任务。",
+                    showCount = state.pendingWechatCount != null
+                )
+            }
+            item {
+                WechatReviewPanel(
+                    client = client,
+                    pendingCount = state.pendingWechatCount,
+                    openWebsite = openWebsite
+                )
             }
         }
         item {
@@ -896,7 +936,7 @@ fun RealAcademicTaskHub(
             items(count = minOf(capturedHomework.size, 500),
                 key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
                 val work = capturedHomework[index]
-                WorkspaceCard { SnapshotRow(work) }
+                XiaoxuCard(contentPadding = 8.dp) { SnapshotRow(work) }
             }
         }
         item {
@@ -910,16 +950,7 @@ fun RealAcademicTaskHub(
         }
         item { LocalSchoolRecordSection(setOf("course", "activity", "credits")) }
         item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
-        item {
-            OutlinedButton(
-                onClick = { showLocal = !showLocal },
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) {
-                Text(if (showLocal) "收起本机任务管理" else "新增／管理本机任务")
-            }
-        }
-        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
-        item {
+         item {
             OutlinedButton(
                 onClick = { showCloud = !showCloud },
                 modifier = Modifier.heightIn(min = 48.dp)
@@ -982,21 +1013,8 @@ private fun TaskSectionHeader(
 /** 来源徽标：只描述数据从哪来，不代表任何学校核验结论。 */
 @Composable
 private fun TaskSourceBadge(text: String, emphasized: Boolean = false) {
-    val container = if (emphasized) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (emphasized) MaterialTheme.colorScheme.onPrimaryContainer
-        else MaterialTheme.colorScheme.onSurfaceVariant
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = content,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(container)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    )
+    // 保留既有调用接口，仅替换视觉实现；来源标签不等于学校提交或同步认证。
+    SourceBadge(text, tone = if (emphasized) XiaoxuTone.Brand else XiaoxuTone.Neutral)
 }
 
 /** 截止日展示：只呈现已有日期，缺失就说缺失，不推算、不留空。 */

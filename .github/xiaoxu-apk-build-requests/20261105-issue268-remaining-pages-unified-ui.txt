@@ -1,0 +1,5 @@
+校序 · 五页 UI 统一视觉第二轮 / 2026-11-05
+用户要求继续开发剩余界面，优先今晚上完成：在已合并 #269 首页/Shell、#272 课表基础上，处理任务中心、消息中心和我的三页。
+仅针对本 PR 的真实代码变更产生一次性 Android Debug APK 编译请求，触发现有 build-xiaoxu-android.yml，执行 assembleDebug、testDebugUnitTest、APK archive+Manifest+DEX 校验、SHA-256、GitHub Artifact。
+不得从 GitHub PR CI 成功推导 Android 编译成功；必须在本 marker 合并 main、build Workflow completed/success 并核验实际构件后才宣布 APK 可用。
+保留原有云端授权、学校接口、微信逐条候选审核、Room 数据库、真实数据状态；仅 Compose UI 视觉增量。本次不代表 Android 16 真机海报级视觉签收或学习通真实本人数据验收完成。
