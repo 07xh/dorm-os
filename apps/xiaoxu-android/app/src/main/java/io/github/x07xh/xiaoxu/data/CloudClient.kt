@@ -100,6 +100,9 @@ data class CloudUiState(
     val lessons: List<VerifiedLesson> = emptyList(),
     val scheduleStatus: String = "not_connected",
     val scheduleFetchedAt: String? = null,
+    // Per-source freshness of the current authenticated API read, not school login proof.
+    val connectionsFresh: Boolean = false,
+    val scheduleFresh: Boolean = false,
     val platforms: List<PlatformConnection> = emptyList(),
     val pendingWechatCount: Int? = null, val lastSyncAt: String? = null,
     val wechatCandidates: List<WechatCandidate> = emptyList(),
@@ -120,6 +123,7 @@ data class CloudUiState(
     val chaoxingPreview: ChaoxingWorkPreview? = null,
     val chaoxingDetailError: String? = null,
     val secondClass: SecondClassSnapshot? = null,
+    val secondClassFresh: Boolean = false,
     val secondClassBusy: Boolean = false,
     val secondClassError: String? = null,
     val schoolSyncBusyProvider: String? = null,
@@ -287,6 +291,10 @@ class CloudClient(context: Context) {
 
     suspend fun refreshPrivate() {
         val epoch = sessionEpoch
+        // The previous snapshot remains visible, but a failed current read
+        // must never certify that a school session is still active.
+        state = state.copy(connectionsFresh = false, scheduleFresh = false,
+            secondClassFresh = false)
         if (session.load() == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -335,6 +343,7 @@ class CloudClient(context: Context) {
         var lessons: List<VerifiedLesson>? = null
         var scheduleStatus: String? = null
         var scheduleFetchedAt: String? = null
+        var scheduleLoaded = false
         try {
             val r = withContext(Dispatchers.IO) {
                 request("/api/v1/assignments?limit=100", authenticated = true)
@@ -420,6 +429,7 @@ class CloudClient(context: Context) {
             } else {
                 lessons = emptyList()
             }
+            scheduleLoaded = true
         } catch (_: Exception) { failed.add("可信课表") }
         try {
             val r = withContext(Dispatchers.IO) {
@@ -469,6 +479,8 @@ class CloudClient(context: Context) {
             scheduleStatus = scheduleStatus ?: state.scheduleStatus,
             scheduleFetchedAt = scheduleFetchedAt ?: state.scheduleFetchedAt,
             platforms = platforms ?: state.platforms,
+            connectionsFresh = platforms != null,
+            scheduleFresh = scheduleLoaded,
             wechatCandidates = candidates ?: state.wechatCandidates,
             pendingWechatCount = candidates?.size ?: state.pendingWechatCount,
             wechatError = if (candidateLoadFailed) "微信候选读取失败，列表可能过期，请重试" else null,
@@ -529,8 +541,17 @@ class CloudClient(context: Context) {
             state = state.copy(schoolSyncMessage = "$label 已返回只读刷新成功；正在核对可信快照")
             refreshPrivate()
             if (epoch != sessionEpoch) return false
-            val verified = state.privateError == null &&
-                state.platforms.firstOrNull { it.id == provider }?.verified == true
+            // Do not let an unrelated WeChat/task API outage reject a fresh
+            // trusted school read, or let old cached school rows prove success.
+            val verified = state.connectionsFresh &&
+                state.platforms.firstOrNull { it.id == provider }?.verified == true &&
+                when (provider) {
+                    "ncwu" -> state.scheduleFresh && state.scheduleStatus == "ready"
+                    "second_class" -> state.secondClassFresh &&
+                        state.secondClass?.status == "ready" &&
+                        state.secondClass?.provenance == "trusted_readonly"
+                    else -> false
+                }
             state = state.copy(schoolSyncResultProvider = provider,
                 schoolSyncMessage = if (verified)
                     "$label 已取得可信连接状态；请与学校官网逐项对照"
@@ -565,7 +586,7 @@ class CloudClient(context: Context) {
                 schoolSyncMessage = "校序本人会话失效；请在 App 内重新连接后再尝试")
             return
         }
-        if (state.privateError?.contains("连接状态") == true) {
+        if (!state.connectionsFresh) {
             state = state.copy(schoolSyncResultProvider = provider,
                 schoolSyncMessage = "无法核验最新学校连接状态，暂不显示授权成功")
             return
@@ -762,7 +783,8 @@ class CloudClient(context: Context) {
                         message = "官方扫码已确认，正在核验真实课程与作业"))
                     completeSchoolReturn("chaoxing")
                     if (epoch != sessionEpoch || generation != qrGeneration) return
-                    val verified = state.platforms.firstOrNull { it.id == "chaoxing" }
+                    val verified = state.connectionsFresh &&
+                        state.platforms.firstOrNull { it.id == "chaoxing" }
                         ?.verified == true && state.chaoxingCourses.isNotEmpty() &&
                         state.chaoxingCheckedAt != null && state.chaoxingError == null
                     state = state.copy(chaoxingQr = ChaoxingQrUi(
@@ -847,7 +869,8 @@ class CloudClient(context: Context) {
     suspend fun loadSecondClass() {
         if (!state.authenticated || state.secondClassBusy) return
         val epoch = sessionEpoch
-        state = state.copy(secondClassBusy = true, secondClassError = null)
+        state = state.copy(secondClassBusy = true, secondClassFresh = false,
+            secondClassError = null)
         try {
             val response = withContext(Dispatchers.IO) {
                 request("/api/v1/second-class", authenticated = true)
@@ -867,7 +890,8 @@ class CloudClient(context: Context) {
             }
             if (response.code != 200) throw IllegalStateException("secondclass_http_error")
             val snapshot = parseSecondClassSnapshot(response.json)
-            state = state.copy(secondClass = snapshot, secondClassError = null)
+            state = state.copy(secondClass = snapshot, secondClassFresh = true,
+                secondClassError = null)
         } catch (_: Exception) {
             if (epoch == sessionEpoch) {
                 state = state.copy(
@@ -882,6 +906,7 @@ class CloudClient(context: Context) {
     }
 
     private fun clearAccountSnapshots(): CloudUiState = emptyChaoxing().copy(
+        connectionsFresh = false, scheduleFresh = false, secondClassFresh = false,
         wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
     )
