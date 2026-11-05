@@ -187,6 +187,10 @@ class CloudClient(context: Context) {
         private set
     private var sessionEpoch: Long = 0L
     private var qrGeneration: Long = 0L
+    // Out-of-order HTTPS results must not overwrite a newer owner snapshot.
+    private var privateSnapshotReadId: Long = 0L
+    private var secondClassReadId: Long = 0L
+    private var secondClassSnapshotReadId: Long = -1L
 
     /** Hash of this App's owner session, never the Cookie itself. */
     fun ownerSessionBinding(): String? = session.load()?.let { token ->
@@ -291,6 +295,7 @@ class CloudClient(context: Context) {
 
     suspend fun refreshPrivate() {
         val epoch = sessionEpoch
+        val snapshotRead = ++privateSnapshotReadId
         // The previous snapshot remains visible, but a failed current read
         // must never certify that a school session is still active.
         state = state.copy(connectionsFresh = false, scheduleFresh = false,
@@ -307,7 +312,7 @@ class CloudClient(context: Context) {
             val auth = withContext(Dispatchers.IO) {
                 request("/api/v1/auth/me", authenticated = true)
             }
-            if (epoch != sessionEpoch) return
+            if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
             if (auth.code == 401) {
                 sessionEpoch++
                 session.clear()
@@ -331,9 +336,11 @@ class CloudClient(context: Context) {
                 return
             }
         } catch (_: Exception) {
-            state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
+            if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
+                state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
             return
         }
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
         state = state.copy(authenticated = true, authMessage = "云端登录有效")
         val failed = mutableListOf<String>()
         var tasks: List<CloudTask>? = null
@@ -471,8 +478,9 @@ class CloudClient(context: Context) {
             failed.add("微信候选")
         }
 
-        // A logout or new login invalidates any in-flight older read.
-        if (epoch != sessionEpoch) return
+        // Logout AND newer overlapping refreshes invalidate this result.
+        // Only the newest request can certify school-connection freshness.
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
         state = state.copy(
             tasks = tasks ?: state.tasks,
             lessons = lessons ?: state.lessons,
@@ -867,15 +875,20 @@ class CloudClient(context: Context) {
      * No campus login, school API probe, background polling or status mutation.
      */
     suspend fun loadSecondClass() {
-        if (!state.authenticated || state.secondClassBusy) return
+        if (!state.authenticated ||
+            (state.secondClassBusy && secondClassSnapshotReadId == privateSnapshotReadId)) return
         val epoch = sessionEpoch
+        val snapshotRead = privateSnapshotReadId
+        val readId = ++secondClassReadId
+        secondClassSnapshotReadId = snapshotRead
         state = state.copy(secondClassBusy = true, secondClassFresh = false,
             secondClassError = null)
         try {
             val response = withContext(Dispatchers.IO) {
                 request("/api/v1/second-class", authenticated = true)
             }
-            if (epoch != sessionEpoch) return
+            if (epoch != sessionEpoch || readId != secondClassReadId ||
+                snapshotRead != privateSnapshotReadId) return
             if (response.code == 401) {
                 sessionEpoch++
                 session.clear()
@@ -893,7 +906,8 @@ class CloudClient(context: Context) {
             state = state.copy(secondClass = snapshot, secondClassFresh = true,
                 secondClassError = null)
         } catch (_: Exception) {
-            if (epoch == sessionEpoch) {
+            if (epoch == sessionEpoch && readId == secondClassReadId &&
+                snapshotRead == privateSnapshotReadId) {
                 state = state.copy(
                     secondClassError = if (state.secondClass == null)
                         "第二课堂个人记录读取失败，无法确认是否已连接"
@@ -901,7 +915,8 @@ class CloudClient(context: Context) {
                 )
             }
         } finally {
-            if (epoch == sessionEpoch) state = state.copy(secondClassBusy = false)
+            if (epoch == sessionEpoch && readId == secondClassReadId)
+                state = state.copy(secondClassBusy = false)
         }
     }
 
