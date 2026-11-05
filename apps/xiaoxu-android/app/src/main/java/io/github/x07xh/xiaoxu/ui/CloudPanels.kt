@@ -211,7 +211,8 @@ fun ConnectionsPanel(
         }
         providers.forEach { (id, title) ->
             val platform = state.platforms.firstOrNull { it.id == id }
-            val canRead = state.authenticated && platform?.sessionState == "active"
+            val canRead = state.authenticated && state.connectionsFresh &&
+                platform?.sessionState == "active"
             val refreshing = state.schoolSyncBusyProvider == id ||
                 (id == "chaoxing" && state.chaoxingBusy)
             Card(
@@ -221,10 +222,13 @@ fun ConnectionsPanel(
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(title, fontWeight = FontWeight.SemiBold)
                     Text(if (!state.authenticated) "请先连接校序云端"
+                        else if (!state.connectionsFresh)
+                            "本次无法核验连接状态；缓存仅供参考，请刷新重试"
                         else connectionStatusLabel(platform),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (platform?.verified == true && platform.lastSuccessAt != null) {
+                    if (state.connectionsFresh && platform?.verified == true &&
+                        platform.lastSuccessAt != null) {
                         Text("上次可信读取：" + platform.lastSuccessAt,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
