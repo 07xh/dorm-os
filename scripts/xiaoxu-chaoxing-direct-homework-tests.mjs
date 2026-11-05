@@ -39,6 +39,18 @@ assert.throws(()=>parseChaoxingCourseList(
 assert.deepEqual(parseChaoxingWorkCredentials(middle),
  {workEnc:'signedWork',pageEnc:'signedPage',openc:'openKey'});
 assert.deepEqual(parseChaoxingWorkList(workHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
+// Only the xuexitong-cli official work-page total, never an inferred total.
+const countHtml=workHtml.replace('<ul>', '<div><div><span>1/1</span></div></div><ul>');
+assert.deepEqual(parseChaoxingWorkList(countHtml,{courseId:'123',classId:'456'}).progress,
+ {completed:1,total:1});
+assert.equal(parseChaoxingWorkList(workHtml,{courseId:'123',classId:'456'}).progress,null);
+for(const html of [
+ countHtml.replace('<span>1/1</span>','<span>1/2</span>'),
+ countHtml.replace('<span>1/1</span>','<span>1/1</span></div></div><div><div><span>0/2</span>'),
+])assert.throws(()=>parseChaoxingWorkList(html,{courseId:'123',classId:'456'}),
+ e=>e.code==='work_list_incomplete');
+assert.throws(()=>parseChaoxingWorkList(countHtml.replace('1/1','2/1'),
+ {courseId:'123',classId:'456'}),e=>e.code==='invalid_response');
 assert.equal(parseChaoxingWorkList('<body>暂无作业</body>',{courseId:'123',classId:'456'}).verifiedEmpty,true);
 assert.equal(parseChaoxingWorkList('<body>无数据</body>',{courseId:'123',classId:'456'}).verifiedEmpty,false);
 for(const url of [
@@ -84,6 +96,7 @@ await assert.rejects(()=>read.readHomeworkList({courseId:'999',classId:'456',cpi
  e=>e.code==='authorization_failed');
 const list=await read.readHomeworkList({courseId:'123',classId:'456',cpi:'789'});
 assert.equal(list.items.length,1);
+assert.equal(list.progress,null, 'do not fabricate a total when the official page omits it');
 assert.equal(list.items[0].workId,'987');
 assert.equal(list.items[0].statusCode,'todo');
 assert.equal(list.items[0].platformVerified,true);
