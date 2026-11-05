@@ -285,6 +285,14 @@ assert.match(secondClassMain, /第二课堂官方平台/);
 assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
 assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
+assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/);
+const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
+assert.match(secondClassHome, /SecondClassPage\(/);
+assert.match(secondClassHome, /onRefreshResult = \{ success ->/);
+assert.match(secondClassHome, /setResult\(Activity\.RESULT_OK\)/);
+assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
+    'second-class local entry must reuse the main page, not maintain duplicate UI');
+
 assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
 assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
 
