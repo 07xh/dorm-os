@@ -205,13 +205,13 @@ fun RealAcademicHome(
     val cloudSnapshotRows = state.tasks.size
     val metricCaption = when {
         state.tasksFresh -> "本机 + 云端本次读取"
-        cloudSnapshotRows > 0 -> "含上次云端快照 " + cloudSnapshotRows + " 条，未重新核验"
+        cloudSnapshotRows > 0 -> "含上次云端快照 " + cloudSnapshotRows + " 条"
         else -> "仅本机记录"
     }
     val doneCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "本人标记完成 · 含云端快照"
     else "本人标记完成"
-    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "含上次云端快照，未重新核验"
-    else "缺截止日期会单独标注，不推测"
+    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "含上次云端快照"
+    else "缺截止日期会单独标注"
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wideLayout = maxWidth >= 700.dp
@@ -374,7 +374,6 @@ private fun HomeHero(
     val verified = state as? ScheduleUiState.Verified
     val stale = verified?.stale == true
     val refreshing = verified?.refreshing == true
-    val fetched = verified?.fetchedAt?.takeIf { it.isNotBlank() }
     val refreshNote = verified?.refreshWarning?.takeIf { it.isNotBlank() }
     // 徽标只描述这份课的来源与新鲜度，不代替核验结论。
     // 顺序：本机导入 > 刷新中 > 待刷新 > 本次读取。
@@ -386,37 +385,35 @@ private fun HomeHero(
     }
     val weekNote = lesson?.let { "适用" + formatWeeks(it.weeks) }
     val sourceNote = when {
-        isLocalTimetable -> "本机文件导入，不等于学校实时同步。"
-        refreshing -> "正在刷新课表，当前显示上次成功读取的结果，刷新完成前不代表最新。"
-        stale -> "上次成功读取" + (if (fetched != null) "于 $fetched " else "") +
-            "，本次课表刷新未成功，待刷新核对。"
-        else -> "来源与核验状态以课表页为准。"
+        isLocalTimetable -> "本机导入 · 待核对"
+        refreshing -> "正在刷新 · 暂显示上次读取"
+        stale -> "上次读取 · 待刷新核对"
+        else -> ""
     }
     when {
         lesson != null -> XiaoxuHero(
             kicker = when {
-                isLocalTimetable -> "本日课表 · 本机导入 · 待核对"
-                refreshing -> "本日课表 · 正在刷新 · 暂显示上次读取"
-                stale -> "本日课表 · 上次读取 · 待刷新核对"
-                else -> "本日课表 · 官方本次读取"
+                isLocalTimetable -> "本日课表 · 本机导入"
+                refreshing -> "本日课表 · 正在刷新"
+                stale -> "本日课表 · 上次读取"
+                else -> "本日课表"
             },
             title = lesson.title,
             supporting = "第" + lesson.startSection + "–" + lesson.endSection + "节 · " +
                 lesson.location.ifBlank { "教室未提供" } + " · " +
                 lesson.teacher.ifBlank { "教师未提供" },
             badge = badge,
-            meta = (weekNote?.plus("；") ?: "") +
-                "按星期匹配，当前教学周未核实，不能确认今天实际开课。" + sourceNote +
-                (refreshNote?.let { " 刷新提示：" + it } ?: ""),
+            meta = (weekNote?.plus(" · ") ?: "") + sourceNote +
+                (refreshNote?.let { " · " + it } ?: ""),
             actionLabel = "全部课表",
             onAction = openSchedule
         )
         hasTimetable -> XiaoxuHero(
             kicker = "本日课表",
             title = "课表里" + weekdayLabel + "没有课程记录",
-            supporting = "不代表今天停课；适用周次与当前教学周都未核实，请以学校官网为准。",
+            supporting = "请以学校官网为准。",
             badge = badge,
-            meta = sourceNote + (refreshNote?.let { " 刷新提示：" + it } ?: ""),
+            meta = sourceNote + (refreshNote?.let { " · " + it } ?: ""),
             actionLabel = "打开课表",
             onAction = openSchedule
         )
@@ -432,7 +429,7 @@ private fun HomeHero(
         state is ScheduleUiState.VerifiedEmpty -> XiaoxuHero(
             kicker = "课程数据",
             title = "官方课表为空",
-            supporting = "已核验的课表里没有课程记录；需要本机课表可到「我的」导入。",
+            supporting = "可到「我的」导入本机课表。",
             tone = XiaoxuTone.Neutral,
             badge = "无课程",
             actionLabel = "打开课表",
@@ -441,7 +438,7 @@ private fun HomeHero(
         state is ScheduleUiState.UnverifiedSource -> XiaoxuHero(
             kicker = "课程数据",
             title = "课表来源未核验",
-            supporting = "当前来源无法证明是最新官方课表，请到「我的」核对连接状态。",
+            supporting = "请到「我的」核对连接状态。",
             tone = XiaoxuTone.Neutral,
             badge = "未核验",
             actionLabel = "查看连接",
@@ -450,14 +447,14 @@ private fun HomeHero(
         state is ScheduleUiState.Loading -> XiaoxuHero(
             kicker = "课程数据",
             title = "正在读取课表",
-            supporting = "读取完成后这里显示当天的课表记录。",
+            supporting = "读取完成后显示当天课表。",
             tone = XiaoxuTone.Neutral,
             badge = "读取中"
         )
         else -> XiaoxuHero(
             kicker = "课程数据",
-            title = "还没有可信课表",
-            supporting = "连接学校，或在「我的」导入课表文件后，这里显示当天的课表记录。",
+            title = "还没有课表",
+            supporting = "连接学校或导入课表文件。",
             tone = XiaoxuTone.Neutral,
             badge = "未连接",
             actionLabel = "去连接",
@@ -477,17 +474,17 @@ private fun TodayScheduleBlock(
     HomeSection(
         title = "本日课表",
         caption = when {
-            sameWeekday.isEmpty() -> "本星期没有对应课程记录"
-            isLocalTimetable -> "本机读取 · 待与学校官网核对 · 仅按星期匹配"
-            else -> "仅按星期匹配 · 适用周次与教学周待核实"
+            sameWeekday.isEmpty() -> "本星期没有课程记录"
+            isLocalTimetable -> "本机导入 · 待核对"
+            else -> "按星期匹配"
         },
         actionLabel = "课表",
         onAction = openSchedule
     ) {
         if (sameWeekday.isEmpty()) {
             XiaoxuEmpty(
-                title = "课表里这一星期没有课程记录",
-                message = "不代表今天停课：适用周次与当前教学周都未核实，请以学校官网为准。",
+                title = "这一星期没有课程记录",
+                message = "请以学校官网为准。",
                 actionLabel = "打开课表",
                 onAction = openSchedule
             )
@@ -583,11 +580,6 @@ private fun HomeTodoBlock(
                     HomeTaskRow(task, today)
                 }
             }
-            Text(
-                text = "来自本机与云端已有记录；不代表学校上游刚完成同步。",
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3
-            )
         }
     }
 }
@@ -649,7 +641,7 @@ private fun HomeHomeworkBlock(
 ) {
     HomeSection(
         title = "学习通 · 本机作业",
-        caption = "只显示本机读取到的标题，不代表提交状态"
+        caption = "本机读取"
     ) {
         XiaoxuCard {
             if (localHomework.isEmpty()) {
@@ -663,7 +655,7 @@ private fun HomeHomeworkBlock(
                 }
             } else {
                 Text(
-                    text = "已保存 ${localHomework.size} 条当前可见页面记录；提交状态及截止时间尚未核验。",
+                    text = "已保存 ${localHomework.size} 条",
                     style = MaterialTheme.typography.bodySmall,
                     color = XiaoxuPalette.Ink2
                 )
@@ -699,7 +691,7 @@ private fun HomeHomeworkBlock(
 @Composable
 private fun HomeFooterNote() {
     Text(
-        text = "首页只汇总已保存的记录；未接入的来源按空态显示，不做演示数据。",
+        text = "首页只汇总已保存的记录。",
         style = MaterialTheme.typography.labelSmall,
         color = XiaoxuPalette.Ink3
     )
@@ -820,7 +812,7 @@ fun RealAcademicTaskHub(
                     }
                 }
                 Text(
-                    "学校提交状态需官方核验；任务统计不等于全部课程作业。",
+                    "统计来自已保存的任务。",
                     style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2
                 )
@@ -859,8 +851,8 @@ fun RealAcademicTaskHub(
         item {
             Text(
                 if (!state.tasksFresh && state.tasks.isNotEmpty())
-                    "统计包括上次云端任务快照 " + state.tasks.size + " 条，尚未重新核验；学习通本机快照不计入。"
-                else "仅统计已保存的本机与云端任务；学习通本机页面快照不计入。",
+                    "含上次云端快照 " + state.tasks.size + " 条"
+                else "仅统计已保存的任务",
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink2
             )
@@ -870,7 +862,7 @@ fun RealAcademicTaskHub(
             XiaoxuCard {
                 SectionHeader(
                     title = "我的本机待办",
-                    caption = "离线保存 · 只修改本人创建的任务",
+                    caption = "离线保存",
                     actionLabel = if (showLocal) "收起管理" else "新增 / 管理",
                     onAction = {
                         val next = !showLocal
@@ -1058,11 +1050,11 @@ fun RealAcademicTaskHub(
             Text(
                 if (selectedTask.storage == "cloud") {
                     if (state.tasksFresh)
-                        "来自本次校序云端读取；截止日期仍须核对学校官方来源。个人完成不代表学校已提交。"
+                        "本次云端读取 · 截止日期待核对"
                     else
-                        "来自上次保存的云端快照，本次未重新核验。截止日期与学校提交状态均待核对。"
+                        "上次云端快照 · 待核对"
                 } else {
-                    "本机记录来自本人填写，离线保存；不会自动修改学校官方作业。"
+                    "本机记录 · 离线保存"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
