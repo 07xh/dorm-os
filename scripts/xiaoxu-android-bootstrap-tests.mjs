@@ -972,6 +972,10 @@ assert.ok(workspace.includes('含上次云端任务快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
   '任务来源必须复用共享来源标签');
+assert.ok(workspace.includes('WechatReviewPanel('),
+  '任务中心只能复用既有原生微信审核组件，禁止重复实现候选审核器');
+assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
+  '未知审核数量不得在任务页显示为 0 条');
 assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
   '消息页头部使用共享卡片');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
