@@ -1,0 +1,39 @@
+name: Verify native Android ICS file import and APK
+
+on:
+  push:
+    branches:
+      - ci/verify-native-ics-import-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native file-import safety and source tests
+        run: |
+          node scripts/xiaoxu-android-ics-import-tests.mjs
+          node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Android compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: JVM ICS parser unit tests and real debug APK compile
+        run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest :app:assembleDebug --no-daemon
+      - name: Upload exact APK for a real-phone test
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-android-ics-file-import-debug
+          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
