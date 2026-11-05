@@ -226,12 +226,27 @@ class MainActivity : ComponentActivity() {
                 val oldCount = localLessons.size
                 val newCount = parsed.second.size
                 val less = oldCount > 0 && newCount < oldCount
+                // The earlier count-only popup concealed partial/incorrect
+                // course rows. Show actual imported fields before overwriting.
+                val preview = parsed.second
+                    .sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
+                    .take(30)
+                    .mapIndexed { index, lesson ->
+                        val weekday = listOf("一", "二", "三", "四", "五", "六", "日")
+                            .getOrElse(lesson.weekday - 1) { "?" }
+                        "${index + 1}. ${lesson.title} · 周${weekday}第${lesson.startSection}–${lesson.endSection}节" +
+                            " · ${lesson.weeks.joinToString(",")}周" +
+                            " · ${lesson.location.ifBlank { "地点未提供" }}" +
+                            " · ${lesson.teacher.ifBlank { "教师未提供" }}"
+                    }.joinToString("\n")
                 val summary = "文件：" + parsed.first +
                     "\n解析到 " + newCount + " 个课程课块" +
                     (if (oldCount > 0) "，原有 " + oldCount + " 个" else "") +
-                    "。请确认课程、星期、节次、周次与教室。" +
-                    (if (less) "\n\n本次课程课块更少，可能是识别不全；请优先保留旧课表。" else "") +
-                    "\n\n导入文件仅保存在本机，不代表青果官方实时同步。"
+                    "。请逐项核对课程、星期、节次、周次、教师和教室。" +
+                    (if (less) "\n\n本次课块更少，可能识别不全；建议保留旧课表。" else "") +
+                    "\n\n本机解析详情（前 30 条）：\n" + preview +
+                    (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
+                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步。"
                 val saveImported = {
                     try {
                         val count = LocalScheduleStore.saveParsed(this@MainActivity, parsed.second)
