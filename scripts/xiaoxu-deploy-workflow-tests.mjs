@@ -77,6 +77,15 @@ assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');
 assert.match(androidBuild,/unzip -t "\$out\/app-debug\.apk"/,
  'APK archive must be verified before upload');
+assert.ok(androidBuild.includes("grep -Eq '^classes[0-9]*[.]dex
+ 'APK checksum must be emitted alongside its artifact');
+
+assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
+ 'Every PR still validates Android security and contract boundaries');
+
+console.log('Deploy workflow: trusted main CI success, exact SHA, manual fallback E2E and fail-closed gating passed');
+"),
+ 'APK DEX integrity command must be a complete, balanced Shell expression');
 assert.match(androidBuild,/sha256sum app-debug\.apk > app-debug\.apk\.sha256/,
  'APK checksum must be emitted alongside its artifact');
 
