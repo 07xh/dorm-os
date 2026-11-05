@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {parseChaoxingWorkDetailHtml,ChaoxingWorkDetailError} from '../lib/academic-chaoxing-work-detail.mjs';
+import {parseChaoxingWorkDetailHtml,parseChaoxingWorkTimeWindow,ChaoxingWorkDetailError} from '../lib/academic-chaoxing-work-detail.mjs';
 const page='<html><body><form id="submitForm">'+
  '<div class="questionLi"><h3 class="mark_name">1. (单选题) Python 列表从几开始索引？'+
  '<img src="https://p.ananas.chaoxing.com/object?token=SECRET"></h3>'+
@@ -31,4 +31,19 @@ for(const html of [
  '<form id="submitForm"></form><form id="submitForm"></form>'
  ])assert.throws(()=>parseChaoxingWorkDetailHtml(html),ChaoxingWorkDetailError);
 assert.throws(()=>parseChaoxingWorkDetailHtml('x'.repeat(450001)),e=>e.code==='html_missing_or_oversized');
-console.log('Chaoxing read-only work-page parser: HTML, question types, options and secret stripping passed');
+// The MIT xuexitong-cli supports this one explicit detail-page time label.
+// Other times, hidden content, dates without a year, or ambiguous pages must
+// never become a fabricated absolute deadline or alert.
+assert.deepEqual(parseChaoxingWorkTimeWindow('<html><body><section>作答时间：11-03 08:15 至 12-01 23:59</section></body></html>'),
+ {startTimeRaw:'11-03 08:15',deadlineRaw:'12-01 23:59'});
+assert.deepEqual(parseChaoxingWorkTimeWindow('<body><p>作答时间: 2-9 8:05 至 3-1 9:15</p></body>'),
+ {startTimeRaw:'02-09 08:05',deadlineRaw:'03-01 09:15'});
+for (const h of [
+ '<body><script>var leak="作答时间: 11-01 09:00 至 11-02 18:00"</script></body>',
+ '<body><input type="hidden" value="作答时间: 11-01 09:00 至 11-02 18:00"></body>',
+ '<body>作答时间: 02-30 09:00 至 03-01 18:00</body>',
+ '<body>作答时间: 11-01 25:00 至 11-02 18:00</body>',
+ '<body>作答时间: 11-01 09:00 至 11-02 18:00 作答时间: 11-03 10:00 至 11-04 18:00</body>',
+ '<body>截止时间可能在课程通知，未给具体作答时间</body>'
+])assert.equal(parseChaoxingWorkTimeWindow(h),null);
+console.log('Chaoxing read-only work-page parser: question preview plus provenance-bound, yearless detail timing passed');
