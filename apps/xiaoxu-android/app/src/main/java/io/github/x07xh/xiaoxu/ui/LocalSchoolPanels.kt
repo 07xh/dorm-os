@@ -99,7 +99,7 @@ fun LocalSchoolConnectionPanel(
                     Text(when (provider) {
                         "chaoxing" -> "本人课程、作业列表 · 读取后在任务页查看"
                         "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
-                        else -> "本人活动、积分记录 · 读取后在任务页查看"
+                        else -> "官网本人积分、六类明细与分学期记录 · 保存后离线可查看"
                     }, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
@@ -109,9 +109,13 @@ fun LocalSchoolConnectionPanel(
                         Text(when (provider) {
                             "chaoxing" -> "在 App 中打开学习通"
                             "ncwu" -> "在 App 中导入青果课表"
-                            else -> "在 App 中打开第二课堂"
+                            else -> "连接第二课堂／刷新积分"
                         })
                     }
+                    if (provider == "second_class") Text(
+                        "首次正常登录；学校会话有效时无需重复登录，过期后重新授权。下方为上次保存结果，不代表当前仍在线。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (justImported != null) {
                         val stored = list.filter { it.kind == justImported.kind }
                         Text(
@@ -141,7 +145,7 @@ fun LocalSchoolConnectionPanel(
                                 style = MaterialTheme.typography.bodySmall)
                             if (item.details.isNotBlank()) Text(
                                 item.details,
-                                maxLines = if (expanded) 8 else 2,
+                                maxLines = if (expanded || provider == "second_class" && item.kind == "credits") 8 else 2,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
