@@ -354,6 +354,9 @@ assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider \}/);
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
 assert.match(localSchoolUi, /已从本机数据库重新读取/);
 assert.match(localSchoolUi, /查看本机全部/);
+assert.match(localSchoolUi, /val prioritized = if \(justImported == null\) list else/);
+assert.match(localSchoolUi, /item\.capturedAt/);
+assert.match(localSchoolUi, /不代表当前官网状态/);
 assert.match(localNative, /EXTRA_RETURN_KIND/);
 assert.match(localNative, /EXTRA_SAVED_COUNT/);
 assert.match(localNative, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
@@ -379,7 +382,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.5'/);
+assert.match(appGradle, /versionName '0\.7\.6'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
