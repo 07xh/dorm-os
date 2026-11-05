@@ -82,6 +82,9 @@ await rejects(()=>collectVerifiedSecondClassCatalog(adapter([
  first,{...first}
 ]),{ownerId}),'invalid_catalog_page');
 await rejects(()=>collectVerifiedSecondClassCatalog(adapter([
+ {activities:[entry('cursor-type')],complete:false,nextCursor:42}
+]),{ownerId}),'invalid_catalog_page');
+await rejects(()=>collectVerifiedSecondClassCatalog(adapter([
  first,last
 ]),{ownerId,maxPages:1}),'incomplete_catalog');
 await rejects(()=>collectVerifiedSecondClassCatalog(adapter([
