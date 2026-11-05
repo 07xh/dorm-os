@@ -55,6 +55,39 @@ object LocalScheduleStore {
         return unique.values.toList()
     }
 
+    /** Accepts converter-produced ICS only when it explicitly identifies sections and weeks. */
+    fun parseIcs(input: String): List<VerifiedLesson> {
+        val rows = IcsTimetableParser.parse(input)
+        val normalized = JSONArray()
+        for (row in rows) {
+            normalized.put(JSONObject()
+                .put("name", row.title)
+                .put("teacher", row.teacher)
+                .put("position", row.location)
+                .put("day", row.weekday)
+                .put("startSection", row.startSection)
+                .put("endSection", row.endSection)
+                .put("weeks", JSONArray(row.weeks)))
+        }
+        return parseCourses(normalized.toString())
+    }
+
+    /** Re-validates preview contents at commit time; the old schedule remains on any error. */
+    fun saveParsed(context: Context, lessons: List<VerifiedLesson>): Int {
+        val normalized = JSONArray()
+        for (lesson in lessons) {
+            normalized.put(JSONObject()
+                .put("name", lesson.title)
+                .put("teacher", lesson.teacher)
+                .put("position", lesson.location)
+                .put("day", lesson.weekday)
+                .put("startSection", lesson.startSection)
+                .put("endSection", lesson.endSection)
+                .put("weeks", JSONArray(lesson.weeks)))
+        }
+        return save(context, normalized.toString())
+    }
+
     fun save(context: Context, input: String): Int {
         val parsed = parseCourses(input)
         val clean = JSONArray()
