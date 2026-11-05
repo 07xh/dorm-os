@@ -758,7 +758,8 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val isExam = notice.category == "exam"
-    Column(
+    // 海报式横排公告卡：真实数据只有标题、分类、日期和官网链接，绝不假造摘要。
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(1.dp, CardShape, clip = false)
@@ -775,7 +776,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     onClick()
                 }
             )
-            .padding(14.dp)
+            .padding(13.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = buildString {
                     append(noticeCategoryLabel(notice.category))
@@ -785,59 +786,67 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                         append("，官网日期 ")
                         append(notice.dateLabel)
                     }
-                    append("。详情不含正文，正文需到学校官网查看")
+                    append("。点击查看详情与原文链接")
                 }
             },
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(TileShape)
-                    .background(if (isExam) ExamTile else NoticeTile),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isExam) Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = if (isExam) ExamInk else NoticeInk
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(if (isExam) ExamTile else NoticeTile),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isExam) Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isExam) ExamInk else NoticeInk
+            )
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(
+                text = notice.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = XiaoxuPalette.Ink,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = notice.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = XiaoxuPalette.Ink,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
+                    text = "华水教务官网",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "华水教务官网 · " + noticeCategoryLabel(notice.category),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink3,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (notice.dateLabel.isNotBlank()) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = notice.dateLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink3,
-                            maxLines = 1
-                        )
-                    }
-                }
+                SourceBadge(
+                    text = noticeCategoryLabel(notice.category),
+                    tone = if (isExam) XiaoxuTone.Warning else XiaoxuTone.Brand
+                )
             }
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                modifier = Modifier.size(18.dp), tint = XiaoxuPalette.Ink3)
+            if (notice.dateLabel.isNotBlank()) {
+                Text(
+                    text = notice.dateLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3
+                )
+            }
         }
+        Spacer(Modifier.width(7.dp))
+        Icon(
+            Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = XiaoxuPalette.Ink3
+        )
     }
 }
 
