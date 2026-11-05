@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class IcsTimetableParserTest {
     private fun event(
@@ -61,6 +63,26 @@ class IcsTimetableParserTest {
             event("20261012", weeks = "7\\,8\\,9", title = "Python程序设计")
         ))
         assertEquals(listOf(7), parsed.first { it.title == "Python程序设计" }.weeks)
+    }
+
+    @Test fun oneHundredFourEventsCollapseToTwentyFiveWeeklyBlocks() {
+        // Anonymous stress fixture matching the known file shape;
+        // no personal timetable or teacher details are committed.
+        val monday = LocalDate.of(2026, 8, 31)
+        val entries = (0 until 25).flatMap { index ->
+            val numberOfWeeks = if (index == 0) 8 else 4
+            val sourceWeeks = (1..numberOfWeeks).joinToString("\\,")
+            (1..numberOfWeeks).map { week ->
+                val date = monday.plusWeeks(week.toLong() - 1)
+                    .plusDays((index % 7).toLong())
+                    .format(DateTimeFormatter.BASIC_ISO_DATE)
+                event(date, weeks = sourceWeeks, title = "课程" + (index + 1))
+            }
+        }
+        assertEquals(104, entries.size)
+        val parsed = IcsTimetableParser.parse(calendar(*entries.toTypedArray()))
+        assertEquals(25, parsed.size)
+        assertEquals(104, parsed.sumOf { it.weeks.size })
     }
 
     @Test fun rejectsWeekInconsistencyInsteadOfGuessing() {

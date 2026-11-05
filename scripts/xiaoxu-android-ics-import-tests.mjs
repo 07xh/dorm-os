@@ -18,6 +18,18 @@ assert.match(main, /LocalScheduleStore\.parseCourses\(text\)/);
 assert.match(main, /LocalScheduleStore\.saveParsed\(this@MainActivity, parsed\.second\)/);
 assert.match(main, /localLessons = LocalScheduleStore\.load\(this@MainActivity\)/);
 assert.match(main, /课表数量减少，请核对/);
+assert.match(main, /本机解析详情（前 30 条）/);
+assert.match(main, /lesson\.weeks\.joinToString\(","\)/);
+assert.match(main, /lesson\.location\.ifBlank/);
+assert.match(main, /lesson\.teacher\.ifBlank/);
+assert.match(main, /val preview = parsed\.second/);
+assert.match(screen, /text = if \(localImport\) "本机导入 · 待核对" else "已验证"/);
+assert.match(screen, /本机课表文件 · 待与青果核对/);
+assert.match(screen, /localImport = data\.sourceLabel\.contains\("本机导入"\)/);
+assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened, localImport = localImport/);
+assert.match(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/);
+assert.match(screen, /个课块/);
+
 assert.match(main, /再次确认替换/);
 assert.match(screen, /从手机文件导入课表（\.ics \/ \.json）/);
 assert.match(screen, /onClick = openFileImport/);
