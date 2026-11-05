@@ -384,6 +384,47 @@ assert.match(messageCenter, /未连接校序云端/);
 assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
 assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
 
+// 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
+// 顶部不能再用单一「官方来源」徽标覆盖整页。
+assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
+assert.match(messageCenter, /noticeTotal == 0 -> "暂无已保存公告"/, "没有读取证据时不得冒充本次成功读到零条");
+assert.match(messageCenter, /当前没有已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
+assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
+assert.match(messageCenter, /title = "华水官方公告"/);
+assert.match(messageCenter, /title = "微信候选"/);
+assert.match(messageCenter, /badge = "本人云端 · 未经学校核验"/);
+assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, true,
+  '两个分区都要渲染分区标题');
+assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
+assert.match(messageCenter, /SourceChip\(/);
+assert.match(messageCenter, /label = "华水官方公告"/);
+
+// 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
+assert.match(messageCenter, /text = "查看详情"/);
+assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
+assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/);
+assert.match(messageCenter, /sheetState = sheetState/);
+assert.match(messageCenter, /App 内不保存正文与附件，需通过学校官网查看/);
+assert.match(messageCenter, /不生成摘要/);
+assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
+
+// 搜索范围必须写明只覆盖官方公告，微信候选只用已有审核面板呈现。
+assert.match(messageCenter, /只用于官方公告/);
+assert.match(messageCenter, /微信候选不参与搜索/);
+assert.match(messageCenter, /微信候选不在官方公告里/);
+assert.match(messageCenter, /WechatReviewPanel\(/);
+assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
+
+// 触控与读屏：筛选 48dp、单选组 + selected、窄屏内边距与可滚动详情。
+assert.match(messageCenter, /\.selectableGroup\(\)/);
+assert.match(messageCenter, /\.selectable\(\s*selected = isSelected,\s*role = Role\.Tab,/);
+assert.match(messageCenter, /\.heightIn\(min = 48\.dp\)/);
+assert.match(messageCenter, /maxWidth < 380\.dp/);
+assert.match(messageCenter, /verticalScroll\(rememberScrollState\(\)\)/);
+assert.match(messageCenter, /mergeDescendants = true/);
+assert.match(messageCenter, /rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/);
+assert.match(messageCenter, /var openedId by rememberSaveable/);
+
 // App 原生微信审核：只通过现有 Owner Session 读取真实候选、二次确认后提交。
 // 后端沿用已上线的同源 POST + 人工审核事务，绝不新增微信采集器。
 const wechatReview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WechatReviewPanel.kt');

@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,14 +24,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
@@ -69,9 +74,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -172,6 +175,15 @@ fun pendingWechatLabel(count: Int?, authenticated: Boolean): String = when {
     else -> "待审核候选 $count 条"
 }
 
+/** 分区徽标用的短文案；完整口径仍由 pendingWechatLabel 表达，这里只是入口提示。 */
+fun pendingWechatShortLabel(count: Int?, authenticated: Boolean): String = when {
+    !authenticated -> "未连接云端"
+    count == null -> "数量未读取"
+    count == 0 -> "无待审核"
+    count >= 30 -> "≥30 条待审核"
+    else -> "$count 条待审核"
+}
+
 // ---------------------------------------------------------------------------
 // 视觉常量
 // ---------------------------------------------------------------------------
@@ -212,20 +224,38 @@ fun MessageCenterPanel(
     }
     val showWechat = filterKey == MSG_FILTER_ALL || filterKey == MSG_FILTER_WECHAT
 
+    // 官方公告列表只在真有可展示的公告相位时出现，加载/失败由各自状态卡承担。
+    val showOfficialSection = filterKey != MSG_FILTER_WECHAT &&
+        (phase is MessagePhase.Content || phase is MessagePhase.Empty)
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
+        val sidePadding = when {
+            wide -> 28.dp
+            maxWidth < 380.dp -> 14.dp
+            else -> 18.dp
+        }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 modifier = Modifier.fillMaxHeight().pageWidth(ContentMaxWidth),
                 contentPadding = PaddingValues(
-                    start = if (wide) 28.dp else 18.dp,
-                    end = if (wide) 28.dp else 18.dp,
+                    start = sidePadding,
+                    end = sidePadding,
                     top = 10.dp,
                     bottom = 26.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item { MessageHeader(count = filtered.size, onRefresh = refresh) }
+                item {
+                    MessageHeader(
+                        noticeTotal = state.notices.size,
+                        matched = filtered.size,
+                        filterKey = filterKey,
+                        pendingCount = state.pendingWechatCount,
+                        authenticated = state.authenticated,
+                        onRefresh = refresh
+                    )
+                }
                 item {
                     OutlinedTextField(
                         value = query,
@@ -233,10 +263,10 @@ fun MessageCenterPanel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 52.dp)
-                            .semantics { contentDescription = "搜索消息" },
+                            .semantics { contentDescription = "搜索官方公告：标题或日期" },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
-                        placeholder = { Text("搜索公告标题或日期") },
+                        placeholder = { Text("搜索官方公告标题或日期") },
                         leadingIcon = {
                             Icon(
                                 Icons.Outlined.Search,
@@ -299,6 +329,17 @@ fun MessageCenterPanel(
 
                 if (showWechat) {
                     item {
+                        SourceSectionHeader(
+                            icon = Icons.Outlined.PersonOutline,
+                            title = "微信候选",
+                            badge = "本人云端 · 未经学校核验",
+                            detail = pendingWechatShortLabel(
+                                state.pendingWechatCount,
+                                state.authenticated
+                            )
+                        )
+                    }
+                    item {
                         WechatReviewPanel(
                             client = client,
                             pendingCount = state.pendingWechatCount,
@@ -307,7 +348,16 @@ fun MessageCenterPanel(
                     }
                 }
 
-                if (filterKey != MSG_FILTER_WECHAT) {
+                if (showOfficialSection) {
+                    item {
+                        SourceSectionHeader(
+                            icon = Icons.Outlined.MailOutline,
+                            title = "华水官方公告",
+                            badge = "官方网站 · 只读",
+                            detail = if (query.isBlank()) "共 ${filtered.size} 条"
+                            else "匹配 ${filtered.size} 条"
+                        )
+                    }
                     items(count = filtered.size) { index ->
                         val notice = filtered[index]
                         NoticeCard(
@@ -315,9 +365,7 @@ fun MessageCenterPanel(
                             onClick = { openedId = notice.id.ifBlank { notice.url } }
                         )
                     }
-                    if (filtered.isEmpty() &&
-                        phase !is MessagePhase.Loading && phase !is MessagePhase.Failed
-                    ) {
+                    if (filtered.isEmpty()) {
                         item { MessageEmptyHint(query = query.takeIf { it.isNotBlank() }) }
                     }
                 }
@@ -342,57 +390,147 @@ fun MessageCenterPanel(
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun MessageHeader(count: Int, onRefresh: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "消息中心",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Spacer(Modifier.width(8.dp))
-                SourceChip()
-            }
-            Spacer(Modifier.height(4.dp))
+private fun MessageHeader(
+    noticeTotal: Int,
+    matched: Int,
+    filterKey: String,
+    pendingCount: Int?,
+    authenticated: Boolean,
+    onRefresh: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "来源清楚 · 可搜索 · 原文可追溯（当前 $count 条匹配）",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "消息中心",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f).semantics { heading() }
             )
+            TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("刷新")
+            }
         }
-        TextButton(onClick = onRefresh) {
-            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("刷新")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "官方公告与微信候选分区展示，来源各自标注，不互相冒充。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        // 窄屏可横向滚动，避免两块来源徽标被挤压换行。
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SourceChip(
+                label = "华水官方公告",
+                detail = when {
+                    noticeTotal == 0 -> "暂无已保存公告"
+                    filterKey == MSG_FILTER_NOTICE || filterKey == MSG_FILTER_EXAM ->
+                        "其中 $matched 条"
+                    else -> "共 $noticeTotal 条"
+                },
+                icon = Icons.Outlined.MailOutline,
+                container = MaterialTheme.colorScheme.tertiaryContainer,
+                ink = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            SourceChip(
+                label = "微信候选",
+                detail = pendingWechatShortLabel(pendingCount, authenticated),
+                icon = Icons.Outlined.PersonOutline,
+                container = MaterialTheme.colorScheme.surfaceVariant,
+                ink = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-private fun SourceChip() {
+private fun SourceChip(
+    label: String,
+    detail: String,
+    icon: ImageVector,
+    container: Color,
+    ink: Color
+) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.tertiaryContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .background(container)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$label：$detail" },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            Icons.Outlined.CheckCircle,
+            imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.onTertiaryContainer
+            tint = ink
         )
         Spacer(Modifier.width(4.dp))
         Text(
-            text = "官方来源",
+            text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
+            color = ink,
+            maxLines = 1
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.labelSmall,
+            color = ink.copy(alpha = 0.78f),
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * 来源分区标题：把"哪一份数据"写在列表前面，避免混合页面被当成同一个来源。
+ */
+@Composable
+private fun SourceSectionHeader(
+    icon: ImageVector,
+    title: String,
+    badge: String,
+    detail: String
+) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f).semantics { heading() },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = badge,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -400,6 +538,7 @@ private fun SourceChip() {
 @Composable
 private fun FilterRow(selected: String, onSelect: (String) -> Unit) {
     LazyRow(
+        modifier = Modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 2.dp)
     ) {
@@ -408,7 +547,11 @@ private fun FilterRow(selected: String, onSelect: (String) -> Unit) {
             MessagePill(
                 label = option.label,
                 isSelected = selected == option.key,
-                a11yLabel = "按" + option.label + "筛选消息",
+                a11yLabel = when (option.key) {
+                    MSG_FILTER_ALL -> "全部来源筛选"
+                    MSG_FILTER_WECHAT -> "微信候选筛选"
+                    else -> option.label + "筛选"
+                },
                 onClick = { onSelect(option.key) }
             )
         }
@@ -436,16 +579,17 @@ private fun MessagePill(
     )
     Box(
         modifier = Modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(50))
             .background(background)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .semantics {
-                role = Role.Tab
-                contentDescription = a11yLabel
-                stateDescription = if (isSelected) "已选中" else "未选中"
-            },
+            // selected 由 selectable 提供，与 selectableGroup 一起被读屏当作单选组播报。
+            .selectable(
+                selected = isSelected,
+                role = Role.Tab,
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .semantics { contentDescription = a11yLabel },
         contentAlignment = Alignment.Center
     ) {
         Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
@@ -459,10 +603,18 @@ private fun MessageCountLine(
     query: String,
     total: Int
 ) {
+    val filterLabel = MESSAGE_FILTERS.firstOrNull { it.key == filterKey }?.label ?: "全部"
     val text = when {
-        filterKey == MSG_FILTER_WECHAT -> "下方展示本人云端候选，可在 App 内审核"
-        query.isNotBlank() -> "关键词“" + query.trim() + "”匹配 $matched 条"
-        else -> "已读取的官方公告 $total 条，当前列出 $matched 条"
+        filterKey == MSG_FILTER_WECHAT ->
+            "本视图只列出本人云端候选，可逐条审核；官方公告不在本视图内，也不参与这里的计数。"
+        query.isNotBlank() ->
+            "关键词“" + query.trim() + "”只用于官方公告：命中 $matched 条；微信候选不参与搜索。"
+        total == 0 ->
+            "当前没有已保存的官方公告；是否成功读取请以刷新状态为准。微信候选另行展示。"
+        filterKey == MSG_FILTER_ALL ->
+            "官方公告已读取 $total 条，当前可展示 $matched 条；微信候选在上方单独分区。"
+        else ->
+            "“" + filterLabel + "”共 $matched 条（已读取官方公告 $total 条）。"
     }
     Text(
         text = text,
@@ -473,7 +625,7 @@ private fun MessageCountLine(
 }
 
 // ---------------------------------------------------------------------------
-// 消息卡片（设计稿的彩色图标 + 标题 + 元信息 + 查看全文）
+// 公告卡片：只有标题 / 分类 / 官方日期标签 / 链接，因此入口叫「查看详情」而非「全文」
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -487,18 +639,30 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(),
-                onClickLabel = "查看这条消息的全文",
+                onClickLabel = "查看这条公告的详情与官网链接",
                 role = Role.Button,
                 onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onClick()
                 }
-            ),
+            )
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(noticeCategoryLabel(notice.category))
+                    append("：")
+                    append(notice.title)
+                    if (notice.dateLabel.isNotBlank()) {
+                        append("，官网日期 ")
+                        append(notice.dateLabel)
+                    }
+                    append("。详情不含正文，正文需到学校官网查看")
+                }
+            },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = CardShape
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp).padding(14.dp),
             verticalAlignment = Alignment.Top
         ) {
             Box(
@@ -521,10 +685,11 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     text = notice.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(6.dp))
+                // 来源与日期允许各占一行内两段，窄屏时日期不会被标题挤掉。
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "华水教务官网 · " + noticeCategoryLabel(notice.category),
@@ -532,14 +697,15 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier.weight(1f)
                     )
                     if (notice.dateLabel.isNotBlank()) {
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = notice.dateLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
                     }
                 }
@@ -548,7 +714,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "查看全文",
+                        text = "查看详情",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
@@ -566,7 +732,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// 全文 sheet：只有官方标题与链接，不伪造正文
+// 详情 sheet：只有官方标题、分类、日期标签与链接；不伪造正文 / 附件
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -581,12 +747,13 @@ private fun NoticeDetailSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "消息详情",
+                    text = "公告详情",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
@@ -619,10 +786,11 @@ private fun NoticeDetailSheet(
                 else notice.dateLabel + "（原文站点给出，年份未二次核验）"
             )
             SheetMetaRow(label = "分类", value = noticeCategoryLabel(notice.category))
+            SheetMetaRow(label = "正文", value = "App 内不保存正文与附件，需通过学校官网查看")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
-                text = "校序只保存官方标题、分类与原文链接，正文不落本地缓存，" +
-                    "因此这里不复制粘贴网页内容，也不做摘要改写。请打开学校官网阅读全文。",
+                text = "校序只保存官方标题、分类、日期标签与原文链接；这里不复制网页正文、" +
+                    "不生成摘要，也没有附件下载入口。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -632,7 +800,7 @@ private fun NoticeDetailSheet(
             ) {
                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("查看全文（学校官网）")
+                Text("在官网查看原文")
             }
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("关闭")
@@ -662,8 +830,8 @@ private fun SheetMetaRow(label: String, value: String) {
 private fun MessageEmptyHint(query: String?) {
     MessageBanner(
         icon = Icons.Outlined.Search,
-        text = if (query == null) "该来源下没有已成功读取的官方公告。"
-        else "没有匹配“" + query.trim() + "”的公告，换个关键词或切回“全部”。",
+        text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信待审核”查看。"
+        else "没有匹配“" + query.trim() + "”的官方公告；搜索只覆盖官方公告，不搜索微信候选。",
         container = MaterialTheme.colorScheme.surface,
         ink = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -739,8 +907,9 @@ private fun MessageSkeleton() {
 @Composable
 private fun MessageFooterNote() {
     Text(
-        text = "只展示已成功读取的官方公告与真实待审核计数；未连接、读取失败或来源未验证时，" +
-            "不填充任何演示消息。",
+        text = "官方公告来自学校官网，只有标题、分类、日期标签与原文链接；" +
+            "微信候选来自本人已绑定的电脑，未经学校核验，需逐条确认。" +
+            "未连接、读取失败或来源未验证时，不填充任何演示消息。",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
