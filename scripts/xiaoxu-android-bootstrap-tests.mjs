@@ -1025,9 +1025,9 @@ assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
   '任务中心必须保留独立可滚动列表状态');
 assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
   '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \(showCloud\) 5 \+ \(if \(showLocal\) 1 else 0\)/,
+assert.match(workspace, /"cloud" -> if \(showCloud\) 4 \+ \(if \(showLocal\) 1 else 0\)/,
   '云端管理滚动下标须考虑本机管理展开与否');
-assert.match(workspace, /"filters" -> 5 \+ \(if \(showLocal\) 1 else 0\) \+ \(if \(showCloud\) 1 else 0\)/,
+assert.match(workspace, /"filters" -> 4 \+ \(if \(showLocal\) 1 else 0\) \+ \(if \(showCloud\) 1 else 0\)/,
   '筛选列表跳转下标须考虑两个管理区状态');
 assert.match(workspace, /caption = if \(filter == "week"\) "当前筛选" else "点击查看"/,
   '本周截止统计卡应体现当前筛选并能点击');
