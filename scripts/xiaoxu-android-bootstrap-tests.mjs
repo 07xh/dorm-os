@@ -85,8 +85,8 @@ assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
 assert.match(workspace, /CloudTasksPanel\(client\)/);
 assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /按星期匹配/);
-assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实，避免误以为今天必有课');
+assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
+assert.match(workspace, /未核定当前教学周/, '未知教学周不得虚构今日真实课程');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -278,6 +278,24 @@ assert.doesNotMatch(coursePanel, /自动填写|自动代交|显示正确答案/)
 const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassSnapshot.kt');
 const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt');
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
+const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
+assert.match(main, /AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider\("second_class"\) \{ SecondClassPage\(\) \}/);
+assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
+assert.match(secondClassMain, /第二课堂官方平台/);
+assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
+assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
+assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/);
+const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
+assert.match(secondClassHome, /SecondClassPage\(/);
+assert.match(secondClassHome, /onRefreshResult = \{ success ->/);
+assert.match(secondClassHome, /setResult\(Activity\.RESULT_OK\)/);
+assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
+    'second-class local entry must reuse the main page, not maintain duplicate UI');
+
+assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
+
 assert.match(cloud, /\/api\/v1\/second-class/);
 assert.match(cloud, /parseSecondClassSnapshot\(response\.json\)/);
 assert.match(cloud, /secondClass = null/);
@@ -285,7 +303,22 @@ assert.match(secondClass, /provenance == "trusted_readonly"/);
 assert.match(secondClass, /"user_import"/);
 assert.match(secondClass, /isSchoolReportedAggregate/);
 assert.match(secondClass, /"user_browser_export"/);
+// Native second-class navigation must keep the real owner snapshot and
+// distinguish the unverified ALL-ACTIVITIES catalog from MY signups.
+assert.match(secondClassPanel, /var tab by rememberSaveable/);
+assert.match(secondClassPanel, /"catalog" to "活动广场"/);
+assert.match(secondClassPanel, /"mine" to "我的活动"/);
+assert.match(secondClassPanel, /"score" to "素质积分"/);
+assert.match(secondClassPanel, /FilterChip\(/);
+assert.match(secondClassPanel, /LaunchedEffect\(state\.authenticated\)/);
+assert.match(secondClassPanel, /client\.loadSecondClass\(\)/);
+assert.match(secondClassPanel, /result\.activities\.filter/);
+assert.match(secondClassPanel, /state\.secondClassFresh/);
+assert.match(secondClassPanel, /本次尚未确认最新记录/);
+assert.match(secondClassPanel, /尚未验证学校正在报名的全部活动目录/);
 assert.match(secondClassPanel, /官方汇总不与逐条活动分数相加/);
+assert.doesNotMatch(secondClassPanel, /SecondClassActivity\(|HttpURLConnection|WebView|CookieManager|schoolPassword|addJavascriptInterface/);
+
 assert.match(secondClassPanel, /用户自行导入的数据（非官方实时同步）/);
 assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
@@ -485,11 +518,11 @@ assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val timetable = localLessons/,
+assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
-assert.match(workspace, /it\.provider == "second_class" && it\.kind in setOf\("activity", "credits"\)/);
+assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机作业快照/);
 assert.match(workspace, /不纳入待完成\/已完成数量/);
 
@@ -523,7 +556,7 @@ assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
-assert.match(workspace, /本机导入 · 待核对/);
+assert.match(workspace, /未核定当前教学周/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
@@ -860,43 +893,36 @@ assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态�
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
-assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页面');
-assert.match(workspace, /localScheduleState = remember\(localLessons\)/,
-  '首页与课表统一读取本机课程，不依赖云端课表');
-assert.match(workspace, /按星期匹配/);
-assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实');
-assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
-assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
-assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
-assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得打印日志');
-
-
-// PR #269 review 修复：stale 不得算已核验 / 无教学周不得称今日实际课程 / 统计须说明云端快照。
-assert.match(workspace, /val verified = state as\? ScheduleUiState\.Verified/,
-  '首页须读取课表四态里的 stale 与刷新提示');
-assert.match(workspace, /val stale = verified\?\.stale == true/, 'stale 必须单独判定');
-assert.match(workspace, /stale -> "待刷新"/, 'stale 课表徽标须为待刷新，不得写已核验');
-assert.match(workspace, /本日课表 · 上次读取/, 'stale 文案须说明是上次读取');
-assert.match(workspace, /refreshWarning/, '刷新失败提示须展示');
-assert.doesNotMatch(workspace, /今日课程|今日安排/,
-  '未知教学周时不得把按星期筛选的记录称为今日课程/今日安排');
-assert.match(workspace, /本日课表/, '课表区须按本日课表描述');
-assert.match(workspace, /按星期匹配/,
-  '课表按星期匹配，不宣称当天实际开课');
-assert.match(workspace, /教学周待核实/,
-  '课表区须标注教学周待核实，避免把按星期匹配误读为今天确有课');
-assert.match(workspace, /formatWeeks\(it\.weeks\)/, '须展示课程适用周次');
-assert.match(workspace, /请以学校官网为准/, '无该星期记录时须以官网为准');
-assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '统计须知道云端快照条数');
-assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注本次读取');
-assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
-assert.match(workspace, /本人标记完成 · 含云端快照/, '已完成口径须同步披露快照');
-
-// 新规则：任何云端会话变化、刷新失败或注销，都不得影响本机课程。
-assert.match(workspace, /val timetable = localLessons/);
-assert.match(workspace, /localScheduleState = remember\(localLessons\)/);
-assert.doesNotMatch(workspace, /else state\.lessons/,
-  '首页不允许回退到已移除的云端课表');
+assert.match(workspace, /QuickEntry\("成绩"/, '首页学业入口须指向真实子页面');
+assert.match(workspace, /QuickEntry\("考试"/);
+assert.match(workspace, /QuickEntry\("第二课堂"/);
+assert.match(workspace, /QuickEntry\("学习通"/);
+assert.match(workspace, /val sameWeekday = localLessons\.filter/,
+  '首页只能依据本机导入课表进行星期匹配');
+assert.match(workspace, /未核定当前教学周/, '不完整的教学周信息不能伪装成当日实际课程');
+assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
+assert.match(workspace, /onAction = openFileImport/, '首页空课表须可直接导入本机课表');
+assert.match(main, /openFileImport = openFileImport/, '主导航须连接已有文件选择器');
+assert.match(main, /openGrades = [^,]*AcademicDestination\.GRADES/s, '成绩须打开教务真实子页面');
+assert.match(main, /openExams = [^,]*AcademicDestination\.EXAMS/s, '考试须打开教务真实子页面');
+assert.match(main, /openSecondClass = \{ openSecondClass\(\) \}/);
+assert.match(workspace, /HomeCourseDetailSheet\(selectedLesson/, '首页课程点击须复用课表原生详情');
+assert.match(schedulePanel, /internal fun HomeCourseDetailSheet\(/, '课表页面应暴露同一原生详情');
+assert.match(workspace, /WorkspaceTaskDetailSheet\(/, '首页和任务中心应复用任务详情');
+assert.match(workspace, /NoticeDetailSheet\(selectedNotice/, '首页公告应复用消息中心详情');
+assert.match(messageCenter, /internal fun NoticeDetailSheet\(/);
+assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/);
+assert.match(workspace, /clickable\(onClickLabel = "查看公告详情"\)/);
+assert.match(workspace, /One scroll owner on phones AND tablets/, '平板应采用整页单一滚动');
+assert.doesNotMatch(workspace, /TodayScheduleBlock\(/, '首页不应重复展示同一组课程');
+assert.doesNotMatch(workspace, /下一节课|倒计时为/, '缺少作息时间时不允许推断下一节课');
+assert.doesNotMatch(workspace, /else state\.lessons/, '本机课表不能回退旧云端数据');
+assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '云端任务快照须披露数量');
+assert.match(workspace, /含上次云端快照 /, '云端旧记录必须保留快照标签');
+assert.match(workspace, /期限待核对/, '云端任务不能冒充已核验作业期限');
+assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
+// 课表主页面继续保留本机导入及来源分离门禁。
 assert.match(cloud, /scheduleStatus = "local_only"/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
 assert.match(schedulePanel, /fun localImportedScheduleState\(/);
@@ -955,7 +981,7 @@ assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
   '未知审核数量不得在任务页显示为 0 条');
 assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
 assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
-assert.match(workspace, /XiaoxuSheet\(onDismiss = \{ openedTaskKey = null \}, title = "任务详情"\)/,
+assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详情"\)/,
   '任务详情必须使用共享原生底部抽屉');
 assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
   '任务卡片必须可以真实点击');
