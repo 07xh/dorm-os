@@ -371,7 +371,17 @@ assert.match(appReturn, /xiaoxu:\/\/school-auth-return/);
 assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
 assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
-assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "homework", "activity", "credits"\)\)/);
+assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course", "activity", "credits"\)\)/);
+assert.match(main, /localLessons = localLessons,/);
+assert.match(workspace, /val timetable = if \(localLessons\.isNotEmpty\(\)\) localLessons else state\.lessons/);
+assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
+assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
+assert.match(workspace, /it\.provider == "second_class" && it\.kind in setOf\("activity", "credits"\)/);
+assert.match(workspace, /学习通 · 本机作业快照/);
+assert.match(workspace, /不纳入待完成\/已完成数量/);
+assert.match(workspace, /采集时间/);
+assert.match(workspace, /本机读取 · 待与学校官网核对/);
+assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
 assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
@@ -423,7 +433,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.8'/);
+assert.match(appGradle, /versionName '0\.7\.9'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
