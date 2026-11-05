@@ -1,5 +1,6 @@
 name: Xiaoxu PR287 Actual Android Screenshot
 on:
+  workflow_dispatch:
   push:
     branches: [fix/286-real-message-poster-layout]
     paths:
@@ -38,14 +39,14 @@ jobs:
             adb shell am start -n io.github.x07xh.xiaoxu/.MainActivity
             sleep 12
             adb exec-out screencap -p > home.png
-            adb shell uiautomator dump /sdcard/window.xml
-            adb pull /sdcard/window.xml window.xml
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb pull /sdcard/window.xml window.xml || true
             python3 -c 'import xml.etree.ElementTree as E,re,subprocess; nodes=list(E.parse("window.xml").iter("node")); matches=[n.attrib.get("bounds","") for n in nodes if n.attrib.get("text")=="消息" or n.attrib.get("content-desc")=="消息"]; print("Message node bounds",matches); b=list(map(int,re.findall(r"\d+",matches[-1]))) if matches else [740,2200,880,2360]; subprocess.run(["adb","shell","input","tap",str((b[0]+b[2])//2),str((b[1]+b[3])//2)],check=True)'
             sleep 8
             adb exec-out screencap -p > message-screen.png
             test -s message-screen.png
-            adb shell uiautomator dump /sdcard/message.xml
-            adb pull /sdcard/message.xml message.xml
+            adb shell uiautomator dump /sdcard/message.xml || true
+            adb pull /sdcard/message.xml message.xml || true
       - name: Upload actual screenshots and semantic view tree
         uses: actions/upload-artifact@v4
         with:
