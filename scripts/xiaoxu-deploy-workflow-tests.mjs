@@ -60,16 +60,15 @@ for(const [name,path] of [
 const androidBuild=readFileSync(new URL('../.github/workflows/build-xiaoxu-android.yml',import.meta.url),'utf8');
 const regularCI=readFileSync(new URL('../.github/workflows/check.yml',import.meta.url),'utf8');
 assert.match(androidBuild,/on:\s*\n\s*workflow_dispatch:/);
-assert.doesNotMatch(androidBuild,/^\\s{2}schedule:/m,
+assert.doesNotMatch(androidBuild,/^\s{2}schedule:/m,
  'APK packaging must never run on a schedule');
-const marker = "      - '.github/xiaoxu-apk-build-requests/pending/*.txt'";
-assert.match(androidBuild, /^\\s{2}pull_request:\\n\\s{4}branches: \\[main\\]\\n\\s{4}paths:\\n\\s{6}- '[.]github\\/xiaoxu-apk-build-requests\\/pending\\/\\*\\.txt'/m,
+assert.match(androidBuild, /^\s{2}pull_request:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'PR compilation must require an explicit pending request marker');
-assert.match(androidBuild, /^\\s{2}push:\\n\\s{4}branches: \\[main\\]\\n\\s{4}paths:\\n\\s{6}- '[.]github\\/xiaoxu-apk-build-requests\\/pending\\/\\*\\.txt'/m,
+assert.match(androidBuild, /^\s{2}push:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'Main APK build must also be triggered only by a reviewed request marker');
-assert.match(androidBuild, /if: github[.]event_name != 'pull_request' \\|\\| github[.]event[.]pull_request[.]head[.]repo[.]full_name == github[.]repository/,
+assert.match(androidBuild, /if: github[.]event_name != 'pull_request' \|\| github[.]event[.]pull_request[.]head[.]repo[.]full_name == github[.]repository/,
  'Fork PRs may not opt into Android compilation by adding markers');
-assert.match(androidBuild, /permissions:\\n  contents: read/,
+assert.match(androidBuild, /permissions:\n  contents: read/,
  'User-requested PR build must remain read-only');
 assert.doesNotMatch(androidBuild,/xiaoxu-apk-build-requests\/\*\*/,
  'Build requests must match pending files only, never the whole archive directory');
