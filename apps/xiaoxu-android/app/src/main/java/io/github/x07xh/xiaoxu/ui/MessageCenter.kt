@@ -176,18 +176,24 @@ fun deriveMessagePhase(state: CloudUiState): MessagePhase {
     return MessagePhase.Empty
 }
 
-/** 待审核数量的真实文案；null 表示本次读取失败，不能当成 0。 */
-fun pendingWechatLabel(count: Int?, authenticated: Boolean): String = when {
+/**
+ * 待审核数量的真实文案；null 表示本次读取失败，不能当成 0。
+ * wechatError != null 说明本次微信候选读取失败，count 是上次保留的缓存值，
+ * 必须标注"（快照）"，不能冒充本次成功读取的数量。
+ */
+fun pendingWechatLabel(count: Int?, authenticated: Boolean, wechatError: String? = null): String = when {
     !authenticated -> "未连接校序云端，无法读取待审核数量"
     count == null -> "本次未成功读取待审核数量"
+    wechatError != null -> "待审核候选 $count 条（快照，本次读取失败）"
     count >= 30 -> "至少 30 条待审核候选（接口单次只返回前 30 条）"
     else -> "待审核候选 $count 条"
 }
 
 /** 分区徽标用的短文案；完整口径仍由 pendingWechatLabel 表达，这里只是入口提示。 */
-fun pendingWechatShortLabel(count: Int?, authenticated: Boolean): String = when {
+fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: String? = null): String = when {
     !authenticated -> "未连接云端"
     count == null -> "数量未读取"
+    wechatError != null -> "$count（快照）"
     count == 0 -> "无待审核"
     count >= 30 -> "≥30 条待审核"
     else -> "$count 条待审核"
@@ -262,6 +268,7 @@ fun MessageCenterPanel(
                         filterKey = filterKey,
                         pendingCount = state.pendingWechatCount,
                         authenticated = state.authenticated,
+                        wechatError = state.wechatError,
                         onRefresh = refresh
                     )
                 }
@@ -319,7 +326,8 @@ fun MessageCenterPanel(
                             badge = "本人云端 · 未经学校核验",
                             detail = pendingWechatShortLabel(
                                 state.pendingWechatCount,
-                                state.authenticated
+                                state.authenticated,
+                                state.wechatError
                             )
                         )
                     }
@@ -380,6 +388,7 @@ private fun MessageHeader(
     filterKey: String,
     pendingCount: Int?,
     authenticated: Boolean,
+    wechatError: String?,
     onRefresh: () -> Unit
 ) {
     XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
@@ -453,7 +462,7 @@ private fun MessageHeader(
             )
             SourceChip(
                 label = "微信候选",
-                detail = pendingWechatShortLabel(pendingCount, authenticated),
+                detail = pendingWechatShortLabel(pendingCount, authenticated, wechatError),
                 icon = Icons.Outlined.PersonOutline,
                 container = XiaoxuPalette.WarningSoft,
                 ink = XiaoxuPalette.Warning,

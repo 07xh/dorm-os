@@ -155,7 +155,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                 }
             }
             Text(
-                text = pendingWechatLabel(pendingCount, state.authenticated),
+                text = pendingWechatLabel(pendingCount, state.authenticated, state.wechatError),
                 style = MaterialTheme.typography.labelMedium,
                 color = if (pendingCount == null && state.authenticated)
                     XiaoxuPalette.Warning else XiaoxuPalette.Ink2

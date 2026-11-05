@@ -265,9 +265,12 @@ private fun ProfileHeroCard(state: CloudUiState) {
         !state.connectionsFresh -> "待核验"
         else -> "$connectedPlatforms/3"
     }
+    // 微信待审核数量：wechatError != null 表示本次候选读取失败，count 是上次保留的缓存值，
+    // 必须标"（快照）"；count 为空时是"未读取"而不是 0。与消息中心口径保持一致。
     val reviewCaption = when {
         !state.authenticated -> "—"
         state.pendingWechatCount == null -> "未读取"
+        state.wechatError != null -> state.pendingWechatCount.toString() + "（快照）"
         else -> state.pendingWechatCount.toString()
     }
     // 未连接 / 未成功读取且没有任何缓存时，数量是未知而不是 0。

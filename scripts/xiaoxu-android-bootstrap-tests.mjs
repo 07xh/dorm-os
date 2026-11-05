@@ -1060,4 +1060,29 @@ assert.match(wechatReview, /contentDescription = wechatKindLabel/, '候选行需
 assert.doesNotMatch(wechatReview, /未读|群成员|已读状态/,
   '不得伪造群成员数或已读状态');
 
+// PR #281 review 修复：微信待审核数量必须区分「本次成功读取」与「缓存快照」。
+// wechatError != null 表示本次候选读取失败，pendingWechatCount 是上次保留的旧值，不能冒充最新。
+assert.match(messageCenter,
+  /fun pendingWechatLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/,
+  '长文案须接收 wechatError 以区分快照');
+assert.match(messageCenter,
+  /fun pendingWechatShortLabel\(count: Int\?, authenticated: Boolean, wechatError: String\? = null\)/,
+  '短文案须接收 wechatError 以区分快照');
+assert.match(messageCenter, /wechatError != null -> "\$count（快照）"/,
+  '读取失败但保留旧数量时短文案须标（快照）');
+assert.match(messageCenter, /wechatError != null -> "待审核候选 \$count 条（快照，本次读取失败）"/,
+  '长文案须说明是本次读取失败的快照');
+assert.match(messageCenter, /count == null -> "数量未读取"/,
+  '数量为空时不得伪造为 0');
+assert.match(messageCenter, /pendingWechatShortLabel\(pendingCount, authenticated, wechatError\)/,
+  '来源信息卡须把 wechatError 传给短文案');
+assert.match(messageCenter, /pendingWechatShortLabel\(\n\s*state\.pendingWechatCount,\n\s*state\.authenticated,\n\s*state\.wechatError\n\s*\)/,
+  '微信候选分区头须把 wechatError 传给短文案');
+assert.match(wechatReview, /pendingWechatLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
+  '微信候选卡头部须把 wechatError 传给长文案');
+assert.match(panels, /state\.wechatError != null -> state\.pendingWechatCount\.toString\(\) \+ "（快照）"/,
+  '我的页待审核指标须在读取失败时标快照');
+assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
+  '我的页数量为空须显示未读取，不得伪造 0');
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
