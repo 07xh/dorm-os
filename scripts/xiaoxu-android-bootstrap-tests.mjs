@@ -466,6 +466,22 @@ assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /it\.provider == "second_class" && it\.kind in setOf\("activity", "credits"\)/);
 assert.match(workspace, /学习通 · 本机作业快照/);
 assert.match(workspace, /不纳入待完成\/已完成数量/);
+
+// Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
+assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
+assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
+assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
+assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
+assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
+assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
+assert.match(workspace, /三项统计只算本机待办与校序云端记录/,
+  '统计口径须显式说明不包含本机快照');
+assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
+assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
+assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
+assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
+  '任务行须有完整读屏描述');
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
 assert.match(workspace, /本机读取 · 待与学校官网核对/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
