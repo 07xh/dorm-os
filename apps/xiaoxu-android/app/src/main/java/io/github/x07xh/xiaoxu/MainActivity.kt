@@ -77,10 +77,6 @@ import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
-import io.github.x07xh.xiaoxu.ui.PosterHome
-import io.github.x07xh.xiaoxu.ui.PosterMessages
-import io.github.x07xh.xiaoxu.ui.PosterSchedule
-import io.github.x07xh.xiaoxu.ui.PosterTasks
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
@@ -329,7 +325,7 @@ private enum class Page(val label: String, val symbol: ImageVector) {
 }
 
 /** 海报版底栏顺序（Issue #284）：今日 / 课表 / 任务 / 消息 / 我的。教务入口移到首页宫格。 */
-private val PosterTabs = listOf(Page.HOME, Page.SCHEDULE, Page.TASKS, Page.MESSAGES, Page.PROFILE)
+private val PrimaryTabs = listOf(Page.HOME, Page.SCHEDULE, Page.TASKS, Page.MESSAGES, Page.PROFILE)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -351,7 +347,6 @@ private fun NativeShell(
 ) {
     var current by rememberSaveable { mutableStateOf(Page.HOME) }
     // 海报版式（Issue #284）：默认开启，用户可在真实数据模式顶栏切回。
-    var posterMode by rememberSaveable { mutableStateOf(true) }
     val pageStateHolder = rememberSaveableStateHolder()
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.NOTICES) }
     fun openSecondClass() {
@@ -399,16 +394,13 @@ private fun NativeShell(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
                 // 海报版页面自带日期行与铃铛，不再叠品牌顶栏；真实数据模式保留统一顶栏。
-                if (!posterMode) {
-                    XiaoxuTopBar(
+                XiaoxuTopBar(
                         title = "校序",
                         subtitle = current.label,
                         refreshing = cloud.state.busy,
                         onRefresh = { scope.launch { cloud.refresh() } },
-                        onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null,
-                        onPosterMode = { posterMode = true }
+                        onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null
                     )
-                }
             },
             bottomBar = {
                 if (!tabletLayout) {
@@ -417,7 +409,7 @@ private fun NativeShell(
                         contentColor = XiaoxuPalette.Ink2,
                         tonalElevation = 0.dp
                     ) {
-                        Page.entries.filter { it in PosterTabs }.sortedBy { PosterTabs.indexOf(it) }.forEach { page ->
+                        Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
                             NavigationBarItem(
                                 selected = current == page,
                                 onClick = { current = page },
@@ -443,7 +435,7 @@ private fun NativeShell(
                         contentColor = XiaoxuPalette.Ink2
                     ) {
                         Spacer(Modifier.height(12.dp))
-                        Page.entries.filter { it in PosterTabs }.sortedBy { PosterTabs.indexOf(it) }.forEach { page ->
+                        Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
                             NavigationRailItem(
                                 selected = current == page,
                                 onClick = { current = page },
@@ -478,31 +470,18 @@ private fun NativeShell(
                         label = "page"
                     ) { page ->
                         when (page) {
-                            Page.HOME -> if (posterMode) {
-                                PosterHome(
-                                    demo = true,
-                                    onSchedule = { current = Page.SCHEDULE },
-                                    onTasks = { current = Page.TASKS },
-                                    onMessages = { current = Page.MESSAGES },
-                                    onProfile = { current = Page.PROFILE },
-                                    onAcademic = { current = Page.ACADEMIC },
-                                    onLibrary = { current = Page.ACADEMIC },
-                                    onRoom = { current = Page.ACADEMIC },
-                                    onMore = { posterMode = false }
-                                )
-                            } else RealAcademicHome(localTasks, client = cloud,
+                            Page.HOME -> RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
                                 openSchedule = { current = Page.SCHEDULE },
                                 openTasks = { current = Page.TASKS },
                                 openMessages = { current = Page.MESSAGES },
                                 openProfile = { current = Page.PROFILE },
+                                openAcademic = { current = Page.ACADEMIC },
                                 openLocalSchool = { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
                                 })
-                            Page.SCHEDULE -> if (posterMode) {
-                                PosterSchedule(demo = true, onProfile = { current = Page.PROFILE })
-                            } else SchedulePage(openWebsite, cloud,
+                            Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                                 openProfile = { current = Page.PROFILE },
                                 localLessons = localLessons, openLocalImport = openLocalImport,
                                 openFileImport = openFileImport)
@@ -510,13 +489,9 @@ private fun NativeShell(
                                 AcademicPage(academic, { academic = it }, cloud, openWebsite, openArticle,
                                     openProfile = { current = Page.PROFILE })
                             }
-                            Page.TASKS -> if (posterMode) {
-                                PosterTasks(demo = true)
-                            } else RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                            Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool)
-                            Page.MESSAGES -> if (posterMode) {
-                                PosterMessages(demo = true, onExtract = { current = Page.TASKS })
-                            } else MessagesPage(openWebsite, cloud, openArticle)
+                            Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                             Page.PROFILE -> ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
