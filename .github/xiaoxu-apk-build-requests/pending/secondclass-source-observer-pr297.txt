@@ -1,0 +1,1 @@
+用户 2026-11-06 要求继续校序第二课堂开发。仅用于 PR #297 源观测工具 Android :app:assembleDebug + :app:testDebugUnitTest 真正编译签收；不等于学校目录 API 已验证，也不构成 Android 16 真机验收。
