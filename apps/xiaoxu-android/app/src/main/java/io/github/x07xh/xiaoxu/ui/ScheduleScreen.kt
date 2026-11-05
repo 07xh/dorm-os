@@ -281,16 +281,16 @@ fun CloudTimetablePanel(
             Crossfade(targetState = uiState, label = "schedule-state") { current ->
                 when (current) {
                     ScheduleUiState.Loading -> ScheduleLoadingState()
-                    ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openProfile, openWebsite)
-                    ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openWebsite, refresh)
-                    ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openWebsite, refresh)
-                    is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openWebsite, refresh)
-                    ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openWebsite, refresh)
+                    ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openLocalImport, openProfile)
+                    ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openLocalImport, refresh)
+                    ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openLocalImport, refresh)
+                    is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openLocalImport, refresh)
+                    ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openLocalImport, refresh)
                     is ScheduleUiState.Verified -> ScheduleVerifiedContent(
                         data = current,
                         expanded = expanded,
                         onRefresh = refresh,
-                        openWebsite = openWebsite
+                        openLocalImport = openLocalImport
                     )
                 }
             }
@@ -308,7 +308,7 @@ private fun ScheduleVerifiedContent(
     data: ScheduleUiState.Verified,
     expanded: Boolean,
     onRefresh: () -> Unit,
-    openWebsite: () -> Unit
+    openLocalImport: () -> Unit
 ) {
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
     val weekNumbers = remember(data.lessons) {
@@ -406,7 +406,7 @@ private fun ScheduleVerifiedContent(
                     }
                     item { ScheduleFooterNote() }
                     item {
-                        TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
+                        TextButton(onClick = openLocalImport) { Text("在 App 内核对 / 更新青果课表") }
                     }
                 }
             }
@@ -442,7 +442,7 @@ private fun ScheduleVerifiedContent(
                 }
                 item { ScheduleFooterNote() }
                 item {
-                    TextButton(onClick = openWebsite) { Text("查看官方连接状态或重新授权") }
+                    TextButton(onClick = openLocalImport) { Text("在 App 内核对 / 更新青果课表") }
                 }
             }
         }
@@ -1034,75 +1034,68 @@ private fun SkeletonBlock(modifier: Modifier) {
 }
 
 @Composable
-private fun ScheduleNotConnectedState(openProfile: (() -> Unit)?, openWebsite: () -> Unit) {
+private fun ScheduleNotConnectedState(
+    openLocalImport: () -> Unit,
+    openProfile: (() -> Unit)?
+) {
     StateScaffold(
         icon = Icons.Outlined.CloudOff,
-        title = "课表还没连接",
-        message = "校序云端连接后可读取已通过校验的青果课程。学校登录与授权仍在官方网页完成，" +
-            "App 不收集学校密码，也不显示任何示例课程。"
+        title = "尚未读取青果课表",
+        message = "可以直接在 App 中进入华水官方教务页面，登录本人账号后主动导入课表；本机保存不要求先登录校序云端。课程须与官网逐项核对。"
     ) {
+        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
         if (openProfile != null) {
-            Button(onClick = openProfile) {
-                Icon(Icons.Outlined.PersonOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("去「我的」连接校序云端")
+            OutlinedButton(onClick = openProfile) {
+                Text("云端同步设置（可选）")
             }
         }
-        OutlinedButton(onClick = openWebsite) {
-            Text("打开官方连接中心")
-            Spacer(Modifier.width(4.dp))
-            Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-        }
     }
 }
 
 @Composable
-private fun ScheduleSourceMissingState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+private fun ScheduleSourceMissingState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
     StateScaffold(
         icon = Icons.Outlined.DateRange,
-        title = "还没有可信课表来源",
-        message = "校序已连接，但尚未读取到可信的青果课程数据。请在官方连接中心完成青果授权后重新读取；" +
-            "在此之前不导入、不猜测、不展示占位课表。"
+        title = "还没有可展示的青果课程",
+        message = "尚无已保存的本机课表或云端可信课表。可以先从 App 内读取本人课表，再与学校官网核对。"
     ) {
-        Button(onClick = onRefresh) { Text("重新读取") }
-        OutlinedButton(onClick = openWebsite) {
-            Text("打开官方连接中心")
-            Spacer(Modifier.width(4.dp))
-            Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-        }
+        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
+        OutlinedButton(onClick = onRefresh) { Text("重新检查云端课表") }
     }
 }
 
 @Composable
-private fun ScheduleUnverifiedState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+private fun ScheduleUnverifiedState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
     StateScaffold(
         icon = Icons.Outlined.Info,
-        title = "课表来源尚未通过验证",
-        message = "当前来源未通过可信只读校验。为避免把不可信结果当成课表，本页只显示状态，" +
-            "不展示导入或推断出来的课程。"
+        title = "云端课表来源尚未核验",
+        message = "未通过校验的云端数据不会展示为可信课表。可改用 App 内官方页面读取本人课表，本机导入记录将明确标注待核对。"
     ) {
-        Button(onClick = onRefresh) { Text("重新读取") }
-        OutlinedButton(onClick = openWebsite) { Text("查看官方连接状态") }
+        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
+        OutlinedButton(onClick = onRefresh) { Text("重试云端核验") }
     }
 }
 
 @Composable
-private fun ScheduleFailedState(message: String, openWebsite: () -> Unit, onRefresh: () -> Unit) {
+private fun ScheduleFailedState(
+    message: String,
+    openLocalImport: () -> Unit,
+    onRefresh: () -> Unit
+) {
     StateScaffold(
         icon = Icons.Outlined.Warning,
-        title = "课表读取失败",
+        title = "云端课表读取失败",
         message = message,
         accent = true
     ) {
-        Button(onClick = onRefresh) {
+        Button(onClick = openLocalImport) { Text("改用 App 内青果课表读取") }
+        OutlinedButton(onClick = onRefresh) {
             Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("重试")
+            Text("重试云端")
         }
-        OutlinedButton(onClick = openWebsite) { Text("查看官方连接状态") }
-        Spacer(Modifier.height(2.dp))
         Text(
-            text = "失败时不会显示上次成功之外的任何内容，也不会用示例课程填充。",
+            text = "失败不会覆盖已经保存的本机课程，也不会以示例课程填充。",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1110,14 +1103,14 @@ private fun ScheduleFailedState(message: String, openWebsite: () -> Unit, onRefr
 }
 
 @Composable
-private fun ScheduleEmptyState(openWebsite: () -> Unit, onRefresh: () -> Unit) {
+private fun ScheduleEmptyState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
     StateScaffold(
         icon = Icons.Outlined.DateRange,
-        title = "可信来源返回 0 门课程",
-        message = "来源校验已通过，但本学期没有课程记录。请在教务系统核对是否为当前学期，然后重新读取。"
+        title = "云端来源返回 0 门课程",
+        message = "云端未返回课程；这不等于你的学校账号没有课表。可以在 App 内打开个人课表并主动导入。"
     ) {
-        Button(onClick = onRefresh) { Text("重新读取") }
-        OutlinedButton(onClick = openWebsite) { Text("打开官方连接中心") }
+        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
+        OutlinedButton(onClick = onRefresh) { Text("重新读取云端") }
     }
 }
 

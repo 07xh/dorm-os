@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
  * Never imitates successful upstream reads and never auto-submits coursework.
  */
 @Composable
-fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
+fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
     val state = client.state
     val scope = rememberCoroutineScope()
     var selecting by remember { mutableStateOf(false) }
@@ -47,12 +47,15 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
             Text("学习通 · 本人课程与作业", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
             Text(
-                "复用本人已有的学习通授权；可手动按课程读取，或主动开启云端定时检查，不会作答或提交。",
+                "优先在 App 内打开官方学习通读取本人可见课程／作业；云端逐门核验与自动同步属于独立可选功能，不会作答或提交。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            OutlinedButton(onClick = openSchoolReader) {
+                Text("在 App 内读取学习通作业")
+            }
             if (!state.authenticated) {
-                Text("请先在「我的」连接校序，再通过官方学习通完成学校账号授权。",
+                Text("本机读取可直接使用上方入口；若需云端逐门核验，须另外连接本人校序会话和学校授权。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Button(
@@ -252,7 +255,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openWebsite: () -> Unit) {
                 Text("尚未同步此课程作业；不根据缓存判断提交状态。",
                     style = MaterialTheme.typography.bodySmall)
             }
-            TextButton(onClick = openWebsite) { Text("前往现有数据连接中心") }
+            TextButton(onClick = openSchoolReader) { Text("打开学习通官网核对本机读取结果") }
         }
     }
 }

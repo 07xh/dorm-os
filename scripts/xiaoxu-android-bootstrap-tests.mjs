@@ -172,7 +172,11 @@ assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTAC
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
 const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
-assert.match(workspace, /ChaoxingHomeworkPanel\(client, openWebsite\)/);
+assert.match(workspace, /ChaoxingHomeworkPanel\(client, openSchoolReader = \{ openLocalSchool\("chaoxing"\) \}\)/);
+assert.match(coursePanel, /fun ChaoxingHomeworkPanel\(client: CloudClient, openSchoolReader: \(\) -> Unit\)/);
+assert.match(coursePanel, /OutlinedButton\(onClick = openSchoolReader\)/);
+assert.match(coursePanel, /在 App 内读取学习通作业/);
+assert.doesNotMatch(coursePanel, /前往现有数据连接中心/);
 // Native first-party QR uses existing server start/image/status, never new login routes.
 assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/start/);
 assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/image/);
@@ -275,6 +279,15 @@ assert.match(schedulePanel, /CourseDetailBottomSheet\(/, '可信课程应有原�
 assert.match(schedulePanel, /ModalBottomSheet\(/, '课程详情应使用原生底部抽屉');
 assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/, '抽屉只能读取当前可信课程');
 assert.match(schedulePanel, /onClickLabel = "查看课程详情"/);
+assert.match(schedulePanel, /ScheduleNotConnectedState\(openLocalImport, openProfile\)/);
+assert.match(schedulePanel, /ScheduleSourceMissingState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleUnverifiedState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleFailedState\(current\.message, openLocalImport, refresh\)/);
+assert.match(schedulePanel, /ScheduleEmptyState\(openLocalImport, refresh\)/);
+assert.match(schedulePanel, /Text\("在 App 内导入青果课表"\)/);
+assert.match(schedulePanel, /Text\("在 App 内核对 \/ 更新青果课表"\)/);
+assert.doesNotMatch(schedulePanel, /去「我的」连接校序云端|打开官方连接中心|查看官方连接状态或重新授权/);
+
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
@@ -572,6 +585,13 @@ assert.match(importer, /epoch != pageEpoch/);
 assert.match(importer, /isOfficialPage\(currentUrl\)/);
 assert.match(importer, /CookieManager.getInstance\(\).flush\(\)/);
 assert.match(importer, /browser\.evaluateJavascript\(/);
+assert.match(importer, /val previous = LocalScheduleStore\.load\(this\)\.size/);
+assert.match(importer, /val fewer = previous > 0 && count < previous/);
+assert.match(importer, /本次课块数量比原本少/);
+assert.match(importer, /已核对，仍要替换/);
+assert.match(importer, /保留旧课表/);
+assert.match(importer, /val saved = LocalScheduleStore\.save\(this, items\.toString\(\)\)/);
+
 assert.doesNotMatch(importer + script + localStore, /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY|http:\/\//);
 assert.match(localStore, /getSharedPreferences\(/);
 assert.match(localStore, /LocalScheduleStore/);
@@ -639,5 +659,35 @@ assert.match(invalidHeader.__xiaoxuExtract().error, /未找到|无法识别/);
 const friday = mockHeaderGrid({day:5,time:'2-10周[5-6]'});
 runInNewContext(script, {window: friday});
 assert.equal(friday.__xiaoxuExtract().items[0].day, 5);
+// A valid official seven-day td.td grid may render course text without the
+// old inline 'padding-bottom:5px' style. Preserve explicit weekday geometry.
+function mockPlainClassGrid({time = '1-16周[1-2]', malformed = false, extraCourse = false} = {}) {
+    const first = '工程制图\n任课教师\n' + time + '\nA101';
+    const second = '高等数学\n任课教师\n1-16周[3-4]\nA102';
+    const text = first + (extraCourse ? '\n' + second : '') +
+        (malformed ? '\n课表多余字段' : '');
+    const cells = Array.from({length: 7}, (_, i) => ({
+        matches: selector => selector === 'td.td',
+        getAttribute: () => null,
+        querySelectorAll: () => [],
+        innerText: i === 1 ? text : ''
+    }));
+    const row = {querySelector: () => cells[0], children: cells};
+    const table = {querySelector: () => cells[0], querySelectorAll: () => [row]};
+    return {document: {querySelectorAll: () => [table]}, frames: []};
+}
+const plainClass = mockPlainClassGrid();
+runInNewContext(script, {window: plainClass});
+assert.equal(plainClass.__xiaoxuExtract().items[0].day, 2);
+assert.equal(plainClass.__xiaoxuExtract().items[0].name, '工程制图');
+const plainTwo = mockPlainClassGrid({extraCourse:true});
+runInNewContext(script, {window: plainTwo});
+assert.equal(plainTwo.__xiaoxuExtract().items.length, 2,
+ '同一日两个完整文本课块不能被漏读');
+const plainInvalid = mockPlainClassGrid({malformed:true});
+runInNewContext(script, {window: plainInvalid});
+assert.match(plainInvalid.__xiaoxuExtract().error, /不完整/,
+ '字段数量异常必须失败，不能只导入可识别子集');
+
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
