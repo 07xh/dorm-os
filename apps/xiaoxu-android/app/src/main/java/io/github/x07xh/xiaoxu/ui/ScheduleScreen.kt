@@ -13,6 +13,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -272,40 +274,67 @@ fun CloudTimetablePanel(
     val refresh: () -> Unit = if (localLessons.isNotEmpty()) openLocalImport
         else { { scope.launch { client.refresh() } } }
 
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlinedButton(
-                onClick = openFileImport,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) {
-                Text("从手机文件导入课表（.ics / .json）")
-            }
-            TextButton(onClick = openLocalImport) {
-                Text("从华水青果官网读取（另一种方式）")
-            }
-        }
-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+
+    // One vertical scroll owner for the entire timetable page. Previously a
+    // weighted inner LazyColumn scrolled only the grid while the top controls
+    // occupied most of the viewport (especially on small Android screens).
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val pageScroll = rememberScrollState()
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(pageScroll),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Crossfade(targetState = uiState, label = "schedule-state") { current ->
-                when (current) {
-                    ScheduleUiState.Loading -> ScheduleLoadingState()
-                    ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openLocalImport, openProfile)
-                    ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openLocalImport, refresh)
-                    ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openLocalImport, refresh)
-                    is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openLocalImport, refresh)
-                    ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openLocalImport, refresh)
-                    is ScheduleUiState.Verified -> ScheduleVerifiedContent(
-                        data = current,
-                        expanded = expanded,
-                        onRefresh = refresh,
-                        openLocalImport = openLocalImport
-                    )
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (current !is ScheduleUiState.Verified) {
+                        ScheduleQuickActions(openFileImport, openLocalImport)
+                    }
+                    when (current) {
+                        ScheduleUiState.Loading -> ScheduleLoadingState()
+                        ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openLocalImport, openProfile)
+                        ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openLocalImport, refresh)
+                        ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openLocalImport, refresh)
+                        is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openLocalImport, refresh)
+                        ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openLocalImport, refresh)
+                        is ScheduleUiState.Verified -> ScheduleVerifiedContent(
+                            data = current,
+                            expanded = expanded,
+                            onRefresh = refresh,
+                            openLocalImport = openLocalImport,
+                            openFileImport = openFileImport
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun ScheduleQuickActions(
+    openFileImport: () -> Unit,
+    openLocalImport: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedButton(
+            onClick = openFileImport,
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                contentDescription = "从手机文件导入课表（.ics / .json）"
+            }
+        ) {
+            Text("从手机导入", maxLines = 1)
+        }
+        TextButton(
+            onClick = openLocalImport,
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+        ) {
+            Text("青果官网读取", maxLines = 1)
+        }
     }
 }
 
@@ -318,7 +347,8 @@ private fun ScheduleVerifiedContent(
     data: ScheduleUiState.Verified,
     expanded: Boolean,
     onRefresh: () -> Unit,
-    openLocalImport: () -> Unit
+    openLocalImport: () -> Unit,
+    openFileImport: () -> Unit
 ) {
     val localImport = data.sourceLabel.contains("本机导入")
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
@@ -331,6 +361,7 @@ private fun ScheduleVerifiedContent(
         mutableStateOf(weekNumbers.firstOrNull() ?: ALL_WEEKS)
     }
     var viewMode by rememberSaveable { mutableStateOf("week") }
+    var showWeekPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weekNumbers) {
         if (selectedWeek != ALL_WEEKS && selectedWeek !in weekNumbers) {
             selectedWeek = weekNumbers.firstOrNull() ?: ALL_WEEKS
@@ -361,9 +392,9 @@ private fun ScheduleVerifiedContent(
 
     Column(
         Modifier
-            .fillMaxHeight()
+            .fillMaxWidth()
             .pageWidth(ContentMaxWidth)
-            .padding(horizontal = 18.dp)
+            .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         ScheduleHeader(
             subtitle = listOfNotNull(
@@ -374,15 +405,22 @@ private fun ScheduleVerifiedContent(
             onRefresh = onRefresh,
             localImport = localImport
         )
+        ScheduleQuickActions(openFileImport, openLocalImport)
         if (localImport) {
-            ScheduleBanner(
-                icon = Icons.Outlined.Info,
-                title = "本机文件课表 · 待与官方核对",
-                message = "这是你保存的课表文件，不会自动同步青果教务。请逐项核查课程、周次、节次及教室。",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                compact = true
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Outlined.Info, contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "本机文件课表 · 待与官方核对；不会自动同步青果教务",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         if (data.stale) {
             ScheduleBanner(
@@ -403,8 +441,9 @@ private fun ScheduleVerifiedContent(
                 compact = true
             )
         }
-        if (weekNumbers.size > 1) {
-            WeekSelector(weeks = weekNumbers, selected = selectedWeek, onSelect = { selectedWeek = it })
+        if (weekNumbers.size > 1 && showWeekPicker) {
+            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
+                onSelect = { selectedWeek = it; showWeekPicker = false })
         }
         if (weekNumbers.isNotEmpty()) {
             // Move only through weeks present in the owner's actual timetable.
@@ -431,6 +470,12 @@ private fun ScheduleVerifiedContent(
                     enabled = currentIndex < weekNumbers.lastIndex,
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("下一周") }
+            }
+            if (weekNumbers.size > 1) {
+                TextButton(onClick = { showWeekPicker = !showWeekPicker },
+                    modifier = Modifier.heightIn(min = 44.dp)) {
+                    Text(if (showWeekPicker) "收起周次选择" else "选择其他周次")
+                }
             }
         }
         if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
@@ -459,104 +504,67 @@ private fun ScheduleVerifiedContent(
         }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+            Column(
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    Text(
-                        text = if (selectedWeek == ALL_WEEKS)
-                            "请先选择一个具体周次，避免把不同周的课程混为一周。"
-                        else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = if (selectedWeek == ALL_WEEKS)
+                        "请先选择一个具体周次，避免把不同周的课程混为一周。"
+                    else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (selectedWeek != ALL_WEEKS) {
-                    item {
-                        val weekLessons = remember(data.lessons, selectedWeek) {
-                            data.lessons.filter { selectedWeek in it.weeks }
-                        }
-                        WeeklyTimetableGrid(weekLessons) { item ->
-                            openCourse(item.toUi().key)
-                        }
+                    val weekLessons = remember(data.lessons, selectedWeek) {
+                        data.lessons.filter { selectedWeek in it.weeks }
+                    }
+                    WeeklyTimetableGrid(weekLessons) { item ->
+                        openCourse(item.toUi().key)
                     }
                 }
-                item {
-                    TextButton(onClick = openLocalImport) {
-                        Text("从华水青果官网重新核对课表")
-                    }
+                TextButton(onClick = openLocalImport) {
+                    Text("从华水青果官网重新核对课表")
                 }
             }
         } else if (expanded) {
-            Row(Modifier.fillMaxWidth().weight(1f)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 WeekdaySideBar(
-                    counts = counts,
-                    selected = effectiveWeekday,
-                    today = todayWeekday,
+                    counts = counts, selected = effectiveWeekday, today = todayWeekday,
                     onSelect = { selectedWeekday = it }
                 )
-                LazyColumn(
-                    modifier = Modifier.fillMaxHeight().weight(1f).padding(start = 12.dp),
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 28.dp),
+                Column(
+                    modifier = Modifier.weight(1f).padding(start = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    item {
-                        DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
+                    DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
+                    if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
+                    dayLessons.forEach { lesson ->
+                        LessonCard(lesson = lesson, onOpen = { openCourse(lesson.key) })
                     }
-                    if (dayLessons.isEmpty()) {
-                        item { NoLessonCard(selectedWeek) }
-                    }
-                    items(
-                        count = dayLessons.size,
-                        key = { index -> dayLessons[index].key + "#" + index }
-                    ) { index ->
-                        val lesson = dayLessons[index]
-                        LessonCard(
-                            lesson = lesson,
-                            onOpen = { openCourse(lesson.key) }
-                        )
-                    }
-                    item { ScheduleFooterNote() }
-                    item {
-                        TextButton(onClick = openLocalImport) { Text("在 App 内核对 / 更新青果课表") }
+                    ScheduleFooterNote()
+                    TextButton(onClick = openLocalImport) {
+                        Text("在 App 内核对 / 更新青果课表")
                     }
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 28.dp),
+            Column(
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    WeekdayStrip(
-                        counts = counts,
-                        selected = effectiveWeekday,
-                        today = todayWeekday,
-                        onSelect = { selectedWeekday = it }
-                    )
+                WeekdayStrip(
+                    counts = counts, selected = effectiveWeekday, today = todayWeekday,
+                    onSelect = { selectedWeekday = it }
+                )
+                DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
+                if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
+                dayLessons.forEach { lesson ->
+                    LessonCard(lesson = lesson, onOpen = { openCourse(lesson.key) })
                 }
-                item {
-                    DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
-                }
-                if (dayLessons.isEmpty()) {
-                    item { NoLessonCard(selectedWeek) }
-                }
-                items(
-                    count = dayLessons.size,
-                    key = { index -> dayLessons[index].key + "#" + index }
-                ) { index ->
-                    val lesson = dayLessons[index]
-                    LessonCard(
-                        lesson = lesson,
-                        onOpen = { openCourse(lesson.key) }
-                    )
-                }
-                item { ScheduleFooterNote() }
-                item {
-                    TextButton(onClick = openLocalImport) { Text("在 App 内核对 / 更新青果课表") }
+                ScheduleFooterNote()
+                TextButton(onClick = openLocalImport) {
+                    Text("在 App 内核对 / 更新青果课表")
                 }
             }
         }
@@ -582,7 +590,7 @@ private fun ScheduleHeader(
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "课表",
+                    text = "我的课表",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.semantics { heading() }
@@ -820,7 +828,7 @@ private fun DayCell(
 @Composable
 private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onSelect: (Int) -> Unit) {
     Column(
-        modifier = Modifier.width(200.dp).fillMaxHeight().padding(end = 4.dp),
+        modifier = Modifier.width(200.dp).padding(end = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         (1..7).forEach { day ->
@@ -1111,7 +1119,7 @@ private fun ScheduleFooterNote() {
 private fun ScheduleLoadingState() {
     Column(
         modifier = Modifier
-            .fillMaxHeight()
+            .fillMaxWidth()
             .pageWidth(ContentMaxWidth)
             .padding(horizontal = 18.dp, vertical = 16.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
@@ -1252,7 +1260,7 @@ private fun StateScaffold(
 ) {
     Column(
         modifier = Modifier
-            .fillMaxHeight()
+            .fillMaxWidth()
             .pageWidth(StateMaxWidth)
             .padding(horizontal = 18.dp, vertical = 16.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
