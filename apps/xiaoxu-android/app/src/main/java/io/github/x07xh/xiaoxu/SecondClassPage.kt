@@ -43,7 +43,10 @@ import java.util.Date
  * mix "my signups" into the catalog or fabricate upcoming activities.
  */
 @Composable
-fun SecondClassPage() {
+fun SecondClassPage(
+    onRefreshResult: ((Boolean) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val all by dao.observe().collectAsState(initial = emptyList())
@@ -58,8 +61,10 @@ fun SecondClassPage() {
     var attempted by rememberSaveable { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf("显示本机上次保存结果") }
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        message = if (result.resultCode == Activity.RESULT_OK) "本次刷新已保存"
+        val succeeded = result.resultCode == Activity.RESULT_OK
+        message = if (succeeded) "本次刷新已保存"
             else "本次未更新，保留上次数据；可重试或在官网重新登录"
+        onRefreshResult?.invoke(succeeded)
     }
     fun refreshPersonalRecords() {
         message = "正在打开官方会话核验并刷新个人记录…"
@@ -77,7 +82,7 @@ fun SecondClassPage() {
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tab) {
             listOf("活动广场", "我的活动", "素质积分").forEachIndexed { index, label ->
                 Tab(selected = tab == index, onClick = { tab = index },
