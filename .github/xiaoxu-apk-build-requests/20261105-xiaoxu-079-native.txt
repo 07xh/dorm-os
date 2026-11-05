@@ -1,0 +1,6 @@
+校序 Android 0.7.9 用户主动构建请求
+
+来源：2026-11-05 用户明确请求“构建最新原生 APK，验收单手机闭环”。
+基线：PR #251 已合并，main 41af45d4e0b09d4de3aaf9dac50559d761ee1bf6，main CI #41971043962 success。
+构建动作：原 Android assembleDebug + GitHub artifact；不修改学校连接、凭据、数据库，不自动发布正式签名版本。
+验收说明：APK 构建不等于真人学习通账号登录或官方提交状态已通过。旧 Debug 安装可能签名不同，先备份本机任务。
