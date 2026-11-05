@@ -1,0 +1,43 @@
+name: Publish verified Xiaoxu 0.8.0 ICS importer APK
+
+on:
+  push:
+    branches:
+      - ci/publish-xiaoxu-v080-ics-20261105
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve APK after passing Kotlin and JUnit tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/xiaoxu-v080"
+          gh run download 41974301662 --repo "$GITHUB_REPOSITORY" --name xiaoxu-android-ics-file-import-debug --dir "$RUNNER_TEMP/xiaoxu-v080"
+          test -s "$RUNNER_TEMP/xiaoxu-v080/app-debug.apk"
+          unzip -tq "$RUNNER_TEMP/xiaoxu-v080/app-debug.apk"
+          test "$(stat -c %s "$RUNNER_TEMP/xiaoxu-v080/app-debug.apk")" -gt 10000000
+      - name: Publish unchanged APK to binary-only branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan apk-xiaoxu-v080-ics-20261105
+          mkdir -p download
+          cp "$RUNNER_TEMP/xiaoxu-v080/app-debug.apk" download/xiaoxu-android-v0.8.0-ics-import-debug.apk
+          (cd download && sha256sum xiaoxu-android-v0.8.0-ics-import-debug.apk > SHA256SUMS.txt)
+          git add -f download/xiaoxu-android-v0.8.0-ics-import-debug.apk download/SHA256SUMS.txt
+          git commit -m "artifact: verified Xiaoxu 0.8.0 local ICS file importer"
+          git push origin HEAD:refs/heads/apk-xiaoxu-v080-ics-20261105
+      - name: Validate direct anonymous APK download
+        run: |
+          curl -fL --retry 4 --retry-delay 2 -r 0-15 \
+            "https://raw.githubusercontent.com/07xh/dorm-os/apk-xiaoxu-v080-ics-20261105/download/xiaoxu-android-v0.8.0-ics-import-debug.apk" \
+            -o "$RUNNER_TEMP/download-probe"
+          test -s "$RUNNER_TEMP/download-probe"
