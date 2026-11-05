@@ -537,7 +537,7 @@ private fun CloudAuthorizationSection(
             }
             val providerIcons = mapOf(
                 "chaoxing" to Icons.AutoMirrored.Outlined.MenuBook,
-                "ncwu" to Icons.Outlined.DateRange,
+                "ncwu" to Icons.Outlined.School,
                 "second_class" to Icons.Outlined.EmojiEvents
             )
             for ((id, title) in listOf(
@@ -640,6 +640,7 @@ private fun PlatformStatusCard(
                 text = when {
                     !state.authenticated -> "云端未连接"
                     !state.connectionsFresh -> "状态待刷新"
+                    platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
                     platform?.sessionState == "active" -> "尚未核验数据"
                     else -> "未连接"
@@ -650,17 +651,23 @@ private fun PlatformStatusCard(
         if (state.connectionsFresh && platform?.verified == true &&
             platform.lastSuccessAt != null) {
             Text(
-                text = "上次可信读取：" + platform.lastSuccessAt,
+                text = (if (id == "ncwu") "上次连接记录：" else "上次可信读取：") + platform.lastSuccessAt,
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink3
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryAction(
-                label = if (refreshing) "正在读取…"
-                else if (id == "chaoxing") "读取本人课程" else "刷新本人数据",
-                enabled = canRead && !state.busy && !state.chaoxingBusy &&
-                    state.schoolSyncBusyProvider == null,
+                label = when {
+                    refreshing -> "正在读取…"
+                    id == "chaoxing" -> "读取本人课程"
+                    id == "ncwu" -> "成绩读取待接入"
+                    else -> "刷新本人数据"
+                },
+                // The old ncwu sync path refreshes a server timetable, NOT grades.
+                // Keep school authorization, but do not send the imported schedule to cloud.
+                enabled = id != "ncwu" && canRead && !state.busy &&
+                    !state.chaoxingBusy && state.schoolSyncBusyProvider == null,
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
@@ -680,16 +687,15 @@ private fun PlatformStatusCard(
         }
         // Reuse the native school reader for one-phone users.
         // Local visible records remain separate from verified cloud sync.
-        SettingRow(
-            icon = Icons.Outlined.School,
-            title = when (id) {
-                "chaoxing" -> "只有一台手机？打开学习通官网"
-                "ncwu" -> "本机打开青果官方课表"
-                else -> "本机打开第二课堂官网"
-            },
-            subtitle = "在本机浏览器读取当前可见记录，不经过云端",
-            onClick = { openLocalSchool(id) }
-        )
+        if (id != "ncwu") {
+            SettingRow(
+                icon = Icons.Outlined.School,
+                title = if (id == "chaoxing") "只有一台手机？打开学习通官网"
+                    else "本机打开第二课堂官网",
+                subtitle = "在本机浏览器读取当前可见记录，不经过云端",
+                onClick = { openLocalSchool(id) }
+            )
+        }
         if (id == "chaoxing") {
             val qr = state.chaoxingQr
             SettingRow(
