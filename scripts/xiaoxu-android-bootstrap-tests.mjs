@@ -723,7 +723,11 @@ const localStore = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/x
 const script = read('apps/xiaoxu-android/app/src/main/assets/ncwu_qingguo_local.js');
 assert.match(manifest, /android:name="\.LocalQingguoImportActivity"[\s\S]*?android:exported="false"/);
 assert.match(main, /openLocalImport = /);
-assert.match(main, /LocalScheduleStore\.load\(this\)/);
+// Cold start must install the Compose shell before disk-backed timetable parsing.
+const startup = main.slice(main.indexOf('override fun onCreate'), main.indexOf('private fun importTimetableFile'));
+assert.doesNotMatch(startup, /LocalScheduleStore\.load\(/);
+assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*LocalScheduleStore\.load\(applicationContext\)/);
+assert.match(cloud, /coroutineScope\s*\{\s*launch\s*\{\s*refreshNotices\(\)\s*\}\s*launch\s*\{\s*refreshPrivate\(\)/);
 assert.match(schedulePanel, /本机导入/);
 assert.match(schedulePanel, /待本人核对/);
 assert.match(importer, /https:\/\/jwmis\.ncwu\.edu\.cn\//);
