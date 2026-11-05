@@ -65,7 +65,7 @@ class IcsTimetableParserTest {
         assertEquals(listOf(7), parsed.first { it.title == "Python程序设计" }.weeks)
     }
 
-    @Test fun 104DateEventsCollapseTo25WeeklyCourseBlocks() {
+    @Test fun oneHundredFourEventsCollapseToTwentyFiveWeeklyBlocks() {
         // Anonymous stress fixture matching the known file shape;
         // no personal timetable or teacher details are committed.
         val monday = LocalDate.of(2026, 8, 31)
