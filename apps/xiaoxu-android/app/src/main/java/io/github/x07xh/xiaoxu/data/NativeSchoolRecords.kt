@@ -39,6 +39,27 @@ interface NativeSchoolRecordDao {
     @Query("DELETE FROM native_school_records WHERE provider = :provider AND kind = :kind")
     suspend fun deleteKind(provider: String, kind: String)
 
+    @Query("SELECT * FROM native_school_records WHERE provider = :provider AND kind = :kind")
+    suspend fun snapshotKind(provider: String, kind: String): List<NativeSchoolRecord>
+
+    /**
+     * Owner explicitly requests another visible official page. This remains a
+     * local, unverified multi-page snapshot, not complete school synchronization.
+     * Duplicate fingerprints update in-place. The size bound is checked within
+     * the Room transaction before any write, preserving all old rows on error.
+     */
+    @Transaction
+    suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
+        require(provider == "chaoxing" && kind in setOf("course", "homework"))
+        require(rows.isNotEmpty() && rows.size <= 120)
+        require(rows.all { it.provider == provider && it.kind == kind })
+        val keys = (snapshotKind(provider, kind).map { it.fingerprint } +
+            rows.map { it.fingerprint }).toSet()
+        require(keys.size <= 500) { "page_collection_limit" }
+        insertAll(rows)
+        return keys.size
+    }
+
     @Transaction
     suspend fun replaceKind(provider: String, kind: String, rows: List<NativeSchoolRecord>) {
         require(provider in setOf("ncwu", "chaoxing", "second_class"))
