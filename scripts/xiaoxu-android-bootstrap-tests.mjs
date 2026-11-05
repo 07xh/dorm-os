@@ -382,6 +382,22 @@ assert.match(localNative, /finishAndReturn\.isEnabled = true/);
 assert.match(localNative, /if \(!navigationAllowed\(provider, url\)\)/);
 assert.match(localNative, /pageFailed = true/);
 assert.match(localNative, /onReceivedSslError/);
+// NCWU's published Chaoxing university SSO must not be rejected by the
+// app's single-phone WebView allowlist; other CAS targets stay forbidden.
+assert.match(localNative, /CHAOXING_SCHOOL_SERVICE = "https:\/\/fysso\.chaoxing\.com\/cassso\/ncwu"/);
+assert.match(localNative, /"authserver\.ncwu\.edu\.cn" ->[\s\S]*?uri\.path == "\/authserver\/login"/);
+assert.match(localNative, /uri\.getQueryParameters\("service"\)\.size == 1/);
+assert.match(localNative, /uri\.getQueryParameter\("service"\) == CHAOXING_SCHOOL_SERVICE/);
+assert.match(localNative, /"fysso\.chaoxing\.com" ->/);
+assert.match(localNative, /uri\.path in setOf\("\/cassso\/ncwu", "\/cassso\/ncwu\/"\)/);
+assert.match(localNative, /"华水统一身份认证（学习通）"/);
+assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
+// Never let CAS pages or network failures become an extractable work list.
+assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
+assert.match(localNative, /override fun onReceivedError\(/);
+assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*captureEpoch\+\+\s*pageFailed = true/);
+assert.match(localNative, /extract\.isEnabled = loaded && !pageFailed &&/);
+assert.match(localNative, /extractionAllowed\(provider, browser\.url\)/);
 assert.match(localNative, /handler\.cancel\(\)/);
 assert.match(localNative, /setAcceptThirdPartyCookies\(this, false\)/);
 assert.match(localNative, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);

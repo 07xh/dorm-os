@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.WebResourceError
 import android.webkit.SslErrorHandler
 import android.net.http.SslError
 import android.webkit.WebResourceRequest
@@ -48,6 +49,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         // Official personal homework overview; still requires the owner's normal login.
         private const val CHAOXING_HOMEWORK =
             "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
+        // NCWU's independently published CAS -> Chaoxing SSO service.
+        // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
+        private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
+        private const val CHAOXING_SCHOOL_SSO =
+            "https://authserver.ncwu.edu.cn/authserver/login" +
+                "?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu"
         private val entries = mapOf(
             "chaoxing" to "https://i.chaoxing.com/base",
             "second_class" to "https://dekt.ncwu.edu.cn/"
@@ -67,7 +74,17 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (uri.scheme != "https" || uri.userInfo != null) return false
             val host = uri.host?.lowercase() ?: return false
             return when (provider) {
-                "chaoxing" -> host in chaoxing
+                "chaoxing" -> when (host) {
+                    // Only NCWU's registered Chaoxing CAS service is accepted;
+                    // other school or third-party CAS service targets are blocked.
+                    "authserver.ncwu.edu.cn" ->
+                        uri.path == "/authserver/login" &&
+                            uri.getQueryParameters("service").size == 1 &&
+                            uri.getQueryParameter("service") == CHAOXING_SCHOOL_SERVICE
+                    "fysso.chaoxing.com" ->
+                        uri.path in setOf("/cassso/ncwu", "/cassso/ncwu/")
+                    else -> host in chaoxing
+                }
                 "second_class" -> host in schools
                 else -> false
             }
@@ -143,6 +160,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             text = "学习通 · 打开我的作业"
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
         } else null
+        val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
+            text = "华水统一身份认证（学习通）"
+            setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
+        } else null
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
@@ -198,6 +219,17 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         "已打开官方站点（" + host + "）。只有进入本人真实业务列表后才能读取；登录成功不代表数据已同步。"
                     else "请在官网继续正常登录或进入本人课程／作业／活动列表；此页面不会被提取。")
                 }
+                override fun onReceivedError(
+                    view: WebView, request: WebResourceRequest, error: WebResourceError
+                ) {
+                    if (request.isForMainFrame) {
+                        captureEpoch++
+                        pageFailed = true
+                        loaded = false
+                        extract.isEnabled = false
+                        tell("学校页面加载失败；请检查网络或重新打开官方页面，本次未读取数据。")
+                    }
+                }
                 override fun onReceivedSslError(
                     view: WebView, handler: SslErrorHandler, error: SslError
                 ) {
@@ -221,6 +253,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         root.addView(controls)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
+        if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
         root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
@@ -244,8 +277,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         // executes arbitrary downloaded adapters. No form submit or hidden data.
         browser.evaluateJavascript(READ_VISIBLE_PAGE) { encoded ->
             if (epoch != captureEpoch || isFinishing) return@evaluateJavascript
-            extract.isEnabled = true
-            if (browser.url != currentUrl) {
+            extract.isEnabled = loaded && !pageFailed &&
+                extractionAllowed(provider, browser.url)
+            if (!extract.isEnabled || browser.url != currentUrl) {
                 tell("读取时页面已变化，请重新打开需要的列表。")
                 return@evaluateJavascript
             }
