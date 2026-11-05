@@ -1,0 +1,43 @@
+name: Publish verified Xiaoxu Android 0.7.9 E2E test APK as direct file
+
+on:
+  push:
+    branches:
+      - ci/publish-xiaoxu-e2e-079-20261105
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve APK from successful main build
+        run: |
+          mkdir -p "$RUNNER_TEMP/xiaoxu"
+          gh run download 41972198317 --repo "$GITHUB_REPOSITORY" --name xiaoxu-android-alpha-debug --dir "$RUNNER_TEMP/xiaoxu"
+          test -s "$RUNNER_TEMP/xiaoxu/app-debug.apk"
+          unzip -tq "$RUNNER_TEMP/xiaoxu/app-debug.apk"
+          test "$(stat -c %s "$RUNNER_TEMP/xiaoxu/app-debug.apk")" -gt 10000000
+      - name: Publish unchanged build artifact on separate branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan apk-xiaoxu-079-e2e-20261105
+          mkdir -p download
+          cp "$RUNNER_TEMP/xiaoxu/app-debug.apk" download/xiaoxu-android-v0.7.9-e2e-debug.apk
+          (cd download && sha256sum xiaoxu-android-v0.7.9-e2e-debug.apk > SHA256SUMS.txt)
+          git add -f download/xiaoxu-android-v0.7.9-e2e-debug.apk download/SHA256SUMS.txt
+          git commit -m "artifact: Android 0.7.9 E2E debug APK from build 41972198317"
+          git push origin HEAD:refs/heads/apk-xiaoxu-079-e2e-20261105
+      - name: Verify public direct APK URL
+        run: |
+          curl -fL --retry 4 --retry-delay 3 -r 0-15 \
+            "https://raw.githubusercontent.com/07xh/dorm-os/apk-xiaoxu-079-e2e-20261105/download/xiaoxu-android-v0.7.9-e2e-debug.apk" \
+            -o "$RUNNER_TEMP/apk-probe"
+          test -s "$RUNNER_TEMP/apk-probe"
