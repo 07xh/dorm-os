@@ -17,6 +17,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HttpsURLConnection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -269,8 +271,12 @@ class CloudClient(context: Context) {
         lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
-            refreshNotices()
-            refreshPrivate()
+            // Public notices must not delay the first private schedule/task read.
+            // Both update distinct state fields on the main dispatcher.
+            coroutineScope {
+                launch { refreshNotices() }
+                launch { refreshPrivate() }
+            }
         } finally { state = state.copy(busy = false) }
     }
 
@@ -305,7 +311,9 @@ class CloudClient(context: Context) {
         // must never certify that a school session is still active.
         state = state.copy(tasksFresh = false, connectionsFresh = false,
             scheduleFresh = false, secondClassFresh = false)
-        if (session.load() == null) {
+        // Android Keystore can take noticeable time to unlock on some devices.
+        // Never decrypt the owner token on the UI thread during startup.
+        if (withContext(Dispatchers.IO) { session.load() } == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
