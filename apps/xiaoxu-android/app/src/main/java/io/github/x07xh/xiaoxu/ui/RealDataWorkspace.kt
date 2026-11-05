@@ -370,25 +370,30 @@ private fun HomeHero(
 ) {
     val verified = state as? ScheduleUiState.Verified
     val stale = verified?.stale == true
+    val refreshing = verified?.refreshing == true
     val fetched = verified?.fetchedAt?.takeIf { it.isNotBlank() }
     val refreshNote = verified?.refreshWarning?.takeIf { it.isNotBlank() }
     // 徽标只描述这份课的来源与新鲜度，不代替核验结论。
+    // 顺序：本机导入 > 刷新中 > 待刷新 > 本次读取。
     val badge = when {
         isLocalTimetable -> "待核对"
+        refreshing -> "刷新中"
         stale -> "待刷新"
         else -> "已核验"
     }
     val weekNote = lesson?.let { "适用" + formatWeeks(it.weeks) }
     val sourceNote = when {
         isLocalTimetable -> "本机文件导入，不等于学校实时同步。"
+        refreshing -> "正在刷新课表，当前显示上次成功读取的结果，刷新完成前不代表最新。"
         stale -> "上次成功读取" + (if (fetched != null) "于 $fetched " else "") +
-            "未确认是否调整，待刷新核对。"
+            "，本次课表刷新未成功，待刷新核对。"
         else -> "来源与核验状态以课表页为准。"
     }
     when {
         lesson != null -> XiaoxuHero(
             kicker = when {
                 isLocalTimetable -> "本日课表 · 本机导入 · 待核对"
+                refreshing -> "本日课表 · 正在刷新 · 暂显示上次读取"
                 stale -> "本日课表 · 上次读取 · 待刷新核对"
                 else -> "本日课表 · 官方本次读取"
             },

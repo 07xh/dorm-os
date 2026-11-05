@@ -907,4 +907,31 @@ assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注�
 assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
 assert.match(workspace, /本人标记完成 · 含云端快照/, '已完成口径须同步披露快照');
 
+// PR #269 第二轮 review：课表新鲜度只认 scheduleFresh，不得用聚合 privateError 冒充课表提示。
+assert.match(schedulePanel, /val keptFromLastRead = !state\.scheduleFresh/,
+  '课表四态须以 scheduleFresh 判定是否为本次读取');
+assert.match(schedulePanel, /stale = keptFromLastRead \|\| state\.scheduleStatus == "stale"/,
+  '上次保留的数据与服务端 stale 都必须标记 stale');
+assert.match(schedulePanel, /refreshing = keptFromLastRead && state\.busy/,
+  '刷新中须可区分');
+assert.match(schedulePanel, /refreshing = refreshing/, 'refreshing 须传入 UI 状态');
+assert.match(schedulePanel, /refreshWarning = if \(keptFromLastRead && !state\.busy\)/,
+  '刷新失败才给课表专属提示');
+assert.doesNotMatch(schedulePanel, /refreshWarning = state\.privateError/,
+  '聚合 privateError 不得作为课表刷新提示');
+assert.doesNotMatch(schedulePanel, /Failed\(state\.privateError\)/,
+  '无课程时也不得把聚合错误当作课表错误');
+assert.match(schedulePanel, /fun localImportedScheduleState\(/, '本机导入课表状态须独立可测');
+assert.match(workspace, /refreshing -> "刷新中"/, '首页须显示刷新中徽标');
+assert.match(workspace, /本日课表 · 正在刷新 · 暂显示上次读取/, '刷新中须说明暂显示上次读取');
+assert.match(workspace, /本次课表刷新未成功，待刷新核对/, '刷新失败须标注待刷新核对');
+const freshnessTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ScheduleFreshnessTest.kt');
+assert.match(freshnessTest, /class ScheduleFreshnessTest/);
+assert.match(freshnessTest, /readyWithPreviousLessonsAndFailedScheduleReadIsStale/);
+assert.match(freshnessTest, /readyWithPreviousLessonsWhileRefreshingShowsRefreshing/);
+assert.match(freshnessTest, /serverMarkedStaleStaysStaleEvenWhenReadSucceeded/);
+assert.match(freshnessTest, /freshSuccessfulReadIsVerifiedForThisRead/);
+assert.match(freshnessTest, /taskOrWechatFailureDoesNotTaintSuccessfulScheduleRead/);
+assert.match(freshnessTest, /localImportedTimetableIsIndependentFromCloudFreshness/);
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

@@ -135,14 +135,19 @@ sealed interface ScheduleUiState {
     /** 可信来源明确返回 0 门课程。 */
     data object VerifiedEmpty : ScheduleUiState
 
-    /** 已验证且有真实课程。stale = 上次成功读取，未确认是否调整。 */
+    /**
+     * 已验证且有真实课程。
+     * stale = 当前展示的不是本次读取结果（上次保留，或服务端标记未确认调整）。
+     * refreshing = 本次刷新仍在进行，课程来自上次保留。
+     */
     data class Verified(
         val lessons: List<VerifiedLesson>,
         val stale: Boolean,
         val fetchedAt: String?,
         val refreshWarning: String?,
         val term: String?,
-        val sourceLabel: String = "华水青果 · 可信只读"
+        val sourceLabel: String = "华水青果 · 可信只读",
+        val refreshing: Boolean = false
     ) : ScheduleUiState
 }
 
@@ -152,9 +157,20 @@ sealed interface ScheduleUiState {
  */
 private val PENDING_AUTH_MESSAGE = CloudUiState().authMessage
 
+/** 本机导入课表与云端无关：不受 scheduleFresh / 刷新失败影响，但始终标注待本人核对。 */
+fun localImportedScheduleState(lessons: List<VerifiedLesson>): ScheduleUiState.Verified =
+    ScheduleUiState.Verified(
+        lessons = lessons,
+        stale = false,
+        fetchedAt = null,
+        refreshWarning = null,
+        term = null,
+        sourceLabel = "华水青果 · 本机导入（待本人核对）"
+    )
+
 /**
  * 推导顺序即优先级，逐条对应 Issue #209 的四态：
- * 1. 有真实课程 -> 已验证（刷新中保留旧数据，不闪白）；
+ * 1. 有真实课程 -> 已验证（保留旧数据，但按 scheduleFresh 区分"本次读取 / 上次保留 / 刷新中"）；
  * 2. 忙碌 / 首次读取 -> 加载；
  * 3. 未登录 -> 未连接；
  * 4. 有错误且无旧数据 -> 错误；
@@ -162,12 +178,19 @@ private val PENDING_AUTH_MESSAGE = CloudUiState().authMessage
  */
 fun deriveScheduleUiState(state: CloudUiState): ScheduleUiState {
     if (state.lessons.isNotEmpty()) {
+        // scheduleFresh 只在本次 /api/v1/schedule 成功返回时由 CloudClient 置 true。
+        // 刷新开始时它被置 false，失败后保持 false——这两种情况下 lessons 都是上次保留的，
+        // 不能标记为"本次已核验"。
+        val keptFromLastRead = !state.scheduleFresh
+        val refreshing = keptFromLastRead && state.busy
         return ScheduleUiState.Verified(
             lessons = state.lessons,
-            stale = state.scheduleStatus == "stale",
+            stale = keptFromLastRead || state.scheduleStatus == "stale",
             fetchedAt = state.scheduleFetchedAt,
-            refreshWarning = state.privateError,
-            term = state.lessons.firstOrNull { it.term.isNotBlank() }?.term
+            // privateError 聚合了任务 / 连接 / 微信候选的失败，不能当作课表专属提示。
+            refreshWarning = if (keptFromLastRead && !state.busy) "本次课表请求未成功" else null,
+            term = state.lessons.firstOrNull { it.term.isNotBlank() }?.term,
+            refreshing = refreshing
         )
     }
     if (state.busy || state.signingIn) return ScheduleUiState.Loading
@@ -175,7 +198,10 @@ fun deriveScheduleUiState(state: CloudUiState): ScheduleUiState {
         return if (state.authMessage == PENDING_AUTH_MESSAGE) ScheduleUiState.Loading
         else ScheduleUiState.NotConnected
     }
-    if (state.privateError != null) return ScheduleUiState.Failed(state.privateError)
+    if (state.privateError != null) {
+        // 聚合错误可能来自任务 / 连接 / 微信候选，只如实说明"这次云端读取没成功"。
+        return ScheduleUiState.Failed("本次云端读取失败，课表暂无可用数据；请稍后重试")
+    }
     return when (state.scheduleStatus) {
         "ready", "stale" -> ScheduleUiState.VerifiedEmpty
         "not_connected" -> ScheduleUiState.NoTrustedSource
@@ -266,14 +292,8 @@ fun CloudTimetablePanel(
     val state = client.state
     val scope = rememberCoroutineScope()
     val uiState = remember(state, localLessons) {
-        if (localLessons.isNotEmpty()) ScheduleUiState.Verified(
-            lessons = localLessons,
-            stale = false,
-            fetchedAt = null,
-            refreshWarning = null,
-            term = null,
-            sourceLabel = "华水青果 · 本机导入（待本人核对）"
-        ) else deriveScheduleUiState(state)
+        if (localLessons.isNotEmpty()) localImportedScheduleState(localLessons)
+        else deriveScheduleUiState(state)
     }
     val refresh: () -> Unit = if (localLessons.isNotEmpty()) openLocalImport
         else { { scope.launch { client.refresh() } } }
