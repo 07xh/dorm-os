@@ -42,7 +42,7 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.PlatformConnection
 import kotlinx.coroutines.launch
 
-/** No independent school login in Android; use the existing owner's secure service. */
+/** Trusted owner cloud status is independent of the existing local official-page reader. */
 private fun connectionStatusLabel(connection: PlatformConnection?): String = when {
     connection == null -> "尚未取得真实连接状态"
     connection.sessionState == "expired" -> "学校登录已过期"
@@ -259,6 +259,18 @@ fun ConnectionsPanel(
                             })
                         }
                     }
+                    // Reuse the native school reader for one-phone users.
+                    // Local visible records remain separate from verified cloud sync.
+                    TextButton(
+                        onClick = { openLocalSchool(id) },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(when (id) {
+                            "chaoxing" -> "只有一台手机？打开学习通官网"
+                            "ncwu" -> "本机打开青果官方课表"
+                            else -> "本机打开第二课堂官网"
+                        })
+                    }
                     if (id == "chaoxing") {
                         val qr = state.chaoxingQr
                         // Scan stays on this native page. No additional login screen or server connector is required.
@@ -267,7 +279,7 @@ fun ConnectionsPanel(
                             onClick = { scope.launch { client.startChaoxingQr() } }
                         ) {
                             Text(if (qr.status in setOf("pending", "scanned"))
-                                "重新生成扫码二维码" else "在 App 内扫码连接")
+                                "重新生成扫码二维码" else "显示扫码二维码（需另一设备）")
                         }
                         if (qr.status != "idle") {
                             qr.message?.let {
@@ -337,11 +349,16 @@ fun ConnectionsPanel(
         if (state.privateError != null) {
             Text(state.privateError, color = MaterialTheme.colorScheme.error)
         }
+        Text(
+            "本机官网读取仅保存当前可见记录，不等于校序云端授权或官方完整作业同步。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall
+        )
         TextButton(onClick = openWebsite) { Text("网页备用连接 / 诊断") }
         } // Existing Cloudflare-based school connector management
         HorizontalDivider()
         TextButton(onClick = { localAdvanced = !localAdvanced }) {
-            Text(if (localAdvanced) "收起本机读取（备选）" else "本机读取（备选）")
+            Text(if (localAdvanced) "收起本机已保存记录" else "查看本机已保存记录")
         }
         if (localAdvanced) LocalSchoolConnectionPanel(openLocalSchool)
     }

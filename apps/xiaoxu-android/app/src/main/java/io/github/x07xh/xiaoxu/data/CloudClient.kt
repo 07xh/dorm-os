@@ -588,12 +588,25 @@ class CloudClient(context: Context) {
                 syncChaoxingCourse()
             }
             if (epoch != sessionEpoch) return
+            // Authorization and personal course/work verification are separate.
+            // Do not report a verified school sync from a stale session or a
+            // course list when no actual first-course work read was confirmed.
+            val connectionTrusted = state.platforms.firstOrNull { it.id == provider }
+                ?.verified == true
+            val workChecked = state.chaoxingCheckedAt != null &&
+                state.chaoxingError == null
             state = state.copy(schoolSyncResultProvider = provider,
                 schoolSyncMessage = when {
-                    count == 0 -> "学习通会话可用，但本人课程读取未成功；未确认接入"
+                    !connectionTrusted ->
+                        "学校会话已有记录，但尚无可信本人连接与读取证明；请继续核验"
+                    count == 0 ->
+                        "学习通会话可用，但本人课程读取未成功；未确认接入"
                     state.chaoxingError != null ->
                         "已读取 $count 门课程；首门课程作业尚未核验，仍可在任务页手动检查"
-                    else -> "已读取 $count 门课程并检查首门课程作业；请与官方学习通逐项核对"
+                    !workChecked ->
+                        "已读取 $count 门课程，但尚未核验真实作业；请在任务页继续检查"
+                    else ->
+                        "已读取 $count 门课程并核验首门课程作业；请与官方学习通逐项对照"
                 })
         } else {
             // Uses existing POST /connections/{provider}/sync and its
@@ -751,7 +764,7 @@ class CloudClient(context: Context) {
                     if (epoch != sessionEpoch || generation != qrGeneration) return
                     val verified = state.platforms.firstOrNull { it.id == "chaoxing" }
                         ?.verified == true && state.chaoxingCourses.isNotEmpty() &&
-                        state.chaoxingError == null
+                        state.chaoxingCheckedAt != null && state.chaoxingError == null
                     state = state.copy(chaoxingQr = ChaoxingQrUi(
                         status = if (verified) "verified" else "pending_sync",
                         message = if (verified)

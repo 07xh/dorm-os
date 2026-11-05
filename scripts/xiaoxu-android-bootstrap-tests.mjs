@@ -90,6 +90,16 @@ assert.match(main, /ConnectionsPanel/);
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.match(panels, /fun ConnectionsPanel\(/);
+assert.match(panels, /openLocalSchool\(id\)/);
+assert.match(panels, /只有一台手机？打开学习通官网/);
+assert.match(panels, /本机打开青果官方课表/);
+assert.match(panels, /本机打开第二课堂官网/);
+assert.match(panels, /本机官网读取仅保存当前可见记录/);
+assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
+assert.match(cloud, /val workChecked = state.chaoxingCheckedAt != null/);
+assert.match(cloud, /!connectionTrusted/);
+assert.match(cloud, /!workChecked/);
+assert.match(cloud, /state.chaoxingCheckedAt != null && state.chaoxingError == null/);
 assert.match(panels, /openLocalSchool: \(String\) -> Unit/);
 assert.match(panels, /connectionStatusLabel\(platform\)/);
 assert.match(panels, /client\.loadChaoxingCourses\(\)/);
@@ -133,7 +143,7 @@ assert.doesNotMatch(svgRaster, /addJavascriptInterface|evaluateJavascript|loadUr
 assert.match(cloud, /qr\.polls >= 24/);
 assert.match(cloud, /completeSchoolReturn\("chaoxing"\)/);
 assert.doesNotMatch(cloud, /addJavascriptInterface|CookieManager|getCookie\(/);
-assert.match(panels, /在 App 内扫码连接/);
+assert.match(panels, /显示扫码二维码（需另一设备）/);
 assert.match(panels, /BitmapFactory\.decodeByteArray/);
 assert.match(panels, /Lifecycle\.Event\.ON_PAUSE/);
 assert.match(panels, /LaunchedEffect\(qrStartedAt, foreground\)/);
@@ -325,7 +335,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.7\.3'/);
+assert.match(appGradle, /versionName '0\.7\.4'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
