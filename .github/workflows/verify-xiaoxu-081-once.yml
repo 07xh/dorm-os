@@ -1,0 +1,38 @@
+name: Verify Xiaoxu Android 0.8.1 real native timetable UI
+
+on:
+  push:
+    branches:
+      - ci/xiaoxu-081-final-verify-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source regression checks
+        run: |
+          node scripts/xiaoxu-android-bootstrap-tests.mjs
+          node scripts/xiaoxu-android-ics-import-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compile and JUnit check 0.8.1
+        run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-android-v0.8.1-native-week-timetable-debug
+          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
