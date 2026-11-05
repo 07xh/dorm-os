@@ -278,6 +278,16 @@ assert.doesNotMatch(coursePanel, /自动填写|自动代交|显示正确答案/)
 const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassSnapshot.kt');
 const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt');
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
+const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
+assert.match(main, /AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider\("second_class"\) \{ SecondClassPage\(\) \}/);
+assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
+assert.match(secondClassMain, /第二课堂官方平台/);
+assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
+assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
+assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
+
 assert.match(cloud, /\/api\/v1\/second-class/);
 assert.match(cloud, /parseSecondClassSnapshot\(response\.json\)/);
 assert.match(cloud, /secondClass = null/);
