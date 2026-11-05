@@ -20,12 +20,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,9 +36,14 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudTask
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
+import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.text.DateFormat
+import java.util.Date
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
 private val WorkspaceBlue = Color(0xFF2563EB)
@@ -153,6 +160,7 @@ private fun Metric(label: String, value: String, modifier: Modifier = Modifier) 
 fun RealAcademicHome(
     localTasks: List<LocalTask>,
     client: CloudClient,
+    localLessons: List<VerifiedLesson> = emptyList(),
     openSchedule: () -> Unit,
     openTasks: () -> Unit,
     openMessages: () -> Unit,
@@ -161,7 +169,16 @@ fun RealAcademicHome(
     val state = client.state
     val today = LocalDate.now(SchoolZone)
     val all = remember(localTasks, state.tasks) { combineWorkspaceTasks(localTasks, state.tasks) }
-    val sameWeekday = state.lessons.filter { it.weekday == today.dayOfWeek.value }
+    val context = LocalContext.current
+    val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
+    val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
+    val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    val localSecondClass = nativeRows.filter {
+        it.provider == "second_class" && it.kind in setOf("activity", "credits")
+    }
+    val timetable = if (localLessons.isNotEmpty()) localLessons else state.lessons
+    val isLocalTimetable = localLessons.isNotEmpty()
+    val sameWeekday = timetable.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一","周二","周三","周四","周五","周六","周日")[today.dayOfWeek.value - 1]
     LazyColumn(
@@ -193,14 +210,17 @@ fun RealAcademicHome(
                         Text("课表", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         TextButton(onClick = openSchedule) { Text("查看") }
                     }
-                    if (state.lessons.isEmpty()) {
-                        Text("尚未读取可信的青果课程")
-                        OutlinedButton(onClick = openProfile) { Text("检查学校连接") }
+                    if (timetable.isEmpty()) {
+                        Text("暂无已保存的青果课程")
+                        OutlinedButton(onClick = openProfile) { Text("在 App 中连接青果") }
                     } else {
-                        Text("仅按星期匹配；当前教学周未核实，不代表今天实际有课。",
+                        Text(
+                            (if (isLocalTimetable) "本机读取 · 待与学校官网核对。"
+                             else "校序云端课程 · 来源状态以课表页为准。") +
+                                " 仅按星期匹配，当前教学周未核实。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (sameWeekday.isEmpty()) Text("该星期暂无已核验的课程记录")
+                        if (sameWeekday.isEmpty()) Text("该星期没有已保存的课程课块")
                         sameWeekday.take(4).forEach { lesson ->
                             HorizontalDivider()
                             Text(lesson.title + " · 第" + lesson.startSection + "–" +
@@ -226,6 +246,44 @@ fun RealAcademicHome(
                     Text("来自本机与云端已有记录；不代表学校上游刚完成同步。",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        item {
+            WorkspaceCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("学习通 · 本机作业", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold)
+                        TextButton(onClick = openTasks) { Text("查看") }
+                    }
+                    if (localHomework.isEmpty()) {
+                        Text("还没有本机读取到的作业标题")
+                        TextButton(onClick = openProfile) { Text("打开 App 内学习通入口") }
+                    } else {
+                        Text("已保存 ${localHomework.size} 条当前可见页面记录；提交状态及截止时间尚未核验。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        localHomework.take(3).forEach { work ->
+                            HorizontalDivider()
+                            Text(work.title, maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Medium)
+                            Text("采集时间：" + DateFormat.getDateTimeInstance(
+                                    DateFormat.SHORT, DateFormat.SHORT).format(Date(work.capturedAt)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (localSecondClass.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("第二课堂 · 本机保存 ${localSecondClass.size} 条活动／积分页面记录",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text("不是官方累计积分，查看和核对请到「我的」。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = openProfile) { Text("查看第二课堂") }
+                    }
                 }
             }
         }
@@ -260,6 +318,12 @@ fun RealAcademicTaskHub(
     val state = client.state
     val today = LocalDate.now(SchoolZone)
     val all = remember(localTasks, state.tasks) { combineWorkspaceTasks(localTasks, state.tasks) }
+    val context = LocalContext.current
+    val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
+    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val capturedHomework = schoolRows.filter {
+        it.provider == "chaoxing" && it.kind == "homework"
+    }
     val filters = listOf("pending" to "待完成", "all" to "全部", "week" to "本周截止",
         "done" to "已完成", "local" to "本机", "cloud" to "云端")
     var filter by rememberSaveable { mutableStateOf("pending") }
@@ -317,10 +381,41 @@ fun RealAcademicTaskHub(
         }
         item {
             HorizontalDivider()
-            Text("学习通真实读取", style = MaterialTheme.typography.titleMedium,
+            Text("学习通 · 本机作业快照", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold)
+            Text("本机读取到的作业名称单独展示，不纳入待完成/已完成数量，不推定截止日期或学校提交状态。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (capturedHomework.isEmpty()) {
+            item { Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else {
+            items(count = minOf(capturedHomework.size, 120),
+                key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
+                val work = capturedHomework[index]
+                WorkspaceCard {
+                    Column(Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(work.title, fontWeight = FontWeight.SemiBold, maxLines = 3)
+                        if (work.details.isNotBlank()) {
+                            Text(work.details, maxLines = 4,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("学习通本机页面 · " + work.sourceHost + " · " +
+                            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                                .format(Date(work.capturedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item {
+            Text("本机其他已读取记录", style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold)
         }
-        item { LocalSchoolRecordSection(setOf("course", "homework", "activity", "credits")) }
+        item { LocalSchoolRecordSection(setOf("course", "activity", "credits")) }
         item { ChaoxingHomeworkPanel(client, openWebsite) }
         item {
             OutlinedButton(onClick = { showLocal = !showLocal }) {
