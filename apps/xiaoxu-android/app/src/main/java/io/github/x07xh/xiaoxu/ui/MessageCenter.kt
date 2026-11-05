@@ -684,28 +684,29 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Text(
-                text = notice.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = XiaoxuPalette.Ink,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "华水教务官网",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3,
+                    text = notice.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = XiaoxuPalette.Ink,
                     modifier = Modifier.weight(1f),
-                    maxLines = 1,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.width(7.dp))
                 SourceBadge(
                     text = noticeCategoryLabel(notice.category),
                     tone = if (isExam) XiaoxuTone.Warning else XiaoxuTone.Brand
                 )
             }
+            Text(
+                text = "华水教务官网",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (notice.dateLabel.isNotBlank()) {
                 Text(
                     text = notice.dateLabel,
