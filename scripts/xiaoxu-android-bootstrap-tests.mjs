@@ -271,6 +271,17 @@ assert.match(schedulePanel, /var viewMode by rememberSaveable \{ mutableStateOf\
 assert.match(schedulePanel, /Text\("周视图"\)/);
 assert.match(schedulePanel, /Text\("日视图"\)/);
 assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
+// A single page-owned vertical scroll must move filters, banner and week grid
+// together. The timetable may horizontally pan narrow screens, but it must
+// not trap vertical gestures inside a weighted inner list.
+assert.match(schedulePanel, /Modifier\.fillMaxSize\(\)\.verticalScroll\(pageScroll\)/);
+assert.match(schedulePanel, /ScheduleQuickActions\(openFileImport, openLocalImport\)/);
+assert.match(schedulePanel, /ScheduleVerifiedContent\([\s\S]*?openFileImport = openFileImport/);
+assert.doesNotMatch(schedulePanel, /LazyColumn\(/, 'no vertical nested lazy list in timetable');
+assert.doesNotMatch(schedulePanel, /\.weight\(1f\)\s*,?\s*contentPadding = PaddingValues\(/,
+  'no weighted vertical scrolling viewport');
+assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
+assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
