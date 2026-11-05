@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
@@ -331,21 +332,65 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 if (accepted.isEmpty()) throw IllegalArgumentException("no records")
                 lifecycleScope.launch {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            LocalTaskDatabase.open(applicationContext)
-                                .nativeSchoolRecords().replaceKind(provider, kind, accepted)
-                        }
-                        if (epoch != captureEpoch || isFinishing) return@launch
-                        // The result contract never contains raw course names,
-                        // student identifiers, school credentials or HTML.
-                        savedKind = kind
-                        savedCount = accepted.size
-                        finishAndReturn.isEnabled = true
-                        tell("已保存 " + accepted.size +
-                            " 条本机页面记录。可继续读取其他列表，或返回校序查看；这不是学校官方同步验收。")
+                    val dao = LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
+                    // Read only the matching kind, never send school titles or
+                    // credentials through the result Intent.
+                    val existing = try {
+                        withContext(Dispatchers.IO) { dao.snapshotKind(provider, kind) }
                     } catch (_: Exception) {
-                        tell("本机数据库保存失败。旧记录未被覆盖。")
+                        tell("读取原有本机记录失败，本次不会覆盖旧数据。")
+                        return@launch
+                    }
+                    if (epoch != captureEpoch || isFinishing) return@launch
+                    fun saveSnapshot(append: Boolean) {
+                        if (epoch != captureEpoch || isFinishing) return
+                        lifecycleScope.launch {
+                            try {
+                                val total = withContext(Dispatchers.IO) {
+                                    if (append) dao.appendKind(provider, kind, accepted)
+                                    else {
+                                        dao.replaceKind(provider, kind, accepted)
+                                        accepted.size
+                                    }
+                                }
+                                if (epoch != captureEpoch || isFinishing) return@launch
+                                savedKind = kind
+                                savedCount = total
+                                finishAndReturn.isEnabled = true
+                                tell("本机保存成功，目前有 " + total + " 条" +
+                                    (if (append) "同类分页累计记录。" else "当前页记录。") +
+                                    "仅来自本人当时可见页面，不能证明已采集完整课程、作业或最新官方提交状态。")
+                            } catch (_: IllegalArgumentException) {
+                                tell("追加后记录超过 500 条上限或来源无效；未覆盖原有记录。请核对分页并考虑重新开始本类采集。")
+                            } catch (_: Exception) {
+                                tell("本机数据库保存失败。旧记录未被覆盖。")
+                            }
+                        }
+                    }
+                    if (existing.isEmpty() || provider != "chaoxing") {
+                        // First capture is a new snapshot; second-class is not
+                        // part of the paginated Chaoxing flow.
+                        saveSnapshot(false)
+                    } else {
+                        AlertDialog.Builder(this@NativeSchoolConnectActivity)
+                            .setTitle("学习通 · 选择本次保存方式")
+                            .setMessage(
+                                "本机原有 " + existing.size + " 条" +
+                                    (if (kind == "course") "课程" else "作业") +
+                                    "页面记录，本次识别到 " + accepted.size + " 条。\n\n" +
+                                    "【追加本页】用于同一账号、同一轮官方分页读取；完全相同的记录自动去重，" +
+                                    "但状态变更或不同课程的同名作业可能形成多条，请自行核对。\n\n" +
+                                    "【替换旧记录】会清空本类原有记录，只保留当前页。" +
+                                    "这两种方式均不是官方完整同步。"
+                            )
+                            .setNegativeButton("保留旧记录", null)
+                            .setNeutralButton("追加本页") { _, _ ->
+                                saveSnapshot(true)
+                            }
+                            .setPositiveButton("替换旧记录") { _, _ ->
+                                saveSnapshot(false)
+                            }
+                            .show()
                     }
                 }
             } catch (_: Exception) {
