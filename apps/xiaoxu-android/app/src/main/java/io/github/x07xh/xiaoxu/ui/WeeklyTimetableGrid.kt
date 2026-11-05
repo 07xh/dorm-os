@@ -149,6 +149,9 @@ internal fun WeeklyTimetableGrid(
                                     span++
                                 }
                             }
+                            // Freeze section metadata before the loop advances; a
+                            // click/TalkBack callback must describe this exact block.
+                            val blockStart = section
                             val first = available.firstOrNull()
                             val shadeIndex = if (first == null) 0 else
                                 Math.floorMod(first.title.hashCode(), shades.size)
@@ -168,7 +171,7 @@ internal fun WeeklyTimetableGrid(
                                             role = Role.Button
                                             contentDescription = first.title +
                                                 "，星期" + days[day - 1] +
-                                                "，第" + section + "至" + (section + span - 1) + "节" +
+                                                "，第" + blockStart + "至" + (blockStart + span - 1) + "节" +
                                                 (if (first.location.isBlank()) "" else "，" + first.location) +
                                                 (if (available.size > 1) "，同时段共" + available.size + "门课" else "")
                                         })
