@@ -66,7 +66,7 @@ internal fun WeeklyTimetableGrid(
     val all = remember(lessons) {
         lessons.sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
     }
-    val maxSection = (all.maxOfOrNull { it.endSection } ?: 10).coerceIn(10, 24)
+    val maxSection = (all.maxOfOrNull { it.endSection } ?: 12).coerceIn(12, 24)
     val days = listOf("一", "二", "三", "四", "五", "六", "日")
     var overlapChoices by remember { mutableStateOf<List<VerifiedLesson>>(emptyList()) }
 
