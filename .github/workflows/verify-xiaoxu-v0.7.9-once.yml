@@ -1,9 +1,7 @@
 name: Verify Xiaoxu Android 0.7.9 actual native snapshot integration
 
 on:
-  push:
-    branches:
-      - ci/xiaoxu-v079-verify-20261105
+  workflow_dispatch:
 
 permissions:
   contents: read
