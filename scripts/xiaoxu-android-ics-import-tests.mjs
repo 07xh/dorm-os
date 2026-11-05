@@ -15,8 +15,8 @@ assert.match(main, /contentResolver\.openInputStream\(uri\)/,
   'Read only the selected file URI');
 assert.match(main, /LocalScheduleStore\.parseIcs\(text\)/);
 assert.match(main, /LocalScheduleStore\.parseCourses\(text\)/);
-assert.match(main, /LocalScheduleStore\.saveParsed\(this, parsed\.second\)/);
-assert.match(main, /localLessons = LocalScheduleStore\.load\(this\)/);
+assert.match(main, /LocalScheduleStore\.saveParsed\(this@MainActivity, parsed\.second\)/);
+assert.match(main, /localLessons = LocalScheduleStore\.load\(this@MainActivity\)/);
 assert.match(main, /课表数量减少，请核对/);
 assert.match(main, /再次确认替换/);
 assert.match(screen, /从手机文件导入课表（\.ics \/ \.json）/);
