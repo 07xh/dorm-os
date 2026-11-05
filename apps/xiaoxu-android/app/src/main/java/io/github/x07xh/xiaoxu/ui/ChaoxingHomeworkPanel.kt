@@ -174,6 +174,18 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                 Text("本次官方读取：${state.chaoxingCheckedAt} · 仅当前所选课程",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.chaoxingPageProgress?.let { progress ->
+                    Text(
+                        "官网本课程进度：${progress.completed} / ${progress.total} · " +
+                            "本次确实读取 ${state.chaoxingHomework.size} 条，条数已核对一致",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } ?: Text(
+                    "官网未提供可核实的作业总数；以下仅为当前官方列表的已读取条目，不能确认覆盖全部。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (state.chaoxingVerifiedEmpty && state.chaoxingHomework.isEmpty()) {
                     Text("官方确认：本课程当前暂无作业")
                 }

@@ -10,11 +10,17 @@ const work=(id,statusCode='todo',title='作业')=>({
  workId:String(id),title,status:statusCode==='submitted'?'已提交':'未提交',
  statusCode,platformVerified:true
 });
-const listing=(items,verifiedEmpty=false)=>({course,items,verifiedEmpty});
+const listing=(items,verifiedEmpty=false,progress=null)=>({course,items,verifiedEmpty,progress});
 const normalize=x=>normalizeVerifiedChaoxingHomework(keys,x);
 assert.equal(normalize(listing([work(11)])).tasks[0].externalId,'work:123:456:11');
 assert.equal(normalize(listing([work(11,'submitted')])).tasks[0].status,'submitted');
 assert.deepEqual(normalize(listing([],true)).tasks,[]);
+assert.deepEqual(normalize(listing([work(11)],false,{completed:0,total:1})).progress,
+ {completed:0,total:1});
+assert.throws(()=>normalize(listing([work(11)],false,{completed:0,total:2})),
+ e=>e.code==='work_list_incomplete');
+assert.throws(()=>normalize(listing([work(11)],false,{completed:2,total:1})),
+ e=>e.code==='invalid_response');
 for(const broken of [
  listing([],false),listing([work(11),work(11)]),
  listing([{...work(11),platformVerified:false}]),
@@ -64,6 +70,15 @@ assert.deepEqual(rows.map(x=>[x.external_id,x.platform_status]),[
  ['work:123:456:11','todo'],['work:123:456:12','submitted']
 ]);
 assert.equal(sqlite.prepare('SELECT status FROM academic_connections').get().status,'partial');
+// A mismatch cannot mutate previously verified assignments, even if the
+// current page contained otherwise valid work records.
+const rowsBeforeMismatch=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n;
+const staleSource={readHomeworkList:async()=>listing([work(11)],false,{completed:1,total:2})};
+await assert.rejects(()=>syncVerifiedChaoxingHomework(db,'student-1',staleSource,proof,keys,options),
+ e=>e.code==='work_list_incomplete');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,
+ rowsBeforeMismatch);
+
 const again=await syncVerifiedChaoxingHomework(db,'student-1',source,proof,keys,options);
 assert.equal(again.sync.inserted,0);
 assert.equal(again.sync.updated,0);
