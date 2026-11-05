@@ -835,28 +835,8 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     }
                 }
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "查看详情",
-                style = MaterialTheme.typography.labelLarge,
-                color = XiaoxuPalette.Brand,
-                modifier = Modifier.weight(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(XiaoxuPalette.BrandSoft),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp),
-                    tint = XiaoxuPalette.BrandDeep
-                )
-            }
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                modifier = Modifier.size(18.dp), tint = XiaoxuPalette.Ink3)
         }
     }
 }
