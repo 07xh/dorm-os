@@ -990,7 +990,7 @@ assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
   '任务中心必须保留独立可滚动列表状态');
 assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
   '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \\(showCloud\\) managerStart \\+ \\(if \\(showLocal\\) 1 else 0\\)/,
+assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
   '云端表单跳转须考虑本机管理展开与否');
 assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
 assert.match(workspace, /active = filter == "week"/,
