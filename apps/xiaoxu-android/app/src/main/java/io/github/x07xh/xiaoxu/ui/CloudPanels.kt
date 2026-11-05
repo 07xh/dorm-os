@@ -2,7 +2,9 @@ package io.github.x07xh.xiaoxu.ui
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.Lifecycle
@@ -154,19 +162,60 @@ fun ConnectionsPanel(
     // Never save the passphrase across configuration changes.
     var passphrase by remember { mutableStateOf("") }
     var cloudAdvanced by rememberSaveable { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("学校数据", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
-        Text("在 App 内打开学校官方页面，登录本人账号后主动读取；不需要先访问校序网站或连接云端。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)) {
+        // 只显示真实会话状态，不使用演示头像、示例学号或假连接数量。
+        XiaoxuCard {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(XiaoxuPalette.BrandSoft),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PersonOutline,
+                        contentDescription = null,
+                        tint = XiaoxuPalette.Brand,
+                        modifier = Modifier.size(27.dp)
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("我的学习空间", style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink)
+                    SourceBadge(
+                        text = when {
+                            state.authenticated && state.connectionsFresh -> "校序云端会话已核验"
+                            state.authenticated -> "云端状态待重新核验"
+                            else -> "云端未连接 · 可选"
+                        },
+                        tone = when {
+                            state.authenticated && state.connectionsFresh -> XiaoxuTone.Success
+                            state.authenticated -> XiaoxuTone.Warning
+                            else -> XiaoxuTone.Neutral
+                        }
+                    )
+                }
+            }
+            Text("学校账号各自授权；本机读取不依赖校序云端登录。",
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+        }
+        SectionHeader(
+            title = "学校数据连接",
+            caption = "在 App 内打开学校官方页面，登录本人账号后主动读取"
+        )
         // Native-first path already implemented in the existing local school activities.
         // This is deliberately separate from verified Cloudflare sessions.
         LocalSchoolConnectionPanel(openLocalSchool, recentImport)
-        HorizontalDivider()
-        TextButton(onClick = { cloudAdvanced = !cloudAdvanced }) {
-            Text(if (cloudAdvanced) "收起云端授权与高级同步" else "云端授权与高级同步（可选）")
-        }
+        HorizontalDivider(color = XiaoxuPalette.Line)
+        SectionHeader(
+            title = "云端授权与高级同步",
+            caption = "可选配置，不影响本机读取、课表和待办",
+            actionLabel = if (cloudAdvanced) "收起" else "展开",
+            onAction = { cloudAdvanced = !cloudAdvanced }
+        )
         if (cloudAdvanced) {
         Text("校序安全连接", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
@@ -227,12 +276,28 @@ fun ConnectionsPanel(
                 platform?.sessionState == "active"
             val refreshing = state.schoolSyncBusyProvider == id ||
                 (id == "chaoxing" && state.chaoxingBusy)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(title, fontWeight = FontWeight.SemiBold)
+            XiaoxuCard {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                            color = XiaoxuPalette.Ink)
+                        SourceBadge(
+                            text = when {
+                                !state.authenticated -> "云端未连接"
+                                !state.connectionsFresh -> "状态待刷新"
+                                platform?.verified == true -> "已核验读取"
+                                platform?.sessionState == "active" -> "尚未核验数据"
+                                else -> "未连接"
+                            },
+                            tone = when {
+                                !state.authenticated -> XiaoxuTone.Neutral
+                                !state.connectionsFresh -> XiaoxuTone.Warning
+                                platform?.verified == true -> XiaoxuTone.Success
+                                else -> XiaoxuTone.Neutral
+                            }
+                        )
+                    }
                     Text(if (!state.authenticated) "请先连接校序云端"
                         else if (!state.connectionsFresh)
                             "本次无法核验连接状态；缓存仅供参考，请刷新重试"
