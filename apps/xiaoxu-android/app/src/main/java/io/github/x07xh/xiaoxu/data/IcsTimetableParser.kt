@@ -154,9 +154,15 @@ object IcsTimetableParser {
             weeks.all { it in 1..35 }) {
             "事件缺少完整课程名称、连续节次或原始周次，不能直接生成周课表"
         }
-        val startDate = parseDate(fields["DTSTART"].orEmpty())
-        val endDate = parseDate(fields["DTEND"].orEmpty())
-        require(startDate == endDate) { "跨日期课程无法转换成单日节次课表" }
+        val rawStart = fields["DTSTART"].orEmpty()
+        val rawEnd = fields["DTEND"].orEmpty()
+        val startDate = parseDate(rawStart)
+        val endDate = parseDate(rawEnd)
+        require(startDate == endDate && rawStart.length >= 15 && rawEnd.length >= 15 &&
+            rawStart[8] == 'T' && rawEnd[8] == 'T' &&
+            rawStart.substring(0, 15) < rawEnd.substring(0, 15)) {
+            "课程起止时间不完整或不在同一天"
+        }
         val location = unescape(fields["LOCATION"].orEmpty()).trim()
         require(location.length <= 130) { "教室字段过长" }
         return Event(startDate, title, teacher, location,
