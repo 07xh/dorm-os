@@ -159,7 +159,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (browser.canGoBack()) browser.goBack() else finish()
         }
         control("刷新页面") { browser.reload() }
-        extract = control("读取当前页") { captureVisibleRecords() }
+        extract = control("读取并替换同类记录") { captureVisibleRecords() }
         extract.isEnabled = false
         // Explicit paginated-page action. The default still replaces the old
         // snapshot; only deliberate appends preserve previously read pages.
@@ -347,27 +347,41 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     ))
                 }
                 if (accepted.isEmpty()) throw IllegalArgumentException("no records")
+                // Prevent two overlapping writes from changing the same kind.
+                extract.isEnabled = false
+                appendVisible?.isEnabled = false
                 lifecycleScope.launch {
                     try {
-                        withContext(Dispatchers.IO) {
+                        val total = withContext(Dispatchers.IO) {
                             val dao = LocalTaskDatabase.open(applicationContext)
                                 .nativeSchoolRecords()
-                            if (append) dao.insertAll(accepted)
-                            else dao.replaceKind(provider, kind, accepted)
+                            if (append) dao.appendKind(provider, kind, accepted)
+                            else {
+                                dao.replaceKind(provider, kind, accepted)
+                                accepted.size
+                            }
                         }
                         if (epoch != captureEpoch || isFinishing) return@launch
-                        // The result contract never contains raw course names,
-                        // student identifiers, school credentials or HTML.
+                        // This result only includes a provider, kind and actual
+                        // total saved count. School titles and HTML stay in Room.
                         savedKind = kind
-                        savedCount = accepted.size
+                        savedCount = total
                         finishAndReturn.isEnabled = true
-                        tell((if (append) "已追加／更新本页 " else "已替换同类旧记录，保存 ") +
-                            accepted.size + " 条本机页面记录。" +
-                            (if (append) "旧页记录未删除；请核对不同页面是否有重名课程或作业。" else
-                                "再次读取同类别时会替换旧记录；跨页请使用「分页追加本页」。") +
-                            "这不是学校官方完整同步。")
+                        tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
+                            accepted.size + " 条；当前本机同类共 " + total + " 条。" +
+                            (if (append) "旧页保留，作业状态更新可能产生重复，请按课程核对。" else
+                                "下次跨页读取请选择「分页追加本页」。") +
+                            "这不是学校官方完整同步，也未核实全部提交状态。")
+                    } catch (_: IllegalArgumentException) {
+                        tell("合并后超出 500 条上限，已拒绝写入，旧记录保持不变。请核对本机记录或重新开始本类采集。")
                     } catch (_: Exception) {
-                        tell("本机数据库保存失败。原有记录不会因本次操作被清空。")
+                        tell("本机数据库保存失败。本次操作没有清空已有记录。")
+                    } finally {
+                        if (epoch == captureEpoch && !isFinishing) {
+                            extract.isEnabled = loaded && !pageFailed &&
+                                extractionAllowed(provider, browser.url)
+                            appendVisible?.isEnabled = extract.isEnabled
+                        }
                     }
                 }
             } catch (_: Exception) {
