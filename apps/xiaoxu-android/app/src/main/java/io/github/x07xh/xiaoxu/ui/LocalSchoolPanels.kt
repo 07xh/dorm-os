@@ -92,6 +92,7 @@ fun LocalSchoolConnectionPanel(
                         Text(name, fontWeight = FontWeight.SemiBold)
                         Text(if (provider == "ncwu") "专用课表导入 · 课表页查看"
                              else if (list.isEmpty()) "暂无本机读取记录"
+                             else if (provider == "second_class") "已保存本机快照"
                              else "已保存 " + list.size + " 条",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,7 +110,7 @@ fun LocalSchoolConnectionPanel(
                         Text(when (provider) {
                             "chaoxing" -> "在 App 中打开学习通"
                             "ncwu" -> "在 App 中导入青果课表"
-                            else -> "连接第二课堂／刷新积分"
+                            else -> "查看积分与报名活动"
                         })
                     }
                     if (provider == "second_class") Text(
@@ -137,7 +138,7 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
-                    prioritized.take(if (expanded) prioritized.size
+                    (if (provider == "second_class") emptyList() else prioritized).take(if (expanded) prioritized.size
                         else if (justImported != null) 12 else 3)
                         .forEach { item ->
                             Text(kindLabel(item.kind) + " · " + item.title,
@@ -157,7 +158,7 @@ fun LocalSchoolConnectionPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    if (list.size > (if (justImported != null) 12 else 3)) {
+                    if (provider != "second_class" && list.size > (if (justImported != null) 12 else 3)) {
                         TextButton(onClick = { expanded = !expanded }) {
                             Text(if (expanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
                         }

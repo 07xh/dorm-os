@@ -17,6 +17,8 @@ android {
         versionName '0.8.4'
     }
 
+    buildTypes { debug { versionNameSuffix "-profile-preview.1" } }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

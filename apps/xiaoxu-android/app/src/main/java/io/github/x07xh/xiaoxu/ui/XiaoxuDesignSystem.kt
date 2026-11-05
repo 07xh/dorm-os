@@ -73,7 +73,7 @@ import androidx.compose.ui.unit.sp
 // Token
 // ---------------------------------------------------------------------------
 
-object XiaoxuPalette {
+private object XiaoxuLightPalette {
     /** 主色 */
     val Brand = Color(0xFF2F6BFF)
 
@@ -113,6 +113,48 @@ object XiaoxuPalette {
     val Neutral = Color(0xFF5B6B85)
     val NeutralSoft = Color(0xFFF1F4FA)
 }
+
+internal val LocalAccountDark = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+object XiaoxuPalette {
+    val Brand: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF8FABFF) else XiaoxuLightPalette.Brand
+    val BrandDeep: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFB5C9FF) else XiaoxuLightPalette.BrandDeep
+    val BrandSoft: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF23365A) else XiaoxuLightPalette.BrandSoft
+    val Bg: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF101722) else XiaoxuLightPalette.Bg
+    val Surface: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF182232) else XiaoxuLightPalette.Surface
+    val SurfaceAlt: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF202D40) else XiaoxuLightPalette.SurfaceAlt
+    val Ink: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFE9EFF9) else XiaoxuLightPalette.Ink
+    val Ink2: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFB4C1D6) else XiaoxuLightPalette.Ink2
+    val Ink3: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFA3B1C8) else XiaoxuLightPalette.Ink3
+    val Line: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF34445B) else XiaoxuLightPalette.Line
+    val Success: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF79D89B) else XiaoxuLightPalette.Success
+    val SuccessSoft: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF163A2B) else XiaoxuLightPalette.SuccessSoft
+    val Warning: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFFFC37D) else XiaoxuLightPalette.Warning
+    val WarningSoft: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF422E1B) else XiaoxuLightPalette.WarningSoft
+    val Danger: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFFFAAAA) else XiaoxuLightPalette.Danger
+    val DangerSoft: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF48262D) else XiaoxuLightPalette.DangerSoft
+    val Neutral: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFFB4C1D6) else XiaoxuLightPalette.Neutral
+    val NeutralSoft: Color
+        @Composable get() = if (LocalAccountDark.current) Color(0xFF263449) else XiaoxuLightPalette.NeutralSoft
+}
+
 
 /** 圆角：18dp 基础卡，22dp 重要卡（Hero / 抽屉顶角）。 */
 object XiaoxuRadius {
@@ -154,7 +196,7 @@ fun xiaoxuCourseColor(key: String): XiaoxuCourseColor {
 enum class XiaoxuTone { Brand, Success, Warning, Danger, Neutral }
 
 val XiaoxuTone.containerColor: Color
-    get() = when (this) {
+    @Composable get() = when (this) {
         XiaoxuTone.Brand -> XiaoxuPalette.BrandSoft
         XiaoxuTone.Success -> XiaoxuPalette.SuccessSoft
         XiaoxuTone.Warning -> XiaoxuPalette.WarningSoft
@@ -163,7 +205,7 @@ val XiaoxuTone.containerColor: Color
     }
 
 val XiaoxuTone.contentColor: Color
-    get() = when (this) {
+    @Composable get() = when (this) {
         XiaoxuTone.Brand -> XiaoxuPalette.BrandDeep
         XiaoxuTone.Success -> XiaoxuPalette.Success
         XiaoxuTone.Warning -> XiaoxuPalette.Warning
@@ -172,31 +214,31 @@ val XiaoxuTone.contentColor: Color
     }
 
 private val XiaoxuColorScheme = lightColorScheme(
-    primary = XiaoxuPalette.Brand,
+    primary = XiaoxuLightPalette.Brand,
     onPrimary = Color.White,
-    primaryContainer = XiaoxuPalette.BrandSoft,
-    onPrimaryContainer = XiaoxuPalette.BrandDeep,
-    secondary = XiaoxuPalette.Neutral,
+    primaryContainer = XiaoxuLightPalette.BrandSoft,
+    onPrimaryContainer = XiaoxuLightPalette.BrandDeep,
+    secondary = XiaoxuLightPalette.Neutral,
     onSecondary = Color.White,
-    secondaryContainer = XiaoxuPalette.NeutralSoft,
-    onSecondaryContainer = XiaoxuPalette.Ink,
-    tertiary = XiaoxuPalette.Success,
+    secondaryContainer = XiaoxuLightPalette.NeutralSoft,
+    onSecondaryContainer = XiaoxuLightPalette.Ink,
+    tertiary = XiaoxuLightPalette.Success,
     onTertiary = Color.White,
-    tertiaryContainer = XiaoxuPalette.SuccessSoft,
-    onTertiaryContainer = XiaoxuPalette.Success,
-    background = XiaoxuPalette.Bg,
-    onBackground = XiaoxuPalette.Ink,
-    surface = XiaoxuPalette.Surface,
-    onSurface = XiaoxuPalette.Ink,
-    surfaceVariant = XiaoxuPalette.SurfaceAlt,
-    onSurfaceVariant = XiaoxuPalette.Ink2,
+    tertiaryContainer = XiaoxuLightPalette.SuccessSoft,
+    onTertiaryContainer = XiaoxuLightPalette.Success,
+    background = XiaoxuLightPalette.Bg,
+    onBackground = XiaoxuLightPalette.Ink,
+    surface = XiaoxuLightPalette.Surface,
+    onSurface = XiaoxuLightPalette.Ink,
+    surfaceVariant = XiaoxuLightPalette.SurfaceAlt,
+    onSurfaceVariant = XiaoxuLightPalette.Ink2,
     outline = Color(0xFFD8E1F2),
-    outlineVariant = XiaoxuPalette.Line,
-    error = XiaoxuPalette.Danger,
+    outlineVariant = XiaoxuLightPalette.Line,
+    error = XiaoxuLightPalette.Danger,
     onError = Color.White,
-    errorContainer = XiaoxuPalette.DangerSoft,
-    onErrorContainer = XiaoxuPalette.Danger,
-    surfaceTint = XiaoxuPalette.Brand
+    errorContainer = XiaoxuLightPalette.DangerSoft,
+    onErrorContainer = XiaoxuLightPalette.Danger,
+    surfaceTint = XiaoxuLightPalette.Brand
 )
 
 private val XiaoxuTypography = Typography(
@@ -295,7 +337,7 @@ fun XiaoxuHero(
     val colors = if (tone == XiaoxuTone.Neutral) {
         listOf(Color(0xFF3A4A64), Color(0xFF22303F))
     } else {
-        listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep)
+        listOf(Color(0xFF2F6BFF), Color(0xFF1B47C8))
     }
     Column(
         modifier = modifier
@@ -771,7 +813,7 @@ fun XiaoxuTopBar(
                 .clip(RoundedCornerShape(10.dp))
                 .background(
                     Brush.linearGradient(
-                        listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep),
+                        listOf(Color(0xFF2F6BFF), Color(0xFF1B47C8)),
                         start = Offset.Zero, end = Offset(90f, 90f)
                     )
                 ),

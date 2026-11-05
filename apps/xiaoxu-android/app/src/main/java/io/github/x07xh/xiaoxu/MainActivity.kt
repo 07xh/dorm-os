@@ -383,6 +383,8 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
+    io.github.x07xh.xiaoxu.ui.AccountTheme(enabled = current == Page.PROFILE ||
+        current == Page.ACADEMIC && academic == AcademicDestination.SECOND_CLASS) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
         Scaffold(
@@ -393,7 +395,8 @@ private fun NativeShell(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = cloud.state.busy,
-                    onRefresh = { scope.launch { cloud.refresh() } },
+                    onRefresh = if (current == Page.PROFILE || current == Page.ACADEMIC && academic == AcademicDestination.SECOND_CLASS) null
+                        else ({ scope.launch { cloud.refresh() } }),
                     onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null
                 )
             },
@@ -486,19 +489,23 @@ private fun NativeShell(
                             Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool)
                             Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                            Page.PROFILE -> ConnectionsPage(
+                            Page.PROFILE -> pageStateHolder.SaveableStateProvider("profile") {
+                                ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
                                 },
                                 startSchoolAuthorization, localCaptureReturn
-                            )
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
 }
 
 @Composable
@@ -550,7 +557,7 @@ private fun ConnectionsPage(
 ) {
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     Content {
-        item { Heading("我的", "学校数据先在手机读取；云端同步是可选功能") }
+        item { io.github.x07xh.xiaoxu.ui.AccountAppearancePanel() }
         item {
             ConnectionsPanel(cloud, openWebsite, openLocalSchool,
                 startSchoolAuthorization, localCaptureReturn)

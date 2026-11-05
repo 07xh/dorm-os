@@ -103,7 +103,7 @@ assert.ok(
 const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
-assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
+assert.match(nativeSchoolPanel, /查看积分与报名活动/);
 assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(false\) \}/);
 
 assert.match(panels, /openLocalSchool\(id\)/);

@@ -287,7 +287,7 @@ private fun ProfileHeroCard(state: CloudUiState) {
             .clip(shape)
             .background(
                 Brush.linearGradient(
-                    listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep),
+                    listOf(Color(0xFF2F6BFF), Color(0xFF1B47C8)),
                     start = Offset.Zero,
                     end = Offset(1080f, 760f)
                 )

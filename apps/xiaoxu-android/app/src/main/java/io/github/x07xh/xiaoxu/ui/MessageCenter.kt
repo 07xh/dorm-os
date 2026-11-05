@@ -207,10 +207,14 @@ private val ContentMaxWidth = 860.dp
 private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
 private val TileShape = RoundedCornerShape(XiaoxuRadius.tile)
 
-private val ExamTile = XiaoxuPalette.WarningSoft
-private val ExamInk = XiaoxuPalette.Warning
-private val NoticeTile = XiaoxuPalette.BrandSoft
-private val NoticeInk = XiaoxuPalette.Brand
+private val ExamTile: Color
+    @Composable get() = XiaoxuPalette.WarningSoft
+private val ExamInk: Color
+    @Composable get() = XiaoxuPalette.Warning
+private val NoticeTile: Color
+    @Composable get() = XiaoxuPalette.BrandSoft
+private val NoticeInk: Color
+    @Composable get() = XiaoxuPalette.Brand
 
 private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
     this.widthIn(max = max).fillMaxWidth()
