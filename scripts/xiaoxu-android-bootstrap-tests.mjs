@@ -373,7 +373,7 @@ assert.match(schedulePanel, /Text\("在 App 内核对 \/ 更新青果课表"\)/)
 assert.doesNotMatch(schedulePanel, /去「我的」连接校序云端|打开官方连接中心|查看官方连接状态或重新授权/);
 
 
-// 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
+// 消息中心：公告与微信候选合并视觉列表，来源/刷新失败仍须显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
 assert.match(messageCenter, /fun filterNotices\(/);
 assert.match(messageCenter, /state\.notices/);
@@ -385,20 +385,20 @@ assert.match(messageCenter, /未连接校序云端/);
 assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
 assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
 
-// 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
-// 顶部不能再用单一「官方来源」徽标覆盖整页。
-assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
-assert.match(messageCenter, /noticeTotal == 0 -> "暂无已保存公告"/, "没有读取证据时不得冒充本次成功读到零条");
-assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
-assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
-assert.match(messageCenter, /title = "华水官方公告"/);
-assert.match(messageCenter, /title = "微信候选"/);
-assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, true,
-  '两个分区都要渲染分区标题');
-assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
-assert.match(messageCenter, /SourceChip\(/);
-assert.match(messageCenter, /label = "华水官方公告"/);
+// 真实消息流：公告和已采集微信候选同一列表，但每条保留独立来源和人工审核门禁。
+assert.match(messageCenter, /data class Official\(val notice: AcademicNotice/);
+assert.match(messageCenter, /data class Wechat\(val candidate: WechatCandidate/);
+assert.match(messageCenter, /filterWechatCandidates\(state\.wechatCandidates, query, filterKey\)/);
+assert.match(messageCenter, /MessageFeedItem\.Official -> NoticeCard\(/);
+assert.match(messageCenter, /MessageFeedItem\.Wechat -> WechatCandidateRow\(/);
+assert.match(messageCenter, /messageTimestamp\(it\.dateLabel\)/);
+assert.match(messageCenter, /messageTimestamp\(it\.sentAt\)/);
+assert.match(messageCenter, /Long\.MIN_VALUE/,
+  '缺年份的来源不准假装知道精确消息时间');
+assert.match(messageCenter, /wechatError != null/,
+  '微信刷新失败必须提示历史候选快照');
+assert.match(messageCenter, /共 \$matched 条已加载消息/,
+  '列表总数只能来自已经读取的数据，而非演示消息或未加载候选数');
 
 // 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
 assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/,
@@ -410,7 +410,7 @@ assert.match(messageCenter, /App 内不保存正文与附件，需通过学校�
 assert.match(messageCenter, /不生成摘要/);
 assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
 
-// 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
+// 搜索同时覆盖官方公告标题、本人微信候选标题/群名/摘要。
 assert.match(messageCenter, /WechatReviewPanel\(/);
 assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
 
@@ -993,8 +993,10 @@ assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
   '云端任务详情应展开云端管理并定位至真实表单');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.padding\(top = 4\.dp, bottom = 2\.dp\)/,
   '消息页按海报式独立标题布局，不再包一层大卡');
-assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
-  '官方公告与微信候选使用共享来源徽标');
+assert.match(messageCenter, /noticeCategoryLabel\(notice\.category\)/,
+  '官方公告保留实际分类');
+assert.match(wechatReview, /text = "待审核"/,
+  '微信候选保留独立审核来源标签');
 assert.match(messageCenter, /WechatReviewPanel\(/,
   '保留原生微信候选逐条审核');
 assert.match(messageCenter, /NoticeDetailSheet\(/,
@@ -1035,9 +1037,11 @@ assert.match(messageCenter, /MESSAGE CENTER/, '消息页头部需复刻海报的
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
-assert.match(messageCenter, /modifier = Modifier\.weight\(1f\)/, '双来源信息卡并排占位');
+assert.match(messageCenter, /MessageFeedItem\.Wechat -> WechatCandidateRow\(/,
+  '微信候选必须和公告在同一扁平列表，而不是下面另建整块审核面板');
 assert.match(messageCenter, /size\(42\.dp\)/, '公告卡使用 42dp 图标块');
-assert.match(messageCenter, /fun SourceChip\(\n/, '来源信息卡为私有独立组件');
+assert.doesNotMatch(messageCenter, /private fun SourceChip\(/,
+  '不得保留导致版式不同的两张来源大卡');
 assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
@@ -1072,10 +1076,10 @@ assert.match(messageCenter, /wechatError != null -> "待审核候选 \$count 条
   '长文案须说明是本次读取失败的快照');
 assert.match(messageCenter, /count == null -> "数量未读取"/,
   '数量为空时不得伪造为 0');
-assert.match(messageCenter, /pendingWechatShortLabel\(pendingCount, authenticated, wechatError\)/,
-  '来源信息卡须把 wechatError 传给短文案');
-assert.match(messageCenter, /pendingWechatShortLabel\(\n\s*state\.pendingWechatCount,\n\s*state\.authenticated,\n\s*state\.wechatError\n\s*\)/,
-  '微信候选分区头须把 wechatError 传给短文案');
+assert.match(messageCenter, /state\.wechatError != null && filterKey != MSG_FILTER_NOTICE/,
+  '微信候选失败快照须明确显示');
+assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
+  '审核层必须取得真实的待审核计数');
 assert.match(wechatReview, /pendingWechatLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
   '微信候选卡头部须把 wechatError 传给长文案');
 assert.match(panels, /state\.wechatError != null -> state\.pendingWechatCount\.toString\(\) \+ "（快照）"/,
