@@ -73,6 +73,13 @@ const expectedBuildTriggers = [
 assert.ok(androidBuild.includes(expectedBuildTriggers+'\n\npermissions:'),
  'APK source pushes must never trigger builds except an explicit reviewed request marker');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
+assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
+ 'Explicit Android builds must also run JVM unit tests, not just compile');
+assert.match(androidBuild,/unzip -t "\$out\/app-debug\.apk"/,
+ 'APK archive must be verified before upload');
+assert.match(androidBuild,/sha256sum app-debug\.apk > app-debug\.apk\.sha256/,
+ 'APK checksum must be emitted alongside its artifact');
+
 assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
  'Every PR still validates Android security and contract boundaries');
 
