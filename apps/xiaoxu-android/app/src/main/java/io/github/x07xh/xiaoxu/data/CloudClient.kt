@@ -695,8 +695,8 @@ class CloudClient(context: Context) {
             if (type == "image/svg+xml") return NativeQrSvgRenderer.rasterize(bytes)
             val png = bytes.size >= 8 && bytes.sliceArray(0 until 8)
                 .contentEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10))
-            val jpeg = bytes.size >= 3 && bytes[0] == -1.toByte() &&
-                bytes[1] == -40.toByte() && bytes[2] == -1.toByte()
+            val jpeg = bytes.size >= 3 && bytes[0] == (-1).toByte() &&
+                bytes[1] == (-40).toByte() && bytes[2] == (-1).toByte()
             if ((type == "image/png" && !png) || (type == "image/jpeg" && !jpeg))
                 throw IllegalStateException("invalid_image_magic")
             bytes
