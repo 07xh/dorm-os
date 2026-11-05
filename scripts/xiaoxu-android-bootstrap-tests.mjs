@@ -90,6 +90,20 @@ assert.match(main, /ConnectionsPanel/);
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.match(panels, /fun ConnectionsPanel\(/);
+// The owner can begin each school's permitted local read without cloud login
+// or first navigating to Xiaoxu's website. Cloud authorization remains optional.
+assert.match(panels, /var cloudAdvanced by rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.ok(
+    panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') <
+        panels.indexOf('if (cloudAdvanced)'),
+    '本机官方页面读取必须先于云端可选授权展示'
+);
+const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
+assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
+assert.match(nativeSchoolPanel, /在 App 中打开第二课堂/);
+assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(false\) \}/);
+
 assert.match(panels, /openLocalSchool\(id\)/);
 assert.match(panels, /只有一台手机？打开学习通官网/);
 assert.match(panels, /本机打开青果官方课表/);
