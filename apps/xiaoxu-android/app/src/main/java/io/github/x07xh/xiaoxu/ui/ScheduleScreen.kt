@@ -445,7 +445,7 @@ private fun ScheduleVerifiedContent(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    "本机文件课表 · 待与官方核对；不会自动同步青果教务",
+                    "本机课表 · 待核对",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -454,8 +454,8 @@ private fun ScheduleVerifiedContent(
         if (data.stale) {
             ScheduleBanner(
                 icon = Icons.Outlined.Warning,
-                title = "这是上次成功读取的课表",
-                message = "尚未确认近期是否发生调整，请不要把它当作最新课表。",
+                title = "上次读取的课表",
+                message = "可能有调整，请刷新核对。",
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
             )
@@ -463,8 +463,8 @@ private fun ScheduleVerifiedContent(
         data.refreshWarning?.let { warning ->
             ScheduleBanner(
                 icon = Icons.Outlined.Info,
-                title = "本次刷新不完整",
-                message = warning + "；下方仍是上一次成功读取的结果。",
+                title = "刷新不完整",
+                message = warning,
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 compact = true
@@ -1170,8 +1170,8 @@ private fun CourseDetailBottomSheet(
                 modifier = Modifier.semantics { heading() }
             )
             Text(
-                text = if (localImport) "本机课表文件 · 待与青果核对"
-                    else "华水青果 · 可信只读课程",
+                text = if (localImport) "本机导入 · 待核对"
+                    else "华水青果 · 可信只读",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1182,13 +1182,6 @@ private fun CourseDetailBottomSheet(
             CourseSheetRow("上课周次", lesson.weeksLabel)
             CourseSheetRow("节次", lesson.sectionLabel)
             CourseSheetRow("学期", lesson.term)
-            Text(
-                text = if (localImport)
-                    "课程详情来自本机导入文件，不代表官方实时同步；有调整时请重新核对和导入。"
-                    else "课程详情来自最近一次可信读取；若出现旧数据提示，请先刷新核对。",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("关闭详情")
             }
@@ -1320,8 +1313,8 @@ private fun ScheduleNotConnectedState(
 ) {
     StateScaffold(
         icon = Icons.Outlined.CloudOff,
-        title = "尚未读取青果课表",
-        message = "可以直接在 App 中进入华水官方教务页面，登录本人账号后主动导入课表；本机保存不要求先登录校序云端。课程须与官网逐项核对。"
+        title = "尚未读取课表",
+        message = "在 App 内登录学校账号后导入课表。"
     ) {
         Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
         if (openProfile != null) {
@@ -1336,8 +1329,8 @@ private fun ScheduleNotConnectedState(
 private fun ScheduleSourceMissingState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
     StateScaffold(
         icon = Icons.Outlined.DateRange,
-        title = "还没有可展示的青果课程",
-        message = "尚无已保存的本机课表或云端可信课表。可以先从 App 内读取本人课表，再与学校官网核对。"
+        title = "还没有可展示的课程",
+        message = "先从 App 内读取本人课表。"
     ) {
         Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
         OutlinedButton(onClick = onRefresh) { Text("重新检查云端课表") }
@@ -1348,8 +1341,8 @@ private fun ScheduleSourceMissingState(openLocalImport: () -> Unit, onRefresh: (
 private fun ScheduleUnverifiedState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
     StateScaffold(
         icon = Icons.Outlined.Info,
-        title = "云端课表来源尚未核验",
-        message = "未通过校验的云端数据不会展示为可信课表。可改用 App 内官方页面读取本人课表，本机导入记录将明确标注待核对。"
+        title = "云端课表来源未核验",
+        message = "可改用 App 内官方页面读取本人课表。"
     ) {
         Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
         OutlinedButton(onClick = onRefresh) { Text("重试云端核验") }
@@ -1374,11 +1367,6 @@ private fun ScheduleFailedState(
             Spacer(Modifier.width(6.dp))
             Text("重试云端")
         }
-        Text(
-            text = "失败不会覆盖已经保存的本机课程，也不会以示例课程填充。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

@@ -30,7 +30,7 @@ assert.match(screen, /stale -> "上次读取 · 待刷新"/,
   '旧云端课表不能显示成最新已核验');
 assert.match(screen, /SourceBadge\(text = badgeLabel, tone = badgeTone\)/,
   '来源标签必须沿用共享组件');
-assert.match(screen, /本机课表文件 · 待与青果核对/);
+assert.match(screen, /本机导入 · 待核对/);
 assert.match(screen, /localImport = data\.sourceLabel\.contains\("本机导入"\)/);
 assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened, localImport = localImport/);
 assert.match(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/);

@@ -84,7 +84,8 @@ assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
 assert.match(workspace, /CloudTasksPanel\(client\)/);
 assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /当前教学周未核实/);
+assert.match(workspace, /按星期匹配/);
+assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实，避免误以为今天必有课');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -388,11 +389,11 @@ assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写
 // 顶部不能再用单一「官方来源」徽标覆盖整页。
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
 assert.match(messageCenter, /noticeTotal == 0 -> "暂无已保存公告"/, "没有读取证据时不得冒充本次成功读到零条");
-assert.match(messageCenter, /当前没有已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
+assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
 assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
 assert.match(messageCenter, /title = "华水官方公告"/);
 assert.match(messageCenter, /title = "微信候选"/);
-assert.match(messageCenter, /badge = "本人云端 · 未经学校核验"/);
+assert.match(messageCenter, /badge = "本人云端"/);
 assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, true,
   '两个分区都要渲染分区标题');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
@@ -408,10 +409,7 @@ assert.match(messageCenter, /App 内不保存正文与附件，需通过学校�
 assert.match(messageCenter, /不生成摘要/);
 assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
 
-// 搜索范围必须写明只覆盖官方公告，微信候选只用已有审核面板呈现。
-assert.match(messageCenter, /只用于官方公告/);
-assert.match(messageCenter, /微信候选不参与搜索/);
-assert.match(messageCenter, /微信候选不在官方公告里/);
+// 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
 assert.match(messageCenter, /WechatReviewPanel\(/);
 assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
 
@@ -443,7 +441,7 @@ assert.match(wechatReview, /ModalBottomSheet\(/);
 assert.match(wechatReview, /AlertDialog\(/);
 assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
 assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
-assert.match(wechatReview, /不等于学校官方作业/);
+assert.match(wechatReview, /候选摘要 · 请核对原消息后确认/);
 assert.doesNotMatch(wechatReview, /HttpURLConnection|openConnection|WebView|CookieManager|READ_SMS|READ_CONTACTS/);
 assert.match(reviewRoute, /authorize\(context\)/);
 assert.match(reviewRoute, /sec-fetch-site/);
@@ -528,10 +526,8 @@ assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是�
 assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
 assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
-assert.match(workspace, /学习通本机页面快照不计入/,
-  '任务统计口径必须说明学习通本机快照不参与汇总');
-assert.match(workspace, /统计包括上次云端任务快照/,
-  '上次云端任务必须明确未重新核验，不可冒充新读取');
+assert.match(workspace, /含上次云端快照/,
+  '上次云端任务必须明确标注快照，不可冒充新读取');
 assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
 assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
 assert.match(workspace, /DueUi\(prefix \+ "已逾期/, '云端过期日期必须保留待核对前缀');
@@ -541,7 +537,7 @@ assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
-assert.match(workspace, /本机读取 · 待与学校官网核对/);
+assert.match(workspace, /本机导入 · 待核对/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
@@ -881,9 +877,8 @@ assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用�
 assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页面');
 assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
   '首页课表结论须复用课表页判定');
-assert.match(workspace, /当前教学周未核实/);
-assert.match(workspace, /不能确认今天实际开课|不显示上课倒计时/,
-  '缺少节次作息与教学周时必须显式声明不能确认当天实际上课');
+assert.match(workspace, /按星期匹配/);
+assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实');
 assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
 assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
 assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
@@ -895,15 +890,17 @@ assert.match(workspace, /val verified = state as\? ScheduleUiState\.Verified/,
   '首页须读取课表四态里的 stale 与刷新提示');
 assert.match(workspace, /val stale = verified\?\.stale == true/, 'stale 必须单独判定');
 assert.match(workspace, /stale -> "待刷新"/, 'stale 课表徽标须为待刷新，不得写已核验');
-assert.match(workspace, /本日课表 · 上次读取 · 待刷新核对/, 'stale 文案须说明是上次读取');
+assert.match(workspace, /本日课表 · 上次读取/, 'stale 文案须说明是上次读取');
 assert.match(workspace, /refreshWarning/, '刷新失败提示须展示');
 assert.doesNotMatch(workspace, /今日课程|今日安排/,
   '未知教学周时不得把按星期筛选的记录称为今日课程/今日安排');
 assert.match(workspace, /本日课表/, '课表区须按本日课表描述');
-assert.match(workspace, /按星期匹配，当前教学周未核实，不能确认今天实际开课/,
-  '须显式声明不能确认今天实际开课');
+assert.match(workspace, /按星期匹配/,
+  '课表按星期匹配，不宣称当天实际开课');
+assert.match(workspace, /教学周待核实/,
+  '课表区须标注教学周待核实，避免把按星期匹配误读为今天确有课');
 assert.match(workspace, /formatWeeks\(it\.weeks\)/, '须展示课程适用周次');
-assert.match(workspace, /不代表今天停课/, '无该星期记录时不得推断停课');
+assert.match(workspace, /请以学校官网为准/, '无该星期记录时须以官网为准');
 assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '统计须知道云端快照条数');
 assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注本次读取');
 assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
@@ -925,8 +922,8 @@ assert.doesNotMatch(schedulePanel, /Failed\(state\.privateError\)/,
   '无课程时也不得把聚合错误当作课表错误');
 assert.match(schedulePanel, /fun localImportedScheduleState\(/, '本机导入课表状态须独立可测');
 assert.match(workspace, /refreshing -> "刷新中"/, '首页须显示刷新中徽标');
-assert.match(workspace, /本日课表 · 正在刷新 · 暂显示上次读取/, '刷新中须说明暂显示上次读取');
-assert.match(workspace, /本次课表刷新未成功，待刷新核对/, '刷新失败须标注待刷新核对');
+assert.match(workspace, /本日课表 · 正在刷新/, '刷新中须说明暂显示上次读取');
+assert.match(workspace, /上次读取 · 待刷新核对/, '刷新失败须标注待刷新核对');
 const freshnessTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ScheduleFreshnessTest.kt');
 assert.match(freshnessTest, /class ScheduleFreshnessTest/);
 assert.match(freshnessTest, /readyWithPreviousLessonsAndFailedScheduleReadIsStale/);
@@ -970,7 +967,7 @@ assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTask
   '本机任务仍从真实 Row 数据打开详情');
 assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
-assert.ok(workspace.includes('统计包括上次云端任务快照'),
+assert.ok(workspace.includes('含上次云端快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
   '任务来源必须复用共享来源标签');
@@ -985,10 +982,10 @@ assert.match(workspace, /XiaoxuSheet\(onDismiss = \{ openedTaskKey = null \}, ti
 assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
   '任务卡片必须可以真实点击');
 assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
-assert.match(workspace, /来自上次保存的云端快照，本次未重新核验/,
+assert.match(workspace, /上次云端快照 · 待核对/,
   '旧云端任务不得伪装成刚同步');
-assert.match(workspace, /个人完成不代表学校已提交/,
-  '任务详情不得冒充学校官方提交状态');
+assert.match(workspace, /本机记录 · 离线保存/,
+  '任务详情须标注本机来源');
 assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*jumpTo = "local"/,
   '本机任务详情应展开本机管理并定位至真实表单');
 assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,

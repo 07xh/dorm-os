@@ -293,7 +293,7 @@ fun MessageCenterPanel(
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Warning,
-                            text = "刷新失败，下面显示的是上一次成功读取的公告，可能已经过期。",
+                            text = "刷新失败，显示上次读取的公告。",
                             container = MaterialTheme.colorScheme.errorContainer,
                             ink = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -303,7 +303,7 @@ fun MessageCenterPanel(
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Info,
-                            text = "部分官方栏目读取失败，列表可能不完整。",
+                            text = "部分栏目读取失败。",
                             container = MaterialTheme.colorScheme.surfaceVariant,
                             ink = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -323,7 +323,7 @@ fun MessageCenterPanel(
                         SourceSectionHeader(
                             icon = Icons.Outlined.PersonOutline,
                             title = "微信候选",
-                            badge = "本人云端 · 未经学校核验",
+                            badge = "本人云端",
                             detail = pendingWechatShortLabel(
                                 state.pendingWechatCount,
                                 state.authenticated,
@@ -345,7 +345,7 @@ fun MessageCenterPanel(
                         SourceSectionHeader(
                             icon = Icons.Outlined.MailOutline,
                             title = "华水官方公告",
-                            badge = "官方网站 · 只读",
+                            badge = "官方网站",
                             detail = if (query.isBlank()) "共 ${filtered.size} 条"
                             else "匹配 ${filtered.size} 条"
                         )
@@ -437,7 +437,7 @@ private fun MessageHeader(
             }
         }
         Text(
-            text = "官方公告与微信候选分区展示，来源各自标注，不互相冒充。",
+            text = "官方公告与微信候选分区展示",
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
@@ -722,15 +722,15 @@ private fun MessageCountLine(
     val filterLabel = MESSAGE_FILTERS.firstOrNull { it.key == filterKey }?.label ?: "全部"
     val text = when {
         filterKey == MSG_FILTER_WECHAT ->
-            "本视图只列出本人云端候选，可逐条审核；官方公告不在本视图内，也不参与这里的计数。"
+            "本人云端候选 · 逐条审核"
         query.isNotBlank() ->
-            "关键词“" + query.trim() + "”只用于官方公告：命中 $matched 条；微信候选不参与搜索。"
+            "命中 $matched 条"
         total == 0 ->
-            "当前没有已保存的官方公告；是否成功读取请以刷新状态为准。微信候选另行展示。"
+            "暂无已保存的官方公告"
         filterKey == MSG_FILTER_ALL ->
-            "官方公告已读取 $total 条，当前可展示 $matched 条；微信候选在上方单独分区。"
+            "官方公告 $total 条"
         else ->
-            "“" + filterLabel + "”共 $matched 条（已读取官方公告 $total 条）。"
+            "“" + filterLabel + "” $matched 条"
     }
     Text(
         text = text,
@@ -887,12 +887,6 @@ private fun NoticeDetailSheet(
                 text = noticeCategoryLabel(notice.category),
                 tone = if (notice.category == "exam") XiaoxuTone.Warning else XiaoxuTone.Brand
             )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "官方网站 · 只读",
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3
-            )
         }
         Box(
             modifier = Modifier
@@ -1034,7 +1028,7 @@ private fun MessageErrorCard(message: String, onRefresh: () -> Unit, openWebsite
                 color = XiaoxuPalette.Danger
             )
             Text(
-                text = message + "。失败时不展示示例消息，也不保留无法确认的新内容。",
+                text = message,
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Danger
             )

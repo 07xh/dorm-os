@@ -162,7 +162,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
             )
             if (!state.authenticated) {
                 Text(
-                    text = "请先在「我的」连接校序云端，再使用 App 审核。",
+                    text = "请先在「我的」连接校序云端。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = XiaoxuPalette.Ink2
                 )
@@ -205,7 +205,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
             }
             HorizontalDivider(color = XiaoxuPalette.Line)
             Text(
-                text = "来自已绑定电脑的消息候选，仅在本人确认后加入云端任务；不等于学校官方作业。",
+                text = "来自已绑定电脑 · 确认后加入云端任务",
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink3
             )
@@ -250,7 +250,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                         tone = wechatKindTone(selected.kind)
                     )
                     Spacer(Modifier.width(8.dp))
-                    SourceBadge(text = "本人云端 · 未经学校核验", tone = XiaoxuTone.Neutral)
+                    SourceBadge(text = "本人云端", tone = XiaoxuTone.Neutral)
                 }
                 Box(
                     modifier = Modifier
@@ -281,8 +281,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line)
                 Text(
-                    text = "这里不是完整微信聊天原文。请核对原消息，必要时返回微信确认；" +
-                        "审核通过仅创建普通云端任务，不会自动提交作业。",
+                    text = "候选摘要 · 请核对原消息后确认",
                     color = XiaoxuPalette.Ink2,
                     style = MaterialTheme.typography.bodySmall
                 )
