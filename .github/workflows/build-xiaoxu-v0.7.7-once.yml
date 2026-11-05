@@ -1,41 +1,35 @@
-name: Build Xiaoxu Android v0.7.7 (one-off)
+name: Publish verified Xiaoxu Android v0.7.7 APK
 
-# Isolated debug build for the owner. Does not change main workflow triggers.
+# One-off public pre-release for the verified APK from run 41959739351.
+# Only on the isolated build branch; main release rules remain unchanged.
 on:
   push:
     branches:
       - ci/build-xiaoxu-v0.7.7-20261105
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
-  build-android:
+  publish-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APK_SHA256: 2b7b0b087efe34d4c3db71be0bd373668debd3d5572bd61cf89f57b9750e1a32
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify source version 0.7.7
-        shell: bash
+      - name: Download already compiled APK from successful workflow
         run: |
-          grep -F "versionName '0.7.7'" apps/xiaoxu-android/app/build.gradle
-          node scripts/xiaoxu-android-bootstrap-tests.mjs
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v4
-      - name: Install Android compile SDK
-        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-      - name: Assemble debug APK
-        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
-      - name: Upload installable debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: xiaoxu-android-v0.7.7-debug
-          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
+          mkdir -p artifact
+          gh run download 41959739351 --repo "$GITHUB_REPOSITORY" --name xiaoxu-android-v0.7.7-debug --dir artifact
+          test -s artifact/app-debug.apk
+          echo "$APK_SHA256  artifact/app-debug.apk" | sha256sum --check
+          unzip -tq artifact/app-debug.apk
+          mv artifact/app-debug.apk artifact/xiaoxu-android-v0.7.7-debug.apk
+      - name: Create public prerelease with direct APK asset
+        run: |
+          gh release create xiaoxu-v0.7.7-debug-20261105             artifact/xiaoxu-android-v0.7.7-debug.apk             --repo "$GITHUB_REPOSITORY"             --target 856b1427cc3f0f138715e1864f5d33ab0ecf7a71             --title "校序 Android v0.7.7 Debug (2026-11-05)"             --notes "Android 0.7.7 test APK. Build run: https://github.com/07xh/dorm-os/actions/runs/41959739351 . This is an unsigned-for-release debug build; school account E2E is not yet verified. The QR JPEG header byte-type compile fix is included."             --prerelease
+      - name: Verify release downloadable asset
+        run: |
+          gh release view xiaoxu-v0.7.7-debug-20261105             --repo "$GITHUB_REPOSITORY"             --json assets --jq '.assets[] | select(.name == "xiaoxu-android-v0.7.7-debug.apk") | .url'             | grep -F '/releases/download/xiaoxu-v0.7.7-debug-20261105/xiaoxu-android-v0.7.7-debug.apk'
