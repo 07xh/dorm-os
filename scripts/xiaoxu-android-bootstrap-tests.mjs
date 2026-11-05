@@ -282,6 +282,10 @@ const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x0
 assert.match(main, /AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider\("second_class"\) \{ SecondClassPage\(\) \}/);
 assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
 assert.match(secondClassMain, /第二课堂官方平台/);
+assert.match(secondClassMain, /在校序内检查活动列表来源/);
+assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
+assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
+
 assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
 assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
