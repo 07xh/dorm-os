@@ -103,7 +103,7 @@ assert.ok(
 const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
-assert.match(nativeSchoolPanel, /在 App 中打开第二课堂/);
+assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
 assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(false\) \}/);
 
 assert.match(panels, /openLocalSchool\(id\)/);
@@ -583,7 +583,10 @@ assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
 // Never let CAS pages or network failures become an extractable work list.
 assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
 assert.match(localNative, /override fun onReceivedError\(/);
-assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*captureEpoch\+\+\s*pageFailed = true/);
+assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pageFailed = true/);
+assert.match(localNative, /private fun invalidateCapture\(\) \{\s*captureEpoch\+\+\s*scoreSaveJob\?\.cancel\(\)/);
+assert.match(localNative, /scoreSaveJob = lifecycleScope\.launch/);
+assert.match(localNative, /currentCoroutineContext\(\)\.ensureActive\(\)/);
 assert.match(localNative, /extract\.isEnabled = loaded && !pageFailed &&/);
 assert.match(localNative, /extractionAllowed\(provider, browser\.url\)/);
 assert.match(localNative, /handler\.cancel\(\)/);
@@ -597,7 +600,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.1'/);
+assert.match(appGradle, /versionName '0\.8\.2'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */

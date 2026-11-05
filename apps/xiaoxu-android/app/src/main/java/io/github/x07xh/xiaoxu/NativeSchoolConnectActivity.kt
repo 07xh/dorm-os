@@ -2,10 +2,13 @@ package io.github.x07xh.xiaoxu
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -24,8 +27,14 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
+import java.util.UUID
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -37,9 +46,9 @@ import org.json.JSONTokener
  * exclusively in WebView's own jar; no JavascriptInterface, credential
  * extractor, remote proxy or Cloudflare credential exchange.
  *
- * Only reads the VISIBLE, already loaded page after an explicit user tap.
- * Not yet an automatic school API adapter; page contracts must be verified
- * for each provider on the owner's own session.
+ * Chaoxing reads the visible page after a user tap. Second-class uses a fixed
+ * same-origin score query after a tap, and confirms the sanitized local save.
+ * Each provider still requires the owner's on-device session acceptance.
  */
 class NativeSchoolConnectActivity : ComponentActivity() {
     companion object {
@@ -61,7 +70,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 "?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu"
         private val entries = mapOf(
             "chaoxing" to "https://i.chaoxing.com/base",
-            "second_class" to "https://dekt.ncwu.edu.cn/"
+            "second_class" to "https://dekt.ncwu.edu.cn/sys/stu/score"
         )
         private val schools = setOf(
             "authserver.ncwu.edu.cn",
@@ -127,6 +136,17 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var captureEpoch = 0
     private var savedKind = ""
     private var savedCount = 0
+    private val scoreHandler = Handler(Looper.getMainLooper())
+    private var scoreBusy = false
+    private var scoreSaveJob: Job? = null
+
+    private fun invalidateCapture() {
+        captureEpoch++
+        scoreSaveJob?.cancel()
+        scoreSaveJob = null
+        scoreBusy = false
+        scoreHandler.removeCallbacksAndMessages(null)
+    }
 
     private fun tell(message: String) {
         status.text = message
@@ -146,6 +166,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             textSize = 13f
             text = "请在学校或学习通官方页面正常登录，打开本人课程／作业／活动列表后，点击「读取当前页」。"
             setPadding(8, 4, 8, 8)
+            if (provider == "second_class") text =
+                "首次在学校官网正常登录；会话有效时可直接读取积分，无需每次登录。积分仅保存在此设备。"
         }
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun control(label: String, action: () -> Unit): Button =
@@ -160,6 +182,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         control("刷新页面") { browser.reload() }
         extract = control("读取并替换同类记录") { captureVisibleRecords() }
+        if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
         // Explicit paginated-page action. The default still replaces the old
         // snapshot; only deliberate appends preserve previously read pages.
@@ -179,6 +202,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
             setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
+        } else null
+        val scoreShortcut = if (provider == "second_class") Button(this).apply {
+            text = "第二课堂 · 打开积分成绩单"
+            setOnClickListener { browser.loadUrl(entries.getValue("second_class")) }
         } else null
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
@@ -215,7 +242,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                     loaded = false
                     pageFailed = false
-                    captureEpoch++
+                    invalidateCapture()
                     extract.isEnabled = false
                     appendVisible?.isEnabled = false
                     if (!navigationAllowed(provider, url)) {
@@ -236,12 +263,18 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     else if (extract.isEnabled)
                         "已打开官方站点（" + host + "）。只有进入本人真实业务列表后才能读取；登录成功不代表数据已同步。"
                     else "请在官网继续正常登录或进入本人课程／作业／活动列表；此页面不会被提取。")
+                    if (provider == "second_class") {
+                        val isScore = Uri.parse(url ?: "").path == "/sys/stu/score"
+                        extract.text = if (isScore) "读取／刷新本人积分" else "读取当前活动页"
+                        if (extract.isEnabled && isScore) tell(
+                            "已打开官方成绩单。点击「读取／刷新本人积分」核验当前账号并读取；登录态失效时需重新登录。")
+                    }
                 }
                 override fun onReceivedError(
                     view: WebView, request: WebResourceRequest, error: WebResourceError
                 ) {
                     if (request.isForMainFrame) {
-                        captureEpoch++
+                        invalidateCapture()
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
@@ -253,6 +286,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, handler: SslErrorHandler, error: SslError
                 ) {
                     handler.cancel()
+                    invalidateCapture()
                     pageFailed = true
                     loaded = false
                     extract.isEnabled = false
@@ -263,6 +297,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, request: WebResourceRequest, response: WebResourceResponse
                 ) {
                     if (request.isForMainFrame && response.statusCode >= 400) {
+                        invalidateCapture()
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
@@ -277,6 +312,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         if (courseShortcut != null) root.addView(courseShortcut)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
+        if (scoreShortcut != null) root.addView(scoreShortcut)
         root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
@@ -286,6 +322,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     }
 
     private fun captureVisibleRecords(append: Boolean = false) {
+        if (provider == "second_class" && Uri.parse(browser.url ?: "").path == "/sys/stu/score") {
+            captureSecondClassScores()
+            return
+        }
         if (append && provider != "chaoxing") return
         val currentUrl = browser.url ?: return
         val host = Uri.parse(currentUrl).host
@@ -321,7 +361,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val kind = payload.optString("kind")
                 val kinds = when (provider) {
                     "chaoxing" -> setOf("course", "homework")
-                    "second_class" -> setOf("activity", "credits")
+                    "second_class" -> setOf("activity")
                     else -> emptySet()
                 }
                 if (kind !in kinds) throw IllegalArgumentException("unknown kind")
@@ -390,13 +430,102 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
     }
 
+    /** Fetch stays inside the official WebView origin; only sanitized data returns. */
+    private fun captureSecondClassScores() {
+        val currentUrl = browser.url ?: return
+        if (scoreBusy || !loaded || pageFailed ||
+            !extractionAllowed("second_class", currentUrl) ||
+            Uri.parse(currentUrl).path != "/sys/stu/score") return
+        val epoch = ++captureEpoch
+        val key = JSONObject.quote("xiaoxuScore" + UUID.randomUUID().toString().replace("-", ""))
+        val script = assets.open("ncwu_secondclass_local.js").bufferedReader().use { it.readText() }
+        scoreBusy = true
+        extract.isEnabled = false
+        tell("正在核对官网当前账号并只读查询积分…")
+        fun valid() = epoch == captureEpoch && !isFinishing && !isDestroyed &&
+            loaded && !pageFailed && browser.url == currentUrl &&
+            extractionAllowed("second_class", browser.url)
+        fun unlock() {
+            scoreBusy = false
+            extract.isEnabled = loaded && !pageFailed && extractionAllowed(provider, browser.url)
+        }
+        fun accept(payload: JSONObject) {
+            if (!valid()) return
+            if (!payload.optBoolean("ok")) {
+                val code = payload.optInt("httpStatus", 0)
+                val stage = payload.optString("stage").takeIf {
+                    it in setOf("context", "identity", "score_http", "score_request", "score_response", "score_record")
+                } ?: "score_response"
+                tell((if (code == 401 || code == 403) "登录已失效，请在官网重新登录。"
+                      else "积分读取失败，请检查官网或稍后重试。") +
+                    " 阶段：$stage" + (if (code in 100..599) "，HTTP $code。" else "。") +
+                    "已保存的旧积分保持不变。")
+                unlock()
+                return
+            }
+            val rows = try { parseLocalSecondClassScores(payload, System.currentTimeMillis()) }
+                catch (_: Exception) { tell("积分字段校验失败，未更改旧数据。"); unlock(); return }
+            val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
+            AlertDialog.Builder(this)
+                .setTitle("确认保存本人积分")
+                .setMessage("已核对官网当前账号与学期记录一致。\n$summary\n请对照官网后保存，替换本机旧积分；活动记录不变。")
+                .setNegativeButton("取消") { _, _ -> unlock() }
+                .setOnCancelListener { unlock() }
+                .setPositiveButton("保存到校序") { _, _ ->
+                    if (!valid()) { unlock(); return@setPositiveButton }
+                    scoreSaveJob = lifecycleScope.launch {
+                        try {
+                            // Recheck on the UI thread immediately before starting the transaction.
+                            if (!valid()) return@launch
+                            withContext(Dispatchers.IO) {
+                                currentCoroutineContext().ensureActive()
+                                LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
+                                    .replaceKind("second_class", "credits", rows)
+                            }
+                            if (!valid()) return@launch
+                            savedKind = "credits"
+                            savedCount = rows.size
+                            finishAndReturn.isEnabled = true
+                            tell("本人积分已保存到手机，共 ${rows.size} 个汇总／学期记录。返回校序即可查看；下次打开可直接刷新，会话过期时重新登录。")
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            tell("本机保存失败，请重试；旧积分未被清空。")
+                        } finally { if (epoch == captureEpoch && !isFinishing) unlock() }
+                    }
+                }.show()
+        }
+        fun poll(remaining: Int) {
+            if (!valid()) return
+            if (remaining <= 0) {
+                browser.evaluateJavascript("delete window[$key]", null)
+                tell("学校积分查询超时，旧数据保持不变。请检查网络后重试。")
+                unlock()
+                return
+            }
+            browser.evaluateJavascript(
+                "(function(){var value=window[$key];if(value){delete window[$key];}return value;})()"
+            ) { encoded ->
+                if (!valid()) return@evaluateJavascript
+                val decoded = runCatching { JSONTokener(encoded).nextValue() as? String }.getOrNull()
+                if (decoded == null) scoreHandler.postDelayed({ poll(remaining - 1) }, 250)
+                else try { accept(JSONObject(decoded)) }
+                    catch (_: Exception) { tell("学校响应无法校验，旧数据保持不变。"); unlock() }
+            }
+        }
+        browser.evaluateJavascript(
+            "window[$key]=null;($script)().then(function(result){window[$key]=JSON.stringify(result);}," +
+                "function(){window[$key]=JSON.stringify({ok:false,stage:'score_request'});});"
+        ) { if (valid()) poll(80) }
+    }
+
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
     }
 
     override fun onDestroy() {
-        captureEpoch++
+        invalidateCapture()
         if (::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)
             browser.stopLoading()
