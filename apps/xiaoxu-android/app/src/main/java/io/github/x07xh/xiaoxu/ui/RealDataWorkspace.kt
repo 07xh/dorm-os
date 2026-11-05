@@ -191,10 +191,14 @@ fun RealAcademicHome(
     val localSecondClass = nativeRows.filter {
         it.provider == "second_class" && it.kind in setOf("activity", "credits")
     }
-    val timetable = if (localLessons.isNotEmpty()) localLessons else state.lessons
+    // Both Today and Schedule read the same local import; cloud snapshots can
+    // never appear as a fallback after logout or a failed timetable import.
+    val timetable = localLessons
     val isLocalTimetable = localLessons.isNotEmpty()
-    // 四态判定复用课表页的实现，首页不另写一套来源逻辑。
-    val cloudScheduleState = remember(state) { deriveScheduleUiState(state) }
+    val localScheduleState = remember(localLessons) {
+        if (localLessons.isEmpty()) ScheduleUiState.VerifiedEmpty
+        else localImportedScheduleState(localLessons)
+    }
     val sameWeekday = timetable.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一","周二","周三","周四","周五","周六","周日")[today.dayOfWeek.value - 1]
@@ -230,7 +234,7 @@ fun RealAcademicHome(
                             isLocalTimetable = isLocalTimetable,
                             hasTimetable = timetable.isNotEmpty(),
                             weekdayLabel = weekdayLabel,
-                            state = cloudScheduleState,
+                            state = localScheduleState,
                             openSchedule = openSchedule,
                             openProfile = openProfile
                         )
@@ -275,7 +279,7 @@ fun RealAcademicHome(
                         isLocalTimetable = isLocalTimetable,
                         hasTimetable = timetable.isNotEmpty(),
                         weekdayLabel = weekdayLabel,
-                        state = cloudScheduleState,
+                        state = localScheduleState,
                         openSchedule = openSchedule,
                         openProfile = openProfile
                     )
@@ -429,8 +433,8 @@ private fun HomeHero(
         )
         state is ScheduleUiState.VerifiedEmpty -> XiaoxuHero(
             kicker = "课程数据",
-            title = "官方课表为空",
-            supporting = "可到「我的」导入本机课表。",
+            title = "尚未导入课表",
+            supporting = "到「课表」页导入 .ics / .json 文件。",
             tone = XiaoxuTone.Neutral,
             badge = "无课程",
             actionLabel = "打开课表",
@@ -455,9 +459,9 @@ private fun HomeHero(
         else -> XiaoxuHero(
             kicker = "课程数据",
             title = "还没有课表",
-            supporting = "连接学校或导入课表文件。",
+            supporting = "请从手机文件导入课表。",
             tone = XiaoxuTone.Neutral,
-            badge = "未连接",
+            badge = "未导入",
             actionLabel = "去连接",
             onAction = openProfile
         )
