@@ -47,5 +47,5 @@ test('partial ICS import states skipped events before any data is saved',async({
  await expect.poll(()=>dialogs.length).toBe(1);
  expect(dialogs[0]).toContain('跳过 1 条');
  expect(dialogs[0]).toContain('缺少开始或结束时间');
- expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).calendarEvents.length,STORAGE)).toBe(0);
+ expect(await page.evaluate(key=>{const raw=localStorage.getItem(key);return raw?JSON.parse(raw).calendarEvents.length:0;},STORAGE)).toBe(0);
 });
