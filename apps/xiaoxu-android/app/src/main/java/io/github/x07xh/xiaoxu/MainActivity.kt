@@ -225,7 +225,12 @@ private fun NativeShell(
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {
-        if (localCaptureReturn != null) current = Page.PROFILE
+        if (localCaptureReturn != null) {
+            // Imported courses/homework belong in Tasks; second-class records
+            // currently have their full saved-record view under Profile.
+            current = if (localCaptureReturn.provider == "chaoxing") Page.TASKS
+                      else Page.PROFILE
+        }
     }
     LaunchedEffect(returnedSchool) {
         val provider = returnedSchool ?: return@LaunchedEffect
@@ -298,14 +303,17 @@ private fun NativeShell(
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
                     when (current) {
                         Page.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            localLessons = localLessons,
                             openSchedule = { current = Page.SCHEDULE },
                             openTasks = { current = Page.TASKS },
                             openMessages = { current = Page.MESSAGES },
-                            openProfile = { current = Page.PROFILE })
+                            openProfile = { current = Page.PROFILE },
+                            openLocalSchool = openLocalSchool)
                         Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                             openProfile = { current = Page.PROFILE },
                             localLessons = localLessons, openLocalImport = openLocalImport)
-                        Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite)
+                        Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                            openLocalSchool = openLocalSchool)
                         Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
                         Page.PROFILE -> ConnectionsPage(
                             openWebsite, cloud, openLocalSchool,
