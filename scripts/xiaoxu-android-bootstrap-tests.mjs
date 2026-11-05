@@ -271,6 +271,15 @@ assert.match(schedulePanel, /var viewMode by rememberSaveable \{ mutableStateOf\
 assert.match(schedulePanel, /Text\("周视图"\)/);
 assert.match(schedulePanel, /Text\("日视图"\)/);
 assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
+assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
+assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
+assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
+assert.match(schedulePanel, /enabled = currentIndex > 0/);
+assert.match(schedulePanel, /enabled = currentIndex < weekNumbers.lastIndex/);
+assert.match(schedulePanel, /Text\("上一周"\)/);
+assert.match(schedulePanel, /Text\("下一周"\)/);
+assert.match(schedulePanel, /Modifier.heightIn\(min = 48.dp\)/);
+
 assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
 assert.match(schedulePanel, /并非自动判断的当前教学周/);
 assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
