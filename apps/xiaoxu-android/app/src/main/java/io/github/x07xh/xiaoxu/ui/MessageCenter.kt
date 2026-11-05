@@ -323,28 +323,6 @@ fun MessageCenterPanel(
                     else -> Unit
                 }
 
-                if (showWechat) {
-                    item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.PersonOutline,
-                            title = "微信候选",
-                            badge = "本人云端",
-                            detail = pendingWechatShortLabel(
-                                state.pendingWechatCount,
-                                state.authenticated,
-                                state.wechatError
-                            )
-                        )
-                    }
-                    item {
-                        WechatReviewPanel(
-                            client = client,
-                            pendingCount = state.pendingWechatCount,
-                            openWebsite = openWebsite
-                        )
-                    }
-                }
-
                 if (showOfficialSection) {
                     item {
                         SourceSectionHeader(
@@ -364,6 +342,28 @@ fun MessageCenterPanel(
                     }
                     if (filtered.isEmpty()) {
                         item { MessageEmptyHint(query = query.takeIf { it.isNotBlank() }) }
+                    }
+                }
+
+                if (showWechat) {
+                    item {
+                        SourceSectionHeader(
+                            icon = Icons.Outlined.PersonOutline,
+                            title = "微信候选",
+                            badge = "本人云端",
+                            detail = pendingWechatShortLabel(
+                                state.pendingWechatCount,
+                                state.authenticated,
+                                state.wechatError
+                            )
+                        )
+                    }
+                    item {
+                        WechatReviewPanel(
+                            client = client,
+                            pendingCount = state.pendingWechatCount,
+                            openWebsite = openWebsite
+                        )
                     }
                 }
 
