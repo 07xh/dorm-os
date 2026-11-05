@@ -1,14 +1,14 @@
 name: Build Xiaoxu Android Alpha
 
 # Build only by an explicit user request: GitHub manual dispatch or a
-# reviewed request marker merged into main. No build on routine pushes.
+# reviewed request marker in pending/ merged into main. Historical archives do not trigger APK builds.
 # Web/Cloudflare releases still follow independent main CI.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - '.github/xiaoxu-apk-build-requests/**'
+      - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 
 permissions:
   contents: read

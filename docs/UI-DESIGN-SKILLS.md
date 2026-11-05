@@ -24,3 +24,13 @@ explicitly authorizes an implementation.
 
 Vendor updates require review and an explicit PR; do not fetch the upstream
 main branch automatically.
+
+## Repo hygiene (2026-11-05)
+
+The two reviewed skills remain available to Codex and Claude: their entrypoints,
+working libraries, scripts and license notices are **not** app runtime files.
+The upstream skill-development-only `design-taste-frontend/evals/evals.json`
+benchmark fixture is intentionally omitted from this product repo; it is
+recoverable from the pinned upstream revision or Git history. Do not delete
+runtime library/data/script files merely because they are large. Generated
+`.taste-skill/` and `.impeccable/` run outputs are ignored by Git.

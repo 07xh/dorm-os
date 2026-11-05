@@ -1,5 +1,37 @@
+# Node / Cloudflare local outputs
 node_modules/
+.wrangler/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Credentials and local environment (allow documented templates)
 .env
 .env.*
-.wrangler/
+!.env.example
+!.env.sample
+!.env.template
+*.jks
+*.keystore
+
+# Android / Gradle / IDE generated state
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+captures/
+.cxx/
+.externalNativeBuild/
+
+# Local agent runs; keep reviewed .agents/skills vendor sources tracked
+.taste-skill/
+.impeccable/
+
+# OS files
 .DS_Store
+Thumbs.db

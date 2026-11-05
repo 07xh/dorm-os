@@ -218,7 +218,7 @@
 gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
 ```
 
-GitHub Actions：`Build Xiaoxu Android Alpha`，推送 Android 路径变动或手动触发。
+GitHub Actions：`Build Xiaoxu Android Alpha`，仅合并审核过的 `.github/xiaoxu-apk-build-requests/pending/*.txt` 构建申请或手动 `workflow_dispatch` 才触发；历史请求已归档到 `docs/archive/xiaoxu-apk-build-requests/2026-11-05/`，不触发 APK。
 该构建只能验证编译，不证明 Android 16 真机启动、学校个人数据连接或云端生产可用。
 
 ## 安全与数据边界
