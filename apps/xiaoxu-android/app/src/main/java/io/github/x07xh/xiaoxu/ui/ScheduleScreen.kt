@@ -276,6 +276,7 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 // 入口：保持既有函数名与包路径，MainActivity 仍调用 CloudTimetablePanel
 // ---------------------------------------------------------------------------
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun CloudTimetablePanel(
     client: CloudClient,
@@ -285,76 +286,57 @@ fun CloudTimetablePanel(
     openLocalImport: () -> Unit = {},
     openFileImport: () -> Unit = {}
 ) {
-    val state = client.state
-    val scope = rememberCoroutineScope()
-    val uiState = remember(state, localLessons) {
-        if (localLessons.isNotEmpty()) localImportedScheduleState(localLessons)
-        else deriveScheduleUiState(state)
-    }
-    val refresh: () -> Unit = if (localLessons.isNotEmpty()) openLocalImport
-        else { { scope.launch { client.refresh() } } }
-
-
-    // One vertical scroll owner for the entire timetable page. Previously a
-    // weighted inner LazyColumn scrolled only the grid while the top controls
-    // occupied most of the viewport (especially on small Android screens).
+    // Timetable has exactly one source of truth: the locally imported schedule.
+    // CloudClient remains available to other tabs (tasks, grades and connections),
+    // but neither its auth state nor its schedule snapshot controls this page.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
-        val pageScroll = rememberScrollState()
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(pageScroll),
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Crossfade(targetState = uiState, label = "schedule-state") { current ->
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (current !is ScheduleUiState.Verified) {
-                        ScheduleQuickActions(openFileImport, openLocalImport)
-                    }
-                    when (current) {
-                        ScheduleUiState.Loading -> ScheduleLoadingState()
-                        ScheduleUiState.NotConnected -> ScheduleNotConnectedState(openLocalImport, openProfile)
-                        ScheduleUiState.NoTrustedSource -> ScheduleSourceMissingState(openLocalImport, refresh)
-                        ScheduleUiState.UnverifiedSource -> ScheduleUnverifiedState(openLocalImport, refresh)
-                        is ScheduleUiState.Failed -> ScheduleFailedState(current.message, openLocalImport, refresh)
-                        ScheduleUiState.VerifiedEmpty -> ScheduleEmptyState(openLocalImport, refresh)
-                        is ScheduleUiState.Verified -> ScheduleVerifiedContent(
-                            data = current,
-                            expanded = expanded,
-                            onRefresh = refresh,
-                            openLocalImport = openLocalImport,
-                            openFileImport = openFileImport
-                        )
-                    }
-                }
+            if (localLessons.isEmpty()) {
+                LocalTimetableEmptyState(openFileImport)
+            } else {
+                ScheduleVerifiedContent(
+                    data = localImportedScheduleState(localLessons),
+                    expanded = expanded,
+                    onRefresh = openFileImport,
+                    openLocalImport = openFileImport,
+                    openFileImport = openFileImport
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ScheduleQuickActions(
-    openFileImport: () -> Unit,
-    openLocalImport: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun LocalTimetableEmptyState(onImport: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().pageWidth(StateMaxWidth)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        OutlinedButton(
-            onClick = openFileImport,
-            modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
-                contentDescription = "从手机文件导入课表（.ics / .json）"
-            }
-        ) {
-            Text("从手机导入", maxLines = 1)
+        Text("我的课表", style = MaterialTheme.typography.headlineSmall,
+            color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() })
+        Text("本机课表 · 离线查看 · 不需要连接教务账号",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
+            Icon(Icons.Outlined.DateRange, contentDescription = null,
+                modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
+            Spacer(Modifier.height(12.dp))
+            Text("还没有导入课表", style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Text("选择手机中的课表文件，预览课程、教室、节次及周次后保存。",
+                style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
         }
-        TextButton(
-            onClick = openLocalImport,
-            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-        ) {
-            Text("青果官网读取", maxLines = 1)
+        Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Text("从文件导入课表")
         }
+        Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
 
@@ -401,11 +383,9 @@ private fun ScheduleVerifiedContent(
     val counts = remember(filtered) { filtered.groupingBy { it.weekday }.eachCount() }
     val todayWeekday = remember { LocalDate.now().dayOfWeek.value }
 
-    // 选中的星期在当前筛选下没课时，落到最近的有课星期，避免"空页没有解释"。
-    val effectiveWeekday = remember(selectedWeekday, counts) {
-        if (counts.containsKey(selectedWeekday) || counts.isEmpty()) selectedWeekday
-        else counts.keys.minByOrNull { kotlin.math.abs(it - selectedWeekday) } ?: selectedWeekday
-    }
+    // Selection must stay on the user's chosen weekday, even if it is empty.
+    // Never silently jump from Saturday to an unrelated class day.
+    val effectiveWeekday = selectedWeekday
     val dayLessons = remember(filtered, effectiveWeekday) {
         filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
     }
@@ -416,52 +396,21 @@ private fun ScheduleVerifiedContent(
             .pageWidth(ContentMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
-        ScheduleHeader(
-            subtitle = listOfNotNull(
-                data.term,
-                "来源：" + data.sourceLabel,
-                data.fetchedAt?.let { "上次可信读取 $it" }
-            ).joinToString(" · "),
-            onRefresh = onRefresh,
-            localImport = localImport,
-            stale = data.stale,
-            refreshing = data.refreshing
-        )
-        ScheduleQuickActions(openFileImport, openLocalImport)
-        if (localImport) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Outlined.Info, contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "本机课表 · 待核对",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("我的课表", style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink,
+                    modifier = Modifier.semantics { heading() })
+                Text("本机导入 · " + data.lessons.size + " 个课块 · 请核对课程信息",
+                    style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
             }
-        }
-        if (data.stale) {
-            ScheduleBanner(
-                icon = Icons.Outlined.Warning,
-                title = "上次读取的课表",
-                message = "可能有调整，请刷新核对。",
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer
-            )
-        }
-        data.refreshWarning?.let { warning ->
-            ScheduleBanner(
-                icon = Icons.Outlined.Info,
-                title = "刷新不完整",
-                message = warning,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                compact = true
-            )
+            OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
+                Text("重新导入")
+            }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek,
@@ -481,23 +430,20 @@ private fun ScheduleVerifiedContent(
                     enabled = currentIndex > 0,
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("上一周") }
-                Text(
-                    text = if (currentIndex >= 0) "第 ${selectedWeek} 周"
-                           else "全部周次",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                TextButton(
+                    onClick = { showWeekPicker = !showWeekPicker },
+                    enabled = weekNumbers.size > 1,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "全部周次 ▾",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold)
+                }
                 OutlinedButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
                     enabled = currentIndex < weekNumbers.lastIndex,
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("下一周") }
-            }
-            if (weekNumbers.size > 1) {
-                TextButton(onClick = { showWeekPicker = !showWeekPicker },
-                    modifier = Modifier.heightIn(min = 44.dp)) {
-                    Text(if (showWeekPicker) "收起周次选择" else "选择其他周次")
-                }
             }
         }
         if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
@@ -522,13 +468,6 @@ private fun ScheduleVerifiedContent(
                         modifier = Modifier.weight(1.35f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = if (selectedWeek == ALL_WEEKS)
-                                "请先选择一个具体周次，避免把不同周的课程混为一周。"
-                            else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         if (selectedWeek != ALL_WEEKS) {
                             val weekLessons = remember(data.lessons, selectedWeek) {
                                 data.lessons.filter { selectedWeek in it.weeks }
@@ -540,9 +479,6 @@ private fun ScheduleVerifiedContent(
                             ) { item ->
                                 openCourse(item.toUi().key)
                             }
-                        }
-                        TextButton(onClick = openLocalImport) {
-                            Text("从华水青果官网重新核对课表")
                         }
                     }
                     DayLessonList(
@@ -560,23 +496,17 @@ private fun ScheduleVerifiedContent(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = if (selectedWeek == ALL_WEEKS)
-                            "请先选择一个具体周次，避免把不同周的课程混为一周。"
-                        else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     if (selectedWeek != ALL_WEEKS) {
                         val weekLessons = remember(data.lessons, selectedWeek) {
                             data.lessons.filter { selectedWeek in it.weeks }
                         }
-                        WeeklyTimetableGrid(weekLessons) { item ->
+                        WeeklyTimetableGrid(
+                            lessons = weekLessons,
+                            selectedWeekday = selectedWeekday,
+                            onSelectWeekday = { selectedWeekday = it }
+                        ) { item ->
                             openCourse(item.toUi().key)
                         }
-                    }
-                    TextButton(onClick = openLocalImport) {
-                        Text("从华水青果官网重新核对课表")
                     }
                 }
             }
@@ -715,9 +645,6 @@ private fun DayLessonList(
             LessonCard(lesson = lesson, onOpen = { onOpen(lesson.key) })
         }
         ScheduleFooterNote()
-        TextButton(onClick = openLocalImport) {
-            Text("在 App 内核对 / 更新青果课表")
-        }
     }
 }
 

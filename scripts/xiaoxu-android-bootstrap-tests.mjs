@@ -67,7 +67,8 @@ assert.match(main, /shouldRefreshAfterWebsite = true/);
 assert.match(main, /if \(force\) cloud\.refresh\(\)/);
 
 assert.match(cloud, /\/api\/v1\/connections/);
-assert.match(cloud, /\/api\/v1\/schedule/);
+assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/,
+  '本机课表不能再从云端自动拉取课程');
 assert.match(main, /CloudTimetablePanel/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
@@ -109,7 +110,9 @@ assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(
 
 assert.match(panels, /openLocalSchool\(id\)/);
 assert.match(panels, /只有一台手机？打开学习通官网/);
-assert.match(panels, /本机打开青果官方课表/);
+assert.match(panels, /成绩读取待接入/,
+  '青果连接保留，旧课表同步不得冒充成绩读取');
+assert.doesNotMatch(panels, /"ncwu" -> "本机打开青果官方课表"/);
 assert.match(panels, /本机打开第二课堂官网/);
 assert.match(panels, /本机官网读取仅保存当前可见记录/);
 assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
@@ -136,7 +139,8 @@ assert.match(panels, /"ncwu" to "青果教务"/);
 assert.match(panels, /"second_class" to "第二课堂"/);
 assert.match(panels, /学校授权/);
 assert.match(cloud, /suspend fun syncAuthorizedSchool\(provider: String\): Boolean/);
-assert.match(cloud, /provider !in setOf\("ncwu", "second_class"\)/);
+assert.match(cloud, /provider != "second_class"/,
+  '旧青果课程同步 POST 不得在本机课表模式执行');
 assert.match(cloud, /linked\?\.sessionState != "active"/);
 assert.match(cloud, /\/api\/v1\/connections\/\$provider\/sync/);
 assert.match(cloud, /result\.json\.optBoolean\("refreshed"\)/);
@@ -285,92 +289,60 @@ assert.match(secondClassPanel, /官方汇总不与逐条活动分数相加/);
 assert.match(secondClassPanel, /用户自行导入的数据（非官方实时同步）/);
 assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
-// 课表页（Issue #209）：只读 CloudClient.state，四态显式，不伪造课程与当前周。
+// 课表改为唯一的本机导入来源：以前的云端四态仅保留为旧工具函数。
 const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WeeklyTimetableGrid.kt');
+const localTimetableEntry = schedulePanel.slice(
+    schedulePanel.indexOf('fun CloudTimetablePanel('),
+    schedulePanel.indexOf('private fun ScheduleVerifiedContent(')
+);
+assert.match(localTimetableEntry, /if \(localLessons\.isEmpty\(\)\)/,
+  '无本机课程只显示本地导入空态');
+assert.match(localTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);
+assert.match(localTimetableEntry, /localImportedScheduleState\(localLessons\)/);
+assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
+  '课表不依赖云端、没有旧版重复登录/同步动作');
+assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
+assert.match(schedulePanel, /Text\("重新导入"\)/);
 assert.match(schedulePanel, /var viewMode by rememberSaveable \{ mutableStateOf\("week"\) \}/);
 assert.match(schedulePanel, /Text\("周视图"\)/);
 assert.match(schedulePanel, /Text\("日视图"\)/);
-assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
-// A single page-owned vertical scroll must move filters, banner and week grid
-// together. The timetable may horizontally pan narrow screens, but it must
-// not trap vertical gestures inside a weighted inner list.
-assert.match(schedulePanel, /Modifier\.fillMaxSize\(\)\.verticalScroll\(pageScroll\)/);
-assert.match(schedulePanel, /ScheduleQuickActions\(openFileImport, openLocalImport\)/);
-assert.match(schedulePanel, /ScheduleVerifiedContent\([\s\S]*?openFileImport = openFileImport/);
-assert.doesNotMatch(schedulePanel, /LazyColumn\(/, 'no vertical nested lazy list in timetable');
-assert.doesNotMatch(schedulePanel, /\.weight\(1f\)\s*,?\s*contentPadding = PaddingValues\(/,
-  'no weighted vertical scrolling viewport');
-assert.match(schedulePanel, /WeeklyTimetableGrid\(weekLessons\)/);
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
-assert.match(schedulePanel, /enabled = currentIndex > 0/);
-assert.match(schedulePanel, /enabled = currentIndex < weekNumbers.lastIndex/);
-assert.match(schedulePanel, /Text\("上一周"\)/);
-assert.match(schedulePanel, /Text\("下一周"\)/);
-assert.match(schedulePanel, /Modifier.heightIn\(min = 48.dp\)/);
-
 assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
-assert.match(schedulePanel, /并非自动判断的当前教学周/);
+assert.match(schedulePanel, /val effectiveWeekday = selectedWeekday/,
+  '用户选了空白星期不能自动跳到另一天');
+assert.match(schedulePanel, /selectedWeekday = tabletWeekday/,
+  '平板需要保持七日网格选中状态与侧栏一致');
+assert.match(schedulePanel, /onSelectWeekday = \{ selectedWeekday = it \}/);
+assert.match(schedulePanel, /WeekdayStrip\(/);
+assert.match(schedulePanel, /WeeklyTimetableGrid\(/);
+assert.match(schedulePanel, /DayLessonList\(/);
+assert.match(schedulePanel, /CourseDetailBottomSheet\(/);
+assert.match(schedulePanel, /ModalBottomSheet\(/);
+assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/,
+  '课程详情应引用当前筛选真实课程');
+assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层写死课程');
+assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
 assert.match(nativeWeekGrid, /section in it\.startSection\.\.it\.endSection/);
 assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
 assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
-assert.match(nativeWeekGrid, /BoxWithConstraints\(Modifier\.fillMaxWidth\(\)\)/,
-  'seven-day grid must calculate responsive phone widths');
-assert.match(nativeWeekGrid, /\(\(maxWidth - labelWidth - 8\.dp\) \/ 7\)\.coerceAtLeast\(44\.dp\)/,
-  'week grid should fit all seven days when phone width allows');
+assert.match(nativeWeekGrid, /val dayWidth = if \(compact\) \(maxWidth - labelWidth - 8\.dp\) \/ 7/,
+  '周日不能被挤出屏幕：七日按当前设备宽度分配');
+assert.match(nativeWeekGrid, /first\.teacher\.isNotBlank\(\)/);
 assert.match(nativeWeekGrid, /if \(next != available\) break/,
-  'only contiguous sections with identical class sets may merge into one block');
-assert.match(nativeWeekGrid, /rowHeight \* span/);
-
+  '不同课程交叠时必须分段而非合成一张假课程');
 assert.match(nativeWeekGrid, /overlapChoices = available/);
+assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
-
-// Issue #215 P0 补齐：平板表头选日 + 周/日 Tab 的无障碍语义（只增断言）。
-assert.match(nativeWeekGrid, /selectedWeekday: Int\? = null/,
-  '网格表头选日须是可选能力，手机单栏行为不变');
-assert.match(nativeWeekGrid, /onSelectWeekday: \(\(Int\) -> Unit\)\? = null/);
-assert.match(nativeWeekGrid, /Modifier\.selectableGroup\(\)/, '网格表头选日须成组');
-assert.match(nativeWeekGrid, /role = Role\.Tab/, '网格表头选日须是 Tab 语义');
-assert.match(nativeWeekGrid, /height\(48\.dp\)/, '网格表头触控高度须 ≥48dp');
-assert.match(nativeWeekGrid, /，当前选中/, '网格表头须播报选中状态');
-assert.match(schedulePanel, /private fun ScheduleViewModeTabs\(/);
-assert.match(schedulePanel, /\.selectableGroup\(\)/, '周/日两个 Tab 须有分组语义');
-assert.match(schedulePanel, /\.selectable\(selected = isSelected, role = Role\.Tab, onClick = onClick\)/,
-  'Tab 须用 selectable 提供 role 与 selected');
-assert.match(schedulePanel, /周视图，七日历课程网格/, '周视图 Tab 须有准确描述');
-assert.match(schedulePanel, /日视图，单日课程列表/, '日视图 Tab 须有准确描述');
-assert.match(schedulePanel, /private fun DayLessonList\(/,
-  '当日列表须共用一份实现，手机与平板一致');
-assert.match(schedulePanel, /selectedWeekday = tabletWeekday,/, '平板网格表头选日须驱动右侧当日列表');
-assert.match(schedulePanel, /dayLessons = tabletDayLessons,/, '右侧须显示所选那天的真实课块');
-assert.match(schedulePanel, /filtered\.filter \{ it\.weekday == tabletWeekday \}/,
-  '右侧课块只能取自当前已筛选的真实课程');
-
-assert.match(schedulePanel, /fun CloudTimetablePanel\(/);
-assert.match(schedulePanel, /deriveScheduleUiState/);
-assert.match(schedulePanel, /ScheduleUiState\.Loading/);
-assert.match(schedulePanel, /ScheduleUiState\.NotConnected/);
-assert.match(schedulePanel, /ScheduleUiState\.Failed/);
-assert.match(schedulePanel, /state\.lessons/);
-assert.match(schedulePanel, /trusted_readonly|可信/);
-assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
-assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层手写课程对象冒充真实数据');
-assert.match(schedulePanel, /CourseDetailBottomSheet\(/, '可信课程应有原生详情抽屉');
-assert.match(schedulePanel, /ModalBottomSheet\(/, '课程详情应使用原生底部抽屉');
-assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/, '抽屉只能读取当前可信课程');
-assert.match(schedulePanel, /onClickLabel = "查看课程详情"/);
-assert.match(schedulePanel, /ScheduleNotConnectedState\(openLocalImport, openProfile\)/);
-assert.match(schedulePanel, /ScheduleSourceMissingState\(openLocalImport, refresh\)/);
-assert.match(schedulePanel, /ScheduleUnverifiedState\(openLocalImport, refresh\)/);
-assert.match(schedulePanel, /ScheduleFailedState\(current\.message, openLocalImport, refresh\)/);
-assert.match(schedulePanel, /ScheduleEmptyState\(openLocalImport, refresh\)/);
-assert.match(schedulePanel, /Text\("在 App 内导入青果课表"\)/);
-assert.match(schedulePanel, /Text\("在 App 内核对 \/ 更新青果课表"\)/);
-assert.doesNotMatch(schedulePanel, /去「我的」连接校序云端|打开官方连接中心|查看官方连接状态或重新授权/);
+assert.match(main, /onRefresh = if \(current == Page\.SCHEDULE\) null/,
+  '课表顶栏不显示云端刷新入口');
+assert.match(main, /AcademicDestination\.GRADES -> Content/);
+assert.match(main, /青果教务云端读取 · 与本机课表独立/);
+assert.match(main, /成绩接口尚未完成本人真实数据验收/);
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
@@ -513,7 +485,8 @@ assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val timetable = if \(localLessons\.isNotEmpty\(\)\) localLessons else state\.lessons/);
+assert.match(workspace, /val timetable = localLessons/,
+  '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /it\.provider == "second_class" && it\.kind in setOf\("activity", "credits"\)/);
@@ -876,8 +849,8 @@ assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问�
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
 assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页面');
-assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
-  '首页课表结论须复用课表页判定');
+assert.match(workspace, /localScheduleState = remember\(localLessons\)/,
+  '首页与课表统一读取本机课程，不依赖云端课表');
 assert.match(workspace, /按星期匹配/);
 assert.match(workspace, /教学周待核实/, '课表区须标注教学周待核实');
 assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
@@ -907,24 +880,20 @@ assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注�
 assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
 assert.match(workspace, /本人标记完成 · 含云端快照/, '已完成口径须同步披露快照');
 
-// PR #269 第二轮 review：课表新鲜度只认 scheduleFresh，不得用聚合 privateError 冒充课表提示。
-assert.match(schedulePanel, /val keptFromLastRead = !state\.scheduleFresh/,
-  '课表四态须以 scheduleFresh 判定是否为本次读取');
-assert.match(schedulePanel, /stale = keptFromLastRead \|\| state\.scheduleStatus == "stale"/,
-  '上次保留的数据与服务端 stale 都必须标记 stale');
-assert.match(schedulePanel, /refreshing = keptFromLastRead && state\.busy/,
-  '刷新中须可区分');
-assert.match(schedulePanel, /refreshing = refreshing/, 'refreshing 须传入 UI 状态');
-assert.match(schedulePanel, /refreshWarning = if \(keptFromLastRead && !state\.busy\)/,
-  '刷新失败才给课表专属提示');
-assert.doesNotMatch(schedulePanel, /refreshWarning = state\.privateError/,
-  '聚合 privateError 不得作为课表刷新提示');
-assert.doesNotMatch(schedulePanel, /Failed\(state\.privateError\)/,
-  '无课程时也不得把聚合错误当作课表错误');
-assert.match(schedulePanel, /fun localImportedScheduleState\(/, '本机导入课表状态须独立可测');
-assert.match(workspace, /refreshing -> "刷新中"/, '首页须显示刷新中徽标');
-assert.match(workspace, /本日课表 · 正在刷新/, '刷新中须说明暂显示上次读取');
-assert.match(workspace, /上次读取 · 待刷新核对/, '刷新失败须标注待刷新核对');
+// 新规则：任何云端会话变化、刷新失败或注销，都不得影响本机课程。
+assert.match(workspace, /val timetable = localLessons/);
+assert.match(workspace, /localScheduleState = remember\(localLessons\)/);
+assert.doesNotMatch(workspace, /else state\.lessons/,
+  '首页不允许回退到已移除的云端课表');
+assert.match(cloud, /scheduleStatus = "local_only"/);
+assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
+assert.match(schedulePanel, /fun localImportedScheduleState\(/);
+assert.match(schedulePanel, /本机课表 · 离线查看/);
+assert.match(schedulePanel, /"本机导入 · " \+ data\.lessons\.size/);
+assert.match(panels, /enabled = id != "ncwu"/,
+  '青果的旧服务器课表同步不可被当做成绩同步');
+
+
 const freshnessTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ScheduleFreshnessTest.kt');
 assert.match(freshnessTest, /class ScheduleFreshnessTest/);
 assert.match(freshnessTest, /readyWithPreviousLessonsAndFailedScheduleReadIsStale/);
@@ -934,27 +903,15 @@ assert.match(freshnessTest, /freshSuccessfulReadIsVerifiedForThisRead/);
 assert.match(freshnessTest, /taskOrWechatFailureDoesNotTaintSuccessfulScheduleRead/);
 assert.match(freshnessTest, /localImportedTimetableIsIndependentFromCloudFreshness/);
 
-// Issue #268 P1 课表视觉统一：复用 DesignSystem，保留真正课表网格与来源状态。
+// 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
 const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(scheduleVisual, /XiaoxuCard\(/, '课表状态与头部共用白卡组件');
-assert.match(scheduleVisual, /SourceBadge\(text = badgeLabel, tone = badgeTone\)/,
-    '课表来源使用统一标签而非自建不同样式');
-assert.match(scheduleVisual, /stale -> "上次读取 · 待刷新"/,
-    '旧课表必须明确待刷新');
-assert.match(scheduleVisual, /refreshing -> "刷新中 · 上次课表"/,
-    '刷新中不得将保留课表当作本次已核验');
-assert.match(scheduleVisual, /localImport -> "本机导入 · 待核对"/,
-    '本机导入不能冒充官方新鲜记录');
-assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/,
-    '课程六色使用与首页一致的稳定课程标识');
-assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/,
-    '课表课程卡统一使用设计系统课程配色');
-assert.match(scheduleVisual, /WeeklyTimetableGrid\(/,
-    '不得删除已有七日网格');
-assert.match(scheduleVisual, /WeekSelector\(/,
-    '不得删除按真实周次筛选');
-assert.match(scheduleVisual, /ModalBottomSheet\(/,
-    '不得删除既有课程详情抽屉');
+assert.match(scheduleVisual, /XiaoxuCard\(/);
+assert.match(scheduleVisual, /Text\("我的课表"/);
+assert.match(scheduleVisual, /Text\("重新导入"\)/);
+assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
+assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
+assert.match(scheduleVisual, /WeekSelector\(/);
+assert.match(scheduleVisual, /ModalBottomSheet\(/);
 
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。

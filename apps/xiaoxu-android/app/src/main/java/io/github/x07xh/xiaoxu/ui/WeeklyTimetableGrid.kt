@@ -66,7 +66,7 @@ internal fun WeeklyTimetableGrid(
     val all = remember(lessons) {
         lessons.sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
     }
-    val maxSection = (all.maxOfOrNull { it.endSection } ?: 10).coerceIn(10, 24)
+    val maxSection = (all.maxOfOrNull { it.endSection } ?: 12).coerceIn(12, 24)
     val days = listOf("一", "二", "三", "四", "五", "六", "日")
     var overlapChoices by remember { mutableStateOf<List<VerifiedLesson>>(emptyList()) }
 
@@ -96,10 +96,10 @@ internal fun WeeklyTimetableGrid(
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val compact = maxWidth < 620.dp
         val labelWidth = if (compact) 32.dp else 40.dp
-        val dayWidth = if (compact) {
-            ((maxWidth - labelWidth - 8.dp) / 7).coerceAtLeast(44.dp)
-        } else 88.dp
-        val rowHeight = if (compact) 46.dp else 52.dp
+        // Seven columns always fit the available phone width; no sideways swipe
+        // is required to inspect Saturday/Sunday on a normal handset.
+        val dayWidth = if (compact) (maxWidth - labelWidth - 8.dp) / 7 else 88.dp
+        val rowHeight = if (compact) 54.dp else 58.dp
 
         Column(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -220,17 +220,26 @@ internal fun WeeklyTimetableGrid(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (first != null) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(if (span >= 2) 4.dp else 0.dp)
+                                    ) {
+                                        if (span >= 2 && first.location.isNotBlank()) {
+                                            Text(first.location, color = shadeText.copy(alpha = 0.82f),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        }
                                         Text(
                                             text = first.title,
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = shadeText,
-                                            maxLines = if (span >= 2) 3 else 1,
+                                            maxLines = if (span >= 2) 4 else 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                        if (span >= 2 && first.location.isNotBlank()) {
-                                            Text(first.location, color = shadeText.copy(alpha = 0.82f),
+                                        if (span >= 3 && first.teacher.isNotBlank()) {
+                                            Text(first.teacher, color = shadeText.copy(alpha = 0.76f),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
@@ -249,11 +258,6 @@ internal fun WeeklyTimetableGrid(
         }
     }
     Spacer(Modifier.height(4.dp))
-    Text(
-        text = "整页上下滑动；课程按连续节次合并显示。点色块查看详情，窄屏可横向查看七天。",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
     if (overlapChoices.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = { overlapChoices = emptyList() },

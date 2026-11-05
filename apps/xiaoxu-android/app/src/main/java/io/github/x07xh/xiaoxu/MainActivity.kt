@@ -395,11 +395,14 @@ private fun NativeShell(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
                 // 消息页独立标题；所有页面仍使用同一真实数据源。
-                if (current != Page.MESSAGES) XiaoxuTopBar(
+                if (current != Page.MESSAGES && current != Page.SCHEDULE) XiaoxuTopBar(
                         title = "校序",
                         subtitle = current.label,
-                        refreshing = cloud.state.busy,
-                        onRefresh = { scope.launch { cloud.refresh() } },
+                        // The timetable has a dedicated local import action,
+                        // never a cloud-sync refresh icon.
+                        refreshing = current != Page.SCHEDULE && cloud.state.busy,
+                        onRefresh = if (current == Page.SCHEDULE) null
+                            else ({ scope.launch { cloud.refresh() } }),
                         onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null
                     )
             },
@@ -590,8 +593,16 @@ private fun AcademicPage(selected: AcademicDestination, select: (AcademicDestina
         when (selected) {
             AcademicDestination.NOTICES -> MessageCenterPanel(cloud, openWebsite, openArticle)
             AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") { SecondClassPage() }
-            AcademicDestination.GRADES, AcademicDestination.EXAMS -> Content {
-                item { Heading(labels[selected.ordinal], "尚未连接可验证的本人数据") }
+            AcademicDestination.GRADES -> Content {
+                item { Heading("成绩", "青果教务云端读取 · 与本机课表独立") }
+                item {
+                    Text("成绩接口尚未完成本人真实数据验收，当前不会展示模拟成绩。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                item { TextButton(onClick = openProfile) { Text("查看青果教务连接") } }
+            }
+            AcademicDestination.EXAMS -> Content {
+                item { Heading("考试", "尚未连接可验证的本人考试数据") }
                 item { TextButton(onClick = openProfile) { Text("查看数据连接") } }
             }
             AcademicDestination.SERVICES -> Content {
