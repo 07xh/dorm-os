@@ -11,10 +11,29 @@ assert.ok(matched, 'must retain a fixed, inspectable, read-only page script');
 assert.match(native, /browser\.loadUrl\(CHAOXING_COURSES\)/);
 assert.match(native, /if \(payload\.optBoolean\("truncated"\)\)/);
 assert.match(native, /captureVisibleRecords\(append = true\)/);
-assert.match(native, /if \(append\) dao\.insertAll\(accepted\)/);
-assert.match(native, /else dao\.replaceKind\(provider, kind, accepted\)/);
+assert.match(native, /if \(append\) dao\.appendKind\(provider, kind, accepted\)/);
+assert.match(native, /dao\.replaceKind\(provider, kind, accepted\)/);
+assert.match(native, /savedCount = total/);
+assert.match(native, /extract = control\("读取并替换同类记录"\)/);
+assert.match(native, /appendVisible\?\.isEnabled = false/);
 assert.ok(native.indexOf('if (payload.optBoolean("truncated"))') <
-  native.indexOf('if (append) dao.insertAll(accepted)'), 'must reject truncated imports before any Room write');
+  native.indexOf('if (append) dao.appendKind(provider, kind, accepted)'),
+  'must reject truncated imports before any Room write');
+
+const records = readFileSync(
+  'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt',
+  'utf8'
+);
+const main = readFileSync(
+  'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt',
+  'utf8'
+);
+assert.match(records, /@Transaction\s+suspend fun appendKind\(/);
+assert.match(records, /require\(provider == "chaoxing" && kind in setOf\("course", "homework"\)\)/);
+assert.match(records, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
+assert.match(records, /require\(keys\.size <= 500\)/);
+assert.match(records, /insertAll\(rows\)\s+return keys\.size/);
+assert.match(main, /count in 1\.\.500/);
 
 function element(innerText) {
   return { innerText, getClientRects: () => [{}] };
