@@ -12,7 +12,7 @@ const taskUrl='https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task'+
  '?courseId=123&classId=456&workId=987&enc=signedTask';
 const workHtml='<ul><li onclick="goTask(this);" data="'+taskUrl.replaceAll('&','&amp;')+'">'+
  '<p class="overHidden2 fl">循环练习</p><p class="status fl">未提交</p></li></ul>';
-const questionHtml='<html><body><form id="submitForm">'+
+const questionHtml='<html><body><div>作答时间: 11-03 08:15 至 12-01 23:59</div><form id="submitForm">'+
  '<div class="questionLi"><h3 class="mark_name">单选题：列表索引从几开始？</h3>'+
  '<div class="num_option">A. 0</div><div class="num_option">B. 1</div>'+
  '<div class="answerBg">隐藏答案</div></div></form></body></html>';
@@ -95,6 +95,9 @@ assert.ok(!JSON.stringify(list).includes('signedTask'));
 const detail=await read.readHomeworkDetail({courseId:'123',classId:'456',cpi:'789',workId:'987'});
 assert.equal(detail.questionsAvailable,true);
 assert.equal(detail.statusCode,'todo');
+assert.equal(detail.startTimeRaw,'11-03 08:15');
+assert.equal(detail.deadlineRaw,'12-01 23:59');
+assert.equal(Object.hasOwn(detail,'dueAt'),false,'no invented year or absolute deadline');
 assert.equal(detail.questions.length,1);
 assert.equal(detail.questions[0].options.length,2);
 assert.ok(!JSON.stringify(detail).includes('隐藏答案'));

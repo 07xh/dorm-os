@@ -218,6 +218,14 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                                 fontWeight = FontWeight.SemiBold)
                             Text("来源：" + preview.course + " · 仅只读预览，不可填写或提交",
                                 style = MaterialTheme.typography.labelSmall)
+                            if (preview.startTimeRaw != null && preview.deadlineRaw != null) {
+                                Text("官网作答时间：" + preview.startTimeRaw + " 至 " + preview.deadlineRaw +
+                                    "（仅月日，年份未核实；不作为逾期判定或提醒依据）",
+                                    style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Text("当前官网详情页没有可核实的截止时间",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
                             if (!preview.questionsAvailable) {
                                 Text(if (preview.note.isNotBlank()) preview.note
                                     else "本页未提供可读取的题目，请在学习通官方页面查看")

@@ -45,7 +45,7 @@ data class ChaoxingWorkPreview(
     val workId: String, val title: String, val course: String,
     val statusCode: String, val questionsAvailable: Boolean,
     val declaredQuestionCount: Int?, val questions: List<ChaoxingQuestion>,
-    val note: String
+    val startTimeRaw: String?, val deadlineRaw: String?, val note: String
 )
 data class VerifiedLesson(
     val id: String, val term: String, val title: String, val teacher: String,
@@ -1336,10 +1336,25 @@ class CloudClient(context: Context) {
                 else data.optInt("declaredQuestionCount", -1)
             if (declaredCount != null && declaredCount !in 0..120)
                 throw IllegalStateException("invalid_declared_count")
+            // Upstream official detail gives MM-DD HH:mm without a year.
+            // No year inference, automatic reminder or fake dueAt persistence.
+            val timePattern = Regex("^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]$")
+            fun optionalDetailTime(key: String): String? {
+                val raw = data.opt(key)
+                if (raw == null || raw == JSONObject.NULL) return null
+                if (raw !is String || !timePattern.matches(raw))
+                    throw IllegalStateException("invalid_detail_time")
+                return raw
+            }
+            val startTime = optionalDetailTime("startTimeRaw")
+            val deadline = optionalDetailTime("deadlineRaw")
+            if ((startTime == null) != (deadline == null))
+                throw IllegalStateException("incomplete_detail_time")
             state = state.copy(
                 chaoxingPreview = ChaoxingWorkPreview(
                     workId, work.title, selected.title, work.statusCode, available,
-                    declaredCount, questions, data.optString("note").take(200)
+                    declaredCount, questions, startTime, deadline,
+                    data.optString("note").take(200)
                 ),
                 chaoxingDetailError = null
             )
