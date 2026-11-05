@@ -318,6 +318,681 @@ fun RealAcademicHome(
     }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     if (selectedTask != null) {
+        WorkspaceTaskDetailSheet(
+            selectedTask, today, state.tasksFresh,
+            onDismiss = { openedTaskKey = null },
+            onManage = { openedTaskKey = null; openTasks() }
+        )
+    }
+    val selectedNotice = state.notices.firstOrNull {
+        it.id.ifBlank { it.url } == openedNoticeKey
+    }
+    if (selectedNotice != null) {
+        NoticeDetailSheet(selectedNotice, openArticle = openArticle,
+            onDismiss = { openedNoticeKey = null })
+    }
+}
+
+private fun homeLessonKey(lesson: VerifiedLesson): String =
+    "${lesson.id}:${lesson.weekday}:${lesson.startSection}:${lesson.endSection}:${lesson.title}"
+
+/** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
+@Composable
+private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
+    val hour = remember { LocalTime.now(SchoolZone).hour }
+    val greeting = when (hour) {
+        in 5..10 -> "早上好"
+        in 11..12 -> "中午好"
+        in 13..17 -> "下午好"
+        in 18..22 -> "晚上好"
+        else -> "夜深了"
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
+            style = MaterialTheme.typography.labelLarge,
+            color = XiaoxuPalette.Ink2
+        )
+        Text(
+            text = greeting,
+            style = MaterialTheme.typography.headlineMedium,
+            color = XiaoxuPalette.Ink
+        )
+    }
+}
+
+/** 分区外壳：标题 + 内容，统一 8dp 间距，页面不再各写各的。 */
+@Composable
+private fun HomeSection(
+    title: String,
+    caption: String? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SectionHeader(
+            title = title, caption = caption,
+            actionLabel = actionLabel, onAction = onAction
+        )
+        content()
+    }
+}
+
+/** 本机导入课表按星期展示课程记录；周次未知时不得暗示今日真实开课。 */
+@Composable
+private fun HomeHero(
+    lesson: VerifiedLesson?,
+    hasTimetable: Boolean,
+    weekdayLabel: String,
+    openSchedule: () -> Unit,
+    openFileImport: () -> Unit,
+    onOpenLesson: (VerifiedLesson) -> Unit
+) {
+    when {
+        lesson != null -> XiaoxuHero(
+            kicker = "${weekdayLabel}课程记录 · 本机课表",
+            title = lesson.title,
+            supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
+                lesson.location.ifBlank { "教室未提供" } + " · " +
+                lesson.teacher.ifBlank { "教师未提供" },
+            badge = "待核对",
+            meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
+            modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
+                onOpenLesson(lesson)
+            },
+            actionLabel = "全部课表",
+            onAction = openSchedule
+        )
+        hasTimetable -> XiaoxuHero(
+            kicker = "${weekdayLabel}课程记录",
+            title = "没有对应星期的课程记录",
+            supporting = "不等于今天停课，请以实际教学周和学校通知为准。",
+            badge = "本机导入",
+            tone = XiaoxuTone.Neutral,
+            actionLabel = "查看课表",
+            onAction = openSchedule
+        )
+        else -> XiaoxuHero(
+            kicker = "我的课表",
+            title = "还没有导入课表",
+            supporting = "导入 ICS / JSON 文件，课程将保存在本机并可离线查看。",
+            tone = XiaoxuTone.Neutral,
+            badge = "未导入",
+            actionLabel = "从文件导入课表",
+            onAction = openFileImport
+        )
+    }
+}
+
+/** 两张统计卡：数值与口径都来自已有记录，点击直达任务中心。 */
+@Composable
+private fun HomeMetricsBlock(
+    pending: Int,
+    attention: Int,
+    caption: String,
+    openTasks: () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        MetricCard(label = "待完成", value = pending.toString(), caption = caption,
+            modifier = Modifier.weight(1f), onClick = openTasks)
+        MetricCard(label = "临近截止", value = attention.toString(),
+            caption = "含逾期与未来三天 · 仅已记录期限",
+            tone = XiaoxuTone.Warning,
+            modifier = Modifier.weight(1f), onClick = openTasks)
+    }
+}
+
+/** 学业服务直达真实子导航；未接通的平台保留诚实的空态。 */
+@Composable
+private fun HomeQuickBlock(
+    openAcademic: () -> Unit,
+    openGrades: () -> Unit,
+    openExams: () -> Unit,
+    openSecondClass: () -> Unit,
+    openChaoxing: () -> Unit
+) {
+    HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
+            QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
+            QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
+                Modifier.weight(1f), XiaoxuTone.Success)
+            QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
+                Modifier.weight(1f), XiaoxuTone.Warning)
+        }
+    }
+}
+
+/** 待办与提醒：截止状态复用任务中心判定，缺日期不猜。 */
+@Composable
+private fun HomeTodoBlock(
+    upcoming: List<WorkspaceTask>,
+    today: LocalDate,
+    caption: String,
+    openTasks: () -> Unit,
+    onTaskOpen: (WorkspaceTask) -> Unit
+) {
+    HomeSection(title = "优先处理", caption = caption,
+        actionLabel = "全部任务", onAction = openTasks) {
+        XiaoxuCard {
+            if (upcoming.isEmpty()) {
+                Text("当前没有已保存的待办任务",
+                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+            } else {
+                upcoming.forEachIndexed { index, task ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                    HomeTaskRow(task, today, onOpen = { onTaskOpen(task) })
+                }
+            }
+        }
+    }
+}
+
+/** 官方通知：只放已读取的公开公告，标题与日期分行，不编造正文。 */
+@Composable
+private fun HomeNoticesBlock(
+    state: CloudUiState,
+    openMessages: () -> Unit,
+    onNoticeOpen: (String) -> Unit
+) {
+    HomeSection(title = "校园动态",
+        caption = "来自已读取的学校官网公告",
+        actionLabel = "消息中心", onAction = openMessages) {
+        XiaoxuCard {
+            if (state.notices.isEmpty()) {
+                Text("暂无已读取的官方通知",
+                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+            } else {
+                state.notices.take(2).forEachIndexed { index, notice ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable(onClickLabel = "查看公告详情") {
+                                onNoticeOpen(notice.id.ifBlank { notice.url })
+                            }
+                            .padding(vertical = 9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(notice.title, style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(notice.dateLabel + " · " + noticeCategoryLabel(notice.category),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
+            }
+            state.publicError?.let {
+                Text("公告刷新失败，旧记录可能过期",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Danger)
+            }
+        }
+    }
+}
+
+/** 本机学习通页面快照：不参与真实任务统计或学校提交状态。 */
+@Composable
+private fun HomeHomeworkBlock(
+    localHomework: List<NativeSchoolRecord>,
+    openLocalSchool: (String) -> Unit
+) {
+    HomeSection(
+        title = "学习通 · 本机作业",
+        caption = "本机读取"
+    ) {
+        XiaoxuCard {
+            if (localHomework.isEmpty()) {
+                Text(
+                    text = "还没有本机读取到的作业标题",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XiaoxuPalette.Ink2
+                )
+                TextButton(onClick = { openLocalSchool("chaoxing") }) {
+                    Text("在 App 内读取学习通作业")
+                }
+            } else {
+                Text(
+                    text = "已保存 ${localHomework.size} 条",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2
+                )
+                localHomework.take(3).forEachIndexed { index, work ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = work.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "采集时间：" + DateFormat.getDateTimeInstance(
+                                DateFormat.SHORT, DateFormat.SHORT
+                            ).format(Date(work.capturedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3
+                        )
+                    }
+                }
+                TextButton(onClick = { openLocalSchool("chaoxing") }) {
+                    Text("重新读取官网当前页面")
+                }
+            }
+        }
+    }
+}
+
+
+
+/** 首页待办行：状态标签沿用任务中心同一套判定（describeDue），不在这里另算。 */
+@Composable
+private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
+    val due = remember(task, today) { describeDue(task, today) }
+    val tone = when (due.emphasis) {
+        DUE_OVERDUE -> XiaoxuTone.Danger
+        DUE_TODAY -> XiaoxuTone.Warning
+        DUE_WEEK -> XiaoxuTone.Brand
+        else -> XiaoxuTone.Neutral
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = task.title,
+            style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            StatusChip(due.label, tone)
+            Text(
+                text = task.origin,
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * A unified VIEW, preserving both write stores and existing live Chaoxing reader.
+ *
+ * 视觉分区（本机 / 云端 / 本机页面快照）只是展示层分组：三个数据来源依旧各自存储，
+ * 本机学习通快照不参与待完成 / 本周截止 / 已完成三项统计，也不合成任何任务或截止日。
+ */
+@Composable
+fun RealAcademicTaskHub(
+    localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
+    openWebsite: () -> Unit,
+    openLocalSchool: (String) -> Unit = {}
+) {
+    val state = client.state
+    val today = LocalDate.now(SchoolZone)
+    val all = remember(localTasks, state.tasks) { combineWorkspaceTasks(localTasks, state.tasks) }
+    val context = LocalContext.current
+    val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
+    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val capturedHomework = schoolRows.filter {
+        it.provider == "chaoxing" && it.kind == "homework"
+    }
+    val filters = listOf("pending" to "待完成", "all" to "全部", "week" to "本周截止",
+        "done" to "已完成", "local" to "本机", "cloud" to "云端")
+    var filter by rememberSaveable { mutableStateOf("pending") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var showManager by rememberSaveable { mutableStateOf(false) }
+    var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
+    var showCourseTasks by rememberSaveable { mutableStateOf(true) }
+    var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
+    var showCandidates by rememberSaveable { mutableStateOf(true) }
+    val taskScope = rememberCoroutineScope()
+    var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
+    var showLocal by rememberSaveable { mutableStateOf(false) }
+    var showCloud by rememberSaveable { mutableStateOf(false) }
+    // Source and filters share the same LazyColumn, including all management forms.
+    val taskListState = rememberLazyListState()
+    var jumpTo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
+        val managerStart = 4 + (if (showSearch) 1 else 0) +
+            (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
+        val targetIndex = when (jumpTo) {
+            "local" -> if (showLocal) managerStart else null
+            "cloud" -> if (showCloud) managerStart + (if (showLocal) 1 else 0) else null
+            "filters" -> 1
+            else -> null
+        }
+        if (targetIndex != null) {
+            taskListState.animateScrollToItem(targetIndex)
+            jumpTo = null
+        }
+    }
+    // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
+    var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedTask = all.firstOrNull { it.key == openedTaskKey }
+    val visible = searchWorkspaceTasks(all, filter, searchQuery, today)
+    // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
+    val shown = visible.take(80)
+    val localRows = shown.filter { it.storage == "local" }
+    val cloudRows = shown.filter { it.storage == "cloud" }
+    LazyColumn(
+        state = taskListState,
+        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
+        contentPadding = PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        today.format(DateTimeFormatter.ofPattern("yyyy年M月d日 · EEEE",
+                            java.util.Locale.CHINA)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2
+                    )
+                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold, color = XiaoxuPalette.Ink,
+                        modifier = Modifier.semantics { heading() })
+                    Text("课程任务 · 群消息审核 · 个人待办",
+                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                }
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Surface),
+                    onClick = { showSearch = !showSearch }
+                ) {
+                    Icon(Icons.Outlined.Search, contentDescription = "搜索任务",
+                        tint = XiaoxuPalette.Brand)
+                }
+                Spacer(Modifier.width(7.dp))
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Surface),
+                    onClick = { taskScope.launch { client.refreshPrivate() } },
+                    enabled = state.authenticated && !state.busy
+                ) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新校序云端任务",
+                        tint = if (state.authenticated) XiaoxuPalette.Brand else XiaoxuPalette.Ink3)
+                }
+                Spacer(Modifier.width(7.dp))
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Brand),
+                    onClick = { showManager = true; showLocal = true; jumpTo = "local" }
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = "新增本机任务",
+                        tint = Color.White)
+                }
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                TaskStatusTab(
+                    label = "待完成", count = all.count { !it.done },
+                    active = filter == "pending", modifier = Modifier.weight(1f),
+                    onClick = { filter = "pending"; jumpTo = "filters" }
+                )
+                TaskStatusTab(
+                    label = "本周截止",
+                    count = all.count { !it.done && thisWeek(it.date, today) },
+                    active = filter == "week", modifier = Modifier.weight(1f),
+                    onClick = { filter = "week"; jumpTo = "filters" }
+                )
+                TaskStatusTab(
+                    label = "已完成", count = all.count { it.done },
+                    active = filter == "done", modifier = Modifier.weight(1f),
+                    onClick = { filter = "done"; jumpTo = "filters" }
+                )
+            }
+        }
+        item {
+            Text(
+                if (!state.tasksFresh && state.tasks.isNotEmpty())
+                    "含上次云端快照 " + state.tasks.size + " 条"
+                else "仅统计已保存的任务",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2
+            )
+        }
+        if (showSearch) item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it.take(100) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("搜索任务标题或来源") },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                trailingIcon = if (searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "清除搜索")
+                        }
+                    }
+                } else null
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("任务来源分开保存，学校提交状态需另行核验",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
+                TextButton(onClick = { showAdvancedFilters = !showAdvancedFilters }) {
+                    Icon(Icons.Outlined.Tune, contentDescription = null,
+                        modifier = Modifier.size(16.dp))
+                    Text("筛选")
+                }
+                TextButton(onClick = { showManager = !showManager }) {
+                    Text(if (showManager) "收起管理" else "任务管理")
+                }
+            }
+        }
+        if (showAdvancedFilters) item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                items(count = filters.size) { i ->
+                    val (key, label) = filters[i]
+                    FilterChip(selected = filter == key, onClick = { filter = key },
+                        label = { Text(label) })
+                }
+            }
+        }
+        if (showManager) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { showLocal = !showLocal; if (showLocal) jumpTo = "local" },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showLocal) "收起本机管理" else "新建 / 管理本机") }
+                OutlinedButton(
+                    onClick = { showCloud = !showCloud; if (showCloud) jumpTo = "cloud" },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showCloud) "收起云端管理" else "云端任务管理") }
+            }
+        }
+        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
+        if (showCloud) item { CloudTasksPanel(client) }
+        item {
+            Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (visible.isEmpty()) {
+            item {
+                XiaoxuEmpty(
+                    title = "没有匹配的已保存任务",
+                    message = if (!state.authenticated)
+                        "校序云端尚未连接，可先新增本机待办。"
+                    else "当前筛选没有任务，不能据此推断学校没有作业。",
+                    actionLabel = "新增 / 管理本机任务",
+                    onAction = {
+                        showLocal = true
+                        jumpTo = "local"
+                    }
+                )
+            }
+        } else {
+            if (cloudRows.isNotEmpty()) {
+                item {
+                    TaskGroupHeader(
+                        title = "课程相关与云端任务",
+                        count = cloudRows.size,
+                        badge = "校序云端",
+                        note = "来自已保存云端任务 · 官方提交状态待核验",
+                        icon = Icons.Outlined.MenuBook,
+                        expanded = showCourseTasks,
+                        onClick = { showCourseTasks = !showCourseTasks }
+                    )
+                }
+                if (showCourseTasks) {
+                    items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
+                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                            TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
+                        }
+                    }
+                }
+            }
+            if (localRows.isNotEmpty()) {
+                item {
+                    TaskGroupHeader(
+                        title = "我的本机待办",
+                        count = localRows.size,
+                        badge = "本机 Room",
+                        note = "离线可用 · 来源与截止时间由本人填写",
+                        icon = Icons.Outlined.CheckBox,
+                        expanded = showPersonalTasks,
+                        onClick = { showPersonalTasks = !showPersonalTasks }
+                    )
+                }
+                if (showPersonalTasks) {
+                    items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
+                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                            TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                        }
+                    }
+                }
+            }
+        }
+        if (state.privateError != null) {
+            item {
+                Text("云端部分数据刷新失败，已有记录可能过期",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error)
+            }
+        }
+        // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。
+        // 候选在本人确认前不是课程作业，也不进入三项统计。
+        if (state.authenticated || state.pendingWechatCount != null) {
+            item {
+                TaskGroupHeader(
+                    title = "群消息任务候选",
+                    count = state.pendingWechatCount ?: 0,
+                    badge = if (state.wechatError != null)
+                        "候选快照 · 待刷新" else "本人云端 · 待审核",
+                    note = "需要人工确认，加入后才进入个人任务列表",
+                    icon = Icons.Outlined.ChatBubbleOutline,
+                    expanded = showCandidates,
+                    onClick = { showCandidates = !showCandidates },
+                    showCount = state.pendingWechatCount != null
+                )
+            }
+            if (showCandidates) item {
+                XiaoxuCard {
+                    WechatReviewPanel(
+                        client = client,
+                        pendingCount = state.pendingWechatCount,
+                        openWebsite = openWebsite
+                    )
+                }
+            }
+        }
+        item {
+            XiaoxuCard {
+                SectionHeader(
+                    title = "学习通与本机页面快照",
+                    caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
+                    actionLabel = if (showSchoolRecords) "收起" else "展开查看与同步",
+                    onAction = { showSchoolRecords = !showSchoolRecords }
+                )
+            }
+        }
+        if (showSchoolRecords) {
+        item {
+            HorizontalDivider(Modifier.padding(top = 6.dp))
+        }
+        item {
+            TaskSectionHeader(
+                title = "学习通 · 本机作业快照",
+                count = capturedHomework.size,
+                badge = "本机页面快照",
+                note = "本机读取到的作业名称单独展示，不纳入待完成/已完成数量，不推定截止日期或学校提交状态。"
+            )
+            OutlinedButton(
+                onClick = { openLocalSchool("chaoxing") },
+                modifier = Modifier.heightIn(min = 48.dp).padding(top = 4.dp)
+            ) {
+                Text(if (capturedHomework.isEmpty()) "在 App 内读取学习通作业"
+                     else "更新本机学习通作业")
+            }
+        }
+        if (capturedHomework.isEmpty()) {
+            item {
+                Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            // Bounded Room pagination allows 500 stored records; LazyColumn
+            // must not silently hide pages after the first 120.
+            items(count = minOf(capturedHomework.size, 500),
+                key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
+                val work = capturedHomework[index]
+                XiaoxuCard(contentPadding = 8.dp) { SnapshotRow(work) }
+            }
+        }
+        item {
+            TaskSectionHeader(
+                title = "本机其他已读取记录",
+                count = 0,
+                badge = "本机页面快照",
+                note = "课程记录不参与任务统计。",
+                showCount = false
+            )
+        }
+        item { LocalSchoolRecordSection(setOf("course")) }
+        item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
+         item {
+            Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        }
+    }
+
+    if (selectedTask != null) {
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
             onManage = {
