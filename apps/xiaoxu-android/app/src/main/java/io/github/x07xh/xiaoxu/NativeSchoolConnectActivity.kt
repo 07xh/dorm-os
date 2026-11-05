@@ -53,6 +53,7 @@ import org.json.JSONTokener
 class NativeSchoolConnectActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROVIDER = "provider"
+        const val EXTRA_AUTO_SCORE = "auto_score"
         const val EXTRA_RETURN_KIND = "saved_kind"
         const val EXTRA_SAVED_COUNT = "saved_count"
         // Exactly the existing first-party course-list endpoint used by the
@@ -138,6 +139,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var savedCount = 0
     private val scoreHandler = Handler(Looper.getMainLooper())
     private var scoreBusy = false
+    private var autoAttempted = false
+    private var redirectedToScore = false
+    private val scoreIdentity by lazy { getSharedPreferences("second_class_local_identity", MODE_PRIVATE) }
     private var scoreSaveJob: Job? = null
 
     private fun invalidateCapture() {
@@ -263,11 +267,21 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     else if (extract.isEnabled)
                         "已打开官方站点（" + host + "）。只有进入本人真实业务列表后才能读取；登录成功不代表数据已同步。"
                     else "请在官网继续正常登录或进入本人课程／作业／活动列表；此页面不会被提取。")
+                    if (provider == "second_class" && loaded && intent.getBooleanExtra(EXTRA_AUTO_SCORE, false) &&
+                        host == "dekt.ncwu.edu.cn" && Uri.parse(url ?: "").path != "/sys/stu/score" && !redirectedToScore) {
+                        redirectedToScore = true
+                        browser.loadUrl(entries.getValue("second_class"))
+                        return
+                    }
                     if (provider == "second_class") {
                         val isScore = Uri.parse(url ?: "").path == "/sys/stu/score"
                         extract.text = if (isScore) "读取／刷新本人积分" else "读取当前活动页"
                         if (extract.isEnabled && isScore) tell(
                             "已打开官方成绩单。点击「读取／刷新本人积分」核验当前账号并读取；登录态失效时需重新登录。")
+                        if (isScore && extract.isEnabled && intent.getBooleanExtra(EXTRA_AUTO_SCORE, false) && !autoAttempted) {
+                            autoAttempted = true
+                            scoreHandler.postDelayed({ if (loaded && !pageFailed) captureSecondClassScores() }, 600)
+                        }
                     }
                 }
                 override fun onReceivedError(
@@ -438,6 +452,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             Uri.parse(currentUrl).path != "/sys/stu/score") return
         val epoch = ++captureEpoch
         val key = JSONObject.quote("xiaoxuScore" + UUID.randomUUID().toString().replace("-", ""))
+        val salt = scoreIdentity.getString("salt", null) ?: UUID.randomUUID().toString().replace("-", "").also {
+            scoreIdentity.edit().putString("salt", it).commit()
+        }
         val script = assets.open("ncwu_secondclass_local.js").bufferedReader().use { it.readText() }
         scoreBusy = true
         extract.isEnabled = false
@@ -466,13 +483,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             val rows = try { parseLocalSecondClassScores(payload, System.currentTimeMillis()) }
                 catch (_: Exception) { tell("积分字段校验失败，未更改旧数据。"); unlock(); return }
             val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
-            AlertDialog.Builder(this)
-                .setTitle("确认保存本人积分")
-                .setMessage("已核对官网当前账号与学期记录一致。\n$summary\n请对照官网后保存，替换本机旧积分；活动记录不变。")
-                .setNegativeButton("取消") { _, _ -> unlock() }
-                .setOnCancelListener { unlock() }
-                .setPositiveButton("保存到校序") { _, _ ->
-                    if (!valid()) { unlock(); return@setPositiveButton }
+            val accountHash = payload.optString("accountHash")
+            if (!accountHash.matches(Regex("^[a-f0-9]{64}$"))) {
+                tell("本机账号绑定校验失败，未更改旧数据。"); unlock(); return
+            }
+            fun saveScores() {
+                if (!valid()) { unlock(); return }
                     scoreSaveJob = lifecycleScope.launch {
                         try {
                             // Recheck on the UI thread immediately before starting the transaction.
@@ -483,9 +499,16 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                                     .replaceKind("second_class", "credits", rows)
                             }
                             if (!valid()) return@launch
+                            scoreIdentity.edit().putString("account", accountHash).commit()
                             savedKind = "credits"
                             savedCount = rows.size
                             finishAndReturn.isEnabled = true
+                            if (intent.getBooleanExtra(EXTRA_AUTO_SCORE, false)) {
+                                setResult(Activity.RESULT_OK, Intent()
+                                    .putExtra(EXTRA_PROVIDER, provider).putExtra(EXTRA_RETURN_KIND, savedKind)
+                                    .putExtra(EXTRA_SAVED_COUNT, savedCount))
+                                finish()
+                            }
                             tell("本人积分已保存到手机，共 ${rows.size} 个汇总／学期记录。返回校序即可查看；下次打开可直接刷新，会话过期时重新登录。")
                         } catch (cancelled: CancellationException) {
                             throw cancelled
@@ -493,7 +516,15 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             tell("本机保存失败，请重试；旧积分未被清空。")
                         } finally { if (epoch == captureEpoch && !isFinishing) unlock() }
                     }
-                }.show()
+            }
+            val autoMode = intent.getBooleanExtra(EXTRA_AUTO_SCORE, false)
+            if (autoMode && scoreIdentity.getString("account", null) == accountHash) saveScores()
+            else AlertDialog.Builder(this)
+                .setTitle("确认保存本人积分")
+                .setMessage("已核对官网当前账号。\n$summary\n保存后，同一账号可在进入第二课堂时自动更新。切换账号将再次询问。")
+                .setNegativeButton("取消") { _, _ -> unlock() }
+                .setOnCancelListener { unlock() }
+                .setPositiveButton("保存到校序") { _, _ -> saveScores() }.show()
         }
         fun poll(remaining: Int) {
             if (!valid()) return
@@ -514,7 +545,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         browser.evaluateJavascript(
-            "window[$key]=null;($script)().then(function(result){window[$key]=JSON.stringify(result);}," +
+            "window[$key]=null;($script)('" + salt + "').then(function(result){window[$key]=JSON.stringify(result);}," +
                 "function(){window[$key]=JSON.stringify({ok:false,stage:'score_request'});});"
         ) { if (valid()) poll(80) }
     }
