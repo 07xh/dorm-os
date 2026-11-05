@@ -36,6 +36,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -54,6 +56,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -62,6 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -485,46 +489,77 @@ private fun ScheduleVerifiedContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (viewMode == "week") {
-                Button(onClick = { viewMode = "week" }, modifier = Modifier.heightIn(min = 44.dp)) {
-                    Text("周视图")
-                }
-                OutlinedButton(onClick = { viewMode = "day" },
-                    modifier = Modifier.heightIn(min = 44.dp)) { Text("日视图") }
-            } else {
-                OutlinedButton(onClick = { viewMode = "week" },
-                    modifier = Modifier.heightIn(min = 44.dp)) { Text("周视图") }
-                Button(onClick = { viewMode = "day" },
-                    modifier = Modifier.heightIn(min = 44.dp)) { Text("日视图") }
-            }
-        }
+        ScheduleViewModeTabs(mode = viewMode, onChange = { viewMode = it })
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = if (selectedWeek == ALL_WEEKS)
-                        "请先选择一个具体周次，避免把不同周的课程混为一周。"
-                    else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (selectedWeek != ALL_WEEKS) {
-                    val weekLessons = remember(data.lessons, selectedWeek) {
-                        data.lessons.filter { selectedWeek in it.weeks }
-                    }
-                    WeeklyTimetableGrid(weekLessons) { item ->
-                        openCourse(item.toUi().key)
-                    }
+            if (expanded) {
+                // 平板：左七日网格 + 右当日列表。表头选中哪天就显示那天（空日走空态），
+                // 不做"跳回最近有课日"，否则点了周六却显示周三，选中态也对不上。
+                val tabletWeekday = selectedWeekday
+                val tabletDayLessons = remember(filtered, tabletWeekday) {
+                    filtered.filter { it.weekday == tabletWeekday }.sortedBy { it.startSection }
                 }
-                TextButton(onClick = openLocalImport) {
-                    Text("从华水青果官网重新核对课表")
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(
+                        modifier = Modifier.weight(1.35f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = if (selectedWeek == ALL_WEEKS)
+                                "请先选择一个具体周次，避免把不同周的课程混为一周。"
+                            else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (selectedWeek != ALL_WEEKS) {
+                            val weekLessons = remember(data.lessons, selectedWeek) {
+                                data.lessons.filter { selectedWeek in it.weeks }
+                            }
+                            WeeklyTimetableGrid(
+                                lessons = weekLessons,
+                                selectedWeekday = tabletWeekday,
+                                onSelectWeekday = { selectedWeekday = it }
+                            ) { item ->
+                                openCourse(item.toUi().key)
+                            }
+                        }
+                        TextButton(onClick = openLocalImport) {
+                            Text("从华水青果官网重新核对课表")
+                        }
+                    }
+                    DayLessonList(
+                        dayLessons = tabletDayLessons,
+                        selectedWeek = selectedWeek,
+                        weekday = tabletWeekday,
+                        todayWeekday = todayWeekday,
+                        onOpen = openCourse,
+                        openLocalImport = openLocalImport,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp)
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = if (selectedWeek == ALL_WEEKS)
+                            "请先选择一个具体周次，避免把不同周的课程混为一周。"
+                        else "第 $selectedWeek 周 · 并非自动判断的当前教学周",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (selectedWeek != ALL_WEEKS) {
+                        val weekLessons = remember(data.lessons, selectedWeek) {
+                            data.lessons.filter { selectedWeek in it.weeks }
+                        }
+                        WeeklyTimetableGrid(weekLessons) { item ->
+                            openCourse(item.toUi().key)
+                        }
+                    }
+                    TextButton(onClick = openLocalImport) {
+                        Text("从华水青果官网重新核对课表")
+                    }
                 }
             }
         } else if (expanded) {
@@ -533,20 +568,15 @@ private fun ScheduleVerifiedContent(
                     counts = counts, selected = effectiveWeekday, today = todayWeekday,
                     onSelect = { selectedWeekday = it }
                 )
-                Column(
-                    modifier = Modifier.weight(1f).padding(start = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
-                    if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
-                    dayLessons.forEach { lesson ->
-                        LessonCard(lesson = lesson, onOpen = { openCourse(lesson.key) })
-                    }
-                    ScheduleFooterNote()
-                    TextButton(onClick = openLocalImport) {
-                        Text("在 App 内核对 / 更新青果课表")
-                    }
-                }
+                DayLessonList(
+                    dayLessons = dayLessons,
+                    selectedWeek = selectedWeek,
+                    weekday = effectiveWeekday,
+                    todayWeekday = todayWeekday,
+                    onOpen = openCourse,
+                    openLocalImport = openLocalImport,
+                    modifier = Modifier.weight(1f).padding(start = 12.dp)
+                )
             }
         } else {
             Column(
@@ -557,15 +587,14 @@ private fun ScheduleVerifiedContent(
                     counts = counts, selected = effectiveWeekday, today = todayWeekday,
                     onSelect = { selectedWeekday = it }
                 )
-                DaySummary(effectiveWeekday, dayLessons.size, effectiveWeekday == todayWeekday)
-                if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
-                dayLessons.forEach { lesson ->
-                    LessonCard(lesson = lesson, onOpen = { openCourse(lesson.key) })
-                }
-                ScheduleFooterNote()
-                TextButton(onClick = openLocalImport) {
-                    Text("在 App 内核对 / 更新青果课表")
-                }
+                DayLessonList(
+                    dayLessons = dayLessons,
+                    selectedWeek = selectedWeek,
+                    weekday = effectiveWeekday,
+                    todayWeekday = todayWeekday,
+                    onOpen = openCourse,
+                    openLocalImport = openLocalImport
+                )
             }
         }
     }
@@ -576,6 +605,101 @@ private fun ScheduleVerifiedContent(
             lesson = opened, localImport = localImport,
             onDismiss = { selectedCourseKey = null }
         )
+    }
+}
+
+/**
+ * 周 / 日 切换。两个标签是同一组单选（`selectableGroup`），各自带准确描述，
+ * 读屏能区分"周视图=七日历课程网格"与"日视图=单日课程列表"，并播报选中项。
+ */
+@Composable
+private fun ScheduleViewModeTabs(mode: String, onChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ViewModeTab(
+            isSelected = mode == "week",
+            description = "周视图，七日历课程网格，点击查看整周课表",
+            onClick = { onChange("week") }
+        ) {
+            Text("周视图")
+        }
+        ViewModeTab(
+            isSelected = mode == "day",
+            description = "日视图，单日课程列表，点击查看某一天的课程",
+            onClick = { onChange("day") }
+        ) {
+            Text("日视图")
+        }
+    }
+}
+
+@Composable
+private fun ViewModeTab(
+    isSelected: Boolean,
+    description: String,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val background by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        animationSpec = tween(180),
+        label = "mode-tab-bg"
+    )
+    val foreground by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(180),
+        label = "mode-tab-fg"
+    )
+    Box(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .widthIn(min = 96.dp)
+            .clip(RoundedCornerShape(50))
+            .background(background)
+            // selectable 直接提供 role=Tab 与 selected，无需再手写覆盖。
+            .selectable(selected = isSelected, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .semantics {
+                contentDescription = description +
+                    if (isSelected) "，当前视图" else "，未选中"
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        CompositionLocalProvider(LocalContentColor provides foreground) { content() }
+    }
+}
+
+/**
+ * 某一天的课程列表。手机、平板日视图、平板周视图右侧共用一份实现，
+ * 只渲染传入的真实课块；没有课就走 NoLessonCard 空态。
+ */
+@Composable
+private fun DayLessonList(
+    dayLessons: List<LessonUi>,
+    selectedWeek: Int,
+    weekday: Int,
+    todayWeekday: Int,
+    onOpen: (String) -> Unit,
+    openLocalImport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        DaySummary(weekday, dayLessons.size, weekday == todayWeekday)
+        if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
+        dayLessons.forEach { lesson ->
+            LessonCard(lesson = lesson, onOpen = { onOpen(lesson.key) })
+        }
+        ScheduleFooterNote()
+        TextButton(onClick = openLocalImport) {
+            Text("在 App 内核对 / 更新青果课表")
+        }
     }
 }
 

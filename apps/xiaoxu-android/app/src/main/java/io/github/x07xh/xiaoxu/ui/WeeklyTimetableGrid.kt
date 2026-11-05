@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -46,10 +48,19 @@ import io.github.x07xh.xiaoxu.data.VerifiedLesson
  * never creates synthetic lessons, and sections have no guessed clock times.
  * Cells for multi-section lessons repeat the same tinted block; tapping any
  * section opens the existing course detail sheet.
+ *
+ * [selectedWeekday] / [onSelectWeekday] are optional. When a caller needs the
+ * header row to drive a side pane (tablet layout) it passes them: each day
+ * header then becomes a 48dp selectable tab with a visible selected state.
+ * Callers that leave them null keep the header as a passive column caption, so
+ * the phone layout is unchanged. Course rows are never filtered or synthesised
+ * here.
  */
 @Composable
 internal fun WeeklyTimetableGrid(
     lessons: List<VerifiedLesson>,
+    selectedWeekday: Int? = null,
+    onSelectWeekday: ((Int) -> Unit)? = null,
     onLessonClick: (VerifiedLesson) -> Unit
 ) {
     val all = remember(lessons) {
@@ -94,22 +105,52 @@ internal fun WeeklyTimetableGrid(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(
+                modifier = if (onSelectWeekday == null) Modifier else Modifier.selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
                 Box(
-                    Modifier.width(labelWidth).height(40.dp)
+                    Modifier.width(labelWidth).height(48.dp)
                         .background(lowSurface, RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("节", style = MaterialTheme.typography.labelMedium)
                 }
-                days.forEach { day ->
+                days.forEachIndexed { index, day ->
+                    val weekday = index + 1
+                    val isSelected = selectedWeekday == weekday
                     Box(
-                        Modifier.width(dayWidth).height(40.dp)
-                            .background(lowSurface, RoundedCornerShape(8.dp)),
+                        modifier = Modifier
+                            .width(dayWidth)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary else lowSurface
+                            )
+                            .then(
+                                if (onSelectWeekday == null) Modifier
+                                else Modifier.selectable(
+                                    selected = isSelected,
+                                    role = Role.Tab,
+                                    onClick = { onSelectWeekday(weekday) }
+                                )
+                            )
+                            .semantics {
+                                contentDescription = "周$day" +
+                                    (if (isSelected) "，当前选中" else "") +
+                                    "，${all.count { it.weekday == weekday }} 个课块" +
+                                    (if (onSelectWeekday == null) "" else "，查看当天课程")
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("周" + day, style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text(
+                            text = "周" + day,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
                     }
                 }
             }
