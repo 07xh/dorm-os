@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.AcademicNotice
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
+import io.github.x07xh.xiaoxu.data.WechatCandidate
 import kotlinx.coroutines.launch
 
 /*
@@ -220,6 +221,43 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 // 入口：MainActivity 消息页直接调用
 // ---------------------------------------------------------------------------
 
+/** Real message feed: official announcement metadata and owner-reviewed WeChat candidates. */
+private sealed interface MessageFeedItem {
+    val timestamp: Long?
+    data class Official(val notice: AcademicNotice, override val timestamp: Long?) : MessageFeedItem
+    data class Wechat(val candidate: WechatCandidate, override val timestamp: Long?) : MessageFeedItem
+}
+
+/** Only fully qualified dates participate in chronological ordering; never invent a missing year. */
+private fun messageTimestamp(value: String): Long? {
+    val raw = value.trim()
+    runCatching { java.time.Instant.parse(raw).toEpochMilli() }.getOrNull()?.let { return it }
+    runCatching { java.time.OffsetDateTime.parse(raw).toInstant().toEpochMilli() }
+        .getOrNull()?.let { return it }
+    val match = Regex("""(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})""").find(raw)
+        ?: return null
+    return runCatching {
+        java.time.LocalDate.of(
+            match.groupValues[1].toInt(), match.groupValues[2].toInt(),
+            match.groupValues[3].toInt()
+        ).atStartOfDay(java.time.ZoneId.of("Asia/Shanghai")).toInstant().toEpochMilli()
+    }.getOrNull()
+}
+
+private fun filterWechatCandidates(
+    candidates: List<WechatCandidate>, query: String, filterKey: String
+): List<WechatCandidate> {
+    if (filterKey == MSG_FILTER_NOTICE) return emptyList()
+    val keyword = query.trim()
+    return candidates.filter { candidate ->
+        (filterKey != MSG_FILTER_EXAM || candidate.kind in setOf("homework", "exam")) &&
+            (keyword.isEmpty() ||
+                candidate.title.contains(keyword, ignoreCase = true) ||
+                (candidate.chatLabel ?: "").contains(keyword, ignoreCase = true) ||
+                (candidate.excerpt ?: "").contains(keyword, ignoreCase = true))
+    }
+}
+
 @Composable
 fun MessageCenterPanel(
     client: CloudClient,
@@ -230,28 +268,31 @@ fun MessageCenterPanel(
     val state = client.state
     val scope = rememberCoroutineScope()
     val phase = remember(state) { deriveMessagePhase(state) }
-
     var query by rememberSaveable { mutableStateOf("") }
     var filterKey by rememberSaveable { mutableStateOf(MSG_FILTER_ALL) }
     var openedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var openedCandidateId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val refresh: () -> Unit = { scope.launch { client.refresh() } }
     val filtered = remember(state.notices, query, filterKey) {
         filterNotices(state.notices, query, filterKey)
     }
-    val showWechat = filterKey == MSG_FILTER_ALL || filterKey == MSG_FILTER_WECHAT
-
-    // 官方公告列表只在真有可展示的公告相位时出现，加载/失败由各自状态卡承担。
-    val showOfficialSection = filterKey != MSG_FILTER_WECHAT &&
-        (phase is MessagePhase.Content || phase is MessagePhase.Empty)
+    val filteredWechat = remember(state.wechatCandidates, query, filterKey) {
+        filterWechatCandidates(state.wechatCandidates, query, filterKey)
+    }
+    val visible = remember(filtered, filteredWechat) {
+        (
+            filtered.map { MessageFeedItem.Official(it, messageTimestamp(it.dateLabel)) } +
+            filteredWechat.map { MessageFeedItem.Wechat(it, messageTimestamp(it.sentAt)) }
+        ).sortedWith(compareByDescending<MessageFeedItem> { it.timestamp ?: Long.MIN_VALUE })
+    }
 
     BoxWithConstraints(
         if (useStatusBarInset) Modifier.fillMaxSize().statusBarsPadding()
         else Modifier.fillMaxSize()
     ) {
-        val wide = maxWidth >= 840.dp
         val sidePadding = when {
-            wide -> 28.dp
+            maxWidth >= 840.dp -> 28.dp
             maxWidth < 380.dp -> 14.dp
             else -> 18.dp
         }
@@ -259,10 +300,7 @@ fun MessageCenterPanel(
             LazyColumn(
                 modifier = Modifier.fillMaxHeight().pageWidth(ContentMaxWidth),
                 contentPadding = PaddingValues(
-                    start = sidePadding,
-                    end = sidePadding,
-                    top = 10.dp,
-                    bottom = 26.dp
+                    start = sidePadding, end = sidePadding, top = 10.dp, bottom = 26.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -279,8 +317,7 @@ fun MessageCenterPanel(
                 }
                 item {
                     MessageSearchField(
-                        query = query,
-                        onQueryChange = { query = it.take(60) }
+                        query = query, onQueryChange = { query = it.take(60) }
                     )
                 }
                 item {
@@ -288,17 +325,17 @@ fun MessageCenterPanel(
                 }
                 item {
                     MessageCountLine(
-                        filterKey = filterKey,
-                        matched = filtered.size,
-                        query = query,
-                        total = state.notices.size
+                        matched = visible.size,
+                        unknownTime = visible.count { it.timestamp == null },
+                        searching = query.isNotBlank()
                     )
                 }
+
                 if (state.publicError != null && state.notices.isNotEmpty()) {
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Warning,
-                            text = "刷新失败，显示上次读取的公告。",
+                            text = "公告刷新失败，当前展示已保存的公告快照。",
                             container = MaterialTheme.colorScheme.errorContainer,
                             ink = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -308,65 +345,61 @@ fun MessageCenterPanel(
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Info,
-                            text = "部分栏目读取失败。",
+                            text = "官方公告部分栏目读取失败，内容可能不完整。",
                             container = MaterialTheme.colorScheme.surfaceVariant,
                             ink = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-
-                when (phase) {
-                    MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
-                    is MessagePhase.Failed -> item {
-                        MessageErrorCard(phase.message, refresh, openWebsite)
-                    }
-                    else -> Unit
-                }
-
-                if (showOfficialSection) {
+                if (state.wechatError != null && filterKey != MSG_FILTER_NOTICE) {
                     item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.MailOutline,
-                            title = "华水官方公告",
-                            badge = "官方网站",
-                            detail = if (query.isBlank()) "共 ${filtered.size} 条"
-                            else "匹配 ${filtered.size} 条"
+                        MessageBanner(
+                            icon = Icons.Outlined.Warning,
+                            text = "微信候选刷新失败；已有候选可能是上次读取的快照。",
+                            container = MaterialTheme.colorScheme.errorContainer,
+                            ink = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
-                    items(count = filtered.size) { index ->
-                        val notice = filtered[index]
-                        NoticeCard(
-                            notice = notice,
-                            onClick = { openedId = notice.id.ifBlank { notice.url } }
+                }
+                if (!state.authenticated && filterKey != MSG_FILTER_NOTICE &&
+                    filterKey != MSG_FILTER_EXAM) {
+                    item {
+                        MessageBanner(
+                            icon = Icons.Outlined.Info,
+                            text = "微信候选尚未连接校序本人会话；可在「我的」连接后查看。",
+                            container = XiaoxuPalette.BrandSoft,
+                            ink = XiaoxuPalette.Ink2
                         )
-                    }
-                    if (filtered.isEmpty()) {
-                        item { MessageEmptyHint(query = query.takeIf { it.isNotBlank() }) }
                     }
                 }
 
-                if (showWechat) {
-                    item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.PersonOutline,
-                            title = "微信候选",
-                            badge = "本人云端",
-                            detail = pendingWechatShortLabel(
-                                state.pendingWechatCount,
-                                state.authenticated,
-                                state.wechatError
+                if (visible.isEmpty()) {
+                    when (phase) {
+                        MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
+                        is MessagePhase.Failed -> item {
+                            MessageErrorCard(phase.message, refresh, openWebsite)
+                        }
+                        else -> item {
+                            MessageEmptyHint(query = query.takeIf { it.isNotBlank() })
+                        }
+                    }
+                } else {
+                    items(count = visible.size) { index ->
+                        when (val entry = visible[index]) {
+                            is MessageFeedItem.Official -> NoticeCard(
+                                notice = entry.notice,
+                                onClick = {
+                                    openedId = entry.notice.id.ifBlank { entry.notice.url }
+                                }
                             )
-                        )
-                    }
-                    item {
-                        WechatReviewPanel(
-                            client = client,
-                            pendingCount = state.pendingWechatCount,
-                            openWebsite = openWebsite
-                        )
+                            is MessageFeedItem.Wechat -> WechatCandidateRow(
+                                item = entry.candidate,
+                                enabled = state.wechatReviewingId == null,
+                                onClick = { openedCandidateId = entry.candidate.id }
+                            )
+                        }
                     }
                 }
-
                 item { MessageFooterNote() }
             }
         }
@@ -380,6 +413,15 @@ fun MessageCenterPanel(
             onDismiss = { openedId = null }
         )
     }
+    // The existing native review sheet is authoritative: no fake attachments or inert actions.
+    WechatReviewPanel(
+        client = client,
+        pendingCount = state.pendingWechatCount,
+        openWebsite = openWebsite,
+        showList = false,
+        externalSelectedId = openedCandidateId,
+        onExternalClose = { openedCandidateId = null }
+    )
 }
 
 // ---------------------------------------------------------------------------
