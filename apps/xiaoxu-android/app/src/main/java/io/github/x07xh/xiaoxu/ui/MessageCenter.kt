@@ -432,7 +432,7 @@ private fun MessageHeader(
             SourceChip(
                 label = "华水官方公告",
                 detail = when {
-                    noticeTotal == 0 -> "本次 0 条"
+                    noticeTotal == 0 -> "暂无已保存公告"
                     filterKey == MSG_FILTER_NOTICE || filterKey == MSG_FILTER_EXAM ->
                         "其中 $matched 条"
                     else -> "共 $noticeTotal 条"
