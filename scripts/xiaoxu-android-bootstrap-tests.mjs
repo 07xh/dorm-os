@@ -285,7 +285,22 @@ assert.match(secondClass, /provenance == "trusted_readonly"/);
 assert.match(secondClass, /"user_import"/);
 assert.match(secondClass, /isSchoolReportedAggregate/);
 assert.match(secondClass, /"user_browser_export"/);
+// Native second-class navigation must keep the real owner snapshot and
+// distinguish the unverified ALL-ACTIVITIES catalog from MY signups.
+assert.match(secondClassPanel, /var tab by rememberSaveable/);
+assert.match(secondClassPanel, /"catalog" to "活动广场"/);
+assert.match(secondClassPanel, /"mine" to "我的活动"/);
+assert.match(secondClassPanel, /"score" to "素质积分"/);
+assert.match(secondClassPanel, /FilterChip\(/);
+assert.match(secondClassPanel, /LaunchedEffect\(state\.authenticated\)/);
+assert.match(secondClassPanel, /client\.loadSecondClass\(\)/);
+assert.match(secondClassPanel, /result\.activities\.filter/);
+assert.match(secondClassPanel, /state\.secondClassFresh/);
+assert.match(secondClassPanel, /本次尚未确认最新记录/);
+assert.match(secondClassPanel, /尚未验证学校正在报名的全部活动目录/);
 assert.match(secondClassPanel, /官方汇总不与逐条活动分数相加/);
+assert.doesNotMatch(secondClassPanel, /SecondClassActivity\(|HttpURLConnection|WebView|CookieManager|schoolPassword|addJavascriptInterface/);
+
 assert.match(secondClassPanel, /用户自行导入的数据（非官方实时同步）/);
 assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
