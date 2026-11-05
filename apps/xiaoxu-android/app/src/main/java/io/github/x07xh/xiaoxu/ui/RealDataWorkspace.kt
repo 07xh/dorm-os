@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +35,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -133,6 +138,17 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
             else -> true
         }
     }
+
+/** The search only filters already-read Room/D1 records; it never guesses school tasks. */
+internal fun searchWorkspaceTasks(
+    tasks: List<WorkspaceTask>, filter: String, query: String, today: LocalDate
+): List<WorkspaceTask> {
+    val needle = query.trim()
+    return selectTasks(tasks, filter, today).filter { task ->
+        needle.isEmpty() || task.title.contains(needle, ignoreCase = true) ||
+            task.origin.contains(needle, ignoreCase = true)
+    }
+}
 
 @Composable
 private fun WorkspaceCard(content: @Composable () -> Unit) {
@@ -760,16 +776,18 @@ fun RealAcademicTaskHub(
     val filters = listOf("pending" to "待完成", "all" to "全部", "week" to "本周截止",
         "done" to "已完成", "local" to "本机", "cloud" to "云端")
     var filter by rememberSaveable { mutableStateOf("pending") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
-    // 管理入口靠近页面顶端，抽屉跳转后精确滚动到真正的可编辑区域。
+    // 管理面板仅按需展开；所有滚动均由同一个 LazyColumn 承担。
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(jumpTo, showLocal, showCloud) {
         val targetIndex = when (jumpTo) {
             "local" -> if (showLocal) 4 else null
-            "cloud" -> if (showCloud) 5 + (if (showLocal) 1 else 0) else null
-            "filters" -> 5 + (if (showLocal) 1 else 0) + (if (showCloud) 1 else 0)
+            "cloud" -> if (showCloud) 4 + (if (showLocal) 1 else 0) else null
+            "filters" -> 4 + (if (showLocal) 1 else 0) + (if (showCloud) 1 else 0)
             else -> null
         }
         if (targetIndex != null) {
@@ -780,7 +798,7 @@ fun RealAcademicTaskHub(
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
-    val visible = selectTasks(all, filter, today)
+    val visible = searchWorkspaceTasks(all, filter, searchQuery, today)
     // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
     val localRows = shown.filter { it.storage == "local" }
@@ -795,7 +813,7 @@ fun RealAcademicTaskHub(
             XiaoxuCard {
                 SectionHeader(
                     title = "任务中心",
-                    caption = "我的待办 · 已保存记录",
+                    caption = "课程作业 · 群消息审核 · 个人待办",
                     actionLabel = "新增本机任务",
                     onAction = {
                         showLocal = true
@@ -858,36 +876,29 @@ fun RealAcademicTaskHub(
                 color = XiaoxuPalette.Ink2
             )
         }
-        // 本机任务操作直接在任务统计后出现，不再藏在长列表最底部。
+        // 默认直接查看任务；低频的 Room/D1 管理只在点击时展开。
         item {
-            XiaoxuCard {
-                SectionHeader(
-                    title = "我的本机待办",
-                    caption = "离线保存",
-                    actionLabel = if (showLocal) "收起管理" else "新增 / 管理",
-                    onAction = {
-                        val next = !showLocal
-                        showLocal = next
-                        if (next) jumpTo = "local"
-                    }
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        showLocal = !showLocal
+                        if (showLocal) jumpTo = "local"
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showLocal) "收起本机管理" else "新建 / 管理本机") }
+                OutlinedButton(
+                    onClick = {
+                        showCloud = !showCloud
+                        if (showCloud) jumpTo = "cloud"
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text(if (showCloud) "收起云端管理" else "云端任务管理") }
             }
         }
         if (showLocal) item { LocalTaskBoard(localTasks, dao) }
-        item {
-            XiaoxuCard {
-                SectionHeader(
-                    title = "校序云端任务管理",
-                    caption = if (state.tasksFresh) "本次云端记录" else "云端数据待重新核验",
-                    actionLabel = if (showCloud) "收起管理" else "展开管理",
-                    onAction = {
-                        val next = !showCloud
-                        showCloud = next
-                        if (next) jumpTo = "cloud"
-                    }
-                )
-            }
-        }
         if (showCloud) item { CloudTasksPanel(client) }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -897,6 +908,23 @@ fun RealAcademicTaskHub(
                         label = { Text(label) })
                 }
             }
+        }
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it.take(100) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("搜索任务标题或来源") },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                trailingIcon = if (searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "清除搜索")
+                        }
+                    }
+                } else null
+            )
         }
         item {
             Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
@@ -918,10 +946,25 @@ fun RealAcademicTaskHub(
                 )
             }
         } else {
+            if (cloudRows.isNotEmpty()) {
+                item {
+                    TaskSectionHeader(
+                        title = "课程相关与云端任务",
+                        count = cloudRows.size,
+                        badge = "校序云端",
+                        note = "实际云端任务；来源、截止与个人完成标记不能替代学校官方提交核验。"
+                    )
+                }
+                items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
+                    XiaoxuCard(contentPadding = 8.dp) {
+                        TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
+                    }
+                }
+            }
             if (localRows.isNotEmpty()) {
                 item {
                     TaskSectionHeader(
-                        title = "本机本人待办",
+                        title = "我的本机待办",
                         count = localRows.size,
                         badge = "本机 Room",
                         note = "只存在这台手机上，离线可用；来源与日期都是本人填写。"
@@ -930,21 +973,6 @@ fun RealAcademicTaskHub(
                 items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
                     XiaoxuCard(contentPadding = 8.dp) {
                         TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
-                    }
-                }
-            }
-            if (cloudRows.isNotEmpty()) {
-                item {
-                    TaskSectionHeader(
-                        title = "校序云端任务",
-                        count = cloudRows.size,
-                        badge = "校序云端",
-                        note = "云端记录，来源与截止日期需与学校官方核对，未核验处已标注。"
-                    )
-                }
-                items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                    XiaoxuCard(contentPadding = 8.dp) {
-                        TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
                     }
                 }
             }
@@ -976,6 +1004,17 @@ fun RealAcademicTaskHub(
                 )
             }
         }
+        item {
+            XiaoxuCard {
+                SectionHeader(
+                    title = "学习通与本机页面快照",
+                    caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
+                    actionLabel = if (showSchoolRecords) "收起" else "展开查看与同步",
+                    onAction = { showSchoolRecords = !showSchoolRecords }
+                )
+            }
+        }
+        if (showSchoolRecords) {
         item {
             HorizontalDivider(Modifier.padding(top = 6.dp))
         }
@@ -1023,6 +1062,7 @@ fun RealAcademicTaskHub(
             Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         }
     }
 
