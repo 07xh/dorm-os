@@ -1,31 +1,36 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Icon
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +39,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +62,9 @@ import kotlinx.coroutines.launch
  * A candidate is an extracted hint from the paired computer, not a full
  * WeChat conversation or officially verified school assignment.
  * The owner session / backend review transaction remain authoritative.
+ *
+ * Issue #275 只做候选卡的视觉收敛（图标块 + 类型徽标 + 一张一行），
+ * 逐条审核事务、二次确认与后端调用保持原样，一个字节都没改。
  */
 private fun wechatKindLabel(kind: String): String = when (kind) {
     "homework" -> "作业候选"
@@ -57,6 +72,22 @@ private fun wechatKindLabel(kind: String): String = when (kind) {
     "activity" -> "活动候选"
     "signup" -> "报名候选"
     else -> "其他候选"
+}
+
+private fun wechatKindIcon(kind: String): ImageVector = when (kind) {
+    "homework" -> Icons.AutoMirrored.Outlined.MenuBook
+    "exam" -> Icons.Outlined.DateRange
+    "activity" -> Icons.Outlined.EmojiEvents
+    "signup" -> Icons.Outlined.CheckCircle
+    else -> Icons.Outlined.Info
+}
+
+private fun wechatKindTone(kind: String): XiaoxuTone = when (kind) {
+    "homework" -> XiaoxuTone.Brand
+    "exam" -> XiaoxuTone.Warning
+    "activity" -> XiaoxuTone.Success
+    "signup" -> XiaoxuTone.Success
+    else -> XiaoxuTone.Neutral
 }
 
 private val wechatTimestamp = DateTimeFormatter.ofPattern("MM-dd HH:mm")
@@ -81,83 +112,116 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     val selected = state.wechatCandidates.firstOrNull { it.id == selectedId }
     val reviewing = state.wechatReviewingId != null
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("微信待审核", style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold)
+    XiaoxuCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    pendingWechatLabel(pendingCount, state.authenticated),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "微信待审核",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = XiaoxuPalette.Ink,
+                    modifier = Modifier.weight(1f)
                 )
+                // 只在真有候选可刷新且已连接时给出刷新，避免无意义按钮。
+                if (state.authenticated) {
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = 44.dp)
+                            .clip(RoundedCornerShape(XiaoxuRadius.pill))
+                            .background(XiaoxuPalette.SurfaceAlt)
+                            .clickable(
+                                enabled = !state.busy && !reviewing,
+                                onClick = { scope.launch { client.refreshPrivate() } },
+                                role = Role.Button
+                            )
+                            .padding(horizontal = 12.dp)
+                            .semantics { contentDescription = "刷新微信待审核候选" },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = XiaoxuPalette.Ink2
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "刷新",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = XiaoxuPalette.Ink2
+                            )
+                        }
+                    }
+                }
             }
             Text(
-                "来自已绑定电脑的消息候选，仅在本人确认后加入云端任务；不等于学校官方作业。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = pendingWechatLabel(pendingCount, state.authenticated, state.wechatError),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (pendingCount == null && state.authenticated)
+                    XiaoxuPalette.Warning else XiaoxuPalette.Ink2
             )
             if (!state.authenticated) {
-                Text("请先在「我的」连接校序云端，再使用 App 审核。",
-                    style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "请先在「我的」连接校序云端，再使用 App 审核。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XiaoxuPalette.Ink2
+                )
             } else {
                 if (state.wechatError != null) {
-                    Text(state.wechatError, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = state.wechatError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Danger
+                    )
                 }
                 if (pendingCount == null) {
-                    Text("还未取得可信的候选列表，请点击刷新。",
-                        style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "还未取得可信的候选列表，请点击刷新。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink2
+                    )
                 } else if (state.wechatCandidates.isEmpty() && state.wechatError == null) {
-                    Text("暂无待审核候选。",
-                        style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "暂无待审核候选。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink3
+                    )
                 }
                 // Show the actual server response only: no sample chats or guessed messages.
                 state.wechatCandidates.forEach { item ->
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable(enabled = !reviewing) { selectedId = item.id }
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "${item.chatLabel ?: "群聊未标注"} · ${wechatKindLabel(item.kind)} · ${sentTime(item.sentAt)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(dueLabel(item), style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
-                        Icon(Icons.Outlined.ChevronRight, contentDescription = "查看候选详情")
-                    }
+                    WechatCandidateRow(
+                        item = item,
+                        enabled = !reviewing,
+                        onClick = { selectedId = item.id }
+                    )
                 }
                 if (pendingCount != null && pendingCount >= 30) {
-                    Text("接口每次最多返回 30 条，审核后刷新即可加载后续候选。",
-                        style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = "接口每次最多返回 30 条，审核后刷新即可加载后续候选。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink3
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { scope.launch { client.refreshPrivate() } },
-                    enabled = state.authenticated && !state.busy && !reviewing,
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(5.dp))
-                    Text("刷新候选")
-                }
-                TextButton(onClick = openWebsite, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text("网页审核备用")
-                }
+            HorizontalDivider(color = XiaoxuPalette.Line)
+            Text(
+                text = "来自已绑定电脑的消息候选，仅在本人确认后加入云端任务；不等于学校官方作业。",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            Box(
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
+                    .clickable(onClick = openWebsite, role = Role.Button)
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "网页审核备用",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = XiaoxuPalette.Brand
+                )
             }
         }
     }
@@ -166,51 +230,98 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
         val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { if (!reviewing) selectedId = null },
-            sheetState = sheet
+            sheetState = sheet,
+            containerColor = XiaoxuPalette.Surface
         ) {
-            Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("核对微信候选", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold)
-                Text(wechatKindLabel(selected.kind),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium)
-                Text(selected.title, style = MaterialTheme.typography.titleMedium)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "核对微信候选",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = XiaoxuPalette.Ink
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SourceBadge(
+                        text = wechatKindLabel(selected.kind),
+                        tone = wechatKindTone(selected.kind)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    SourceBadge(text = "本人云端 · 未经学校核验", tone = XiaoxuTone.Neutral)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(XiaoxuPalette.SurfaceAlt)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = selected.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = XiaoxuPalette.Ink,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 ReviewMeta("来源群聊", selected.chatLabel ?: "未标注")
                 ReviewMeta("消息时间", sentTime(selected.sentAt) + "（北京时间）")
                 ReviewMeta("候选截止", dueLabel(selected))
-                Text("电脑端提取的候选摘要", fontWeight = FontWeight.Medium,
-                    style = MaterialTheme.typography.bodyMedium)
-                Text(selected.excerpt ?: "本条候选没有摘要；请前往微信核实原消息。",
-                    style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "这里不是完整微信聊天原文。请核对原消息，必要时返回微信确认；审核通过仅创建普通云端任务，不会自动提交作业。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "电脑端提取的候选摘要",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink3
+                )
+                Text(
+                    text = selected.excerpt ?: "本条候选没有摘要；请前往微信核实原消息。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XiaoxuPalette.Ink
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line)
+                Text(
+                    text = "这里不是完整微信聊天原文。请核对原消息，必要时返回微信确认；" +
+                        "审核通过仅创建普通云端任务，不会自动提交作业。",
+                    color = XiaoxuPalette.Ink2,
                     style = MaterialTheme.typography.bodySmall
                 )
                 state.wechatError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = it,
+                        color = XiaoxuPalette.Danger,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { pendingDecision = "dismiss" },
-                        enabled = !reviewing, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) { Text("忽略") }
-                    Button(
-                        onClick = { pendingDecision = "accept" },
-                        enabled = !reviewing, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) {
-                        Icon(Icons.Outlined.CheckCircle, contentDescription = null)
-                        Spacer(Modifier.width(5.dp))
-                        Text(if (reviewing) "正在提交" else "加入任务")
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActionBox(
+                        label = "忽略",
+                        filled = false,
+                        enabled = !reviewing,
+                        modifier = Modifier.weight(1f)
+                    ) { pendingDecision = "dismiss" }
+                    ActionBox(
+                        label = if (reviewing) "正在提交" else "加入任务",
+                        filled = true,
+                        enabled = !reviewing,
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Outlined.CheckCircle
+                    ) { pendingDecision = "accept" }
                 }
-                TextButton(
-                    onClick = { selectedId = null },
-                    enabled = !reviewing,
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("稍后再审核") }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(enabled = !reviewing, onClick = { selectedId = null }, role = Role.Button),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "稍后再审核",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = XiaoxuPalette.Ink2
+                    )
+                }
             }
         }
     }
@@ -247,11 +358,135 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     }
 }
 
+/** 候选行：类型图标块 + 标题 + 群聊/时间 + 截止，右侧箭头。整行可点开详情。 */
+@Composable
+private fun WechatCandidateRow(
+    item: WechatCandidate,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val tone = wechatKindTone(item.kind)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .background(XiaoxuPalette.SurfaceAlt)
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = wechatKindLabel(item.kind) + "：" + item.title +
+                    "。打开可逐条核对，不会自动加入任务"
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(tone.containerColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = wechatKindIcon(item.kind),
+                contentDescription = null,
+                modifier = Modifier.size(17.dp),
+                tint = tone.contentColor
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = XiaoxuPalette.Ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = (item.chatLabel ?: "群聊未标注") + " · " + wechatKindLabel(item.kind) +
+                    " · " + sentTime(item.sentAt),
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = dueLabel(item),
+                style = MaterialTheme.typography.labelSmall,
+                color = tone.contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        Icon(
+            Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = XiaoxuPalette.Ink3
+        )
+    }
+}
+
+/** 抽屉内的两枚动作：主按钮实心、次按钮描边，高度均为 48dp。 */
+@Composable
+private fun ActionBox(
+    label: String,
+    filled: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    onClick: () -> Unit
+) {
+    val container = if (filled) XiaoxuPalette.Brand else Color.Transparent
+    val ink = if (filled) Color.White else XiaoxuPalette.Ink2
+    Box(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (enabled) container else container.copy(alpha = 0.5f))
+            .border(
+                width = if (filled) 0.dp else 1.dp,
+                color = XiaoxuPalette.Line,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = ink
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = ink,
+                fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Medium
+            )
+        }
+    }
+}
+
 @Composable
 private fun ReviewMeta(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(72.dp))
-        Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink3,
+            modifier = Modifier.width(72.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = XiaoxuPalette.Ink,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
