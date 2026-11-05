@@ -402,13 +402,19 @@ internal fun WechatCandidateRow(
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall,
-                color = XiaoxuPalette.Ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = XiaoxuPalette.Ink,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.width(7.dp))
+                SourceBadge(text = "待审核", tone = XiaoxuTone.Warning)
+            }
             Text(
                 text = (item.chatLabel ?: "群聊未标注") + " · " + sentTime(item.sentAt),
                 style = MaterialTheme.typography.labelSmall,
@@ -425,21 +431,13 @@ internal fun WechatCandidateRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SourceBadge(
-                    text = "待审核",
-                    tone = XiaoxuTone.Warning
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = dueLabel(item),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = tone.contentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            Text(
+                text = dueLabel(item),
+                style = MaterialTheme.typography.labelSmall,
+                color = tone.contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         Spacer(Modifier.width(6.dp))
         Icon(
