@@ -69,8 +69,8 @@ const expectedBuildTriggers = [
  '    branches: [main]',
  '    paths:',
  "      - '.github/xiaoxu-apk-build-requests/**'"
-].join('\\n');
-assert.ok(androidBuild.includes(expectedBuildTriggers+'\\n\\npermissions:'),
+].join('\n');
+assert.ok(androidBuild.includes(expectedBuildTriggers+'\n\npermissions:'),
  'APK source pushes must never trigger builds except an explicit reviewed request marker');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
