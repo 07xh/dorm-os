@@ -375,6 +375,7 @@ assert.match(localNative, /onReceivedSslError/);
 // app's single-phone WebView allowlist; other CAS targets stay forbidden.
 assert.match(localNative, /CHAOXING_SCHOOL_SERVICE = "https:\/\/fysso\.chaoxing\.com\/cassso\/ncwu"/);
 assert.match(localNative, /"authserver\.ncwu\.edu\.cn" ->[\s\S]*?uri\.path == "\/authserver\/login"/);
+assert.match(localNative, /uri\.getQueryParameters\("service"\)\.size == 1/);
 assert.match(localNative, /uri\.getQueryParameter\("service"\) == CHAOXING_SCHOOL_SERVICE/);
 assert.match(localNative, /"fysso\.chaoxing\.com" ->/);
 assert.match(localNative, /uri\.path in setOf\("\/cassso\/ncwu", "\/cassso\/ncwu\/"\)/);
