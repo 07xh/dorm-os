@@ -1,5 +1,5 @@
 // Fixed, device-local read. Never read inputs, cookies, storage or full URLs.
-(async function readSecondClassScores() {
+(async function readSecondClassScores(accountSalt = '') {
   const host = 'https://dekt.ncwu.edu.cn';
   const path = '/sys/stu/score/list';
   const base = {schema:'xiaoxu/local-secondclass-scores-v1',
@@ -69,7 +69,15 @@
       rows.push({termIndex:index,qualityScore:row.score_value,
         volunteerHours:row.score_plus,categories});
     }
-    return {...base,...diagnostic,ok:true,identityMatched:true,rows};
+    let accountHash;
+    if (/^[a-f0-9]{32}$/.test(accountSalt)) {
+      const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(accountSalt+':'+expected));
+      accountHash = Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+      const finalIdentity = visibleIdentity();
+      if (!context() || finalIdentity.length !== 1 || finalIdentity[0] !== expected)
+        return fail('identity','visible_account_changed');
+    }
+    return {...base,...diagnostic,ok:true,identityMatched:true,rows,...(accountHash?{accountHash}:{})};
   } catch { return fail('score_request','network_redirect_or_timeout'); }
   finally { clearTimeout(timer); }
 })

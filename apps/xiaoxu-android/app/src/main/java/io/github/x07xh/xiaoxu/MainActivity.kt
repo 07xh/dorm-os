@@ -168,7 +168,8 @@ class MainActivity : ComponentActivity() {
                         } else if (provider == "chaoxing" || provider == "second_class") {
                             lastLocalCapture = null
                             nativeSchoolLauncher.launch(
-                                Intent(this@MainActivity, NativeSchoolConnectActivity::class.java)
+                                Intent(this@MainActivity, if (provider == "second_class")
+                                    SecondClassHomeActivity::class.java else NativeSchoolConnectActivity::class.java)
                                     .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, provider)
                             )
                         }

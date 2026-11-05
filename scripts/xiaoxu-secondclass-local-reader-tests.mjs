@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {webcrypto} from 'node:crypto';
 const script=readFileSync('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js','utf8');
 const account='SYNTHETIC_SELF';
 const term=()=>({student_code:account,school_term_index:1,score_value:7.5,score_plus:1.25,
@@ -26,8 +27,8 @@ async function read(options={}){
  };
  const document={querySelectorAll:()=>options.noIdentity?[]:[{
   innerText:identity?'本人['+identity+']':'登录',getClientRects:()=>[{}]}]};
- const fn=runInNewContext(script,{location,document,fetch,AbortController,setTimeout,clearTimeout});
- const result=await fn();
+ const fn=runInNewContext(script,{location,document,fetch,AbortController,setTimeout,clearTimeout,crypto:webcrypto,TextEncoder});
+ const result=await fn(options.salt??'');
  assert.equal(JSON.stringify(result).includes(account),false);
  assert.equal(JSON.stringify(result).includes('SECRET_COOKIE_TICKET'),false);
  return {result,calls};
@@ -78,4 +79,11 @@ test('account changed or disappeared while awaiting the response rejects the sna
  for(const opts of [{switchAccount:true},{removeAccount:true}]){
   const {result}=await read(opts);assert.equal(result.ok,false);assert.equal(result.stage,'identity');
  }
+});
+test('device-salted account binding is stable per device and contains no identifier',async()=>{
+ const a=(await read({salt:'a'.repeat(32)})).result;
+ const b=(await read({salt:'b'.repeat(32)})).result;
+ assert.match(a.accountHash,/^[a-f0-9]{64}$/);
+ assert.equal(a.accountHash,(await read({salt:'a'.repeat(32)})).result.accountHash);
+ assert.notEqual(a.accountHash,b.accountHash);
 });

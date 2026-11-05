@@ -37,7 +37,9 @@ test('V9 disables page motion when user requests reduced motion', async ({ page 
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.goto('/');
  await page.locator('#sidebarNav [data-page="tasks"]').click();
- expect(await page.locator('#app > :first-child').evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+ // Page switching replaces this node; resolve it again until the final style is ready.
+ await expect.poll(() => page.locator('#app > :first-child')
+  .evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
 });
 
 test('V9 PWA includes its UI script, stylesheet and in-profile login stylesheet', async ({ page }) => {
