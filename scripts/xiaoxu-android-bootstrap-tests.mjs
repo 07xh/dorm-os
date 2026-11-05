@@ -522,6 +522,18 @@ assert.match(workspace, /不纳入待完成\/已完成数量/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
+// 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
+assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
+assert.match(workspace, /val visible = searchWorkspaceTasks\(all, filter, searchQuery, today\)/,
+  '页面实际列表必须使用搜索结果');
+assert.match(workspace, /if \(showSchoolRecords\) \{/,
+  '本机学习通快照应可收纳，避免默认铺满任务页');
+assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
+    workspace.indexOf('title = "我的本机待办"'),
+  '默认任务列表优先展示课程相关与云端任务');
+assert.match(workspace, /WechatReviewPanel\(/, '任务中心必须复用原生微信人工审核');
+assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
+
 assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
 assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
 assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
