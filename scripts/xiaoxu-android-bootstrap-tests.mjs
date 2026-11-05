@@ -119,6 +119,17 @@ assert.match(cloud, /connectionsFresh = platforms != null/);
 assert.match(cloud, /scheduleFresh = scheduleLoaded/);
 assert.match(cloud, /state = state\.copy\(connectionsFresh = false, scheduleFresh = false,/);
 assert.match(cloud, /secondClassBusy = true, secondClassFresh = false/);
+// An earlier owner/second-class HTTP response may arrive after a newer
+// foreground, QR, or explicit refresh. Do not publish that stale response.
+assert.match(cloud, /private var privateSnapshotReadId: Long = 0L/);
+assert.match(cloud, /val snapshotRead = \+\+privateSnapshotReadId/);
+assert.match(cloud, /snapshotRead != privateSnapshotReadId/);
+assert.match(cloud, /private var secondClassReadId: Long = 0L/);
+assert.match(cloud, /secondClassSnapshotReadId == privateSnapshotReadId/);
+assert.match(cloud, /val readId = \+\+secondClassReadId/);
+assert.match(cloud, /readId != secondClassReadId/);
+assert.match(cloud, /snapshotRead != privateSnapshotReadId\) return/);
+assert.match(cloud, /snapshotRead == privateSnapshotReadId/);
 assert.match(cloud, /secondClass = snapshot, secondClassFresh = true/);
 assert.match(cloud, /state\.connectionsFresh &&/);
 assert.match(cloud, /state\.scheduleFresh && state\.scheduleStatus == "ready"/);
