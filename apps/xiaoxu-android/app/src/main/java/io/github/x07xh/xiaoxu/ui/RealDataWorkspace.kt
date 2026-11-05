@@ -18,16 +18,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,10 +68,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
@@ -74,6 +88,8 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.text.DateFormat
 import java.util.Date
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
 private val WorkspaceBlue = Color(0xFF2563EB)
@@ -781,6 +797,12 @@ fun RealAcademicTaskHub(
         "done" to "已完成", "local" to "本机", "cloud" to "云端")
     var filter by rememberSaveable { mutableStateOf("pending") }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var showManager by rememberSaveable { mutableStateOf(false) }
+    var showCourseTasks by rememberSaveable { mutableStateOf(true) }
+    var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
+    var showCandidates by rememberSaveable { mutableStateOf(true) }
+    val taskScope = rememberCoroutineScope()
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
@@ -814,60 +836,72 @@ fun RealAcademicTaskHub(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            XiaoxuCard {
-                SectionHeader(
-                    title = "任务中心",
-                    caption = "课程作业 · 群消息审核 · 个人待办",
-                    actionLabel = "新增本机任务",
-                    onAction = {
-                        showLocal = true
-                        jumpTo = "local"
-                    }
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    item { SourceBadge("本机任务", XiaoxuTone.Brand) }
-                    item {
-                        SourceBadge(
-                            if (state.tasksFresh) "校序云端 · 本次读取"
-                            else "云端记录 · 待刷新",
-                            if (state.tasksFresh) XiaoxuTone.Success else XiaoxuTone.Warning
-                        )
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        today.format(DateTimeFormatter.ofPattern("yyyy年M月d日 · EEEE",
+                            java.util.Locale.CHINA)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2
+                    )
+                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold, color = XiaoxuPalette.Ink,
+                        modifier = Modifier.semantics { heading() })
+                    Text("课程任务 · 群消息审核 · 个人待办",
+                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
                 }
-                Text(
-                    "统计来自已保存的任务。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2
-                )
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Surface),
+                    onClick = { showSearch = !showSearch }
+                ) {
+                    Icon(Icons.Outlined.Search, contentDescription = "搜索任务",
+                        tint = XiaoxuPalette.Brand)
+                }
+                Spacer(Modifier.width(7.dp))
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Surface),
+                    onClick = { taskScope.launch { client.refreshPrivate() } },
+                    enabled = state.authenticated && !state.busy
+                ) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新校序云端任务",
+                        tint = if (state.authenticated) XiaoxuPalette.Brand else XiaoxuPalette.Ink3)
+                }
+                Spacer(Modifier.width(7.dp))
+                IconButton(
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Brand),
+                    onClick = { showManager = true; showLocal = true; jumpTo = "local" }
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = "新增本机任务",
+                        tint = Color.White)
+                }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricCard(
-                    "待完成", all.count { !it.done }.toString(), Modifier.weight(1f),
-                    caption = if (filter == "pending") "当前筛选" else "点击查看",
-                    onClick = {
-                        filter = "pending"
-                        jumpTo = "filters"
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                TaskStatusTab(
+                    label = "待完成", count = all.count { !it.done },
+                    active = filter == "pending", modifier = Modifier.weight(1f),
+                    onClick = { filter = "pending"; jumpTo = "filters" }
                 )
-                MetricCard(
-                    "本周截止", all.count { !it.done && thisWeek(it.date, today) }.toString(),
-                    Modifier.weight(1f), caption = if (filter == "week") "当前筛选" else "点击查看",
-                    tone = XiaoxuTone.Warning,
-                    onClick = {
-                        filter = "week"
-                        jumpTo = "filters"
-                    }
+                TaskStatusTab(
+                    label = "本周截止",
+                    count = all.count { !it.done && thisWeek(it.date, today) },
+                    active = filter == "week", modifier = Modifier.weight(1f),
+                    onClick = { filter = "week"; jumpTo = "filters" }
                 )
-                MetricCard(
-                    "已完成", all.count { it.done }.toString(), Modifier.weight(1f),
-                    caption = if (filter == "done") "当前筛选" else "点击查看",
-                    tone = XiaoxuTone.Success,
-                    onClick = {
-                        filter = "done"
-                        jumpTo = "filters"
-                    }
+                TaskStatusTab(
+                    label = "已完成", count = all.count { it.done },
+                    active = filter == "done", modifier = Modifier.weight(1f),
+                    onClick = { filter = "done"; jumpTo = "filters" }
                 )
             }
         }
@@ -1123,6 +1157,33 @@ fun RealAcademicTaskHub(
                 )
             }
         }
+    }
+}
+
+/** Main three blue-and-white pills, populated only from saved tasks. */
+@Composable
+private fun TaskStatusTab(
+    label: String, count: Int, active: Boolean, modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(if (active) XiaoxuPalette.Brand else XiaoxuPalette.Surface)
+            .border(1.dp, if (active) XiaoxuPalette.Brand else XiaoxuPalette.Line, shape)
+            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 7.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, fontSize = 12.sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            color = if (active) Color.White else XiaoxuPalette.Ink2, maxLines = 1)
+        Spacer(Modifier.width(5.dp))
+        Text(count.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+            color = if (active) Color.White else XiaoxuPalette.Ink)
     }
 }
 
