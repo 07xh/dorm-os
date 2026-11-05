@@ -23,7 +23,13 @@ assert.match(main, /lesson\.weeks\.joinToString\(","\)/);
 assert.match(main, /lesson\.location\.ifBlank/);
 assert.match(main, /lesson\.teacher\.ifBlank/);
 assert.match(main, /val preview = parsed\.second/);
-assert.match(screen, /text = if \(localImport\) "本机导入 · 待核对" else "已验证"/);
+// 课表 P1 已改用共享 SourceBadge：守护本机来源与 stale/new-read 独立标注。
+assert.match(screen, /localImport -> "本机导入 · 待核对"/,
+  '本机导入必须一直标记为待核对');
+assert.match(screen, /stale -> "上次读取 · 待刷新"/,
+  '旧云端课表不能显示成最新已核验');
+assert.match(screen, /SourceBadge\\(text = badgeLabel, tone = badgeTone\\)/,
+  '来源标签必须沿用共享组件');
 assert.match(screen, /本机课表文件 · 待与青果核对/);
 assert.match(screen, /localImport = data\.sourceLabel\.contains\("本机导入"\)/);
 assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened, localImport = localImport/);
