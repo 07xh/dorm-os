@@ -108,6 +108,18 @@ fun SecondClassPage(
                         OutlinedButton(onClick = {
                             runCatching {
                                 context.startActivity(
+                                    Intent(context, NativeSchoolConnectActivity::class.java)
+                                        .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
+                                )
+                            }.onFailure { message = "无法打开校序内学校页面" }
+                        }) { Text("在校序内检查活动列表来源") }
+                        Text("打开后先正常登录学校官网，进入活动页面，再手动开启请求观测；" +
+                            "观测结果仅在本机显示，不代表活动数据已接入。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = {
+                            runCatching {
+                                context.startActivity(
                                     Intent(Intent.ACTION_VIEW,
                                         Uri.parse("https://dekt.ncwu.edu.cn/"))
                                 )
