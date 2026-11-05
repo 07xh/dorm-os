@@ -62,8 +62,16 @@ const regularCI=readFileSync(new URL('../.github/workflows/check.yml',import.met
 assert.match(androidBuild,/on:\s*\n\s*workflow_dispatch:/);
 assert.doesNotMatch(androidBuild,/^\s{2}(?:pull_request|schedule):/m,
  'APK packaging must not run automatically for PRs or scheduled jobs');
-assert.match(androidBuild,/^\s{2}push:\s*\n\s{4}branches: \[main\]\s*\n\s{4}paths:\s*\n\s{6}- '\\.github\\/xiaoxu-apk-build-requests\\/\\*\\*'\s*\n\s*\npermissions:/m,
- 'GitHub push-based APK builds must only respond to explicit reviewed request markers');
+const expectedBuildTriggers = [
+ 'on:',
+ '  workflow_dispatch:',
+ '  push:',
+ '    branches: [main]',
+ '    paths:',
+ "      - '.github/xiaoxu-apk-build-requests/**'"
+].join('\\n');
+assert.ok(androidBuild.includes(expectedBuildTriggers+'\\n\\npermissions:'),
+ 'APK source pushes must never trigger builds except an explicit reviewed request marker');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(regularCI,/node scripts\/xiaoxu-android-bootstrap-tests\.mjs/,
  'Every PR still validates Android security and contract boundaries');
