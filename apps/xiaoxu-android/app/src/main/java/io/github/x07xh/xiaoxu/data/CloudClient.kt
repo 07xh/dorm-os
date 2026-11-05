@@ -408,41 +408,13 @@ class CloudClient(context: Context) {
                 }
             }
         } catch (_: Exception) { failed.add("连接状态") }
-        try {
-            val r = withContext(Dispatchers.IO) {
-                request("/api/v1/schedule", authenticated = true)
-            }
-            if (r.code != 200) throw IllegalStateException()
-            scheduleStatus = r.json.optString("status")
-            scheduleFetchedAt = r.json.optString("lastSuccessAt")
-                .takeIf { it.isNotBlank() && it != "null" }
-            if (scheduleStatus == "ready" || scheduleStatus == "stale") {
-                if (r.json.optString("provenance") != "trusted_readonly") {
-                    throw IllegalStateException()
-                }
-                val array = r.json.getJSONArray("records")
-                lessons = buildList {
-                    for (i in 0 until array.length()) {
-                        val row = array.optJSONObject(i) ?: continue
-                        val wd = row.optInt("weekday")
-                        val start = row.optInt("startSection")
-                        val end = row.optInt("endSection")
-                        val weeksJson = row.optJSONArray("weeks")
-                        if (wd !in 1..7 || start !in 1..24 || end !in start..24 ||
-                            weeksJson == null || weeksJson.length() == 0) continue
-                        val weeks = (0 until weeksJson.length()).map { weeksJson.optInt(it) }
-                        add(VerifiedLesson(
-                            row.optString("externalId"), row.optString("term"),
-                            row.optString("title"), row.optString("teacher"),
-                            row.optString("location"), wd, start, end, weeks
-                        ))
-                    }
-                }
-            } else {
-                lessons = emptyList()
-            }
-            scheduleLoaded = true
-        } catch (_: Exception) { failed.add("可信课表") }
+        // Local-first timetable: do not poll or hydrate a server timetable
+        // during cloud refresh. Grades/tasks/connections keep their own remote flow.
+        // Explicit local import is the only source of displayed lessons.
+        lessons = emptyList()
+        scheduleStatus = "local_only"
+        scheduleFetchedAt = null
+        scheduleLoaded = false
         try {
             val r = withContext(Dispatchers.IO) {
                 request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true)
