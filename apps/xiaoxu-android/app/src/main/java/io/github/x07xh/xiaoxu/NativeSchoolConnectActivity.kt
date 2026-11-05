@@ -79,6 +79,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     // other school or third-party CAS service targets are blocked.
                     "authserver.ncwu.edu.cn" ->
                         uri.path == "/authserver/login" &&
+                            uri.getQueryParameters("service").size == 1 &&
                             uri.getQueryParameter("service") == CHAOXING_SCHOOL_SERVICE
                     "fysso.chaoxing.com" ->
                         uri.path in setOf("/cassso/ncwu", "/cassso/ncwu/")
