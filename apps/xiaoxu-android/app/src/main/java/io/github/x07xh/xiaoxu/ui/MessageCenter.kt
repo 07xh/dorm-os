@@ -610,7 +610,7 @@ private fun MessageCountLine(
         query.isNotBlank() ->
             "关键词“" + query.trim() + "”只用于官方公告：命中 $matched 条；微信候选不参与搜索。"
         total == 0 ->
-            "本次没有读取到官方公告；微信候选单独分区展示，不用公告顶替。"
+            "当前没有已保存的官方公告；是否成功读取请以刷新状态为准。微信候选另行展示。"
         filterKey == MSG_FILTER_ALL ->
             "官方公告已读取 $total 条，当前可展示 $matched 条；微信候选在上方单独分区。"
         else ->
