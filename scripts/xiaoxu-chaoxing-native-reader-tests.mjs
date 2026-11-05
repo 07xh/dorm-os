@@ -10,8 +10,11 @@ const matched = native.match(/private const val READ_VISIBLE_PAGE = """([\s\S]*?
 assert.ok(matched, 'must retain a fixed, inspectable, read-only page script');
 assert.match(native, /browser\.loadUrl\(CHAOXING_COURSES\)/);
 assert.match(native, /if \(payload\.optBoolean\("truncated"\)\)/);
+assert.match(native, /captureVisibleRecords\(append = true\)/);
+assert.match(native, /if \(append\) dao\.insertAll\(accepted\)/);
+assert.match(native, /else dao\.replaceKind\(provider, kind, accepted\)/);
 assert.ok(native.indexOf('if (payload.optBoolean("truncated"))') <
-  native.indexOf('nativeSchoolRecords().replaceKind('), 'must reject truncated imports before Room replacement');
+  native.indexOf('if (append) dao.insertAll(accepted)'), 'must reject truncated imports before any Room write');
 
 function element(innerText) {
   return { innerText, getClientRects: () => [{}] };
