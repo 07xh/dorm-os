@@ -997,31 +997,41 @@ fun RealAcademicTaskHub(
         } else {
             if (cloudRows.isNotEmpty()) {
                 item {
-                    TaskSectionHeader(
+                    TaskGroupHeader(
                         title = "课程相关与云端任务",
                         count = cloudRows.size,
                         badge = "校序云端",
-                        note = "实际云端任务；来源、截止与个人完成标记不能替代学校官方提交核验。"
+                        note = "来自已保存云端任务 · 官方提交状态待核验",
+                        icon = Icons.Outlined.MenuBook,
+                        expanded = showCourseTasks,
+                        onClick = { showCourseTasks = !showCourseTasks }
                     )
                 }
-                items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                    XiaoxuCard(contentPadding = 8.dp) {
-                        TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
+                if (showCourseTasks) {
+                    items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
+                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                            TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
+                        }
                     }
                 }
             }
             if (localRows.isNotEmpty()) {
                 item {
-                    TaskSectionHeader(
+                    TaskGroupHeader(
                         title = "我的本机待办",
                         count = localRows.size,
                         badge = "本机 Room",
-                        note = "只存在这台手机上，离线可用；来源与日期都是本人填写。"
+                        note = "离线可用 · 来源与截止时间由本人填写",
+                        icon = Icons.Outlined.CheckBox,
+                        expanded = showPersonalTasks,
+                        onClick = { showPersonalTasks = !showPersonalTasks }
                     )
                 }
-                items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
-                    XiaoxuCard(contentPadding = 8.dp) {
-                        TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                if (showPersonalTasks) {
+                    items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
+                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                            TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                        }
                     }
                 }
             }
@@ -1037,20 +1047,26 @@ fun RealAcademicTaskHub(
         // 候选在本人确认前不是课程作业，也不进入三项统计。
         if (state.authenticated || state.pendingWechatCount != null) {
             item {
-                TaskSectionHeader(
-                    title = "微信消息候选",
+                TaskGroupHeader(
+                    title = "群消息任务候选",
                     count = state.pendingWechatCount ?: 0,
-                    badge = "本人云端 · 待审核",
-                    note = "仅展示真实候选摘要，逐条核对后才能加入普通云端任务。",
+                    badge = if (state.wechatError != null)
+                        "候选快照 · 待刷新" else "本人云端 · 待审核",
+                    note = "需要人工确认，加入后才进入个人任务列表",
+                    icon = Icons.Outlined.ChatBubbleOutline,
+                    expanded = showCandidates,
+                    onClick = { showCandidates = !showCandidates },
                     showCount = state.pendingWechatCount != null
                 )
             }
-            item {
-                WechatReviewPanel(
-                    client = client,
-                    pendingCount = state.pendingWechatCount,
-                    openWebsite = openWebsite
-                )
+            if (showCandidates) item {
+                XiaoxuCard {
+                    WechatReviewPanel(
+                        client = client,
+                        pendingCount = state.pendingWechatCount,
+                        openWebsite = openWebsite
+                    )
+                }
             }
         }
         item {
@@ -1198,6 +1214,56 @@ private fun TaskStatusTab(
     }
 }
 
+/** Shared white group header, with a blue icon tile and reliable source caption. */
+@Composable
+private fun TaskGroupHeader(
+    title: String,
+    count: Int,
+    badge: String,
+    note: String,
+    icon: ImageVector,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    showCount: Boolean = true
+) {
+    XiaoxuCard(contentPadding = 14.dp, onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(XiaoxuPalette.BrandSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = XiaoxuPalette.Brand,
+                    modifier = Modifier.size(22.dp))
+            }
+            Column(modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    title + if (showCount) " ($count)" else "",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = XiaoxuPalette.Ink,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Text(note, style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = if (expanded) "折叠分区" else "展开分区",
+                tint = XiaoxuPalette.Ink2
+            )
+        }
+        TaskSourceBadge(badge, emphasized = true)
+    }
+}
+
 /**
  * 分区标题：来源徽标 + 当前组条数 + 一句来源边界说明。
  * 读屏把标题当 heading 朗读，数字单独报出，避免"若干任务"这种模糊表述。
@@ -1281,67 +1347,86 @@ private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
 
-/** 卡片任务：明确标题、来源、完成/截止状态，点击展示真实详情抽屉。 */
+/** Compact row based on the reference image; click still opens the original real-data sheet. */
 @Composable
 private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
-        DUE_OVERDUE -> XiaoxuTone.Danger
-        DUE_TODAY -> XiaoxuTone.Warning
-        DUE_WEEK -> XiaoxuTone.Brand
-        else -> XiaoxuTone.Neutral
+        DUE_OVERDUE -> XiaoxuPalette.Danger
+        DUE_TODAY -> XiaoxuPalette.Warning
+        DUE_WEEK -> XiaoxuPalette.Brand
+        else -> XiaoxuPalette.Ink2
     }
-    val accent = if (task.storage == "local") XiaoxuPalette.Brand
-        else XiaoxuPalette.Success
+    val cloud = task.storage == "cloud"
+    val statusText = if (task.done) "个人已完成" else due.label
+    val statusInk = if (task.done) XiaoxuPalette.Success else dueTone
+    val statusBackground = when {
+        task.done -> XiaoxuPalette.SuccessSoft
+        due.emphasis == DUE_OVERDUE -> XiaoxuPalette.DangerSoft
+        due.emphasis == DUE_TODAY -> XiaoxuPalette.WarningSoft
+        due.emphasis == DUE_WEEK -> XiaoxuPalette.BrandSoft
+        else -> XiaoxuPalette.SurfaceAlt
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 76.dp)
-            .height(IntrinsicSize.Min)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
                     "；" + (if (task.done) "个人标记已完成" else "待办") +
                     "；" + due.spoken + "；点击查看任务详情"
-            },
-        verticalAlignment = Alignment.Top
+            }
+            .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            Modifier
-                .width(4.dp)
-                .fillMaxHeight()
-                .padding(vertical = 10.dp)
-                .clip(RoundedCornerShape(50))
-                .background(accent)
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.size(42.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(if (cloud) XiaoxuPalette.BrandSoft else XiaoxuPalette.SuccessSoft),
+            contentAlignment = Alignment.Center
         ) {
-            Row(verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                    color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink,
-                    modifier = Modifier.weight(1f)
-                )
-                StatusChip(
-                    text = if (task.done) "已完成" else "待办",
-                    tone = if (task.done) XiaoxuTone.Success else XiaoxuTone.Brand
-                )
-            }
-            TaskSourceBadge(task.origin)
-            StatusChip(
-                text = due.label,
-                tone = dueTone
+            Icon(
+                if (cloud) Icons.Outlined.MenuBook else Icons.Outlined.CheckBox,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = if (cloud) XiaoxuPalette.Brand else XiaoxuPalette.Success
             )
+        }
+        Column(modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                task.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
+            )
+            Text(
+                task.origin,
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Column(horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(
+                modifier = Modifier.widthIn(max = 108.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(statusBackground)
+                    .padding(horizontal = 7.dp, vertical = 5.dp)
+            ) {
+                Text(statusText, color = statusInk, fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
         }
     }
 }
