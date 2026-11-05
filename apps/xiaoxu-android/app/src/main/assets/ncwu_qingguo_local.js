@@ -37,6 +37,20 @@
     // innerText preserves explicit line breaks that textContent would discard.
     return String(element.innerText || "").split(/[\r\n]+/).map(tidy).filter(Boolean);
   }
+  // Official layouts differ in inline CSS. Parse the visible four-field
+  // course lines even if the original padding-bottom marker is absent.
+  // A non-four-line block is retained as ONE invalid candidate so the whole
+  // import fails closed rather than silently dropping a visible course.
+  function readCourseGroups(cell) {
+    const marked = [...cell.querySelectorAll("div")].filter(div =>
+      /padding-bottom\s*:\s*5px/i.test(div.getAttribute("style") || ""));
+    if (marked.length) return marked.map(readLines);
+    const lines = readLines(cell);
+    if (!lines.some(line => /周\s*[\[【]\s*\d{1,2}/.test(line))) return [];
+    if (lines.length % 4 !== 0) return [lines];
+    return Array.from({ length: lines.length / 4 },
+      (_, index) => lines.slice(index * 4, index * 4 + 4));
+  }
   function parseBlock(lines, day) {
     if (lines.length !== 4) return null;
     const [name, teacher, time, position] = lines;
@@ -83,12 +97,11 @@
           occupied[k] = true;
           if (rs > 1) next[k] = rs - 1;
         }
-        const divs = [...cell.querySelectorAll("div")].filter(div =>
-          /padding-bottom\s*:\s*5px/i.test(div.getAttribute("style") || ""));
-        if (cs > 1 && divs.length) { rowInvalid = true; break; }
-        for (const div of divs) {
+        const groups = readCourseGroups(cell);
+        if (cs > 1 && groups.length) { rowInvalid = true; break; }
+        for (const lines of groups) {
           rowBlocks++;
-          const parsed = parseBlock(readLines(div), dayIndex + 1);
+          const parsed = parseBlock(lines, dayIndex + 1);
           if (!parsed) bad++; else rowCourses.push(parsed);
         }
         dayIndex += cs;
@@ -149,16 +162,7 @@
       for (let day = 1; day <= 7; day++) {
         const cell = cells[columnForDay.get(day)];
         if (!cell) { blocked++; continue; }
-        const formatted = [...cell.querySelectorAll("div")].filter(div =>
-          /padding-bottom\s*:\s*5px/i.test(div.getAttribute("style") || ""));
-        const lineGroups = formatted.length
-          ? formatted.map(readLines)
-          : (() => {
-              const lines = readLines(cell);
-              if (!lines.some(line => /[\[【]\s*\d{1,2}\s*[-~～至]/.test(line))) return [];
-              if (lines.length % 4 !== 0) return [lines];
-              return Array.from({ length: lines.length / 4 }, (_, n) => lines.slice(n * 4, n * 4 + 4));
-            })();
+        const lineGroups = readCourseGroups(cell);
         for (const lines of lineGroups) {
           seen++;
           const result = parseBlock(lines, day);
