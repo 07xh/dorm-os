@@ -383,11 +383,9 @@ private fun ScheduleVerifiedContent(
     val counts = remember(filtered) { filtered.groupingBy { it.weekday }.eachCount() }
     val todayWeekday = remember { LocalDate.now().dayOfWeek.value }
 
-    // 选中的星期在当前筛选下没课时，落到最近的有课星期，避免"空页没有解释"。
-    val effectiveWeekday = remember(selectedWeekday, counts) {
-        if (counts.containsKey(selectedWeekday) || counts.isEmpty()) selectedWeekday
-        else counts.keys.minByOrNull { kotlin.math.abs(it - selectedWeekday) } ?: selectedWeekday
-    }
+    // Selection must stay on the user's chosen weekday, even if it is empty.
+    // Never silently jump from Saturday to an unrelated class day.
+    val effectiveWeekday = selectedWeekday
     val dayLessons = remember(filtered, effectiveWeekday) {
         filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
     }
@@ -505,7 +503,11 @@ private fun ScheduleVerifiedContent(
                         val weekLessons = remember(data.lessons, selectedWeek) {
                             data.lessons.filter { selectedWeek in it.weeks }
                         }
-                        WeeklyTimetableGrid(weekLessons) { item ->
+                        WeeklyTimetableGrid(
+                            lessons = weekLessons,
+                            selectedWeekday = selectedWeekday,
+                            onSelectWeekday = { selectedWeekday = it }
+                        ) { item ->
                             openCourse(item.toUi().key)
                         }
                     }
