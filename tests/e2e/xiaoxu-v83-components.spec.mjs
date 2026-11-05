@@ -30,6 +30,13 @@ test('V8.3 official notice component filters live verified records without reloa
  await expect(page.locator('#publicNoticeList .x-v7-notice-item')).toHaveCount(1);
  await expect(page.locator('#publicNoticeList')).toContainText('期末考试安排');
  await expect(input).toBeFocused();
+ // A new verified school notice response may re-render while the user types.
+ // The query and caret must remain in the current search field.
+ await input.evaluate(el=>el.setSelectionRange(2,2));
+ await page.evaluate(()=>render());
+ await expect(input).toBeFocused();
+ await expect(input).toHaveValue('期末考试');
+ expect(await input.evaluate(el=>el.selectionStart)).toBe(2);
  await input.fill('没有这种通知');
  await expect(page.locator('#publicNoticeList')).toContainText('没有匹配的已核验通知');
  await input.fill('');
