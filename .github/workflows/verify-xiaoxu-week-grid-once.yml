@@ -1,0 +1,32 @@
+name: Verify real-data native seven-day timetable grid
+
+on:
+  push:
+    branches:
+      - ci/xiaoxu-native-week-grid-verify-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no fake weekly data
+        run: |
+          node scripts/xiaoxu-android-bootstrap-tests.mjs
+          node scripts/xiaoxu-android-ics-import-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test real ICS parser and compile Compose week grid
+        run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest :app:assembleDebug --no-daemon
