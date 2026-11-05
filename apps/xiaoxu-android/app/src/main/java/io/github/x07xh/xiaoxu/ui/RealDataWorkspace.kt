@@ -2,6 +2,7 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -779,6 +780,9 @@ fun RealAcademicTaskHub(
     var filter by rememberSaveable { mutableStateOf("pending") }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
+    // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
+    var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     val visible = selectTasks(all, filter, today)
     // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
@@ -790,12 +794,27 @@ fun RealAcademicTaskHub(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("任务中心", style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.semantics { heading() })
-            Text("本机待办与校序云端记录分开统计；学校提交状态必须经过真实读取核验。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            XiaoxuCard {
+                SectionHeader(
+                    title = "任务中心",
+                    caption = "我的待办 · 已保存记录",
+                    actionLabel = "新增本机任务",
+                    onAction = { showLocal = true }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SourceBadge("本机任务", XiaoxuTone.Brand)
+                    SourceBadge(
+                        if (state.tasksFresh) "校序云端 · 本次读取"
+                        else "云端记录 · 待刷新",
+                        if (state.tasksFresh) XiaoxuTone.Success else XiaoxuTone.Warning
+                    )
+                }
+                Text(
+                    "学校提交状态需官方核验；任务统计不等于全部课程作业。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2
+                )
+            }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -863,7 +882,9 @@ fun RealAcademicTaskHub(
                     )
                 }
                 items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
-                    XiaoxuCard(contentPadding = 8.dp) { TaskRow(localRows[i], today) }
+                    XiaoxuCard(contentPadding = 8.dp) {
+                        TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                    }
                 }
             }
             if (cloudRows.isNotEmpty()) {
@@ -876,7 +897,9 @@ fun RealAcademicTaskHub(
                     )
                 }
                 items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                    XiaoxuCard(contentPadding = 8.dp) { TaskRow(cloudRows[i], today) }
+                    XiaoxuCard(contentPadding = 8.dp) {
+                        TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
+                    }
                 }
             }
         }
@@ -965,6 +988,55 @@ fun RealAcademicTaskHub(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+
+    if (selectedTask != null) {
+        val selectedDue = describeDue(selectedTask, today)
+        XiaoxuSheet(onDismiss = { openedTaskKey = null }, title = "任务详情") {
+            Text(
+                selectedTask.title,
+                style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SourceBadge(
+                    if (selectedTask.storage == "local") "本机本人待办" else "校序云端任务",
+                    if (selectedTask.storage == "local") XiaoxuTone.Brand else XiaoxuTone.Warning
+                )
+                StatusChip(
+                    if (selectedTask.done) "已完成（个人记录）" else "待完成",
+                    if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral
+                )
+            }
+            Text("来源：" + selectedTask.origin,
+                style = MaterialTheme.typography.bodyMedium)
+            Text("截止：" + selectedDue.label,
+                style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (selectedTask.storage == "cloud") {
+                    if (state.tasksFresh)
+                        "来自本次校序云端读取；截止日期仍须核对学校官方来源。个人完成不代表学校已提交。"
+                    else
+                        "来自上次保存的云端快照，本次未重新核验。截止日期与学校提交状态均待核对。"
+                } else {
+                    "本机记录来自本人填写，离线保存；不会自动修改学校官方作业。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2
+            )
+            OutlinedButton(
+                onClick = {
+                    if (selectedTask.storage == "local") showLocal = true else showCloud = true
+                    openedTaskKey = null
+                },
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
+            ) {
+                Text(
+                    if (selectedTask.storage == "local")
+                        "打开本机任务管理" else "打开云端任务管理"
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -1051,26 +1123,28 @@ private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
 
-/** 一条任务：标题（最多 3 行）+ 来源徽标 + 截止状态，整行 48dp 以上可读区域。 */
+/** 卡片任务：明确标题、来源、完成/截止状态，点击展示真实详情抽屉。 */
 @Composable
-private fun TaskRow(task: WorkspaceTask, today: LocalDate) {
+private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     val due = remember(task, today) { describeDue(task, today) }
-    val accent = if (task.storage == "local") MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.tertiary
-    val dueColor = when (due.emphasis) {
-        DUE_OVERDUE -> MaterialTheme.colorScheme.error
-        DUE_TODAY -> MaterialTheme.colorScheme.tertiary
-        DUE_WEEK -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val dueTone = when (due.emphasis) {
+        DUE_OVERDUE -> XiaoxuTone.Danger
+        DUE_TODAY -> XiaoxuTone.Warning
+        DUE_WEEK -> XiaoxuTone.Brand
+        else -> XiaoxuTone.Neutral
     }
+    val accent = if (task.storage == "local") XiaoxuPalette.Brand
+        else XiaoxuPalette.Success
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = 76.dp)
             .height(IntrinsicSize.Min)
+            .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
-                    "；" + (if (task.done) "已完成" else "待办") + "；" + due.spoken
+                    "；" + (if (task.done) "个人标记已完成" else "待办") +
+                    "；" + due.spoken + "；点击查看任务详情"
             },
         verticalAlignment = Alignment.Top
     ) {
@@ -1078,46 +1152,38 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate) {
             Modifier
                 .width(4.dp)
                 .fillMaxHeight()
-                .padding(vertical = 12.dp)
+                .padding(vertical = 10.dp)
                 .clip(RoundedCornerShape(50))
                 .background(accent)
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 12.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = task.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurface
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                TaskSourceBadge(task.origin)
+            Row(verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = due.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = dueColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                    color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.weight(1f))
-                Text(
+                StatusChip(
                     text = if (task.done) "已完成" else "待办",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (task.done) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tone = if (task.done) XiaoxuTone.Success else XiaoxuTone.Brand
                 )
             }
+            TaskSourceBadge(task.origin)
+            StatusChip(
+                text = due.label,
+                tone = dueTone
+            )
         }
     }
 }

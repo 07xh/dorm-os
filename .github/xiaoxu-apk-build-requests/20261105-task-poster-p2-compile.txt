@@ -1,0 +1,1 @@
+一次性 Android Debug APK 校验请求。对应 #268 任务中心精细复刻：可点选任务展示原生详情抽屉，保留真实本机/云端状态和既有管理入口。使用现有 build-xiaoxu-android.yml 验证 assembleDebug、testDebugUnitTest、ZIP/Manifest/DEX、SHA-256，不改认证/Room/学校接口。通过 CI 且合并到 main 才触发；不等于 Android16 真机视觉或学校账号验收。
