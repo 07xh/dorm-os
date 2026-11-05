@@ -839,5 +839,99 @@ runInNewContext(script, {window: plainInvalid});
 assert.match(plainInvalid.__xiaoxuExtract().error, /不完整/,
  '字段数量异常必须失败，不能只导入可识别子集');
 
+// Issue #268 第一阶段：统一设计系统 + 五页 Shell + 首页样板（纯 UI，不改数据来源）。
+const design = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
+assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色板');
+assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
+assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
+assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
+assert.match(design, /val card: Dp = 18\.dp/, '基础卡圆角须为 18dp');
+assert.match(design, /val hero: Dp = 22\.dp/, '重要卡圆角须为 22dp');
+assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
+assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
+assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
+assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
+assert.match(design, /fun XiaoxuHero\(/, '须有渐变主卡');
+assert.match(design, /fun MetricCard\(/, '须有统计卡');
+assert.match(design, /fun CourseTile\(/, '须有课程色块');
+assert.match(design, /fun SectionHeader\(/, '须有分区标题');
+assert.match(design, /fun SourceBadge\(/, '须有来源徽标');
+assert.match(design, /fun StatusChip\(/, '须有状态标签');
+assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
+assert.match(design, /fun XiaoxuLoading\(/, '须有统一加载态');
+assert.match(design, /fun XiaoxuEmpty\(/, '须有统一空态');
+assert.match(design, /fun XiaoxuError\(/, '须有统一错误态');
+assert.match(design, /fun XiaoxuUnverified\(/, '须有统一未核验态');
+assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
+assert.match(design, /fun QuickEntry\(/, '快捷入口须是共享组件');
+assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/,
+  '设计系统只画界面，不得触碰网络');
+assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./,
+  '设计系统不得依赖数据层');
+assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
+assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
+assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
+assert.match(main, /NavigationBarItemDefaults\.colors/, '底部导航选中态须统一配色');
+assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
+assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
+assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
+assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
+assert.match(workspace, /QuickEntry\("课表"/, '快捷入口只放已接入页面');
+assert.match(workspace, /remember\(state\) \{ deriveScheduleUiState\(state\) \}/,
+  '首页课表结论须复用课表页判定');
+assert.match(workspace, /当前教学周未核实/);
+assert.match(workspace, /不能确认今天实际开课|不显示上课倒计时/,
+  '缺少节次作息与教学周时必须显式声明不能确认当天实际上课');
+assert.match(workspace, /本人标记完成/, '统计口径须写清来源');
+assert.match(workspace, /XiaoxuTone.Neutral/, '无可信数据时 Hero 须转为未核验配色');
+assert.doesNotMatch(workspace, /下一节课/, '没有节次作息不得声称"下一节课"');
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得打印日志');
+
+
+// PR #269 review 修复：stale 不得算已核验 / 无教学周不得称今日实际课程 / 统计须说明云端快照。
+assert.match(workspace, /val verified = state as\? ScheduleUiState\.Verified/,
+  '首页须读取课表四态里的 stale 与刷新提示');
+assert.match(workspace, /val stale = verified\?\.stale == true/, 'stale 必须单独判定');
+assert.match(workspace, /stale -> "待刷新"/, 'stale 课表徽标须为待刷新，不得写已核验');
+assert.match(workspace, /本日课表 · 上次读取 · 待刷新核对/, 'stale 文案须说明是上次读取');
+assert.match(workspace, /refreshWarning/, '刷新失败提示须展示');
+assert.doesNotMatch(workspace, /今日课程|今日安排/,
+  '未知教学周时不得把按星期筛选的记录称为今日课程/今日安排');
+assert.match(workspace, /本日课表/, '课表区须按本日课表描述');
+assert.match(workspace, /按星期匹配，当前教学周未核实，不能确认今天实际开课/,
+  '须显式声明不能确认今天实际开课');
+assert.match(workspace, /formatWeeks\(it\.weeks\)/, '须展示课程适用周次');
+assert.match(workspace, /不代表今天停课/, '无该星期记录时不得推断停课');
+assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '统计须知道云端快照条数');
+assert.match(workspace, /本机 \+ 云端本次读取/, '刷新成功须标注本次读取');
+assert.match(workspace, /含上次云端快照 /, '未刷新时须披露统计包含上次云端快照');
+assert.match(workspace, /本人标记完成 · 含云端快照/, '已完成口径须同步披露快照');
+
+// PR #269 第二轮 review：课表新鲜度只认 scheduleFresh，不得用聚合 privateError 冒充课表提示。
+assert.match(schedulePanel, /val keptFromLastRead = !state\.scheduleFresh/,
+  '课表四态须以 scheduleFresh 判定是否为本次读取');
+assert.match(schedulePanel, /stale = keptFromLastRead \|\| state\.scheduleStatus == "stale"/,
+  '上次保留的数据与服务端 stale 都必须标记 stale');
+assert.match(schedulePanel, /refreshing = keptFromLastRead && state\.busy/,
+  '刷新中须可区分');
+assert.match(schedulePanel, /refreshing = refreshing/, 'refreshing 须传入 UI 状态');
+assert.match(schedulePanel, /refreshWarning = if \(keptFromLastRead && !state\.busy\)/,
+  '刷新失败才给课表专属提示');
+assert.doesNotMatch(schedulePanel, /refreshWarning = state\.privateError/,
+  '聚合 privateError 不得作为课表刷新提示');
+assert.doesNotMatch(schedulePanel, /Failed\(state\.privateError\)/,
+  '无课程时也不得把聚合错误当作课表错误');
+assert.match(schedulePanel, /fun localImportedScheduleState\(/, '本机导入课表状态须独立可测');
+assert.match(workspace, /refreshing -> "刷新中"/, '首页须显示刷新中徽标');
+assert.match(workspace, /本日课表 · 正在刷新 · 暂显示上次读取/, '刷新中须说明暂显示上次读取');
+assert.match(workspace, /本次课表刷新未成功，待刷新核对/, '刷新失败须标注待刷新核对');
+const freshnessTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ScheduleFreshnessTest.kt');
+assert.match(freshnessTest, /class ScheduleFreshnessTest/);
+assert.match(freshnessTest, /readyWithPreviousLessonsAndFailedScheduleReadIsStale/);
+assert.match(freshnessTest, /readyWithPreviousLessonsWhileRefreshingShowsRefreshing/);
+assert.match(freshnessTest, /serverMarkedStaleStaysStaleEvenWhenReadSucceeded/);
+assert.match(freshnessTest, /freshSuccessfulReadIsVerifiedForThisRead/);
+assert.match(freshnessTest, /taskOrWechatFailureDoesNotTaintSuccessfulScheduleRead/);
+assert.match(freshnessTest, /localImportedTimetableIsIndependentFromCloudFreshness/);
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

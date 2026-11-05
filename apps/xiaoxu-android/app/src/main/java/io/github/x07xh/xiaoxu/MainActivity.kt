@@ -11,13 +11,22 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,21 +39,19 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -55,7 +62,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,6 +76,9 @@ import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.SecondClassPanel
+import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
+import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.lifecycleScope
@@ -121,16 +130,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
+        enableEdgeToEdge()
         localLessons = LocalScheduleStore.load(this)
         receiveSchoolReturn(intent)
         setContent {
-            MaterialTheme(
-                colorScheme = lightColorScheme(
-                    primary = Color(0xFF2563EB),
-                    background = Color(0xFFF5F8FD),
-                    surface = Color.White
-                )
-            ) {
+            // 统一主题入口（Issue #268）：颜色 / 字级 / 圆角只在 ui/XiaoxuDesignSystem.kt 定义一次。
+            XiaoxuTheme {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     localLessons = localLessons,
@@ -365,29 +371,36 @@ private fun NativeShell(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
         Scaffold(
+            containerColor = XiaoxuPalette.Bg,
             topBar = {
-                TopAppBar(
-                    title = {
-                        Text("校序", fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.titleLarge)
-                    },
-                    actions = {
-                        IconButton(onClick = { scope.launch { cloud.refresh() } },
-                            enabled = !cloud.state.busy) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = "刷新云端与官方通知")
-                        }
-                    }
+                // 统一顶部区域：品牌标记 + 当前页名 + 刷新，五页共用一套。
+                XiaoxuTopBar(
+                    title = "校序",
+                    subtitle = current.label,
+                    refreshing = cloud.state.busy,
+                    onRefresh = { scope.launch { cloud.refresh() } }
                 )
             },
             bottomBar = {
                 if (!tabletLayout) {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = XiaoxuPalette.Surface,
+                        contentColor = XiaoxuPalette.Ink2,
+                        tonalElevation = 0.dp
+                    ) {
                         Page.entries.forEach { page ->
                             NavigationBarItem(
                                 selected = current == page,
                                 onClick = { current = page },
                                 icon = { Icon(page.symbol, contentDescription = null) },
-                                label = { Text(page.label) }
+                                label = { Text(page.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = XiaoxuPalette.BrandDeep,
+                                    selectedTextColor = XiaoxuPalette.BrandDeep,
+                                    indicatorColor = XiaoxuPalette.BrandSoft,
+                                    unselectedIconColor = XiaoxuPalette.Ink3,
+                                    unselectedTextColor = XiaoxuPalette.Ink3
+                                )
                             )
                         }
                     }
@@ -396,38 +409,65 @@ private fun NativeShell(
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
                 if (tabletLayout) {
-                    NavigationRail {
+                    NavigationRail(
+                        containerColor = XiaoxuPalette.Surface,
+                        contentColor = XiaoxuPalette.Ink2
+                    ) {
+                        Spacer(Modifier.height(12.dp))
                         Page.entries.forEach { page ->
                             NavigationRailItem(
                                 selected = current == page,
                                 onClick = { current = page },
                                 icon = { Icon(page.symbol, contentDescription = null) },
                                 label = { Text(page.label) },
-                                alwaysShowLabel = true
+                                alwaysShowLabel = true,
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = XiaoxuPalette.BrandDeep,
+                                    selectedTextColor = XiaoxuPalette.BrandDeep,
+                                    indicatorColor = XiaoxuPalette.BrandSoft,
+                                    unselectedIconColor = XiaoxuPalette.Ink3,
+                                    unselectedTextColor = XiaoxuPalette.Ink3
+                                )
                             )
                         }
                     }
                 }
-                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-                    when (current) {
-                        Page.HOME -> RealAcademicHome(localTasks, client = cloud,
-                            localLessons = localLessons,
-                            openSchedule = { current = Page.SCHEDULE },
-                            openTasks = { current = Page.TASKS },
-                            openMessages = { current = Page.MESSAGES },
-                            openProfile = { current = Page.PROFILE },
-                            openLocalSchool = openLocalSchool)
-                        Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
-                            openProfile = { current = Page.PROFILE },
-                            localLessons = localLessons, openLocalImport = openLocalImport,
-                            openFileImport = openFileImport)
-                        Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                            openLocalSchool = openLocalSchool)
-                        Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                        Page.PROFILE -> ConnectionsPage(
-                            openWebsite, cloud, openLocalSchool,
-                            startSchoolAuthorization, localCaptureReturn
-                        )
+                Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
+                    // 轻量过渡：淡入 + 轻微横向位移，不做整页滑屏，避免课表重排闪烁。
+                    AnimatedContent(
+                        targetState = current,
+                        transitionSpec = {
+                            val forward = targetState.ordinal >= initialState.ordinal
+                            val direction = if (forward) 1 else -1
+                            (
+                                fadeIn(animationSpec = tween(180)) +
+                                    slideInHorizontally(animationSpec = tween(200)) { width ->
+                                        direction * (width / 18)
+                                    }
+                                ) togetherWith fadeOut(animationSpec = tween(120))
+                        },
+                        label = "page"
+                    ) { page ->
+                        when (page) {
+                            Page.HOME -> RealAcademicHome(localTasks, client = cloud,
+                                localLessons = localLessons,
+                                openSchedule = { current = Page.SCHEDULE },
+                                openTasks = { current = Page.TASKS },
+                                openMessages = { current = Page.MESSAGES },
+                                openProfile = { current = Page.PROFILE },
+                                openLocalSchool = openLocalSchool)
+                            Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
+                                openProfile = { current = Page.PROFILE },
+                                localLessons = localLessons, openLocalImport = openLocalImport,
+                                openFileImport = openFileImport)
+                            Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                                openLocalSchool = openLocalSchool)
+                            Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
+                            Page.PROFILE -> ConnectionsPage(
+                                openWebsite, cloud, openLocalSchool,
+                                startSchoolAuthorization, localCaptureReturn
+                            )
+                        }
                     }
                 }
             }
