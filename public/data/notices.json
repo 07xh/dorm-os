@@ -2,20 +2,20 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-05T09:33:12.204Z",
+  "lastSuccessAt": "2026-11-05T18:03:58.019Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-02T17:20:09.934Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-05T18:03:58.019Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-04T18:00:19.386Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-05T18:03:58.019Z",
       "count": 8
     },
     {
@@ -24,13 +24,6 @@
       "status": "error",
       "lastSuccessAt": "2026-11-02T17:20:09.934Z",
       "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
-      "status": "ok",
-      "lastSuccessAt": "2026-11-05T09:33:12.204Z",
-      "count": 29
     }
   ],
   "items": [
@@ -56,6 +49,42 @@
       "id": "ncwu-0d807b2926efe0ce",
       "title": "关于举办智慧教学能力提升与教师教学创新大赛专题培训会的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23253.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-5329caad288db933",
+      "title": "关于对2026-2027第一学期课程进行学生网上评教的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23285.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-29440cd68ff95bcb",
+      "title": "关于2026-2027学年第二学期教学工作安排的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23332.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-83d0130ad19ed7da",
+      "title": "关于开展2027届本科毕业生第一次毕业预审核工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23333.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-da97e83a0852a7e9",
+      "title": "关于2026-2027学年第二学期线下通识选修课程申报工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23334.htm",
       "date": null,
       "sourceId": "jwc",
       "sourceName": "教务处通知",
@@ -377,33 +406,6 @@
       "category": "校园"
     },
     {
-      "id": "ncwu-29440cd68ff95bcb",
-      "title": "关于2026-2027学年第二学期教学工作安排的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23332.htm",
-      "date": null,
-      "sourceId": "school",
-      "sourceName": "学校通知",
-      "category": "校园"
-    },
-    {
-      "id": "ncwu-83d0130ad19ed7da",
-      "title": "关于开展2027届本科毕业生第一次毕业预审核工作的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23333.htm",
-      "date": null,
-      "sourceId": "school",
-      "sourceName": "学校通知",
-      "category": "校园"
-    },
-    {
-      "id": "ncwu-da97e83a0852a7e9",
-      "title": "关于2026-2027学年第二学期线下通识选修课程申报工作的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23334.htm",
-      "date": null,
-      "sourceId": "school",
-      "sourceName": "学校通知",
-      "category": "校园"
-    },
-    {
       "id": "ncwu-ed4480181922d55a",
       "title": "关于我校2026年度专业技术二级岗位推荐结果的公示",
       "url": "https://www.ncwu.edu.cn/info/1065/23322.htm",
@@ -422,6 +424,24 @@
       "category": "校园"
     },
     {
+      "id": "ncwu-f1dd5273701a6e00",
+      "title": "关于做好我校2026年度全员培训有关工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1065/23366.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-c6eecbef41723a3f",
+      "title": "关于开通国际学术资源访问服务的说明",
+      "url": "https://www.ncwu.edu.cn/info/1095/23369.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
       "id": "ncwu-8d8849f32311e181",
       "title": "关于开展“华北水利水电大学自强教育基金”评选工作的通知",
       "url": "https://www.ncwu.edu.cn/info/1098/23330.htm",
@@ -434,6 +454,15 @@
       "id": "ncwu-e845013387aa43a7",
       "title": "关于举办我校第十二届大学生职业规划大赛暨第四届全国大学生职业规划大赛校级选拔赛的通知",
       "url": "https://www.ncwu.edu.cn/info/1105/23350.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-9faac8a9f6e67c93",
+      "title": "关于举办我校第十二届大学生职业规划大赛暨第四届全国大学生职业规划大赛校级选拔赛的通知",
+      "url": "https://www.ncwu.edu.cn/info/1105/23367.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
