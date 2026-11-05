@@ -961,9 +961,9 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/,
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.ok(workspace.includes('MetricCard("待完成"'), '任务统计使用首页共享数字卡');
-assert.ok(workspace.includes('MetricCard("本周截止"'), '任务本周截止卡保持独立');
-assert.ok(workspace.includes('MetricCard("已完成"'), '任务已完成卡保持独立');
+assert.match(workspace, /MetricCard\(\s*"待完成"/, '任务统计使用首页共享数字卡');
+assert.match(workspace, /MetricCard\(\s*"本周截止"/, '任务本周截止卡保持独立');
+assert.match(workspace, /MetricCard\(\s*"已完成"/, '任务已完成卡保持独立');
 assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
 assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
