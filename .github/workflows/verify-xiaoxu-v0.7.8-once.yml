@@ -1,9 +1,7 @@
 name: Verify Xiaoxu Android 0.7.8 native-first APK
 
 on:
-  push:
-    branches:
-      - ci/xiaoxu-native-first-0.7.8-verify-20261105
+  workflow_dispatch:
 
 permissions:
   contents: read
