@@ -406,6 +406,33 @@ private fun ScheduleVerifiedContent(
         if (weekNumbers.size > 1) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek, onSelect = { selectedWeek = it })
         }
+        if (weekNumbers.isNotEmpty()) {
+            // Move only through weeks present in the owner's actual timetable.
+            // No synthetic "current week" or hardcoded 1..20 semester range.
+            val currentIndex = weekNumbers.indexOf(selectedWeek)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = { selectedWeek = weekNumbers[currentIndex - 1] },
+                    enabled = currentIndex > 0,
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("上一周") }
+                Text(
+                    text = if (currentIndex >= 0) "第 ${selectedWeek} 周"
+                           else "全部周次",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                OutlinedButton(
+                    onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
+                    enabled = currentIndex < weekNumbers.lastIndex,
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("下一周") }
+            }
+        }
         if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
             Text(
                 text = "当前混合展示整学期课块；选择具体周次才能判断那周是否有课。",
