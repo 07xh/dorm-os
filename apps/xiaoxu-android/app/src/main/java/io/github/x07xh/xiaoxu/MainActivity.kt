@@ -234,12 +234,12 @@ class MainActivity : ComponentActivity() {
                     "\n\n导入文件仅保存在本机，不代表青果官方实时同步。"
                 val saveImported = {
                     try {
-                        val count = LocalScheduleStore.saveParsed(this, parsed.second)
-                        localLessons = LocalScheduleStore.load(this)
-                        Toast.makeText(this, "成功导入 " + count + " 个课块",
+                        val count = LocalScheduleStore.saveParsed(this@MainActivity, parsed.second)
+                        localLessons = LocalScheduleStore.load(this@MainActivity)
+                        Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
                             Toast.LENGTH_LONG).show()
                     } catch (error: Exception) {
-                        Toast.makeText(this, error.message ?: "导入失败，旧课表未修改",
+                        Toast.makeText(this@MainActivity, error.message ?: "导入失败，旧课表未修改",
                             Toast.LENGTH_LONG).show()
                     }
                 }
