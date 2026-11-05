@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -243,7 +244,7 @@ fun MessageCenterPanel(
     val showOfficialSection = filterKey != MSG_FILTER_WECHAT &&
         (phase is MessagePhase.Content || phase is MessagePhase.Empty)
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding()) {
         val wide = maxWidth >= 840.dp
         val sidePadding = when {
             wide -> 28.dp
@@ -391,13 +392,16 @@ private fun MessageHeader(
     wechatError: String?,
     onRefresh: () -> Unit
 ) {
-    XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "MESSAGE CENTER",
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Brand,
+                    color = XiaoxuPalette.Ink3,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.4.sp,
                     maxLines = 1
@@ -414,7 +418,8 @@ private fun MessageHeader(
                 modifier = Modifier
                     .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .background(XiaoxuPalette.BrandSoft)
+                    .background(XiaoxuPalette.Surface)
+                    .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.pill))
                     .clickable(onClick = onRefresh, role = Role.Button)
                     .padding(horizontal = 14.dp)
                     .semantics { contentDescription = "刷新官方公告与待审核数量" },
@@ -437,7 +442,7 @@ private fun MessageHeader(
             }
         }
         Text(
-            text = "官方公告与微信候选分区展示",
+            text = "来源清楚 · 分类查看 · 微信候选人工确认",
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
