@@ -130,6 +130,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var extract: Button
     private var appendVisible: Button? = null
     private lateinit var finishAndReturn: Button
+    private lateinit var catalogProbe: Button
+    private var catalogProbeOn = false
     private var provider = ""
     private var loaded = false
     private var pageFailed = false
@@ -210,6 +212,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             text = "第二课堂 · 打开积分成绩单"
             setOnClickListener { browser.loadUrl(entries.getValue("second_class")) }
         } else null
+        catalogProbe = Button(this).apply {
+            text = "观测活动列表请求（手动）"
+            isEnabled = false
+            setOnClickListener { toggleCatalogObserver() }
+        }
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
@@ -246,6 +253,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     loaded = false
                     pageFailed = false
                     invalidateCapture()
+                    catalogProbeOn = false // A new document loses the in-page observer.
+                    catalogProbe.text = "观测活动列表请求（手动）"
+                    catalogProbe.isEnabled = false
                     extract.isEnabled = false
                     appendVisible?.isEnabled = false
                     if (!navigationAllowed(provider, url)) {
@@ -261,6 +271,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = loaded && extractionAllowed(provider, url)
                     appendVisible?.isEnabled = extract.isEnabled
+                    catalogProbe.isEnabled = provider == "second_class" && loaded &&
+                        host == "dekt.ncwu.edu.cn" &&
+                        Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
                     tell(if (pageFailed)
                         "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
                     else if (extract.isEnabled)
@@ -292,6 +305,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         loaded = false
                         extract.isEnabled = false
                         appendVisible?.isEnabled = false
+                        catalogProbe.isEnabled = false
                         tell("学校页面加载失败；请检查网络或重新打开官方页面，本次未读取数据。")
                     }
                 }
@@ -304,6 +318,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     loaded = false
                     extract.isEnabled = false
                     appendVisible?.isEnabled = false
+                    catalogProbe.isEnabled = false
                     tell("学校 HTTPS 证书验证失败，已阻止继续访问。")
                 }
                 override fun onReceivedHttpError(
@@ -315,6 +330,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         loaded = false
                         extract.isEnabled = false
                         appendVisible?.isEnabled = false
+                        catalogProbe.isEnabled = false
                         tell("学校页面返回 HTTP " + response.statusCode + "。请检查官网是否可正常访问。")
                     }
                 }
@@ -326,12 +342,97 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
         if (scoreShortcut != null) root.addView(scoreShortcut)
+        if (provider == "second_class") root.addView(catalogProbe)
         root.addView(finishAndReturn)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
         browser.loadUrl(entry)
+    }
+
+    /**
+     * One-tap opt-in source discovery for an owner-visible official activity page.
+     * The bundled script observes ONLY pathname + GET/POST metadata from the
+     * current document's own fetch/XHR calls. No credentials/response content,
+     * no new school request, no cloud report and no long-lived data collection.
+     * A candidate is not a verified activity catalog API.
+     */
+    private fun toggleCatalogObserver() {
+        val url = browser.url ?: return
+        if (provider != "second_class" || !loaded || pageFailed ||
+            Uri.parse(url).host != "dekt.ncwu.edu.cn" ||
+            !Uri.parse(url).path.orEmpty().startsWith("/sys/")) {
+            tell("请先打开学校官方活动页面；登录页面不可观测。")
+            return
+        }
+        if (!catalogProbeOn) {
+            val script = try {
+                assets.open("ncwu_secondclass_source_observer.js")
+                    .bufferedReader().use { it.readText() }
+            } catch (_: Exception) {
+                tell("活动来源诊断组件未安装，无法启动。")
+                return
+            }
+            catalogProbe.isEnabled = false
+            browser.evaluateJavascript(script) { encoded ->
+                catalogProbe.isEnabled = loaded && !pageFailed
+                val response = runCatching {
+                    JSONObject(JSONTokener(encoded).nextValue() as String)
+                }.getOrNull()
+                if (response?.optBoolean("ok") == true && browser.url == url && !pageFailed) {
+                    catalogProbeOn = true
+                    catalogProbe.text = "停止并查看请求路径"
+                    tell("已在本机开启只读路径观测。请在当前官方活动页正常切换筛选／分页，" +
+                        "然后点击“停止并查看请求路径”。不采集请求正文、Cookie 或账号。")
+                } else {
+                    tell("观测未启动；请打开学校已登录的业务页面后重试。")
+                }
+            }
+            return
+        }
+        catalogProbe.isEnabled = false
+        // Do NOT read window storage, page DOM, school cookies, request bodies,
+        // headers or responses. The in-page observer exposes sanitized paths only.
+        browser.evaluateJavascript(
+            "(function(){var o=window.__xiaoxuSecondClassSourceObserverV1;" +
+                "return o?o.stop():JSON.stringify({ok:false});})()"
+        ) { encoded ->
+            catalogProbeOn = false
+            catalogProbe.text = "观测活动列表请求（手动）"
+            catalogProbe.isEnabled = loaded && !pageFailed &&
+                Uri.parse(browser.url ?: "").host == "dekt.ncwu.edu.cn"
+            val response = runCatching {
+                JSONObject(JSONTokener(encoded).nextValue() as String)
+            }.getOrNull()
+            if (response?.optBoolean("ok") != true) {
+                tell("页面已更换或观测中断，没有确认活动数据来源。")
+                return@evaluateJavascript
+            }
+            val observed = response.optJSONArray("observed")
+            if (observed == null || observed.length() == 0) {
+                tell("没有观察到符合过滤规则的业务请求；这不证明学校没有活动接口。" +
+                    "可以在官方活动页打开观测后主动切换筛选或翻页。")
+                return@evaluateJavascript
+            }
+            val lines = (0 until minOf(observed.length(), 12)).mapNotNull { i ->
+                val item = observed.optJSONObject(i) ?: return@mapNotNull null
+                val method = item.optString("method")
+                val path = item.optString("path")
+                // Second independent Android-side validation for display.
+                if (method !in setOf("GET", "POST") ||
+                    !Regex("^/sys/(?:[A-Za-z_-]+/){1,7}[A-Za-z_-]+/?$").matches(path))
+                    return@mapNotNull null
+                val kind = if (item.optString("kind") == "known_personal")
+                    "已知个人接口" else "未验证候选"
+                "$method $path · $kind · " + item.optInt("count", 1).coerceIn(1, 99)
+            }
+            tell("仅本机观察到的请求路径（非接口验收）：\n" +
+                lines.joinToString("\n") +
+                if (response.optBoolean("overflow") || observed.length() > 12)
+                    "\n部分路径未展示；本次观测未保存任何请求内容。" else
+                    "\n请勿将候选路径误认为已验证的活动接口。")
+        }
     }
 
     private fun captureVisibleRecords(append: Boolean = false) {
