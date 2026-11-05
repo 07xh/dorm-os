@@ -530,7 +530,7 @@ assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
 assert.match(workspace, /学习通本机页面快照不计入/,
   '任务统计口径必须说明学习通本机快照不参与汇总');
-assert.match(workspace, /含上次云端任务快照/,
+assert.match(workspace, /统计包括上次云端任务快照/,
   '上次云端任务必须明确未重新核验，不可冒充新读取');
 assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
 assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
@@ -970,7 +970,7 @@ assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(localR
   '本机任务使用统一卡片');
 assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(cloudRows[i], today) }'),
   '云端任务使用统一卡片且保留来源隔离');
-assert.ok(workspace.includes('含上次云端任务快照'),
+assert.ok(workspace.includes('统计包括上次云端任务快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
   '任务来源必须复用共享来源标签');
