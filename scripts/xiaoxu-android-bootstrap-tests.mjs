@@ -989,8 +989,10 @@ assert.match(workspace, /来自上次保存的云端快照，本次未重新核�
   '旧云端任务不得伪装成刚同步');
 assert.match(workspace, /个人完成不代表学校已提交/,
   '任务详情不得冒充学校官方提交状态');
-assert.match(workspace, /if \(selectedTask\.storage == "local"\) showLocal = true else showCloud = true/,
-  '任务详情操作必须调用原有本机/云端管理入口');
+assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*jumpTo = "local"/,
+  '本机任务详情应展开本机管理并定位至真实表单');
+assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
+  '云端任务详情应展开云端管理并定位至真实表单');
 assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
   '消息页头部使用共享卡片');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
