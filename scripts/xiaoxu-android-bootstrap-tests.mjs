@@ -478,6 +478,8 @@ assert.match(workspace, /三项统计只算本机待办与校序云端记录/,
   '统计口径须显式说明不包含本机快照');
 assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
 assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
+assert.match(workspace, /DueUi\(prefix \+ "已逾期/, '云端过期日期必须保留待核对前缀');
+assert.match(workspace, /shown\.size \+ " \/ " \+ visible\.size/, '80 条展示上限必须告知实际筛选总数');
 assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
 assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
