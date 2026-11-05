@@ -172,7 +172,11 @@ assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTAC
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
 const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
-assert.match(workspace, /ChaoxingHomeworkPanel\(client, openWebsite\)/);
+assert.match(workspace, /ChaoxingHomeworkPanel\(client, openSchoolReader = \{ openLocalSchool\("chaoxing"\) \}\)/);
+assert.match(coursePanel, /fun ChaoxingHomeworkPanel\(client: CloudClient, openSchoolReader: \(\) -> Unit\)/);
+assert.match(coursePanel, /OutlinedButton\(onClick = openSchoolReader\)/);
+assert.match(coursePanel, /在 App 内读取学习通作业/);
+assert.doesNotMatch(coursePanel, /前往现有数据连接中心/);
 // Native first-party QR uses existing server start/image/status, never new login routes.
 assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/start/);
 assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/image/);
