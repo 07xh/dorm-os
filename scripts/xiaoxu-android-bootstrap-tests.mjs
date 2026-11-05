@@ -387,6 +387,7 @@ assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写
 // 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
 // 顶部不能再用单一「官方来源」徽标覆盖整页。
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
+assert.match(messageCenter, /noticeTotal == 0 -> "暂无已保存公告"/, "没有读取证据时不得冒充本次成功读到零条");
 assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
 assert.match(messageCenter, /title = "华水官方公告"/);
 assert.match(messageCenter, /title = "微信候选"/);
