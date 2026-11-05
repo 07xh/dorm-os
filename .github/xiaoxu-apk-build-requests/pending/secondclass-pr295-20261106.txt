@@ -1,0 +1,1 @@
+校序第二课堂 #295：用户已要求继续开发，进行 Android 原生三分区界面的 PR 编译与 JVM 单测验收。仅对 PR 分支执行 assembleDebug + testDebugUnitTest；CI/真机验收前不宣布正式上线。
