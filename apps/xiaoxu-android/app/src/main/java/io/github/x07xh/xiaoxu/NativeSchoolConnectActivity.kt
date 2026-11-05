@@ -46,6 +46,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         const val EXTRA_PROVIDER = "provider"
         const val EXTRA_RETURN_KIND = "saved_kind"
         const val EXTRA_SAVED_COUNT = "saved_count"
+        // Exactly the existing first-party course-list endpoint used by the
+        // trusted server adapter; this shortcut does not transfer WebView cookies.
+        private const val CHAOXING_COURSES =
+            "https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata"
         // Official personal homework overview; still requires the owner's normal login.
         private const val CHAOXING_HOMEWORK =
             "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
@@ -156,6 +160,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         control("刷新页面") { browser.reload() }
         extract = control("读取当前页") { captureVisibleRecords() }
         extract.isEnabled = false
+        val courseShortcut = if (provider == "chaoxing") Button(this).apply {
+            text = "学习通 · 打开我的课程"
+            setOnClickListener { browser.loadUrl(CHAOXING_COURSES) }
+        } else null
         val homeworkShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "学习通 · 打开我的作业"
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
@@ -252,6 +260,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
+        if (courseShortcut != null) root.addView(courseShortcut)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
         root.addView(finishAndReturn)
@@ -288,6 +297,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     ?: throw IllegalArgumentException("empty")
                 val payload = JSONObject(decoded)
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
+                if (payload.optBoolean("truncated")) {
+                    tell("当前页面有超过 120 条可见记录，已阻止截断导入；旧记录保持不变。请在官网筛选或分页后再读取。")
+                    return@evaluateJavascript
+                }
                 val kind = payload.optString("kind")
                 val kinds = when (provider) {
                     "chaoxing" -> setOf("course", "homework")
@@ -369,6 +382,8 @@ private const val READ_VISIBLE_PAGE = """
   });
   const onScreen = node => !!(node && node.getClientRects().length);
   const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
+  // A partial snapshot must never replace previously saved personal records.
+  const MAX_RECORDS = 120;
   const rows = [];
   let kind = '';
   // The all-task page may also contain course/summary tables. Those are NOT
@@ -408,7 +423,7 @@ private const val READ_VISIBLE_PAGE = """
         compact.findIndex(h => /^(课程|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
       if (first < 0 || (homeworkOverview && foundKind !== 'homework')) continue;
       let appended = false;
-      for (const tr of trs.slice(1,121)) {
+      for (const tr of trs.slice(1)) {
         const cells = Array.from(tr.querySelectorAll(':scope > th,:scope > td')).map(el => clean(el.innerText));
         if (cells.length !== header.length || !cells[first]) continue;
         const title = cells[first].slice(0,100);
@@ -419,7 +434,7 @@ private const val READ_VISIBLE_PAGE = """
           rows.push({title,details});
           appended = true;
         }
-        if (rows.length >= 120) break;
+        if (rows.length > MAX_RECORDS) break;
       }
       // A header without valid visible records must not block another table.
       if (appended) kind = foundKind;
@@ -432,7 +447,7 @@ private const val READ_VISIBLE_PAGE = """
     // Never read the li "data" attribute: it may contain an auth token.
     for (const doc of docs) {
       const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
-      for (const li of Array.from(tasks).slice(0,120)) {
+      for (const li of Array.from(tasks)) {
         if (!onScreen(li)) continue;
         const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
           li.querySelector('p.overHidden2')?.innerText).slice(0,100);
@@ -441,6 +456,7 @@ private const val READ_VISIBLE_PAGE = """
           li.querySelector('p.status')?.innerText).slice(0,60);
         rows.push({title,details: status ?
           '当前网页显示的状态：' + status : '网页未展示提交状态'});
+        if (rows.length > MAX_RECORDS) break;
       }
     }
     if (rows.length) kind = 'homework';
@@ -453,14 +469,17 @@ private const val READ_VISIBLE_PAGE = """
     // from unrelated links or sign-in screens.
     for (const doc of docs) {
       const nodes = doc.querySelectorAll('.course-name[title],a[href*="courseid="] .course-name');
-      for (const el of Array.from(nodes).slice(0,120)) {
+      for (const el of Array.from(nodes)) {
         if (!onScreen(el)) continue;
         const title = clean(el.getAttribute('title') || el.innerText).slice(0,100);
         if (title.length > 1) rows.push({title,details:'课程列表页面'});
+        if (rows.length > MAX_RECORDS) break;
       }
     }
     if (rows.length) kind = 'course';
   }
-  return JSON.stringify({host,kind,records:rows.slice(0,120)});
+  if (rows.length > MAX_RECORDS)
+    return JSON.stringify({host,kind,records:[],truncated:true});
+  return JSON.stringify({host,kind,records:rows});
 })()
 """;
