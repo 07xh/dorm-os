@@ -1,0 +1,43 @@
+name: Publish tested Xiaoxu 0.8.1 native week view APK
+
+on:
+  push:
+    branches:
+      - ci/publish-xiaoxu-v081-20261105
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact compiled APK after passing JUnit
+        run: |
+          mkdir -p "$RUNNER_TEMP/xiaoxu"
+          gh run download 41977282679 --repo "$GITHUB_REPOSITORY" --name xiaoxu-android-v0.8.1-native-week-timetable-debug --dir "$RUNNER_TEMP/xiaoxu"
+          test -s "$RUNNER_TEMP/xiaoxu/app-debug.apk"
+          unzip -tq "$RUNNER_TEMP/xiaoxu/app-debug.apk"
+          test "$(stat -c %s "$RUNNER_TEMP/xiaoxu/app-debug.apk")" -gt 10000000
+      - name: Publish unchanged tested APK on binary-only GitHub branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan apk-xiaoxu-v081-20261105
+          mkdir -p download
+          cp "$RUNNER_TEMP/xiaoxu/app-debug.apk" download/xiaoxu-android-v0.8.1-native-week-debug.apk
+          (cd download && sha256sum xiaoxu-android-v0.8.1-native-week-debug.apk > SHA256SUMS.txt)
+          git add -f download/xiaoxu-android-v0.8.1-native-week-debug.apk download/SHA256SUMS.txt
+          git commit -m "artifact: tested Xiaoxu 0.8.1 native timetable APK"
+          git push origin HEAD:refs/heads/apk-xiaoxu-v081-20261105
+      - name: Confirm public direct APK is downloadable
+        run: |
+          curl -fL --retry 4 --retry-delay 2 -r 0-15 \
+            "https://raw.githubusercontent.com/07xh/dorm-os/apk-xiaoxu-v081-20261105/download/xiaoxu-android-v0.8.1-native-week-debug.apk" \
+            -o "$RUNNER_TEMP/apk-probe"
+          test -s "$RUNNER_TEMP/apk-probe"
