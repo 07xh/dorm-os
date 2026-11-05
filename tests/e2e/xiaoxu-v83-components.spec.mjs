@@ -27,10 +27,17 @@ test('V8.3 official notice component filters live verified records without reloa
  await expect(page.locator('link[href="/xiaoxu-workspace.css"]')).toHaveCount(1);
  const input=page.locator('#noticeSearch');
  await input.fill('期末考试');
+ // Background school/status refresh may replace the whole academic pane.
+ // Keep the focused search field and typed query across that real rerender.
+ await page.evaluate(() => render());
+ await expect(input).toHaveValue('期末考试');
+ await expect(input).toBeFocused();
  await expect(page.locator('#publicNoticeList .x-v7-notice-item')).toHaveCount(1);
  await expect(page.locator('#publicNoticeList')).toContainText('期末考试安排');
  await expect(input).toBeFocused();
  await input.fill('没有这种通知');
+ await page.evaluate(() => render());
+ await expect(input).toBeFocused();
  await expect(page.locator('#publicNoticeList')).toContainText('没有匹配的已核验通知');
  await input.fill('');
  await expect(page.locator('#publicNoticeList .x-v7-notice-item')).toHaveCount(2);
