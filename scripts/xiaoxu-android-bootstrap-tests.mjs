@@ -961,9 +961,9 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/,
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.ok(workspace.includes('MetricCard("待完成"'), '任务统计使用首页共享数字卡');
-assert.ok(workspace.includes('MetricCard("本周截止"'), '任务本周截止卡保持独立');
-assert.ok(workspace.includes('MetricCard("已完成"'), '任务已完成卡保持独立');
+assert.match(workspace, /MetricCard\(\s*"待完成"/, '任务统计使用首页共享数字卡');
+assert.match(workspace, /MetricCard\(\s*"本周截止"/, '任务本周截止卡保持独立');
+assert.match(workspace, /MetricCard\(\s*"已完成"/, '任务已完成卡保持独立');
 assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
 assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
@@ -989,8 +989,10 @@ assert.match(workspace, /来自上次保存的云端快照，本次未重新核�
   '旧云端任务不得伪装成刚同步');
 assert.match(workspace, /个人完成不代表学校已提交/,
   '任务详情不得冒充学校官方提交状态');
-assert.match(workspace, /if \(selectedTask\.storage == "local"\) showLocal = true else showCloud = true/,
-  '任务详情操作必须调用原有本机/云端管理入口');
+assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*jumpTo = "local"/,
+  '本机任务详情应展开本机管理并定位至真实表单');
+assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
+  '云端任务详情应展开云端管理并定位至真实表单');
 assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
   '消息页头部使用共享卡片');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
@@ -1007,5 +1009,27 @@ assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImp
   '不得移除原生学校读取入口');
 assert.ok(panels.includes('if (cloudAdvanced) {'),
   '云端授权仍是可展开的独立可选入口');
+
+// Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
+assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
+  '任务中心必须保留独立可滚动列表状态');
+assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
+  '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
+assert.match(workspace, /"cloud" -> if \(showCloud\) 5 \+ \(if \(showLocal\) 1 else 0\)/,
+  '云端管理滚动下标须考虑本机管理展开与否');
+assert.match(workspace, /"filters" -> 5 \+ \(if \(showLocal\) 1 else 0\) \+ \(if \(showCloud\) 1 else 0\)/,
+  '筛选列表跳转下标须考虑两个管理区状态');
+assert.match(workspace, /caption = if \(filter == "week"\) "当前筛选" else "点击查看"/,
+  '本周截止统计卡应体现当前筛选并能点击');
+assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
+  '待完成统计卡应真实切换过滤器');
+assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
+  '已完成统计卡应真实切换过滤器');
+assert.match(workspace, /jumpTo = "local"/,
+  '本机任务按钮应自动定位管理区域');
+assert.match(workspace, /jumpTo = "cloud"/,
+  '云端任务按钮应自动定位管理区域');
+assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
+  '窄屏任务分区标题必须给来源和条数预留空间');
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
