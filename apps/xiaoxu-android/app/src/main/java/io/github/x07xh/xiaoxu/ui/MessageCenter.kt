@@ -856,7 +856,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NoticeDetailSheet(
+internal fun NoticeDetailSheet(
     notice: AcademicNotice,
     openArticle: (String) -> Unit,
     onDismiss: () -> Unit

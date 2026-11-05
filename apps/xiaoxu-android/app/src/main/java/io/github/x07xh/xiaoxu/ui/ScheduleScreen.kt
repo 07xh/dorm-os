@@ -1065,6 +1065,12 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     }
 }
 
+/** 首页与完整课表共用同一课程详情抽屉和真实课程映射。 */
+@Composable
+internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit) {
+    CourseDetailBottomSheet(lesson.toUi(), localImport = true, onDismiss = onDismiss)
+}
+
 /** 真实课程详情：原生模态抽屉，不推断作息时间，不提供未实现的提醒开关。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

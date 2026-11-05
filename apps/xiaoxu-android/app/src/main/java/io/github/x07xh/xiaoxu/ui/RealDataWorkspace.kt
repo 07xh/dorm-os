@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -192,14 +193,9 @@ private fun Metric(label: String, value: String, modifier: Modifier = Modifier) 
 }
 
 /**
- * 首页（Issue #268 第一阶段样板）：结构对齐宣传海报，数据全部来自已连接的真实来源。
- *
- * 三条硬约束：
- * 1. 没有可信课表时不画任何课程名——Hero 转为深灰蓝"未核验"卡；
- * 2. 未接入开学日期与节次作息，因此不推断当前教学周、不做上课倒计时；
- * 3. 统计只数已有记录，卡面写清是"本机 + 云端"还是"仅本机"。
- *
- * 手机单列滚动；≥700dp 平板改为左（今天/课表/统计/入口）右（待办/通知/本机作业）双列。
+ * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
+ * 不推断当前教学周、上课时间或学校提交状态；云端任务保留快照标识。
+ * 手机、平板共享单一滚动状态，不创建独立的海报或模拟页面。
  */
 @Composable
 fun RealAcademicHome(
@@ -211,7 +207,12 @@ fun RealAcademicHome(
     openMessages: () -> Unit,
     openProfile: () -> Unit,
     openAcademic: () -> Unit,
-    openLocalSchool: (String) -> Unit = {}
+    openLocalSchool: (String) -> Unit = {},
+    openFileImport: () -> Unit,
+    openGrades: () -> Unit,
+    openExams: () -> Unit,
+    openSecondClass: () -> Unit,
+    openArticle: (String) -> Unit
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -220,126 +221,120 @@ fun RealAcademicHome(
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
     val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
-    val localSecondClass = nativeRows.filter {
-        it.provider == "second_class" && it.kind in setOf("activity", "credits")
-    }
-    // Both Today and Schedule read the same local import; cloud snapshots can
-    // never appear as a fallback after logout or a failed timetable import.
-    val timetable = localLessons
-    val isLocalTimetable = localLessons.isNotEmpty()
-    val localScheduleState = remember(localLessons) {
-        if (localLessons.isEmpty()) ScheduleUiState.VerifiedEmpty
-        else localImportedScheduleState(localLessons)
-    }
-    val sameWeekday = timetable.filter { it.weekday == today.dayOfWeek.value }
+
+    // Both Home and Schedule use the SAME locally imported timetable. Never fall
+    // back to cloud course snapshots; the timetable is available while offline.
+    val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
-    val weekdayLabel = listOf("周一","周二","周三","周四","周五","周六","周日")[today.dayOfWeek.value - 1]
+    val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
     val pending = all.count { !it.done }
-    val doneCount = all.count { it.done }
+    val attention = all.count { !it.done && it.date != null && !it.date.isAfter(today.plusDays(3)) }
     val upcoming = all.filter { !it.done }.take(3)
-    // 云端任务在刷新失败时会保留上次快照（CloudClient 不清空 state.tasks），
-    // 因此口径必须区分"本次读取"与"上次快照"，不能一律写成"仅本机"。
     val cloudSnapshotRows = state.tasks.size
     val metricCaption = when {
         state.tasksFresh -> "本机 + 云端本次读取"
-        cloudSnapshotRows > 0 -> "含上次云端快照 " + cloudSnapshotRows + " 条"
+        cloudSnapshotRows > 0 -> "含上次云端快照 $cloudSnapshotRows 条"
         else -> "仅本机记录"
     }
-    val doneCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "本人标记完成 · 含云端快照"
-    else "本人标记完成"
-    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0) "含上次云端快照"
-    else "缺截止日期会单独标注"
+    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0)
+        "含上次云端快照 · 期限待核对"
+    else "按已记录截止日排序 · 未注明日期的排后"
 
+    // Sheets look up the current records by stable keys, not saved copies of
+    // possibly stale local/cloud data. Reuse Schedule/Message details directly.
+    var openedLessonKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var openedNoticeKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val onLessonOpen: (VerifiedLesson) -> Unit = { openedLessonKey = homeLessonKey(it) }
+    val onTaskOpen: (WorkspaceTask) -> Unit = { openedTaskKey = it.key }
+    val onNoticeOpen: (String) -> Unit = { openedNoticeKey = it }
+
+    val hero: @Composable () -> Unit = {
+        HomeHero(sameWeekday.firstOrNull(), localLessons.isNotEmpty(), weekdayLabel,
+            openSchedule, openFileImport, onLessonOpen)
+    }
+    val tasks: @Composable () -> Unit = {
+        HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
+    }
+    val metrics: @Composable () -> Unit = {
+        HomeMetricsBlock(pending, attention, metricCaption, openTasks)
+    }
+    val academic: @Composable () -> Unit = {
+        HomeQuickBlock(openAcademic, openGrades, openExams, openSecondClass,
+            openChaoxing = { openLocalSchool("chaoxing") })
+    }
+    val notices: @Composable () -> Unit = {
+        HomeNoticesBlock(state, openMessages, onNoticeOpen)
+    }
+    val homework: @Composable () -> Unit = {
+        HomeHomeworkBlock(localHomework, openLocalSchool)
+    }
+
+    val homeListState = rememberLazyListState()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wideLayout = maxWidth >= 700.dp
-        if (wideLayout) {
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                LazyColumn(
-                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
-                    contentPadding = PaddingValues(start = 20.dp, top = 14.dp, bottom = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item { HomeGreeting(today, weekdayLabel) }
-                    item {
-                        HomeHero(
-                            lesson = sameWeekday.firstOrNull(),
-                            isLocalTimetable = isLocalTimetable,
-                            hasTimetable = timetable.isNotEmpty(),
-                            weekdayLabel = weekdayLabel,
-                            state = localScheduleState,
-                            openSchedule = openSchedule,
-                            openProfile = openProfile
-                        )
-                    }
-                    if (timetable.isNotEmpty()) {
-                        item {
-                            TodayScheduleBlock(
-                                sameWeekday = sameWeekday,
-                                isLocalTimetable = isLocalTimetable,
-                                openSchedule = openSchedule, openProfile = openProfile
-                            )
+        // One scroll owner on phones AND tablets; neither column scrolls separately.
+        LazyColumn(
+            state = homeListState,
+            modifier = Modifier.fillMaxSize().widthIn(max = 1200.dp),
+            contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 18.dp,
+                vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { HomeGreeting(today, weekdayLabel) }
+            if (wideLayout) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1.15f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            hero()
+                            metrics()
                         }
+                        Column(Modifier.weight(1f)) { tasks() }
                     }
-                    item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
-                    item { HomeQuickBlock(openSchedule, openTasks, openMessages, openAcademic) }
                 }
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(end = 20.dp, top = 14.dp, bottom = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item { HomeTodoBlock(upcoming, today, todoCaption, openTasks) }
-                    item { HomeNoticesBlock(state, openMessages) }
-                    item {
-                        HomeHomeworkBlock(
-                            localHomework, localSecondClass, openProfile, openLocalSchool
-                        )
-                    }
-                    item { HomeFooterNote() }
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item { HomeGreeting(today, weekdayLabel) }
+                item { academic() }
                 item {
-                    HomeHero(
-                        lesson = sameWeekday.firstOrNull(),
-                        isLocalTimetable = isLocalTimetable,
-                        hasTimetable = timetable.isNotEmpty(),
-                        weekdayLabel = weekdayLabel,
-                        state = localScheduleState,
-                        openSchedule = openSchedule,
-                        openProfile = openProfile
-                    )
-                }
-                // 一张课表都没有时，Hero 已经说明原因，不再重复一张空卡片。
-                if (timetable.isNotEmpty()) {
-                    item {
-                        TodayScheduleBlock(
-                            sameWeekday = sameWeekday,
-                            isLocalTimetable = isLocalTimetable,
-                            openSchedule = openSchedule, openProfile = openProfile
-                        )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1f)) { notices() }
+                        Column(Modifier.weight(1f)) { homework() }
                     }
                 }
-                item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
-                item { HomeQuickBlock(openSchedule, openTasks, openMessages, openAcademic) }
-                item { HomeTodoBlock(upcoming, today, todoCaption, openTasks) }
-                item { HomeNoticesBlock(state, openMessages) }
-                item {
-                    HomeHomeworkBlock(
-                        localHomework, localSecondClass, openProfile, openLocalSchool
-                    )
-                }
-                item { HomeFooterNote() }
+            } else {
+                item { hero() }
+                item { tasks() }
+                item { metrics() }
+                item { academic() }
+                item { notices() }
+                item { homework() }
             }
         }
     }
+    val selectedLesson = localLessons.firstOrNull { homeLessonKey(it) == openedLessonKey }
+    if (selectedLesson != null) {
+        HomeCourseDetailSheet(selectedLesson, onDismiss = { openedLessonKey = null })
+    }
+    val selectedTask = all.firstOrNull { it.key == openedTaskKey }
+    if (selectedTask != null) {
+        WorkspaceTaskDetailSheet(
+            selectedTask, today, state.tasksFresh,
+            onDismiss = { openedTaskKey = null },
+            onManage = { openedTaskKey = null; openTasks() }
+        )
+    }
+    val selectedNotice = state.notices.firstOrNull {
+        it.id.ifBlank { it.url } == openedNoticeKey
+    }
+    if (selectedNotice != null) {
+        NoticeDetailSheet(selectedNotice, openArticle = openArticle,
+            onDismiss = { openedNoticeKey = null })
+    }
 }
+
+private fun homeLessonKey(lesson: VerifiedLesson): String =
+    "${lesson.id}:${lesson.weekday}:${lesson.startSection}:${lesson.endSection}:${lesson.title}"
 
 /** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
 @Composable
@@ -390,161 +385,49 @@ private fun HomeSection(
     }
 }
 
-/**
- * Hero：有真实课表记录才用蓝色渐变；没有可信课表就转深灰蓝并说明原因。
- *
- * 两条真值约束（PR #269 review）：
- * 1. stale 的官方课表只能说"上次读取 · 待刷新"，不得写成"已核验"；
- * 2. 只有星期与节次、没有当前教学周，所以这里描述的是"该星期的课表记录"，
- *    不是"今天确实在上课"。
- */
+/** 本机导入课表按星期展示课程记录；周次未知时不得暗示今日真实开课。 */
 @Composable
 private fun HomeHero(
     lesson: VerifiedLesson?,
-    isLocalTimetable: Boolean,
     hasTimetable: Boolean,
     weekdayLabel: String,
-    state: ScheduleUiState,
     openSchedule: () -> Unit,
-    openProfile: () -> Unit
+    openFileImport: () -> Unit,
+    onOpenLesson: (VerifiedLesson) -> Unit
 ) {
-    val verified = state as? ScheduleUiState.Verified
-    val stale = verified?.stale == true
-    val refreshing = verified?.refreshing == true
-    val refreshNote = verified?.refreshWarning?.takeIf { it.isNotBlank() }
-    // 徽标只描述这份课的来源与新鲜度，不代替核验结论。
-    // 顺序：本机导入 > 刷新中 > 待刷新 > 本次读取。
-    val badge = when {
-        isLocalTimetable -> "待核对"
-        refreshing -> "刷新中"
-        stale -> "待刷新"
-        else -> "已核验"
-    }
-    val weekNote = lesson?.let { "适用" + formatWeeks(it.weeks) }
-    val sourceNote = when {
-        isLocalTimetable -> "本机导入 · 待核对"
-        refreshing -> "正在刷新 · 暂显示上次读取"
-        stale -> "上次读取 · 待刷新核对"
-        else -> ""
-    }
     when {
         lesson != null -> XiaoxuHero(
-            kicker = when {
-                isLocalTimetable -> "本日课表 · 本机导入"
-                refreshing -> "本日课表 · 正在刷新"
-                stale -> "本日课表 · 上次读取"
-                else -> "本日课表"
-            },
+            kicker = "${weekdayLabel}课程记录 · 本机课表",
             title = lesson.title,
-            supporting = "第" + lesson.startSection + "–" + lesson.endSection + "节 · " +
+            supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
                 lesson.location.ifBlank { "教室未提供" } + " · " +
                 lesson.teacher.ifBlank { "教师未提供" },
-            badge = badge,
-            meta = (weekNote?.plus(" · ") ?: "") + sourceNote +
-                (refreshNote?.let { " · " + it } ?: ""),
+            badge = "待核对",
+            meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
+            modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
+                onOpenLesson(lesson)
+            },
             actionLabel = "全部课表",
             onAction = openSchedule
         )
         hasTimetable -> XiaoxuHero(
-            kicker = "本日课表",
-            title = "课表里" + weekdayLabel + "没有课程记录",
-            supporting = "请以学校官网为准。",
-            badge = badge,
-            meta = sourceNote + (refreshNote?.let { " · " + it } ?: ""),
-            actionLabel = "打开课表",
+            kicker = "${weekdayLabel}课程记录",
+            title = "没有对应星期的课程记录",
+            supporting = "不等于今天停课，请以实际教学周和学校通知为准。",
+            badge = "本机导入",
+            tone = XiaoxuTone.Neutral,
+            actionLabel = "查看课表",
             onAction = openSchedule
-        )
-        state is ScheduleUiState.Failed -> XiaoxuHero(
-            kicker = "课程数据",
-            title = "课表读取失败",
-            supporting = state.message,
-            tone = XiaoxuTone.Neutral,
-            badge = "未核验",
-            actionLabel = "查看连接",
-            onAction = openProfile
-        )
-        state is ScheduleUiState.VerifiedEmpty -> XiaoxuHero(
-            kicker = "课程数据",
-            title = "尚未导入课表",
-            supporting = "到「课表」页导入 .ics / .json 文件。",
-            tone = XiaoxuTone.Neutral,
-            badge = "无课程",
-            actionLabel = "打开课表",
-            onAction = openSchedule
-        )
-        state is ScheduleUiState.UnverifiedSource -> XiaoxuHero(
-            kicker = "课程数据",
-            title = "课表来源未核验",
-            supporting = "请到「我的」核对连接状态。",
-            tone = XiaoxuTone.Neutral,
-            badge = "未核验",
-            actionLabel = "查看连接",
-            onAction = openProfile
-        )
-        state is ScheduleUiState.Loading -> XiaoxuHero(
-            kicker = "课程数据",
-            title = "正在读取课表",
-            supporting = "读取完成后显示当天课表。",
-            tone = XiaoxuTone.Neutral,
-            badge = "读取中"
         )
         else -> XiaoxuHero(
-            kicker = "课程数据",
-            title = "还没有课表",
-            supporting = "请从手机文件导入课表。",
+            kicker = "我的课表",
+            title = "还没有导入课表",
+            supporting = "导入 ICS / JSON 文件，课程将保存在本机并可离线查看。",
             tone = XiaoxuTone.Neutral,
             badge = "未导入",
-            actionLabel = "去连接",
-            onAction = openProfile
+            actionLabel = "从文件导入课表",
+            onAction = openFileImport
         )
-    }
-}
-
-/** 本日课表：按节次排序的课程色块；该星期无记录时说明来源边界，不推断停课。 */
-@Composable
-private fun TodayScheduleBlock(
-    sameWeekday: List<VerifiedLesson>,
-    isLocalTimetable: Boolean,
-    openSchedule: () -> Unit,
-    openProfile: () -> Unit
-) {
-    HomeSection(
-        title = "本日课表",
-        caption = when {
-            sameWeekday.isEmpty() -> "本星期没有课程记录"
-            isLocalTimetable -> "本机导入 · 待核对 · 教学周待核实"
-            else -> "按星期匹配 · 教学周待核实"
-        },
-        actionLabel = "课表",
-        onAction = openSchedule
-    ) {
-        if (sameWeekday.isEmpty()) {
-            XiaoxuEmpty(
-                title = "这一星期没有课程记录",
-                message = "请以学校官网为准。",
-                actionLabel = "打开课表",
-                onAction = openSchedule
-            )
-        } else {
-            XiaoxuCard {
-                sameWeekday.take(4).forEach { lesson ->
-                    CourseTile(
-                        courseKey = lesson.id.ifBlank { lesson.title },
-                        title = lesson.title,
-                        meta = "第" + lesson.startSection + "–" + lesson.endSection +
-                            "节 · " + lesson.location.ifBlank { "教室未提供" },
-                        emphasise = true
-                    )
-                }
-                if (sameWeekday.size > 4) {
-                    Text(
-                        text = "还有 ${sameWeekday.size - 4} 门课，见课表页",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -552,40 +435,37 @@ private fun TodayScheduleBlock(
 @Composable
 private fun HomeMetricsBlock(
     pending: Int,
-    doneCount: Int,
+    attention: Int,
     caption: String,
-    doneCaption: String,
     openTasks: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MetricCard(
-            label = "待办", value = pending.toString(), caption = caption,
-            modifier = Modifier.weight(1f), onClick = openTasks
-        )
-        MetricCard(
-            label = "已完成", value = doneCount.toString(), caption = doneCaption,
-            tone = XiaoxuTone.Success, modifier = Modifier.weight(1f), onClick = openTasks
-        )
+        MetricCard(label = "待完成", value = pending.toString(), caption = caption,
+            modifier = Modifier.weight(1f), onClick = openTasks)
+        MetricCard(label = "临近截止", value = attention.toString(),
+            caption = "含逾期与未来三天 · 仅已记录期限",
+            tone = XiaoxuTone.Warning,
+            modifier = Modifier.weight(1f), onClick = openTasks)
     }
 }
 
-/** 校园快捷入口：只列已接入的四页，不做灰色"未接入"按钮。 */
+/** 学业服务直达真实子导航；未接通的平台保留诚实的空态。 */
 @Composable
 private fun HomeQuickBlock(
-    openSchedule: () -> Unit,
-    openTasks: () -> Unit,
-    openMessages: () -> Unit,
-    openAcademic: () -> Unit
+    openAcademic: () -> Unit,
+    openGrades: () -> Unit,
+    openExams: () -> Unit,
+    openSecondClass: () -> Unit,
+    openChaoxing: () -> Unit
 ) {
-    HomeSection(title = "快捷入口", caption = "只列已接入的页面") {
+    HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickEntry("课表", Icons.Outlined.DateRange, openSchedule, Modifier.weight(1f))
-            QuickEntry("任务", Icons.Outlined.CheckCircle, openTasks, Modifier.weight(1f),
-                XiaoxuTone.Success)
-            QuickEntry("消息", Icons.Outlined.MailOutline, openMessages, Modifier.weight(1f),
-                XiaoxuTone.Warning)
-            QuickEntry("教务", Icons.Outlined.DateRange, openAcademic, Modifier.weight(1f),
-                XiaoxuTone.Neutral)
+            QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
+            QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
+            QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
+                Modifier.weight(1f), XiaoxuTone.Success)
+            QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
+                Modifier.weight(1f), XiaoxuTone.Warning)
         }
     }
 }
@@ -596,25 +476,19 @@ private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
     today: LocalDate,
     caption: String,
-    openTasks: () -> Unit
+    openTasks: () -> Unit,
+    onTaskOpen: (WorkspaceTask) -> Unit
 ) {
-    HomeSection(
-        title = "待办与提醒",
-        caption = caption,
-        actionLabel = "全部任务",
-        onAction = openTasks
-    ) {
+    HomeSection(title = "优先处理", caption = caption,
+        actionLabel = "全部任务", onAction = openTasks) {
         XiaoxuCard {
             if (upcoming.isEmpty()) {
-                Text(
-                    text = "当前没有已保存的待办任务",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink2
-                )
+                Text("当前没有已保存的待办任务",
+                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
                 upcoming.forEachIndexed { index, task ->
                     if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
-                    HomeTaskRow(task, today)
+                    HomeTaskRow(task, today, onOpen = { onTaskOpen(task) })
                 }
             }
         }
@@ -623,57 +497,51 @@ private fun HomeTodoBlock(
 
 /** 官方通知：只放已读取的公开公告，标题与日期分行，不编造正文。 */
 @Composable
-private fun HomeNoticesBlock(state: CloudUiState, openMessages: () -> Unit) {
-    HomeSection(
-        title = "官方通知",
-        caption = "只显示已读取的公开公告",
-        actionLabel = "消息中心",
-        onAction = openMessages
-    ) {
+private fun HomeNoticesBlock(
+    state: CloudUiState,
+    openMessages: () -> Unit,
+    onNoticeOpen: (String) -> Unit
+) {
+    HomeSection(title = "校园动态",
+        caption = "来自已读取的学校官网公告",
+        actionLabel = "消息中心", onAction = openMessages) {
         XiaoxuCard {
             if (state.notices.isEmpty()) {
-                Text(
-                    text = "暂无已读取的官方通知",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink2
-                )
+                Text("暂无已读取的官方通知",
+                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
                 state.notices.take(2).forEachIndexed { index, notice ->
                     if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = notice.title,
-                            style = MaterialTheme.typography.titleSmall,
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable(onClickLabel = "查看公告详情") {
+                                onNoticeOpen(notice.id.ifBlank { notice.url })
+                            }
+                            .padding(vertical = 9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(notice.title, style = MaterialTheme.typography.titleSmall,
                             color = XiaoxuPalette.Ink,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = notice.dateLabel + " · " +
-                                noticeCategoryLabel(notice.category),
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(notice.dateLabel + " · " + noticeCategoryLabel(notice.category),
                             style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink3
-                        )
+                            color = XiaoxuPalette.Ink3)
                     }
                 }
             }
             state.publicError?.let {
-                Text(
-                    text = "公告刷新失败，旧记录可能过期",
+                Text("公告刷新失败，旧记录可能过期",
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Danger
-                )
+                    color = XiaoxuPalette.Danger)
             }
         }
     }
 }
 
-/** 本机学习通作业与第二课堂：仍是本机页面快照，措辞与任务中心一致。 */
+/** 本机学习通页面快照：不参与真实任务统计或学校提交状态。 */
 @Composable
 private fun HomeHomeworkBlock(
     localHomework: List<NativeSchoolRecord>,
-    localSecondClass: List<NativeSchoolRecord>,
-    openProfile: () -> Unit,
     openLocalSchool: (String) -> Unit
 ) {
     HomeSection(
@@ -719,24 +587,15 @@ private fun HomeHomeworkBlock(
                     Text("重新读取官网当前页面")
                 }
             }
-            TextButton(onClick = { openLocalSchool("second_class") }) { Text("第二课堂 ›") }
         }
     }
 }
 
-/** 页脚声明：这一页不产生任何新数据。 */
-@Composable
-private fun HomeFooterNote() {
-    Text(
-        text = "首页只汇总已保存的记录。",
-        style = MaterialTheme.typography.labelSmall,
-        color = XiaoxuPalette.Ink3
-    )
-}
+
 
 /** 首页待办行：状态标签沿用任务中心同一套判定（describeDue），不在这里另算。 */
 @Composable
-private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate) {
+private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     val due = remember(task, today) { describeDue(task, today) }
     val tone = when (due.emphasis) {
         DUE_OVERDUE -> XiaoxuTone.Danger
@@ -745,7 +604,9 @@ private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate) {
         else -> XiaoxuTone.Neutral
     }
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
+            .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
@@ -1132,60 +993,57 @@ fun RealAcademicTaskHub(
     }
 
     if (selectedTask != null) {
-        val selectedDue = describeDue(selectedTask, today)
-        XiaoxuSheet(onDismiss = { openedTaskKey = null }, title = "任务详情") {
-            Text(
-                selectedTask.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = XiaoxuPalette.Ink
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SourceBadge(
-                    if (selectedTask.storage == "local") "本机本人待办" else "校序云端任务",
-                    if (selectedTask.storage == "local") XiaoxuTone.Brand else XiaoxuTone.Warning
-                )
-                StatusChip(
-                    if (selectedTask.done) "已完成（个人记录）" else "待完成",
-                    if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral
-                )
-            }
-            Text("来源：" + selectedTask.origin,
-                style = MaterialTheme.typography.bodyMedium)
-            Text("截止：" + selectedDue.label,
-                style = MaterialTheme.typography.bodyMedium)
-            Text(
-                if (selectedTask.storage == "cloud") {
-                    if (state.tasksFresh)
-                        "本次云端读取 · 截止日期待核对"
-                    else
-                        "上次云端快照 · 待核对"
+        WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
+            onDismiss = { openedTaskKey = null },
+            onManage = {
+                if (selectedTask.storage == "local") {
+                    showLocal = true
+                    jumpTo = "local"
                 } else {
-                    "本机记录 · 离线保存"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2
-            )
-            OutlinedButton(
-                onClick = {
-                    if (selectedTask.storage == "local") {
-                        showLocal = true
-                        jumpTo = "local"
-                    } else {
-                        showCloud = true
-                        jumpTo = "cloud"
-                    }
-                    openedTaskKey = null
-                },
-                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
-            ) {
-                Text(
-                    if (selectedTask.storage == "local")
-                        "打开本机任务管理" else "打开云端任务管理"
-                )
-            }
+                    showCloud = true
+                    jumpTo = "cloud"
+                }
+                openedTaskKey = null
+            })
+    }
+}
+
+/** 首页与任务中心共用任务详情，不在首页重建独立状态机。 */
+@Composable
+internal fun WorkspaceTaskDetailSheet(
+    selectedTask: WorkspaceTask,
+    today: LocalDate,
+    tasksFresh: Boolean,
+    onDismiss: () -> Unit,
+    onManage: () -> Unit
+) {
+    val selectedDue = describeDue(selectedTask, today)
+    XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
+        Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
+            color = XiaoxuPalette.Ink)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SourceBadge(if (selectedTask.storage == "local") "本机本人待办" else "校序云端任务",
+                if (selectedTask.storage == "local") XiaoxuTone.Brand else XiaoxuTone.Warning)
+            StatusChip(if (selectedTask.done) "已完成（个人记录）" else "待完成",
+                if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral)
+        }
+        Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
+        Text("截止：" + selectedDue.label, style = MaterialTheme.typography.bodyMedium)
+        Text(if (selectedTask.storage == "cloud") {
+            if (tasksFresh) "本次云端读取 · 截止日期待核对"
+            else "上次云端快照 · 待核对"
+        } else "本机记录 · 离线保存",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        OutlinedButton(onClick = onManage,
+            modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+            Text(if (selectedTask.storage == "local")
+                "打开本机任务管理" else "打开云端任务管理")
         }
     }
 }
+
+
+
 
 /** Main three blue-and-white pills, populated only from saved tasks. */
 @Composable
