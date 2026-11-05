@@ -119,6 +119,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
     private lateinit var extract: Button
+    private var appendVisible: Button? = null
     private lateinit var finishAndReturn: Button
     private var provider = ""
     private var loaded = false
@@ -160,6 +161,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         control("刷新页面") { browser.reload() }
         extract = control("读取当前页") { captureVisibleRecords() }
         extract.isEnabled = false
+        // Explicit paginated-page action. The default still replaces the old
+        // snapshot; only deliberate appends preserve previously read pages.
+        appendVisible = if (provider == "chaoxing") Button(this).apply {
+            text = "分页追加本页（保留已保存记录）"
+            isEnabled = false
+            setOnClickListener { captureVisibleRecords(append = true) }
+        } else null
         val courseShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "学习通 · 打开我的课程"
             setOnClickListener { browser.loadUrl(CHAOXING_COURSES) }
@@ -209,6 +217,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     pageFailed = false
                     captureEpoch++
                     extract.isEnabled = false
+                    appendVisible?.isEnabled = false
                     if (!navigationAllowed(provider, url)) {
                         pageFailed = true
                         view.stopLoading()
@@ -221,6 +230,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     loaded = !pageFailed && navigationAllowed(provider, url)
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = loaded && extractionAllowed(provider, url)
+                    appendVisible?.isEnabled = extract.isEnabled
                     tell(if (pageFailed)
                         "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
                     else if (extract.isEnabled)
@@ -235,6 +245,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
+                        appendVisible?.isEnabled = false
                         tell("学校页面加载失败；请检查网络或重新打开官方页面，本次未读取数据。")
                     }
                 }
@@ -245,6 +256,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     pageFailed = true
                     loaded = false
                     extract.isEnabled = false
+                    appendVisible?.isEnabled = false
                     tell("学校 HTTPS 证书验证失败，已阻止继续访问。")
                 }
                 override fun onReceivedHttpError(
@@ -254,12 +266,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
+                        appendVisible?.isEnabled = false
                         tell("学校页面返回 HTTP " + response.statusCode + "。请检查官网是否可正常访问。")
                     }
                 }
             }
         }
         root.addView(controls)
+        appendVisible?.let(root::addView)
         if (courseShortcut != null) root.addView(courseShortcut)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
@@ -271,7 +285,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         browser.loadUrl(entry)
     }
 
-    private fun captureVisibleRecords() {
+    private fun captureVisibleRecords(append: Boolean = false) {
+        if (append && provider != "chaoxing") return
         val currentUrl = browser.url ?: return
         val host = Uri.parse(currentUrl).host
         if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
@@ -281,13 +296,15 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         val epoch = ++captureEpoch
         extract.isEnabled = false
-        tell("正在从当前已显示的官方页面读取表格（不会获取密码和 Cookie）…")
+        appendVisible?.isEnabled = false
+        tell("正在从当前已显示的官方页面读取记录（不会获取密码和 Cookie）…")
         // Fixed read-only script, never interpolates caller-controlled values or
         // executes arbitrary downloaded adapters. No form submit or hidden data.
         browser.evaluateJavascript(READ_VISIBLE_PAGE) { encoded ->
             if (epoch != captureEpoch || isFinishing) return@evaluateJavascript
             extract.isEnabled = loaded && !pageFailed &&
                 extractionAllowed(provider, browser.url)
+            appendVisible?.isEnabled = extract.isEnabled
             if (!extract.isEnabled || browser.url != currentUrl) {
                 tell("读取时页面已变化，请重新打开需要的列表。")
                 return@evaluateJavascript
@@ -298,7 +315,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val payload = JSONObject(decoded)
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
-                    tell("当前页面有超过 120 条可见记录，已阻止截断导入；旧记录保持不变。请在官网筛选或分页后再读取。")
+                    tell("当前页面超过 120 条可见记录，已阻止截断导入；旧记录保持不变。可在官网分页，逐页使用「分页追加本页」读取。")
                     return@evaluateJavascript
                 }
                 val kind = payload.optString("kind")
@@ -333,8 +350,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         withContext(Dispatchers.IO) {
-                            LocalTaskDatabase.open(applicationContext)
-                                .nativeSchoolRecords().replaceKind(provider, kind, accepted)
+                            val dao = LocalTaskDatabase.open(applicationContext)
+                                .nativeSchoolRecords()
+                            if (append) dao.insertAll(accepted)
+                            else dao.replaceKind(provider, kind, accepted)
                         }
                         if (epoch != captureEpoch || isFinishing) return@launch
                         // The result contract never contains raw course names,
@@ -342,10 +361,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         savedKind = kind
                         savedCount = accepted.size
                         finishAndReturn.isEnabled = true
-                        tell("已保存 " + accepted.size +
-                            " 条本机页面记录。可继续读取其他列表，或返回校序查看；这不是学校官方同步验收。")
+                        tell((if (append) "已追加／更新本页 " else "已替换同类旧记录，保存 ") +
+                            accepted.size + " 条本机页面记录。" +
+                            (if (append) "旧页记录未删除；请核对不同页面是否有重名课程或作业。" else
+                                "再次读取同类别时会替换旧记录；跨页请使用「分页追加本页」。") +
+                            "这不是学校官方完整同步。")
                     } catch (_: Exception) {
-                        tell("本机数据库保存失败。旧记录未被覆盖。")
+                        tell("本机数据库保存失败。原有记录不会因本次操作被清空。")
                     }
                 }
             } catch (_: Exception) {
