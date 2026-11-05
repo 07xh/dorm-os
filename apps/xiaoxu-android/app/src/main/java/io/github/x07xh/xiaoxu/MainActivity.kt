@@ -37,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -362,14 +363,22 @@ private fun ConnectionsPage(
     openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
     localCaptureReturn: LocalSchoolImportReceipt?
 ) {
+    var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     Content {
-        item { Heading("我的", "本机连接三个平台，云端用于跨设备与消息") }
+        item { Heading("我的", "学校数据先在手机读取；云端同步是可选功能") }
         item {
             ConnectionsPanel(cloud, openWebsite, openLocalSchool,
                 startSchoolAuthorization, localCaptureReturn)
         }
-        // 第二课堂原生展示（PR #211）保持原样。
-        item { SecondClassPanel(cloud, openWebsite) }
+        item {
+            TextButton(onClick = { showCloudSecondClass = !showCloudSecondClass }) {
+                Text(if (showCloudSecondClass) "收起云端第二课堂详情"
+                     else "查看云端第二课堂详情（可选）")
+            }
+        }
+        if (showCloudSecondClass) {
+            item { SecondClassPanel(cloud, openWebsite) }
+        }
         // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
         item { LocalTaskBackupPanel() }
     }
