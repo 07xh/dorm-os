@@ -354,8 +354,8 @@ private fun NativeShell(
         academic = next.academic
         current = Page.valueOf(next.destination.name)
     }
-    BackHandler(enabled = current == Page.MESSAGES) {
-        // 消息现为主导航页，返回首页而非隐藏的教务子页面。
+    BackHandler(enabled = current == Page.MESSAGES || current == Page.ACADEMIC) {
+        // 教务是从首页进入的二级页面，系统返回回到首页。
         current = Page.HOME
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
@@ -415,7 +415,7 @@ private fun NativeShell(
                     ) {
                         Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
                             NavigationBarItem(
-                                selected = current == page,
+                                selected = current == page || (current == Page.ACADEMIC && page == Page.HOME),
                                 onClick = { current = page },
                                 icon = { Icon(page.symbol, contentDescription = null) },
                                 label = { Text(page.label) },
@@ -441,7 +441,7 @@ private fun NativeShell(
                         Spacer(Modifier.height(12.dp))
                         Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
                             NavigationRailItem(
-                                selected = current == page,
+                                selected = current == page || (current == Page.ACADEMIC && page == Page.HOME),
                                 onClick = { current = page },
                                 icon = { Icon(page.symbol, contentDescription = null) },
                                 label = { Text(page.label) },
@@ -474,7 +474,8 @@ private fun NativeShell(
                         label = "page"
                     ) { page ->
                         when (page) {
-                            Page.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            Page.HOME -> pageStateHolder.SaveableStateProvider("home") {
+                                RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
                                 openSchedule = { current = Page.SCHEDULE },
                                 openTasks = { current = Page.TASKS },
@@ -484,7 +485,19 @@ private fun NativeShell(
                                 openLocalSchool = { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
-                                })
+                                },
+                                openFileImport = openFileImport,
+                                openGrades = {
+                                    academic = AcademicDestination.GRADES
+                                    current = Page.ACADEMIC
+                                },
+                                openExams = {
+                                    academic = AcademicDestination.EXAMS
+                                    current = Page.ACADEMIC
+                                },
+                                openSecondClass = { openSecondClass() },
+                                openArticle = openArticle)
+                            }
                             Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
                                 openProfile = { current = Page.PROFILE },
                                 localLessons = localLessons, openLocalImport = openLocalImport,
