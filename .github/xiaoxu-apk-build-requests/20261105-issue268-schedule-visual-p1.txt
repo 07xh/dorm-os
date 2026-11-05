@@ -1,0 +1,6 @@
+校序 · UI P1 原生课表视觉统一 APK 编译验收请求｜2026-11-05
+用户要求继续开发 UI，校序现有 App 已完成统一首页和 Shell (#269) 与课表首轮视觉统一 (#272)。
+本次基线：main @ ed6a72f33f2afb02b43363ebf90746ebadf6f7e2。
+仅触发既有 build-xiaoxu-android.yml 来验证 Kotlin/Compose 原生编译、既有单元测试、APK ZIP/Manifest/DEX 和 SHA-256 + artifact 上传。
+不改学校数据、认证接口、Gradle、版本名、UI 布局或 GitHub workflow；这是一次性请求，PR CI 通过并合并后才执行。
+不得将 APK 可安装视为全部五页海报视觉验收、Android 16 真机和学校真实数据完成。
