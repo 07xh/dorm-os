@@ -273,7 +273,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
-        appendVisible?.let(root::addView)
+        appendVisible?.let { root.addView(it) }
         if (courseShortcut != null) root.addView(courseShortcut)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
