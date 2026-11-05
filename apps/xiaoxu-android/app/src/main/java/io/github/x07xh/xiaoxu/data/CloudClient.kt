@@ -37,6 +37,7 @@ data class ChaoxingHomework(
     val workId: String, val title: String, val statusCode: String,
     val platformVerified: Boolean, val statusText: String
 )
+data class ChaoxingPageProgress(val completed: Int, val total: Int)
 data class ChaoxingQuestion(
     val number: Int, val type: String, val stem: String,
     val options: List<String>, val hasImage: Boolean
@@ -121,6 +122,7 @@ data class CloudUiState(
     val chaoxingHomework: List<ChaoxingHomework> = emptyList(),
     val chaoxingCheckedAt: String? = null,
     val chaoxingVerifiedEmpty: Boolean = false,
+    val chaoxingPageProgress: ChaoxingPageProgress? = null,
     val chaoxingError: String? = null,
     val chaoxingDetailBusy: Boolean = false,
     val chaoxingPreview: ChaoxingWorkPreview? = null,
@@ -937,6 +939,7 @@ class CloudClient(context: Context) {
         chaoxingHomework = emptyList(),
         chaoxingCheckedAt = null,
         chaoxingVerifiedEmpty = false,
+        chaoxingPageProgress = null,
         chaoxingError = null,
         chaoxingBusy = false,
         chaoxingBatchBusy = false,
@@ -957,6 +960,8 @@ class CloudClient(context: Context) {
             "学习通服务端适配器未就绪"
         "work_not_available" ->
             "官方作业页未开放或无法验证，已有任务保持不变"
+        "work_list_incomplete" ->
+            "官网声明的作业总数与实际读取条数不一致，已阻止本次同步；旧任务未覆盖。请检查官网筛选或分页。"
         "database_unavailable" -> "同步数据库暂时不可用，旧任务保持不变"
         else -> if (http == 401) "校序云端会话过期，请重新连接"
                else "学校接口暂时无法读取（HTTP $http），旧记录保持不变"
@@ -967,7 +972,8 @@ class CloudClient(context: Context) {
         if (state.chaoxingCourses.none { it.key == key }) return
         state = state.copy(
             chaoxingSelectedKey = key, chaoxingHomework = emptyList(),
-            chaoxingCheckedAt = null, chaoxingVerifiedEmpty = false, chaoxingError = null,
+            chaoxingCheckedAt = null, chaoxingVerifiedEmpty = false,
+            chaoxingPageProgress = null, chaoxingError = null,
             chaoxingPreview = null, chaoxingDetailError = null
         )
     }
@@ -1074,7 +1080,8 @@ class CloudClient(context: Context) {
                 chaoxingCourses = courses,
                 chaoxingSelectedKey = courses.first().key,
                 chaoxingHomework = emptyList(), chaoxingCheckedAt = null,
-                chaoxingVerifiedEmpty = false, chaoxingError = null
+                chaoxingVerifiedEmpty = false, chaoxingPageProgress = null,
+                chaoxingError = null
             )
         } catch (_: Exception) {
             if (epoch == sessionEpoch) state = state.copy(
@@ -1090,7 +1097,7 @@ class CloudClient(context: Context) {
     /** Existing official per-course response guard, reused by one-course and explicit batch reads. */
     private fun verifiedChaoxingWork(
         root: JSONObject, selected: ChaoxingCourse
-    ): Pair<List<ChaoxingHomework>, Boolean> {
+    ): Triple<List<ChaoxingHomework>, Boolean, ChaoxingPageProgress?> {
             if (root.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
                 root.optString("view") != "list" || !root.optBoolean("live"))
                 throw IllegalStateException("invalid_schema")
@@ -1121,7 +1128,29 @@ class CloudClient(context: Context) {
             }
             if (work.map { it.workId }.toSet().size != work.size)
                 throw IllegalStateException("duplicate_work")
-            return work to verifiedEmpty
+            val rawProgress = data.opt("progress")
+            val progress = when (rawProgress) {
+                null, JSONObject.NULL -> null
+                is JSONObject -> {
+                    val done = rawProgress.opt("completed")
+                    val total = rawProgress.opt("total")
+                    if (rawProgress.length() != 2 || done !is Int || total !is Int ||
+                        total !in 0..200 || done !in 0..total || total != work.size)
+                        throw IllegalStateException("unverified_homework_total")
+                    ChaoxingPageProgress(done, total)
+                }
+                else -> throw IllegalStateException("invalid_homework_progress")
+            }
+            // 200 OK does not mean that the trusted D1 connector committed.
+            // The existing POST sync route returns this result only after its
+            // owner-bound atomic transaction. Reject incomplete acknowledgements.
+            val saved = data.getJSONObject("sync")
+            if (saved.optString("provider") != "chaoxing" ||
+                saved.optString("coverage") != "partial" ||
+                saved.optInt("received", -1) != work.size ||
+                saved.optInt("pages", -1) !in 1..11)
+                throw IllegalStateException("unverified_homework_persistence")
+            return Triple(work, verifiedEmpty, progress)
     }
 
     /** Official per-course read + server-side verified task-status persistence. */
@@ -1135,7 +1164,7 @@ class CloudClient(context: Context) {
             chaoxingBusy = true, chaoxingError = null,
             chaoxingBatchStatus = null,
             chaoxingCheckedAt = null, chaoxingHomework = emptyList(),
-            chaoxingVerifiedEmpty = false,
+            chaoxingVerifiedEmpty = false, chaoxingPageProgress = null,
             chaoxingPreview = null, chaoxingDetailError = null
         )
         try {
@@ -1153,12 +1182,12 @@ class CloudClient(context: Context) {
                 )
                 return
             }
-            val (work, verifiedEmpty) = verifiedChaoxingWork(response.json, selected)
+            val (work, verifiedEmpty, progress) = verifiedChaoxingWork(response.json, selected)
             state = state.copy(
                 chaoxingHomework = work,
                 chaoxingCheckedAt = Instant.now().toString(),
                 chaoxingVerifiedEmpty = verifiedEmpty,
-                chaoxingError = null
+                chaoxingPageProgress = progress, chaoxingError = null
             )
             // The server has saved only verified statuses; reload first-party task data.
             refreshPrivate()
@@ -1191,6 +1220,8 @@ class CloudClient(context: Context) {
         var stoppedForAuth = false
         state = state.copy(chaoxingBusy = true, chaoxingBatchBusy = true,
             chaoxingBatchStatus = "正在核验第 1 / ${courses.size} 门课程；仅同步本人可验证的作业状态",
+            chaoxingPageProgress = null, chaoxingCheckedAt = null,
+            chaoxingHomework = emptyList(), chaoxingVerifiedEmpty = false,
             chaoxingError = null)
         try {
             for (course in courses) {
