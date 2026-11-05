@@ -584,7 +584,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.4'/);
+assert.match(appGradle, /versionName '0\.8\.5'/);
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
@@ -928,9 +928,17 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /MetricCard\(\s*"待完成"/, '任务统计使用首页共享数字卡');
-assert.match(workspace, /MetricCard\(\s*"本周截止"/, '任务本周截止卡保持独立');
-assert.match(workspace, /MetricCard\(\s*"已完成"/, '任务已完成卡保持独立');
+assert.match(workspace, /private fun TaskStatusTab\(/, '任务中心必须使用蓝色胶囊状态切换，不能沿用数字大卡');
+assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
+assert.match(workspace, /label = "本周截止"/, '必须按真实截止日过滤本周任务');
+assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
+assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区须使用图标白卡而非散乱的纯文本标题');
+assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
+assert.match(workspace, /var showCandidates by rememberSaveable/, '微信候选列表必须可折叠');
+assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
+assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '高频任务列表之前不得默认展开管理面板');
+assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
 assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
 assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
@@ -982,12 +990,11 @@ assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
   '任务中心必须保留独立可滚动列表状态');
 assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
   '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \(showCloud\) 4 \+ \(if \(showLocal\) 1 else 0\)/,
-  '云端管理滚动下标须考虑本机管理展开与否');
-assert.match(workspace, /"filters" -> 4 \+ \(if \(showLocal\) 1 else 0\) \+ \(if \(showCloud\) 1 else 0\)/,
-  '筛选列表跳转下标须考虑两个管理区状态');
-assert.match(workspace, /caption = if \(filter == "week"\) "当前筛选" else "点击查看"/,
-  '本周截止统计卡应体现当前筛选并能点击');
+assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
+  '云端表单跳转须考虑本机管理展开与否');
+assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
+assert.match(workspace, /active = filter == "week"/,
+  '本周截止胶囊须反映真实选中状态');
 assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
   '待完成统计卡应真实切换过滤器');
 assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
