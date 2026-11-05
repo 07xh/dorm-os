@@ -966,10 +966,10 @@ assert.ok(workspace.includes('MetricCard("本周截止"'), '任务本周截止�
 assert.ok(workspace.includes('MetricCard("已完成"'), '任务已完成卡保持独立');
 assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
-assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(localRows[i], today) }'),
-  '本机任务使用统一卡片');
-assert.ok(workspace.includes('XiaoxuCard(contentPadding = 8.dp) { TaskRow(cloudRows[i], today) }'),
-  '云端任务使用统一卡片且保留来源隔离');
+assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
+  '本机任务仍从真实 Row 数据打开详情');
+assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
+  '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
 assert.ok(workspace.includes('统计包括上次云端任务快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
@@ -978,6 +978,19 @@ assert.ok(workspace.includes('WechatReviewPanel('),
   '任务中心只能复用既有原生微信审核组件，禁止重复实现候选审核器');
 assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
   '未知审核数量不得在任务页显示为 0 条');
+assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
+assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
+assert.match(workspace, /XiaoxuSheet\(onDismiss = \{ openedTaskKey = null \}, title = "任务详情"\)/,
+  '任务详情必须使用共享原生底部抽屉');
+assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
+  '任务卡片必须可以真实点击');
+assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
+assert.match(workspace, /来自上次保存的云端快照，本次未重新核验/,
+  '旧云端任务不得伪装成刚同步');
+assert.match(workspace, /个人完成不代表学校已提交/,
+  '任务详情不得冒充学校官方提交状态');
+assert.match(workspace, /if \(selectedTask\.storage == "local"\) showLocal = true else showCloud = true/,
+  '任务详情操作必须调用原有本机/云端管理入口');
 assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
   '消息页头部使用共享卡片');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
