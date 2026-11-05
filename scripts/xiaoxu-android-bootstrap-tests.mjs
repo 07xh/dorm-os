@@ -485,7 +485,8 @@ assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /专用课表导入/);
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val timetable = if \(localLessons\.isNotEmpty\(\)\) localLessons else state\.lessons/);
+assert.match(workspace, /val timetable = localLessons/,
+  '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /it\.provider == "second_class" && it\.kind in setOf\("activity", "credits"\)/);
