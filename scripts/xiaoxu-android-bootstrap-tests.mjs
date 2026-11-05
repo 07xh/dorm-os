@@ -655,5 +655,35 @@ assert.match(invalidHeader.__xiaoxuExtract().error, /未找到|无法识别/);
 const friday = mockHeaderGrid({day:5,time:'2-10周[5-6]'});
 runInNewContext(script, {window: friday});
 assert.equal(friday.__xiaoxuExtract().items[0].day, 5);
+// A valid official seven-day td.td grid may render course text without the
+// old inline 'padding-bottom:5px' style. Preserve explicit weekday geometry.
+function mockPlainClassGrid({time = '1-16周[1-2]', malformed = false, extraCourse = false} = {}) {
+    const first = '工程制图\n任课教师\n' + time + '\nA101';
+    const second = '高等数学\n任课教师\n1-16周[3-4]\nA102';
+    const text = first + (extraCourse ? '\n' + second : '') +
+        (malformed ? '\n课表多余字段' : '');
+    const cells = Array.from({length: 7}, (_, i) => ({
+        matches: selector => selector === 'td.td',
+        getAttribute: () => null,
+        querySelectorAll: () => [],
+        innerText: i === 1 ? text : ''
+    }));
+    const row = {querySelector: () => cells[0], children: cells};
+    const table = {querySelector: () => cells[0], querySelectorAll: () => [row]};
+    return {document: {querySelectorAll: () => [table]}, frames: []};
+}
+const plainClass = mockPlainClassGrid();
+runInNewContext(script, {window: plainClass});
+assert.equal(plainClass.__xiaoxuExtract().items[0].day, 2);
+assert.equal(plainClass.__xiaoxuExtract().items[0].name, '工程制图');
+const plainTwo = mockPlainClassGrid({extraCourse:true});
+runInNewContext(script, {window: plainTwo});
+assert.equal(plainTwo.__xiaoxuExtract().items.length, 2,
+ '同一日两个完整文本课块不能被漏读');
+const plainInvalid = mockPlainClassGrid({malformed:true});
+runInNewContext(script, {window: plainInvalid});
+assert.match(plainInvalid.__xiaoxuExtract().error, /不完整/,
+ '字段数量异常必须失败，不能只导入可识别子集');
+
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
