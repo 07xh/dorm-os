@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,6 +38,10 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
     val state = client.state
     val scope = rememberCoroutineScope()
     var selecting by remember { mutableStateOf(false) }
+    // Reset expansion when the owner changes course or replaces the official
+    // read snapshot. A 50-item preview must not silently hide remaining work.
+    var showAllHomework by rememberSaveable(state.chaoxingSelectedKey,
+        state.chaoxingCheckedAt) { mutableStateOf(false) }
     val chosen = state.chaoxingCourses.firstOrNull { it.key == state.chaoxingSelectedKey }
     val connection = state.platforms.firstOrNull { it.id == "chaoxing" }
     Card(
@@ -58,12 +63,24 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                 Text("本机读取可直接使用上方入口；若需云端逐门核验，须另外连接本人校序会话和学校授权。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
+                // One explicit owner action can resume the verified school
+                // reading chain after app restart; it never starts on resume.
                 Button(
-                    enabled = !state.chaoxingBusy,
+                    enabled = !state.busy && !state.chaoxingBusy &&
+                        !state.chaoxingBatchBusy && !state.chaoxingDetailBusy &&
+                        connection?.sessionState == "active",
+                    onClick = {
+                        scope.launch { client.refreshChaoxingCoursesAndHomework() }
+                    }
+                ) {
+                    Text(if (state.chaoxingBatchBusy || state.chaoxingBusy)
+                        "正在核验课程和作业…" else "重新读取全部课程与作业")
+                }
+                OutlinedButton(
+                    enabled = !state.chaoxingBusy && !state.chaoxingBatchBusy,
                     onClick = { scope.launch { client.loadChaoxingCourses() } }
                 ) {
-                    Text(if (state.chaoxingBusy) "正在读取…" else
-                        if (state.chaoxingCourses.isEmpty()) "读取本人课程" else "重新读取课程")
+                    Text("仅读取本人课程列表")
                 }
                 if (connection != null) {
                     if (connection.autoSyncAvailable || connection.autoSyncEnabled) {
@@ -189,7 +206,17 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                 if (state.chaoxingVerifiedEmpty && state.chaoxingHomework.isEmpty()) {
                     Text("官方确认：本课程当前暂无作业")
                 }
-                state.chaoxingHomework.take(50).forEach { task ->
+                if (state.chaoxingHomework.isNotEmpty()) {
+                    val count = state.chaoxingHomework.size
+                    val visible = if (showAllHomework) count else minOf(50, count)
+                    Text(
+                        "本次实际读取 $count 条作业；当前展示 $visible / $count 条",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                (if (showAllHomework) state.chaoxingHomework
+                 else state.chaoxingHomework.take(50)).forEach { task ->
                     val label = when(task.statusCode) {
                         "todo" -> "官方：未提交"
                         "submitted" -> "官方：已提交 / 待批阅"
@@ -205,6 +232,12 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                             enabled = !state.chaoxingBusy && !state.chaoxingDetailBusy,
                             onClick = { scope.launch { client.loadChaoxingWorkDetail(task.workId) } }
                         ) { Text("只读查看作业内容") }
+                    }
+                }
+                if (state.chaoxingHomework.size > 50) {
+                    TextButton(onClick = { showAllHomework = !showAllHomework }) {
+                        Text(if (showAllHomework) "收起至前 50 条" else
+                            "查看剩余 ${state.chaoxingHomework.size - 50} 条官方作业")
                     }
                 }
                 if (state.chaoxingDetailBusy) {
