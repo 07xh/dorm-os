@@ -85,8 +85,14 @@ fun CloudTasksPanel(client: CloudClient) {
                     ) { Text("保存至云端") }
                 }
             }
-            if (state.tasks.isEmpty()) {
-                Text("云端暂无可展示任务。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!state.tasksFresh) {
+                Text("本次任务列表未能核验最新结果；下方若有记录，仅为旧快照。",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            if (state.tasks.isEmpty() && state.tasksFresh) {
+                Text("当前云端任务列表为空（已完成本次读取）。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             state.tasks.take(50).forEach { task ->
                 Card(
@@ -333,9 +339,27 @@ fun ConnectionsPanel(
                             }
                         }
                         if (state.chaoxingCourses.isNotEmpty()) {
-                            Text("本次读取到 " + state.chaoxingCourses.size +
-                                " 门课程，作业请在任务页按课程同步",
+                            Text("已读取本人 " + state.chaoxingCourses.size + " 门课程",
                                 style = MaterialTheme.typography.labelSmall)
+                            OutlinedButton(
+                                enabled = state.authenticated && state.connectionsFresh &&
+                                    platform?.verified == true && !state.chaoxingBusy &&
+                                    !state.chaoxingDetailBusy && !state.busy &&
+                                    state.schoolSyncBusyProvider == null,
+                                onClick = {
+                                    scope.launch { client.syncChaoxingAllCourses() }
+                                }
+                            ) {
+                                Text(if (state.chaoxingBatchBusy) "正在逐门核验作业…"
+                                    else "一键核验全部课程作业")
+                            }
+                            Text("按已有可信只读接口逐门核验；失败或未读到的课程不标记成功。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        state.chaoxingBatchStatus?.let { result ->
+                            Text(result, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         state.chaoxingError?.let {
                             Text(it, color = MaterialTheme.colorScheme.error,

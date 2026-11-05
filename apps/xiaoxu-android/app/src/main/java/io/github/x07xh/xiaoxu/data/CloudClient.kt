@@ -97,6 +97,9 @@ data class CloudUiState(
     val notices: List<AcademicNotice> = emptyList(),
     val noticeFetchedAt: String? = null, val noticesPartial: Boolean = false,
     val tasks: List<CloudTask> = emptyList(),
+    // True only after the current owner-scoped assignments response was
+    // successfully parsed, independently of WeChat or school notices.
+    val tasksFresh: Boolean = false,
     val lessons: List<VerifiedLesson> = emptyList(),
     val scheduleStatus: String = "not_connected",
     val scheduleFetchedAt: String? = null,
@@ -298,8 +301,8 @@ class CloudClient(context: Context) {
         val snapshotRead = ++privateSnapshotReadId
         // The previous snapshot remains visible, but a failed current read
         // must never certify that a school session is still active.
-        state = state.copy(connectionsFresh = false, scheduleFresh = false,
-            secondClassFresh = false)
+        state = state.copy(tasksFresh = false, connectionsFresh = false,
+            scheduleFresh = false, secondClassFresh = false)
         if (session.load() == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -483,6 +486,7 @@ class CloudClient(context: Context) {
         if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
         state = state.copy(
             tasks = tasks ?: state.tasks,
+            tasksFresh = tasks != null,
             lessons = lessons ?: state.lessons,
             scheduleStatus = scheduleStatus ?: state.scheduleStatus,
             scheduleFetchedAt = scheduleFetchedAt ?: state.scheduleFetchedAt,
@@ -921,8 +925,8 @@ class CloudClient(context: Context) {
     }
 
     private fun clearAccountSnapshots(): CloudUiState = emptyChaoxing().copy(
-        connectionsFresh = false, scheduleFresh = false, secondClassFresh = false,
-        wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
+        tasksFresh = false, connectionsFresh = false, scheduleFresh = false,
+        secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
     )
 
@@ -1242,7 +1246,7 @@ class CloudClient(context: Context) {
             val note = when {
                 !state.authenticated -> "校序会话已失效，需要重新连接；旧任务不会被当作新同步。"
                 stoppedForAuth -> "学校授权已失效或要求交互登录，请完成官方登录后重新读取。"
-                state.privateError != null -> "云端任务状态未能完整复核，结果仅供排查。"
+                !state.tasksFresh -> "最新云端任务列表读取失败，旧记录仅供参考；不能确认最终作业同步结果。"
                 skipped > 0 || failed > 0 -> "仅部分课程完成；未验证课程不标记为已同步。"
                 else -> "任务列表已重新读取；请与学习通官方逐项核对。"
             }
