@@ -178,6 +178,7 @@ fun RealAcademicHome(
     openTasks: () -> Unit,
     openMessages: () -> Unit,
     openProfile: () -> Unit,
+    openAcademic: () -> Unit,
     openLocalSchool: (String) -> Unit = {}
 ) {
     val state = client.state
@@ -244,7 +245,7 @@ fun RealAcademicHome(
                         }
                     }
                     item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
-                    item { HomeQuickBlock(openSchedule, openTasks, openMessages, openProfile) }
+                    item { HomeQuickBlock(openSchedule, openTasks, openMessages, openAcademic) }
                 }
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -290,7 +291,7 @@ fun RealAcademicHome(
                     }
                 }
                 item { HomeMetricsBlock(pending, doneCount, metricCaption, doneCaption, openTasks) }
-                item { HomeQuickBlock(openSchedule, openTasks, openMessages, openProfile) }
+                item { HomeQuickBlock(openSchedule, openTasks, openMessages, openAcademic) }
                 item { HomeTodoBlock(upcoming, today, todoCaption, openTasks) }
                 item { HomeNoticesBlock(state, openMessages) }
                 item {
@@ -538,7 +539,7 @@ private fun HomeQuickBlock(
     openSchedule: () -> Unit,
     openTasks: () -> Unit,
     openMessages: () -> Unit,
-    openProfile: () -> Unit
+    openAcademic: () -> Unit
 ) {
     HomeSection(title = "快捷入口", caption = "只列已接入的页面") {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -547,7 +548,7 @@ private fun HomeQuickBlock(
                 XiaoxuTone.Success)
             QuickEntry("消息", Icons.Outlined.MailOutline, openMessages, Modifier.weight(1f),
                 XiaoxuTone.Warning)
-            QuickEntry("我的", Icons.Outlined.PersonOutline, openProfile, Modifier.weight(1f),
+            QuickEntry("教务", Icons.Outlined.DateRange, openAcademic, Modifier.weight(1f),
                 XiaoxuTone.Neutral)
         }
     }
