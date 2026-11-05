@@ -308,6 +308,27 @@ assert.match(nativeWeekGrid, /rowHeight \* span/);
 assert.match(nativeWeekGrid, /overlapChoices = available/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 
+// Issue #215 P0 补齐：平板表头选日 + 周/日 Tab 的无障碍语义（只增断言）。
+assert.match(nativeWeekGrid, /selectedWeekday: Int\? = null/,
+  '网格表头选日须是可选能力，手机单栏行为不变');
+assert.match(nativeWeekGrid, /onSelectWeekday: \(\(Int\) -> Unit\)\? = null/);
+assert.match(nativeWeekGrid, /Modifier\.selectableGroup\(\)/, '网格表头选日须成组');
+assert.match(nativeWeekGrid, /role = Role\.Tab/, '网格表头选日须是 Tab 语义');
+assert.match(nativeWeekGrid, /height\(48\.dp\)/, '网格表头触控高度须 ≥48dp');
+assert.match(nativeWeekGrid, /，当前选中/, '网格表头须播报选中状态');
+assert.match(schedulePanel, /private fun ScheduleViewModeTabs\(/);
+assert.match(schedulePanel, /\.selectableGroup\(\)/, '周/日两个 Tab 须有分组语义');
+assert.match(schedulePanel, /\.selectable\(selected = isSelected, role = Role\.Tab, onClick = onClick\)/,
+  'Tab 须用 selectable 提供 role 与 selected');
+assert.match(schedulePanel, /周视图，七日历课程网格/, '周视图 Tab 须有准确描述');
+assert.match(schedulePanel, /日视图，单日课程列表/, '日视图 Tab 须有准确描述');
+assert.match(schedulePanel, /private fun DayLessonList\(/,
+  '当日列表须共用一份实现，手机与平板一致');
+assert.match(schedulePanel, /selectedWeekday = tabletWeekday,/, '平板网格表头选日须驱动右侧当日列表');
+assert.match(schedulePanel, /dayLessons = tabletDayLessons,/, '右侧须显示所选那天的真实课块');
+assert.match(schedulePanel, /filtered\.filter \{ it\.weekday == tabletWeekday \}/,
+  '右侧课块只能取自当前已筛选的真实课程');
+
 assert.match(schedulePanel, /fun CloudTimetablePanel\(/);
 assert.match(schedulePanel, /deriveScheduleUiState/);
 assert.match(schedulePanel, /ScheduleUiState\.Loading/);
