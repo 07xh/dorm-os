@@ -1,0 +1,32 @@
+name: Verify Xiaoxu native Chaoxing page merge safety
+
+on:
+  push:
+    branches:
+      - ci/verify-xiaoxu-paged-bounds-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bounded Room import guards
+        run: |
+          node scripts/xiaoxu-chaoxing-native-reader-tests.mjs
+          node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Android SDK setup
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Kotlin and Room compile
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
