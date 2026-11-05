@@ -1,6 +1,10 @@
 name: Xiaoxu PR287 Actual Android Screenshot
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/xiaoxu-pr287-screenshot.yml'
   push:
     branches: [fix/286-real-message-poster-layout]
     paths:
