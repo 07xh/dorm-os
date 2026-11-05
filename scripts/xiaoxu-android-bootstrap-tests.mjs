@@ -128,7 +128,7 @@ assert.match(cloud, /schoolSyncBusyProvider/);
 // while a failed connection/snapshot read must not reuse stale "connected" UI.
 assert.match(cloud, /connectionsFresh = platforms != null/);
 assert.match(cloud, /scheduleFresh = scheduleLoaded/);
-assert.match(cloud, /state = state\.copy\(connectionsFresh = false, scheduleFresh = false,/);
+assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /secondClassBusy = true, secondClassFresh = false/);
 // An earlier owner/second-class HTTP response may arrive after a newer
 // foreground, QR, or explicit refresh. Do not publish that stale response.
