@@ -482,7 +482,9 @@ class CloudClient(context: Context) {
      * Never mark success until the server confirms refreshed=true.
      */
     suspend fun syncAuthorizedSchool(provider: String): Boolean {
-        if (provider !in setOf("ncwu", "second_class") ||
+        // The legacy NCWU POST refreshes timetable records, not grades.
+        // Never call it for the new local-only timetable workflow.
+        if (provider != "second_class" ||
             !state.authenticated || state.busy || state.schoolSyncBusyProvider != null) return false
         val linked = state.platforms.firstOrNull { it.id == provider }
         if (linked?.sessionState != "active") {
