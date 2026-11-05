@@ -401,7 +401,8 @@ assert.match(messageCenter, /SourceChip\(/);
 assert.match(messageCenter, /label = "华水官方公告"/);
 
 // 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
-assert.match(messageCenter, /text = "查看详情"/);
+assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/,
+  '紧凑海报式公告卡仍须打开真实官方详情');
 assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
 assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/);
 assert.match(messageCenter, /sheetState = sheetState/);
@@ -990,8 +991,8 @@ assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal 
   '本机任务详情应展开本机管理并定位至真实表单');
 assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
   '云端任务详情应展开云端管理并定位至真实表单');
-assert.ok(messageCenter.includes('XiaoxuCard(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))'),
-  '消息页头部使用共享卡片');
+assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.padding\(top = 4\.dp, bottom = 2\.dp\)/,
+  '消息页按海报式独立标题布局，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
   '官方公告与微信候选使用共享来源徽标');
 assert.match(messageCenter, /WechatReviewPanel\(/,
@@ -1081,5 +1082,19 @@ assert.match(panels, /state\.wechatError != null -> state\.pendingWechatCount\.t
   '我的页待审核指标须在读取失败时标快照');
 assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
   '我的页数量为空须显示未读取，不得伪造 0');
+
+// #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
+assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
+  '主导航不得重新出现演示版/真实版切换');
+assert.match(main, /PrimaryTabs = listOf\(Page\.HOME, Page\.SCHEDULE, Page\.TASKS, Page\.MESSAGES, Page\.PROFILE\)/,
+  '主导航应为五个真实页面');
+assert.match(main, /openAcademic = \{ current = Page\.ACADEMIC \}/,
+  '教务须保留可到达的原生入口');
+assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle, useStatusBarInset = true\)/,
+  '真实消息中心应独立绘制海报式头部并应用正确安全区');
+assert.match(messageCenter, /WechatReviewPanel\(/,
+  '真实消息布局不得绕过微信审核事务');
+assert.doesNotMatch(messageCenter, /PosterDemo|模拟群聊|高数练习要求与参考\.pdf/,
+  '真实消息中心不得展示海报演示消息和附件');
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
