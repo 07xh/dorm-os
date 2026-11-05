@@ -393,8 +393,8 @@ private fun NativeShell(
         Scaffold(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
-                // 海报版页面自带日期行与铃铛，不再叠品牌顶栏；真实数据模式保留统一顶栏。
-                XiaoxuTopBar(
+                // 消息页独立标题；所有页面仍使用同一真实数据源。
+                if (current != Page.MESSAGES) XiaoxuTopBar(
                         title = "校序",
                         subtitle = current.label,
                         refreshing = cloud.state.busy,
