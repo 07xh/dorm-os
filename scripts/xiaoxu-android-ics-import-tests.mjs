@@ -23,7 +23,7 @@ assert.match(main, /lesson\.weeks\.joinToString\(","\)/);
 assert.match(main, /lesson\.location\.ifBlank/);
 assert.match(main, /lesson\.teacher\.ifBlank/);
 assert.match(main, /val preview = parsed\.second/);
-// 课表 P1 已改用共享 SourceBadge：守护本机来源与 stale/new-read 独立标注。
+// 本机导入是课表唯一数据源；旧云端状态仅供历史回归，不渲染到新页面。
 assert.match(screen, /localImport -> "本机导入 · 待核对"/,
   '本机导入必须一直标记为待核对');
 assert.match(screen, /stale -> "上次读取 · 待刷新"/,
@@ -37,7 +37,16 @@ assert.match(screen, /当前混合展示整学期课块；选择具体周次才�
 assert.match(screen, /个课块/);
 
 assert.match(main, /再次确认替换/);
-assert.match(screen, /从手机文件导入课表（\.ics \/ \.json）/);
+assert.match(screen, /Text\("从文件导入课表"\)/);
+const currentTimetableEntry = screen.slice(
+  screen.indexOf('fun CloudTimetablePanel('),
+  screen.indexOf('private fun ScheduleVerifiedContent(')
+);
+assert.match(currentTimetableEntry, /localLessons\.isEmpty\(\)/);
+assert.match(currentTimetableEntry, /localImportedScheduleState\(localLessons\)/);
+assert.match(currentTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);
+assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/,
+  '本机课表不依赖云端课程或云端新鲜度');
 assert.match(screen, /onClick = openFileImport/);
 assert.match(store, /fun parseIcs\(input: String\): List<VerifiedLesson>/);
 assert.match(ics, /anchors\.size == 1/);
