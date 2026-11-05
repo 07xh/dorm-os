@@ -887,6 +887,26 @@ fun RealAcademicTaskHub(
                     color = MaterialTheme.colorScheme.error)
             }
         }
+        // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。
+        // 候选在本人确认前不是课程作业，也不进入三项统计。
+        if (state.authenticated || state.pendingWechatCount != null) {
+            item {
+                TaskSectionHeader(
+                    title = "微信消息候选",
+                    count = state.pendingWechatCount ?: 0,
+                    badge = "本人云端 · 待审核",
+                    note = "仅展示真实候选摘要，逐条核对后才能加入普通云端任务。",
+                    showCount = state.pendingWechatCount != null
+                )
+            }
+            item {
+                WechatReviewPanel(
+                    client = client,
+                    pendingCount = state.pendingWechatCount,
+                    openWebsite = openWebsite
+                )
+            }
+        }
         item {
             HorizontalDivider(Modifier.padding(top = 6.dp))
         }
