@@ -427,7 +427,7 @@ fun RealAcademicTaskHub(
                 fontWeight = FontWeight.SemiBold)
         }
         item { LocalSchoolRecordSection(setOf("course", "activity", "credits")) }
-        item { ChaoxingHomeworkPanel(client, openWebsite) }
+        item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
         item {
             OutlinedButton(onClick = { showLocal = !showLocal }) {
                 Text(if (showLocal) "收起本机任务管理" else "新增／管理本机任务")
