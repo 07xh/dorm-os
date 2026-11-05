@@ -1,0 +1,5 @@
+校序课表交互真机反馈，2026-11-05 用户明确要求改成整页上下滚动、像参考图一样的七日网格/课程抽屉。
+
+对应 PR #259；仅在通过 PR CI 并合并后让现有 Android workflow assembleDebug 编译，验证 Kotlin Compose 类型和构建，生成 14 天有效的 Debug APK artifact。
+不创建新构建 workflow；不改变学校数据源；本次 debug APK 不标记为已完成 Android 16 实机 UI/旋转/大字体验收。
+旧包覆盖前应先备份本机课程与任务，注意 debug 签名冲突风险。
