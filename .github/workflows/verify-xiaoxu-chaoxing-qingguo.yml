@@ -1,0 +1,37 @@
+name: Verify native Chaoxing and Qingguo workflow changes
+
+# One-time compile on an isolated verification branch.
+on:
+  push:
+    branches:
+      - ci/xiaoxu-chaoxing-qingguo-20261105
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify existing Android safety tests
+        run: node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compile native Android debug
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-chaoxing-qingguo-verify-debug
+          path: apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
