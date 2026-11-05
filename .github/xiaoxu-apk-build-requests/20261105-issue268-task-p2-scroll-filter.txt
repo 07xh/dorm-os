@@ -1,0 +1,4 @@
+校序任务中心 P2 交互补齐，一次性原生 Android Debug 编译门禁，2026-11-05。
+基线 main c60e92ebb8066b2c6dbb7260a874fb33a6d27132。此次只更改 RealDataWorkspace.kt 的任务页、对应 Android bootstrap 测试；新增三项统计卡的真实筛选点击、来源标签窄屏排布、详情到真实本机/云端任务管理区的自动滚动。
+保留 LocalTaskBoard、CloudTasksPanel、学校真实数据判断及全部连接器；不改消息中心、我的、课表、Room、Manifest/Gradle/工作流。
+合并本标记后，既有 Build Xiaoxu Android Alpha 工作流执行 Gradle assembleDebug/testDebugUnitTest、APK ZIP/Manifest/DEX、SHA256 与构件上传。Android 16 真机视觉与真实学校账号核验仍是单独门禁。
