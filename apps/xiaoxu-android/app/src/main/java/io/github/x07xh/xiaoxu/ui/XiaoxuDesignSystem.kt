@@ -754,8 +754,7 @@ fun XiaoxuTopBar(
     subtitle: String? = null,
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
-    onMessages: (() -> Unit)? = null,
-    onPosterMode: (() -> Unit)? = null
+    onMessages: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -801,9 +800,6 @@ fun XiaoxuTopBar(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-        if (onPosterMode != null) {
-            TextButton(onClick = onPosterMode) { Text("海报版") }
         }
         if (onMessages != null) {
             TextButton(onClick = onMessages) { Text("消息") }
