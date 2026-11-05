@@ -111,11 +111,13 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     val selected = state.wechatCandidates.firstOrNull { it.id == selectedId }
     val reviewing = state.wechatReviewingId != null
 
-    XiaoxuCard {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "微信待审核",
+                    text = "逐条审核",
                     style = MaterialTheme.typography.titleMedium,
                     color = XiaoxuPalette.Ink,
                     modifier = Modifier.weight(1f)
@@ -222,7 +224,6 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                     color = XiaoxuPalette.Brand
                 )
             }
-        }
     }
 
     if (selected != null && state.authenticated) {
@@ -367,10 +368,11 @@ private fun WechatCandidateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(XiaoxuPalette.SurfaceAlt)
+            .clip(RoundedCornerShape(XiaoxuRadius.card))
+            .background(XiaoxuPalette.Surface)
+            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = 13.dp, vertical = 13.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = wechatKindLabel(item.kind) + "：" + item.title +
                     "。打开可逐条核对，不会自动加入任务"
@@ -379,7 +381,7 @@ private fun WechatCandidateRow(
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(42.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(tone.containerColor),
             contentAlignment = Alignment.Center
