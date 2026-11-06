@@ -1074,6 +1074,25 @@ assert.match(northGlyph, /drawBooks\(|drawCalendar\(|drawLightning\(|drawChart\(
 assert.match(northPlayback, /fun rememberNorthNavigationIconPlayback\(/, '每个 tab 的图标动画时钟独立');
 assert.match(navigation, /northSymbol = it\.primaryNorthSymbol/, '五个导航功能使用单一原版符号映射');
 assert.match(main, /rememberLayerBackdrop\(/, '真实背景采样必须由单一 Shell 提供');
+
+const navGeometry = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryBottomGeometry.kt');
+assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/,
+  '玻璃采样层须录制真实页面，而不是静态背景色');
+assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/,
+  '页面下沿留白与玻璃栏必须使用同一几何契约');
+assert.match(main, /Box\(Modifier\.align\(Alignment.BottomCenter\)\)/,
+  '底栏必须置于背景采样树之外以防止自采样循环');
+assert.equal((main.match(/PrimaryBottomNavigation\(/g) || []).length, 1,
+  '任意设备只能有一个真实底栏实例');
+assert.match(navGeometry, /fun rememberPrimaryBottomGeometry\(glass: Boolean\)/,
+  '北化响应式几何须是唯一来源');
+assert.match(navGeometry, /interpolateDp\(72.dp, 62.dp, squeeze\)/,
+  '原版短屏轨道的尺寸必须保留');
+assert.match(northChrome, /refractionHeight = h/,
+  '动态指示器必须使用原版交互折射强度');
+assert.match(northChrome, /refractionHeight = height/,
+  '轨道必须具有物理折射');
+
 assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/, '固定已测试的兼容版玻璃库');
 
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.BrandSoft/,
