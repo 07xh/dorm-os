@@ -1206,7 +1206,7 @@ assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图�
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /modifier = Modifier\.weight\(1f\)/, '双来源信息卡并排占位');
-assert.match(messageCenter, /size\(42\.dp\)/, '公告卡使用 42dp 图标块');
+assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
 assert.match(messageCenter, /fun SourceChip\(\n/, '来源信息卡为私有独立组件');
 assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
