@@ -882,9 +882,8 @@ private fun AcademicPage(
         when (selected) {
             AcademicDestination.OVERVIEW -> Content {
                 item {
-                    XiaoxuCard(contentPadding = 0.dp) {
-                        Column {
-                            AcademicActionRow("成绩", Icons.Outlined.School, "未读取",
+                    XiaoxuGroupedSection {
+                        AcademicActionRow("成绩", Icons.Outlined.School, "未读取",
                                 onClick = { select(AcademicDestination.GRADES) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
@@ -896,9 +895,8 @@ private fun AcademicPage(
                                 onClick = { select(AcademicDestination.SECOND_CLASS) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("校园服务", Icons.Outlined.Home,
-                                onClick = { select(AcademicDestination.SERVICES) })
-                        }
+                        AcademicActionRow("校园服务", Icons.Outlined.Home,
+                            onClick = { select(AcademicDestination.SERVICES) })
                     }
                 }
             }
@@ -927,15 +925,13 @@ private fun AcademicPage(
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
-                    XiaoxuCard(contentPadding = 0.dp) {
-                        Column {
-                            AcademicActionRow("数据连接", Icons.Outlined.School,
+                    XiaoxuGroupedSection {
+                        AcademicActionRow("数据连接", Icons.Outlined.School,
                                 onClick = openProfile)
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("打开校序网站", Icons.Outlined.Home,
-                                onClick = openWebsite)
-                        }
+                        AcademicActionRow("打开校序网站", Icons.Outlined.Home,
+                            onClick = openWebsite)
                     }
                 }
             }
