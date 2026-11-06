@@ -74,113 +74,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
-import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.LocalDate
 
 /*
- * 校序课表页现以本机导入的 localLessons 为唯一显示数据源。
- * 下方的 ScheduleUiState / deriveScheduleUiState 是历史云端状态兼容模型，
- * 仍供已有 JVM 测试校验数据新鲜度，但不再驱动当前课表页面。
- * 未核验学校开学日期及作息表前，仍不能推断教学周或上课倒计时。
+ * 课表仅渲染本机导入的 localLessons；旧云端课表状态不再控制此页面。
+ * CloudClient 的任务、连接状态与学校会话逻辑仍由对应模块负责。
  */
 
-// ---------------------------------------------------------------------------
-// 状态模型（纯函数，可在 JVM 单元测试里直接验证，不依赖 Compose）
-// ---------------------------------------------------------------------------
+/** 本机导入课程和来源标签，永不冒充学校实时核验结果。 */
+data class LocalImportedScheduleView(
+    val lessons: List<VerifiedLesson>,
+    val sourceLabel: String
+)
 
-sealed interface ScheduleUiState {
-    /** 首次读取尚未落定，或正在刷新且没有可展示的旧数据。 */
-    data object Loading : ScheduleUiState
-
-    /** 云端未连接，须由本人在"我的"页完成校序口令登录。 */
-    data object NotConnected : ScheduleUiState
-
-    /** 已连接但没有青果可信来源（status = not_connected）。 */
-    data object NoTrustedSource : ScheduleUiState
-
-    /** 有来源但未通过可信只读校验，不导入也不猜测。 */
-    data object UnverifiedSource : ScheduleUiState
-
-    /** 读取失败且没有旧数据可展示。message 为服务端返回的真实错误分类。 */
-    data class Failed(val message: String) : ScheduleUiState
-
-    /** 可信来源明确返回 0 门课程。 */
-    data object VerifiedEmpty : ScheduleUiState
-
-    /**
-     * 已验证且有真实课程。
-     * stale = 当前展示的不是本次读取结果（上次保留，或服务端标记未确认调整）。
-     * refreshing = 本次刷新仍在进行，课程来自上次保留。
-     */
-    data class Verified(
-        val lessons: List<VerifiedLesson>,
-        val stale: Boolean,
-        val fetchedAt: String?,
-        val refreshWarning: String?,
-        val term: String?,
-        val sourceLabel: String = "华水青果 · 可信只读",
-        val refreshing: Boolean = false
-    ) : ScheduleUiState
-}
-
-/**
- * CloudUiState 没有"首次加载完成"标志位，默认 authMessage 是唯一可判定的哨兵值。
- * 这里读取默认实例而不是重复写字面量；数据层将来补字段后可删除此判断。
- */
-private val PENDING_AUTH_MESSAGE = CloudUiState().authMessage
-
-/** 本机导入课表与云端无关：不受 scheduleFresh / 刷新失败影响，但始终标注待本人核对。 */
-fun localImportedScheduleState(lessons: List<VerifiedLesson>): ScheduleUiState.Verified =
-    ScheduleUiState.Verified(
+fun localImportedScheduleView(lessons: List<VerifiedLesson>) =
+    LocalImportedScheduleView(
         lessons = lessons,
-        stale = false,
-        fetchedAt = null,
-        refreshWarning = null,
-        term = null,
         sourceLabel = "华水青果 · 本机导入（待本人核对）"
     )
-
-/**
- * 推导顺序即优先级，逐条对应 Issue #209 的四态：
- * 1. 有真实课程 -> 已验证（保留旧数据，但按 scheduleFresh 区分"本次读取 / 上次保留 / 刷新中"）；
- * 2. 忙碌 / 首次读取 -> 加载；
- * 3. 未登录 -> 未连接；
- * 4. 有错误且无旧数据 -> 错误；
- * 5. 其余按来源状态落到"无可信来源 / 未验证 / 可信空结果"。
- */
-fun deriveScheduleUiState(state: CloudUiState): ScheduleUiState {
-    if (state.lessons.isNotEmpty()) {
-        // scheduleFresh 只在本次 /api/v1/schedule 成功返回时由 CloudClient 置 true。
-        // 刷新开始时它被置 false，失败后保持 false——这两种情况下 lessons 都是上次保留的，
-        // 不能标记为"本次已核验"。
-        val keptFromLastRead = !state.scheduleFresh
-        val refreshing = keptFromLastRead && state.busy
-        return ScheduleUiState.Verified(
-            lessons = state.lessons,
-            stale = keptFromLastRead || state.scheduleStatus == "stale",
-            fetchedAt = state.scheduleFetchedAt,
-            // privateError 聚合了任务 / 连接 / 微信候选的失败，不能当作课表专属提示。
-            refreshWarning = if (keptFromLastRead && !state.busy) "本次课表请求未成功" else null,
-            term = state.lessons.firstOrNull { it.term.isNotBlank() }?.term,
-            refreshing = refreshing
-        )
-    }
-    if (state.busy || state.signingIn) return ScheduleUiState.Loading
-    if (!state.authenticated) {
-        return if (state.authMessage == PENDING_AUTH_MESSAGE) ScheduleUiState.Loading
-        else ScheduleUiState.NotConnected
-    }
-    if (state.privateError != null) {
-        // 聚合错误可能来自任务 / 连接 / 微信候选，只如实说明"这次云端读取没成功"。
-        return ScheduleUiState.Failed("本次云端读取失败，课表暂无可用数据；请稍后重试")
-    }
-    return when (state.scheduleStatus) {
-        "ready", "stale" -> ScheduleUiState.VerifiedEmpty
-        "not_connected" -> ScheduleUiState.NoTrustedSource
-        else -> ScheduleUiState.UnverifiedSource
-    }
-}
 
 /** 离散周次压成区间用于课程卡信息密度：1,2,3,5 -> "第1–3、5周"。 */
 fun formatWeeks(weeks: List<Int>): String {
@@ -279,9 +191,8 @@ fun CloudTimetablePanel(
                 LocalTimetableEmptyState(openFileImport)
             } else {
                 ScheduleVerifiedContent(
-                    data = localImportedScheduleState(localLessons),
+                    data = localImportedScheduleView(localLessons),
                     expanded = expanded,
-                    onRefresh = openFileImport,
                     openLocalImport = openFileImport,
                     openFileImport = openFileImport
                 )
@@ -326,9 +237,8 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
 
 @Composable
 private fun ScheduleVerifiedContent(
-    data: ScheduleUiState.Verified,
+    data: LocalImportedScheduleView,
     expanded: Boolean,
-    onRefresh: () -> Unit,
     openLocalImport: () -> Unit,
     openFileImport: () -> Unit
 ) {
@@ -630,7 +540,7 @@ private fun DayLessonList(
 
 /**
  * 课表 P1 视觉统一：复用首页白卡与来源徽标，不复制另一套颜色。
- * badge 严格使用现有 Verified.stale/refreshing 与本机来源，不更改学校数据判断。
+ * 当前课表仅标注本机导入，不使用云端新鲜度计算徽标。
  */
 @Composable
 private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
