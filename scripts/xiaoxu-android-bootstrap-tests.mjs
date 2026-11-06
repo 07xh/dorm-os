@@ -1311,3 +1311,7 @@ assert.match(autoDriver,/ncwu_secondclass_local\.js/);
 assert.match(autoRefresh,/matchesConfirmedAccount/);
 assert.match(autoRefresh,/expectedBinding = expected/);
 assert.match(localNative,/accountHash = accountHash/);
+
+const autoControls=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt');
+assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foreground automatic reads must be owned by the Activity lifecycle, not a retained composition');
+assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);

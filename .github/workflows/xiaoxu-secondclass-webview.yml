@@ -32,6 +32,20 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest --no-daemon --stacktrace
+      - name: Stage tested APK and SDK verification tool
+        if: success()
+        run: |
+          mkdir -p "$RUNNER_TEMP/secondclass-runtime"
+          cp apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/secondclass-runtime/"
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" "$RUNNER_TEMP/secondclass-runtime/"
+          cd "$RUNNER_TEMP/secondclass-runtime"
+          sha256sum app-debug.apk apksigner.jar > files.sha256
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: secondclass-auto-runtime-apk
+          path: ${{ runner.temp }}/secondclass-runtime/
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -8,12 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
-import kotlinx.coroutines.launch
 
 @Composable
 fun SecondClassAutoReadControls() {
     val c = LocalContext.current.applicationContext
-    val scope = rememberCoroutineScope()
     val prefs = remember(c) { c.getSharedPreferences(SecondClassAutoRefresh.SETTINGS, 0) }
     var revision by remember { mutableIntStateOf(0) }
     DisposableEffect(prefs) {
@@ -27,7 +25,6 @@ fun SecondClassAutoReadControls() {
         Text("打开 App 自动读取", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(checked = enabled, onCheckedChange = {
             SecondClassAutoRefresh.configure(c, it, background)
-            if (it) scope.launch { SecondClassAutoRefresh.refreshIfDue(c) }
         })
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

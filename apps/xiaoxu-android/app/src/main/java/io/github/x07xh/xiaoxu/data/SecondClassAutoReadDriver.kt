@@ -37,9 +37,9 @@ internal suspend fun readSecondClassAutomatically(context: Context, salt: String
                     if (cleaned) return
                     cleaned = true
                     handler.removeCallbacksAndMessages(null)
-                    browser.webViewClient = WebViewClient()
-                    browser.stopLoading()
-                    browser.destroy()
+                    runCatching { browser.webViewClient = WebViewClient() }
+                    runCatching { browser.stopLoading() }
+                    runCatching { browser.destroy() }
                 }
                 fun fail(status: String) {
                     if (cleaned || !continuation.isActive) return
