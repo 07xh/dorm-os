@@ -12,6 +12,11 @@ on:
       - '.github/workflows/xiaoxu-campus-run-jvm.yml'
   workflow_dispatch:
 
+# New commits supersede older PR jobs; published main builds never cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
