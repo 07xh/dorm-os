@@ -1302,8 +1302,12 @@ assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
   '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
-assert.match(messageCenter, /text = \{ Text\("微信审核"\) \}/,
-  '群消息候选唯一审核位置必须是消息中心的微信审核标签');
+assert.match(messageCenter, /Text\("微信审核" \+/,
+  '微信审核标签可以附真实数量，但入口归属必须仍在消息中心');
+assert.match(messageCenter, /WechatReviewPanel\(/,
+  '已保存候选只允许从消息中心审核');
+assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
+  '任务中心不得恢复重复微信审核器');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
