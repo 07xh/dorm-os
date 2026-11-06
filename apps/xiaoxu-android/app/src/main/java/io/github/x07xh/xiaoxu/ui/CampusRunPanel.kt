@@ -105,9 +105,9 @@ fun CampusRunPanel(client: CloudClient) {
 }
 
 @Composable
-private fun CampusRunScopedPanel(scope: String) {
+private fun CampusRunScopedPanel(sessionScope: String) {
     val context = LocalContext.current
-    val store = remember(context, scope) { LocalCampusRunStore(context, scope) }
+    val store = remember(context, sessionScope) { LocalCampusRunStore(context, sessionScope) }
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<CampusRunSnapshot?>(null) }
     var loading by remember { mutableStateOf(true) }
