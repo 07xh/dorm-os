@@ -75,14 +75,14 @@ fun SecondClassPage(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     // Each section owns its scroll position; switching never jumps to a stale offset.
     val catalogScroll = rememberScrollState()
-    val activityScroll = rememberScrollState()
-    val scoreScroll = rememberScrollState()
+    val activitiesScroll = rememberScrollState()
+    val scoresScroll = rememberScrollState()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result ->
         refreshing = false
-        val saved = result.resultCode == Activity.RESULT_OK
-        error = if (saved) null else "本次未更新，可重新读取"
-        onRefreshResult?.invoke(saved)
+        val succeeded = result.resultCode == Activity.RESULT_OK
+        error = if (succeeded) null else "本次未更新，可重新读取"
+        onRefreshResult?.invoke(succeeded)
     }
 
     fun refreshPersonalRecords() {
@@ -132,13 +132,13 @@ fun SecondClassPage(
                 }
             }
         }
-        val scroll = when (section) {
+        val currentScroll = when (section) {
             0 -> catalogScroll
-            1 -> activityScroll
-            else -> scoreScroll
+            1 -> activitiesScroll
+            else -> scoresScroll
         }
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(scroll)
+            modifier = Modifier.fillMaxSize().verticalScroll(currentScroll)
                 .padding(horizontal = 18.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
