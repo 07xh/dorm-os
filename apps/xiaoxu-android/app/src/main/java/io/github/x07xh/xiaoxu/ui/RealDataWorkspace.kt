@@ -156,6 +156,14 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         }
     }
 
+/** Apply orthogonal task filters without conflating origin, due date and completion. */
+internal fun facetWorkspaceTasks(
+    tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
+): List<WorkspaceTask> = tasks.filter { task ->
+    (source == "all" || task.storage == source) &&
+        (!thisWeekOnly || (!task.done && thisWeek(task.date, today)))
+}
+
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
 internal fun searchWorkspaceTasks(
     tasks: List<WorkspaceTask>, filter: String, query: String, today: LocalDate
@@ -690,10 +698,10 @@ fun RealAcademicTaskHub(
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
-    val visible = searchWorkspaceTasks(all, filter, searchQuery, today).filter { task ->
-        (sourceFilter == "all" || task.storage == sourceFilter) &&
-            (!onlyThisWeek || (!task.done && thisWeek(task.date, today)))
-    }
+    val visible = facetWorkspaceTasks(
+        searchWorkspaceTasks(all, filter, searchQuery, today),
+        sourceFilter, onlyThisWeek, today
+    )
     // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
     val localRows = shown.filter { it.storage == "local" }
