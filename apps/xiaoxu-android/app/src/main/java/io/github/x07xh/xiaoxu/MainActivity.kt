@@ -85,7 +85,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
-import io.github.x07xh.xiaoxu.ui.PrimaryGlassNavigationReserve
+import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
 import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.ui.primaryTabLabel
 import io.github.x07xh.xiaoxu.ui.QuickEntry
@@ -473,16 +473,9 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    if (navBackdrop != null) {
-                        // Only geometry/inset in Scaffold: draw the real dock once
-                        // above its captured page, as a sibling of Scaffold.
-                        PrimaryGlassNavigationReserve()
-                    } else {
-                        PrimaryBottomNavigation(selected = current, backdrop = null) {
-                            current = it
-                            messagesOpen = false
-                        }
-                    }
+                    // Only reserve geometry. Draw a single bar outside this captured
+                    // Scaffold for BOTH glass and no-glass devices.
+                    PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
             }
         ) { contentPadding ->
@@ -562,7 +555,7 @@ private fun NativeShell(
                 }
             }
         }
-        if (navBackdrop != null && !messagesOpen) {
+        if (!tabletLayout && !messagesOpen) {
             Box(Modifier.align(Alignment.BottomCenter)) {
                 PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) {
                     current = it
