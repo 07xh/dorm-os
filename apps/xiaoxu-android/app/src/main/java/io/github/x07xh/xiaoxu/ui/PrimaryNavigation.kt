@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
 import io.github.x07xh.xiaoxu.MainDestination
 
 /**
@@ -50,6 +51,15 @@ internal val MainDestination.primaryTabLabel: String
         MainDestination.PROFILE -> "我的"
     }
 
+private val MainDestination.primaryNorthSymbol: NorthAppSymbolSpec
+    get() = when (this) {
+        MainDestination.HOME -> NorthAppSymbolSpec.Courses
+        MainDestination.SCHEDULE -> NorthAppSymbolSpec.Schedule
+        MainDestination.ACADEMIC -> NorthAppSymbolSpec.Grades
+        MainDestination.TASKS -> NorthAppSymbolSpec.Grab
+        MainDestination.PROFILE -> NorthAppSymbolSpec.Settings
+    }
+
 private val MainDestination.primaryTabIcon: ImageVector
     get() = when (this) {
         MainDestination.HOME -> Icons.Outlined.Home
@@ -67,7 +77,7 @@ internal fun PrimaryBottomNavigation(
 ) {
     // Stable items: no allocation of a new list on every animation frame.
     val items = remember {
-        PrimaryTabs.map { FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon) }
+        PrimaryTabs.map { FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol) }
     }
     FloatingBottomBar(
         items = items,
