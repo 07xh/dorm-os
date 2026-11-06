@@ -21,3 +21,28 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+------------------------------------------------------------------
+SleepDown 课程表 — 署名非商业、源码可见许可 1.1
+Copyright (c) 2026 SleepDown 课程表项目作者 (xiaomanjun233)
+https://github.com/xiaomanjun233/SleepDown-Schedule
+
+本 App 的悬浮底部导航复用该项目两个文件，逻辑未改动，仅替换 package
+并补充文件头注释：
+  ui/nav/DampedDragAnimation.kt
+    <- app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt
+  ui/nav/DragGestureInspector.kt
+    <- app/src/main/java/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt
+
+这两个上游文件自身派生自 Kyant0/AndroidLiquidGlass 的 Apache-2.0 代码，
+并经 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；本 App 按
+更严格的一方（1.1）履行义务。
+
+许可要点：
+  - 非商业使用：本 App 为个人学习自用，不收费、无广告、不做商业分发。
+  - 修改版源码可见：https://github.com/07xh/dorm-os 含全部源码与构建脚本。
+  - 已明确标注为修改版并列出修改内容（见上）。
+  - 未使用与上游近似的应用名、包名或图标。
+  - 未复用上游的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
+    悬浮胶囊渲染层 ui/FloatingBottomBar.kt 为本项目自行编写。
+  - 若未来改为商业分发，必须先移除上述两个文件并换用自研动画驱动。
