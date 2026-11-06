@@ -1038,10 +1038,8 @@ assert.match(design, /fun SectionHeader\(/, '须有分区标题');
 assert.match(design, /fun SourceBadge\(/, '须有来源徽标');
 assert.match(design, /fun StatusChip\(/, '须有状态标签');
 assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
-assert.match(design, /fun XiaoxuLoading\(/, '须有统一加载态');
-assert.match(design, /fun XiaoxuEmpty\(/, '须有统一空态');
-assert.match(design, /fun XiaoxuError\(/, '须有统一错误态');
-assert.match(design, /fun XiaoxuUnverified\(/, '须有统一未核验态');
+assert.match(design, /fun XiaoxuEmpty\(/, '实际使用的统一空态必须保留');
+assert.match(design, /fun XiaoxuStatePanel\(/, '空态继续复用设计系统容器');
 assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
 assert.match(design, /fun QuickEntry\(/, '快捷入口须是共享组件');
 assert.doesNotMatch(design, /WebView|HttpURLConnection|CookieManager/,
