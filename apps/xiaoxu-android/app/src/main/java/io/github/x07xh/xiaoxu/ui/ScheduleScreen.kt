@@ -437,7 +437,7 @@ private fun ScheduleVerifiedContent(
     ) {
         SchedulePageHeading(
             onMessages = onMessages,
-            sourceLabel = "本机导入 · " + data.lessons.size + " 个课块 · 待本人核对",
+            sourceLabel = "本机导入 · 待本人核对",
             onAdd = {
                 editOriginal = null
                 editingError = null
