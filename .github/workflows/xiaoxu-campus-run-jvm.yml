@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths:
       - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CampusRunContract.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CampusRunScope.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalCampusRunStore.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CampusRunPanel.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt'
       - 'apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/data/CampusRunContractTest.kt'
       - '.github/workflows/xiaoxu-campus-run-jvm.yml'
   workflow_dispatch:

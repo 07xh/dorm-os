@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CampusRunManualInput
 import io.github.x07xh.xiaoxu.data.CampusRunSnapshot
 import io.github.x07xh.xiaoxu.data.LocalCampusRunStore
+import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.data.campusRunVisibleScope
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -76,9 +79,35 @@ private fun CampusRunKmInput(
  * Android Keystore storage is separate from credentials/cloud DB/Room tasks.
  */
 @Composable
-fun CampusRunPanel() {
+fun CampusRunPanel(client: CloudClient) {
+    // An unverified owner token is never equivalent to the unlocked local
+    // profile. In particular, sign-out and switching must hide old data
+    // immediately, even if the auth refresh has not finished.
+    val scope = campusRunVisibleScope(
+        authenticated = client.state.authenticated,
+        ownerSessionBinding = client.ownerSessionBinding()
+    )
+    if (scope == null) {
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("校园跑 · 本机记录已锁定",
+                    style = MaterialTheme.typography.titleMedium)
+                Text("校序账号会话尚未核验或已经失效。重新验证账号后才能查看对应的本机记录，避免切换账号时展示上一位使用者的数据。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
+    // key() resets every remembered snapshot/input/edit state when owner
+    // scope changes. A frame from the old session cannot be re-used.
+    key(scope) { CampusRunScopedPanel(scope) }
+}
+
+@Composable
+private fun CampusRunScopedPanel(sessionScope: String) {
     val context = LocalContext.current
-    val store = remember(context) { LocalCampusRunStore(context) }
+    val store = remember(context, sessionScope) { LocalCampusRunStore(context, sessionScope) }
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<CampusRunSnapshot?>(null) }
     var loading by remember { mutableStateOf(true) }

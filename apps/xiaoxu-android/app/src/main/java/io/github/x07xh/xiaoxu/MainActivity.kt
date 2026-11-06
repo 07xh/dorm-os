@@ -549,7 +549,8 @@ private fun NativeShell(
                                 localLessons = localLessons, openLocalImport = openLocalImport,
                                 openFileImport = openFileImport)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
-                                openWebsite, openProfile = { current = MainDestination.PROFILE })
+                                openWebsite, openProfile = { current = MainDestination.PROFILE },
+                                cloud = cloud)
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool)
                             MainDestination.PROFILE -> ConnectionsPage(
@@ -643,7 +644,8 @@ private fun AcademicPage(
     selected: AcademicDestination,
     select: (AcademicDestination) -> Unit,
     openWebsite: () -> Unit,
-    openProfile: () -> Unit
+    openProfile: () -> Unit,
+    cloud: CloudClient
 ) {
     val visibleTabs = listOf(
         AcademicDestination.OVERVIEW to "总览",
@@ -709,7 +711,7 @@ private fun AcademicPage(
                     Text("返回教务总览")
                 } }
                 item { Heading("校园服务", "学校数据连接与服务") }
-                item { CampusRunPanel() }
+                item { CampusRunPanel(cloud) }
                 item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
                 item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
             }
