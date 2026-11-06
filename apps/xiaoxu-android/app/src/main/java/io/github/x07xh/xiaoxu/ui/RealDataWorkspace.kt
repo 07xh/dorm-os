@@ -803,53 +803,69 @@ fun RealAcademicTaskHub(
     LazyColumn(
         state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(18.dp),
-        // Zero inter-item gap is required for connected task rows. Section items
-        // add their own spacing so we keep LazyColumn's per-task virtualization.
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        // Keep connected task rows as separate lazy items with zero gaps.
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("任务中心", style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 24.sp, lineHeight = 31.sp),
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("任务中心",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 20.sp, lineHeight = 26.sp),
                         color = XiaoxuPalette.Ink,
+                        maxLines = 1,
                         modifier = Modifier.semantics { heading() })
                     Text(
                         today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE",
                             java.util.Locale.CHINA)),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = XiaoxuPalette.Ink2
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2,
+                        maxLines = 1
                     )
                 }
-                IconButton(onClick = onMessages) {
+                IconButton(
+                    modifier = Modifier.size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(XiaoxuPalette.Surface),
+                    onClick = onMessages
+                ) {
                     Icon(Icons.Outlined.NotificationsNone,
-                        contentDescription = "打开消息中心", tint = XiaoxuPalette.Ink2)
+                        contentDescription = "消息中心",
+                        modifier = Modifier.size(20.dp), tint = XiaoxuPalette.Ink2)
                 }
                 IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    modifier = Modifier.size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(XiaoxuPalette.Surface),
                     onClick = { showSearch = !showSearch }
                 ) {
                     Icon(Icons.Outlined.Search, contentDescription = "搜索任务",
-                        tint = XiaoxuPalette.Brand)
+                        modifier = Modifier.size(20.dp), tint = XiaoxuPalette.BrandDeep)
                 }
-                Spacer(Modifier.width(7.dp))
                 IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    modifier = Modifier.size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(XiaoxuPalette.Surface),
                     onClick = { taskScope.launch { client.refreshPrivate() } },
                     enabled = state.authenticated && !state.busy
                 ) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新校序云端任务",
-                        tint = if (state.authenticated) XiaoxuPalette.Brand else XiaoxuPalette.Ink3)
+                    Icon(Icons.Outlined.Refresh,
+                        contentDescription = "刷新校序云端任务",
+                        modifier = Modifier.size(20.dp),
+                        tint = if (state.authenticated) XiaoxuPalette.BrandDeep
+                            else XiaoxuPalette.Ink3)
                 }
-                Spacer(Modifier.width(7.dp))
                 IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    modifier = Modifier.size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(XiaoxuPalette.Brand),
                     onClick = {
                         if (showManager && showLocal) {
@@ -869,7 +885,7 @@ fun RealAcademicTaskHub(
                         if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
                         contentDescription = if (showManager && showLocal)
                             "收起新建本机任务" else "新增本机任务",
-                        tint = Color.White
+                        modifier = Modifier.size(21.dp), tint = Color.White
                     )
                 }
             }
@@ -878,7 +894,7 @@ fun RealAcademicTaskHub(
             // One continuous status strip; values come from real saved tasks.
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .padding(top = 12.dp)
+                    .padding(top = 6.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(XiaoxuPalette.Surface)
                     .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(18.dp))
@@ -1500,8 +1516,8 @@ private fun TaskStatusTab(
             .clip(RoundedCornerShape(14.dp))
             .background(if (active) XiaoxuPalette.BrandSoft else Color.Transparent)
             .clickable(onClickLabel = "筛选$label", onClick = onClick)
-            .heightIn(min = 74.dp)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
+            .heightIn(min = 62.dp)
+            .padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
     ) {
