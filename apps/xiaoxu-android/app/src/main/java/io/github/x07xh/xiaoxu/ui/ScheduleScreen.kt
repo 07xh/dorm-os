@@ -414,7 +414,7 @@ private fun ScheduleVerifiedContent(
             }) { Text("新增") }
             TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
             OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                Text("导入")
+                Text("重新导入")
             }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
