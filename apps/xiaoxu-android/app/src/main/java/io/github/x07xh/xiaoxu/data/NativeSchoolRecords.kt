@@ -38,6 +38,14 @@ interface NativeSchoolRecordDao {
         require(activities.size in 1..251)
         require(activities.count { it.kind == "activity_summary" } == 1)
         require(activities.all { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") })
+        // One reader produces one capture time across its verified personal
+        // responses. Reject stale/foreign rows before deleting any saved data.
+        // This supplements, rather than replaces, the reader's identity checks.
+        val capturedAt = scores.first().capturedAt
+        require(capturedAt > 0)
+        require((scores + activities).all {
+            it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == capturedAt
+        })
         // The validated catalog is tied to this account's verified score read.
         // Clear an earlier owner's empty snapshot on successful account switch,
         // even when the current catalog is unavailable or nonempty/unverified.
