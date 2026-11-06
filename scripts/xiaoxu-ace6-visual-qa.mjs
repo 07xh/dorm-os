@@ -105,7 +105,7 @@ const metadata = {
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
-  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings'],
+  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day'],
   scenes: []
 };
 const steps = [
@@ -113,7 +113,7 @@ const steps = [
   ['02-schedule', '周课表：核对原版周一至周日选择条、周次、课程卡颜色和七日布局；不要更改真实课程'],
   ['03-course-detail', '课程详情：点击本人已有课程后保持底部抽屉打开，对照原图的弹出位置、文字、双信息卡、教师/周次、提醒和关闭按钮；不要切换提醒'],
   ['04-schedule-settings', '课表设置：从现有入口打开并停留在设置页，对照原图的页面位置、分组、文字、节次时间和周/日视图入口；不要改动真实学期'],
-  ['05-schedule-day', '日视图：仅在已配置为日视图时采集真实单日课表；不为截图变更学期或导入演示数据，可跳过'],
+  ['05-schedule-day', '日视图：在课表设置中只切换到日视图并点“完成”，采集真实单日课表，最后恢复原视图；不得修改课程、学期或导入演示数据'],
   ['06-tasks', '任务中心：核对三态数量、来源切换、长列表、搜索及返回'],
   ['07-task-detail', '任务详情：打开已有一条任务核对原生详情；不要修改完成状态'],
   ['08-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
