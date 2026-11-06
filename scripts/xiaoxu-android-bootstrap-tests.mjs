@@ -1368,8 +1368,8 @@ assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "loc
   '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
 assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
   '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
-assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.padding\(top = 4\.dp, bottom = 2\.dp\)/,
-  '消息页按海报式独立标题布局，不再包一层大卡');
+assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
+  '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
   '官方公告与微信候选使用共享来源徽标');
 assert.match(messageCenter, /WechatReviewPanel\(/,
