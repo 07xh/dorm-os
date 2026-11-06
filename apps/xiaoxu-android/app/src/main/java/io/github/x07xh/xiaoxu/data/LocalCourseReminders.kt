@@ -249,7 +249,7 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
             } == true
         } ?: return Result.success()
         val startAt = java.time.Instant.ofEpochSecond(expectedStart)
-        if (now.toInstant().isBefore(startAt.minusSeconds(12 * 60)) ||
+        if (now.toInstant().isBefore(startAt.minusSeconds(18 * 60)) ||
             !now.toInstant().isBefore(startAt.plusSeconds(5 * 60))) return Result.success()
         LocalCourseReminders.deliver(applicationContext, lesson)
         return Result.success()
