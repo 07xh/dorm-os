@@ -84,6 +84,7 @@ import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
+import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
@@ -618,23 +619,38 @@ private fun ConnectionsPage(
     localCaptureReturn: LocalSchoolImportReceipt?
 ) {
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
+    var showLocalBackup by rememberSaveable { mutableStateOf(false) }
     Content {
-        item { Heading("我的", "学校数据先在手机读取；云端同步是可选功能") }
+        // ConnectionsPanel starts with the real owner profile hero. Do not
+        // duplicate "我的" as a second headline above the same information.
         item {
             ConnectionsPanel(cloud, openWebsite, openLocalSchool,
                 startSchoolAuthorization, localCaptureReturn)
         }
         item {
-            TextButton(onClick = { showCloudSecondClass = !showCloudSecondClass }) {
-                Text(if (showCloudSecondClass) "收起云端第二课堂详情"
-                     else "查看云端第二课堂详情（可选）")
+            XiaoxuCard(onClick = { showCloudSecondClass = !showCloudSecondClass }) {
+                Text(if (showCloudSecondClass) "收起云端个人快照"
+                     else "云端第二课堂个人快照（可选）",
+                    style = MaterialTheme.typography.titleSmall)
+                Text("仅展示已保存的本人活动与积分；学校活动广场在「教务 → 第二课堂」。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
             }
         }
         if (showCloudSecondClass) {
             item { SecondClassPanel(cloud, openWebsite) }
         }
-        // 本机任务 JSON 备份与合并恢复（PR #213）保持原样。
-        item { LocalTaskBackupPanel() }
+        item {
+            XiaoxuCard(onClick = { showLocalBackup = !showLocalBackup }) {
+                Text(if (showLocalBackup) "收起本机任务备份"
+                     else "本机任务备份与恢复",
+                    style = MaterialTheme.typography.titleSmall)
+                Text("按需使用系统文件选择器，不自动上传本机任务。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (showLocalBackup) item { LocalTaskBackupPanel() }
     }
 }
 
