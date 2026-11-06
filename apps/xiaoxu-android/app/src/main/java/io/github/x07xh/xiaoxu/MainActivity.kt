@@ -83,6 +83,7 @@ import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.SecondClassPanel
+import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
@@ -708,6 +709,7 @@ private fun AcademicPage(
                     Text("返回教务总览")
                 } }
                 item { Heading("校园服务", "学校数据连接与服务") }
+                item { CampusRunPanel() }
                 item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
                 item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
             }
