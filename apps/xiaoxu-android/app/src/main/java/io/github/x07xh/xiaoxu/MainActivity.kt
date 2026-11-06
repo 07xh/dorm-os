@@ -144,6 +144,8 @@ class MainActivity : ComponentActivity() {
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
     // Only the latest committed import/resume read may update visible lessons.
     private var localScheduleReadSerial = 0L
+    // Changes even when only semester settings are restored and course rows stay equal.
+    private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
     private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
@@ -168,9 +170,11 @@ class MainActivity : ComponentActivity() {
                     taskReminderOpenCount = taskReminderOpenCount,
                     scheduleReminderOpenCount = scheduleReminderOpenCount,
                     localLessons = localLessons,
+                    localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = { saved ->
                         localScheduleReadSerial++
                         localLessons = saved
+                        localScheduleRevision++
                     },
                     returnedSchool = returnedSchool,
                     localCaptureReturn = lastLocalCapture,
@@ -309,6 +313,7 @@ class MainActivity : ComponentActivity() {
                             // Invalidate previously started resume reads after commit.
                             localScheduleReadSerial++
                             localLessons = savedLessons
+                            localScheduleRevision++
                             Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
                                 Toast.LENGTH_LONG).show()
                         } catch (error: Exception) {
@@ -392,12 +397,19 @@ class MainActivity : ComponentActivity() {
             val lessons = withContext(Dispatchers.IO) {
                 LocalScheduleStore.load(applicationContext)
             }
-            withContext(Dispatchers.IO) {
-                LocalCourseReminders.reconcile(
-                    applicationContext, lessons,
-                    LocalSemesterConfigStore.load(applicationContext))
+            if (readSerial == localScheduleReadSerial) {
+                // Unblock the native page immediately; reminder maintenance can follow.
+                localLessons = lessons
+                localScheduleRevision++
+                if (LocalCourseReminders.enabled(applicationContext)) {
+                    launch(Dispatchers.IO) {
+                        LocalCourseReminders.reconcile(
+                            applicationContext,
+                            LocalScheduleStore.load(applicationContext),
+                            LocalSemesterConfigStore.load(applicationContext))
+                    }
+                }
             }
-            if (readSerial == localScheduleReadSerial) localLessons = lessons
         }
     }
 }
@@ -432,6 +444,7 @@ private fun NativeShell(
     taskReminderOpenCount: Int,
     scheduleReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
+    localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     returnedSchool: String?,
     localCaptureReturn: LocalSchoolImportReceipt?,
@@ -633,6 +646,7 @@ private fun NativeShell(
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
+                                localScheduleRevision = localScheduleRevision,
                                 onLocalLessonsChanged = onLocalLessonsChanged)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
