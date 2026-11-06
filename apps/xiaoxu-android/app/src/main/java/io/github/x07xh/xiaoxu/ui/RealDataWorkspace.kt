@@ -107,7 +107,8 @@ internal data class WorkspaceTask(
     val date: LocalDate?,
     val dateSource: String,
     val storage: String,
-    val category: String = storage
+    val category: String = storage,
+    val revision: Int = -1
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -139,7 +140,8 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
                 task.status == "done", parseWorkspaceDue(task.due),
                 "云端记录，需核对来源", "cloud",
-                if (task.provider == "wechat") "wechat" else "cloud"))
+                if (task.provider == "wechat") "wechat" else "cloud",
+                task.revision))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -744,6 +746,7 @@ fun RealAcademicTaskHub(
     var showWechatTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
+    var updatingWechatKey by remember { mutableStateOf<String?>(null) }
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     // This report is for the CURRENT owner session, not Room or the task count.
     var showOfficialAudit by rememberSaveable(state.chaoxingBatchCheckedAt) {
@@ -1115,8 +1118,29 @@ fun RealAcademicTaskHub(
                 if (showWechatTasks) {
                     items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
                         ConnectedTaskShell(index = i, total = wechatRows.size) {
-                            TaskRow(wechatRows[i], today,
-                                onOpen = { openedTaskKey = wechatRows[i].key })
+                            val row = wechatRows[i]
+                            TaskRow(
+                                row, today,
+                                onOpen = { openedTaskKey = row.key },
+                                onToggleWechat = if (state.tasksFresh && row.revision >= 0) {
+                                    { checked ->
+                                        if (updatingWechatKey == null) {
+                                            updatingWechatKey = row.key
+                                            taskScope.launch {
+                                                try {
+                                                    client.setWechatTaskCompleted(
+                                                        row.key.removePrefix("cloud:"),
+                                                        row.revision, checked
+                                                    )
+                                                } finally {
+                                                    updatingWechatKey = null
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else null,
+                                actionEnabled = updatingWechatKey == null
+                            )
                         }
                     }
                 }
@@ -1685,7 +1709,9 @@ private fun TaskRow(
     task: WorkspaceTask,
     today: LocalDate,
     onOpen: () -> Unit,
-    onToggleLocal: ((Boolean) -> Unit)? = null
+    onToggleLocal: ((Boolean) -> Unit)? = null,
+    onToggleWechat: ((Boolean) -> Unit)? = null,
+    actionEnabled: Boolean = true
 ) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
@@ -1726,6 +1752,17 @@ private fun TaskRow(
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = if (task.done) "将本机任务“" + task.title + "”改为待完成"
                     else "将本机任务“" + task.title + "”标记为个人已完成"
+                }
+            )
+        } else if (task.category == "wechat" && onToggleWechat != null) {
+            Checkbox(
+                checked = task.done,
+                enabled = actionEnabled,
+                onCheckedChange = onToggleWechat,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = if (task.done)
+                        "将微信任务“" + task.title + "”改为待完成"
+                    else "将微信任务“" + task.title + "”标记为个人已完成"
                 }
             )
         } else {
