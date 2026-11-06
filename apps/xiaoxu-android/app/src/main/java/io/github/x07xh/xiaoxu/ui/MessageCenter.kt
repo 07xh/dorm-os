@@ -48,8 +48,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -289,26 +287,22 @@ fun MessageCenterPanel(
                     MessageHeader(onRefresh = refresh, onBack = onBack)
                 }
                 item {
-                    TabRow(selectedTabIndex = if (showWechat) 1 else 0) {
-                        Tab(
-                            selected = !showWechat,
-                            onClick = { sourceTab = MSG_FILTER_NOTICE },
-                            text = {
-                                Text("官方通知" +
-                                    if (state.notices.isNotEmpty()) " (${state.notices.size})" else "")
-                            }
-                        )
-                        Tab(
-                            selected = showWechat,
-                            onClick = { sourceTab = MSG_FILTER_WECHAT },
-                            text = {
-                                Text("微信审核" +
-                                    if (state.authenticated && state.wechatError == null &&
-                                        state.pendingWechatCount != null)
-                                        " (${state.pendingWechatCount})" else "")
-                            }
-                        )
-                    }
+                    // One shared glass selector for real message sources, not a
+                    // Material TabRow with another visual system inside the page.
+                    val noticeTitle = "官方通知" +
+                        if (state.notices.isNotEmpty()) " (${state.notices.size})" else ""
+                    val wechatTitle = "微信审核" +
+                        if (state.authenticated && state.wechatError == null &&
+                            state.pendingWechatCount != null)
+                            " (${state.pendingWechatCount})" else ""
+                    XiaoxuSegmentedControl(
+                        options = listOf(
+                            XiaoxuSegmentOption(MSG_FILTER_NOTICE, noticeTitle),
+                            XiaoxuSegmentOption(MSG_FILTER_WECHAT, wechatTitle)
+                        ),
+                        selectedKey = sourceTab,
+                        onSelected = { sourceTab = it }
+                    )
                 }
                 if (!showWechat) {
                     item {
