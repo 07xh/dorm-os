@@ -22,7 +22,9 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import sqlite3
+import ssl
 import sys
 import time
 import urllib.error
@@ -294,8 +296,24 @@ def submit(site: str, token: str, payload: dict) -> dict:
         if exc.code == 403:
             raise BridgeError("云端拒绝批次（HTTP 403，非校序已知错误）；可能是网络或 Cloudflare 安全检查。无需重配群聊。") from None
         raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查设备授权或云端服务。") from None
-    except urllib.error.URLError:
-        raise BridgeError("网络连接失败：校序云端暂时无法访问") from None
+    except urllib.error.URLError as exc:
+        # urllib hides DNS, TLS, proxy and timeout failures under the same
+        # URLError. Report only a fixed category: raw errors can expose
+        # proxy credentials, private hostnames or network details.
+        reason = exc.reason
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            message = "HTTPS 证书验证失败：请检查系统时间、证书及网络代理配置"
+        elif isinstance(reason, socket.gaierror):
+            message = "DNS 域名解析失败：电脑无法解析校序域名"
+        elif isinstance(reason, TimeoutError):
+            message = "HTTPS 连接超时：请检查电脑网络或代理"
+        elif isinstance(reason, ConnectionRefusedError):
+            message = "HTTPS 连接被拒绝：请检查网络或代理"
+        elif isinstance(reason, OSError) and "tunnel connection failed" in str(reason).lower():
+            message = "代理隧道连接失败：请检查电脑代理配置"
+        else:
+            message = "网络连接失败：无法到达校序服务，请检查网络或代理"
+        raise BridgeError(message) from None
     if (result.get("reviewStatus") != "needs_review" or
             type(result.get("received")) is not int or
             result["received"] != len(payload.get("records", []))):
