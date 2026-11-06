@@ -6,18 +6,13 @@ import io.github.x07xh.xiaoxu.data.SecondClassSaveReceipt
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -34,14 +29,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
+import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
 import java.text.DateFormat
 import java.util.Date
 
@@ -132,30 +126,20 @@ fun SecondClassPage(
     }
 
     Column(modifier.fillMaxSize()) {
-        // Not a nested website-style TabRow: identical surface, inset and radius
-        // to the surrounding native AcademicPage.
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(XiaoxuPalette.SurfaceAlt)
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            listOf("活动", "我的活动", "积分").forEachIndexed { index, label ->
-                Box(
-                    modifier = Modifier.weight(1f).heightIn(min = 44.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (section == index) XiaoxuPalette.Surface else Color.Transparent)
-                        .clickable(onClick = { section = index }),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(label, style = MaterialTheme.typography.labelLarge,
-                        color = if (section == index) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                        maxLines = 1)
-                }
-            }
+        // Shared soft-glass segmented control; no nested website-style tabs.
+        val sectionOptions = remember {
+            listOf(
+                XiaoxuSegmentOption("0", "活动"),
+                XiaoxuSegmentOption("1", "我的活动"),
+                XiaoxuSegmentOption("2", "积分")
+            )
         }
+        XiaoxuSegmentedControl(
+            options = sectionOptions,
+            selectedKey = section.toString(),
+            onSelected = { section = it.toInt() },
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        )
         val currentScroll = when (section) {
             0 -> catalogScroll
             1 -> activitiesScroll
@@ -174,26 +158,17 @@ fun SecondClassPage(
                     "待验证" to "待验证",
                     "即将报名" to "即将开始报名"
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    filters.forEachIndexed { index, (label, _) ->
-                        Box(
-                            modifier = Modifier.weight(1f).heightIn(min = 42.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (catalogFilter == index)
-                                    XiaoxuPalette.BrandSoft else XiaoxuPalette.SurfaceAlt)
-                                .clickable(onClick = { catalogFilter = index }),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(label, style = MaterialTheme.typography.labelMedium,
-                                color = if (catalogFilter == index)
-                                    XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
+                XiaoxuSegmentedControl(
+                    options = remember {
+                        listOf(
+                            XiaoxuSegmentOption("0", "报名中"),
+                            XiaoxuSegmentOption("1", "待验证"),
+                            XiaoxuSegmentOption("2", "即将报名")
+                        )
+                    },
+                    selectedKey = catalogFilter.toString(),
+                    onSelected = { catalogFilter = it.toInt() }
+                )
                 val record = if (catalogComplete)
                     catalogRows.singleOrNull { it.title == filters[catalogFilter].second }
                     else null
