@@ -232,14 +232,14 @@ fun RealAcademicHome(
     val attention = all.count { !it.done && it.date != null && !it.date.isAfter(today.plusDays(3)) }
     val upcoming = all.filter { !it.done }.take(3)
     val cloudSnapshotRows = state.tasks.size
-    val metricCaption = when {
-        state.tasksFresh -> "本机 + 云端本次读取"
-        cloudSnapshotRows > 0 -> "含上次云端快照 $cloudSnapshotRows 条"
-        else -> "仅本机记录"
+    // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
+    val metricCaption: String? = when {
+        !state.tasksFresh && cloudSnapshotRows > 0 -> "含上次云端快照 $cloudSnapshotRows 条"
+        !state.authenticated -> "仅本机记录"
+        else -> null
     }
-    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0)
-        "含上次云端快照 · 期限待核对"
-    else "按已记录截止日排序 · 未注明日期的排后"
+    val todoCaption: String? = if (!state.tasksFresh && cloudSnapshotRows > 0)
+        "含上次云端快照 · 期限待核对" else null
 
     // Sheets look up the current records by stable keys, not saved copies of
     // possibly stale local/cloud data. Reuse Schedule/Message details directly.
@@ -483,14 +483,13 @@ private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
 private fun HomeMetricsBlock(
     pending: Int,
     attention: Int,
-    caption: String,
+    caption: String?,
     openTasks: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         MetricCard(label = "待完成", value = pending.toString(), caption = caption,
             modifier = Modifier.weight(1f), onClick = openTasks)
         MetricCard(label = "临近截止", value = attention.toString(),
-            caption = "含逾期与未来三天 · 仅已记录期限",
             tone = XiaoxuTone.Warning,
             modifier = Modifier.weight(1f), onClick = openTasks)
     }
@@ -550,7 +549,7 @@ private fun HomeQuickBlock(
 private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
     today: LocalDate,
-    caption: String,
+    caption: String?,
     openTasks: () -> Unit,
     onTaskOpen: (WorkspaceTask) -> Unit
 ) {
@@ -578,7 +577,6 @@ private fun HomeNoticesBlock(
     onNoticeOpen: (String) -> Unit
 ) {
     HomeSection(title = "校园动态",
-        caption = "来自已读取的学校官网公告",
         actionLabel = "消息中心", onAction = openMessages) {
         XiaoxuCard {
             if (state.notices.isEmpty()) {
@@ -619,10 +617,7 @@ private fun HomeHomeworkBlock(
     localHomework: List<NativeSchoolRecord>,
     openLocalSchool: (String) -> Unit
 ) {
-    HomeSection(
-        title = "学习通 · 本机作业",
-        caption = "本机读取"
-    ) {
+    HomeSection(title = "学习通 · 本机作业") {
         XiaoxuCard {
             if (localHomework.isEmpty()) {
                 Text(
@@ -1491,7 +1486,7 @@ private fun TaskStatusTab(
             .clip(RoundedCornerShape(14.dp))
             .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
             .clickable(onClickLabel = "筛选$label", onClick = onClick)
-            .heightIn(min = 62.dp)
+            .heightIn(min = 56.dp)
             .padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
@@ -1667,7 +1662,7 @@ private fun ConnectedTaskShell(
     total: Int,
     content: @Composable () -> Unit
 ) {
-    val radius = 16.dp
+    val radius = XiaoxuRadius.card
     val corners = when {
         total <= 1 -> RoundedCornerShape(radius)
         index == 0 -> RoundedCornerShape(
@@ -1723,7 +1718,7 @@ private fun TaskRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 82.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +

@@ -307,7 +307,8 @@ fun MessageCenterPanel(
                         )
                     }
                     item { FilterRow(selected = filterKey, onSelect = { filterKey = it }) }
-                    item {
+                    // 默认数量已经在来源选择器显示；仅筛选/搜索时补充命中数。
+                    if (query.isNotBlank() || filterKey != MSG_FILTER_ALL) item {
                         MessageCountLine(
                             filterKey = filterKey,
                             matched = filtered.size,
@@ -458,35 +459,37 @@ private fun SourceSectionHeader(
     badge: String,
     detail: String
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f).semantics { heading() },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 1
-            )
-        }
-        Spacer(Modifier.height(4.dp))
+    // 只用一行呈现来源、数量和身份：不在分段控件下重复堆标题+徽标两层。
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f).semantics { heading() },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         SourceBadge(
             text = badge,
             tone = if (title == "微信候选") XiaoxuTone.Warning else XiaoxuTone.Brand
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.labelSmall,
+            color = XiaoxuPalette.Ink3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -687,7 +690,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     onClick()
                 }
             )
-            .heightIn(min = 84.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .padding(14.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = buildString {

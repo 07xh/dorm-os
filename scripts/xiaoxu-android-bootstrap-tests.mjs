@@ -155,7 +155,7 @@ assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(workspace, /本机导入，周次待核对/, '未知教学周须明确标注为未核对的本机记录');
+assert.match(workspace, /本机(?:导入|记录)[，·（\s]*周次待核对/, '未知教学周须明确标注为未核对的本机记录');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -405,8 +405,8 @@ assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
  '共享分段控件必须等宽且具有至少44dp触控高度');
 assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
  '任务中心标题不恢复旧大字号');
-assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
- '三态数字同卡紧凑');
+assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
+ '三态数字同卡保留内容且压缩多余高度');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
 assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
@@ -533,6 +533,12 @@ assert.match(timetablePrefs, /fun saveSections\(context: Context, count: Int\)/)
 assert.match(schedulePanel, /Text\("课程详情"/);
 assert.match(schedulePanel, /Text\("课程提醒"/);
 assert.match(schedulePanel, /enabledForCourse\(context, lesson\.sourceId\)/);
+assert.match(schedulePanel, /ContextCompat\.checkSelfPermission\(/,
+  '课程提醒必须区分Android通知运行时权限与通知总开关');
+assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
+  '已经授权但系统通知被禁用时，应打开通知设置而不是重复请求权限');
+assert.match(schedulePanel, /context\.startActivity\(settings\)/,
+  '通知设置入口必须真正连接系统设置');
 
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
@@ -836,7 +842,7 @@ assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
-assert.match(workspace, /本机导入，周次待核对/);
+assert.match(workspace, /本机(?:导入|记录)[，·（\s]*周次待核对/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
@@ -1272,7 +1278,8 @@ assert.match(cloud, /scheduleStatus = "local_only"/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
 assert.match(schedulePanel, /fun localImportedScheduleView\(/);
 assert.match(schedulePanel, /本机课表 · 离线查看/);
-assert.match(schedulePanel, /"本机导入 · " \+ data\.lessons\.size/);
+assert.match(schedulePanel, /sourceLabel = "本机导入 · 待本人核对"/,
+  "课表仍需明确来源与核对状态，界面不得强制重复显示课块统计");
 assert.match(panels, /enabled = id != "ncwu"/,
   '青果的旧服务器课表同步不可被当做成绩同步');
 
@@ -1328,6 +1335,18 @@ assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
   '相邻任务之间必须只有轻分割线');
 assert.match(workspace, /total <= 1 -> RoundedCornerShape\(radius\)/,
   '单条任务仍须有完整圆角');
+
+assert.match(designSystem, /val listRowMin: Dp = 76\.dp/,
+  '任务与消息共用同一紧凑最小行高');
+assert.match(workspace, /val radius = XiaoxuRadius\.card/,
+  '任务列表首尾圆角必须沿用唯一设计系统');
+assert.match(workspace, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '任务行仍由内容扩展且使用统一最小行高');
+assert.match(messageCenter, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '官方消息行与任务行共用最小尺寸基准');
+assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.card\)/,
+  '官方消息卡片圆角必须与其他页面统一');
+
 
 const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
   workspace.indexOf('private fun TaskSectionHeader('));
@@ -1528,6 +1547,14 @@ assert.match(main, /SecondClassPage\(\)/,
   '第二课堂独立内容仍须可达');
 
 assert.match(panels, /fun ProfileMetric\(/, '我的页真实指标格');
+
+const profileMetricSource = panels.slice(panels.indexOf('private fun ProfileMetric('),
+  panels.indexOf('/** 本机优先',panels.indexOf('private fun ProfileMetric(')));
+assert.doesNotMatch(profileMetricSource, /background\(XiaoxuPalette\.SurfaceAlt\)/,
+  '我的账户统计不能再各自嵌套灰色背景小卡，保持单层玻璃信息结构');
+assert.match(profileMetricSource, /MaterialTheme\.typography\.titleMedium/,
+  '我的真实数值须保持可读字级');
+
 assert.match(panels, /fun SettingRow\(/, '我的页分组设置行');
 assert.match(panels, /fun PlatformStatusCard\(/, '三个学校平台需真实状态卡');
 assert.match(panels, /通用头像（未接入真实头像）/, '没有真实头像时只放通用图标');

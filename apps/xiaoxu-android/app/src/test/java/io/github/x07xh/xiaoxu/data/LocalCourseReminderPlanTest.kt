@@ -67,4 +67,30 @@ class LocalCourseReminderPlanTest {
             listOf(lesson.copy(weeks = listOf(1))), config, now)
         assertTrue(result.isEmpty())
     }
+    @Test fun editedCourseReminderPreferenceTracksRegeneratedId() {
+        val changed = lesson.copy(id = "before", title = "高等数学 II")
+        val saved = changed.copy(id = "local-new")
+        assertEquals(setOf("local-new"), remappedCourseIds("before", listOf(changed), listOf(saved)))
+        assertTrue(remappedCourseIds("unrelated", listOf(changed), listOf(saved)).isEmpty())
+    }
+
+    @Test fun singleWeekEditTransfersReminderToBothResultingMeetings() {
+        val originalId = "course-old"
+        val remaining = lesson.copy(id = originalId, weeks = listOf(1, 2))
+        val moved = lesson.copy(id = originalId, location = "B201", weeks = listOf(3))
+        val persisted = listOf(
+            remaining.copy(id = "local-remaining"),
+            moved.copy(id = "local-moved"),
+            lesson.copy(id = "unrelated", weekday = 4)
+        )
+        assertEquals(
+            setOf("local-remaining", "local-moved"),
+            remappedCourseIds(originalId, listOf(remaining, moved), persisted)
+        )
+    }
+
+    @Test fun deletingCourseLeavesNoReminderIdsToMigrate() {
+        assertTrue(remappedCourseIds("course1", emptyList(), emptyList()).isEmpty())
+    }
+
 }

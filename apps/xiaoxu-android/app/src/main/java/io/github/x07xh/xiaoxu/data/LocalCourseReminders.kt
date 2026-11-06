@@ -77,6 +77,30 @@ internal fun planCourseReminders(
 }
 
 /**
+ * The local store recomputes course IDs after edits and week splits. Match saved
+ * meetings by the actual persisted fields instead of guessing based on the old ID.
+ * This only maps the explicitly edited meeting(s), never unrelated courses.
+ */
+private fun reminderMeetingKey(row: VerifiedLesson): String = listOf(
+    row.title.trim(), row.teacher.trim(), row.location.trim(),
+    row.weekday.toString(), row.startSection.toString(), row.endSection.toString(),
+    row.weeks.distinct().sorted().joinToString(",")
+).joinToString("\u001F")
+
+internal fun remappedCourseIds(
+    previousId: String,
+    edited: List<VerifiedLesson>,
+    saved: List<VerifiedLesson>
+): Set<String> {
+    if (previousId.isBlank()) return emptySet()
+    val editedKeys = edited.filter { it.id == previousId }
+        .map(::reminderMeetingKey).toSet()
+    if (editedKeys.isEmpty()) return emptySet()
+    return saved.filter { reminderMeetingKey(it) in editedKeys }
+        .map { it.id }.filter { it.isNotBlank() }.toSet()
+}
+
+/**
  * Reconciles only the next 14 days; one Android WorkManager daily maintenance
  * job keeps the rolling window alive without continuous background polling.
  * WorkManager is inexact and may deliver later under battery restrictions.
@@ -109,6 +133,27 @@ object LocalCourseReminders {
             .edit().putBoolean(COURSE_PREFIX + lessonId, value).apply()
     }
 
+    /**
+     * Preserve an explicit course reminder choice when normalizing local edits.
+     * A one-week split may create two new IDs; a full delete clears the stale key.
+     * The global reminder default is unaffected.
+     */
+    fun migrateCourseEnabled(context: Context, previousId: String, newIds: Set<String>): Boolean {
+        if (previousId.isBlank()) return true
+        val preferences = context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val oldKey = COURSE_PREFIX + previousId
+        if (!preferences.contains(oldKey)) return true
+        val enabled = preferences.getBoolean(oldKey, false)
+        val editor = preferences.edit()
+        newIds.filter { it.isNotBlank() }.forEach { id ->
+            editor.putBoolean(COURSE_PREFIX + id, enabled)
+        }
+        if (previousId !in newIds) editor.remove(oldKey)
+        return editor.commit()
+    }
+
+
     fun anyEnabled(context: Context): Boolean {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.getBoolean(ENABLED, false) ||
@@ -117,11 +162,19 @@ object LocalCourseReminders {
             }
     }
 
-    fun canNotify(context: Context): Boolean =
-        (Build.VERSION.SDK_INT < 33 ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED) &&
-            NotificationManagerCompat.from(context).areNotificationsEnabled()
+    fun canNotify(context: Context): Boolean {
+        val app = context.applicationContext
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        val appNotificationsEnabled = NotificationManagerCompat.from(app).areNotificationsEnabled()
+        // App-level permission may be granted even when the class reminder
+        // notification channel itself has been disabled in system settings.
+        val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = manager.getNotificationChannel(CHANNEL)
+        return granted && appNotificationsEnabled &&
+            (channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE)
+    }
 
     fun setEnabled(context: Context, value: Boolean) {
         val app = context.applicationContext

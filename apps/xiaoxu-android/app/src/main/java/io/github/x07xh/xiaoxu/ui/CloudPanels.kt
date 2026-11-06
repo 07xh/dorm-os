@@ -196,7 +196,7 @@ fun ConnectionsPanel(
                     openLocalSchool = openLocalSchool,
                     recentImport = recentImport
                 )
-                HorizontalDivider(color = XiaoxuPalette.Line)
+                // 两个独立信息分区之间用统一间距，不再画贯穿整页的分割线。
                 CloudAuthorizationSection(
                     client = client,
                     state = state,
@@ -286,13 +286,12 @@ private fun ProfileHeroCard(state: CloudUiState) {
 
 @Composable
 private fun ProfileMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    // 数字直接排在唯一的账户玻璃卡中，不再叠加三张灰底小卡。
     Column(
-        modifier = modifier.clip(RoundedCornerShape(11.dp))
-            .background(XiaoxuPalette.SurfaceAlt)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(value, style = MaterialTheme.typography.titleSmall,
+        Text(value, style = MaterialTheme.typography.titleMedium,
             color = XiaoxuPalette.Ink, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
         Text(label, style = MaterialTheme.typography.labelSmall,
