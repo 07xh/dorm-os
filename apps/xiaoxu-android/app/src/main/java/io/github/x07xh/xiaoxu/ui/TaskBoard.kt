@@ -214,7 +214,7 @@ private val DueLaterInk = Color(0xFF6B7B93)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalTaskBoard(tasks: List<LocalTask>, dao: LocalTaskDao) {
+fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var reminderEnabled by remember { mutableStateOf(LocalDeadlineReminders.enabled(context)) }
@@ -249,7 +249,6 @@ fun LocalTaskBoard(tasks: List<LocalTask>, dao: LocalTaskDao) {
     var pickerOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<LocalTask?>(null) }
 
-    val stats = remember(tasks, today) { taskStats(tasks, today) }
     val visible = remember(tasks, filterKey, today) { filterLocalTasks(tasks, filterKey, today) }
 
     fun addTask() {
@@ -354,14 +353,10 @@ fun LocalTaskBoard(tasks: List<LocalTask>, dao: LocalTaskDao) {
             }
         }
 
-        // ---------- 统计 ----------
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile("待完成", stats.pending, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-            StatTile("本周截止", stats.dueThisWeek, DueTodayInk, Modifier.weight(1f))
-            StatTile("已逾期", stats.overdue, DueOverdueInk, Modifier.weight(1f))
-        }
-
-        // ---------- 筛选 ----------
+        // The canonical task center owns all counters and status tabs.
+        // Keep only editing filters here so the user can still reach older local
+        // records beyond the main view's first 80 and toggle/delete them.
+        // ---------- 本机编辑筛选 ----------
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = TASK_FILTERS.size, key = { index -> TASK_FILTERS[index].key }) { index ->
                 val option = TASK_FILTERS[index]
@@ -493,34 +488,6 @@ private fun SourcePill(
             }
             Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
         }
-    }
-}
-
-@Composable
-private fun StatTile(
-    label: String,
-    value: Int,
-    ink: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = ink
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
