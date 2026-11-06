@@ -538,9 +538,9 @@ private fun NativeShell(
     }
     BackHandler(
         enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
-            academic == AcademicDestination.SERVICES
+            academic != AcademicDestination.OVERVIEW
     ) {
-        academic = AcademicDestination.OVERVIEW // Hidden service detail never becomes a fake selected top tab.
+        academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
@@ -855,12 +855,6 @@ private fun AcademicPage(
     cloud: CloudClient,
     onMessages: () -> Unit
 ) {
-    val visibleTabs = listOf(
-        AcademicDestination.OVERVIEW to "总览",
-        AcademicDestination.GRADES to "成绩",
-        AcademicDestination.EXAMS to "考试",
-        AcademicDestination.SECOND_CLASS to "第二课堂"
-    )
     val tabStateHolder = rememberSaveableStateHolder()
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -870,7 +864,7 @@ private fun AcademicPage(
             Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (selected == AcademicDestination.SECOND_CLASS) {
+            if (selected != AcademicDestination.OVERVIEW) {
                 IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = "返回教务",
@@ -879,39 +873,15 @@ private fun AcademicPage(
             }
             Box(Modifier.weight(1f)) {
                 CompactPageHeading(
-                    title = if (selected == AcademicDestination.SECOND_CLASS) "第二课堂" else "教务",
+                    title = when (selected) {
+                        AcademicDestination.OVERVIEW -> "教务"
+                        AcademicDestination.GRADES -> "成绩"
+                        AcademicDestination.EXAMS -> "考试"
+                        AcademicDestination.SECOND_CLASS -> "第二课堂"
+                        AcademicDestination.SERVICES -> "校园服务"
+                    },
                     onMessages = onMessages
                 )
-            }
-        }
-        if (selected != AcademicDestination.SERVICES &&
-            selected != AcademicDestination.SECOND_CLASS) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(XiaoxuPalette.Surface)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                visibleTabs.forEach { (destination, label) ->
-                    Box(
-                        modifier = Modifier.weight(1f)
-                            .heightIn(min = 44.dp)
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(if (selected == destination) XiaoxuPalette.BrandSoft
-                                else Color.Transparent)
-                            .clickable(onClick = { select(destination) }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (selected == destination) XiaoxuPalette.BrandDeep
-                                else XiaoxuPalette.Ink2,
-                            maxLines = 1
-                        )
-                    }
-                }
             }
         }
         when (selected) {
@@ -960,11 +930,6 @@ private fun AcademicPage(
                 }
             }
             AcademicDestination.SERVICES -> Content {
-                item {
-                    TextButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                        Text("返回教务")
-                    }
-                }
                 item { CampusRunPanel(cloud) }
                 item {
                     XiaoxuCard(contentPadding = 0.dp) {

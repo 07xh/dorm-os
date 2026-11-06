@@ -1364,8 +1364,12 @@ assert.match(main, /onMessages = \{ messagesOpen = true \}/,
   '页面消息中心入口应继续可达');
 assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
   'Scaffold 已处理状态栏，不能重复添加顶部安全区');
-assert.match(main, /selected != AcademicDestination\.SECOND_CLASS/,
-  '第二课堂不能再叠教务四栏导航');
+assert.match(main, /if \(selected != AcademicDestination\.OVERVIEW\)/,
+  '教务各详情页统一原生返回，不再依赖叠加的二级标签');
+assert.doesNotMatch(main, /val visibleTabs = listOf\(/,
+  '教务总览操作行已承担导航，不能再重复显示四项标签');
+assert.match(main, /academic != AcademicDestination\.OVERVIEW/,
+  '所有教务详情统一支持系统返回至总览');
 assert.match(main, /fun AcademicActionRow\(/,
   '教务入口必须使用连续可点击操作行');
 assert.match(main, /AcademicActionRow\("第二课堂"/,
