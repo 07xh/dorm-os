@@ -24,6 +24,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -44,16 +46,15 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import io.github.x07xh.xiaoxu.ui.FloatingBarItem
+import io.github.x07xh.xiaoxu.ui.FloatingBottomBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -61,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,6 +79,7 @@ import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
+import io.github.x07xh.xiaoxu.ui.OpenSourceCreditsPanel
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
@@ -342,6 +345,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 主页面切换动效时长（毫秒）。enter 与 exit 必须同长：
+ * 旧实现 fadeOut(120) 比 fadeIn(180) 早 60ms 结束，中间 60ms 只有半透明新页，
+ * 透出 Scaffold 背景色，观感就是"闪白"。
+ */
+private const val PageSwitchMs = 180
+
 /** The one source of truth for five permanent destinations; messages are not a bottom tab. */
 private val PrimaryTabs = listOf(MainDestination.HOME, MainDestination.SCHEDULE,
     MainDestination.ACADEMIC, MainDestination.TASKS, MainDestination.PROFILE)
@@ -463,33 +473,26 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    NavigationBar(
-                        containerColor = XiaoxuPalette.Surface,
-                        contentColor = XiaoxuPalette.Ink2,
-                        tonalElevation = 0.dp
-                    ) {
-                        PrimaryTabs.forEach { page ->
-                            NavigationBarItem(
-                                selected = current == page,
-                                onClick = { current = page; messagesOpen = false },
-                                icon = { Icon(page.symbol, contentDescription = null) },
-                                label = { Text(page.label) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = XiaoxuPalette.BrandDeep,
-                                    selectedTextColor = XiaoxuPalette.BrandDeep,
-                                    indicatorColor = XiaoxuPalette.BrandSoft,
-                                    unselectedIconColor = XiaoxuPalette.Ink3,
-                                    unselectedTextColor = XiaoxuPalette.Ink3
-                                )
-                            )
-                        }
+                    // 悬浮胶囊导航（PR #328 验收通过的组件）。
+                    // items 用 remember 固定：PrimaryTabs.map 每次组合都会新建 List，
+                    // 不 remember 会让 FloatingBottomBar 每帧重建 items 参数。
+                    val barItems = remember {
+                        PrimaryTabs.map { FloatingBarItem(it.label, it.symbol) }
                     }
+                    FloatingBottomBar(
+                        items = barItems,
+                        selectedIndex = PrimaryTabs.indexOf(current).coerceAtLeast(0),
+                        onSelect = { current = PrimaryTabs[it]; messagesOpen = false }
+                    )
                 }
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
                 if (tabletLayout && !messagesOpen) {
+                    // 横屏手机宽度会越过 700dp 阈值进入 Rail 布局，5 项超出可视高度，
+                    // 不加滚动时「我的」被裁在屏幕外且无法到达。
                     NavigationRail(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
                         containerColor = XiaoxuPalette.Surface,
                         contentColor = XiaoxuPalette.Ink2
                     ) {
@@ -522,14 +525,17 @@ private fun NativeShell(
                     AnimatedContent(
                         targetState = current,
                         transitionSpec = {
+                            // enter / exit 同长（PageSwitchMs），消除旧页先消失的半透明空档。
+                            // 位移收到 width/32（约 33px）：只作方向提示，不做整页平移，
+                            // 缩小课表这类重页在新旧共存期的重绘面积。
                             val forward = targetState.ordinal >= initialState.ordinal
                             val direction = if (forward) 1 else -1
                             (
-                                fadeIn(animationSpec = tween(180)) +
-                                    slideInHorizontally(animationSpec = tween(200)) { width ->
-                                        direction * (width / 18)
+                                fadeIn(animationSpec = tween(PageSwitchMs)) +
+                                    slideInHorizontally(animationSpec = tween(PageSwitchMs)) { width ->
+                                        direction * (width / 32)
                                     }
-                                ) togetherWith fadeOut(animationSpec = tween(120))
+                                ) togetherWith fadeOut(animationSpec = tween(PageSwitchMs))
                         },
                         label = "page"
                     ) { page ->
@@ -620,6 +626,7 @@ private fun ConnectionsPage(
 ) {
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     var showLocalBackup by rememberSaveable { mutableStateOf(false) }
+    var showCredits by rememberSaveable { mutableStateOf(false) }
     Content {
         // ConnectionsPanel starts with the real owner profile hero. Do not
         // duplicate "我的" as a second headline above the same information.
@@ -651,6 +658,17 @@ private fun ConnectionsPage(
             }
         }
         if (showLocalBackup) item { LocalTaskBackupPanel() }
+        item {
+            XiaoxuCard(onClick = { showCredits = !showCredits }) {
+                Text(if (showCredits) "收起开源组件与致谢"
+                     else "开源组件与致谢",
+                    style = MaterialTheme.typography.titleSmall)
+                Text("青果教务适配（MIT）与 SleepDown 导航动画（许可 1.1）的署名、修改说明与许可全文。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (showCredits) item { OpenSourceCreditsPanel() }
     }
 }
 

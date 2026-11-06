@@ -24,7 +24,7 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /NavigationBar/);
+assert.match(main, /FloatingBottomBar/, '底部导航须使用统一悬浮组件');
 assert.match(main, /NavigationRail/);
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
@@ -1041,7 +1041,11 @@ assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./,
 assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
 assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
-assert.match(main, /NavigationBarItemDefaults\.colors/, '底部导航选中态须统一配色');
+const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
+assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.BrandSoft/,
+  '悬浮导航选中底色须取自统一调色板');
+assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
+  '悬浮导航选中前景色须取自统一调色板');
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
