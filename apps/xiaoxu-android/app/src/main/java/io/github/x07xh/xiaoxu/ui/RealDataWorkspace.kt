@@ -39,10 +39,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +92,6 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
-private val WorkspaceBlue = Color(0xFF2563EB)
 
 /** In-memory combination for DISPLAY ONLY. Room, D1 and school data remain separate. */
 internal data class WorkspaceTask(
@@ -174,31 +170,6 @@ internal fun searchWorkspaceTasks(
     return selectTasks(tasks, filter, today).filter { task ->
         needle.isEmpty() || task.title.contains(needle, ignoreCase = true) ||
             task.origin.contains(needle, ignoreCase = true)
-    }
-}
-
-@Composable
-private fun WorkspaceCard(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) { content() }
-}
-
-@Composable
-private fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                color = WorkspaceBlue)
-            Text(label, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
