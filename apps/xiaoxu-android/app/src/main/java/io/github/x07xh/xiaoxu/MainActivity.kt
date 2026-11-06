@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu
 
 import android.app.Activity
+import android.os.Build
 import android.app.AlertDialog
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -27,7 +28,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,6 +50,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -443,6 +448,18 @@ private fun NativeShell(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
+        // Source background is captured once as a layer, never via per-frame bitmap readback.
+        // The bar is still the only bottom navigation renderer; no second Scaffold or dock.
+        val navBackdrop = if (!tabletLayout && Build.VERSION.SDK_INT >= 33) {
+            rememberLayerBackdrop()
+        } else null
+        if (navBackdrop != null) {
+            Box(
+                Modifier.fillMaxSize()
+                    .layerBackdrop(navBackdrop)
+                    .background(XiaoxuPalette.Bg)
+            )
+        }
         Scaffold(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
@@ -459,7 +476,7 @@ private fun NativeShell(
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
                     // A single renderer. NativeShell remains the sole navigation state owner.
-                    PrimaryBottomNavigation(selected = current) {
+                    PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) {
                         current = it
                         messagesOpen = false
                     }
