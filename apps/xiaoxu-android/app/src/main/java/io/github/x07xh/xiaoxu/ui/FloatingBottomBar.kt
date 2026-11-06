@@ -115,9 +115,6 @@ data class FloatingBarItem(
     val northSymbol: NorthAppSymbolSpec? = null
 )
 
-private val BarHeight: Dp = 64.dp
-private val BarHorizontalInset: Dp = 20.dp
-private val BarBottomInset: Dp = 10.dp
 private val IndicatorInset: Dp = 6.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val IndicatorShape = RoundedCornerShape(percent = 50)
@@ -173,9 +170,10 @@ fun FloatingBottomBar(
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
     val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
-    val visualHeight = if (useNorthGlass) 72.dp else BarHeight
-    val horizontalInset = if (useNorthGlass) 16.dp else BarHorizontalInset
-    val bottomInset = if (useNorthGlass) 8.dp else BarBottomInset
+    val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
+    val visualHeight = geometry.trackHeight
+    val horizontalInset = geometry.horizontalPadding
+    val bottomInset = geometry.bottomPadding
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val touchSlop = LocalViewConfiguration.current.touchSlop
@@ -193,7 +191,7 @@ fun FloatingBottomBar(
             .padding(
                 start = horizontalInset,
                 end = horizontalInset,
-                top = if (useNorthGlass) 8.dp else 4.dp,
+                top = geometry.topPadding,
                 bottom = bottomInset
             ),
         contentAlignment = Alignment.Center
@@ -325,7 +323,7 @@ fun FloatingBottomBar(
                     }
                     .width(cellWidthDp)
                     .fillMaxHeight()
-                    .padding(horizontal = IndicatorInset, vertical = if (useNorthGlass) 8.dp else IndicatorInset)
+                    .padding(horizontal = IndicatorInset, vertical = geometry.indicatorVerticalPadding)
                     .then(
                         if (useNorthGlass && backdrop != null) {
                             Modifier.northGlassIndicator(
