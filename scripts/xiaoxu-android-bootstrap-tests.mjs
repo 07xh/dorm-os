@@ -655,7 +655,7 @@ assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
 assert.match(main, /provider == "ncwu"/);
 assert.match(main, /LocalQingguoImportActivity::class\.java/);
 assert.match(main, /ConnectionsPanel\(cloud, openWebsite, openLocalSchool,/);
-assert.match(main, /startSchoolAuthorization, localCaptureReturn\)/);
+assert.match(main, /startSchoolAuthorization, localCaptureReturn,\s*onMessages = \{ messagesOpen = true \}/, '我的页保留原学校授权和本人导入结果，并提供真实消息入口');
 assert.match(main, /ActivityResultContracts\.StartActivityForResult/);
 assert.match(main, /nativeSchoolLauncher\.launch\(/);
 assert.match(main, /result\.resultCode == Activity\.RESULT_OK/);
