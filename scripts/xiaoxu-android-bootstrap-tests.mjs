@@ -403,7 +403,7 @@ assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|a
 assert.doesNotMatch(secondClassMain, /LaunchedEffect\(|autoAttempted/,
  '切换子导航不应自动弹出学校授权窗口');
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
-assert.match(secondClassMain, /onRefreshResult\?\.invoke\(saved\)/, '学校官方读取返回结果必须传给调用页');
+assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/, '学校官方读取返回结果必须传给调用页');
 const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
 assert.match(secondClassHome, /SecondClassPage\(/);
 assert.match(secondClassHome, /onRefreshResult = \{ success ->/);
