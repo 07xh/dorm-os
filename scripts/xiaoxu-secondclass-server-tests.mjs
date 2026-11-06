@@ -174,6 +174,47 @@ assert.equal(lateEvidence.challengeEvidence.schoolScriptDefinitionSeen,true,
 assert.equal(lateEvidence.loginSupported,false,'script discovery alone never authorizes login');
 
 
+// Legacy Workers Headers expose getAll(Set-Cookie), not getSetCookie.
+// Folding two header lines can lose SESSION and even apply a sibling cookie's
+// Domain/Path to it. Use the real transport through a synthetic CAS transcript.
+let legacyPosts=0,legacyPostCookie=null,legacyCallbackCookie=null;
+const legacyCookies=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='GET'){
+  const values=['SESSION=synthetic-cas-session; Path=/authserver/; HttpOnly',
+   'school_locale=synthetic-locale; Domain=ncwu.edu.cn; Path=/; Expires=Wed, 21 Oct 2037 07:28:00 GMT'];
+  return {status:200,headers:{
+   getAll(name){assert.equal(name.toLowerCase(),'set-cookie');return values;},
+   get(name){return name.toLowerCase()==='set-cookie'?values.join(', '):null;}
+  },text:async()=>markup};
+ }
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
+  legacyPosts++;
+  legacyPostCookie=options.headers.cookie||'';
+  return response(302,'',{location:service});
+ }
+ if(u.hostname==='sec.ncwu.edu.cn'){
+  legacyCallbackCookie=options.headers.cookie||'';
+  return response(302,'',{location:school+'/sys',
+   'set-cookie':'school_ss=personal; Domain=ncwu.edu.cn; Path=/; Secure'});
+ }
+ return fakeSchool(url,options);
+}});
+const legacyConnection=await legacyCookies.login({
+ username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+});
+assert.equal(legacyConnection.session.studentCode,student);
+assert.ok(legacyPostCookie.includes('SESSION=synthetic-cas-session'),
+ 'CAS POST must retain the host-only SESSION from its own response line');
+assert.ok(legacyPostCookie.includes('school_locale=synthetic-locale'),
+ 'the second Set-Cookie must also survive the Workers response');
+assert.ok(!legacyCallbackCookie.includes('SESSION='),
+ 'a sibling cookie Domain must never broaden the host-only CAS SESSION');
+assert.equal(legacyPosts,1,'cookie handling never retries a credential POST');
+assert.equal(legacyConnection.session.cookies.find(c=>c.name==='SESSION').domain,
+ 'authserver.ncwu.edu.cn');
+assert.equal(legacyConnection.session.cookies.find(c=>c.name==='SESSION').hostOnly,true);
+
 const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
 assert.equal(receivedCredential,true);
 assert.equal(connected.session.studentCode,student);
@@ -333,6 +374,30 @@ const emptyCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)
 await assert.rejects(()=>emptyCallback.login({
  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
 }),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
+// The HTML callback completion GET is also part of CAS return. Its 5xx
+// must keep the failing origin rather than becoming a generic callback error.
+for(const [status,reason] of [[503,'cas_server_failure'],
+ [429,'cas_rate_limited'],[403,'cas_request_rejected']]){
+ let callbackReached=false,passwordPosts=0,personalReads=0;
+ const completionFailure=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+  const u=new URL(url);
+  if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')passwordPosts++;
+  if(u.hostname==='sec.ncwu.edu.cn'){
+   callbackReached=true;return response(200,'<main>School callback</main>');
+  }
+  if(callbackReached&&u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
+   return response(status,'PRIVATE_FAILURE_BODY');
+  if(Object.values(NCWU_SECOND_CLASS_READS).includes(u.pathname))personalReads++;
+  return fakeSchool(url,options);
+ }});
+ await assert.rejects(()=>completionFailure.login({
+  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+ }),e=>e.failureStage==='cas_return'&&e.casReturnReason===reason&&
+  e.casReturnHost==='second_class_portal'&&!JSON.stringify(e).includes('PRIVATE_FAILURE_BODY'));
+ assert.equal(passwordPosts,1,'callback failure cannot replay credentials');
+ assert.equal(personalReads,0,'failed completion must stop before identity or personal reads');
+}
+
 // Distinguish a school CAS login that never returns to the service,
 // a rejected personal business endpoint, and a non-unique student identity.
 // These synthetic tests never use school credentials or external requests.
