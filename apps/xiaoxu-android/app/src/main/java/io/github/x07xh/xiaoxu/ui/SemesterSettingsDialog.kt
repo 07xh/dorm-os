@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.RadioButton
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
 
@@ -58,24 +54,14 @@ internal fun SemesterSettingsDialog(
             ) {
                 Text("仅保存在本机。设置后才能自动定位本周和显示上课时间。")
                 Text("课表视图")
-                Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
-                    listOf("week" to "周视图", "day" to "日视图").forEach { (mode, label) ->
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .selectable(
-                                    selected = selectedViewMode == mode,
-                                    role = Role.RadioButton,
-                                    onClick = { selectedViewMode = mode }
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = selectedViewMode == mode, onClick = null)
-                            Text(label)
-                        }
-                    }
-                }
+                XiaoxuSegmentedControl(
+                    options = listOf(
+                        XiaoxuSegmentOption("week", "周视图"),
+                        XiaoxuSegmentOption("day", "日视图")
+                    ),
+                    selectedKey = selectedViewMode,
+                    onSelected = { selectedViewMode = it }
+                )
                 OutlinedTextField(
                     value = monday, onValueChange = { monday = it; error = null },
                     label = { Text("第1周周一（年-月-日）") },
