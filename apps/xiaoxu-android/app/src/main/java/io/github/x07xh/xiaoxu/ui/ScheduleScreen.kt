@@ -628,7 +628,7 @@ private fun ScheduleVerifiedContent(
                 LocalSemesterConfigStore.save(context, config)
                 calendar = config
                 showSemesterSettings = false
-                config.currentWeek(LocalDate.now())?.takeIf { it in weekNumbers }?.let {
+                config.currentWeek(LocalDate.now())?.let {
                     selectedWeek = it
                 }
                 if (!wantReminders) {
