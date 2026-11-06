@@ -145,7 +145,7 @@ assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
 assert.match(cloud, /val tasksFresh: Boolean = false/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /tasksFresh = tasks != null/);
-assert.match(cloud, /!state\.tasksFresh -> "最新云端任务列表读取失败/);
+assert.match(cloud, /!fresh -> "云端任务清单刷新失败/, '批量核验必须披露任务清单刷新失败');
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
 assert.match(panels, /if \(!state\.tasksFresh\)/);
 assert.match(panels, /本次任务列表未能核验最新结果/);
@@ -203,6 +203,30 @@ assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTAC
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
 const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
+const batchAudit = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/ChaoxingBatchAudit.kt');
+assert.match(batchAudit, /enum class ChaoxingCourseCoverage \{ COUNT_VERIFIED, LIST_ONLY, FAILED, NOT_CHECKED \}/,
+  '必须区分所有课程条数已核验与仅逐项列表状态');
+assert.match(batchAudit, /audit\.map \{ it\.courseKey \}\.distinct\(\)\.size == totalCourses/,
+  '重复课程不能冒充已经完整覆盖');
+assert.match(batchAudit, /countVerified == totalCourses &&\s*taskLedgerFresh/,
+  '只有全部课程条数可信且任务清单刷新成功才能声明覆盖完整');
+assert.match(cloud, /chaoxingBatchAudit: List<ChaoxingCourseAudit>/,
+  '云端只读批量核验结果必须在当前会话中保留结构化证据');
+assert.match(cloud, /if \(progress != null\) ChaoxingCourseCoverage\.COUNT_VERIFIED\s*else ChaoxingCourseCoverage\.LIST_ONLY/,
+  '缺失官网作业总数时不允许宣称本课程完整核验');
+assert.match(cloud, /ChaoxingCourseCoverage\.NOT_CHECKED, emptyList\(\)/,
+  '未检查课程必须显式列出，不能冒充零作业');
+assert.match(cloud, /if \(epoch != sessionEpoch \|\| !state\.authenticated\) return/,
+  '学校授权失效后不得恢复旧会话里的审核账本');
+assert.match(workspace, /title = "学习通 · 官方作业核验"/,
+  '官方逐门验收清单必须进入真实任务页，不可只在隐藏设置里');
+assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
+  '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
+assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
+  '用户必须可以展开全部已读取作业而非静默只展示前30项');
+assert.doesNotMatch(coursePanel, /其他记录请在校序任务列表查看/,
+  '本课程未展开的记录不得谎称已经自动并入本机任务清单');
+
 assert.match(workspace, /ChaoxingHomeworkPanel\(client, openSchoolReader = \{ openLocalSchool\("chaoxing"\) \}\)/);
 assert.match(coursePanel, /fun ChaoxingHomeworkPanel\(client: CloudClient, openSchoolReader: \(\) -> Unit\)/);
 assert.match(coursePanel, /OutlinedButton\(onClick = openSchoolReader\)/);
@@ -267,7 +291,7 @@ assert.match(coursePanel,/官网本课程进度/);
 assert.match(coursePanel,/官网未提供可核实的作业总数/);
 assert.match(cloud,/result\.code == 401/);
 assert.match(cloud,/if \(consecutiveFailures >= 2\) break/);
-assert.match(cloud,/val skipped = courses\.size - checked/);
+assert.match(cloud,/courses\.filterNot \{ it\.key in checkedKeys \}/, '中断后需要明确列出未检查课程');
 assert.match(cloud,/chaoxingBatchBusy = false/);
 assert.match(coursePanel,/client\.syncChaoxingAllCourses\(\)/);
 assert.match(coursePanel,/一键核验全部课程作业/);
@@ -660,8 +684,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.7'/, '0.8.7 构建须准确标注版本名');
-assert.match(appGradle, /versionCode 28\b/, '0.8.7 构建须递增版本号');
+assert.match(appGradle, /versionName '0\.8\.8'/, '0.8.8 作业核验版本须准确标注');
+assert.match(appGradle, /versionCode 29\b/, '0.8.8 版本码须递增，避免重装旧包');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */

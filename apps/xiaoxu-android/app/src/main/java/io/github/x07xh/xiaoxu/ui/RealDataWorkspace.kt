@@ -75,6 +75,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
+import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
@@ -666,6 +668,23 @@ fun RealAcademicTaskHub(
     var showCandidates by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
+    // This report is for the CURRENT owner session, not Room or the task count.
+    var showOfficialAudit by rememberSaveable(state.chaoxingBatchCheckedAt) {
+        mutableStateOf(state.chaoxingBatchCheckedAt != null)
+    }
+    var showAllOfficialHomework by rememberSaveable(state.chaoxingBatchCheckedAt) {
+        mutableStateOf(false)
+    }
+    val auditSummary = remember(state.chaoxingBatchAudit, state.chaoxingCourses,
+        state.chaoxingBatchTaskLedgerFresh) {
+        summarizeChaoxingAudit(state.chaoxingBatchAudit, state.chaoxingCourses.size,
+            state.chaoxingBatchTaskLedgerFresh)
+    }
+    val officialRows = remember(state.chaoxingBatchAudit) {
+        state.chaoxingBatchAudit.flatMap { course ->
+            course.homework.map { work -> course to work }
+        }
+    }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
     // Source and filters share the same LazyColumn, including all management forms.
@@ -902,6 +921,177 @@ fun RealAcademicTaskHub(
                 Text("云端部分数据刷新失败，已有记录可能过期",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error)
+            }
+        }
+        // The authenticated Chaoxing read is a separate evidence layer. It
+        // never enters owner-completed task counters or guesses missing dates.
+        item {
+            TaskGroupHeader(
+                title = "学习通 · 官方作业核验",
+                count = auditSummary.verifiedWorkRows,
+                badge = if (auditSummary.fullyCoveredAndRefreshed)
+                    "全部课程条数已核验" else "覆盖未全部证实",
+                note = when {
+                    state.chaoxingBatchBusy -> "正在逐门读取本人课程的官方状态"
+                    state.chaoxingBatchCheckedAt != null ->
+                        "本次 ${auditSummary.checkedCourses}/${auditSummary.totalCourses} 门课程有结果"
+                    else -> "尚无本次逐门核验结果，不能据此判断作业总数"
+                },
+                icon = Icons.Outlined.MenuBook,
+                expanded = showOfficialAudit,
+                onClick = { showOfficialAudit = !showOfficialAudit },
+                // In-progress batch is not a confirmed zero-result read.
+                showCount = state.chaoxingBatchCheckedAt != null
+            )
+        }
+        if (showOfficialAudit) {
+            item {
+                XiaoxuCard {
+                    Text(
+                        "仅展示本人授权会话中实际核实的课程和作业状态；不会自动提交或标记本机任务完成。",
+                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2
+                    )
+                    OutlinedButton(onClick = { openLocalSchool("chaoxing") },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("在 App 内打开学习通官网核对")
+                    }
+                    val linked = state.platforms.any {
+                        it.id == "chaoxing" && it.sessionState == "active"
+                    }
+                    OutlinedButton(
+                        enabled = linked && state.authenticated && !state.busy &&
+                            !state.chaoxingBusy && !state.chaoxingBatchBusy &&
+                            !state.chaoxingDetailBusy,
+                        onClick = {
+                            taskScope.launch { client.refreshChaoxingCoursesAndHomework() }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (state.chaoxingBatchBusy) "正在逐门核验..."
+                            else "重新读取并核验全部课程")
+                    }
+                    if (!linked) {
+                        Text(
+                            "尚未取得有效云端学习通授权；仍可使用上方本机官方页面读取。",
+                            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2
+                        )
+                    }
+                    state.chaoxingBatchStatus?.let { report ->
+                        Text(report, style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.Ink2)
+                    }
+                    if (state.chaoxingBatchCheckedAt != null) {
+                        Text(
+                            "本次核验：${auditSummary.countVerifiedCourses} 门作业条数可核对；" +
+                                "${auditSummary.listOnlyCourses} 门仅列表有效；" +
+                                "${auditSummary.failedCourses} 门失败；" +
+                                "${auditSummary.notCheckedCourses} 门未检查。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink
+                        )
+                        Text(
+                            "官方返回的已核验条目 ${auditSummary.verifiedWorkRows} 条：" +
+                                "未提交 ${auditSummary.statuses["todo"] ?: 0}、" +
+                                "已提交 ${auditSummary.statuses["submitted"] ?: 0}、" +
+                                "已批阅 ${auditSummary.statuses["graded"] ?: 0}、" +
+                                "已退回 ${auditSummary.statuses["returned"] ?: 0}、" +
+                                "状态未知 ${auditSummary.statuses["unknown"] ?: 0}。",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2
+                        )
+                        Text(
+                            if (auditSummary.fullyCoveredAndRefreshed)
+                                "已核验全部课程的返回条数，云端任务列表也已刷新；仍需本人官网对照。"
+                            else "本次尚不能确认全部作业覆盖；不以缺失、失败或未检查记录推定已完成。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (auditSummary.fullyCoveredAndRefreshed)
+                                XiaoxuPalette.Success else XiaoxuPalette.Warning
+                        )
+                        Text(
+                            "本次核验时间：${state.chaoxingBatchCheckedAt} · 仅当前会话有效",
+                            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3
+                        )
+                    }
+                }
+            }
+            if (state.chaoxingBatchAudit.isNotEmpty()) {
+                items(count = state.chaoxingBatchAudit.size,
+                    key = { i -> "cx-audit:" + state.chaoxingBatchAudit[i].courseKey }) { i ->
+                    val course = state.chaoxingBatchAudit[i]
+                    val coverage = when (course.coverage) {
+                        ChaoxingCourseCoverage.COUNT_VERIFIED -> "条数已核验"
+                        ChaoxingCourseCoverage.LIST_ONLY -> "列表有效 · 总量未核验"
+                        ChaoxingCourseCoverage.FAILED -> "本次读取失败"
+                        ChaoxingCourseCoverage.NOT_CHECKED -> "本次未检查"
+                    }
+                    XiaoxuCard(contentPadding = 10.dp) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(course.courseTitle, modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.width(8.dp))
+                            Text(coverage, style = MaterialTheme.typography.labelSmall,
+                                color = if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
+                                    XiaoxuPalette.Success else XiaoxuPalette.Warning)
+                        }
+                        if (course.homework.isNotEmpty()) {
+                            Text("已核实 ${course.homework.size} 项官方状态",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2)
+                        }
+                    }
+                }
+            }
+            if (officialRows.isNotEmpty()) {
+                item {
+                    Text("逐项官方状态（本次本人会话读取） · 显示 " +
+                        (if (showAllOfficialHomework) officialRows.size else
+                            minOf(30, officialRows.size)) + " / " + officialRows.size,
+                        style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+                }
+                items(
+                    count = if (showAllOfficialHomework) officialRows.size
+                        else minOf(30, officialRows.size),
+                    key = { i ->
+                        val (course, work) = officialRows[i]
+                        "cx-work:" + course.courseKey + ":" + work.workId
+                    }
+                ) { i ->
+                    val (course, work) = officialRows[i]
+                    val status = when (work.statusCode) {
+                        "todo" -> "官方：未提交"
+                        "submitted" -> "官方：已提交／待批阅"
+                        "graded" -> "官方：已批阅"
+                        "returned" -> "官方：已退回"
+                        else -> "官方：状态未知"
+                    }
+                    XiaoxuCard(contentPadding = 12.dp) {
+                        Text(work.title, fontWeight = FontWeight.SemiBold,
+                            color = XiaoxuPalette.Ink)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(course.courseTitle, modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2)
+                            Text(status, style = MaterialTheme.typography.labelSmall,
+                                color = if (work.statusCode == "todo")
+                                    XiaoxuPalette.Warning else XiaoxuPalette.Brand)
+                        }
+                        Text("官方核验状态；不代表已经核对所有课程或取得完整截止时间。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
+                if (officialRows.size > 30) {
+                    item {
+                        TextButton(onClick = {
+                            showAllOfficialHomework = !showAllOfficialHomework
+                        }) {
+                            Text(if (showAllOfficialHomework) "收起至前 30 条"
+                                else "展开其余 ${officialRows.size - 30} 条官方作业")
+                        }
+                    }
+                }
             }
         }
         // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。

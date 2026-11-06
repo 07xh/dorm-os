@@ -115,6 +115,10 @@ data class CloudUiState(
     val chaoxingQr: ChaoxingQrUi = ChaoxingQrUi(),
     val chaoxingBatchBusy: Boolean = false,
     val chaoxingBatchStatus: String? = null,
+    /** Per-course official status evidence from the current explicit owner batch only. */
+    val chaoxingBatchAudit: List<ChaoxingCourseAudit> = emptyList(),
+    val chaoxingBatchCheckedAt: String? = null,
+    val chaoxingBatchTaskLedgerFresh: Boolean = false,
     val chaoxingAutoSyncBusy: Boolean = false,
     val chaoxingAutoSyncError: String? = null,
     val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
@@ -918,6 +922,9 @@ class CloudClient(context: Context) {
         chaoxingBusy = false,
         chaoxingBatchBusy = false,
         chaoxingBatchStatus = null,
+        chaoxingBatchAudit = emptyList(),
+        chaoxingBatchCheckedAt = null,
+        chaoxingBatchTaskLedgerFresh = false,
         chaoxingAutoSyncBusy = false,
         chaoxingAutoSyncError = null,
         chaoxingPreview = null, chaoxingDetailBusy = false, chaoxingDetailError = null
@@ -1013,7 +1020,8 @@ class CloudClient(context: Context) {
         if (!state.authenticated || state.chaoxingBusy || state.chaoxingDetailBusy) return
         val epoch = sessionEpoch
         state = state.copy(chaoxingBusy = true, chaoxingError = null,
-            chaoxingBatchStatus = null,
+            chaoxingBatchStatus = null, chaoxingBatchAudit = emptyList(),
+            chaoxingBatchCheckedAt = null, chaoxingBatchTaskLedgerFresh = false,
             chaoxingPreview = null, chaoxingDetailError = null)
         try {
             val response = withContext(Dispatchers.IO) {
@@ -1178,6 +1186,8 @@ class CloudClient(context: Context) {
         state = state.copy(
             chaoxingBusy = true, chaoxingError = null,
             chaoxingBatchStatus = null,
+            chaoxingBatchAudit = emptyList(), chaoxingBatchCheckedAt = null,
+            chaoxingBatchTaskLedgerFresh = false,
             chaoxingCheckedAt = null, chaoxingHomework = emptyList(),
             chaoxingVerifiedEmpty = false, chaoxingPageProgress = null,
             chaoxingPreview = null, chaoxingDetailError = null
@@ -1233,8 +1243,11 @@ class CloudClient(context: Context) {
         var failed = 0
         var consecutiveFailures = 0
         var stoppedForAuth = false
+        val audit = mutableListOf<ChaoxingCourseAudit>()
         state = state.copy(chaoxingBusy = true, chaoxingBatchBusy = true,
             chaoxingBatchStatus = "正在核验第 1 / ${courses.size} 门课程；仅同步本人可验证的作业状态",
+            chaoxingBatchAudit = emptyList(), chaoxingBatchCheckedAt = null,
+            chaoxingBatchTaskLedgerFresh = false,
             chaoxingPageProgress = null, chaoxingCheckedAt = null,
             chaoxingHomework = emptyList(), chaoxingVerifiedEmpty = false,
             chaoxingError = null)
@@ -1252,8 +1265,14 @@ class CloudClient(context: Context) {
                     failed++
                     checked++
                     consecutiveFailures++
-                    state = state.copy(chaoxingBatchStatus =
-                        "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed")
+                    audit.add(ChaoxingCourseAudit(
+                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList()
+                    ))
+                    state = state.copy(
+                        chaoxingBatchAudit = audit.toList(),
+                        chaoxingBatchStatus =
+                            "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed"
+                    )
                     if (consecutiveFailures >= 2) break // Avoid hammering an offline upstream.
                     continue
                 }
@@ -1263,40 +1282,71 @@ class CloudClient(context: Context) {
                     stoppedForAuth = true
                     break
                 }
-                val accepted = if (result.code == 200) {
+                // Record individual official statuses ONLY after the same strict
+                // provider, count, pagination, row and persistence checks used
+                // for one-course sync. A 200 response alone is not proof.
+                val validated = if (result.code == 200) {
                     try {
                         verifiedChaoxingWork(result.json, course)
-                        true
-                    } catch (_: Exception) { false }
-                } else false
-                if (accepted) {
+                    } catch (_: Exception) { null }
+                } else null
+                if (validated != null) {
+                    val (work, _, progress) = validated
+                    audit.add(ChaoxingCourseAudit(
+                        course.key, course.title,
+                        if (progress != null) ChaoxingCourseCoverage.COUNT_VERIFIED
+                        else ChaoxingCourseCoverage.LIST_ONLY,
+                        work
+                    ))
                     successful++
                     consecutiveFailures = 0
                 } else {
+                    audit.add(ChaoxingCourseAudit(
+                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList()
+                    ))
                     failed++
                     consecutiveFailures++
                 }
                 checked++
-                state = state.copy(chaoxingBatchStatus =
-                    "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed")
+                state = state.copy(
+                    chaoxingBatchAudit = audit.toList(),
+                    chaoxingBatchStatus =
+                        "已检查 $checked / ${courses.size} 门：成功 $successful，失败 $failed"
+                )
                 if (consecutiveFailures >= 2) break
             }
             if (epoch != sessionEpoch) return
-            // Once, not after every course: refresh the existing official task ledger.
-            refreshPrivate()
-            if (epoch != sessionEpoch) return
-            val skipped = courses.size - checked
-            val status = "学习通本次核验 $checked / ${courses.size} 门，" +
-                "成功 $successful 门，失败 $failed 门" +
-                (if (skipped > 0) "，未检查 $skipped 门" else "") + "。"
-            val note = when {
-                !state.authenticated -> "校序会话已失效，需要重新连接；旧任务不会被当作新同步。"
-                stoppedForAuth -> "学校授权已失效或要求交互登录，请完成官方登录后重新读取。"
-                !state.tasksFresh -> "最新云端任务列表读取失败，旧记录仅供参考；不能确认最终作业同步结果。"
-                skipped > 0 || failed > 0 -> "仅部分课程完成；未验证课程不标记为已同步。"
-                else -> "任务列表已重新读取；请与学习通官方逐项核对。"
+            val checkedKeys = audit.map { it.courseKey }.toSet()
+            courses.filterNot { it.key in checkedKeys }.forEach { course ->
+                audit.add(ChaoxingCourseAudit(
+                    course.key, course.title, ChaoxingCourseCoverage.NOT_CHECKED, emptyList()
+                ))
             }
-            state = state.copy(chaoxingBatchStatus = status + note)
+            // Once, not after every course: reload the owner's actual task ledger.
+            refreshPrivate()
+            if (epoch != sessionEpoch || !state.authenticated) return
+            val fresh = state.tasksFresh
+            val summary = summarizeChaoxingAudit(audit, courses.size, fresh)
+            val status = "学习通本次检查 ${summary.checkedCourses} / ${courses.size} 门：" +
+                "条数已核验 ${summary.countVerifiedCourses} 门，" +
+                "仅列表已核验 ${summary.listOnlyCourses} 门，" +
+                "失败 ${summary.failedCourses} 门" +
+                (if (summary.notCheckedCourses > 0)
+                    "，未检查 ${summary.notCheckedCourses} 门" else "") +
+                "；读取可信状态 ${summary.verifiedWorkRows} 条。"
+            val note = when {
+                stoppedForAuth -> "学校授权已失效或要求交互登录，需在官网重新授权。"
+                !fresh -> "云端任务清单刷新失败；不能声称整个任务中心已同步。"
+                summary.fullyCoveredAndRefreshed ->
+                    "全部课程作业条数与返回记录已逐门核对；仍请与本人官网逐项对照。"
+                else -> "本次未证实全部课程作业覆盖，缺失课程或列表不作为已完成。"
+            }
+            state = state.copy(
+                chaoxingBatchAudit = audit.toList(),
+                chaoxingBatchCheckedAt = Instant.now().toString(),
+                chaoxingBatchTaskLedgerFresh = fresh,
+                chaoxingBatchStatus = status + note
+            )
         } finally {
             if (epoch == sessionEpoch) state = state.copy(
                 chaoxingBusy = false, chaoxingBatchBusy = false)
