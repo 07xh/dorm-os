@@ -34,7 +34,7 @@ private fun interpolateDp(start: Dp, end: Dp, fraction: Float): Dp =
 @Composable
 internal fun rememberPrimaryBottomGeometry(glass: Boolean): PrimaryBottomGeometry {
     if (!glass) {
-        return remember { PrimaryBottomGeometry(64.dp, 20.dp, 4.dp, 10.dp, 6.dp) }
+        return remember { PrimaryBottomGeometry(70.dp, 20.dp, 4.dp, 10.dp, 6.dp) }
     }
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current

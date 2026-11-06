@@ -1,5 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,14 +18,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -85,20 +87,32 @@ object XiaoxuPalette {
     /** 页面背景 */
     val Bg = Color(0xFFF4F7FD)
 
-    /** 卡片 */
+    /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
+    val PageGradient = Brush.verticalGradient(
+        listOf(Color(0xFFF0F6FF), Color(0xFFF4F2FC), Color(0xFFF7F3FD))
+    )
+
+    /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
+    val GlassCard = Color.White.copy(alpha = 0.88f)
+    val GlassBorder = Color.White.copy(alpha = 0.78f)
+    val GlassTrack = Color.White.copy(alpha = 0.48f)
+    val GlassIndicator = Color.White.copy(alpha = 0.54f)
+    val SheetSurface = Color(0xFFF9FAFF)
+
+    /** 不改变课程颜色，统一其他页面的基础材质。 */
     val Surface = Color(0xFFFFFFFF)
 
     /** 次级面（分组底、未核验底） */
     val SurfaceAlt = Color(0xFFF1F4FA)
 
     /** 主文字 */
-    val Ink = Color(0xFF16233A)
+    val Ink = Color(0xFF34445F)
 
     /** 次要文字 */
-    val Ink2 = Color(0xFF6B7A99)
+    val Ink2 = Color(0xFF52627B)
 
     /** 占位、未选中图标 */
-    val Ink3 = Color(0xFF9AA7BE)
+    val Ink3 = Color(0xFF66758C)
 
     /** 描边、分隔线 */
     val Line = Color(0xFFE9EEF8)
@@ -113,11 +127,11 @@ object XiaoxuPalette {
     val NeutralSoft = Color(0xFFF1F4FA)
 }
 
-/** 圆角：18dp 基础卡，22dp 重要卡（Hero / 抽屉顶角）。 */
+/** 参考北化的大圆角几何，全 App 同源，不为各页面另建 CardShape。 */
 object XiaoxuRadius {
-    val card: Dp = 18.dp
-    val hero: Dp = 22.dp
-    val tile: Dp = 14.dp
+    val card: Dp = 24.dp
+    val hero: Dp = 28.dp
+    val tile: Dp = 16.dp
     val pill: Dp = 999.dp
 }
 
@@ -128,6 +142,17 @@ object XiaoxuSpacing {
     val card: Dp = 16.dp
     val gap: Dp = 8.dp
 }
+
+/** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
+internal object XiaoxuPageLayout {
+    val ContentMaxWidth: Dp = 860.dp
+    val StateMaxWidth: Dp = 560.dp
+}
+
+/** 窄屏铺满，平板居中限宽；仅收敛布局规则，不修改业务或现有配色。 */
+internal fun Modifier.xiaoxuPageWidth(
+    max: Dp = XiaoxuPageLayout.ContentMaxWidth
+): Modifier = this.widthIn(max = max).fillMaxWidth()
 
 /** 课程六色：背景 / 前景 / 左侧强调条。按课程标识稳定取模，不随列表顺序变化。 */
 data class XiaoxuCourseColor(val background: Color, val foreground: Color, val accent: Color)
@@ -200,22 +225,22 @@ private val XiaoxuColorScheme = lightColorScheme(
 
 private val XiaoxuTypography = Typography(
     headlineMedium = TextStyle(
-        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
+        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = (-0.4).sp
     ),
     headlineSmall = TextStyle(
-        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold,
+        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 13.5.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
+    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
     labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 15.sp)
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp)
 )
 
 private val XiaoxuShapes = Shapes(
@@ -249,7 +274,7 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
 fun XiaoxuCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(XiaoxuRadius.card),
-    container: Color = XiaoxuPalette.Surface,
+    container: Color = XiaoxuPalette.GlassCard,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
@@ -257,10 +282,11 @@ fun XiaoxuCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, shape, clip = false)
+            .shadow(0.5.dp, shape, clip = false)
             .clip(shape)
             .background(container)
-            .border(1.dp, XiaoxuPalette.Line, shape)
+            .border(0.75.dp, if (container == XiaoxuPalette.GlassCard)
+                XiaoxuPalette.GlassBorder else XiaoxuPalette.Line, shape)
             .then(
                 if (onClick != null) {
                     Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
@@ -270,6 +296,73 @@ fun XiaoxuCard(
         verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.gap),
         content = content
     )
+}
+
+/** 同一个分段选择器供课表设置、二课、成绩与任务筛选使用；不持有业务状态。 */
+data class XiaoxuSegmentOption(val key: String, val label: String)
+
+@Composable
+fun XiaoxuSegmentedControl(
+    options: List<XiaoxuSegmentOption>,
+    selectedKey: String,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (options.isEmpty()) return
+    val track = RoundedCornerShape(999.dp)
+    Row(
+        modifier = modifier.fillMaxWidth().clip(track)
+            .background(XiaoxuPalette.GlassTrack)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, track)
+            .padding(4.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        options.forEach { option ->
+            val selected = selectedKey == option.key
+            val itemShape = RoundedCornerShape(999.dp)
+            val itemColor = animateColorAsState(
+                targetValue = if (selected) XiaoxuPalette.GlassIndicator else Color.Transparent,
+                animationSpec = tween(180), label = "xiaoxu-segment-bg"
+            ).value
+            val inkColor = animateColorAsState(
+                targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
+                animationSpec = tween(180), label = "xiaoxu-segment-text"
+            ).value
+            Box(
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                    .clip(itemShape).background(itemColor)
+                    .then(if (selected) Modifier.border(0.75.dp, XiaoxuPalette.GlassBorder, itemShape)
+                        else Modifier)
+                    .selectable(selected = selected, role = Role.Tab,
+                        onClick = { if (!selected) onSelected(option.key) }),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(option.label, style = MaterialTheme.typography.titleSmall,
+                    color = inkColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** 连续分组设置：只管理展示与布局，业务回调仍属于对应页面。 */
+@Composable
+fun XiaoxuGroupedSection(
+    title: String? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!title.isNullOrBlank()) {
+            Text(title, style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(start = 14.dp))
+        }
+        val sectionShape = RoundedCornerShape(XiaoxuRadius.card)
+        Column(Modifier.fillMaxWidth().clip(sectionShape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, sectionShape)
+            .padding(vertical = 4.dp), content = content)
+    }
 }
 
 /**
@@ -585,7 +678,9 @@ fun XiaoxuSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = XiaoxuPalette.Surface
+        shape = RoundedCornerShape(topStart = XiaoxuRadius.hero, topEnd = XiaoxuRadius.hero),
+        scrimColor = Color(0xFF23354F).copy(alpha = 0.22f),
+        containerColor = XiaoxuPalette.SheetSurface
     ) {
         Column(
             modifier = Modifier
@@ -598,7 +693,8 @@ fun XiaoxuSheet(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink
+                    color = XiaoxuPalette.Ink,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
             content()
@@ -606,10 +702,7 @@ fun XiaoxuSheet(
     }
 }
 
-/**
- * 四态统一容器：Loading / Empty / Error / Unverified 共用一种版式，
- * 只有图标、色调和文案不同，避免每个页面各画一套空态。
- */
+/** 实际使用的统一空态；其他状态由真实数据页面按官方来源处理。 */
 @Composable
 private fun XiaoxuStatePanel(
     icon: ImageVector,
@@ -669,20 +762,6 @@ private fun XiaoxuStatePanel(
     }
 }
 
-@Composable
-fun XiaoxuLoading(message: String = "正在读取…", modifier: Modifier = Modifier) {
-    XiaoxuCard(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = XiaoxuPalette.Brand
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
-        }
-    }
-}
 
 @Composable
 fun XiaoxuEmpty(
@@ -699,51 +778,35 @@ fun XiaoxuEmpty(
     )
 }
 
-@Composable
-fun XiaoxuError(
-    message: String,
-    modifier: Modifier = Modifier,
-    title: String = "读取失败",
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.ErrorOutline, title = title, message = message,
-        tone = XiaoxuTone.Danger, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
-}
 
-/** 未核验：有记录但来源无法证明是最新官方状态时使用，绝不写成"暂无"。 */
-@Composable
-fun XiaoxuUnverified(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.HelpOutline, title = title, message = message,
-        tone = XiaoxuTone.Warning, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
-}
 
-/** 未连接：没有可信来源时的统一空态。 */
+/** 统一页内工具图标：只有主要操作有淡色底，避免每页单独叠四套按钮卡片。 */
 @Composable
-fun XiaoxuDisconnected(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+internal fun XiaoxuToolbarAction(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    emphasized: Boolean = false
 ) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.CloudOff, title = title, message = message,
-        tone = XiaoxuTone.Neutral, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
+    IconButton(
+        modifier = Modifier.size(42.dp)
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .then(if (emphasized) Modifier.background(XiaoxuPalette.BrandSoft) else Modifier),
+        enabled = enabled,
+        onClick = onClick
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(20.dp),
+            tint = when {
+                !enabled -> XiaoxuPalette.Ink3
+                emphasized -> XiaoxuPalette.BrandDeep
+                else -> XiaoxuPalette.Ink2
+            }
+        )
+    }
 }
 
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
@@ -758,7 +821,7 @@ fun XiaoxuTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(XiaoxuPalette.Bg)
+            .background(Color.Transparent)
             // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
             .statusBarsPadding()
             .padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
@@ -840,7 +903,7 @@ fun QuickEntry(
 ) {
     Column(
         modifier = modifier
-            .heightIn(min = 76.dp)
+            .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.card))
             .background(XiaoxuPalette.Surface)
             .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
@@ -852,7 +915,7 @@ fun QuickEntry(
     ) {
         Box(
             Modifier
-                .size(32.dp)
+                .size(38.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(tone.containerColor),
             contentAlignment = Alignment.Center
@@ -861,13 +924,13 @@ fun QuickEntry(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tone.contentColor,
-                modifier = Modifier.size(17.dp)
+                modifier = Modifier.size(21.dp)
             )
         }
         Spacer(Modifier.height(6.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             color = XiaoxuPalette.Ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

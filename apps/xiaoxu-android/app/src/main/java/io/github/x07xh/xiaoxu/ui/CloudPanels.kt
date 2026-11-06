@@ -223,111 +223,63 @@ fun ConnectionsPanel(
  */
 @Composable
 private fun ProfileHeroCard(state: CloudUiState) {
-    val shape = RoundedCornerShape(XiaoxuRadius.hero)
     val connectedPlatforms = state.platforms.count { it.sessionState == "active" }
     val platformCaption = when {
-        !state.authenticated -> "未连接"
+        !state.authenticated -> "—"
         !state.connectionsFresh -> "待核验"
         else -> "$connectedPlatforms/3"
     }
-    // 微信待审核数量：wechatError != null 表示本次候选读取失败，count 是上次保留的缓存值，
-    // 必须标"（快照）"；count 为空时是"未读取"而不是 0。与消息中心口径保持一致。
     val reviewCaption = when {
         !state.authenticated -> "—"
         state.pendingWechatCount == null -> "未读取"
         state.wechatError != null -> state.pendingWechatCount.toString() + "（快照）"
         else -> state.pendingWechatCount.toString()
     }
-    // 未连接 / 未成功读取且没有任何缓存时，数量是未知而不是 0。
     val taskCaption = when {
         !state.authenticated -> "—"
         state.tasksFresh -> state.tasks.size.toString()
         state.tasks.isEmpty() -> "—"
         else -> state.tasks.size.toString() + "（快照）"
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(6.dp, shape, clip = false)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep),
-                    start = Offset.Zero,
-                    end = Offset(1080f, 760f)
-                )
-            )
-            .drawBehind {
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.10f),
-                    radius = size.minDimension * 0.60f,
-                    center = Offset(size.width * 0.96f, -size.height * 0.18f)
-                )
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.06f),
-                    radius = size.minDimension * 0.40f,
-                    center = Offset(size.width * 0.72f, size.height * 1.12f)
-                )
-            }
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
+    // Real account state without a fabricated avatar, name, school or demo numbers.
+    XiaoxuCard(contentPadding = 14.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(58.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f))
-                    .border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
+                    .background(XiaoxuPalette.BrandSoft),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.PersonOutline,
+                Icon(Icons.Outlined.PersonOutline,
                     contentDescription = "通用头像（未接入真实头像）",
-                    tint = Color.White,
-                    modifier = Modifier.size(30.dp)
-                )
+                    tint = XiaoxuPalette.BrandDeep, modifier = Modifier.size(24.dp))
             }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    text = "我的学习空间",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                state.authenticated && state.connectionsFresh -> "校序云端会话已核验"
-                                state.authenticated -> "云端状态待重新核验"
-                                else -> "云端未连接 · 可选"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
-                        )
-                    }
+            Spacer(Modifier.width(12.dp))
+            Text("校序账户", style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink, modifier = Modifier.weight(1f))
+            SourceBadge(
+                text = when {
+                    !state.authenticated -> "未连接"
+                    !state.connectionsFresh -> "待核验"
+                    else -> "已连接"
+                },
+                tone = when {
+                    !state.authenticated -> XiaoxuTone.Neutral
+                    !state.connectionsFresh -> XiaoxuTone.Warning
+                    else -> XiaoxuTone.Success
                 }
-            }
+            )
         }
-        Text(
-            text = "学校账号各自授权；本机读取不依赖校序云端登录。",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.82f)
-        )
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            ProfileMetric(label = "学校平台", value = platformCaption, modifier = Modifier.weight(1f))
-            ProfileMetric(label = "待审核候选", value = reviewCaption, modifier = Modifier.weight(1f))
-            ProfileMetric(label = "云端任务", value = taskCaption, modifier = Modifier.weight(1f))
+            ProfileMetric(label = "学校平台", value = platformCaption,
+                modifier = Modifier.weight(1f))
+            ProfileMetric(label = "微信待审核", value = reviewCaption,
+                modifier = Modifier.weight(1f))
+            ProfileMetric(label = "云端任务", value = taskCaption,
+                modifier = Modifier.weight(1f))
         }
     }
 }
@@ -335,27 +287,17 @@ private fun ProfileHeroCard(state: CloudUiState) {
 @Composable
 private fun ProfileMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(Color.White.copy(alpha = 0.14f))
-            .padding(horizontal = 10.dp, vertical = 9.dp),
+        modifier = modifier.clip(RoundedCornerShape(11.dp))
+            .background(XiaoxuPalette.SurfaceAlt)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.78f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Text(value, style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+        Text(label, style = MaterialTheme.typography.labelSmall,
+            color = XiaoxuPalette.Ink2, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -367,10 +309,7 @@ private fun SchoolReaderSection(
     recentImport: LocalSchoolImportReceipt?
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(
-            title = "学校数据连接",
-            caption = "在 App 内打开学校官方页面，登录本人账号后主动读取"
-        )
+        SectionHeader(title = "数据连接")
         // Native-first path already implemented in the existing local school activities.
         // This is deliberately separate from verified Cloudflare sessions.
         LocalSchoolConnectionPanel(openLocalSchool, recentImport)
@@ -397,8 +336,7 @@ private fun CloudAuthorizationSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(
-            title = "云端授权与高级同步",
-            caption = "可选配置，不影响本机读取、课表和待办",
+            title = "云端同步",
             actionLabel = if (cloudAdvanced) "收起" else "展开",
             onAction = onToggleAdvanced
         )

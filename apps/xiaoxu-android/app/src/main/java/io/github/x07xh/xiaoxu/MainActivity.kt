@@ -20,38 +20,57 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -59,16 +78,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
@@ -83,12 +109,12 @@ import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
+import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
 import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.ui.primaryTabLabel
-import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -109,6 +135,9 @@ class MainActivity : ComponentActivity() {
     ) { uri ->
         if (uri != null) importTimetableFile(uri)
     }
+    private val timetableExportPicker = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> if (uri != null) exportTimetableFile(uri) }
     private val cloud by lazy { CloudClient(applicationContext) }
     private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
     private var returnedSchool by mutableStateOf<String?>(null)
@@ -141,12 +170,18 @@ class MainActivity : ComponentActivity() {
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
     // Only the latest committed import/resume read may update visible lessons.
     private var localScheduleReadSerial = 0L
+    // Changes even when only semester settings are restored and course rows stay equal.
+    private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+        }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -159,7 +194,14 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    scheduleReminderOpenCount = scheduleReminderOpenCount,
                     localLessons = localLessons,
+                    localScheduleRevision = localScheduleRevision,
+                    onLocalLessonsChanged = { saved ->
+                        localScheduleReadSerial++
+                        localLessons = saved
+                        localScheduleRevision++
+                    },
                     returnedSchool = returnedSchool,
                     localCaptureReturn = lastLocalCapture,
                     onSchoolReturnConsumed = { returnedSchool = null },
@@ -178,6 +220,9 @@ class MainActivity : ComponentActivity() {
                     },
                     openFileImport = {
                         timetableFilePicker.launch(arrayOf("*/*"))
+                    },
+                    openFileExport = {
+                        timetableExportPicker.launch("校序-课表备份-${java.time.LocalDate.now()}.json")
                     },
                     openLocalSchool = { provider ->
                         if (provider == "ncwu") {
@@ -237,22 +282,26 @@ class MainActivity : ComponentActivity() {
                     } ?: throw IllegalArgumentException("无法打开所选文件")
                     val text = bytes.toString(Charsets.UTF_8.name())
                     val lowered = fileName.lowercase()
-                    val lessons = when {
+                    val imported = when {
                         lowered.endsWith(".ics") || text.trimStart()
                             .removePrefix("\uFEFF").startsWith("BEGIN:VCALENDAR") ->
-                            LocalScheduleStore.parseIcs(text)
-                        lowered.endsWith(".json") -> LocalScheduleStore.parseCourses(text)
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseIcs(text))
+                        lowered.endsWith(".json") && text.trimStart()
+                            .removePrefix("\uFEFF").startsWith("{") ->
+                            LocalTimetableBackup.parse(text)
+                        lowered.endsWith(".json") ->
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseCourses(text))
                         else -> throw IllegalArgumentException(
-                            "请选择已转换的 .ics 或标准课表 .json；原始 .sleepdown 备份暂不支持直接读取")
+                            "请选择已转换的 .ics、标准课表 .json 或校序课表备份；原始 .sleepdown 备份暂不支持直接读取")
                     }
-                    fileName to lessons
+                    fileName to imported
                 }
                 val oldCount = localLessons.size
-                val newCount = parsed.second.size
+                val newCount = parsed.second.lessons.size
                 val less = oldCount > 0 && newCount < oldCount
                 // The earlier count-only popup concealed partial/incorrect
                 // course rows. Show actual imported fields before overwriting.
-                val preview = parsed.second
+                val preview = parsed.second.lessons
                     .sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
                     .take(30)
                     .mapIndexed { index, lesson ->
@@ -270,19 +319,33 @@ class MainActivity : ComponentActivity() {
                     (if (less) "\n\n本次课块更少，可能识别不全；建议保留旧课表。" else "") +
                     "\n\n本机解析详情（前 30 条）：\n" + preview +
                     (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
-                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步。"
+                    (if (parsed.second.calendar != null) "\n本次备份包含学期日期与节次作息，将一并恢复。"
+                     else "\n未提供学期设置，保留设备现有配置。") +
+                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步."
                 val saveImported = {
                     lifecycleScope.launch {
                         try {
-                            val (count, savedLessons) = withContext(Dispatchers.IO) {
+                            val (count, savedLessons, reminderOk) = withContext(Dispatchers.IO) {
                                 val count = LocalScheduleStore.saveParsed(
-                                    applicationContext, parsed.second)
-                                count to LocalScheduleStore.load(applicationContext)
+                                    applicationContext, parsed.second.lessons)
+                                parsed.second.calendar?.let {
+                                    LocalSemesterConfigStore.save(applicationContext, it)
+                                }
+                                val updated = LocalScheduleStore.load(applicationContext)
+                                // Saving and reminder scheduling are independent outcomes:
+                                // an alarm failure must never masquerade as an import rollback.
+                                val reminderOk = LocalCourseReminders.reconcileAfterSave(
+                                    applicationContext, updated,
+                                    LocalSemesterConfigStore.load(applicationContext))
+                                Triple(count, updated, reminderOk)
                             }
                             // Invalidate previously started resume reads after commit.
                             localScheduleReadSerial++
                             localLessons = savedLessons
-                            Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
+                            localScheduleRevision++
+                            Toast.makeText(this@MainActivity,
+                                if (reminderOk) "成功导入 $count 个课块"
+                                else "已保存 $count 个课块，但提醒维护失败；可重新打开课表重试",
                                 Toast.LENGTH_LONG).show()
                         } catch (error: Exception) {
                             Toast.makeText(this@MainActivity,
@@ -315,12 +378,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** User-selected SAF export. No cloud, credential or background network operation. */
+    private fun exportTimetableFile(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val lessons = LocalScheduleStore.load(applicationContext)
+                    val backup = LocalTimetableBackup.export(
+                        lessons, LocalSemesterConfigStore.load(applicationContext))
+                    contentResolver.openOutputStream(uri, "wt")?.use {
+                        it.write(backup.toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalArgumentException("无法写入所选文件")
+                    lessons.size
+                }
+                Toast.makeText(this@MainActivity,
+                    "已导出 $count 个课块和本机学期设置", Toast.LENGTH_LONG).show()
+            } catch (failure: Exception) {
+                Toast.makeText(this@MainActivity,
+                    failure.message ?: "课表导出失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSchoolReturn(intent)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+        }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
         }
     }
 
@@ -343,7 +431,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         secondClassAutoJob?.cancel()
         secondClassAutoJob = lifecycleScope.launch {
-            delay(1_000) // Let the native shell display before WebView startup.
+            delay(1_000) // Render the native shell before starting the bounded school reader.
             SecondClassAutoRefresh.reconcile(applicationContext)
             SecondClassAutoRefresh.refreshIfDue(applicationContext)
         }
@@ -352,7 +440,19 @@ class MainActivity : ComponentActivity() {
             val lessons = withContext(Dispatchers.IO) {
                 LocalScheduleStore.load(applicationContext)
             }
-            if (readSerial == localScheduleReadSerial) localLessons = lessons
+            if (readSerial == localScheduleReadSerial) {
+                // Unblock the native page immediately; reminder maintenance can follow.
+                localLessons = lessons
+                localScheduleRevision++
+                if (LocalCourseReminders.enabled(applicationContext)) {
+                    launch(Dispatchers.IO) {
+                        LocalCourseReminders.reconcileAfterSave(
+                            applicationContext,
+                            LocalScheduleStore.load(applicationContext),
+                            LocalSemesterConfigStore.load(applicationContext))
+                    }
+                }
+            }
         }
     }
 }
@@ -371,19 +471,27 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    scheduleReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
+    localScheduleRevision: Int,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     returnedSchool: String?,
     localCaptureReturn: LocalSchoolImportReceipt?,
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable {
-        mutableStateOf(if (taskReminderOpenCount > 0) MainDestination.TASKS else MainDestination.HOME)
+        mutableStateOf(when {
+            taskReminderOpenCount > 0 -> MainDestination.TASKS
+            scheduleReminderOpenCount > 0 -> MainDestination.SCHEDULE
+            else -> MainDestination.HOME
+        })
     }
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
@@ -391,6 +499,12 @@ private fun NativeShell(
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
+            messagesOpen = false
+        }
+    }
+    LaunchedEffect(scheduleReminderOpenCount) {
+        if (scheduleReminderOpenCount > 0) {
+            current = MainDestination.SCHEDULE
             messagesOpen = false
         }
     }
@@ -405,9 +519,9 @@ private fun NativeShell(
     }
     BackHandler(
         enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
-            academic == AcademicDestination.SERVICES
+            academic != AcademicDestination.OVERVIEW
     ) {
-        academic = AcademicDestination.OVERVIEW // Hidden service detail never becomes a fake selected top tab.
+        academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
@@ -447,10 +561,10 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
         val tabletLayout = maxWidth >= 700.dp
-        // Capture the page *behind* the dock, not a flat color swatch. Keeping
-        // the dock outside layerBackdrop prevents feedback/sampling of itself.
+        // Capture the original #351 page while keeping the glass dock outside
+        // the capture to prevent sampling feedback and an extra App Shell.
         val navBackdrop = if (!tabletLayout && !messagesOpen && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
@@ -459,10 +573,10 @@ private fun NativeShell(
             modifier = Modifier.fillMaxSize().then(
                 if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
             ),
-            containerColor = XiaoxuPalette.Bg,
+            containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen) XiaoxuTopBar(
+                if (!messagesOpen && current == MainDestination.HOME) XiaoxuTopBar(
                     title = "校序",
                     subtitle = current.primaryTabLabel,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
@@ -473,8 +587,8 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    // Only reserve geometry. Draw a single bar outside this captured
-                    // Scaffold for BOTH glass and no-glass devices.
+                    // Only layout reserve stays in Scaffold; the original glass
+                    // dock is drawn outside the backdrop's sampled subtree.
                     PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
             }
@@ -486,10 +600,11 @@ private fun NativeShell(
                         messagesOpen = false
                     }
                 }
-                Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
+                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
-                            MessagesPage(openWebsite, cloud, openArticle, onBack = { messagesOpen = false })
+                            MessageCenterPanel(cloud, openWebsite, openArticle,
+                                useStatusBarInset = true, onBack = { messagesOpen = false })
                         }
                     } else {
                     // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
@@ -535,18 +650,25 @@ private fun NativeShell(
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                localLessons = localLessons, openFileImport = openFileImport)
+                                localLessons = localLessons, openFileImport = openFileImport,
+                                openFileExport = openFileExport,
+                                localScheduleRevision = localScheduleRevision,
+                                onLocalLessonsChanged = onLocalLessonsChanged,
+                                onMessages = { messagesOpen = true })
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
-                                cloud = cloud)
+                                cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                openLocalSchool = openLocalSchool)
+                                openLocalSchool = openLocalSchool,
+                                onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
                                 },
-                                startSchoolAuthorization, localCaptureReturn
+                                startSchoolAuthorization, localCaptureReturn,
+                                onMessages = { messagesOpen = true },
+                                onRefresh = { scope.launch { cloud.refresh() } }
                             )
                         }
                         }
@@ -569,86 +691,124 @@ private fun NativeShell(
 
 @Composable
 private fun Content(
+    topPadding: androidx.compose.ui.unit.Dp = 18.dp,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(18.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
+            top = topPadding, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
     )
 }
 
 @Composable
-private fun Heading(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun MessagesPage(
-    openWebsite: () -> Unit,
-    cloud: CloudClient,
-    openArticle: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    MessageCenterPanel(cloud, openWebsite, openArticle,
-        useStatusBarInset = false, onBack = onBack)
-}
-
-@Composable
 private fun ConnectionsPage(
     openWebsite: () -> Unit, cloud: CloudClient,
     openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
-    localCaptureReturn: LocalSchoolImportReceipt?
+    localCaptureReturn: LocalSchoolImportReceipt?,
+    onMessages: () -> Unit, onRefresh: () -> Unit
 ) {
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     var showLocalBackup by rememberSaveable { mutableStateOf(false) }
     var showCredits by rememberSaveable { mutableStateOf(false) }
     Content {
-        // ConnectionsPanel starts with the real owner profile hero. Do not
-        // duplicate "我的" as a second headline above the same information.
+        item {
+            CompactPageHeading(title = "我的", onMessages = onMessages,
+                onRefresh = onRefresh, refreshing = cloud.state.busy)
+        }
+        // Existing ConnectionsPanel is the real authorization and local reader.
         item {
             ConnectionsPanel(cloud, openWebsite, openLocalSchool,
                 startSchoolAuthorization, localCaptureReturn)
         }
         item {
-            XiaoxuCard(onClick = { showCloudSecondClass = !showCloudSecondClass }) {
-                Text(if (showCloudSecondClass) "收起云端个人快照"
-                     else "云端第二课堂个人快照（可选）",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("仅展示已保存的本人活动与积分；学校活动广场在「教务 → 第二课堂」。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
+            XiaoxuGroupedSection(title = "工具") {
+                CompactActionRow("第二课堂记录", Icons.Outlined.School,
+                    expanded = showCloudSecondClass, onClick = {
+                        showCloudSecondClass = !showCloudSecondClass
+                        showLocalBackup = false
+                        showCredits = false
+                    })
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+                CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
+                    expanded = showLocalBackup, onClick = {
+                        showLocalBackup = !showLocalBackup
+                        showCloudSecondClass = false
+                        showCredits = false
+                    })
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+                CompactActionRow("开源许可", Icons.Outlined.Info,
+                    expanded = showCredits, onClick = {
+                        showCredits = !showCredits
+                        showCloudSecondClass = false
+                        showLocalBackup = false
+                    })
             }
         }
-        if (showCloudSecondClass) {
-            item { SecondClassPanel(cloud, openWebsite) }
-        }
-        item {
-            XiaoxuCard(onClick = { showLocalBackup = !showLocalBackup }) {
-                Text(if (showLocalBackup) "收起本机任务备份"
-                     else "本机任务备份与恢复",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("按需使用系统文件选择器，不自动上传本机任务。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
-            }
-        }
+        if (showCloudSecondClass) item { SecondClassPanel(cloud, openWebsite) }
         if (showLocalBackup) item { LocalTaskBackupPanel() }
-        item {
-            XiaoxuCard(onClick = { showCredits = !showCredits }) {
-                Text(if (showCredits) "收起开源组件与致谢"
-                     else "开源组件与致谢",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("青果教务适配（MIT）与 SleepDown 导航动画（许可 1.1）的署名、修改说明与许可全文。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
+        if (showCredits) item { OpenSourceCreditsPanel() }
+    }
+}
+
+@Composable
+private fun CompactPageHeading(
+    title: String,
+    onMessages: () -> Unit,
+    onRefresh: (() -> Unit)? = null,
+    refreshing: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineSmall,
+            color = XiaoxuPalette.Ink)
+        if (onRefresh != null) {
+            IconButton(onClick = onRefresh, enabled = !refreshing) {
+                Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
+                    tint = XiaoxuPalette.Ink2)
             }
         }
-        if (showCredits) item { OpenSourceCreditsPanel() }
+        IconButton(onClick = onMessages) {
+            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
+                tint = XiaoxuPalette.Ink2)
+        }
+    }
+}
+
+@Composable
+private fun CompactActionRow(
+    title: String,
+    icon: ImageVector,
+    expanded: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(34.dp).clip(RoundedCornerShape(11.dp))
+                .background(XiaoxuPalette.BrandSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = XiaoxuPalette.BrandDeep,
+                modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+        Icon(if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.ChevronRight,
+            contentDescription = if (expanded) "收起$title" else "展开$title",
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(19.dp))
     }
 }
 
@@ -658,76 +818,130 @@ private fun AcademicPage(
     select: (AcademicDestination) -> Unit,
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
-    cloud: CloudClient
+    cloud: CloudClient,
+    onMessages: () -> Unit
 ) {
-    val visibleTabs = listOf(
-        AcademicDestination.OVERVIEW to "总览",
-        AcademicDestination.GRADES to "成绩",
-        AcademicDestination.EXAMS to "考试",
-        AcademicDestination.SECOND_CLASS to "第二课堂"
-    )
     val tabStateHolder = rememberSaveableStateHolder()
-    Column(Modifier.fillMaxSize()) {
-        if (selected != AcademicDestination.SERVICES) {
-            ScrollableTabRow(
-                selectedTabIndex = visibleTabs.indexOfFirst { it.first == selected },
-                edgePadding = 0.dp
-            ) {
-                visibleTabs.forEach { (destination, title) ->
-                    Tab(selected = selected == destination, onClick = { select(destination) },
-                        text = { Text(title) })
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selected != AcademicDestination.OVERVIEW) {
+                IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "返回教务",
+                        tint = XiaoxuPalette.Ink2)
                 }
+            }
+            Box(Modifier.weight(1f)) {
+                CompactPageHeading(
+                    title = when (selected) {
+                        AcademicDestination.OVERVIEW -> "教务"
+                        AcademicDestination.GRADES -> "成绩"
+                        AcademicDestination.EXAMS -> "考试"
+                        AcademicDestination.SECOND_CLASS -> "第二课堂"
+                        AcademicDestination.SERVICES -> "校园服务"
+                    },
+                    onMessages = onMessages
+                )
             }
         }
         when (selected) {
-            AcademicDestination.OVERVIEW -> Content {
-                item { Heading("教务中心", "学业与学校服务 · 真实数据") }
+            AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        QuickEntry("成绩查询", Icons.Outlined.School,
-                            { select(AcademicDestination.GRADES) }, Modifier.weight(1f))
-                        QuickEntry("考试安排", Icons.Outlined.DateRange,
-                            { select(AcademicDestination.EXAMS) }, Modifier.weight(1f))
+                    // One continuous glass surface; no nested rectangle around the four rows.
+                    XiaoxuGroupedSection {
+                        AcademicActionRow("成绩", Icons.Outlined.School,
+                                onClick = { select(AcademicDestination.GRADES) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("考试", Icons.Outlined.DateRange,
+                                onClick = { select(AcademicDestination.EXAMS) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle,
+                                onClick = { select(AcademicDestination.SECOND_CLASS) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("校园服务", Icons.Outlined.Home,
+                            onClick = { select(AcademicDestination.SERVICES) })
                     }
                 }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle,
-                            { select(AcademicDestination.SECOND_CLASS) }, Modifier.weight(1f))
-                        QuickEntry("校园服务", Icons.Outlined.Home,
-                            { select(AcademicDestination.SERVICES) }, Modifier.weight(1f))
-                    }
-                }
-                item {
-                    Text("成绩、考试未读取前仅展示连接状态；第二课堂沿用本人本机积分与活动记录。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
-            AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") {
-                SecondClassPage()
-            }
+            AcademicDestination.SECOND_CLASS ->
+                tabStateHolder.SaveableStateProvider("second_class") {
+                    SecondClassPage()
+                }
             AcademicDestination.GRADES -> Content {
-                item { Heading("成绩", "青果教务云端读取 · 与本机课表独立") }
                 item {
-                    Text("成绩接口尚未完成本人真实数据验收，当前不会展示模拟成绩。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    XiaoxuCard {
+                        Text("成绩尚未读取", style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink)
+                        TextButton(onClick = openProfile) { Text("连接青果教务") }
+                    }
                 }
-                item { TextButton(onClick = openProfile) { Text("查看青果教务连接") } }
             }
             AcademicDestination.EXAMS -> Content {
-                item { Heading("考试", "尚未连接可验证的本人考试数据") }
-                item { TextButton(onClick = openProfile) { Text("查看数据连接") } }
+                item {
+                    XiaoxuCard {
+                        Text("考试安排尚未读取", style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink)
+                        TextButton(onClick = openProfile) { Text("查看数据连接") }
+                    }
+                }
             }
             AcademicDestination.SERVICES -> Content {
-                item { TextButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                    Text("返回教务总览")
-                } }
-                item { Heading("校园服务", "学校数据连接与服务") }
                 item { CampusRunPanel(cloud) }
-                item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
-                item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
+                item {
+                    XiaoxuGroupedSection {
+                        AcademicActionRow("数据连接", Icons.Outlined.School,
+                                onClick = openProfile)
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("打开校序网站", Icons.Outlined.Home,
+                            onClick = openWebsite)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AcademicActionRow(
+    title: String,
+    icon: ImageVector,
+    status: String? = null,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(34.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(XiaoxuPalette.BrandSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null,
+                tint = XiaoxuPalette.BrandDeep, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+        if (status != null) {
+            Text(status, style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink3)
+            Spacer(Modifier.width(7.dp))
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
     }
 }

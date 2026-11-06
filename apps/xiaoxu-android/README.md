@@ -224,7 +224,7 @@
 - **真正可写的本地任务**：Room 持久化新增、勾选、删除；只统计本机手动任务，断网可用。
 - 课表、学习通、青果、第二课堂均不填充模拟内容。不展示尚未验收的账号为“已连接”。
 - **V0.2 历史过渡方案**：Cloudflare 网站曾提供首次本人授权入口和已有业务 API；现要求从原生 App 发起授权与安全回跳，网站保留服务端及回退用途，不复制学校 Cookie 或账号密码。
-- 原 TWA 依赖及非导出 LauncherActivity 暂留作非默认兼容入口；**App 主界面不再是网页套壳**。
+- 原 TWA 依赖及非导出 LauncherActivity 已清理；**App 主界面只有原生 Activity**。需要打开校序网站时，保留独立 AndroidX Custom Tabs 入口（不影响学校官方授权）。
 - 不迁移或覆盖旧网站的 D1、PWA 存储与连接器；不删除 TapFlow 的任何代码。
 
 ## 上游开源复用
@@ -232,7 +232,7 @@
 - AndroidX Jetpack Compose / Material 3 / Activity Compose（Apache-2.0），用于原生 UI 和响应式导航。
 - AndroidX Room 2.8.5（Apache-2.0），用于设备本地数据。
 - Kotlin 2.2.20 + Compose Compiler 插件、KSP2 2.2.20-2.0.4。
-- 原有 Google android-browser-helper 2.7.4（Apache-2.0），暂时保留为兼容能力。
+- AndroidX Browser 1.8.0（Apache-2.0）：保留 Custom Tabs 官方授权与网站打开能力；退役独立 TWA 启动器及其依赖。
 - 北化课表 APK 仅作交互参考，不直接复制未核查授权的反编译代码；时光课表 / shiguang_warehouse 的具体可复用适配器需继续核对许可、维护和学校兼容性。
 
 ## 建立环境与构建

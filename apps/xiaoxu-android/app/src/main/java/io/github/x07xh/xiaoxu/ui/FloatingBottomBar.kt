@@ -204,7 +204,7 @@ fun FloatingBottomBar(
         val dragState = remember(count) { DragGestureState() }
 
         // 驱动只负责「索引浮点值 + 压感」，手势事件由下方 pointerInput 精确分发。
-        val drag = remember(count) {
+        val drag = remember(count, useNorthGlass) {
             DampedDragAnimation(
                 animationScope = scope,
                 initialValue = safeIndex.toFloat(),
@@ -305,7 +305,7 @@ fun FloatingBottomBar(
                             indicatorExpansion = { (drag.scaleX + drag.scaleY) / 2f - 1f }
                         )
                     }
-                    else Modifier.shadow(elevation = 12.dp, shape = BarShape, clip = false)
+                    else Modifier.shadow(elevation = 3.dp, shape = BarShape, clip = false)
                         .clip(BarShape).background(containerColor)
                 )
                 .then(gestureModifier)
@@ -443,7 +443,7 @@ private fun FloatingBarCell(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = item.label,
-                fontSize = if (useNorthGlass) 12.sp else 10.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,

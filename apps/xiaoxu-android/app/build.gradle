@@ -19,6 +19,14 @@ android {
         targetSdk 35
         versionCode 31
         versionName '0.8.10'
+        // Normal application identity remains unchanged. Only explicit QA builds
+        // use their own app data and authorization-return host.
+        manifestPlaceholders = [
+            qaAppLabel: '@string/app_name',
+            schoolAuthHost: 'school-auth-return'
+        ]
+        // This same host is validated by SchoolAuthReturn.consume().
+        resValue 'string', 'school_auth_return_host', 'school-auth-return'
     }
 
     compileOptions {
@@ -32,6 +40,15 @@ android {
         compose true
     }
     buildTypes {
+        debug {
+            if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
+                applicationIdSuffix '.unifiedqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 整合验证'
+                // Distinct from both the official app and previous second-class QA install.
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-unified-qa'
+                resValue 'string', 'school_auth_return_host', 'school-auth-return-unified-qa'
+            }
+        }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
         // 装不上设备也就不会被误当正式产物分发；只有显式传 -PxiaoxuPerfRelease=true
         // 时才复用 debug 签名，用于在本机测量 R8 包的真实表现。
@@ -65,9 +82,8 @@ dependencies {
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-extended'
-    // 北化课表 v1.0.83 uses Kyant's real backdrop lens (not a fake flat blur).
-    implementation 'io.github.kyant0:backdrop:2.0.0-alpha03'
     implementation 'io.github.kyant0:shapes:1.2.0'
+    implementation 'io.github.kyant0:backdrop:2.0.0-alpha03'
     implementation 'androidx.activity:activity-compose:1.13.0'
     implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.room:room-runtime:2.8.5'
@@ -81,7 +97,4 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test:runner:1.7.0'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
-
-    // Preserve the reviewed TWA launcher only as an explicitly named legacy fallback.
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
 }
