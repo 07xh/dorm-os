@@ -141,8 +141,8 @@ def contract_text(value: str, max_units: int) -> str:
     JavaScript counts emoji and other non-BMP glyphs as two string units.
     Do not retain C0 control characters rejected by the server.
     """
-    value = re.sub(r"[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]", " ", value)
-    value = re.sub(r"\\s+", " ", value).strip()
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
     remaining = max_units
     output = []
     for char in value:
