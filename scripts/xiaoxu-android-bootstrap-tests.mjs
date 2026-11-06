@@ -389,8 +389,12 @@ assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完�
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
 assert.match(secondClassMain, /catalogRows\.size == 3/);
-assert.match(secondClassMain, /Modifier\.weight\(1f\)\.heightIn\(min = 42\.dp\)/,
- '活动筛选三项等宽与触控高度');
+assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
+ '活动筛选继续保持所选官方目录类别');
+assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
+ '活动类别须保留报名中筛选');
+assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
+ '共享分段控件必须等宽且具有至少44dp触控高度');
 assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
  '任务中心标题不恢复旧大字号');
 assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
