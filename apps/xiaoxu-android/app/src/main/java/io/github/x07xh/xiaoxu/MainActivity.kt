@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -707,12 +708,10 @@ private fun NativeShell(
 
 @Composable
 private fun Content(
-    withTopInset: Boolean = false,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp)
-            .then(if (withTopInset) Modifier.statusBarsPadding() else Modifier),
+        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
@@ -748,7 +747,7 @@ private fun ConnectionsPage(
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     var showLocalBackup by rememberSaveable { mutableStateOf(false) }
     var showCredits by rememberSaveable { mutableStateOf(false) }
-    Content(withTopInset = true) {
+    Content {
         item {
             CompactPageHeading(title = "我的", onMessages = onMessages,
                 onRefresh = onRefresh, refreshing = cloud.state.busy)
@@ -870,13 +869,29 @@ private fun AcademicPage(
     )
     val tabStateHolder = rememberSaveableStateHolder()
     Column(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp)) {
-            CompactPageHeading(title = "教务", onMessages = onMessages)
+        Row(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selected == AcademicDestination.SECOND_CLASS) {
+                IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "返回教务",
+                        tint = XiaoxuPalette.Ink2)
+                }
+            }
+            Box(Modifier.weight(1f)) {
+                CompactPageHeading(
+                    title = if (selected == AcademicDestination.SECOND_CLASS) "第二课堂" else "教务",
+                    onMessages = onMessages
+                )
+            }
         }
-        if (selected != AcademicDestination.SERVICES) {
+        if (selected != AcademicDestination.SERVICES &&
+            selected != AcademicDestination.SECOND_CLASS) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)
                     .clip(RoundedCornerShape(14.dp))
