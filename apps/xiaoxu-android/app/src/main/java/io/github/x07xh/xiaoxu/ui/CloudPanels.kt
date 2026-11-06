@@ -196,7 +196,7 @@ fun ConnectionsPanel(
                     openLocalSchool = openLocalSchool,
                     recentImport = recentImport
                 )
-                HorizontalDivider(color = XiaoxuPalette.Line)
+                // 两个独立信息分区之间用统一间距，不再画贯穿整页的分割线。
                 CloudAuthorizationSection(
                     client = client,
                     state = state,
