@@ -56,7 +56,12 @@ internal suspend fun readSecondClassAutomatically(context: Context, salt: String
                         else {
                             val payload = runCatching { JSONObject(text) }.getOrNull()
                             if (payload == null) fail("failed")
-                            else { cleanup(); continuation.resume(payload) }
+                            else {
+                                // Preserve normal WebView session rotation for
+                                // the next cold start; never read/export cookies.
+                                runCatching { CookieManager.getInstance().flush() }
+                                cleanup(); continuation.resume(payload)
+                            }
                         }
                     }
                 }

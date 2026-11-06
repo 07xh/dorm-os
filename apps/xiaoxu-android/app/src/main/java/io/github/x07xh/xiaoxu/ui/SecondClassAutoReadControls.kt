@@ -22,7 +22,11 @@ fun SecondClassAutoReadControls() {
     val enabled = remember(revision) { SecondClassAutoRefresh.enabled(c) }
     val background = remember(revision) { SecondClassAutoRefresh.background(c) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("打开 App 自动读取", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.weight(1f)) {
+            Text("自动读取", style = MaterialTheme.typography.bodyMedium)
+            Text("回到 App 时检查，10分钟内复用已保存数据",
+                style = MaterialTheme.typography.labelSmall)
+        }
         Switch(checked = enabled, onCheckedChange = {
             SecondClassAutoRefresh.configure(c, it, background)
         })
