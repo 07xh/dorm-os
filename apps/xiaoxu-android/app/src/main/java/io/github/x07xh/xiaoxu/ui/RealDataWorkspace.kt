@@ -105,7 +105,8 @@ internal data class WorkspaceTask(
     val done: Boolean,
     val date: LocalDate?,
     val dateSource: String,
-    val storage: String
+    val storage: String,
+    val category: String = storage
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -128,6 +129,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
         }
         cloud.forEach { task ->
             val source = when (task.provider) {
+                "wechat" -> "微信任务"
                 "chaoxing" -> "学习通相关云端记录"
                 "ncwu" -> "青果相关云端记录"
                 "second_class" -> "第二课堂相关云端记录"
@@ -135,7 +137,8 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             }
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
                 task.status == "done", parseWorkspaceDue(task.due),
-                "云端记录，需核对来源", "cloud"))
+                "云端记录，需核对来源", "cloud",
+                if (task.provider == "wechat") "wechat" else "cloud"))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -162,7 +165,7 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
 internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
-    (source == "all" || task.storage == source) &&
+    (source == "all" || task.category == source) &&
         (!thisWeekOnly || (!task.done && thisWeek(task.date, today)))
 }
 
@@ -737,6 +740,7 @@ fun RealAcademicTaskHub(
     var showManager by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     var showCourseTasks by rememberSaveable { mutableStateOf(true) }
+    var showWechatTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
@@ -789,8 +793,9 @@ fun RealAcademicTaskHub(
     )
     // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
-    val localRows = shown.filter { it.storage == "local" }
-    val cloudRows = shown.filter { it.storage == "cloud" }
+    val localRows = shown.filter { it.category == "local" }
+    val cloudRows = shown.filter { it.category == "cloud" }
+    val wechatRows = shown.filter { it.category == "wechat" }
     LazyColumn(
         state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
@@ -931,6 +936,7 @@ fun RealAcademicTaskHub(
                             when (sourceFilter) {
                                 "local" -> "本机来源"
                                 "cloud" -> "云端来源"
+                                "wechat" -> "微信任务"
                                 else -> "全部来源"
                             },
                             style = MaterialTheme.typography.titleSmall,
@@ -944,7 +950,8 @@ fun RealAcademicTaskHub(
                         onDismissRequest = { sourceMenuOpen = false }
                     ) {
                         val sources = listOf("all" to "全部来源",
-                            "local" to "本机来源", "cloud" to "云端来源")
+                            "cloud" to "云端来源", "wechat" to "微信任务",
+                            "local" to "本机来源")
                         sources.forEach { (source, label) ->
                             DropdownMenuItem(
                                 text = { Text(label) },
@@ -1075,10 +1082,10 @@ fun RealAcademicTaskHub(
             if (cloudRows.isNotEmpty()) {
                 item {
                     TaskGroupHeader(
-                        title = "课程相关与云端任务",
+                        title = "课程任务",
                         count = cloudRows.size,
-                        badge = "校序云端",
-                        note = "来自已保存云端任务 · 官方提交状态待核验",
+                        badge = "",
+                        note = "",
                         icon = Icons.Outlined.MenuBook,
                         expanded = showCourseTasks,
                         onClick = { showCourseTasks = !showCourseTasks }
@@ -1092,13 +1099,34 @@ fun RealAcademicTaskHub(
                     }
                 }
             }
+            if (wechatRows.isNotEmpty()) {
+                item {
+                    TaskGroupHeader(
+                        title = "微信任务",
+                        count = wechatRows.size,
+                        badge = "",
+                        note = "",
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                        expanded = showWechatTasks,
+                        onClick = { showWechatTasks = !showWechatTasks }
+                    )
+                }
+                if (showWechatTasks) {
+                    items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
+                        ConnectedTaskShell(index = i, total = wechatRows.size) {
+                            TaskRow(wechatRows[i], today,
+                                onOpen = { openedTaskKey = wechatRows[i].key })
+                        }
+                    }
+                }
+            }
             if (localRows.isNotEmpty()) {
                 item {
                     TaskGroupHeader(
-                        title = "我的本机待办",
+                        title = "本机任务",
                         count = localRows.size,
-                        badge = "本机 Room",
-                        note = "离线可用 · 来源与截止时间由本人填写",
+                        badge = "",
+                        note = "",
                         icon = Icons.Outlined.CheckBox,
                         expanded = showPersonalTasks,
                         onClick = { showPersonalTasks = !showPersonalTasks }
@@ -1407,8 +1435,14 @@ internal fun WorkspaceTaskDetailSheet(
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SourceBadge(if (selectedTask.storage == "local") "本机本人待办" else "校序云端任务",
-                if (selectedTask.storage == "local") XiaoxuTone.Brand else XiaoxuTone.Warning)
+            SourceBadge(
+                when (selectedTask.category) {
+                    "wechat" -> "微信任务"
+                    "local" -> "本机任务"
+                    else -> "云端任务"
+                },
+                if (selectedTask.category == "local") XiaoxuTone.Brand else XiaoxuTone.Neutral
+            )
             StatusChip(if (selectedTask.done) "已完成（个人记录）" else "待完成",
                 if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral)
         }
@@ -1486,8 +1520,8 @@ private fun TaskGroupHeader(
                 contentDescription = buildString {
                     append(title)
                     if (showCount) append("，$count 条")
-                    append("，").append(badge)
-                    append("，").append(note)
+                    if (badge.isNotBlank()) append("，").append(badge)
+                    if (note.isNotBlank()) append("，").append(note)
                     append(if (expanded) "，点击收起" else "，点击展开")
                 }
             },
@@ -1506,13 +1540,15 @@ private fun TaskGroupHeader(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics { heading() }
             )
-            Text(
-                "$badge · $note",
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (badge.isNotBlank() || note.isNotBlank()) {
+                Text(
+                    listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Icon(
             if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
