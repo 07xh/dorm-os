@@ -26,6 +26,16 @@ assert.equal(new SchoolLoginError('authorization_failed','personal_data','cas_se
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','cas_server_failure','cas_auth_server').casReturnHost,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);
+const casKinds=['flow_execution_marker','crypto_marker','flow_and_crypto_markers'];
+for(const kind of casKinds)
+ assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure','cas_auth_server',kind).casErrorKind,kind);
+for(const args of [
+ ['authorization_failed','personal_data','cas_server_failure','cas_auth_server','crypto_marker'],
+ ['authorization_failed','cas_return','cas_request_rejected','cas_auth_server','crypto_marker'],
+ ['authorization_failed','cas_return','cas_server_failure','second_class_callback','crypto_marker'],
+ ['authorization_failed','cas_return','cas_server_failure','cas_auth_server','PRIVATE_HTML'],
+ ['invalid_credentials','cas_return','cas_server_failure','cas_auth_server','crypto_marker']
+])assert.equal(new SchoolLoginError(...args).casErrorKind,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence').failureStage,'identity_evidence');
 assert.equal(new SchoolLoginError('authorization_failed','custom_details').failureStage,undefined);
@@ -43,7 +53,7 @@ assert.equal(denied.status,503);
 assert.ok(!JSON.stringify(await denied.json()).includes('password'));
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
-for(const name of ['0001_academic_core.sql','0011_academic_provider_sessions.sql'])
+for(const name of ['0001_academic_core.sql','0010_academic_owner_auth.sql','0011_academic_provider_sessions.sql'])
  sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 sqlite.prepare('INSERT INTO academic_users(id,created_at) VALUES (?,?)')
  .run('owner-a',new Date().toISOString());
@@ -103,6 +113,39 @@ await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
  e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&
  e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained'&&
  e.casReturnHost==='cas_auth_server');
+
+// Exercise the real authenticated route and session-vault wrapper. All
+// tokens, school responses and accounts below are synthetic and local.
+const ownerToken='A'.repeat(43),ownerAt=new Date().toISOString();
+const tokenHash=Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode(ownerToken))).toString('hex');
+sqlite.prepare('INSERT INTO academic_auth_identities(id,user_id,login_identifier,enrolled_at) VALUES (?,?,?,?)')
+ .run('synthetic-identity','owner-a','synthetic-owner',ownerAt);
+sqlite.prepare('INSERT INTO academic_auth_sessions(id,identity_id,token_hash,created_at,expires_at) VALUES (?,?,?,?,?)')
+ .run('synthetic-session','synthetic-identity',tokenHash,ownerAt,new Date(Date.now()+3600000).toISOString());
+for(const kind of [...casKinds,'PRIVATE_HTML']){
+ const response=await loginPost({
+  params:{provider:'second_class'},
+  env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password',SCHOOL_SESSION_KEY:secret},
+  data:{academicSchoolAdapters:{second_class:{...phaseFailureAdapter,
+   async login(){throw Object.assign(new Error('PRIVATE_RESPONSE_OR_CREDENTIAL'),{
+    code:'authorization_failed',failureStage:'cas_return',casReturnReason:'cas_server_failure',
+    casReturnHost:'cas_auth_server',casErrorKind:kind});}
+  }}},
+  request:new Request('https://site.example/api/v1/connections/second_class/login',{
+   method:'POST',headers:{origin:'https://site.example','content-type':'application/json',
+    cookie:'__Host-xiaoxu_session='+ownerToken},
+   body:JSON.stringify({username:'SYNTHETIC_ACCOUNT',password:'SYNTHETIC_PASSWORD'})
+  })
+ });
+ assert.equal(response.status,422);
+ assert.match(response.headers.get('cache-control'),/no-store/);
+ const body=await response.json();
+ assert.deepEqual(body,{error:'authorization_failed',failureStage:'cas_return',
+  casReturnReason:'cas_server_failure',casReturnHost:'cas_auth_server',
+  ...(casKinds.includes(kind)?{casErrorKind:kind}:{})});
+ assert.ok(!JSON.stringify(body).includes('PRIVATE_'));
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE provider=?').get('second_class').n,0);
+}
 
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,

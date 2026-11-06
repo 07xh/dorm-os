@@ -629,9 +629,17 @@
       second_class_portal:'学校第二课堂服务入口'
      };
      if(result.casReturnReason==='cas_server_failure'&&
-        Object.hasOwn(casOriginText,result?.casReturnHost))
+        Object.hasOwn(casOriginText,result?.casReturnHost)){
+      const markerText={
+       flow_execution_marker:'认证错误页含流程状态异常标记。',
+       crypto_marker:'认证错误页含编码处理异常标记。',
+       flow_and_crypto_markers:'认证错误页含流程状态及编码处理异常标记。'
+      };
+      const evidence=result.casReturnHost==='cas_auth_server'&&
+       Object.hasOwn(markerText,result?.casErrorKind)?markerText[result.casErrorKind]:'';
       throw Error(casOriginText[result.casReturnHost]+
-       '返回服务异常（5xx）；本次没有保存会话。请勿反复提交密码。');
+       '返回服务异常（5xx）；'+evidence+'本次没有保存会话。请勿反复提交密码。');
+     }
      throw Error(casReturnReasonText[result.casReturnReason]);
     }
     throw Error(Object.hasOwn(secondClassStageText,result?.failureStage)?

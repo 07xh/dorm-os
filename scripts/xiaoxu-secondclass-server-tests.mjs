@@ -427,6 +427,30 @@ for(const [status,reason] of [
   e.casReturnHost==='cas_auth_server'&&
   !JSON.stringify(e).includes('Synthetic school response'));
 }
+// Keep only fixed exception markers from a CAS 5xx page. This is evidence
+// of marker presence, never a diagnosis or permission to retry a password.
+for(const [body,expected] of [
+ ['<pre>org.springframework.webflow.execution.repository.NoSuchFlowExecutionException PRIVATE_PAYLOAD</pre>','flow_execution_marker'],
+ ['<pre>javax.crypto.BadPaddingException PRIVATE_PAYLOAD</pre>','crypto_marker'],
+ ['<pre>FlowExecutionRestorationFailureException Caused by: IllegalBlockSizeException PRIVATE_PAYLOAD</pre>','flow_and_crypto_markers'],
+ ['<pre>NoMatchingTransitionException PRIVATE_PAYLOAD</pre>','flow_execution_marker'],
+ ['<html>Internal server error PRIVATE_PAYLOAD</html>',undefined],
+ ['<script>NoSuchFlowExecutionException</script><style>.BadPaddingException{}</style><!--NoMatchingTransitionException-->',undefined],
+ ['<p>notNoSuchFlowExecutionExceptionSuffix</p>',undefined]
+]){
+ let posts=0;
+ const failed=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+  if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
+   posts++;return response(500,body);
+  }
+  return fakeSchool(url,options);
+ }});
+ await assert.rejects(()=>failed.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'}),
+  e=>e.casErrorKind===expected&&e.casReturnHost==='cas_auth_server'&&
+   !JSON.stringify(e).includes('PRIVATE_PAYLOAD')&&!JSON.stringify(e).includes('Exception'));
+ assert.equal(posts,1);
+}
+
 // This must classify the actual FAILED school hop, not merely the original
 // login POST. None of the error shapes may expose school URLs/tickets/cookies.
 for(const [failingHost,expected] of [
