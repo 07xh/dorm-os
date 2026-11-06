@@ -374,6 +374,30 @@ const emptyCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)
 await assert.rejects(()=>emptyCallback.login({
  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
 }),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
+// The HTML callback completion GET is also part of CAS return. Its 5xx
+// must keep the failing origin rather than becoming a generic callback error.
+for(const [status,reason] of [[503,'cas_server_failure'],
+ [429,'cas_rate_limited'],[403,'cas_request_rejected']]){
+ let callbackReached=false,passwordPosts=0,personalReads=0;
+ const completionFailure=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+  const u=new URL(url);
+  if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')passwordPosts++;
+  if(u.hostname==='sec.ncwu.edu.cn'){
+   callbackReached=true;return response(200,'<main>School callback</main>');
+  }
+  if(callbackReached&&u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
+   return response(status,'PRIVATE_FAILURE_BODY');
+  if(Object.values(NCWU_SECOND_CLASS_READS).includes(u.pathname))personalReads++;
+  return fakeSchool(url,options);
+ }});
+ await assert.rejects(()=>completionFailure.login({
+  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+ }),e=>e.failureStage==='cas_return'&&e.casReturnReason===reason&&
+  e.casReturnHost==='second_class_portal'&&!JSON.stringify(e).includes('PRIVATE_FAILURE_BODY'));
+ assert.equal(passwordPosts,1,'callback failure cannot replay credentials');
+ assert.equal(personalReads,0,'failed completion must stop before identity or personal reads');
+}
+
 // Distinguish a school CAS login that never returns to the service,
 // a rejected personal business endpoint, and a non-unique student identity.
 // These synthetic tests never use school credentials or external requests.
