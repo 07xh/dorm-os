@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -68,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
@@ -870,7 +873,8 @@ fun RealAcademicTaskHub(
                     .background(XiaoxuPalette.GlassTrack)
                     .border(0.75.dp, XiaoxuPalette.GlassBorder,
                         RoundedCornerShape(XiaoxuRadius.card))
-                    .padding(5.dp),
+                    .padding(5.dp)
+                    .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
@@ -1485,9 +1489,10 @@ private fun TaskStatusTab(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
             .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
-            .clickable(onClickLabel = "筛选$label", onClick = onClick)
+            .selectable(selected = active, role = Role.Tab, onClick = onClick)
+            .semantics { contentDescription = "$label，$count 条" }
             .heightIn(min = 56.dp)
             .padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
