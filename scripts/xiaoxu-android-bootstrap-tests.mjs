@@ -544,12 +544,22 @@ const nativeRecords = read('apps/xiaoxu-android/app/src/main/java/io/github/x07x
 const catalogObserver = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_source_observer.js');
 assert.match(localNative, /观测活动列表请求（手动）/);
 assert.match(localNative, /setOnClickListener \{ toggleCatalogObserver\(\) \}/);
+assert.match(localNative, /val outcomes = item\.optJSONArray\("outcomes"\)/);
+assert.match(localNative, /HTTP \$statusCode\/\$familyName/);
+assert.match(localNative, /未获得响应元信息/);
 assert.match(localNative, /assets\.open\("ncwu_secondclass_source_observer\.js"\)/);
 assert.match(localNative, /if \(provider == "second_class"\) root\.addView\(catalogProbe\)/);
 assert.match(catalogObserver, /window\.fetch=wrappedFetch/);
 assert.match(catalogObserver, /XMLHttpRequest\.prototype\.open=wrappedOpen/);
 assert.match(catalogObserver, /window\.fetch===wrappedFetch/);
-assert.doesNotMatch(catalogObserver, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|XMLHttpRequest\.prototype\.send\s*=/);
+// Only the status and response Content-Type of the existing school request
+// are readable. Do not allow any response body or other response header.
+assert.match(catalogObserver, /response\.headers&&response\.headers\.get\('content-type'\)/);
+assert.match(catalogObserver, /getResponseHeader\('content-type'\)/);
+const metadataOnly = catalogObserver
+  .replace("response.headers&&response.headers.get('content-type')", "")
+  .replace("getResponseHeader('content-type')", "");
+assert.doesNotMatch(metadataOnly, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|getResponseHeader\(|XMLHttpRequest\.prototype\.send\s*=/);
 
 const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);

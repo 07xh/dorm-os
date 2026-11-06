@@ -425,9 +425,31 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     return@mapNotNull null
                 val kind = if (item.optString("kind") == "known_personal")
                     "已知个人接口" else "未验证候选"
-                "$method $path · $kind · " + item.optInt("count", 1).coerceIn(1, 99)
+                // The only returned response details are HTTP status and a
+                // categorical MIME family. No response body or school headers.
+                val outcomes = item.optJSONArray("outcomes")
+                val outcomesText = if (outcomes == null) "" else
+                    (0 until minOf(outcomes.length(), 6)).mapNotNull { j ->
+                        val meta = outcomes.optJSONObject(j) ?: return@mapNotNull null
+                        val statusCode = meta.optInt("status", -1)
+                        val family = meta.optString("type")
+                        if (statusCode !in 100..599 ||
+                            family !in setOf("json", "html", "other", "unknown"))
+                            return@mapNotNull null
+                        val familyName = when (family) {
+                            "json" -> "JSON"
+                            "html" -> "HTML"
+                            "other" -> "其他"
+                            else -> "未知类型"
+                        }
+                        "HTTP $statusCode/$familyName ×" +
+                            meta.optInt("count", 1).coerceIn(1, 99)
+                    }.joinToString("，")
+                "$method $path · $kind · " + item.optInt("count", 1).coerceIn(1, 99) +
+                    "次" + if (outcomesText.isBlank()) " · 未获得响应元信息"
+                    else " · " + outcomesText
             }
-            tell("仅本机观察到的请求路径（非接口验收）：\n" +
+            tell("仅本机观察到的请求路径与响应状态（非接口验收）：\n" +
                 lines.joinToString("\n") +
                 if (response.optBoolean("overflow") || observed.length() > 12)
                     "\n部分路径未展示；本次观测未保存任何请求内容。" else
