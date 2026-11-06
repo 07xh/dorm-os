@@ -47,9 +47,9 @@ internal fun planCourseReminders(
     val result = mutableListOf<CourseReminderPlan>()
     lessons.forEach { lesson ->
         val start = calendar.sectionTimes[lesson.startSection]?.start ?: return@forEach
-        lesson.weeks.distinct().forEach { week ->
-            val date = calendar.dateFor(week, lesson.weekday) ?: return@forEach
-            if (date.isAfter(now.toLocalDate().plusDays(horizonDays))) return@forEach
+        lesson.weeks.distinct().forEach weekLoop@{ week ->
+            val date = calendar.dateFor(week, lesson.weekday) ?: return@weekLoop
+            if (date.isAfter(now.toLocalDate().plusDays(horizonDays))) return@weekLoop
             val target = date.atTime(start).atZone(now.zone)
             val delay = ChronoUnit.MILLIS.between(now.toInstant(), target.minusMinutes(10).toInstant())
             if (delay > 0) {
