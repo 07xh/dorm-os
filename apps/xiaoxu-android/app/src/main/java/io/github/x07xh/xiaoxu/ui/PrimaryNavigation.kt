@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
 import io.github.x07xh.xiaoxu.MainDestination
 
 /**
@@ -61,6 +62,7 @@ private val MainDestination.primaryTabIcon: ImageVector
 @Composable
 internal fun PrimaryBottomNavigation(
     selected: MainDestination,
+    backdrop: Backdrop?,
     onSelect: (MainDestination) -> Unit
 ) {
     // Stable items: no allocation of a new list on every animation frame.
@@ -70,6 +72,7 @@ internal fun PrimaryBottomNavigation(
     FloatingBottomBar(
         items = items,
         selectedIndex = PrimaryTabs.indexOf(selected).coerceAtLeast(0),
+        backdrop = backdrop,
         onSelect = { onSelect(PrimaryTabs[it]) }
     )
 }
