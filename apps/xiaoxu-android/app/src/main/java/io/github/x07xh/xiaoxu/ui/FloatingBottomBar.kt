@@ -2,6 +2,9 @@ package io.github.x07xh.xiaoxu.ui
 
 import android.os.Build
 import com.kyant.backdrop.Backdrop
+import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
+import io.github.x07xh.xiaoxu.ui.northglass.NorthPhosphorNavigationIcon
+import io.github.x07xh.xiaoxu.ui.northglass.rememberNorthNavigationIconPlayback
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -108,7 +111,8 @@ data class FloatingBarItem(
     val label: String,
     val icon: ImageVector,
     /** 角标数字，null 或 ≤0 表示不显示。 */
-    val badge: Int? = null
+    val badge: Int? = null,
+    val northSymbol: NorthAppSymbolSpec? = null
 )
 
 private val BarHeight: Dp = 64.dp
@@ -166,6 +170,7 @@ fun FloatingBottomBar(
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
     val visualHeight = if (useNorthGlass) 72.dp else BarHeight
     val horizontalInset = if (useNorthGlass) 16.dp else BarHorizontalInset
     val bottomInset = if (useNorthGlass) 8.dp else BarBottomInset
@@ -329,10 +334,14 @@ fun FloatingBottomBar(
                         selected = index == safeIndex,
                         showLabel = showLabels,
                         useNorthGlass = useNorthGlass,
+                        iconPhase = { iconPlayback?.phase(index) ?: 1f },
                         selectedContentColor = selectedContentColor,
                         unselectedContentColor = unselectedContentColor,
                         modifier = Modifier.width(cellWidthDp),
-                        onClick = { onSelect(index) }
+                        onClick = {
+                            if (index == safeIndex) iconPlayback?.replay(index)
+                            onSelect(index)
+                        }
                     )
                 }
             }
@@ -346,6 +355,7 @@ private fun FloatingBarCell(
     selected: Boolean,
     showLabel: Boolean,
     useNorthGlass: Boolean,
+    iconPhase: () -> Float,
     selectedContentColor: Color,
     unselectedContentColor: Color,
     modifier: Modifier = Modifier,
@@ -381,19 +391,29 @@ private fun FloatingBarCell(
         verticalArrangement = Arrangement.Center
     ) {
         Box(contentAlignment = Alignment.TopEnd) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null, // 文字已承担语义，避免 TalkBack 重复朗读。
-                tint = contentColor,
-                modifier = Modifier
-                    .size(if (useNorthGlass) 24.dp else 22.dp)
-                    .graphicsLayer {
-                        // draw 阶段读 animation，跳过重组。
-                        val s = if (selected) PressedScale else 1f
-                        scaleX = s
-                        scaleY = s
-                    }
-            )
+            if (useNorthGlass && item.northSymbol != null) {
+                // Original BUCT vector paths and replay motion, not approximate Material icons.
+                NorthPhosphorNavigationIcon(
+                    spec = item.northSymbol,
+                    selection = if (selected) 1f else 0f,
+                    phase = iconPhase,
+                    tint = contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .graphicsLayer {
+                            val scale = if (selected) PressedScale else 1f
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                )
+            }
             if (item.badge != null && item.badge > 0) {
                 BadgeDot(count = item.badge)
             }
@@ -406,7 +426,7 @@ private fun FloatingBarCell(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
             )
         }
     }
