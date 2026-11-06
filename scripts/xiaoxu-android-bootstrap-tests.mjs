@@ -145,7 +145,7 @@ assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
 assert.match(cloud, /val tasksFresh: Boolean = false/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /tasksFresh = tasks != null/);
-assert.match(cloud, /!state\.tasksFresh -> "最新云端任务列表读取失败/);
+assert.match(cloud, /!fresh -> "云端任务清单刷新失败/, '批量核验必须披露任务清单刷新失败');
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
 assert.match(panels, /if \(!state\.tasksFresh\)/);
 assert.match(panels, /本次任务列表未能核验最新结果/);
