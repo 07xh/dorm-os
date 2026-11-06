@@ -106,7 +106,7 @@ await assert.rejects(()=>readConnectedChaoxing({db,userId:'owner1',
   await revokeSchoolAccount(db,'owner1','chaoxing');
   await connect();
   return {ok:true};
- }}),e=>e.code==='session_expired');
+ }}),e=>e.code==='sync_failed','a newer login must never look like logout');
 assert.notEqual(vault().ciphertext,stale.ciphertext);
 assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
 
