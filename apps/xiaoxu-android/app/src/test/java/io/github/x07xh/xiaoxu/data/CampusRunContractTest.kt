@@ -67,6 +67,26 @@ class CampusRunContractTest {
         assertFalse(result.historyComplete)
     }
 
+    @Test fun importCannotAssertCompletenessWithoutOfficialPaginationProof() {
+        rejects { validateCampusRunSnapshot(
+            sample(historyComplete = true), now) }
+        val trusted = validateCampusRunSnapshot(sample(
+            provenance = CampusRunProvenance.TRUSTED_READONLY,
+            ownerMatched = true, historyComplete = true), now)
+        assertTrue(trusted.historyComplete)
+    }
+
+    @Test fun expiredSourceAuthorizationDiscardsPreviouslyVisiblePersonalData() {
+        val gate = CampusRunSnapshotGate()
+        gate.accept(sample(), now)
+        val state = gate.refreshFailed(
+            CampusRunFailure.NOT_AUTHORIZED, now + 1_000L)
+        assertTrue(state is CampusRunViewState.Unavailable)
+        assertTrue(gate.state(now + 2_000L) is CampusRunViewState.Unavailable)
+        gate.clear()
+        assertTrue(gate.state(now + 2_000L) is CampusRunViewState.NotConnected)
+    }
+
     @Test fun invalidMetricsDuplicateRecordsAndFutureCaptureFailClosed() {
         rejects { validateCampusRunSnapshot(
             sample(target = 10_000L, effective = 3_100L, raw = 3_000L), now) }
