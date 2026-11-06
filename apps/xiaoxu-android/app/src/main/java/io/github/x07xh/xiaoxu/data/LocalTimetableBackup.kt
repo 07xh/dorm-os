@@ -46,7 +46,7 @@ object LocalTimetableBackup {
         return root.toString(2)
     }
 
-    fun import(text: String): Imported {
+    fun parse(text: String): Imported {
         require(text.length <= 1_000_000) { "备份文件过大" }
         val root = JSONObject(text)
         require(root.optString("format") == FORMAT && root.optInt("version") == VERSION) {
