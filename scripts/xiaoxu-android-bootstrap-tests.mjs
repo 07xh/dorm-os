@@ -477,7 +477,9 @@ assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
 assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
-assert.match(schedulePanel, /Text\("重新导入"\)/);
+assert.match(schedulePanel, /contentDescription = "重新导入课表"/);
+assert.match(schedulePanel, /contentDescription = "新增课程"/);
+assert.match(schedulePanel, /contentDescription = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
 assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
@@ -496,7 +498,9 @@ assert.match(timetablePrefs, /putString\(VIEW_MODE_KEY, mode\)\.apply\(\)/);
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
+assert.match(schedulePanel, /Icons\.Outlined\.ChevronLeft/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
+assert.match(schedulePanel, /Icons\.Outlined\.ChevronRight/);
 assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
 assert.match(schedulePanel, /val effectiveWeekday = selectedWeekday/,
   '用户选了空白星期不能自动跳到另一天');
@@ -1199,7 +1203,9 @@ const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07
 assert.match(scheduleVisual, /XiaoxuCard\(/);
 assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
   '本机课表空态与有课程态须使用同一标题组件');
-assert.match(scheduleVisual, /Text\("重新导入"\)/);
+assert.match(scheduleVisual, /contentDescription = "重新导入课表"/);
+assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/,
+  "课表顶部不得恢复重复的操作文字栏");
 assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
 assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
 assert.match(scheduleVisual, /WeekSelector\(/);

@@ -28,6 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Room
@@ -247,18 +252,47 @@ fun CloudTimetablePanel(
     }
 }
 
-/** Empty and populated timetables use one compact native heading. */
+/** 唯一课表标题：保留操作与来源提示，但不再叠放二级导航和文字按钮行。 */
 @Composable
-private fun SchedulePageHeading(onMessages: () -> Unit) {
+private fun SchedulePageHeading(
+    onMessages: () -> Unit,
+    sourceLabel: String? = null,
+    onAdd: (() -> Unit)? = null,
+    onSettings: (() -> Unit)? = null,
+    onImport: (() -> Unit)? = null
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            "我的课表", modifier = Modifier.weight(1f).semantics { heading() },
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink
-        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                "我的课表", modifier = Modifier.semantics { heading() },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink
+            )
+            if (sourceLabel != null) {
+                Text(
+                    sourceLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (onAdd != null) IconButton(onClick = onAdd) {
+            Icon(Icons.Outlined.Add, contentDescription = "新增课程",
+                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
+        }
+        if (onImport != null) IconButton(onClick = onImport) {
+            Icon(Icons.Outlined.FileUpload, contentDescription = "重新导入课表",
+                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
+        }
+        if (onSettings != null) IconButton(onClick = onSettings) {
+            Icon(Icons.Outlined.Settings, contentDescription = "课表设置",
+                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
+        }
         IconButton(onClick = onMessages) {
             Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
                 modifier = Modifier.size(21.dp), tint = XiaoxuPalette.Ink2)
@@ -275,9 +309,7 @@ private fun LocalTimetableEmptyState(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        SchedulePageHeading(onMessages)
-        Text("本机课表 · 离线查看",
-            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+        SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看")
         XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
             Icon(Icons.Outlined.DateRange, contentDescription = null,
                 modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
@@ -391,24 +423,17 @@ private fun ScheduleVerifiedContent(
             .xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
-        SchedulePageHeading(onMessages)
-        Text("本机导入 · " + data.lessons.size + " 个课块 · 待本人核对",
-            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = {
+        SchedulePageHeading(
+            onMessages = onMessages,
+            sourceLabel = "本机导入 · " + data.lessons.size + " 个课块 · 待本人核对",
+            onAdd = {
                 editOriginal = null
                 editingError = null
                 showingCourseEditor = true
-            }) { Text("新增") }
-            TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
-            OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                Text("重新导入")
-            }
-        }
+            },
+            onSettings = { showSemesterSettings = true },
+            onImport = openFileImport
+        )
         if (weekNumbers.size > 1 && showWeekPicker) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek,
                 onSelect = { selectedWeek = it; showWeekPicker = false })
@@ -418,29 +443,37 @@ private fun ScheduleVerifiedContent(
             // Explicitly configured semesters also expose empty teaching weeks.
             val currentIndex = weekNumbers.indexOf(selectedWeek)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(XiaoxuRadius.tile))
+                    .background(XiaoxuPalette.Surface)
+                    .padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(
+                IconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex - 1] },
-                    enabled = currentIndex > 0,
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("上一周") }
+                    enabled = currentIndex > 0
+                ) {
+                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "上一周")
+                }
                 TextButton(
                     onClick = { showWeekPicker = !showWeekPicker },
                     enabled = weekNumbers.size > 1,
-                    modifier = Modifier.heightIn(min = 44.dp)
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
                     Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "全部周次 ▾",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = XiaoxuPalette.Ink)
                 }
-                OutlinedButton(
+                IconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
-                    enabled = currentIndex < weekNumbers.lastIndex,
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("下一周") }
+                    enabled = currentIndex < weekNumbers.lastIndex
+                ) {
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = "下一周")
+                }
             }
         }
         if (calendar != null && selectedWeek != ALL_WEEKS) {
