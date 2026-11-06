@@ -71,6 +71,8 @@ fun validateCampusRunSnapshot(
     }
     require(snapshot.provenance != CampusRunProvenance.TRUSTED_READONLY ||
         snapshot.ownerMatched) { "trusted_source_requires_owner_match" }
+    require(snapshot.provenance == CampusRunProvenance.TRUSTED_READONLY ||
+        !snapshot.historyComplete) { "import_cannot_prove_full_history" }
     require(snapshot.termLabel == null ||
         (snapshot.termLabel.isNotBlank() &&
             snapshot.termLabel.length <= 80 &&
@@ -140,6 +142,9 @@ class CampusRunSnapshotGate(
     }
 
     fun refreshFailed(reason: CampusRunFailure, nowEpochMillis: Long): CampusRunViewState {
+        // Revoked/expired authorization is not an ordinary network failure:
+        // do not continue exposing the previous owner's personal snapshot.
+        if (reason == CampusRunFailure.NOT_AUTHORIZED) previous = null
         lastFailure = reason
         return state(nowEpochMillis)
     }
