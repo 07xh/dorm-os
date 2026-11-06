@@ -33,4 +33,38 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-校序本轮**没有**复制 SleepDown 自身受限制的应用源码、界面资源或专有资产，只参考其本机教务导入流程。院校真实课表能否成功解析仍需本人正常授权登录后验证；CI 构建通过不代表本人实测通过。
+校序的本机教务导入流程参考了上述 MIT 许可实现。院校真实课表能否成功解析仍需本人正常授权登录后验证；CI 构建通过不代表本人实测通过。
+
+---
+
+## SleepDown课程表（署名非商业、源码可见许可 1.1）
+
+PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未改动，仅替换 package 并补充来源头注释**）：
+
+- 项目：[xiaomanjun233/SleepDown-Schedule](https://github.com/xiaomanjun233/SleepDown-Schedule)
+- 原作者：xiaomanjun233
+- 版权：Copyright © 2026 SleepDown课程表项目作者
+- 许可证：署名非商业、源码可见许可 1.1（**非 OSI 开源许可**）
+
+| 校序文件 | 上游文件 | 变更 |
+| --- | --- | --- |
+| `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt` | 仅改 package 与文件头注释 |
+| `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DragGestureInspector.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt` | 仅改 package 与文件头注释 |
+
+这两个上游文件自身基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。
+
+**未复用的部分**：校序**没有**复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块、界面资源或应用包结构。悬浮胶囊的渲染层（`ui/FloatingBottomBar.kt`）是校序自行编写的 Compose 原生实现。
+
+### 许可 1.1 的履行情况
+
+| 1.1 要求 | 校序履行方式 |
+| --- | --- |
+| 非商业使用 | 校序为个人学习/自用项目，无收费、无广告、无商业分发 |
+| 修改版源码可见 | 校序仓库公开于 [07xh/dorm-os](https://github.com/07xh/dorm-os)，含全部构建脚本 |
+| 发布页/仓库首页署名 | 见仓库根 `README.md` 的「致谢与许可」一节 |
+| App 内「关于」页署名与链接 | 见「我的」页面底部「开源组件与致谢」区块 |
+| 明确标注为修改版并列出修改内容 | 上表 + 仓库内 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` |
+| 不使用近似名称/包名/图标 | 校序应用名「校序」、包名 `io.github.x07xh.xiaoxu`、图标独立设计，与上游无关联 |
+| 保留本许可与原始版权声明 | 本文件 + 两个源文件的文件头 |
+
+> 若校序未来改为商业分发（应用商店付费、广告、收费服务），**必须先移除**这两个文件并换用自研动画驱动。此约束同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` 的「§0 许可证前提」。
