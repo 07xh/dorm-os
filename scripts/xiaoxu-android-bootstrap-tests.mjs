@@ -483,14 +483,22 @@ assert.match(schedulePanel, /contentDescription = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
 assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
-assert.match(schedulePanel, /viewMode = viewMode/);
+assert.match(schedulePanel, /initialViewMode = viewMode/, '视图切换保留在原课表设置中');
 assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, selected\)/);
 assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
   '周视图和日视图不得再占用课表顶部');
 assert.match(timetableSettings, /"week" to "周视图", "day" to "日视图"/);
-assert.match(timetableSettings, /current == null && monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
+assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
   '未设置学期时仍应允许保存视图偏好');
-assert.match(timetableSettings, /onViewModeChange\(selectedViewMode\)/);
+assert.match(timetableSettings, /onViewModeChange\(viewMode\)/);
+assert.match(timetableSettings, /"默认课表视图"/);
+assert.match(timetableSettings, /"第一周开始日期"/);
+assert.match(timetableSettings, /"节次时间"/);
+assert.match(schedulePanel, /"课程详情"/);
+assert.match(schedulePanel, /"上课时间"/);
+assert.match(schedulePanel, /"上课地点"/);
+assert.match(schedulePanel, /"课程提醒"/);
+assert.match(schedulePanel, /dailySections = visibleSections/);
 assert.match(timetablePrefs, /fun loadViewMode\(context: Context\)/);
 assert.match(timetablePrefs, /fun saveViewMode\(context: Context, mode: String\)/);
 assert.match(timetablePrefs, /putString\(VIEW_MODE_KEY, mode\)\.apply\(\)/);
