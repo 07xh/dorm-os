@@ -525,6 +525,12 @@ assert.match(timetablePrefs, /fun saveSections\(context: Context, count: Int\)/)
 assert.match(schedulePanel, /Text\("课程详情"/);
 assert.match(schedulePanel, /Text\("课程提醒"/);
 assert.match(schedulePanel, /enabledForCourse\(context, lesson\.sourceId\)/);
+assert.match(schedulePanel, /ContextCompat\.checkSelfPermission\(/,
+  '课程提醒必须区分Android通知运行时权限与通知总开关');
+assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
+  '已经授权但系统通知被禁用时，应打开通知设置而不是重复请求权限');
+assert.match(schedulePanel, /context\.startActivity\(settings\)/,
+  '通知设置入口必须真正连接系统设置');
 
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
