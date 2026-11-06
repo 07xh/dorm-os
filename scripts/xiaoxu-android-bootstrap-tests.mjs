@@ -1220,4 +1220,20 @@ assert.match(messageCenter, /WechatReviewPanel\(/,
 assert.doesNotMatch(messageCenter, /PosterDemo|模拟群聊|高数练习要求与参考\.pdf/,
   '真实消息中心不得展示海报演示消息和附件');
 
+// Navigation V2 P1: source-scoped message scroll and evidence-based empty states.
+assert.match(messageCenter, /val officialListState = rememberLazyListState\(\)/,
+    '官方公告必须保存独立滚动位置');
+assert.match(messageCenter, /val wechatListState = rememberLazyListState\(\)/,
+    '微信审核必须保存独立滚动位置');
+assert.match(messageCenter, /state = if \(showWechat\) wechatListState else officialListState/,
+    '切换来源时不可沿用另一个来源的列表滚动位置');
+assert.match(messageCenter, /if \(state\.noticeFetchedAt\.isNullOrBlank\(\)\) return MessagePhase\.NotConnected/,
+    '仅官方公告本人读取证据可证明真实空状态，微信或登录状态不能冒充');
+assert.match(messageCenter, /学校公开公告无需登录校序云端/,
+    '首次尚未读取官方公告需要可操作的空状态');
+assert.match(workspace, /filter == "done" && onlyThisWeek/,
+    '已完成与本周截止冲突须说明而非提示数据丢失');
+assert.match(workspace, /清除本周截止筛选/,
+    '任务空状态需要直接撤销冲突筛选');
+
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');

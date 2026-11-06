@@ -973,14 +973,39 @@ fun RealAcademicTaskHub(
         if (visible.isEmpty()) {
             item {
                 XiaoxuEmpty(
-                    title = "没有匹配的已保存任务",
-                    message = if (!state.authenticated)
-                        "校序云端尚未连接，可先新增本机待办。"
-                    else "当前筛选没有任务，不能据此推断学校没有作业。",
-                    actionLabel = "新增 / 管理本机任务",
+                    title = if (filter == "done" && onlyThisWeek) "当前筛选条件互相冲突"
+                        else "没有匹配的已保存任务",
+                    message = when {
+                        filter == "done" && onlyThisWeek ->
+                            "“本周截止”只筛选未完成任务；请取消该日期筛选后查看已完成记录。"
+                        searchQuery.isNotBlank() ->
+                            "搜索未匹配到已保存任务，可清除搜索词；不能据此推断学校没有作业。"
+                        sourceFilter != "all" ->
+                            "当前来源没有匹配记录；本机与云端数据分别保存，未显示不代表没有学校作业。"
+                        onlyThisWeek ->
+                            "已保存记录中没有匹配的本周未完成任务；尚未核验的学校作业不计入。"
+                        !state.authenticated ->
+                            "校序云端尚未连接，可先新增本机待办。"
+                        else -> "当前筛选没有任务，不能据此推断学校没有作业。"
+                    },
+                    actionLabel = when {
+                        filter == "done" && onlyThisWeek -> "清除本周截止筛选"
+                        searchQuery.isNotBlank() -> "清除搜索词"
+                        sourceFilter != "all" -> "查看全部来源"
+                        onlyThisWeek -> "清除本周截止筛选"
+                        else -> "新增 / 管理本机任务"
+                    },
                     onAction = {
-                        showLocal = true
-                        jumpTo = "local"
+                        when {
+                            filter == "done" && onlyThisWeek -> onlyThisWeek = false
+                            searchQuery.isNotBlank() -> searchQuery = ""
+                            sourceFilter != "all" -> sourceFilter = "all"
+                            onlyThisWeek -> onlyThisWeek = false
+                            else -> {
+                                showLocal = true
+                                jumpTo = "local"
+                            }
+                        }
                     }
                 )
             }

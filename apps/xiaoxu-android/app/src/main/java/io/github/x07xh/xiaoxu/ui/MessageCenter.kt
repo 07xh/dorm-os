@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -171,11 +172,9 @@ fun deriveMessagePhase(state: CloudUiState): MessagePhase {
     if (state.publicError != null) {
         return MessagePhase.Failed(state.publicError)
     }
-    if (!state.authenticated && state.pendingWechatCount == null &&
-        state.noticeFetchedAt == null
-    ) {
-        return MessagePhase.NotConnected
-    }
+    // An owner login or WeChat count is NOT evidence that the public notice feed
+    // was fetched. Only the notice endpoint's fetchedAt can establish a verified empty.
+    if (state.noticeFetchedAt.isNullOrBlank()) return MessagePhase.NotConnected
     return MessagePhase.Empty
 }
 
@@ -238,6 +237,10 @@ fun MessageCenterPanel(
     var sourceTab by rememberSaveable { mutableStateOf(MSG_FILTER_NOTICE) }
     var filterKey by rememberSaveable { mutableStateOf(MSG_FILTER_ALL) }
     var openedId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Each source retains its own scroll position; switching from a long official list
+    // must never land mid-way through the much shorter WeChat review page.
+    val officialListState = rememberLazyListState()
+    val wechatListState = rememberLazyListState()
 
     val refresh: () -> Unit = { scope.launch { client.refresh() } }
     val filtered = remember(state.notices, query, filterKey) {
@@ -261,6 +264,7 @@ fun MessageCenterPanel(
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
+                state = if (showWechat) wechatListState else officialListState,
                 modifier = Modifier.fillMaxHeight().pageWidth(ContentMaxWidth),
                 contentPadding = PaddingValues(
                     start = sidePadding,
@@ -337,6 +341,14 @@ fun MessageCenterPanel(
                 if (!showWechat) {
                     when (phase) {
                         MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
+                        MessagePhase.NotConnected -> item {
+                            MessageBanner(
+                                icon = Icons.Outlined.Info,
+                                text = "尚未成功读取官方公告。可以点击右上角“刷新”；学校公开公告无需登录校序云端。",
+                                container = XiaoxuPalette.Surface,
+                                ink = XiaoxuPalette.Ink2
+                            )
+                        }
                         is MessagePhase.Failed -> item {
                             MessageErrorCard(phase.message, refresh, openWebsite)
                         }
@@ -699,7 +711,7 @@ private fun FilterRow(selected: String, onSelect: (String) -> Unit) {
                 icon = messageFilterIcon(option.key),
                 isSelected = selected == option.key,
                 a11yLabel = when (option.key) {
-                    MSG_FILTER_ALL -> "全部来源筛选"
+                    MSG_FILTER_ALL -> "全部官方公告筛选"
                     MSG_FILTER_WECHAT -> "微信候选筛选"
                     else -> option.label + "筛选"
                 },
@@ -1024,7 +1036,7 @@ private fun SheetMetaRow(label: String, value: String) {
 private fun MessageEmptyHint(query: String?) {
     MessageBanner(
         icon = Icons.Outlined.Search,
-        text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信待审核”查看。"
+        text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信审核”查看。"
         else "没有匹配“" + query.trim() + "”的官方公告；搜索只覆盖官方公告，不搜索微信候选。",
         container = XiaoxuPalette.Surface,
         ink = XiaoxuPalette.Ink2
