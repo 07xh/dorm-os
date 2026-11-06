@@ -53,7 +53,7 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未�
 
 这两个上游文件自身基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。
 
-**未复用的部分**：校序**没有**复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块、界面资源或应用包结构。悬浮胶囊的渲染层（`ui/FloatingBottomBar.kt`）是校序自行编写的 Compose 原生实现。
+**未复用的部分**：校序没有复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块或整套应用资源；`FloatingBottomBar.kt` 保留校序原有 Compose 回退与手势架构，Android 13+ 玻璃光学材质则按下方注明的北化课表源代码单独适配。
 
 ### 许可 1.1 的履行情况
 
