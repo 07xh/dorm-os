@@ -507,7 +507,9 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .border(0.75.dp, XiaoxuPalette.GlassBorder,
+                RoundedCornerShape(XiaoxuRadius.tile))
             .semantics { contentDescription = "搜索官方公告：标题或日期" },
         singleLine = true,
         placeholder = {
@@ -545,11 +547,11 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
             }
         },
         textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(XiaoxuRadius.tile),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = XiaoxuPalette.Surface,
-            unfocusedContainerColor = XiaoxuPalette.Surface,
-            disabledContainerColor = XiaoxuPalette.Surface,
+            focusedContainerColor = XiaoxuPalette.GlassCard,
+            unfocusedContainerColor = XiaoxuPalette.GlassCard,
+            disabledContainerColor = XiaoxuPalette.GlassCard,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             disabledIndicatorColor = Color.Transparent,
