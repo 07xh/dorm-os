@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -1015,7 +1016,14 @@ fun RealAcademicTaskHub(
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
                         XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
-                            TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                            TaskRow(localRows[i], today,
+                                onOpen = { openedTaskKey = localRows[i].key },
+                                onToggleLocal = { checked ->
+                                    // 仅编辑 Room 中本人待办，不写学校提交状态或云端任务。
+                                    val id = localRows[i].key.removePrefix("local:").toLongOrNull()
+                                    if (id != null) taskScope.launch { dao.setCompleted(id, checked) }
+                                }
+                            )
                         }
                     }
                 }
@@ -1502,7 +1510,12 @@ private const val DUE_OVERDUE = 4
 
 /** Compact row based on the reference image; click still opens the original real-data sheet. */
 @Composable
-private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
+private fun TaskRow(
+    task: WorkspaceTask,
+    today: LocalDate,
+    onOpen: () -> Unit,
+    onToggleLocal: ((Boolean) -> Unit)? = null
+) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
         DUE_OVERDUE -> XiaoxuPalette.Danger
@@ -1533,15 +1546,26 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 统一任务标记；不根据课程名称或平台臆测任务类型。
-        // 整行进入详情，云端状态不会被此图标误操作为已提交。
-        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                if (task.done) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = if (task.done) XiaoxuPalette.Brand else XiaoxuPalette.Ink3
+        // 同样的勾选视觉：本机 Room 任务可直接更改个人完成状态；
+        // 校序云端记录仅展示保存的状态，不提供会被误认成学校提交的写操作。
+        if (task.storage == "local" && onToggleLocal != null) {
+            Checkbox(
+                checked = task.done,
+                onCheckedChange = onToggleLocal,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = if (task.done) "将本机任务“" + task.title + "”改为待完成"
+                    else "将本机任务“" + task.title + "”标记为个人已完成"
+                }
             )
+        } else {
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    if (task.done) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = XiaoxuPalette.Ink3
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
