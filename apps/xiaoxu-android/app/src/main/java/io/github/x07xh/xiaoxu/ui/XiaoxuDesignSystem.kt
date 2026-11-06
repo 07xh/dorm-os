@@ -83,7 +83,12 @@ object XiaoxuPalette {
     val BrandSoft = Color(0xFFEAF1FF)
 
     /** 页面背景 */
-    val Bg = Color(0xFFF4F7FD)
+    val Bg = Color(0xFFF3F5FC)
+
+    /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
+    val PageGradient = Brush.verticalGradient(
+        listOf(Color(0xFFF0F6FF), Color(0xFFF4F2FC), Color(0xFFF7F3FD))
+    )
 
     /** 卡片 */
     val Surface = Color(0xFFFFFFFF)
@@ -92,13 +97,13 @@ object XiaoxuPalette {
     val SurfaceAlt = Color(0xFFF1F4FA)
 
     /** 主文字 */
-    val Ink = Color(0xFF16233A)
+    val Ink = Color(0xFF34445F)
 
     /** 次要文字 */
-    val Ink2 = Color(0xFF6B7A99)
+    val Ink2 = Color(0xFF52627B)
 
     /** 占位、未选中图标 */
-    val Ink3 = Color(0xFF9AA7BE)
+    val Ink3 = Color(0xFF66758C)
 
     /** 描边、分隔线 */
     val Line = Color(0xFFE9EEF8)
@@ -200,22 +205,22 @@ private val XiaoxuColorScheme = lightColorScheme(
 
 private val XiaoxuTypography = Typography(
     headlineMedium = TextStyle(
-        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
+        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = (-0.4).sp
     ),
     headlineSmall = TextStyle(
-        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold,
+        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 13.5.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
+    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
     labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 15.sp)
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp)
 )
 
 private val XiaoxuShapes = Shapes(
@@ -758,7 +763,7 @@ fun XiaoxuTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(XiaoxuPalette.Bg)
+            .background(Color.Transparent)
             // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
             .statusBarsPadding()
             .padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
