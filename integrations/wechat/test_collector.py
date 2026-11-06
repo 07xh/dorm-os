@@ -39,10 +39,10 @@ class CollectorTests(TestCase):
 
     def test_cloud_schema_utf16_limits_and_control_characters(self):
         # Python length differs from JS UTF-16 length for emoji/non-BMP glyphs.
-        text = "提交报告" + "📘"*85 + "\\x01" + "请按时提交"
+        text = "提交报告" + "📘"*85 + chr(1) + "请按时提交"
         task = bridge.classify(text, 1793764800)
         self.assertLessEqual(len(task["title"].encode("utf-16-le")) // 2, 120)
-        self.assertNotIn("\\x01", task["title"])
+        self.assertNotIn(chr(1), task["title"])
 
         chat = "专业课程" + "🎓"*42
         def reader(name, cutoff):
