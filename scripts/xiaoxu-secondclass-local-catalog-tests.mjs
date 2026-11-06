@@ -61,6 +61,7 @@ test('one score identity + personal page + three real empty catalog filters',asy
   const {result,requests}=await read();
   assert.equal(result.ok,true);
   assert.equal(result.identityMatched,true);
+  assert.equal(result.httpStatus,200,'catalog requests must preserve score reader status');
   assert.equal(result.activitiesComplete,true);
   assert.deepEqual(result.activities,[]);
   assert.equal(result.catalogStatus,'verified_empty');
