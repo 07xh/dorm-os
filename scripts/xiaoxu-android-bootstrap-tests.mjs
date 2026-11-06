@@ -1170,7 +1170,8 @@ assert.doesNotMatch(schedulePanel, /sealed interface ScheduleUiState|fun deriveS
 // 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
 const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 assert.match(scheduleVisual, /XiaoxuCard\(/);
-assert.match(scheduleVisual, /Text\("我的课表"/);
+assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
+  '本机课表空态与有课程态须使用同一标题组件');
 assert.match(scheduleVisual, /Text\("重新导入"\)/);
 assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
 assert.match(scheduleVisual, /xiaoxuCourseColor\(lesson\.colorKey\)/);
@@ -1357,8 +1358,8 @@ assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
 assert.match(main, /private fun CompactPageHeading\(/,
   '教务和我的须使用页面内真实紧凑标题，不叠加旧顶栏');
-assert.match(main, /MainDestination\.TASKS, MainDestination\.ACADEMIC, MainDestination\.PROFILE/,
-  '任务、教务、我的的旧重复顶栏必须关闭');
+assert.match(main, /if \(!messagesOpen && current == MainDestination\.HOME\) XiaoxuTopBar\(/,
+  '全局顶栏只在首页出现，课表和其他分栏由内容页自行提供紧凑标题');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/,
   '页面消息中心入口应继续可达');
 assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
