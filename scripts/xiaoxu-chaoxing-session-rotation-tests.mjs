@@ -109,6 +109,17 @@ await assert.rejects(()=>readConnectedChaoxing({db,userId:'owner1',
  }}),e=>e.code==='sync_failed','a newer login must never look like logout');
 assert.notEqual(vault().ciphertext,stale.ciphertext);
 assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
+// Manual refresh must follow the same rule: a newer connection wins without
+// presenting the old request's CAS miss as a request to log in again.
+const manualBefore=vault();
+await assert.rejects(()=>refreshSchoolAccount({db,userId:'owner1',
+ provider:'chaoxing',adapter:newAdapter(),secret,
+ sync:async()=>{
+  await connect();
+  return {lastSuccessAt:new Date().toISOString()};
+ }}),e=>e.code==='sync_failed');
+assert.notEqual(vault().ciphertext,manualBefore.ciphertext);
+assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
 
 // Only an independently failed official identity check expires the session.
 mode='expired';
