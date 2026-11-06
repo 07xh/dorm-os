@@ -61,6 +61,36 @@ class SemesterCalendarTest {
         }
     }
 
+    @Test fun nonChronologicalOrOverlappingPeriodsAreRejected() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SemesterCalendar.parse(
+                "2026-09-07", "18",
+                "1 08:00-08:45\\n2 08:40-09:25"
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SemesterCalendar.parse(
+                "2026-09-07", "18",
+                "2 10:00-10:45\\n1 13:00-13:45"
+            )
+        }
+        // The invariant must also protect callers constructing data classes directly.
+        assertThrows(IllegalArgumentException::class.java) {
+            SemesterCalendar(
+                LocalDate.parse("2026-09-07"), 18,
+                mapOf(
+                    1 to SectionTime(java.time.LocalTime.of(8, 0), java.time.LocalTime.of(9, 0)),
+                    2 to SectionTime(java.time.LocalTime.of(8, 55), java.time.LocalTime.of(9, 40))
+                )
+            )
+        }
+        // Adjacent classes, including an inter-class break, are valid.
+        assertEquals(2, SemesterCalendar.parse(
+            "2026-09-07", "18",
+            "2 09:00-09:45\\n1 08:00-09:00"
+        ).sectionTimes.size)
+    }
+
     @Test fun optionalHoursRemainUnknownAndRoundTrip() {
         val calendar = SemesterCalendar.parse("2026-09-07", "18", "")
         assertNull(calendar.periodLabel(1, 2))
