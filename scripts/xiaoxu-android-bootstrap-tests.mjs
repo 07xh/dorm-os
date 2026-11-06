@@ -684,8 +684,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.8'/, '0.8.8 作业核验版本须准确标注');
-assert.match(appGradle, /versionCode 29\b/, '0.8.8 版本码须递增，避免重装旧包');
+assert.match(appGradle, /versionName '0\.8\.9'/, '0.8.9 首页交互版本须准确标注');
+assert.match(appGradle, /versionCode 30\b/, '0.8.9 版本码须递增，避免重装旧包');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
@@ -960,6 +960,11 @@ assert.match(main, /NavigationBarItemDefaults\.colors/, '底部导航选中态�
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
+assert.ok(workspace.includes("internal fun resolveHomeCourseIndex("), '首页课程轮播必须有稳定的回退索引');
+assert.ok(workspace.includes("onSelectCourse(homeLessonKey(lessons[selectedIndex + 1]))"), '多课程应可切换至下一条');
+assert.ok(workspace.includes('maxWidth < 420.dp'), '窄屏学业入口须自动调整为两行');
+const homeCourseSequence = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/HomeCourseSequenceTest.kt');
+assert.match(homeCourseSequence, /removedOrReimportedCourseFallsBackWithoutIndexCrash/, '课程重导入须测试索引回退');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
 assert.match(workspace, /QuickEntry\("成绩"/, '首页学业入口须指向真实子页面');
 assert.match(workspace, /QuickEntry\("考试"/);
