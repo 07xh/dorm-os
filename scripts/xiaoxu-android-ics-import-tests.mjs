@@ -34,8 +34,13 @@ assert.match(screen, /config\.currentWeek\(LocalDate\.now\(\)\)\?\.let/,
 // must not restore an earlier timetable after a successful import.
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
 assert.match(main, /applicationContext, parsed\.second\.lessons/);
-assert.match(main, /count to updated/);
-assert.match(main, /LocalCourseReminders\.reconcile\(applicationContext, updated,/);
+assert.match(main, /Triple\(count, updated, reminderOk\)/);
+assert.match(main, /LocalCourseReminders\.reconcileAfterSave\(/,
+  '提醒维护失败不可将已经保存的课表伪装成导入失败');
+assert.match(main, /已保存 \$count 个课块，但提醒维护失败/,
+  '若课表保存成功但通知维护失败，必须提供准确反馈');
+assert.match(screen, /LocalCourseReminders\.reconcileAfterSave\(/,
+  '手动添加或单周编辑成功也不能被提醒调度错误掩盖');
 assert.match(main, /localScheduleReadSerial\+\+/);
 assert.match(main, /localLessons = savedLessons/);
 assert.match(main, /课表数量减少，请核对/);
