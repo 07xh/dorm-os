@@ -405,9 +405,9 @@ assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
  '共享分段控件必须等宽且具有至少44dp触控高度');
 assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
  '一级页面共用20sp字级与26sp行高');
-assert.match(schedulePanel, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
+assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '课表标题从统一主题取得字级');
-assert.match(messageCenter, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
+assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
  '消息标题从统一主题取得字级');
 assert.match(workspace, /Text\("任务中心",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '任务标题从统一主题取得字级');
