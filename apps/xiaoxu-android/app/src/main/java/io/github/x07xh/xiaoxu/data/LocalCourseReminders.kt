@@ -162,11 +162,19 @@ object LocalCourseReminders {
             }
     }
 
-    fun canNotify(context: Context): Boolean =
-        (Build.VERSION.SDK_INT < 33 ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED) &&
-            NotificationManagerCompat.from(context).areNotificationsEnabled()
+    fun canNotify(context: Context): Boolean {
+        val app = context.applicationContext
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        val appNotificationsEnabled = NotificationManagerCompat.from(app).areNotificationsEnabled()
+        // App-level permission may be granted even when the class reminder
+        // notification channel itself has been disabled in system settings.
+        val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = manager.getNotificationChannel(CHANNEL)
+        return granted && appNotificationsEnabled &&
+            (channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE)
+    }
 
     fun setEnabled(context: Context, value: Boolean) {
         val app = context.applicationContext
