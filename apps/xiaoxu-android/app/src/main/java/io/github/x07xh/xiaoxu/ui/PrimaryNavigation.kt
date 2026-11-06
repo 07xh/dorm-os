@@ -98,18 +98,19 @@ internal fun PrimaryBottomNavigation(
 }
 
 /**
- * Reserves precisely the same space as CourseSelector's 8 + 72 + 8dp dock
+ * Reserves exactly the same responsive geometry as the actual dock
  * and the current system navigation inset. This contains no navigation UI:
  * the actual glass bar is overlaid once, outside the backdrop capture layer.
  * Scaffold must own content padding; child screens must not add a second inset.
  */
 @Composable
-internal fun PrimaryGlassNavigationReserve() {
+internal fun PrimaryBottomNavigationReserve(glass: Boolean) {
+    val geometry = rememberPrimaryBottomGeometry(glass)
     Box(
         Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-            .height(88.dp)
+            .height(geometry.contentReserve)
     )
 }
 
