@@ -185,7 +185,7 @@
    const nativeNcwu=provider.id==='ncwu'&&record?.nativeCasPreflight===true;
    const secondClassCanRepair=officialCas&&record?.sessionState==='active'&&!authorized;
    // 官网登录不会自动关联校序：the school QR option is not an API grant.
-   // Second-class: inspect the live school CAS form before asking credentials.
+   // Second-class authorization stays in the existing official App reader.
    const authPanel=qrResuming&&!canLogin?
     '<div class="xu-school-connect"><div data-xu-chaoxing-qr-output role="status" aria-live="polite">'+qrRestored+'</div></div>':
     authorized?'':officialCas?
@@ -728,13 +728,6 @@
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
  }
  if(typeof document!=='undefined'){
-  // Existing page/status renders may replace the connection row while the
-  // owner is typing. Retain the same ephemeral form DOM, never serialize its
-  // credentials or store them in browser persistence.
-  if(typeof MutationObserver==='function'&&document.documentElement)
-   new MutationObserver(restoreSecondClassCasPanel).observe(document.documentElement,{
-    childList:true,subtree:true
-   });
   // Capture user intent before a concurrent status refresh can replace the row.
   document.addEventListener('click',event=>{
    const summary=event.target.closest?.('.xu-school-manage > summary');

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 import {projectConnectionCenter,readConnectionCenter} from '../lib/academic-connection-center.mjs';
 import {onRequestGet,isActiveSchoolAuthorization} from '../functions/api/v1/connections.js';
 
@@ -71,6 +72,13 @@ assert.equal((await unauthenticated.json()).error,'auth_not_configured');
 // independent-account endpoint. Official school SSO is an external page,
 // not a third-party grant to Xiaoxu.
 const client=readFileSync(new URL('../public/xiaoxu-academic-client.js',import.meta.url),'utf8');
+// Execute browser initialization with MutationObserver present. Syntax-only
+// checks cannot detect a retired callback still referenced at startup.
+const browser={document:{documentElement:{},addEventListener(){}},
+ addEventListener(){},setInterval(){},MutationObserver:class {observe(){}}};
+assert.doesNotThrow(()=>runInNewContext(client,browser),
+ 'the connection client must initialize in a browser');
+assert.equal(typeof browser.XiaoxuAcademic?.readConnectionStatus,'function');
 assert.ok(client.includes('超星独立密码'));
 assert.ok(client.includes('学校统一身份认证'));
 assert.ok(client.includes('fysso.chaoxing.com%2Fcassso%2Fncwu'));
