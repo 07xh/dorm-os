@@ -1116,7 +1116,10 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /private fun TaskStatusTab\(/, '任务中心必须使用蓝色胶囊状态切换，不能沿用数字大卡');
+assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须可操作');
+assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
+assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
+  '三项统计应采用上下标签和数量而非横排大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
@@ -1136,8 +1139,12 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.ok(workspace.includes('if (showLocal) item { LocalTaskEditor(localTasks, dao) }'),
-  '本机任务仍用实际 Room 管理器，非假按钮');
+assert.ok(workspace.includes('if (showManager && showLocal) item { LocalTaskEditor(localTasks, dao) }'),
+  '本机任务只在管理展开时展示真实 Room 编辑器');
+assert.ok(workspace.includes('if (showManager && showCloud) item { CloudTaskEditor(client) }'),
+  '关闭任务管理也必须隐藏云端新建表单');
+assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
+  '顶部新增按钮再次点击应完整收起编辑区');
 assert.match(workspace, /TaskRow\(localRows\[i\], today,[\s\S]*?onOpen = \{ openedTaskKey = localRows\[i\]\.key \}/,
   '本机任务仍从真实 Row 数据打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
@@ -1195,7 +1202,9 @@ assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(show
   '云端表单跳转须考虑本机管理展开与否');
 assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
-assert.match(workspace, /sourceFilter == source/, '来源与状态分别筛选');
+assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
+assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
+assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
   '待完成统计卡应真实切换过滤器');
