@@ -11,6 +11,14 @@ const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
+const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
+assert.match(visualQa, /\['03-course-detail',/,'一加 Ace 6 真机流程必须单独采集课程详情底部弹窗');
+assert.match(visualQa, /\['04-schedule-settings',/,'一加 Ace 6 真机流程必须采集原课表设置页');
+assert.match(visualQa, /\['05-schedule-day',/,'需要可选采集日视图，避免只核验周视图');
+assert.match(visualQa, /requiredReferenceScenes:\s*\['02-schedule', '03-course-detail', '04-schedule-settings'\]/);
+assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
+assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
+  '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
 assert.match(strings, /<string name="app_name">校序<\/string>/);
 const designSystem = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
