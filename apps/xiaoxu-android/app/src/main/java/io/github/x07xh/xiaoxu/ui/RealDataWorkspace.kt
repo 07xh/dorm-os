@@ -940,7 +940,8 @@ fun RealAcademicTaskHub(
                 icon = Icons.Outlined.MenuBook,
                 expanded = showOfficialAudit,
                 onClick = { showOfficialAudit = !showOfficialAudit },
-                showCount = state.chaoxingBatchCheckedAt != null || state.chaoxingBatchBusy
+                // In-progress batch is not a confirmed zero-result read.
+                showCount = state.chaoxingBatchCheckedAt != null
             )
         }
         if (showOfficialAudit) {
