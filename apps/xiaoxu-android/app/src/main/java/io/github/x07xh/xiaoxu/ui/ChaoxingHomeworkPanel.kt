@@ -298,7 +298,9 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                     }
                 }
                 if (state.chaoxingHomework.size > 50) {
-                    Text("此处仅展示前 50 份；其他记录请在校序任务列表查看。",
+                    Text(
+                        if (showAllHomework) "已展开当前课程全部 ${state.chaoxingHomework.size} 条已核验列表记录。"
+                        else "当前只预览前 50 条；点击上方“查看剩余”可展开本课程其他记录。",
                         style = MaterialTheme.typography.labelSmall)
                 }
             } else if (state.chaoxingCourses.isNotEmpty() && state.chaoxingError == null) {
