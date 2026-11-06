@@ -291,7 +291,7 @@ assert.match(coursePanel,/官网本课程进度/);
 assert.match(coursePanel,/官网未提供可核实的作业总数/);
 assert.match(cloud,/result\.code == 401/);
 assert.match(cloud,/if \(consecutiveFailures >= 2\) break/);
-assert.match(cloud,/val skipped = courses\.size - checked/);
+assert.match(cloud,/courses\.filterNot \{ it\.key in checkedKeys \}/, '中断后需要明确列出未检查课程');
 assert.match(cloud,/chaoxingBatchBusy = false/);
 assert.match(coursePanel,/client\.syncChaoxingAllCourses\(\)/);
 assert.match(coursePanel,/一键核验全部课程作业/);
