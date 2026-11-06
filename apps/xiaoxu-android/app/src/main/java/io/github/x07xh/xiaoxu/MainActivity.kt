@@ -25,11 +25,19 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -43,6 +51,11 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,6 +64,8 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +84,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -555,7 +572,9 @@ private fun NativeShell(
             containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen && current != MainDestination.TASKS) XiaoxuTopBar(
+                if (!messagesOpen && current !in setOf(
+                    MainDestination.TASKS, MainDestination.ACADEMIC, MainDestination.PROFILE
+                )) XiaoxuTopBar(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
@@ -663,7 +682,7 @@ private fun NativeShell(
                                 onLocalLessonsChanged = onLocalLessonsChanged)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
-                                cloud = cloud)
+                                cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
@@ -672,7 +691,9 @@ private fun NativeShell(
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
                                 },
-                                startSchoolAuthorization, localCaptureReturn
+                                startSchoolAuthorization, localCaptureReturn,
+                                onMessages = { messagesOpen = true },
+                                onRefresh = { scope.launch { cloud.refresh() } }
                             )
                         }
                         }
@@ -686,10 +707,12 @@ private fun NativeShell(
 
 @Composable
 private fun Content(
+    withTopInset: Boolean = false,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
+        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp)
+            .then(if (withTopInset) Modifier.statusBarsPadding() else Modifier),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
@@ -719,53 +742,114 @@ private fun MessagesPage(
 private fun ConnectionsPage(
     openWebsite: () -> Unit, cloud: CloudClient,
     openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
-    localCaptureReturn: LocalSchoolImportReceipt?
+    localCaptureReturn: LocalSchoolImportReceipt?,
+    onMessages: () -> Unit, onRefresh: () -> Unit
 ) {
     var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
     var showLocalBackup by rememberSaveable { mutableStateOf(false) }
     var showCredits by rememberSaveable { mutableStateOf(false) }
-    Content {
-        // ConnectionsPanel starts with the real owner profile hero. Do not
-        // duplicate "我的" as a second headline above the same information.
+    Content(withTopInset = true) {
+        item {
+            CompactPageHeading(title = "我的", onMessages = onMessages,
+                onRefresh = onRefresh, refreshing = cloud.state.busy)
+        }
+        // Existing ConnectionsPanel is the real authorization and local reader.
         item {
             ConnectionsPanel(cloud, openWebsite, openLocalSchool,
                 startSchoolAuthorization, localCaptureReturn)
         }
         item {
-            XiaoxuCard(onClick = { showCloudSecondClass = !showCloudSecondClass }) {
-                Text(if (showCloudSecondClass) "收起云端个人快照"
-                     else "云端第二课堂个人快照（可选）",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("仅展示已保存的本人活动与积分；学校活动广场在「教务 → 第二课堂」。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
-            }
-        }
-        if (showCloudSecondClass) {
-            item { SecondClassPanel(cloud, openWebsite) }
+            Text("工具", style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink)
         }
         item {
-            XiaoxuCard(onClick = { showLocalBackup = !showLocalBackup }) {
-                Text(if (showLocalBackup) "收起本机任务备份"
-                     else "本机任务备份与恢复",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("按需使用系统文件选择器，不自动上传本机任务。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
+            XiaoxuCard(contentPadding = 0.dp) {
+                Column {
+                    CompactActionRow("第二课堂记录", Icons.Outlined.School,
+                        expanded = showCloudSecondClass, onClick = {
+                            showCloudSecondClass = !showCloudSecondClass
+                            showLocalBackup = false
+                            showCredits = false
+                        })
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                    CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
+                        expanded = showLocalBackup, onClick = {
+                            showLocalBackup = !showLocalBackup
+                            showCloudSecondClass = false
+                            showCredits = false
+                        })
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                    CompactActionRow("开源许可", Icons.Outlined.Info,
+                        expanded = showCredits, onClick = {
+                            showCredits = !showCredits
+                            showCloudSecondClass = false
+                            showLocalBackup = false
+                        })
+                }
             }
         }
+        if (showCloudSecondClass) item { SecondClassPanel(cloud, openWebsite) }
         if (showLocalBackup) item { LocalTaskBackupPanel() }
-        item {
-            XiaoxuCard(onClick = { showCredits = !showCredits }) {
-                Text(if (showCredits) "收起开源组件与致谢"
-                     else "开源组件与致谢",
-                    style = MaterialTheme.typography.titleSmall)
-                Text("青果教务适配（MIT）与 SleepDown 导航动画（许可 1.1）的署名、修改说明与许可全文。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
+        if (showCredits) item { OpenSourceCreditsPanel() }
+    }
+}
+
+@Composable
+private fun CompactPageHeading(
+    title: String,
+    onMessages: () -> Unit,
+    onRefresh: (() -> Unit)? = null,
+    refreshing: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineSmall,
+            color = XiaoxuPalette.Ink)
+        if (onRefresh != null) {
+            IconButton(onClick = onRefresh, enabled = !refreshing) {
+                Icon(Icons.Outlined.Cloud, contentDescription = "刷新数据",
+                    tint = XiaoxuPalette.Ink2)
             }
         }
-        if (showCredits) item { OpenSourceCreditsPanel() }
+        IconButton(onClick = onMessages) {
+            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
+                tint = XiaoxuPalette.Ink2)
+        }
+    }
+}
+
+@Composable
+private fun CompactActionRow(
+    title: String,
+    icon: ImageVector,
+    expanded: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(34.dp).clip(RoundedCornerShape(11.dp))
+                .background(XiaoxuPalette.BrandSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = XiaoxuPalette.BrandDeep,
+                modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+        Icon(if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.ChevronRight,
+            contentDescription = if (expanded) "收起$title" else "展开$title",
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(19.dp))
     }
 }
 
