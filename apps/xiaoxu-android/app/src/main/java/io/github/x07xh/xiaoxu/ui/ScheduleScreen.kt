@@ -78,6 +78,12 @@ import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
 import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
 import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -183,6 +189,8 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 fun CloudTimetablePanel(
     localLessons: List<VerifiedLesson>,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
+    localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
@@ -207,6 +215,8 @@ fun CloudTimetablePanel(
                     data = localImportedScheduleView(localLessons),
                     expanded = expanded,
                     openFileImport = openFileImport,
+                    openFileExport = openFileExport,
+                    localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = onLocalLessonsChanged
                 )
             }
@@ -222,13 +232,17 @@ fun CloudTimetablePanel(
                     addBusy = true
                     editorScope.launch {
                         try {
-                            val updated = withContext(Dispatchers.IO) {
+                            val (updated, reminderOk) = withContext(Dispatchers.IO) {
                                 val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
                                 LocalScheduleStore.saveEdited(context, edited)
-                                LocalScheduleStore.load(context)
+                                val fresh = LocalScheduleStore.load(context)
+                                fresh to LocalCourseReminders.reconcileAfterSave(
+                                    context, fresh, LocalSemesterConfigStore.load(context))
                             }
                             onLocalLessonsChanged(updated)
                             addingFirstCourse = false
+                            if (!reminderOk) Toast.makeText(
+                                context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
                         } catch (failure: Exception) {
                             addError = failure.message ?: "添加课程失败"
                         } finally {
@@ -284,12 +298,39 @@ private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
     expanded: Boolean,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
+    localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
     var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
+
     val editorScope = rememberCoroutineScope()
+    val reminderPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && LocalCourseReminders.canNotify(context)) {
+            editorScope.launch {
+                val reminderOk = withContext(Dispatchers.IO) {
+                    runCatching {
+                        LocalCourseReminders.setEnabled(context, true)
+                        LocalCourseReminders.reconcileAfterSave(
+                            context, LocalScheduleStore.load(context),
+                            LocalSemesterConfigStore.load(context))
+                    }.getOrDefault(false)
+                }
+                if (!reminderOk) Toast.makeText(
+                    context, "课程未改变，但上课提醒启用失败；请重新开启", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Toast.makeText(context, "未获取通知权限，上课提醒保持关闭", Toast.LENGTH_LONG).show()
+        }
+    }
+    LaunchedEffect(localScheduleRevision) {
+        // Restore may change only the semester settings, leaving course rows identical.
+        calendar = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
+    }
     var showingCourseEditor by remember { mutableStateOf(false) }
     var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
     var editingBusy by remember { mutableStateOf(false) }
@@ -537,13 +578,16 @@ private fun ScheduleVerifiedContent(
             editingError = null
             editorScope.launch {
                 try {
-                    val saved = withContext(Dispatchers.IO) {
+                    val (saved, reminderOk) = withContext(Dispatchers.IO) {
                         LocalScheduleStore.saveEdited(context, changed)
-                        LocalScheduleStore.load(context)
+                        val fresh = LocalScheduleStore.load(context)
+                        fresh to LocalCourseReminders.reconcileAfterSave(context, fresh, calendar)
                     }
                     onLocalLessonsChanged(saved)
                     showingCourseEditor = false
                     editOriginal = null
+                    if (!reminderOk) Toast.makeText(
+                        context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
                 } catch (failure: Exception) {
                     editingError = failure.message ?: "本机课表修改失败"
                 } finally {
@@ -585,13 +629,43 @@ private fun ScheduleVerifiedContent(
     if (showSemesterSettings) {
         SemesterSettingsDialog(
             current = calendar,
+            reminderEnabled = LocalCourseReminders.enabled(context),
+            onExport = openFileExport,
             onDismiss = { showSemesterSettings = false },
-            onSave = { config ->
+            onSave = { config, wantReminders ->
                 LocalSemesterConfigStore.save(context, config)
                 calendar = config
                 showSemesterSettings = false
                 config.currentWeek(LocalDate.now())?.let {
                     selectedWeek = it
+                }
+                if (!wantReminders) {
+                    editorScope.launch {
+                        val disabled = withContext(Dispatchers.IO) {
+                            runCatching {
+                                LocalCourseReminders.setEnabled(context, false)
+                            }.isSuccess
+                        }
+                        if (!disabled) Toast.makeText(
+                            context, "通知设置保存失败，请重试", Toast.LENGTH_LONG).show()
+                    }
+                } else if (LocalCourseReminders.canNotify(context)) {
+                    editorScope.launch {
+                        val reminderOk = withContext(Dispatchers.IO) {
+                            runCatching {
+                                LocalCourseReminders.setEnabled(context, true)
+                                LocalCourseReminders.reconcileAfterSave(
+                                    context, LocalScheduleStore.load(context), config)
+                            }.getOrDefault(false)
+                        }
+                        if (!reminderOk) Toast.makeText(
+                            context, "学期设置已保存，但提醒启用失败；请重新开启",
+                            Toast.LENGTH_LONG).show()
+                    }
+                } else if (Build.VERSION.SDK_INT >= 33) {
+                    reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    Toast.makeText(context, "请先在系统设置中允许校序通知", Toast.LENGTH_LONG).show()
                 }
             }
         )

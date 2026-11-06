@@ -1,0 +1,3 @@
+校序课表 V2 P1 依赖 PR #327，执行一次 PR 级 Android assembleDebug + testDebugUnitTest 与静态门禁。
+范围：系统 SAF 本机 JSON 备份与导入；用户主动开启的 WorkManager 上课提醒。
+不得自动发布、签名分发或将开发版覆盖生产 APK；真机体验仍需单独验收。
