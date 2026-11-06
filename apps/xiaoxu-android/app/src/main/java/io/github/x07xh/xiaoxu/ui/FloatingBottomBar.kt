@@ -2,6 +2,9 @@ package io.github.x07xh.xiaoxu.ui
 
 import android.os.Build
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
 import io.github.x07xh.xiaoxu.ui.northglass.NorthPhosphorNavigationIcon
 import io.github.x07xh.xiaoxu.ui.northglass.rememberNorthNavigationIconPlayback
@@ -45,6 +48,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -55,6 +59,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -169,6 +174,13 @@ fun FloatingBottomBar(
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    // 北化课表 1.0.83: the indicator refracts a SECOND, sharply tinted icon/label
+    // source combined with the page, not the page backdrop alone. Recording the
+    // tint source once here keeps it in the same dock; it owns no click/route state.
+    val tintLayer = if (useNorthGlass) rememberLayerBackdrop() else null
+    val indicatorBackdrop = if (backdrop != null && tintLayer != null) {
+        rememberCombinedBackdrop(backdrop, tintLayer)
+    } else backdrop
     val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
     val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
     val visualHeight = geometry.trackHeight
@@ -310,39 +322,6 @@ fun FloatingBottomBar(
                 )
                 .then(gestureModifier)
         ) {
-            // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
-            Box(
-                Modifier
-                    .offset {
-                        // 不要在这里手动镜像 RTL：Modifier.offset{} 内部用
-                        // placeable.placeRelative()，RTL 下会自动把 x 翻成
-                        // parentWidth - x - width。手动再翻一次就成了双重镜像
-                        // （实测：RTL 选中「课表」时指示器会跑到「任务」上）。
-                        // 索引值 * 格宽 是方向无关的逻辑位置，交给 placeRelative 处理。
-                        IntOffset((drag.value * cellWidthPx).roundToInt(), 0)
-                    }
-                    .width(cellWidthDp)
-                    .fillMaxHeight()
-                    .padding(horizontal = IndicatorInset, vertical = geometry.indicatorVerticalPadding)
-                    .then(
-                        if (useNorthGlass && backdrop != null) {
-                            Modifier.northGlassIndicator(
-                                backdrop = backdrop,
-                                pressProgress = { drag.pressProgress },
-                                velocityPx = { drag.velocity * cellWidthPx },
-                                indicatorScale = { physicalScale() }
-                            )
-                        } else Modifier.clip(IndicatorShape).background(indicatorColor)
-                    )
-                    .then(
-                        if (useNorthGlass) Modifier else Modifier.graphicsLayer {
-                            val p = drag.pressProgress
-                            scaleX = 1f + 0.04f * p
-                            scaleY = 1f + 0.02f * p
-                        }
-                    )
-            )
-
             Row(
                 Modifier
                     .fillMaxSize()
@@ -366,6 +345,92 @@ fun FloatingBottomBar(
                     )
                 }
             }
+
+
+            // Exact original optical principle: a fully transparent, noninteractive
+            // duplicate glyph/label layer is still recorded as backdrop content.
+            // The indicator above it samples the COMBINED page + sharp-tint layer.
+            if (useNorthGlass && tintLayer != null) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .clearAndSetSemantics {}
+                        .alpha(0f)
+                        .layerBackdrop(tintLayer),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEachIndexed { index, item ->
+                        Column(
+                            modifier = Modifier
+                                .width(cellWidthDp)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (item.northSymbol != null) {
+                                NorthPhosphorNavigationIcon(
+                                    spec = item.northSymbol,
+                                    selection = if (index == safeIndex) 1f else 0f,
+                                    phase = { iconPlayback?.phase(index) ?: 1f },
+                                    tint = selectedContentColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = item.icon,
+                                    tint = selectedContentColor,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            if (showLabels) {
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = item.label,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    color = selectedContentColor,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
+            Box(
+                Modifier
+                    .offset {
+                        // 不要在这里手动镜像 RTL：Modifier.offset{} 内部用
+                        // placeable.placeRelative()，RTL 下会自动把 x 翻成
+                        // parentWidth - x - width。手动再翻一次就成了双重镜像
+                        // （实测：RTL 选中「课表」时指示器会跑到「任务」上）。
+                        // 索引值 * 格宽 是方向无关的逻辑位置，交给 placeRelative 处理。
+                        IntOffset((drag.value * cellWidthPx).roundToInt(), 0)
+                    }
+                    .width(cellWidthDp)
+                    .fillMaxHeight()
+                    .padding(horizontal = IndicatorInset, vertical = geometry.indicatorVerticalPadding)
+                    .then(
+                        if (useNorthGlass && indicatorBackdrop != null) {
+                            Modifier.northGlassIndicator(
+                                backdrop = indicatorBackdrop,
+                                pressProgress = { drag.pressProgress },
+                                velocityPx = { drag.velocity * cellWidthPx },
+                                indicatorScale = { physicalScale() }
+                            )
+                        } else Modifier.clip(IndicatorShape).background(indicatorColor)
+                    )
+                    .then(
+                        if (useNorthGlass) Modifier else Modifier.graphicsLayer {
+                            val p = drag.pressProgress
+                            scaleX = 1f + 0.04f * p
+                            scaleY = 1f + 0.02f * p
+                        }
+                    )
+            )
         }
     }
 }
