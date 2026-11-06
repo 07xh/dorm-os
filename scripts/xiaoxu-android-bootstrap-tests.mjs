@@ -573,8 +573,10 @@ assert.match(workspace, /不纳入待完成\/已完成数量/);
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val visible = searchWorkspaceTasks\(all, filter, searchQuery, today\)/,
-  '页面实际列表必须使用搜索结果');
+assert.match(workspace, /val visible = facetWorkspaceTasks\(/,
+  '页面须对真实搜索结果应用独立来源和截止筛选');
+assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/,
+  '任务来源筛选只能处理已读取的本机与云端任务');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
 assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
@@ -1000,7 +1002,8 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
 assert.match(workspace, /private fun TaskStatusTab\(/, '任务中心必须使用蓝色胶囊状态切换，不能沿用数字大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
-assert.match(workspace, /label = "本周截止"/, '必须按真实截止日过滤本周任务');
+assert.match(workspace, /onlyThisWeek by rememberSaveable/, '本周截止应是独立的日期筛选');
+assert.match(workspace, /Text\("本周截止"\)/, '筛选选项须可见且真实可点');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区须使用图标白卡而非散乱的纯文本标题');
 assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
@@ -1063,8 +1066,12 @@ assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
 assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
   '云端表单跳转须考虑本机管理展开与否');
 assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
-assert.match(workspace, /active = filter == "week"/,
-  '本周截止胶囊须反映真实选中状态');
+assert.match(workspace, /active = filter == "all"/,
+  '全部任务状态须与待完成、已完成平级');
+assert.match(workspace, /sourceFilter == source/,
+  '来源须与任务完成状态分别筛选');
+assert.match(workspace, /facetWorkspaceTasks\(/,
+  '本周截止与来源筛选应在同一纯函数中可单测');
 assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
   '待完成统计卡应真实切换过滤器');
 assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
