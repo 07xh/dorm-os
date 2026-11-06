@@ -71,7 +71,7 @@ jobs:
           test -s "$out/app-debug.apk"
           aapt_bin="$ANDROID_HOME/build-tools/36.0.0/aapt"
           actual_package=$("$aapt_bin" dump badging "$out/app-debug.apk" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")
-          test "$actual_package" = "io.github.x07xh.xiaoxu.secondclassqa"
+          test "$actual_package" = "io.github.x07xh.xiaoxu.secondclassauto"
           cp "$out/app-debug.apk" "$RUNNER_TEMP/xiaoxu-timetable-qa.apk"
           (cd "$RUNNER_TEMP" && sha256sum xiaoxu-timetable-qa.apk > xiaoxu-timetable-qa.apk.sha256)
           unzip -t "$RUNNER_TEMP/xiaoxu-timetable-qa.apk" >/dev/null

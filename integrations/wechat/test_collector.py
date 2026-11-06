@@ -37,6 +37,26 @@ class CollectorTests(TestCase):
         self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
+    def test_cloud_schema_utf16_limits_and_control_characters(self):
+        # Python length differs from JS UTF-16 length for emoji/non-BMP glyphs.
+        text = "提交报告" + "📘"*85 + chr(1) + "请按时提交"
+        task = bridge.classify(text, 1793764800)
+        self.assertLessEqual(len(task["title"].encode("utf-16-le")) // 2, 120)
+        self.assertNotIn(chr(1), task["title"])
+
+        chat = "专业课程" + "🎓"*42
+        def reader(name, cutoff):
+            self.assertEqual(name, chat, "look up full chat name, never truncated name")
+            yield ("shard", 11, 1793764800, "提交电工报告")
+
+        records, _, _ = bridge.extract_groups(
+            {"chats": [chat]}, b"test-device-secret", {},
+            reader=reader, now_ts=1793765000
+        )
+        self.assertEqual(len(records), 1)
+        self.assertLessEqual(len(records[0]["chatLabel"].encode("utf-16-le")) // 2, 80)
+        self.assertEqual(records[0]["title"], "提交电工报告")
+
     def test_selected_groups_only_deterministic(self):
         ts = 1793764800
         secret = b"only-local-hmac-test-key"
@@ -208,6 +228,48 @@ class CollectorTests(TestCase):
             self.assertEqual(req.get_header("User-agent"), "Xiaoxu-Desktop-Connector/1.0")
             self.assertEqual(req.get_header("Authorization"), "Bearer " + "wxu_" + "x"*43)
             self.assertEqual(req.full_url, "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest")
+    def test_network_error_category_does_not_leak_details(self):
+        from urllib.error import URLError
+        import socket
+        import ssl
+        cases = [
+            (socket.gaierror(11001, "private.dns.internal"), "DNS 域名解析失败"),
+            (ssl.SSLCertVerificationError(1, "private certificate"), "HTTPS 证书验证失败"),
+            (TimeoutError("private internal endpoint"), "HTTPS 连接超时"),
+            (ConnectionRefusedError("private local port"), "HTTPS 连接被拒绝"),
+            (OSError("Tunnel connection failed: private proxy"), "代理隧道连接失败"),
+            (OSError("secret proxy username:password"), "网络连接失败"),
+        ]
+        for reason, expected in cases:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = URLError(reason)
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_" + "x"*43, {"records": []})
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn("private", str(caught.exception))
+                self.assertNotIn("secret", str(caught.exception))
+                self.assertNotIn("wxu_", str(caught.exception))
+
+    def test_http_422_reports_safe_contract_code(self):
+        import io
+        from urllib.error import HTTPError
+        for body, expected in [
+            (b'{"error":"title_invalid"}', "title_invalid"),
+            (b'{"error":"chat_label_invalid"}', "chat_label_invalid"),
+            (b'{"error":"secret_or_untrusted_response"}', "unknown_schema_error"),
+        ]:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = HTTPError(
+                    "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest",
+                    422, "Unprocessable", {"Content-Type":"application/json"}, io.BytesIO(body)
+                )
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev",
+                                  "wxu_" + "x"*43, {"records":[]})
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn("secret_or_untrusted_response", str(caught.exception))
+                self.assertNotIn("wxu_", str(caught.exception))
+
     def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
         import io
         from urllib.error import HTTPError

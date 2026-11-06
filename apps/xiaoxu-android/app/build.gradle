@@ -13,6 +13,7 @@ android {
     compileSdk 36
 
     defaultConfig {
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         applicationId 'io.github.x07xh.xiaoxu'
         minSdk 26
         targetSdk 35
@@ -39,10 +40,10 @@ android {
     buildTypes {
         debug {
             if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
-                applicationIdSuffix '.secondclassqa'
-                manifestPlaceholders.qaAppLabel = '校序 · 二课验证'
+                applicationIdSuffix '.secondclassauto'
+                manifestPlaceholders.qaAppLabel = '校序 · 自动读取'
                 // Never intercept the installed app's school authorization deep link.
-                manifestPlaceholders.schoolAuthHost = 'school-auth-return-secondclass-qa'
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-secondclass-auto'
             }
         }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
@@ -89,6 +90,8 @@ dependencies {
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
     baselineProfile(project(':benchmark'))
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
 
     // Preserve the reviewed TWA launcher only as an explicitly named legacy fallback.
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
