@@ -99,7 +99,8 @@ const metadata = {
   app: { packageName, installedPath: installed.split('\n')[0], gitCommit, apkSha256 },
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
-  result: 'pending_manual_comparison',
+  result: 'pending_capture',
+  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings'],
   scenes: []
 };
 const steps = [
@@ -147,6 +148,13 @@ try {
   }
 } finally {
   rl.close();
+  // A screenshot collector is not a visual comparator. Missing the essential
+  // reference scenes must never be reported as a complete QA evidence set.
+  const captured = new Set(metadata.scenes.filter(x => x.captured).map(x => x.name));
+  metadata.missingReferenceScenes =
+    metadata.requiredReferenceScenes.filter(x => !captured.has(x));
+  metadata.result = metadata.missingReferenceScenes.length === 0
+    ? 'pending_manual_comparison' : 'incomplete_reference_screenshots';
   fs.writeFileSync(path.join(output, 'manifest.json'),
     JSON.stringify(metadata, null, 2) + '\n', 'utf8');
 }
