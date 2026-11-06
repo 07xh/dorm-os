@@ -57,7 +57,7 @@ assert.match(main, /val preview = parsed\.second\.lessons/);
 // 不再要求已废弃的云端 Header / stale badge 继续存在。
 assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
   '本机导入源标签须明确待本人核对');
-assert.match(screen, /Text\("本机导入 · " \+ data.lessons.size \+ " 个课块 · 待本人核对",/,
+assert.match(screen, /sourceLabel = "本机导入 · " \+ data.lessons.size \+ " 个课块 · 待本人核对",/,
   '当前课表必须直接提示本人核对导入课程');
 assert.match(screen, /text = "本机导入 · 待核对"/,
   '课程详情必须明确标记本机导入，不能暗示学校官方核验');
