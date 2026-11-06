@@ -18,7 +18,10 @@ for(const path of [
  'lib/academic-cas-failure-evidence.mjs',
  'scripts/probe-ncwu-secondclass-cas-live.mjs',
  'scripts/verify-cloudflare-secondclass-cas.mjs',
- 'scripts/xiaoxu-cloudflare-secondclass-cas-tests.mjs'
+ 'scripts/xiaoxu-cloudflare-secondclass-cas-tests.mjs',
+ 'lib/academic-ncwu-sudy-codec.mjs',
+ 'scripts/xiaoxu-ncwu-sudy-codec-tests.mjs',
+ 'scripts/xiaoxu-ncwu-sudy-transport-tests.mjs'
 ])assert.equal(existsSync(new URL('../'+path,import.meta.url)),false,'obsolete script/endpoint remains: '+path);
 const ui=read('public/xiaoxu-academic-client.js');
 const source=read('functions/api/v1/connections.js');
@@ -29,6 +32,12 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
 assert.equal(pkg.includes('xiaoxu-cloudflare-secondclass-cas-tests.mjs'),false);
+assert.equal(pkg.includes('xiaoxu-ncwu-sudy-codec-tests.mjs'),false);
+const server=read('lib/academic-ncwu-secondclass-server.mjs');
+assert.equal(server.includes('async preflight('),false,'retired server CAS form probe must not return');
+assert.equal(server.includes('inspectCasForm('),false,'retired CAS password form inspector must not return');
+assert.ok(server.includes('async forSession('),'owner-bound existing session reader must remain');
+assert.ok(server.includes('async login('),'server login must explicitly refuse credentials');
 assert.equal(read('.github/workflows/check.yml').includes('probe-ncwu-secondclass-cas-live'),false);
 assert.equal(read('.github/workflows/deploy-cloudflare.yml').includes('verify-cloudflare-secondclass-cas'),false);
 assert.equal(read('public/xiaoxu-academic-client.js').includes('casErrorKind'),false);
