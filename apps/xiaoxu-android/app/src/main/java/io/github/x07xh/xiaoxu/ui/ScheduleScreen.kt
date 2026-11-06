@@ -76,6 +76,12 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 
@@ -175,7 +181,8 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 @Composable
 fun CloudTimetablePanel(
     localLessons: List<VerifiedLesson>,
-    openFileImport: () -> Unit
+    openFileImport: () -> Unit,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -190,7 +197,8 @@ fun CloudTimetablePanel(
                 ScheduleVerifiedContent(
                     data = localImportedScheduleView(localLessons),
                     expanded = expanded,
-                    openFileImport = openFileImport
+                    openFileImport = openFileImport,
+                    onLocalLessonsChanged = onLocalLessonsChanged
                 )
             }
         }
@@ -235,11 +243,17 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
 private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
     expanded: Boolean,
-    openFileImport: () -> Unit
+    openFileImport: () -> Unit,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
     var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
+    val editorScope = rememberCoroutineScope()
+    var showingCourseEditor by remember { mutableStateOf(false) }
+    var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
+    var editingBusy by remember { mutableStateOf(false) }
+    var editingError by remember { mutableStateOf<String?>(null) }
     val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
     val weekNumbers = remember(data.lessons) {
@@ -298,9 +312,14 @@ private fun ScheduleVerifiedContent(
                     style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showSemesterSettings = true }) { Text("学期设置") }
+                TextButton(onClick = {
+                    editOriginal = null
+                    editingError = null
+                    showingCourseEditor = true
+                }) { Text("新增") }
+                TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
                 OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                    Text("重新导入")
+                    Text("导入")
                 }
             }
         }
@@ -350,7 +369,8 @@ private fun ScheduleVerifiedContent(
                     Text("$monday 至 $sunday",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (actualCurrentWeek in weekNumbers && selectedWeek != actualCurrentWeek) {
+                    if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                        selectedWeek != actualCurrentWeek) {
                         TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
                             Text("返回本周")
                         }
@@ -461,7 +481,65 @@ private fun ScheduleVerifiedContent(
         CourseDetailBottomSheet(
             lesson = opened,
             timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
+            onEdit = {
+                editOriginal = data.lessons.firstOrNull { it.toUi().key == opened.key }
+                editingError = null
+                selectedCourseKey = null
+                showingCourseEditor = editOriginal != null
+            },
             onDismiss = { selectedCourseKey = null }
+        )
+    }
+    if (showingCourseEditor) {
+        fun commitEdited(changed: List<VerifiedLesson>) {
+            if (editingBusy) return
+            editingBusy = true
+            editingError = null
+            editorScope.launch {
+                try {
+                    val saved = withContext(Dispatchers.IO) {
+                        LocalScheduleStore.saveEdited(context, changed)
+                        LocalScheduleStore.load(context)
+                    }
+                    onLocalLessonsChanged(saved)
+                    showingCourseEditor = false
+                    editOriginal = null
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "本机课表修改失败"
+                } finally {
+                    editingBusy = false
+                }
+            }
+        }
+        CourseEditorDialog(
+            original = editOriginal,
+            selectedWeek = selectedWeek.takeIf { it != ALL_WEEKS },
+            busy = editingBusy,
+            externalError = editingError,
+            onDismiss = { if (!editingBusy) showingCourseEditor = false },
+            onSave = { replacement, onlyThisWeek ->
+                try {
+                    val modified = LocalScheduleEditor.upsert(
+                        data.lessons, editOriginal?.id, replacement,
+                        selectedWeek.takeIf { onlyThisWeek && it != ALL_WEEKS }
+                    )
+                    commitEdited(modified)
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "课程冲突，未保存"
+                }
+            },
+            onDelete = { onlyThisWeek ->
+                try {
+                    val target = editOriginal ?: error("没有选中课程")
+                    val modified = LocalScheduleEditor.delete(
+                        data.lessons, target.id,
+                        selectedWeek.takeIf { onlyThisWeek && it != ALL_WEEKS }
+                    )
+                    commitEdited(modified)
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "删除失败"
+                }
+            }
         )
     }
     if (showSemesterSettings) {
@@ -915,7 +993,8 @@ internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseDetailBottomSheet(
-    lesson: LessonUi, onDismiss: () -> Unit, timeLabel: String? = null
+    lesson: LessonUi, onDismiss: () -> Unit, timeLabel: String? = null,
+    onEdit: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -948,6 +1027,11 @@ private fun CourseDetailBottomSheet(
             CourseSheetRow("节次", lesson.sectionLabel)
             if (timeLabel != null) CourseSheetRow("上课时间", timeLabel)
             CourseSheetRow("学期", lesson.term)
+            if (onEdit != null) {
+                TextButton(onClick = onEdit, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text("编辑课程")
+                }
+            }
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("关闭详情")
             }
