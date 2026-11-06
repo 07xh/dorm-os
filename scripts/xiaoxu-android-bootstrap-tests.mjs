@@ -1151,10 +1151,27 @@ assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
   '任务列表分组不应再套独立大卡造成页面拼接感');
 assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
   '精简分组后仍须保留可触控的最小高度');
-assert.match(compactTaskHeader, /append\("，"\)\.append\(badge\)/,
-  '折叠分组必须保留真实来源及核验状态的无障碍说明');
+assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\)\) append\("，"\)\.append\(badge\)/,
+  '有实际来源状态时保留无障碍描述，普通任务不追加无用小字');
+assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)/,
+  '没有必要说明的任务分组不应占第二行辅助文字');
 assert.doesNotMatch(workspace, /title = "群消息任务候选"|showCandidates/,
   '任务中心不得再展示待审核微信群消息区块或保存其折叠状态');
+assert.match(workspace, /title = "微信任务"/,
+  '审核通过的微信任务必须在任务中心独立成组');
+assert.match(workspace, /var showWechatTasks by rememberSaveable/,
+  '微信任务独立于课程/本机分组折叠');
+assert.match(taskHubRegion,
+  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = wechatRows\.size\)/,
+  '微信任务必须维持独立带 key 的 LazyColumn 列表');
+assert.match(workspace, /val wechatRows = shown\.filter \{ it\.category == "wechat" \}/,
+  '微信任务不能混入普通云端任务的列表');
+assert.match(workspace, /val cloudRows = shown\.filter \{ it\.category == "cloud" \}/,
+  '普通云端任务不应包含微信审核通过的任务');
+assert.match(workspace, /"wechat" -> "微信任务"/,
+  '原生任务标题与筛选菜单必须识别微信来源');
+assert.match(workspace, /task\.provider == "wechat"/,
+  '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
 assert.match(messageCenter, /text = \{ Text\("微信审核"\) \}/,
   '群消息候选唯一审核位置必须是消息中心的微信审核标签');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
