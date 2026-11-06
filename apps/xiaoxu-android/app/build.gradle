@@ -25,6 +25,8 @@ android {
             qaAppLabel: '@string/app_name',
             schoolAuthHost: 'school-auth-return'
         ]
+        // This same host is validated by SchoolAuthReturn.consume().
+        resValue 'string', 'school_auth_return_host', 'school-auth-return'
     }
 
     compileOptions {
@@ -40,10 +42,11 @@ android {
     buildTypes {
         debug {
             if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
-                applicationIdSuffix '.secondclassqa'
-                manifestPlaceholders.qaAppLabel = '校序 · 二课验证'
-                // Never intercept the installed app's school authorization deep link.
-                manifestPlaceholders.schoolAuthHost = 'school-auth-return-secondclass-qa'
+                applicationIdSuffix '.unifiedqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 整合验证'
+                // Distinct from both the official app and previous second-class QA install.
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-unified-qa'
+                resValue 'string', 'school_auth_return_host', 'school-auth-return-unified-qa'
             }
         }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，

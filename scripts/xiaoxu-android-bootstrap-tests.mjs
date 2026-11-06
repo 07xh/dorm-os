@@ -694,14 +694,22 @@ assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
 assert.match(manifest, /android:scheme="xiaoxu" android:host="\$\{schoolAuthHost\}"/);
 assert.match(appGradle, /schoolAuthHost: 'school-auth-return'/,
   'The normal application must retain its existing authorization return URI');
-assert.match(appGradle, /applicationIdSuffix '\.secondclassqa'/,
+assert.match(appGradle, /resValue 'string', 'school_auth_return_host', 'school-auth-return'/,
+  '正式版回跳使用原 Host');
+assert.match(appGradle, /resValue 'string', 'school_auth_return_host', 'school-auth-return-unified-qa'/,
+  '独立 QA 回跳 Host 不得与正式版或旧 QA 混用');
+assert.match(appGradle, /applicationIdSuffix '\.unifiedqa'/,
   'QA installs must have a distinct Android application id');
-assert.match(appGradle, /manifestPlaceholders\.schoolAuthHost = 'school-auth-return-secondclass-qa'/,
+assert.match(appGradle, /manifestPlaceholders\.schoolAuthHost = 'school-auth-return-unified-qa'/,
   'QA must not steal the normal application authorization deep link');
-assert.match(ci, /xiaoxu-timetable-qa-isolated/,
+assert.match(ci, /xiaoxu-unified-native-qa-isolated/,
   'QA APK must be uploaded separately, not replace the normal build artifact');
 const handoff = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SchoolAuthReturn.kt');
 assert.match(handoff, /SecureRandom\(\)\.nextBytes\(bytes\)/);
+assert.match(handoff, /expectedReturnHost = context\.applicationContext\.getString\(R\.string\.school_auth_return_host\)/,
+  '独立 QA 与正式版必须分别验证配置的安全回跳 Host');
+assert.match(handoff, /uri\.host != expectedReturnHost/,
+  'Host 验证不得硬编码到正式版，避免 QA 误收或拒绝有效回跳');
 assert.match(handoff, /MessageDigest\.isEqual/);
 assert.match(handoff, /ownerBinding != savedOwner/);
 assert.match(handoff, /prefs\.edit\(\)\.clear\(\)\.commit\(\)/);

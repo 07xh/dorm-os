@@ -1,0 +1,5 @@
+User-requested native UI integration verification for Draft PR #351 (2026-11-06).
+Build the existing Android app's standard debug and its separately installable -PxiaoxuIsolatedQa=true unified native UI QA variant.
+The isolated QA package is io.github.x07xh.xiaoxu.unifiedqa; it must not replace production io.github.x07xh.xiaoxu, previous timetableqa, or previous secondclassqa installs.
+Run native source safety checks, Android Kotlin compile/JVM, validate APK manifest/classes.dex/package and publish SHA-256 in GitHub Actions artifacts.
+Do not merge or release to production. No owner-device or official-school-account validation claim. Web owner-auth return is not yet validated for this QA Host; use the native official-device reader for second-class local verification. Debug signatures may differ between CI runs.
