@@ -8,7 +8,7 @@ param(
 $ErrorActionPreference="Stop"
 $homeCli=Join-Path $env:USERPROFILE ".wechat-cli"
 $toolDir=Join-Path $homeCli "tool"
-$python=Join-Path $homeCli "py312-venv\\Scripts\\python.exe"
+$python=Join-Path (Join-Path $homeCli "py312-venv") "Scripts\python.exe"
 $collector=Join-Path $PSScriptRoot "collector.py"
 if(!(Test-Path -LiteralPath (Join-Path $toolDir "entry.py") -PathType Leaf)){
  Write-Error "未找到微信读取工具。请先安装 wechat-cli-plus。"
