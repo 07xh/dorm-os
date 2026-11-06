@@ -63,7 +63,7 @@ test('one score identity + personal page + three real empty catalog filters',asy
   assert.equal(result.identityMatched,true);
   assert.equal(result.httpStatus,200,'catalog requests must preserve score reader status');
   assert.equal(result.activitiesComplete,true);
-  assert.deepEqual(result.activities,[]);
+  assert.deepEqual(Array.from(result.activities),[]);
   assert.equal(result.catalogStatus,'verified_empty');
   assert.deepEqual(Array.from(result.catalogEmptyFilters),filters);
   assert.equal(result.fullSyncVerified,false);
@@ -76,7 +76,7 @@ test('unknown nonempty activities NEVER become invented verified directory',asyn
   const {result,requests}=await read({nonemptyAt:'待验证'});
   assert.equal(result.ok,true,'personal score can still be saved');
   assert.equal(result.catalogStatus,'nonempty_unverified');
-  assert.deepEqual(result.catalogEmptyFilters,[]);
+  assert.deepEqual(Array.from(result.catalogEmptyFilters),[]);
   assert.equal(result.catalogActivities,undefined);
   assert.equal(requests.length,4,'stop on first nonempty filter');
 });
@@ -85,7 +85,7 @@ test('server failures do not lie that all three filters are empty',async()=>{
   const {result,requests}=await read({failedAt:'即将开始报名'});
   assert.equal(result.ok,true);
   assert.equal(result.catalogStatus,'unavailable');
-  assert.deepEqual(result.catalogEmptyFilters,[]);
+  assert.deepEqual(Array.from(result.catalogEmptyFilters),[]);
   assert.equal(requests.length,5);
 });
 
