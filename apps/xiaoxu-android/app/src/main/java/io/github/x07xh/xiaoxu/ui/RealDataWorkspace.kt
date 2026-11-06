@@ -1375,7 +1375,7 @@ private fun TaskStatusTab(
     }
 }
 
-/** Shared white group header, with a blue icon tile and reliable source caption. */
+/** 轻量分组标题：一层布局保留真实来源及核验信息，不再套图标大卡与独立徽标。 */
 @Composable
 private fun TaskGroupHeader(
     title: String,
@@ -1387,41 +1387,50 @@ private fun TaskGroupHeader(
     onClick: () -> Unit,
     showCount: Boolean = true
 ) {
-    XiaoxuCard(contentPadding = 14.dp, onClick = onClick) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(XiaoxuPalette.BrandSoft),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = XiaoxuPalette.Brand,
-                    modifier = Modifier.size(22.dp))
-            }
-            Column(modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    title + if (showCount) " ($count)" else "",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Text(note, style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis)
-            }
-            Icon(
-                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                contentDescription = if (expanded) "折叠分区" else "展开分区",
-                tint = XiaoxuPalette.Ink2
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(title)
+                    if (showCount) append("，$count 条")
+                    append("，").append(badge)
+                    append("，").append(note)
+                    append(if (expanded) "，点击收起" else "，点击展开")
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = XiaoxuPalette.Ink2,
+            modifier = Modifier.size(20.dp))
+        Column(modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                title + if (showCount) " ($count)" else "",
+                style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() }
+            )
+            Text(
+                "$badge · $note",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        TaskSourceBadge(badge, emphasized = true)
+        Icon(
+            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+            contentDescription = null,
+            tint = XiaoxuPalette.Ink2,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
