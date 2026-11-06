@@ -68,3 +68,14 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未�
 | 保留本许可与原始版权声明 | 本文件 + 两个源文件的文件头 |
 
 > 若校序未来改为商业分发（应用商店付费、广告、收费服务），**必须先移除**这两个文件并换用自研动画驱动。此约束同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` 的「§0 许可证前提」。
+
+---
+
+## 北化课表 / CourseSelector 液态玻璃导航（GPL-3.0）
+
+本分支开始将[znjhahaha/zhengfang-apk](https://github.com/znjhahaha/zhengfang-apk) 的 `v1.0.83` 版本 `app/src/main/java/com/tyust/course/ui/system/CapsuleNavigationBar.kt` 中玻璃轨道与选中透镜的材质配方适配至 `ui/NorthGlassNavChrome.kt`。
+
+- 原项目：CourseSelector / 教务助手，原作者及贡献者见其 Git 历史，许可证为 GPL-3.0。
+- 修改：将材质绘制抽为不持有路由状态的 Compose Modifier；图标和手势仍复用校序现有唯一底栏组件；仅在 API 33+ 开启真实 Backdrop，低版本沿用已验证的回退渲染。
+- 依赖：`io.github.kyant0:backdrop:2.0.0`、`io.github.kyant0:shapes:1.2.0`，见 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)。
+- 本修改分支为公开源码；复刻视觉及性能仍须与原版 APK 真机比对，不能以编译成功代替视觉验收。
