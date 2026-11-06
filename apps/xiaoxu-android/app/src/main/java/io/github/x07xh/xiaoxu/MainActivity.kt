@@ -86,6 +86,7 @@ import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
+import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -387,6 +388,12 @@ private fun NativeShell(
     BackHandler(enabled = messagesOpen) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
     }
+    BackHandler(
+        enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
+            academic == AcademicDestination.SERVICES
+    ) {
+        academic = AcademicDestination.OVERVIEW // Hidden service detail never becomes a fake selected top tab.
+    }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
     // Room emits after create / complete / delete / import; WorkManager refreshes only local opt-in jobs.
@@ -645,30 +652,41 @@ private fun AcademicPage(
     )
     val tabStateHolder = rememberSaveableStateHolder()
     Column(Modifier.fillMaxSize()) {
-        ScrollableTabRow(
-            selectedTabIndex = visibleTabs.indexOfFirst { it.first == selected }.coerceAtLeast(0),
-            edgePadding = 0.dp
-        ) {
-            visibleTabs.forEach { (destination, title) ->
-                Tab(selected = selected == destination, onClick = { select(destination) },
-                    text = { Text(title) })
+        if (selected != AcademicDestination.SERVICES) {
+            ScrollableTabRow(
+                selectedTabIndex = visibleTabs.indexOfFirst { it.first == selected },
+                edgePadding = 0.dp
+            ) {
+                visibleTabs.forEach { (destination, title) ->
+                    Tab(selected = selected == destination, onClick = { select(destination) },
+                        text = { Text(title) })
+                }
             }
         }
         when (selected) {
             AcademicDestination.OVERVIEW -> Content {
-                item { Heading("教务中心", "成绩 · 考试 · 第二课堂") }
-                item { TextButton(onClick = { select(AcademicDestination.GRADES) }) {
-                    Text("成绩查询  ·  学期成绩与学分")
-                } }
-                item { TextButton(onClick = { select(AcademicDestination.EXAMS) }) {
-                    Text("考试安排  ·  时间与地点")
-                } }
-                item { TextButton(onClick = { select(AcademicDestination.SECOND_CLASS) }) {
-                    Text("第二课堂  ·  素质积分与活动")
-                } }
-                item { TextButton(onClick = { select(AcademicDestination.SERVICES) }) {
-                    Text("校园服务  ·  连接与可用功能")
-                } }
+                item { Heading("教务中心", "学业与学校服务 · 真实数据") }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickEntry("成绩查询", Icons.Outlined.School,
+                            { select(AcademicDestination.GRADES) }, Modifier.weight(1f))
+                        QuickEntry("考试安排", Icons.Outlined.DateRange,
+                            { select(AcademicDestination.EXAMS) }, Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle,
+                            { select(AcademicDestination.SECOND_CLASS) }, Modifier.weight(1f))
+                        QuickEntry("校园服务", Icons.Outlined.Home,
+                            { select(AcademicDestination.SERVICES) }, Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Text("成绩、考试未读取前仅展示连接状态；第二课堂沿用本人本机积分与活动记录。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") {
                 SecondClassPage()
