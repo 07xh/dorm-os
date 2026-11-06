@@ -142,32 +142,21 @@ internal fun SemesterSettingsDialog(
 
             SettingsGroupTitle("显示设置")
             SettingsSurface {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("默认课表视图", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
-                    Row(
-                        modifier = Modifier.clip(RoundedCornerShape(22.dp))
-                            .background(Color(0xFFE9E9F1)).padding(3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        listOf("week" to "周视图", "day" to "日视图").forEach { (mode, name) ->
-                            Box(
-                                modifier = Modifier.clip(RoundedCornerShape(20.dp))
-                                    .background(if (viewMode == mode) Color(0xFFD7E7FA)
-                                        else Color.Transparent)
-                                    .clickable { viewMode = mode }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(name, color = if (viewMode == mode) XiaoxuPalette.Brand
-                                    else XiaoxuPalette.Ink2,
-                                    style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
+                    Text("默认课表视图",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = XiaoxuPalette.Ink)
+                    XiaoxuSegmentedControl(
+                        options = listOf(
+                            XiaoxuSegmentOption("week", "周视图"),
+                            XiaoxuSegmentOption("day", "日视图")
+                        ),
+                        selectedKey = viewMode,
+                        onSelected = { viewMode = it }
+                    )
                 }
             }
 
