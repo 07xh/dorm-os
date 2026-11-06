@@ -231,7 +231,7 @@ private fun ProfileHeroCard(state: CloudUiState) {
     }
     val reviewCaption = when {
         !state.authenticated -> "—"
-        state.pendingWechatCount == null -> "—"
+        state.pendingWechatCount == null -> "未读取"
         state.wechatError != null -> state.pendingWechatCount.toString() + "（快照）"
         else -> state.pendingWechatCount.toString()
     }
