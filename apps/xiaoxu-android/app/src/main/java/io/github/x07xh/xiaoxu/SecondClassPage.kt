@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,6 +59,11 @@ fun SecondClassPage(
     val batch = candidates.singleOrNull { it.kind == "activity_summary" }
     val activities = if (batch != null &&
         candidates.all { it.capturedAt == batch.capturedAt }) candidates else emptyList()
+    val catalogRows = all.filter { it.provider == "second_class" && it.kind == "catalog_empty" }
+    val catalogComplete = catalogRows.size == 3 &&
+        catalogRows.map { it.title }.toSet() == setOf("报名中", "待验证", "即将开始报名") &&
+        catalogRows.map { it.capturedAt }.distinct().size == 1
+    var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf("显示本机上次保存结果") }
@@ -92,19 +99,47 @@ fun SecondClassPage(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (tab == 0) {
+                val labels = listOf("报名中", "待验证", "即将开始报名")
                 Text("发现活动", style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    labels.forEachIndexed { index, label ->
+                        FilterChip(selected = catalogFilter == index,
+                            onClick = { catalogFilter = index },
+                            label = { Text(label) })
+                    }
+                }
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("学校活动广场尚未接入",
-                            fontWeight = FontWeight.SemiBold)
-                        Text("当前校序已具备本人报名活动与积分的读取入口，" +
-                            "尚未验证所有正在报名的活动目录、名额和报名截止时间。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("因此这里暂不显示活动卡片，也不会用个人报名列表冒充全校活动。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val selected = labels[catalogFilter]
+                        val record = if (catalogComplete)
+                            catalogRows.singleOrNull { it.title == selected } else null
+                        if (record != null) {
+                            Text("当前筛选暂无活动",
+                                fontWeight = FontWeight.SemiBold)
+                            Text(record.details,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("上次官方读取：" +
+                                DateFormat.getDateTimeInstance().format(Date(record.capturedAt)),
+                                style = MaterialTheme.typography.labelSmall)
+                            Text("以上仅为上次读取的“$selected”筛选结果；不是全校所有活动，" +
+                                "也不代表此刻仍然没有活动。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Text("学校活动广场尚未完成本机读取",
+                                fontWeight = FontWeight.SemiBold)
+                            Text("尚未验证所有正在报名的活动目录。学校可能暂无活动，" +
+                                "也可能有非空记录暂未通过字段验收；不能据此显示“暂无活动”。",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("个人已报名活动不是活动广场，不会在此冒充可报名记录。",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Button(onClick = { attempted = true; refreshPersonalRecords() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("刷新活动广场（学校官方读取）")
+                        }
                         OutlinedButton(onClick = {
                             runCatching {
                                 context.startActivity(
@@ -113,10 +148,6 @@ fun SecondClassPage(
                                 )
                             }.onFailure { message = "无法打开校序内学校页面" }
                         }) { Text("在校序内检查活动列表来源") }
-                        Text("打开后先正常登录学校官网，进入活动页面，再手动开启请求观测；" +
-                            "观测结果仅在本机显示，不代表活动数据已接入。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedButton(onClick = {
                             runCatching {
                                 context.startActivity(
@@ -127,8 +158,8 @@ fun SecondClassPage(
                         }) { Text("前往第二课堂官方平台") }
                     }
                 }
-                if (message.startsWith("无法打开")) {
-                    Text(message, color = MaterialTheme.colorScheme.error)
+                if (message.isNotBlank()) {
+                    Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)

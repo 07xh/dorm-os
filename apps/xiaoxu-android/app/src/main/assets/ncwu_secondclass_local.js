@@ -1,5 +1,5 @@
 // Fixed, device-local read. Never read inputs, cookies, storage or full URLs.
-(async function readSecondClassScores(accountSalt = '', includeActivities = false) {
+(async function readSecondClassScores(accountSalt = '', includeActivities = false, includeCatalog = false) {
   const host = 'https://dekt.ncwu.edu.cn';
   const path = '/sys/stu/score/list';
   const base = {schema:'xiaoxu/local-secondclass-scores-v1',
@@ -16,7 +16,7 @@
   if (unique.length !== 1) return fail('identity','visible_account_required');
   const expected = unique[0];
   const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(),includeActivities?60000:15000);
+  const timer = setTimeout(()=>controller.abort(),includeActivities||includeCatalog?60000:15000);
   let requestStage = 'score_request';
   try {
     const response = await fetch(host+path,{
@@ -132,6 +132,56 @@
         if(page===pageCount){if(activities.length!==total)return fail('activity_response','incomplete_total');break;}
       }
     }
+    // Reuse the same owner-bound official page + verified score identity.
+    // The owner's 2026-11-06 HAR confirms POST /sys/stu/activity with
+    // title=报名中/待验证/即将开始报名 and a strict zero-row envelope.
+    // NO nonempty catalog row has been witnessed; never claim it parsed.
+    let catalogStatus='not_requested';
+    let catalogEmptyFilters=[];
+    if(includeCatalog){
+      catalogStatus='verified_empty';
+      const catalogPath='/sys/stu/activity';
+      for(const title of ['报名中','待验证','即将开始报名']){
+        requestStage='catalog_request';
+        // Keep the personal-score/activities HTTP result unchanged:
+        // parseLocalSecondClassScores requires its verified 200 status.
+        // Catalog diagnostics must not overwrite that independent contract.
+        let res;
+        try{
+          res=await fetch(host+catalogPath,{
+            method:'POST',credentials:'same-origin',redirect:'error',cache:'no-store',
+            headers:{accept:'application/json',
+              'content-type':'application/x-www-form-urlencoded; charset=UTF-8',
+              'x-requested-with':'XMLHttpRequest'},
+            body:'title='+encodeURIComponent(title),signal:controller.signal
+          });
+        }catch{catalogStatus='unavailable';break;}
+        if(res.status!==200||res.redirected||res.url!==host+catalogPath||
+           !context()){catalogStatus='unavailable';break;}
+        requestStage='catalog_response';
+        let data;
+        try{
+          const text=await res.text();
+          if(text.length>100000){catalogStatus='unavailable';break;}
+          data=JSON.parse(text);
+        }catch{catalogStatus='unavailable';break;}
+        const current=visibleIdentity();
+        if(!context()||current.length!==1||current[0]!==expected)
+          return fail('identity','visible_account_changed');
+        if(!data||!Array.isArray(data.data)||
+           !Number.isSafeInteger(data.totalSize)||
+           !Number.isSafeInteger(data.totalPage)||
+           !Number.isSafeInteger(data.startIndex)){
+          catalogStatus='unavailable';break;
+        }
+        if(data.data.length!==0||data.totalSize!==0||
+           data.totalPage!==0||data.startIndex!==0){
+          catalogStatus='nonempty_unverified';break;
+        }
+        catalogEmptyFilters.push(title);
+      }
+      if(catalogStatus!=='verified_empty')catalogEmptyFilters=[];
+    }
     let accountHash;
     if (/^[a-f0-9]{32}$/.test(accountSalt)) {
       const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(accountSalt+':'+expected));
@@ -141,7 +191,8 @@
         return fail('identity','visible_account_changed');
     }
     return {...base,...diagnostic,ok:true,identityMatched:true,rows,...(accountHash?{accountHash}:{}),
-      ...(includeActivities?{activitiesComplete:true,activities}: {})};
+      ...(includeActivities?{activitiesComplete:true,activities}: {}),
+      ...(includeCatalog?{catalogStatus,catalogEmptyFilters}: {})};
   } catch { return fail(requestStage,'network_redirect_or_timeout'); }
   finally { clearTimeout(timer); }
 })
