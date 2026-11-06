@@ -28,6 +28,44 @@ class CampusRunContractTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun manualKmParserUsesExactMetersAndNeverConvertsBlankToZero() {
+        assertEquals(12_340L, parseCampusRunKilometers("12.34"))
+        assertEquals(5_000L, parseCampusRunKilometers("5"))
+        assertEquals(0L, parseCampusRunKilometers("0.00"))
+        assertNull(parseCampusRunKilometers("  "))
+        rejects { parseCampusRunKilometers("-1") }
+        rejects { parseCampusRunKilometers("1.999") }
+        rejects { parseCampusRunKilometers("1e6") }
+        rejects { parseCampusRunKilometers("1,000") }
+    }
+
+    @Test fun manualEntryIsNeverTrustedAndKeepsUnrelatedScopesSeparate() {
+        val input = CampusRunManualInput("示例学期", "120.00", "19.25",
+            "24.80", "38.50", "")
+        val summary = input.toSnapshot(now)
+        assertEquals(CampusRunProvenance.USER_IMPORT, summary.provenance)
+        assertFalse(summary.ownerMatched)
+        assertEquals("示例学期", summary.termLabel)
+        assertEquals(120_000L, summary.targetMeters)
+        assertEquals(19_250L, summary.effectiveMeters)
+        assertEquals(24_800L, summary.rawMeters)
+        assertEquals(38_500L, summary.dashboardAccumulatedMeters)
+        assertNull(summary.weeklyMeters)
+        assertNull(summary.totalRunCount)
+        assertFalse(summary.historyComplete)
+        assertTrue(summary.records.isEmpty())
+    }
+
+    @Test fun incompleteOrInconsistentManualInputFailsWithoutFabricatingZeros() {
+        rejects { CampusRunManualInput("", "", "", "", "", "").toSnapshot(now) }
+        rejects { CampusRunManualInput("", "0", "1", "2", "", "").toSnapshot(now) }
+        rejects { CampusRunManualInput("", "100", "9", "8", "", "").toSnapshot(now) }
+        val partial = CampusRunManualInput("", "90", "", "", "", "").toSnapshot(now)
+        assertNull(partial.effectiveMeters)
+        assertNull(partial.remainingMeters())
+        assertNull(partial.progressPercent())
+    }
+
     @Test fun progressUsesOnlyEffectiveSemesterDistance() {
         val result = validateCampusRunSnapshot(sample(), now)
         assertEquals(7_500L, result.remainingMeters())
