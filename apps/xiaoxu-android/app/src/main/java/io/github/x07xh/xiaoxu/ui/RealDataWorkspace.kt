@@ -869,9 +869,9 @@ fun RealAcademicTaskHub(
         }
         item {
             // One continuous status strip; values come from real saved tasks.
-            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth()
+                    .padding(top = 12.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(XiaoxuPalette.Surface)
                     .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(18.dp))
@@ -896,8 +896,8 @@ fun RealAcademicTaskHub(
             }
         }
         if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
-            Spacer(Modifier.height(12.dp))
             Text("含上次云端快照 " + state.tasks.size + " 条",
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink2)
         }
@@ -1027,15 +1027,15 @@ fun RealAcademicTaskHub(
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
         }
         if (visible.size > 80) item {
-            Spacer(Modifier.height(12.dp))
             Text("已显示 " + shown.size + " / " + visible.size + " 条，可调整筛选查看剩余任务",
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (visible.isEmpty()) {
             item {
-                Spacer(Modifier.height(12.dp))
                 XiaoxuEmpty(
+                    modifier = Modifier.padding(top = 12.dp),
                     title = if (filter == "done" && onlyThisWeek) "当前筛选条件互相冲突"
                         else "没有匹配的已保存任务",
                     message = when {
@@ -1124,8 +1124,8 @@ fun RealAcademicTaskHub(
         }
         if (state.privateError != null) {
             item {
-                Spacer(Modifier.height(12.dp))
                 Text("云端部分数据刷新失败，已有记录可能过期",
+                    modifier = Modifier.padding(top = 12.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error)
             }
@@ -1153,7 +1153,7 @@ fun RealAcademicTaskHub(
         }
         if (showOfficialAudit) {
             item {
-                XiaoxuCard {
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
                     Text(
                         "仅展示本人授权会话中实际核实的课程和作业状态；不会自动提交或标记本机任务完成。",
                         style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2
@@ -1231,7 +1231,7 @@ fun RealAcademicTaskHub(
                         ChaoxingCourseCoverage.FAILED -> "本次读取失败"
                         ChaoxingCourseCoverage.NOT_CHECKED -> "本次未检查"
                     }
-                    XiaoxuCard(contentPadding = 10.dp) {
+                    XiaoxuCard(modifier = Modifier.padding(top = 12.dp), contentPadding = 10.dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(course.courseTitle, modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1273,7 +1273,7 @@ fun RealAcademicTaskHub(
                         "returned" -> "官方：已退回"
                         else -> "官方：状态未知"
                     }
-                    XiaoxuCard(contentPadding = 12.dp) {
+                    XiaoxuCard(modifier = Modifier.padding(top = 12.dp), contentPadding = 12.dp) {
                         Text(work.title, fontWeight = FontWeight.SemiBold,
                             color = XiaoxuPalette.Ink)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1641,6 +1641,7 @@ private fun ConnectedTaskShell(
     }
     Column(
         modifier = Modifier.fillMaxWidth()
+            .padding(top = if (index == 0) 8.dp else 0.dp)
             .clip(corners)
             .background(XiaoxuPalette.Surface)
             .border(0.5.dp, XiaoxuPalette.Line, corners)
