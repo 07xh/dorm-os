@@ -114,9 +114,6 @@ fun formatWeeks(weeks: List<Int>): String {
     return "第" + parts.joinToString("、") + "周"
 }
 
-/** 每天课程数，用于星期条上的密度点。 */
-fun lessonCountByWeekday(lessons: List<VerifiedLesson>): Map<Int, Int> =
-    lessons.groupingBy { it.weekday }.eachCount()
 
 // ---------------------------------------------------------------------------
 // UI 模型
