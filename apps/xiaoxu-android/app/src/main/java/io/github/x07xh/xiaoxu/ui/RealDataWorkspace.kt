@@ -1662,7 +1662,7 @@ private fun ConnectedTaskShell(
     total: Int,
     content: @Composable () -> Unit
 ) {
-    val radius = 16.dp
+    val radius = XiaoxuRadius.card
     val corners = when {
         total <= 1 -> RoundedCornerShape(radius)
         index == 0 -> RoundedCornerShape(
@@ -1718,7 +1718,7 @@ private fun TaskRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 82.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
