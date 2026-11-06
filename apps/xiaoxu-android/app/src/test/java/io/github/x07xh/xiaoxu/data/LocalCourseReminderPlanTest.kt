@@ -27,6 +27,17 @@ class LocalCourseReminderPlanTest {
         assertEquals(19 * 60 * 60 * 1000L + 50 * 60 * 1000L, result.first().delayMillis)
     }
 
+    @Test fun unchangedTimetableDoesNotResubmitExistingJobs() {
+        val existing = setOf("monday-math", "tuesday-english")
+        val unchanged = reminderWorkDelta(existing, existing)
+        assertTrue(unchanged.toCancel.isEmpty())
+        assertTrue(unchanged.toEnqueue.isEmpty())
+
+        val changed = reminderWorkDelta(existing, setOf("tuesday-english", "friday-lab"))
+        assertEquals(setOf("monday-math"), changed.toCancel)
+        assertEquals(setOf("friday-lab"), changed.toEnqueue)
+    }
+
     @Test fun missingTimetableHoursNeverInventReminder() {
         val unknown = SemesterCalendar.parse("2026-09-07", "18", "")
         val now = ZonedDateTime.of(2026, 9, 6, 12, 0, 0, 0, zone)
