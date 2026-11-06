@@ -367,23 +367,41 @@ class CloudClient(context: Context) {
         var scheduleStatus: String? = null
         var scheduleFetchedAt: String? = null
         var scheduleLoaded = false
+        // The owner task ledger can contain more than 100 records after a
+        // Chaoxing multi-course sync. Read every bounded API page before
+        // certifying tasksFresh; a partial response never replaces the old list.
         try {
-            val r = withContext(Dispatchers.IO) {
-                request("/api/v1/assignments?limit=100", authenticated = true)
-            }
-            if (r.code != 200) throw IllegalStateException()
-            val array = r.json.getJSONArray("items")
-            tasks = buildList {
-                for (i in 0 until array.length()) {
-                    val o = array.optJSONObject(i) ?: continue
-                    val provider = o.optString("source_provider").takeIf { it.isNotBlank() && it != "null" }
-                    val due = o.optString("due_at_utc").takeIf { it.isNotBlank() && it != "null" }
-                        ?: o.optString("due_local_date").takeIf { it.isNotBlank() && it != "null" }
-                    add(CloudTask(o.optString("id"), o.optString("title").take(120),
-                        o.optString("local_status"), o.optString("kind"), provider, due))
+            val pages = CloudAssignmentPages()
+            while (!pages.complete) {
+                val offset = pages.nextOffset
+                val r = withContext(Dispatchers.IO) {
+                    request("/api/v1/assignments?limit=100&offset=$offset",
+                        authenticated = true)
                 }
+                if (r.code != 200) throw IllegalStateException("assignments_page_failed")
+                val array = r.json.getJSONArray("items")
+                if (array.length() > 100) throw IllegalStateException("oversized_page")
+                val rows = buildList {
+                    for (i in 0 until array.length()) {
+                        val o = array.getJSONObject(i)
+                        val provider = o.optString("source_provider")
+                            .takeIf { it.isNotBlank() && it != "null" }
+                        val due = o.optString("due_at_utc")
+                            .takeIf { it.isNotBlank() && it != "null" }
+                            ?: o.optString("due_local_date")
+                                .takeIf { it.isNotBlank() && it != "null" }
+                        add(CloudTask(o.getString("id"), o.optString("title").take(120),
+                            o.optString("local_status"), o.optString("kind"), provider, due))
+                    }
+                }
+                pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
             }
-        } catch (_: Exception) { failed.add("云端任务") }
+            tasks = pages.verifiedRows()
+        } catch (_: Exception) {
+            // Preserve prior snapshots without falsely marking the current
+            // school-linked tasks as freshly and completely loaded.
+            failed.add("云端任务完整分页读取")
+        }
         try {
             val r = withContext(Dispatchers.IO) {
                 request("/api/v1/connections", authenticated = true)
