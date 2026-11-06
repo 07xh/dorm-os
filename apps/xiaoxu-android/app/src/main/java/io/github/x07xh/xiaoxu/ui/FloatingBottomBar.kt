@@ -201,7 +201,7 @@ fun FloatingBottomBar(
         val cellWidthDp = with(LocalDensity.current) { cellWidthPx.toDp() }
 
         val scope = rememberCoroutineScope()
-        val dragState = remember(count) { DragGestureState() }
+        val dragState = remember(count, useNorthGlass) { DragGestureState() }
 
         // 驱动只负责「索引浮点值 + 压感」，手势事件由下方 pointerInput 精确分发。
         val drag = remember(count, useNorthGlass) {
@@ -252,7 +252,7 @@ fun FloatingBottomBar(
                                 .fastRoundToInt()
                                 .fastCoerceIn(0, count - 1)
                             drag.updateValue(target.toFloat())
-                            currentOnSelect(target)
+                            if (target != currentIndex) currentOnSelect(target)
                         } else {
                             // 未越过 slop：只是手指抖动，指示器回弹即可。
                             drag.updateValue(currentIndex.toFloat())
