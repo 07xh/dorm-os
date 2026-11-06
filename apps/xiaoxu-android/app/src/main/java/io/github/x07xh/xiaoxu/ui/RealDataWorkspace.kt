@@ -797,7 +797,9 @@ fun RealAcademicTaskHub(
         state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
         contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Zero inter-item gap is required for connected task rows. Section items
+        // add their own spacing so we keep LazyColumn's per-task virtualization.
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item {
             Row(
@@ -867,6 +869,7 @@ fun RealAcademicTaskHub(
         }
         item {
             // One continuous status strip; values come from real saved tasks.
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
@@ -893,6 +896,7 @@ fun RealAcademicTaskHub(
             }
         }
         if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
+            Spacer(Modifier.height(12.dp))
             Text("含上次云端快照 " + state.tasks.size + " 条",
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink2)
@@ -901,7 +905,7 @@ fun RealAcademicTaskHub(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it.take(100) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 singleLine = true,
                 label = { Text("搜索任务标题或来源") },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
@@ -917,7 +921,7 @@ fun RealAcademicTaskHub(
         item {
             // Source and management controls stay compact; full filters are on demand.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(modifier = Modifier.weight(1f)) {
@@ -981,7 +985,10 @@ fun RealAcademicTaskHub(
             }
         }
         if (showAdvancedFilters) item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 item {
                     FilterChip(
                         selected = !onlyThisWeek,
@@ -999,7 +1006,10 @@ fun RealAcademicTaskHub(
             }
         }
         if (showManager) item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = { showLocal = !showLocal; if (showLocal) jumpTo = "local" },
                     modifier = Modifier.weight(1f)
@@ -1010,15 +1020,21 @@ fun RealAcademicTaskHub(
                 ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
             }
         }
-        if (showManager && showLocal) item { LocalTaskEditor(localTasks, dao) }
-        if (showManager && showCloud) item { CloudTaskEditor(client) }
+        if (showManager && showLocal) item {
+            Column(Modifier.padding(top = 12.dp)) { LocalTaskEditor(localTasks, dao) }
+        }
+        if (showManager && showCloud) item {
+            Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
+        }
         if (visible.size > 80) item {
+            Spacer(Modifier.height(12.dp))
             Text("已显示 " + shown.size + " / " + visible.size + " 条，可调整筛选查看剩余任务",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (visible.isEmpty()) {
             item {
+                Spacer(Modifier.height(12.dp))
                 XiaoxuEmpty(
                     title = if (filter == "done" && onlyThisWeek) "当前筛选条件互相冲突"
                         else "没有匹配的已保存任务",
@@ -1072,7 +1088,7 @@ fun RealAcademicTaskHub(
                 }
                 if (showCourseTasks) {
                     items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                        ConnectedTaskShell(index = i, total = cloudRows.size) {
                             TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
                         }
                     }
@@ -1092,7 +1108,7 @@ fun RealAcademicTaskHub(
                 }
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
-                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                        ConnectedTaskShell(index = i, total = localRows.size) {
                             TaskRow(localRows[i], today,
                                 onOpen = { openedTaskKey = localRows[i].key },
                                 onToggleLocal = { checked ->
@@ -1108,6 +1124,7 @@ fun RealAcademicTaskHub(
         }
         if (state.privateError != null) {
             item {
+                Spacer(Modifier.height(12.dp))
                 Text("云端部分数据刷新失败，已有记录可能过期",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error)
@@ -1475,6 +1492,7 @@ private fun TaskGroupHeader(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth()
+            .padding(top = 12.dp)
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
@@ -1602,6 +1620,41 @@ private const val DUE_NORMAL = 1
 private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
+
+/** Consecutive rows share one visual surface and light separators.
+ * They remain separate keyed LazyColumn items, even with 80 saved tasks.
+ */
+@Composable
+private fun ConnectedTaskShell(
+    index: Int,
+    total: Int,
+    content: @Composable () -> Unit
+) {
+    val radius = 16.dp
+    val corners = when {
+        total <= 1 -> RoundedCornerShape(radius)
+        index == 0 -> RoundedCornerShape(
+            topStart = radius, topEnd = radius, bottomStart = 0.dp, bottomEnd = 0.dp)
+        index == total - 1 -> RoundedCornerShape(
+            topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
+        else -> RoundedCornerShape(0.dp)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clip(corners)
+            .background(XiaoxuPalette.Surface)
+            .border(0.5.dp, XiaoxuPalette.Line, corners)
+    ) {
+        if (index > 0) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                thickness = 0.5.dp,
+                color = XiaoxuPalette.Line
+            )
+        }
+        content()
+    }
+}
 
 /** Compact row based on the reference image; click still opens the original real-data sheet. */
 @Composable
