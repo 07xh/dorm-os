@@ -30,7 +30,11 @@ function officialPage(origin='https://dekt.ncwu.edu.cn') {
   XHR.prototype.open=originalOpen;
   const window={fetch:originalFetch};
   const location={origin,href:origin+'/sys/activity/page'};
-  const context={window,location,XMLHttpRequest:XHR,URL,Map};
+  // The actual NCWU activity HTML has an HTTP root base, while requests are
+  // upgraded to the real HTTPS origin. This is observed in the owner's HAR.
+  const document={baseURI:origin==='https://dekt.ncwu.edu.cn'
+    ?'http://dekt.ncwu.edu.cn/':origin+'/'};
+  const context={window,location,document,XMLHttpRequest:XHR,URL,Map};
   return {context,window,XHR,originalFetch,originalOpen,
     calls:()=>({fetchCalls,xhrCalls}),
     start:()=>JSON.parse(runInNewContext(script,context))};
@@ -87,6 +91,20 @@ test('screenshot candidate duplicated /sys/stu/ path is preserved, never silentl
     outcomes:[{status:200,type:'json',count:5}]
   }]);
   assert.equal(JSON.stringify(result).includes('SECRET'),false);
+});
+
+test('official HTML root base resolves relative Ajax route to actual network path',async()=>{
+  const page=officialPage();
+  assert.equal(page.start().ok,true);
+  await page.window.fetch('sys/stu/activity?title=SECRET',{method:'POST'});
+  const result=stop(page);
+  assert.deepEqual(result.observed,[{
+    method:'POST',path:'/sys/stu/activity',count:1,
+    kind:'unverified_candidate',
+    outcomes:[{status:200,type:'json',count:1}]
+  }]);
+  assert.equal(JSON.stringify(result).includes('SECRET'),false);
+  assert.equal(JSON.stringify(result).includes('/sys/stu/sys/stu/activity'),false);
 });
 
 test('unrelated origin never instruments fetch or XHR',()=>{
