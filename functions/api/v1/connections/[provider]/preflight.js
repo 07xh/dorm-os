@@ -50,25 +50,10 @@ export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
  const provider=context.params?.provider;
- if(provider==='second_class'){
-  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
-  const adapter=vaultReady&&availableSchoolAdapter(context,'second_class');
-  if(!adapter||typeof adapter.preflight!=='function')return json({
-   status:vaultReady?'adapter_unavailable':'server_session_vault_unavailable',
-   loginSupported:false,nativeLoginReady:false,sessionVaultReady:vaultReady,
-   officialWeChatEntryObserved:false,qrSessionLinked:false,
-   automaticSync:false});
-  let result;
-  try{result=await adapter.preflight();}
-  catch{result={loginSupported:false,mode:'upstream_unavailable'};}
-  const ready=result?.loginSupported===true;
-  return json({status:result?.mode||'upstream_unavailable',loginSupported:ready,
-   nativeLoginReady:ready,sessionVaultReady:true,
-   ...(typeof result?.reason==='string'?{reason:result.reason}:{}),
-   // A visible official WeChat entry is not a QR challenge owned by Xiaoxu.
-   officialWeChatEntryObserved:result?.officialWeChatEntryObserved===true,
-   qrSessionLinked:false,automaticSync:false});
- }
+ if(provider==='second_class')return json({
+  status:'official_app_required',loginSupported:false,nativeLoginReady:false,
+  officialLoginUrl:'https://dekt.ncwu.edu.cn/',qrSessionLinked:false,
+  schoolAuthorized:false,automaticSync:false});
  if(provider!=='ncwu')return json({status:'unknown_provider',loginSupported:false},404);
  const vaultReady=await schoolSessionVaultReady(auth.db,context.env?.SCHOOL_SESSION_KEY);
  const adapter=vaultReady&&availableSchoolAdapter(context,'ncwu');

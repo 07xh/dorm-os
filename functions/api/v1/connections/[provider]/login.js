@@ -7,6 +7,11 @@ export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
  const provider=context.params?.provider;
+ // This retired route must not read a school password or contact CAS.
+ // Second-class authorization belongs to the existing on-device official flow.
+ if(provider==='second_class')return json({
+  error:'second_class_official_authorization_required'
+ },410);
  // Only a registered server-side official adapter may accept credentials.
  // A school CAS round trip is only attempted through the trusted server
  // adapter. The adapter rejects interactive/unsupported challenges and only

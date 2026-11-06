@@ -8,6 +8,7 @@ import {
  schoolSessionStates,SchoolLoginError
 } from '../lib/academic-school-login.mjs';
 import {onRequestPost as loginPost} from '../functions/api/v1/connections/[provider]/login.js';
+import {onRequestGet as loginPreflight} from '../functions/api/v1/connections/[provider]/preflight.js';
 globalThis.crypto??=webcrypto;
 const random=webcrypto.getRandomValues(new Uint8Array(32));
 const secret=Buffer.from(random).toString('base64url');
@@ -122,30 +123,37 @@ sqlite.prepare('INSERT INTO academic_auth_identities(id,user_id,login_identifier
  .run('synthetic-identity','owner-a','synthetic-owner',ownerAt);
 sqlite.prepare('INSERT INTO academic_auth_sessions(id,identity_id,token_hash,created_at,expires_at) VALUES (?,?,?,?,?)')
  .run('synthetic-session','synthetic-identity',tokenHash,ownerAt,new Date(Date.now()+3600000).toISOString());
-for(const kind of [...casKinds,'PRIVATE_HTML']){
- const response=await loginPost({
-  params:{provider:'second_class'},
-  env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password',SCHOOL_SESSION_KEY:secret},
-  data:{academicSchoolAdapters:{second_class:{...phaseFailureAdapter,
-   async login(){throw Object.assign(new Error('PRIVATE_RESPONSE_OR_CREDENTIAL'),{
-    code:'authorization_failed',failureStage:'cas_return',casReturnReason:'cas_server_failure',
-    casReturnHost:'cas_auth_server',casErrorKind:kind});}
-  }}},
-  request:new Request('https://site.example/api/v1/connections/second_class/login',{
-   method:'POST',headers:{origin:'https://site.example','content-type':'application/json',
-    cookie:'__Host-xiaoxu_session='+ownerToken},
-   body:JSON.stringify({username:'SYNTHETIC_ACCOUNT',password:'SYNTHETIC_PASSWORD'})
-  })
- });
- assert.equal(response.status,422);
- assert.match(response.headers.get('cache-control'),/no-store/);
- const body=await response.json();
- assert.deepEqual(body,{error:'authorization_failed',failureStage:'cas_return',
-  casReturnReason:'cas_server_failure',casReturnHost:'cas_auth_server',
-  ...(casKinds.includes(kind)?{casErrorKind:kind}:{})});
- assert.ok(!JSON.stringify(body).includes('PRIVATE_'));
- assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE provider=?').get('second_class').n,0);
-}
+// No request body or adapter may be touched by an old cached client.
+const retiredRequest=new Request('https://site.example/api/v1/connections/second_class/login',{
+ method:'POST',headers:{origin:'https://site.example','content-type':'application/json',
+  cookie:'__Host-xiaoxu_session='+ownerToken},body:'SYNTHETIC_CREDENTIALS_NEVER_READ'
+});
+retiredRequest.text=async()=>{assert.fail('retired route must not read credentials');};
+let retiredCalls=0;
+const retiredResponse=await loginPost({params:{provider:'second_class'},
+ env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password',SCHOOL_SESSION_KEY:secret},
+ data:{academicSchoolAdapters:{second_class:{...phaseFailureAdapter,
+  async login(){retiredCalls++;throw Error('must not contact school');}
+ }}},request:retiredRequest});
+assert.equal(retiredResponse.status,410);
+assert.match(retiredResponse.headers.get('cache-control'),/no-store/);
+assert.deepEqual(await retiredResponse.json(),{error:'second_class_official_authorization_required'});
+assert.equal(retiredCalls,0);
+const retiredPreflight=await loginPreflight({params:{provider:'second_class'},
+ env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password'},
+ data:{academicSchoolAdapters:{second_class:{preflight:async()=>{
+  assert.fail('official-device entry must not probe the old cloud password flow');
+ }}}},request:new Request('https://site.example/api/v1/connections/second_class/preflight',{
+  headers:{cookie:'__Host-xiaoxu_session='+ownerToken}
+ })});
+assert.equal(retiredPreflight.status,200);
+assert.deepEqual(await retiredPreflight.json(),{
+ status:'official_app_required',loginSupported:false,nativeLoginReady:false,
+ officialLoginUrl:'https://dekt.ncwu.edu.cn/',qrSessionLinked:false,
+ schoolAuthorized:false,automaticSync:false
+});
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE provider=?').get('second_class').n,0);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_auth_login_attempts').get().n,0);
 
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,
