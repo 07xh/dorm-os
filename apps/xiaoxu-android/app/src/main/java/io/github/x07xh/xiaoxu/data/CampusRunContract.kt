@@ -67,6 +67,47 @@ data class CampusRunSnapshot(
             .coerceIn(0.0, 100.0)
 }
 
+/**
+ * User reads these values from their own official app and explicitly enters
+ * them in 校序. These are USER_IMPORT snapshots, never official synchronization.
+ *
+ * Decimal kilometers accept up to two digits after the decimal point. Blank
+ * means unknown; no implicit zero. This function has no Android dependencies.
+ */
+data class CampusRunManualInput(
+    val termLabel: String,
+    val targetKm: String,
+    val creditedKm: String,
+    val semesterTotalKm: String,
+    val dashboardTotalKm: String,
+    val weeklyKm: String
+)
+
+fun parseCampusRunKilometers(raw: String): Long? {
+    val value = raw.trim()
+    if (value.isEmpty()) return null
+    require(Regex("^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,2})?$")
+        .matches(value)) { "invalid_distance" }
+    return java.math.BigDecimal(value)
+        .multiply(java.math.BigDecimal(1_000))
+        .longValueExact()
+}
+
+fun CampusRunManualInput.toSnapshot(nowEpochMillis: Long): CampusRunSnapshot =
+    validateCampusRunSnapshot(CampusRunSnapshot(
+        provenance = CampusRunProvenance.USER_IMPORT,
+        ownerMatched = false,
+        capturedAtEpochMillis = nowEpochMillis,
+        termLabel = termLabel.trim().ifEmpty { null },
+        targetMeters = parseCampusRunKilometers(targetKm),
+        effectiveMeters = parseCampusRunKilometers(creditedKm),
+        rawMeters = parseCampusRunKilometers(semesterTotalKm),
+        historyComplete = false,
+        records = emptyList(),
+        dashboardAccumulatedMeters = parseCampusRunKilometers(dashboardTotalKm),
+        weeklyMeters = parseCampusRunKilometers(weeklyKm)
+    ), nowEpochMillis)
+
 private const val MAX_TOTAL_METERS = 10_000_000L
 private const val MAX_SINGLE_RUN_METERS = 200_000L
 private const val MAX_RECORDS = 1_000
