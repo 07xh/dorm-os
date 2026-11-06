@@ -1432,8 +1432,10 @@ assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; acade
   '教务快捷入口打开总览');
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
   '消息中心复用真实数据');
-assert.match(main, /useStatusBarInset = true, onBack = onBack\)/,
-  '消息可返回来源页');
+assert.match(main, /useStatusBarInset = true, onBack = \{ messagesOpen = false \}\)/,
+  '消息页面直接传入返回来源页的回调，无重复中间包装组件');
+assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
+  '系统返回键也必须关闭消息页并恢复原一级页');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
   '页面状态跨导航保留');
 assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
