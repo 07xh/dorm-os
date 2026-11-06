@@ -1172,10 +1172,10 @@ assert.match(workspace, /上次云端快照 · 待核对/,
   '旧云端任务不得伪装成刚同步');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*jumpTo = "local"/,
-  '本机任务详情应展开本机管理并定位至真实表单');
-assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
-  '云端任务详情应展开云端管理并定位至真实表单');
+assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
+  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
+assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
+  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.padding\(top = 4\.dp, bottom = 2\.dp\)/,
   '消息页按海报式独立标题布局，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
