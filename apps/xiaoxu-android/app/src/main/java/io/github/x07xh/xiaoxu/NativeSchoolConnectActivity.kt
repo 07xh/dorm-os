@@ -151,7 +151,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private fun invalidateCapture() {
         captureEpoch++
         scoreSaveJob?.cancel()
-        scoreSaveJob = null
+        // Retain the cancelled job until it completes, so destruction can
+        // keep automatic reads reserved until Room cancellation has finished.
         scoreBusy = false
         scoreHandler.removeCallbacksAndMessages(null)
     }
@@ -575,6 +576,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     /** Fetch stays inside the official WebView origin; only sanitized data returns. */
     private fun captureSecondClassScores() {
+        if (scoreSaveJob?.isCompleted == false) return
         val capturedAt = System.currentTimeMillis()
         val currentUrl = browser.url ?: return
         if (scoreBusy || !loaded || pageFailed ||
