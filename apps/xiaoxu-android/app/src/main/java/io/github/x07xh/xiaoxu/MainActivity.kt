@@ -229,28 +229,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** User-selected SAF export. No cloud, credential or background network operation. */
-    private fun exportTimetableFile(uri: Uri) {
-        lifecycleScope.launch {
-            try {
-                val count = withContext(Dispatchers.IO) {
-                    val lessons = LocalScheduleStore.load(applicationContext)
-                    val backup = LocalTimetableBackup.export(
-                        lessons, LocalSemesterConfigStore.load(applicationContext))
-                    contentResolver.openOutputStream(uri, "wt")?.use {
-                        it.write(backup.toByteArray(Charsets.UTF_8))
-                    } ?: throw IllegalArgumentException("无法写入所选文件")
-                    lessons.size
-                }
-                Toast.makeText(this@MainActivity,
-                    "已导出 $count 个课块和本机学期设置", Toast.LENGTH_LONG).show()
-            } catch (failure: Exception) {
-                Toast.makeText(this@MainActivity,
-                    failure.message ?: "课表导出失败", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
     /** SAF-only local file import. File bytes never leave the device. */
     private fun importTimetableFile(uri: Uri) {
         lifecycleScope.launch {
@@ -364,6 +342,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** User-selected SAF export. No cloud, credential or background network operation. */
+    private fun exportTimetableFile(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val lessons = LocalScheduleStore.load(applicationContext)
+                    val backup = LocalTimetableBackup.export(
+                        lessons, LocalSemesterConfigStore.load(applicationContext))
+                    contentResolver.openOutputStream(uri, "wt")?.use {
+                        it.write(backup.toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalArgumentException("无法写入所选文件")
+                    lessons.size
+                }
+                Toast.makeText(this@MainActivity,
+                    "已导出 $count 个课块和本机学期设置", Toast.LENGTH_LONG).show()
+            } catch (failure: Exception) {
+                Toast.makeText(this@MainActivity,
+                    failure.message ?: "课表导出失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -390,11 +390,12 @@ class MainActivity : ComponentActivity() {
         val readSerial = ++localScheduleReadSerial
         lifecycleScope.launch {
             val lessons = withContext(Dispatchers.IO) {
-                val snapshot = LocalScheduleStore.load(applicationContext)
+                LocalScheduleStore.load(applicationContext)
+            }
+            withContext(Dispatchers.IO) {
                 LocalCourseReminders.reconcile(
-                    applicationContext, snapshot,
+                    applicationContext, lessons,
                     LocalSemesterConfigStore.load(applicationContext))
-                snapshot
             }
             if (readSerial == localScheduleReadSerial) localLessons = lessons
         }
