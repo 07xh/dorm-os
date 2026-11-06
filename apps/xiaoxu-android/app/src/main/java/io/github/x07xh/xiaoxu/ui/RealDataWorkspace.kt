@@ -34,7 +34,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -739,7 +738,6 @@ fun RealAcademicTaskHub(
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     var showCourseTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
-    var showCandidates by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     // This report is for the CURRENT owner session, not Room or the task count.
@@ -1300,32 +1298,6 @@ fun RealAcademicTaskHub(
                                 else "展开其余 ${officialRows.size - 30} 条官方作业")
                         }
                     }
-                }
-            }
-        }
-        // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。
-        // 候选在本人确认前不是课程作业，也不进入三项统计。
-        if (state.authenticated || state.pendingWechatCount != null) {
-            item {
-                TaskGroupHeader(
-                    title = "群消息任务候选",
-                    count = state.pendingWechatCount ?: 0,
-                    badge = if (state.wechatError != null)
-                        "候选快照 · 待刷新" else "本人云端 · 待审核",
-                    note = "需要人工确认，加入后才进入个人任务列表",
-                    icon = Icons.Outlined.ChatBubbleOutline,
-                    expanded = showCandidates,
-                    onClick = { showCandidates = !showCandidates },
-                    showCount = state.pendingWechatCount != null
-                )
-            }
-            if (showCandidates) item {
-                XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
-                    WechatReviewPanel(
-                        client = client,
-                        pendingCount = state.pendingWechatCount,
-                        openWebsite = openWebsite
-                    )
                 }
             }
         }
