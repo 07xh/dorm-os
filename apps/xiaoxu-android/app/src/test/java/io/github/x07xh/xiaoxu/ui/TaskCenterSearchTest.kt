@@ -39,6 +39,23 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun independentStatusSourceAndDueFiltersPreserveRealRecords() {
+        val pending = searchWorkspaceTasks(records, "pending", "", today)
+        assertEquals(listOf("cloud:1", "local:1"), pending.map { it.key })
+        assertEquals(listOf("cloud:1"),
+            facetWorkspaceTasks(pending, "all", true, today).map { it.key })
+        assertEquals(listOf("local:1"),
+            facetWorkspaceTasks(pending, "local", false, today).map { it.key })
+        assertTrue(facetWorkspaceTasks(pending, "local", true, today).isEmpty())
+        assertEquals(listOf("local:2"),
+            facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
+                "all", false, today).map { it.key })
+        // Completed items must not appear in the this-week deadline subset.
+        assertTrue(facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
+            "all", true, today).isEmpty())
+    }
+
+    @Test
     fun whitespaceAndCaseInsensitiveSearchAreStable() {
         assertEquals(records, searchWorkspaceTasks(records, "all", "  ", today))
         assertEquals(listOf("cloud:1"),

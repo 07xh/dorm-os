@@ -158,6 +158,14 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         }
     }
 
+/** Independent source/deadline facets over already-read tasks. */
+internal fun facetWorkspaceTasks(
+    tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
+): List<WorkspaceTask> = tasks.filter { task ->
+    (source == "all" || task.storage == source) &&
+        (!thisWeekOnly || (!task.done && thisWeek(task.date, today)))
+}
+
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
 internal fun searchWorkspaceTasks(
     tasks: List<WorkspaceTask>, filter: String, query: String, today: LocalDate
@@ -656,9 +664,9 @@ fun RealAcademicTaskHub(
     val capturedHomework = schoolRows.filter {
         it.provider == "chaoxing" && it.kind == "homework"
     }
-    val filters = listOf("pending" to "待完成", "all" to "全部", "week" to "本周截止",
-        "done" to "已完成", "local" to "本机", "cloud" to "云端")
     var filter by rememberSaveable { mutableStateOf("pending") }
+    var sourceFilter by rememberSaveable { mutableStateOf("all") }
+    var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
@@ -691,7 +699,7 @@ fun RealAcademicTaskHub(
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
-        val managerStart = 4 + (if (showSearch) 1 else 0) +
+        val managerStart = 5 + (if (showSearch) 1 else 0) +
             (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
         val targetIndex = when (jumpTo) {
             "local" -> if (showLocal) managerStart else null
@@ -707,7 +715,10 @@ fun RealAcademicTaskHub(
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
-    val visible = searchWorkspaceTasks(all, filter, searchQuery, today)
+    val visible = facetWorkspaceTasks(
+        searchWorkspaceTasks(all, filter, searchQuery, today),
+        sourceFilter, onlyThisWeek, today
+    )
     // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
     val shown = visible.take(80)
     val localRows = shown.filter { it.storage == "local" }
@@ -776,10 +787,9 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "pending"; jumpTo = "filters" }
                 )
                 TaskStatusTab(
-                    label = "本周截止",
-                    count = all.count { !it.done && thisWeek(it.date, today) },
-                    active = filter == "week", modifier = Modifier.weight(1f),
-                    onClick = { filter = "week"; jumpTo = "filters" }
+                    label = "全部", count = all.size,
+                    active = filter == "all", modifier = Modifier.weight(1f),
+                    onClick = { filter = "all"; jumpTo = "filters" }
                 )
                 TaskStatusTab(
                     label = "已完成", count = all.count { it.done },
@@ -832,12 +842,34 @@ fun RealAcademicTaskHub(
                 }
             }
         }
-        if (showAdvancedFilters) item {
+        item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                items(count = filters.size) { i ->
-                    val (key, label) = filters[i]
-                    FilterChip(selected = filter == key, onClick = { filter = key },
-                        label = { Text(label) })
+                val sources = listOf("all" to "全部来源", "local" to "本机", "cloud" to "云端")
+                items(count = sources.size) { i ->
+                    val (source, label) = sources[i]
+                    FilterChip(
+                        selected = sourceFilter == source,
+                        onClick = { sourceFilter = source },
+                        label = { Text(label) }
+                    )
+                }
+            }
+        }
+        if (showAdvancedFilters) item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = !onlyThisWeek,
+                        onClick = { onlyThisWeek = false },
+                        label = { Text("全部日期") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = onlyThisWeek,
+                        onClick = { onlyThisWeek = true },
+                        label = { Text("本周截止") }
+                    )
                 }
             }
         }

@@ -32,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
@@ -47,6 +48,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -109,12 +112,11 @@ const val MSG_FILTER_WECHAT = "wechat"
 
 data class MessageFilterOption(val key: String, val label: String)
 
-/** 顺序对齐设计稿的 pill 行：全部 → 分类 → 待审核。 */
+/** Official notice subfilters; WeChat is a separate source tab, not a notice category. */
 val MESSAGE_FILTERS = listOf(
-    MessageFilterOption(MSG_FILTER_ALL, "全部"),
+    MessageFilterOption(MSG_FILTER_ALL, "全部公告"),
     MessageFilterOption(MSG_FILTER_NOTICE, "通知公告"),
-    MessageFilterOption(MSG_FILTER_EXAM, "考试安排"),
-    MessageFilterOption(MSG_FILTER_WECHAT, "微信待审核")
+    MessageFilterOption(MSG_FILTER_EXAM, "考试安排")
 )
 
 /** pill 图标：只表达筛选维度，不表达查看状态或数量。 */
@@ -225,13 +227,15 @@ fun MessageCenterPanel(
     client: CloudClient,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit,
-    useStatusBarInset: Boolean = false
+    useStatusBarInset: Boolean = false,
+    onBack: (() -> Unit)? = null
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
     val phase = remember(state) { deriveMessagePhase(state) }
 
     var query by rememberSaveable { mutableStateOf("") }
+    var sourceTab by rememberSaveable { mutableStateOf(MSG_FILTER_NOTICE) }
     var filterKey by rememberSaveable { mutableStateOf(MSG_FILTER_ALL) }
     var openedId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -239,10 +243,10 @@ fun MessageCenterPanel(
     val filtered = remember(state.notices, query, filterKey) {
         filterNotices(state.notices, query, filterKey)
     }
-    val showWechat = filterKey == MSG_FILTER_ALL || filterKey == MSG_FILTER_WECHAT
+    val showWechat = sourceTab == MSG_FILTER_WECHAT
 
-    // 官方公告列表只在真有可展示的公告相位时出现，加载/失败由各自状态卡承担。
-    val showOfficialSection = filterKey != MSG_FILTER_WECHAT &&
+    // The two sources never masquerade as one another in the visible list.
+    val showOfficialSection = !showWechat &&
         (phase is MessagePhase.Content || phase is MessagePhase.Empty)
 
     BoxWithConstraints(
@@ -274,27 +278,42 @@ fun MessageCenterPanel(
                         pendingCount = state.pendingWechatCount,
                         authenticated = state.authenticated,
                         wechatError = state.wechatError,
-                        onRefresh = refresh
+                        onRefresh = refresh,
+                        onBack = onBack
                     )
                 }
                 item {
-                    MessageSearchField(
-                        query = query,
-                        onQueryChange = { query = it.take(60) }
-                    )
+                    TabRow(selectedTabIndex = if (showWechat) 1 else 0) {
+                        Tab(
+                            selected = !showWechat,
+                            onClick = { sourceTab = MSG_FILTER_NOTICE },
+                            text = { Text("官方通知") }
+                        )
+                        Tab(
+                            selected = showWechat,
+                            onClick = { sourceTab = MSG_FILTER_WECHAT },
+                            text = { Text("微信审核") }
+                        )
+                    }
                 }
-                item {
-                    FilterRow(selected = filterKey, onSelect = { filterKey = it })
+                if (!showWechat) {
+                    item {
+                        MessageSearchField(
+                            query = query,
+                            onQueryChange = { query = it.take(60) }
+                        )
+                    }
+                    item { FilterRow(selected = filterKey, onSelect = { filterKey = it }) }
+                    item {
+                        MessageCountLine(
+                            filterKey = filterKey,
+                            matched = filtered.size,
+                            query = query,
+                            total = state.notices.size
+                        )
+                    }
                 }
-                item {
-                    MessageCountLine(
-                        filterKey = filterKey,
-                        matched = filtered.size,
-                        query = query,
-                        total = state.notices.size
-                    )
-                }
-                if (state.publicError != null && state.notices.isNotEmpty()) {
+                if (!showWechat && state.publicError != null && state.notices.isNotEmpty()) {
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Warning,
@@ -304,7 +323,7 @@ fun MessageCenterPanel(
                         )
                     }
                 }
-                if (state.noticesPartial && state.notices.isNotEmpty()) {
+                if (!showWechat && state.noticesPartial && state.notices.isNotEmpty()) {
                     item {
                         MessageBanner(
                             icon = Icons.Outlined.Info,
@@ -315,12 +334,14 @@ fun MessageCenterPanel(
                     }
                 }
 
-                when (phase) {
-                    MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
-                    is MessagePhase.Failed -> item {
-                        MessageErrorCard(phase.message, refresh, openWebsite)
+                if (!showWechat) {
+                    when (phase) {
+                        MessagePhase.Loading -> items(count = 3) { MessageSkeleton() }
+                        is MessagePhase.Failed -> item {
+                            MessageErrorCard(phase.message, refresh, openWebsite)
+                        }
+                        else -> Unit
                     }
-                    else -> Unit
                 }
 
                 if (showOfficialSection) {
@@ -394,13 +415,31 @@ private fun MessageHeader(
     pendingCount: Int?,
     authenticated: Boolean,
     wechatError: String?,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onBack: (() -> Unit)?
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onBack, role = Role.Button)
+                        .semantics { contentDescription = "返回原页面" },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = null,
+                        tint = XiaoxuPalette.Ink2
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "MESSAGE CENTER",

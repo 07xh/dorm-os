@@ -117,7 +117,7 @@ assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
-assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle\)/);
+assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.match(panels, /fun ConnectionsPanel\(/);
 // The owner can begin each school's permitted local read without cloud login
@@ -329,7 +329,7 @@ const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/
 const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt');
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
-assert.match(main, /AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider\("second_class"\) \{ SecondClassPage\(\) \}/);
+assert.match(main, /AcademicDestination\.SECOND_CLASS -> tabStateHolder\.SaveableStateProvider\("second_class"\) \{\s*SecondClassPage\(\)/);
 assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
 assert.match(secondClassMain, /第二课堂官方平台/);
 assert.match(secondClassMain, /在校序内检查活动列表来源/);
@@ -425,7 +425,7 @@ assert.match(nativeWeekGrid, /if \(next != available\) break/,
 assert.match(nativeWeekGrid, /overlapChoices = available/);
 assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
-assert.match(main, /onRefresh = if \(current == Page\.SCHEDULE\) null/,
+assert.match(main, /onRefresh = if \(current == MainDestination\.SCHEDULE\) null/,
   '课表顶栏不显示云端刷新入口');
 assert.match(main, /AcademicDestination\.GRADES -> Content/);
 assert.match(main, /青果教务云端读取 · 与本机课表独立/);
@@ -564,8 +564,8 @@ assert.match(main, /result\.resultCode == Activity\.RESULT_OK/);
 assert.match(main, /LocalSchoolImportReceipt\(/);
 assert.match(main, /localCaptureReturn = lastLocalCapture/);
 assert.match(main, /if \(localCaptureReturn != null\) \{/);
-assert.match(main, /if \(localCaptureReturn\.provider == "chaoxing"\) Page\.TASKS/);
-assert.match(main, /else \{ academic = AcademicDestination\.SECOND_CLASS; Page\.ACADEMIC \}/);
+assert.match(main, /if \(localCaptureReturn\.provider == "chaoxing"\) MainDestination\.TASKS/);
+assert.match(main, /else \{ academic = AcademicDestination\.SECOND_CLASS; MainDestination\.ACADEMIC \}/);
 assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
 assert.match(panels, /startSchoolAuthorization\(id\)/);
 assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
@@ -597,8 +597,8 @@ assert.match(workspace, /不纳入待完成\/已完成数量/);
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val visible = searchWorkspaceTasks\(all, filter, searchQuery, today\)/,
-  '页面实际列表必须使用搜索结果');
+assert.match(workspace, /val visible = facetWorkspaceTasks\(/, '页面对真实任务独立筛选');
+assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
 assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
@@ -1024,7 +1024,8 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
 assert.match(workspace, /private fun TaskStatusTab\(/, '任务中心必须使用蓝色胶囊状态切换，不能沿用数字大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
-assert.match(workspace, /label = "本周截止"/, '必须按真实截止日过滤本周任务');
+assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
+assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区须使用图标白卡而非散乱的纯文本标题');
 assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
@@ -1087,8 +1088,9 @@ assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
 assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
   '云端表单跳转须考虑本机管理展开与否');
 assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
-assert.match(workspace, /active = filter == "week"/,
-  '本周截止胶囊须反映真实选中状态');
+assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
+assert.match(workspace, /sourceFilter == source/, '来源与状态分别筛选');
+assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
   '待完成统计卡应真实切换过滤器');
 assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
@@ -1156,12 +1158,25 @@ assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
 // #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
 assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
   '主导航不得重新出现演示版/真实版切换');
-assert.match(main, /PrimaryTabs = listOf\(Page\.HOME, Page\.SCHEDULE, Page\.TASKS, Page\.MESSAGES, Page\.PROFILE\)/,
-  '主导航应为五个真实页面');
-assert.match(main, /openAcademic = \{ current = Page\.ACADEMIC \}/,
-  '教务须保留可到达的原生入口');
-assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle, useStatusBarInset = true\)/,
-  '真实消息中心应独立绘制海报式头部并应用正确安全区');
+assert.match(main, /PrimaryTabs = listOf\(MainDestination\.HOME, MainDestination\.SCHEDULE/,
+  '五项一级导航必须保留');
+assert.match(main, /MainDestination\.ACADEMIC, MainDestination\.TASKS, MainDestination\.PROFILE\)/,
+  '教务应是第三项');
+assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
+assert.match(main, /onMessages = \{ messagesOpen = true \}/, '全局消息入口');
+assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; academic = AcademicDestination\.OVERVIEW \}/,
+  '教务快捷入口打开总览');
+assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
+  '消息中心复用真实数据');
+assert.match(main, /useStatusBarInset = true, onBack = onBack\)/,
+  '消息可返回来源页');
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
+  '页面状态跨导航保留');
+assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
+  '消息分官方通知与微信审核');
+assert.match(messageCenter, /sourceTab == MSG_FILTER_WECHAT/, '区分微信与官方来源');
+assert.match(messageCenter, /onBack: \(\(\) -> Unit\)\? = null/,
+  '消息提供返回回调');
 assert.match(messageCenter, /WechatReviewPanel\(/,
   '真实消息布局不得绕过微信审核事务');
 assert.doesNotMatch(messageCenter, /PosterDemo|模拟群聊|高数练习要求与参考\.pdf/,
