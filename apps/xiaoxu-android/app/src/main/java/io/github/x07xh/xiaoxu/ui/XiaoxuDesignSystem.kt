@@ -21,13 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -607,8 +603,8 @@ fun XiaoxuSheet(
 }
 
 /**
- * 四态统一容器：Loading / Empty / Error / Unverified 共用一种版式，
- * 只有图标、色调和文案不同，避免每个页面各画一套空态。
+ * 实际调用的统一空态容器。加载、失败和未核验状态由各真实数据页面按来源状态处理；
+ * 不保留没有使用方的演示性状态包装组件。
  */
 @Composable
 private fun XiaoxuStatePanel(
@@ -669,20 +665,6 @@ private fun XiaoxuStatePanel(
     }
 }
 
-@Composable
-fun XiaoxuLoading(message: String = "正在读取…", modifier: Modifier = Modifier) {
-    XiaoxuCard(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = XiaoxuPalette.Brand
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
-        }
-    }
-}
 
 @Composable
 fun XiaoxuEmpty(
@@ -699,52 +681,6 @@ fun XiaoxuEmpty(
     )
 }
 
-@Composable
-fun XiaoxuError(
-    message: String,
-    modifier: Modifier = Modifier,
-    title: String = "读取失败",
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.ErrorOutline, title = title, message = message,
-        tone = XiaoxuTone.Danger, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
-}
-
-/** 未核验：有记录但来源无法证明是最新官方状态时使用，绝不写成"暂无"。 */
-@Composable
-fun XiaoxuUnverified(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.HelpOutline, title = title, message = message,
-        tone = XiaoxuTone.Warning, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
-}
-
-/** 未连接：没有可信来源时的统一空态。 */
-@Composable
-fun XiaoxuDisconnected(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    XiaoxuStatePanel(
-        icon = Icons.Outlined.CloudOff, title = title, message = message,
-        tone = XiaoxuTone.Neutral, modifier = modifier,
-        actionLabel = actionLabel, onAction = onAction
-    )
-}
 
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
 @Composable
