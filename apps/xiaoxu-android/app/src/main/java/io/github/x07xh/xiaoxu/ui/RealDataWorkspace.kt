@@ -358,19 +358,22 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
         in 18..22 -> "晚上好"
         else -> "夜深了"
     }
-    Column(
+    // 首页主标题由唯一顶栏显示；这里仅给日期与问候，不再堆第二个大标题。
+    Row(
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-            style = MaterialTheme.typography.labelLarge,
-            color = XiaoxuPalette.Ink2
+            style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink2,
+            modifier = Modifier.weight(1f)
         )
         Text(
             text = greeting,
-            style = MaterialTheme.typography.headlineMedium,
-            color = XiaoxuPalette.Ink
+            style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink3
         )
     }
 }
