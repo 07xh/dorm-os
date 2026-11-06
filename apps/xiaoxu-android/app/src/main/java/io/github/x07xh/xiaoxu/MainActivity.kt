@@ -72,6 +72,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
@@ -106,6 +108,9 @@ class MainActivity : ComponentActivity() {
     ) { uri ->
         if (uri != null) importTimetableFile(uri)
     }
+    private val timetableExportPicker = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> if (uri != null) exportTimetableFile(uri) }
     private val cloud by lazy { CloudClient(applicationContext) }
     private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
     private var returnedSchool by mutableStateOf<String?>(null)
@@ -180,6 +185,9 @@ class MainActivity : ComponentActivity() {
                     openFileImport = {
                         timetableFilePicker.launch(arrayOf("*/*"))
                     },
+                    openFileExport = {
+                        timetableExportPicker.launch("校序-课表备份-${java.time.LocalDate.now()}.json")
+                    },
                     openLocalSchool = { provider ->
                         if (provider == "ncwu") {
                             startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
@@ -215,6 +223,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** User-selected SAF export. No cloud, credential or background network operation. */
+    private fun exportTimetableFile(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val lessons = LocalScheduleStore.load(applicationContext)
+                    val backup = LocalTimetableBackup.export(
+                        lessons, LocalSemesterConfigStore.load(applicationContext))
+                    contentResolver.openOutputStream(uri, "wt")?.use {
+                        it.write(backup.toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalArgumentException("无法写入所选文件")
+                    lessons.size
+                }
+                Toast.makeText(this@MainActivity,
+                    "已导出 $count 个课块和本机学期设置", Toast.LENGTH_LONG).show()
+            } catch (failure: Exception) {
+                Toast.makeText(this@MainActivity,
+                    failure.message ?: "课表导出失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     /** SAF-only local file import. File bytes never leave the device. */
     private fun importTimetableFile(uri: Uri) {
         lifecycleScope.launch {
@@ -238,22 +268,26 @@ class MainActivity : ComponentActivity() {
                     } ?: throw IllegalArgumentException("无法打开所选文件")
                     val text = bytes.toString(Charsets.UTF_8.name())
                     val lowered = fileName.lowercase()
-                    val lessons = when {
+                    val imported = when {
                         lowered.endsWith(".ics") || text.trimStart()
                             .removePrefix("\uFEFF").startsWith("BEGIN:VCALENDAR") ->
-                            LocalScheduleStore.parseIcs(text)
-                        lowered.endsWith(".json") -> LocalScheduleStore.parseCourses(text)
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseIcs(text))
+                        lowered.endsWith(".json") && text.trimStart()
+                            .removePrefix("\uFEFF").startsWith("{") ->
+                            LocalTimetableBackup.parse(text)
+                        lowered.endsWith(".json") ->
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseCourses(text))
                         else -> throw IllegalArgumentException(
-                            "请选择已转换的 .ics 或标准课表 .json；原始 .sleepdown 备份暂不支持直接读取")
+                            "请选择已转换的 .ics、标准课表 .json 或校序课表备份；原始 .sleepdown 备份暂不支持直接读取")
                     }
-                    fileName to lessons
+                    fileName to imported
                 }
                 val oldCount = localLessons.size
-                val newCount = parsed.second.size
+                val newCount = parsed.second.lessons.size
                 val less = oldCount > 0 && newCount < oldCount
                 // The earlier count-only popup concealed partial/incorrect
                 // course rows. Show actual imported fields before overwriting.
-                val preview = parsed.second
+                val preview = parsed.second.lessons
                     .sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
                     .take(30)
                     .mapIndexed { index, lesson ->
@@ -271,13 +305,18 @@ class MainActivity : ComponentActivity() {
                     (if (less) "\n\n本次课块更少，可能识别不全；建议保留旧课表。" else "") +
                     "\n\n本机解析详情（前 30 条）：\n" + preview +
                     (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
-                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步。"
+                    (if (parsed.second.calendar != null) "\n本次备份包含学期日期与节次作息，将一并恢复。"
+                     else "\n未提供学期设置，保留设备现有配置。") +
+                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步."
                 val saveImported = {
                     lifecycleScope.launch {
                         try {
                             val (count, savedLessons) = withContext(Dispatchers.IO) {
                                 val count = LocalScheduleStore.saveParsed(
-                                    applicationContext, parsed.second)
+                                    applicationContext, parsed.second.lessons)
+                                parsed.second.calendar?.let {
+                                    LocalSemesterConfigStore.save(applicationContext, it)
+                                }
                                 count to LocalScheduleStore.load(applicationContext)
                             }
                             // Invalidate previously started resume reads after commit.
@@ -381,6 +420,7 @@ private fun NativeShell(
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
@@ -564,6 +604,7 @@ private fun NativeShell(
                                 openArticle = openArticle)
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
                                 localLessons = localLessons, openFileImport = openFileImport,
+                                openFileExport = openFileExport,
                                 onLocalLessonsChanged = onLocalLessonsChanged)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
