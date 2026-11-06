@@ -15,6 +15,23 @@ android {
         targetSdk 35
         versionCode 30
         versionName '0.8.9'
+        // Default APK remains unchanged. Overrides below affect ONLY explicitly
+        // requested isolated QA builds; never the published app identity.
+        manifestPlaceholders = [
+            qaAppLabel: '@string/app_name',
+            schoolAuthHost: 'school-auth-return'
+        ]
+    }
+
+    buildTypes {
+        debug {
+            if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
+                applicationIdSuffix '.timetableqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 课表验收'
+                // Never intercept the installed application's school OAuth return URI.
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-timetable-qa'
+            }
+        }
     }
 
     compileOptions {
