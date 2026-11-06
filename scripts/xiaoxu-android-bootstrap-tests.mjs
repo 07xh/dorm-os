@@ -1199,6 +1199,15 @@ assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/, '真实页面是玻
 assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/, '同源几何布局');
 assert.match(northGeometry, /PrimaryBottomGeometry\(70\.dp, 20\.dp/, '兼容 #351 的非玻璃底栏尺寸');
 assert.match(floatingBar, /remember\(count, useNorthGlass\)/, '玻璃切换时重建正确的拖拽尺度');
+assert.match(floatingBar, /rememberCombinedBackdrop\(backdrop, tintLayer\)/,
+  '选中玻璃折射必须合并页面与图标文字采样');
+assert.match(floatingBar, /\.alpha\(0f\)\s*\.layerBackdrop\(tintLayer\)/,
+  '原版隐藏 tint 采样层不得在屏幕上产生重复文字');
+assert.match(floatingBar, /backdrop = indicatorBackdrop/,
+  '选中滑块必须使用合成采样源，而不是直接采样原始页面');
+assert.equal((floatingBar.match(/\.selectable\(/g) || []).length, 1,
+  '光学副本不可建立第二套可点击标签页');
+
 assert.match(floatingBar, /val dragState = remember\(count, useNorthGlass\)/,
   '玻璃切换必须同步重建手势状态，避免沿用旧 press/drag');
 assert.match(floatingBar, /if \(target != currentIndex\) currentOnSelect\(target\)/,
