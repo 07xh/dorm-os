@@ -15,11 +15,15 @@ assert.match(main, /contentResolver\.openInputStream\(uri\)/,
   'Read only the selected file URI');
 assert.match(main, /LocalScheduleStore\.parseIcs\(text\)/);
 assert.match(main, /LocalScheduleStore\.parseCourses\(text\)/);
+assert.match(main, /LocalTimetableBackup\.parse\(text\)/);
+assert.match(main, /LocalTimetableBackup\.export\(/,
+  '可从原生页面导出完整课程与学期设置');
 // File writes and post-commit reload must run on IO; old asynchronous reads
 // must not restore an earlier timetable after a successful import.
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
-assert.match(main, /applicationContext, parsed\.second/);
-assert.match(main, /count to LocalScheduleStore\.load\(applicationContext\)/);
+assert.match(main, /applicationContext, parsed\.second\.lessons/);
+assert.match(main, /count to updated/);
+assert.match(main, /LocalCourseReminders\.reconcile\(applicationContext, updated,/);
 assert.match(main, /localScheduleReadSerial\+\+/);
 assert.match(main, /localLessons = savedLessons/);
 assert.match(main, /课表数量减少，请核对/);
@@ -27,7 +31,7 @@ assert.match(main, /本机解析详情（前 30 条）/);
 assert.match(main, /lesson\.weeks\.joinToString\(","\)/);
 assert.match(main, /lesson\.location\.ifBlank/);
 assert.match(main, /lesson\.teacher\.ifBlank/);
-assert.match(main, /val preview = parsed\.second/);
+assert.match(main, /val preview = parsed\.second\.lessons/);
 // 本机导入是课表唯一数据源；只检查当前真实渲染的组件，
 // 不再要求已废弃的云端 Header / stale badge 继续存在。
 assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
