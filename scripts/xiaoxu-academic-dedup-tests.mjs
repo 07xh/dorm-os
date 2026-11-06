@@ -8,7 +8,7 @@ const sql=new DatabaseSync(':memory:');
 sql.exec('PRAGMA foreign_keys=ON');
 for(const name of ['0001_academic_core.sql','0002_academic_legacy_links.sql',
  '0003_academic_verified_snapshots.sql','0004_academic_source_course.sql',
- '0005_academic_workspace.sql']){
+ '0005_academic_workspace.sql','0017_academic_wechat_candidates.sql']){
  sql.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 }
 const db={prepare(statement){let args=[];return {
