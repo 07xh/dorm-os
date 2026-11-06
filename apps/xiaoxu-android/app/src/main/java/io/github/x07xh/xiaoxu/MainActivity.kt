@@ -114,6 +114,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuMotion
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
+import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -907,22 +908,24 @@ private fun AcademicPage(
                 tabStateHolder.SaveableStateProvider("second_class") {
                     SecondClassPage()
                 }
-            AcademicDestination.GRADES -> Content {
+            AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
                 item {
-                    XiaoxuCard {
-                        Text("成绩尚未读取", style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink)
-                        TextButton(onClick = openProfile) { Text("连接青果教务") }
-                    }
+                    XiaoxuEmpty(
+                        title = "成绩尚未读取",
+                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
+                        actionLabel = "连接青果教务",
+                        onAction = openProfile
+                    )
                 }
             }
-            AcademicDestination.EXAMS -> Content {
+            AcademicDestination.EXAMS -> Content(topPadding = 6.dp) {
                 item {
-                    XiaoxuCard {
-                        Text("考试安排尚未读取", style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink)
-                        TextButton(onClick = openProfile) { Text("查看数据连接") }
-                    }
+                    XiaoxuEmpty(
+                        title = "考试安排尚未读取",
+                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
+                        actionLabel = "查看数据连接",
+                        onAction = openProfile
+                    )
                 }
             }
             AcademicDestination.SERVICES -> Content {
