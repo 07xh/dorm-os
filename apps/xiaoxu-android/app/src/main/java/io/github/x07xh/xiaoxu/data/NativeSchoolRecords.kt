@@ -29,16 +29,31 @@ data class NativeSchoolRecord(
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */
     @Transaction
-    suspend fun replaceSecondClassSnapshot(scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>) {
+    suspend fun replaceSecondClassSnapshot(
+        scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>,
+        catalogEmpty: List<NativeSchoolRecord> = emptyList()
+    ) {
         require(scores.isNotEmpty() && scores.size <= 50)
         require(scores.all { it.provider == "second_class" && it.kind == "credits" })
         require(activities.size in 1..251)
         require(activities.count { it.kind == "activity_summary" } == 1)
         require(activities.all { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") })
+        // The validated catalog is tied to this account's verified score read.
+        // Clear an earlier owner's empty snapshot on successful account switch,
+        // even when the current catalog is unavailable or nonempty/unverified.
+        require(catalogEmpty.size == 0 || catalogEmpty.size == 3)
+        require(catalogEmpty.all {
+            it.provider == "second_class" && it.kind == "catalog_empty" &&
+                it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == scores.first().capturedAt
+        })
+        require(catalogEmpty.map { it.title }.toSet() ==
+            if (catalogEmpty.isEmpty()) emptySet() else
+                setOf("报名中", "待验证", "即将开始报名"))
+        deleteKind("second_class", "catalog_empty")
         deleteKind("second_class", "credits")
         deleteKind("second_class", "activity")
         deleteKind("second_class", "activity_summary")
-        insertAll(scores + activities)
+        insertAll(scores + activities + catalogEmpty)
     }
     @Query("SELECT * FROM native_school_records ORDER BY capturedAt DESC, provider, kind, title")
     fun observe(): Flow<List<NativeSchoolRecord>>
