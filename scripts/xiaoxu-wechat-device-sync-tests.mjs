@@ -8,6 +8,7 @@ import {
 } from '../lib/academic-wechat-device-sync.mjs';
 import {WECHAT_CANDIDATE_SCHEMA} from '../lib/academic-wechat-candidate-contract.mjs';
 import {listAssignments} from '../lib/academic-assignments.mjs';
+import {patchPersonalTask,WorkspaceError} from '../lib/academic-workspace.mjs';
 import {onRequestPost as ingestRoute} from '../functions/api/v1/wechat/ingest.js';
 
 globalThis.crypto??=webcrypto;
@@ -112,6 +113,29 @@ assert.equal(acceptedTasks[0].id,accepted.assignmentId);
 assert.equal(acceptedTasks[0].source_provider,'wechat',
  'reviewed WeChat tasks must carry authenticated source provenance in the normal task API');
 assert.equal(acceptedTasks[0].local_status,'todo');
+assert.equal(acceptedTasks[0].revision,0);
+const done=await patchPersonalTask(db,owner,accepted.assignmentId,
+ {revision:0,localStatus:'done'},{now:()=> '2026-11-06T11:00:00.000Z'});
+assert.equal(done.revision,1);
+assert.deepEqual(
+ (await listAssignments(db,owner)).map(t=>[t.source_provider,t.local_status,t.revision]),
+ [['wechat','done',1]],
+ 'reviewed WeChat task personal completion persists without changing its source');
+await assert.rejects(
+ patchPersonalTask(db,owner,accepted.assignmentId,{revision:0,localStatus:'todo'}),
+ e=>e instanceof WorkspaceError && e.code==='revision_conflict');
+await assert.rejects(
+ patchPersonalTask(db,'owner-b',accepted.assignmentId,{revision:1,localStatus:'todo'}),
+ e=>e instanceof WorkspaceError && e.code==='not_found');
+const undone=await patchPersonalTask(db,owner,accepted.assignmentId,
+ {revision:1,localStatus:'todo'},{now:()=> '2026-11-06T11:01:00.000Z'});
+assert.equal(undone.revision,2);
+assert.equal((await listAssignments(db,owner))[0].local_status,'todo');
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_assignment_events WHERE assignment_id=?'
+).get(accepted.assignmentId).n,2,
+ 'personal completion and undo must remain auditable');
+
 assert.equal((await listAssignments(db,'owner-b')).length,0,
  'another owner must not see the approved WeChat assignment');
 assert.equal((await listWechatCandidates(db,owner)).length,0,
