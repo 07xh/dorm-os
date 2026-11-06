@@ -72,6 +72,11 @@ assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
 
 const cloud = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CloudClient.kt');
+const taskUpdateRoute = read('functions/api/v1/assignments/[id].js');
+assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
+  'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
+assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
+  '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
 const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
@@ -1197,8 +1202,8 @@ assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
   '微信审核任务必须复用本人云端任务写接口而不是只读装饰勾选框');
 assert.match(cloud, /it\.provider == "wechat" && it\.revision == revision/,
   '仅后端审核已确认微信来源、且版本匹配的任务允许个人勾选');
-assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "PATCH", body, authenticated = true\)/,
-  '个人完成必须走已有带认证的 PATCH 接口');
+assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "POST", body, authenticated = true\)/,
+  '微信任务个人完成使用 Android 支持的 POST 且携带原有本人认证');
 assert.match(cloud, /put\("localStatus", if \(completed\) "done" else "todo"\)/,
   '微信任务勾选只操作个人状态，不更改学校官方提交状态');
 assert.match(workspace, /onToggleWechat = if \(state\.tasksFresh && row\.revision >= 0\)/,
