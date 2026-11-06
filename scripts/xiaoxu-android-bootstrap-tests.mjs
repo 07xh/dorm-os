@@ -659,8 +659,8 @@ assert.match(main, /CompactActionRow\("任务备份与恢复", Icons\.Outlined\.
   '真实本机备份/恢复功能必须通过紧凑操作行可达');
 assert.match(main, /CompactActionRow\("开源许可", Icons\.Outlined\.Info/,
   '开源许可入口仍能展开完整真实许可信息');
-assert.match(main, /XiaoxuCard\(contentPadding = 0\.dp\) \{\s*Column \{\s*CompactActionRow/,
-  '工具入口应合为连续白色分组而不是分散大卡');
+assert.match(main, /XiaoxuGroupedSection\(title = "工具"\) \{\s*CompactActionRow/,
+  '工具入口统一为连续圆角分组，不恢复分散大卡');
 assert.doesNotMatch(main, /云端第二课堂个人快照（可选）|按需使用系统文件选择器，不自动上传本机任务/,
   '我的页面默认不再展示多余解释性小字');
 assert.doesNotMatch(main, /item \{ Heading\("我的",/,
