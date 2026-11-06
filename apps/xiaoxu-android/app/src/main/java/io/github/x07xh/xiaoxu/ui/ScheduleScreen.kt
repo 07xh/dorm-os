@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
 import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import android.Manifest
@@ -329,8 +330,8 @@ private fun ScheduleVerifiedContent(
     var editingError by remember { mutableStateOf<String?>(null) }
     val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
-    val weekNumbers = remember(data.lessons) {
-        data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
+    val weekNumbers = remember(data.lessons, calendar) {
+        selectableTeachingWeeks(data.lessons, calendar)
     }
     // Current-week selection requires the user's explicit semester start date.
     // Without it, fall back to the first imported week, never a guessed "today".
@@ -401,8 +402,8 @@ private fun ScheduleVerifiedContent(
                 onSelect = { selectedWeek = it; showWeekPicker = false })
         }
         if (weekNumbers.isNotEmpty()) {
-            // Move only through weeks present in the owner's actual timetable.
-            // No synthetic "current week" or hardcoded 1..20 semester range.
+            // Without term settings, only imported weeks are selectable.
+            // Explicitly configured semesters also expose empty teaching weeks.
             val currentIndex = weekNumbers.indexOf(selectedWeek)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
