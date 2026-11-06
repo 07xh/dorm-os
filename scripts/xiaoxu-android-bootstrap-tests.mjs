@@ -9,6 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const navigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 
@@ -24,8 +25,18 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /FloatingBottomBar/, '底部导航须使用统一悬浮组件');
-assert.match(main, /NavigationRail/);
+assert.match(main, /PrimaryBottomNavigation/, 'NativeShell 仅接入一处底栏');
+assert.match(main, /PrimarySideNavigation/, 'NativeShell 仅接入一处横屏侧栏');
+assert.match(navigation, /FloatingBottomBar\(/, '底栏必须复用唯一 FloatingBottomBar 渲染器');
+assert.match(navigation, /NavigationRail\(/, '横屏侧栏由共享导航适配层绘制');
+assert.equal((main.match(/PrimaryBottomNavigation\(/g) || []).length, 1,
+  'NativeShell 不得重复实例化底部导航');
+assert.equal((main.match(/PrimarySideNavigation\(/g) || []).length, 1,
+  'NativeShell 不得重复实例化横屏导航');
+assert.equal((navigation.match(/FloatingBottomBar\(/g) || []).length, 1,
+  '不得引入第二套底部导航组件');
+assert.doesNotMatch(main, /\bNavigationBar\s*\(|\bBottomAppBar\s*\(/,
+  'NativeShell 不得重新加入 Material 底栏');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
@@ -1054,7 +1065,7 @@ assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.BrandSoft/,
   '悬浮导航选中底色须取自统一调色板');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
   '悬浮导航选中前景色须取自统一调色板');
-assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
+assert.match(navigation, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
 assert.ok(workspace.includes("internal fun resolveHomeCourseIndex("), '首页课程轮播必须有稳定的回退索引');
@@ -1260,9 +1271,9 @@ assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
 // #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
 assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
   '主导航不得重新出现演示版/真实版切换');
-assert.match(main, /PrimaryTabs = listOf\(MainDestination\.HOME, MainDestination\.SCHEDULE/,
+assert.match(navigation, /PrimaryTabs = listOf\([\s\S]*?MainDestination\.HOME,[\s\S]*?MainDestination\.SCHEDULE/,
   '五项一级导航必须保留');
-assert.match(main, /MainDestination\.ACADEMIC, MainDestination\.TASKS, MainDestination\.PROFILE\)/,
+assert.match(navigation, /MainDestination\.ACADEMIC,[\s\S]*?MainDestination\.TASKS,[\s\S]*?MainDestination\.PROFILE/,
   '教务应是第三项');
 assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/, '全局消息入口');
@@ -1270,8 +1281,8 @@ assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; acade
   '教务快捷入口打开总览');
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
   '消息中心复用真实数据');
-assert.match(main, /useStatusBarInset = true, onBack = onBack\)/,
-  '消息可返回来源页');
+assert.match(main, /useStatusBarInset = false, onBack = onBack\)/,
+  'Scaffold 已负责消息页状态栏 inset，不得双重留白');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
   '页面状态跨导航保留');
 assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
