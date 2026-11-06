@@ -628,9 +628,10 @@ assert.match(workspace, /\.selectableGroup\(\)/,
   '任务三态筛选须成组供无障碍导航');
 assert.match(statusTabSource, /XiaoxuRadius\.tile/,
   '任务筛选圆角必须复用唯一设计系统');
-const messageSearchSource = messageCenter.slice(
-    messageCenter.indexOf('private fun MessageSearchField('),
-    messageCenter.indexOf('private fun FilterRow('));
+// messageUi is loaded before these assertions; messageCenter is declared later.
+const messageSearchSource = messageUi.slice(
+    messageUi.indexOf('private fun MessageSearchField('),
+    messageUi.indexOf('private fun FilterRow('));
 assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
   '消息搜索框需与列表共用玻璃材质');
 assert.match(messageSearchSource, /GlassBorder/,
