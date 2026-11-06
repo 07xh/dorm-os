@@ -1,17 +1,14 @@
-name: Xiaoxu Campus Run JVM Contract
+name: Xiaoxu Android JVM Regression
 
-# Campus run is a strictly isolated data contract.  Compile and execute the
-# Android JVM tests without generating a distributable APK or deploying.
+# Reuse the existing JVM-only Android workflow for all native Kotlin edits.
+# Compiles Compose and runs unit tests; does NOT assemble APKs or deploy.
 on:
   pull_request:
     branches: [main]
     paths:
-      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CampusRunContract.kt'
-      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CampusRunScope.kt'
-      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalCampusRunStore.kt'
-      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CampusRunPanel.kt'
-      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt'
-      - 'apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/data/CampusRunContractTest.kt'
+      - 'apps/xiaoxu-android/app/src/**/*.kt'
+      - 'apps/xiaoxu-android/app/build.gradle'
+      - 'apps/xiaoxu-android/app/src/main/AndroidManifest.xml'
       - '.github/workflows/xiaoxu-campus-run-jvm.yml'
   workflow_dispatch:
 
@@ -34,13 +31,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Run native Kotlin data contract unit tests
+      - name: Compile Android Kotlin and run existing JVM unit tests
         run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest --no-daemon --stacktrace
       - name: Upload JVM test reports only on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: campus-run-jvm-unit-test-reports
+          name: xiaoxu-android-jvm-unit-test-reports
           path: |
             apps/xiaoxu-android/app/build/reports/tests/
             apps/xiaoxu-android/app/build/test-results/

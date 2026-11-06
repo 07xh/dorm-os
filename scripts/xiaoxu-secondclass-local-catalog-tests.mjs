@@ -96,3 +96,20 @@ test('switching the visible owner while catalog is read rejects entire snapshot'
   assert.equal(result.rows,undefined);
   assert.equal(result.accountHash,undefined);
 });
+
+
+test('native second-class tabs retain independent scroll and prevent duplicate refresh',()=>{
+  const page=readFileSync(
+    'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt','utf8');
+  for(const name of ['catalogScroll','activitiesScroll','scoresScroll'])
+    assert.match(page,new RegExp('val '+name+' = rememberScrollState\\(\\)'));
+  assert.match(page,/0 -> catalogScroll[\s\S]*1 -> activitiesScroll[\s\S]*else -> scoresScroll/);
+  assert.match(page,/verticalScroll\(currentScroll\)/);
+  assert.doesNotMatch(page,/verticalScroll\(rememberScrollState\(\)\)/);
+  assert.match(page,/if \(refreshing\) return/);
+  assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
+  assert.match(page,/val succeeded = result\.resultCode == Activity\.RESULT_OK/);
+  assert.match(page,/refreshing = false/);
+  assert.match(page,/enabled = !refreshing/);
+  assert.match(page,/onRefreshResult\?\.invoke\(false\)/);
+});
