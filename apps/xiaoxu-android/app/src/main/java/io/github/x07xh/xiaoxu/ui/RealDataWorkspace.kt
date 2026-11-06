@@ -411,7 +411,7 @@ private fun HomeCourseList(
 ) {
     HomeSection(
         title = "课程记录",
-        caption = "$weekdayLabel · 本机记录（周次待核对）",
+        caption = "$weekdayLabel · 本机导入，周次待核对",
         actionLabel = if (hasTimetable) "查看课表" else null,
         onAction = if (hasTimetable) openSchedule else null
     ) {
