@@ -1207,7 +1207,7 @@ private fun CourseDetailBottomSheet(
                     icon = Icons.Outlined.Schedule,
                     label = "上课时间",
                     value = "周" + WEEKDAY_SHORT.getOrElse(lesson.weekday - 1) { "?" } +
-                        " · " + lesson.sectionLabel.replaceFirst("第", "第 "),
+                        " · " + lesson.sectionLabel.replaceFirst("第", "第 ").replace('–', '-'),
                     modifier = Modifier.weight(1f)
                 )
                 CourseDetailInfoCard(
