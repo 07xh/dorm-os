@@ -244,7 +244,6 @@ fun RealAcademicHome(
     // Sheets look up the current records by stable keys, not saved copies of
     // possibly stale local/cloud data. Reuse Schedule/Message details directly.
     var openedLessonKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedHomeCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedNoticeKey by rememberSaveable { mutableStateOf<String?>(null) }
     val onLessonOpen: (VerifiedLesson) -> Unit = { openedLessonKey = homeLessonKey(it) }
@@ -252,12 +251,10 @@ fun RealAcademicHome(
     val onNoticeOpen: (String) -> Unit = { openedNoticeKey = it }
 
     val hero: @Composable () -> Unit = {
-        HomeHero(
+        HomeCourseList(
             lessons = sameWeekday,
             hasTimetable = localLessons.isNotEmpty(),
             weekdayLabel = weekdayLabel,
-            selectedCourseKey = selectedHomeCourseKey,
-            onSelectCourse = { selectedHomeCourseKey = it },
             openSchedule = openSchedule,
             openFileImport = openFileImport,
             onOpenLesson = onLessonOpen
@@ -479,6 +476,89 @@ private fun HomeHero(
             actionLabel = "从文件导入课表",
             onAction = openFileImport
         )
+    }
+}
+
+
+/**
+ * 首屏只展示本人本机导入的同星期课块。周次未知时仅称“课程记录”，避免冒充今日实际开课。
+ * QA 阶段保留旧 HomeHero 作为比对，验证后删除旧入口/轮播实现。
+ */
+@Composable
+private fun HomeCourseList(
+    lessons: List<VerifiedLesson>,
+    hasTimetable: Boolean,
+    weekdayLabel: String,
+    openSchedule: () -> Unit,
+    openFileImport: () -> Unit,
+    onOpenLesson: (VerifiedLesson) -> Unit
+) {
+    HomeSection(
+        title = "课程记录",
+        caption = "$weekdayLabel · 本机导入，周次待核对",
+        actionLabel = if (hasTimetable) "查看课表" else null,
+        onAction = if (hasTimetable) openSchedule else null
+    ) {
+        XiaoxuCard(contentPadding = 12.dp) {
+            when {
+                lessons.isNotEmpty() -> {
+                    lessons.take(4).forEachIndexed { index, lesson ->
+                        if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                        HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })
+                    }
+                    if (lessons.size > 4) {
+                        TextButton(onClick = openSchedule) {
+                            Text("查看其余 ${lessons.size - 4} 条课程记录")
+                        }
+                    }
+                }
+                hasTimetable -> {
+                    Text("这一天没有已保存的课程记录",
+                        style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+                }
+                else -> {
+                    Text("还没有导入课表", style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink2)
+                    TextButton(onClick = openFileImport) { Text("导入课表") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
+    val courseColor = xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
+            .clickable(onClickLabel = "查看课程详情", onClick = onOpen)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.width(4.dp).height(44.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(courseColor.accent)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(lesson.title.ifBlank { "未命名课程" },
+                style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
+            Text(
+                "第${lesson.startSection}–${lesson.endSection}节 · " +
+                    lesson.location.ifBlank { "教室未提供" } + " · " + formatWeeks(lesson.weeks),
+                style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 2, overflow = TextOverflow.Ellipsis
+            )
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
     }
 }
 

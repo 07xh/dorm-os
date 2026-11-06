@@ -1144,6 +1144,15 @@ assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDee
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
+assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
+assert.ok(workspace.includes('HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })'),
+  '课程行点击复用原详情');
+assert.ok(workspace.includes('lessons.take(4).forEachIndexed'),
+  '首页一次最多显示四条课程记录');
+assert.ok(workspace.includes('xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })'),
+  '首页和课表必须共享稳定的课程颜色');
+assert.doesNotMatch(workspace.slice(workspace.indexOf('val hero: @Composable'), workspace.indexOf('val tasks: @Composable')),
+  /HomeHero\(/, '首页不能继续调用旧轮播');
 assert.ok(workspace.includes("internal fun resolveHomeCourseIndex("), '首页课程轮播必须有稳定的回退索引');
 assert.ok(workspace.includes("onSelectCourse(homeLessonKey(lessons[selectedIndex + 1]))"), '多课程应可切换至下一条');
 assert.ok(workspace.includes('maxWidth < 420.dp'), '窄屏学业入口须自动调整为两行');
