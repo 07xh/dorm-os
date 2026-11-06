@@ -605,7 +605,7 @@ private fun NativeShell(
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = true, onBack = { messagesOpen = false })
+                                useStatusBarInset = false, onBack = { messagesOpen = false })
                         }
                     } else {
                     // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
