@@ -31,10 +31,14 @@ android {
         compose true
     }
     buildTypes {
-        // 校序没有发布 keystore，这里复用 debug 签名，只为让 release 包可以装到设备上做
-        // 性能测量（R8 + profileable），不是正式发布产物。
+        // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
+        // 装不上设备也就不会被误当正式产物分发；只有显式传 -PxiaoxuPerfRelease=true
+        // 时才复用 debug 签名，用于在本机测量 R8 包的真实表现。
+        //   gradle :app:assembleRelease -PxiaoxuPerfRelease=true
         release {
-            signingConfig signingConfigs.debug
+            if (project.hasProperty('xiaoxuPerfRelease')) {
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
