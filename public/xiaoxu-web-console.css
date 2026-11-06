@@ -10,7 +10,7 @@
   .x-v7-header .main-nav {
     position:fixed;
     top:92px;
-    left:max(20px,calc((100vw - 1640px)/2 + 20px));
+    left:max(20px,calc(50vw - 800px));
     width:220px;
     display:flex;
     flex-direction:column;
@@ -59,8 +59,8 @@
   }
   .workspace main {
     max-width:none;
-    margin-left:calc(max(20px, (100vw - 1640px) / 2 + 20px) + 242px);
-    margin-right:max(20px,calc((100vw - 1640px)/2 + 20px));
+    margin-left:calc(max(20px,calc(50vw - 800px)) + 242px);
+    margin-right:max(20px,calc(50vw - 800px));
     padding:32px 24px 72px;
     min-width:0;
   }
