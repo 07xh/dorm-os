@@ -29,3 +29,18 @@ test('bookmarkable review route survives reload and returns to ordinary tasks',a
  await expect(page).toHaveURL(/#review$/);
  await expect(page.locator('[data-task-review-view]')).toBeVisible();
 });
+
+
+test('legacy direct links and hashchange use the same navigation source',async({page})=>{
+ await page.goto('/#devices');
+ await expect(page.locator('#sidebarNav [data-page="profile"]')).toHaveAttribute('aria-current','page');
+ await page.goto('/#timetable');
+ await expect(page.locator('#sidebarNav [data-page="timetable"]')).toHaveAttribute('aria-current','page');
+ await page.goto('/#nfc');
+ await expect(page.locator('#sidebarNav [data-page="profile"]')).toHaveAttribute('aria-current','page');
+ await page.evaluate(()=>{location.hash='#review';});
+ await expect(page.locator('[data-filter="review"]')).toHaveAttribute('aria-pressed','true');
+ await page.evaluate(()=>{location.hash='#tasks';});
+ await expect(page.locator('[data-filter="all"]')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-task-list-view]')).toBeVisible();
+});
