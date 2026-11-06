@@ -1061,6 +1061,21 @@ assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
 assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
 const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
+// Original 北化 1.0.83 glass chrome must stay inside the one registered bottom bar.
+const northChrome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/NorthGlassNavChrome.kt');
+const northGlyph = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthPhosphorNavigationIcon.kt');
+const northPlayback = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthNavigationIconPlayback.kt');
+assert.match(northChrome, /fun Modifier\\.northGlassTrack/, '玻璃轨道只实现视觉材质');
+assert.match(northChrome, /fun Modifier\\.northGlassIndicator/, '选中透镜只实现视觉材质');
+assert.match(northChrome, /drawBackdrop\\(/, '必须使用真正 Kyant Backdrop 而不是纯透明色替代');
+assert.match(floatingBar, /if \\(useNorthGlass && backdrop != null\\)/, '同一底栏按能力选择玻璃材质');
+assert.match(floatingBar, /NorthPhosphorNavigationIcon\\(/, '底栏复用北化原版 duotone 图标');
+assert.match(northGlyph, /drawBooks\\(|drawCalendar\\(|drawLightning\\(|drawChart\\(|drawSliders\\(/, '五套原版图标路径必须完整');
+assert.match(northPlayback, /fun rememberNorthNavigationIconPlayback\\(/, '每个 tab 的图标动画时钟独立');
+assert.match(navigation, /northSymbol = it\\.primaryNorthSymbol/, '五个导航功能使用单一原版符号映射');
+assert.match(main, /rememberLayerBackdrop\\(/, '真实背景采样必须由单一 Shell 提供');
+assert.match(appGradle, /io\\.github\\.kyant0:backdrop:2\\.0\\.0-alpha03/, '固定已测试的兼容版玻璃库');
+
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.BrandSoft/,
   '悬浮导航选中底色须取自统一调色板');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
