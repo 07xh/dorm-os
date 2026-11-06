@@ -582,8 +582,16 @@ assert.match(main, /showLocalBackup by rememberSaveable \{ mutableStateOf\(false
   '本机备份为低频设置，不能默认占据我的页面首屏');
 assert.match(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
   '按需展开真实本机导入与导出，不能误删原功能');
-assert.match(main, /XiaoxuCard\(onClick = \{ showCloudSecondClass = !showCloudSecondClass \}\)/,
-  '第二课堂个人云端快照沿用统一卡片，不重建第二套页面');
+assert.match(main, /CompactActionRow\("第二课堂记录", Icons\.Outlined\.School/,
+  '第二课堂记录必须留在我的页面紧凑工具区，并复用原内容面板');
+assert.match(main, /CompactActionRow\("任务备份与恢复", Icons\.Outlined\.CheckCircle/,
+  '真实本机备份/恢复功能必须通过紧凑操作行可达');
+assert.match(main, /CompactActionRow\("开源许可", Icons\.Outlined\.Info/,
+  '开源许可入口仍能展开完整真实许可信息');
+assert.match(main, /XiaoxuCard\(contentPadding = 0\.dp\) \{\s*Column \{\s*CompactActionRow/,
+  '工具入口应合为连续白色分组而不是分散大卡');
+assert.doesNotMatch(main, /云端第二课堂个人快照（可选）|按需使用系统文件选择器，不自动上传本机任务/,
+  '我的页面默认不再展示多余解释性小字');
 assert.doesNotMatch(main, /item \{ Heading\("我的",/,
   '个人中心已有资料卡，不能叠加旧版重复主标题');
 const backupSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
@@ -1311,6 +1319,31 @@ assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
 
 assert.match(panels, /fun ProfileHeroCard\(/, '我的页需头像视觉区');
+assert.match(panels, /XiaoxuCard\(contentPadding = 14\.dp\)/,
+  '我的页面账户信息应为紧凑白色状态卡');
+assert.doesNotMatch(panels, /我的学习空间|学校账号各自授权；本机读取不依赖校序云端登录/,
+  '账户区不得恢复大面积旧版宣传卡及解释文字');
+assert.match(panels, /SectionHeader\(title = "数据连接"\)/,
+  '我的页真实学校读取入口必须直接显示');
+assert.match(panels, /title = "云端同步"/,
+  '云端授权应继续收纳为独立可操作区域');
+assert.match(main, /private fun CompactPageHeading\(/,
+  '教务和我的须使用页面内真实紧凑标题，不叠加旧顶栏');
+assert.match(main, /MainDestination\.TASKS, MainDestination\.ACADEMIC, MainDestination\.PROFILE/,
+  '任务、教务、我的的旧重复顶栏必须关闭');
+assert.match(main, /onMessages = \{ messagesOpen = true \}/,
+  '页面消息中心入口应继续可达');
+assert.match(main, /Content\(withTopInset = true\)/,
+  '我的页在没有旧 TopBar 时须保留状态栏安全内边距');
+assert.match(main, /fun AcademicActionRow\(/,
+  '教务入口必须使用连续可点击操作行');
+assert.match(main, /AcademicActionRow\("第二课堂"/,
+  '真实第二课堂必须保留直接可达入口');
+assert.match(main, /CampusRunPanel\(cloud\)/,
+  '校园跑/学校服务真实面板不可在 UI 精简时丢失');
+assert.match(main, /SecondClassPage\(\)/,
+  '第二课堂独立内容仍须可达');
+
 assert.match(panels, /fun ProfileMetric\(/, '我的页真实指标格');
 assert.match(panels, /fun SettingRow\(/, '我的页分组设置行');
 assert.match(panels, /fun PlatformStatusCard\(/, '三个学校平台需真实状态卡');
