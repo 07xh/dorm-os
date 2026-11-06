@@ -808,7 +808,7 @@ assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
-assert.match(workspace, /未核定当前教学周/);
+assert.match(workspace, /本机导入，周次待核对/, '教学周未知时必须真实标示课程来源和核对状态');
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
