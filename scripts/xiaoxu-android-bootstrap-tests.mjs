@@ -9,6 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const navigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
@@ -41,8 +42,12 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /FloatingBottomBar/, '底部导航须使用统一悬浮组件');
-assert.match(main, /NavigationRail/);
+assert.match(main, /PrimaryBottomNavigation\(/, '唯一 NativeShell 底栏入口');
+assert.match(main, /PrimarySideNavigation\(/, '唯一 NativeShell 横屏导航入口');
+assert.match(navigation, /FloatingBottomBar\(/, '底栏复用唯一绘制器');
+assert.match(navigation, /NavigationRail\(/, '横屏 Rail 仍为同一导航契约');
+assert.equal((main.match(/PrimaryBottomNavigation\(/g) || []).length, 1,
+  '同一 Shell 不得重复绘制底栏');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
@@ -1199,11 +1204,47 @@ assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
 assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
 const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
+const northChrome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/NorthGlassNavChrome.kt');
+const northGeometry = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryBottomGeometry.kt');
+const northGlyphs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthPhosphorNavigationIcon.kt');
+assert.match(northChrome, /fun Modifier\.northGlassTrack/);
+assert.match(northChrome, /fun Modifier\.northGlassIndicator/);
+
+// Glass motion remains a draw-only adapter: no navigation state in copied source.
+const northPlayback = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthNavigationIconPlayback.kt');
+assert.match(northPlayback, /CoroutineStart\.UNDISPATCHED/,
+  '原版 Phosphor 图标初始帧立即响应触控');
+assert.match(northPlayback, /pending\[index\] = true/,
+  '同一图标快速连点应排队播放而非重置姿态');
+assert.match(floatingBar, /NorthGlassPressedScale = 78f \/ 56f/,
+  '原版液态滑块的按压尺度不得自行重设计');
+assert.match(floatingBar, /if \(!dragState\.moved\) drag\.updateValue\(safeIndex\.toFloat\(\)\)/,
+  '外部选中切换不得额外启动按压动画');
+
+assert.match(northChrome, /refractionHeight = h/, '原版选择透镜物理折射不可删');
+assert.match(northChrome, /refractionHeight = height/, '原版玻璃轨道物理折射不可删');
+assert.match(northGlyphs, /drawBooks\(|drawCalendar\(|drawLightning\(|drawChart\(|drawSliders\(/,
+  '必须保留北化的五套原版动画图形');
+assert.match(floatingBar, /northGlassTrack\(/);
+assert.match(floatingBar, /northGlassIndicator\(/);
+assert.match(northGeometry, /interpolateDp\(72\.dp, 62\.dp, squeeze\)/,
+  '短屏与常规屏的底栏尺寸须源于原版');
+assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/, '录制真实页面与渐变背景');
+assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/,
+  '底部内容安全区须由同一组件统一计算');
+assert.match(main, /Box\(Modifier\.align\(Alignment.BottomCenter\)\)/,
+  '底栏必须在 backdrop 采样树之外防止循环');
+assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/);
+assert.doesNotMatch(main, /\bNavigationBar\s*\(|\bBottomAppBar\s*\(/,
+  '禁止第二套 Material 底栏');
+
+
+
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
   '悬浮导航选中玻璃材质须取自唯一设计系统');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
   '悬浮导航选中前景色须取自统一调色板');
-assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
+assert.match(navigation, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
@@ -1590,9 +1631,9 @@ assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
 // #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
 assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
   '主导航不得重新出现演示版/真实版切换');
-assert.match(main, /PrimaryTabs = listOf\(MainDestination\.HOME, MainDestination\.SCHEDULE/,
+assert.match(navigation, /PrimaryTabs = listOf\([\s\S]*?MainDestination\.HOME,[\s\S]*?MainDestination\.SCHEDULE/,
   '五项一级导航必须保留');
-assert.match(main, /MainDestination\.ACADEMIC, MainDestination\.TASKS, MainDestination\.PROFILE\)/,
+assert.match(navigation, /MainDestination\.ACADEMIC,[\s\S]*?MainDestination\.TASKS,[\s\S]*?MainDestination\.PROFILE/,
   '教务应是第三项');
 assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/, '全局消息入口');
@@ -1600,7 +1641,7 @@ assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; acade
   '教务快捷入口打开总览');
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
   '消息中心复用真实数据');
-assert.match(main, /useStatusBarInset = true, onBack = \{ messagesOpen = false \}\)/,
+assert.match(main, /useStatusBarInset = false, onBack = \{ messagesOpen = false \}\)/,
   '消息页面直接传入返回来源页的回调，无重复中间包装组件');
 assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
   '系统返回键也必须关闭消息页并恢复原一级页');
