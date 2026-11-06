@@ -18,6 +18,14 @@ assert.match(main, /LocalScheduleStore\.parseCourses\(text\)/);
 assert.match(main, /LocalTimetableBackup\.parse\(text\)/);
 assert.match(main, /LocalTimetableBackup\.export\(/,
   '可从原生页面导出完整课程与学期设置');
+assert.match(main, /localScheduleRevision\+\+/,
+  '导入相同课程但不同学期设置时也必须触发界面刷新');
+assert.match(main, /localScheduleRevision = localScheduleRevision/,
+  '课表版本变动必须送达原生课表');
+assert.match(screen, /LaunchedEffect\(localScheduleRevision\)/,
+  '恢复学期设置不可只依赖课程列表是否改变');
+assert.match(screen, /onExport = openFileExport/,
+  '备份入口应位于已有设置，不新增第二个课表页面');
 // File writes and post-commit reload must run on IO; old asynchronous reads
 // must not restore an earlier timetable after a successful import.
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
