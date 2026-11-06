@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.RadioButton
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
 
@@ -30,6 +34,8 @@ import io.github.x07xh.xiaoxu.data.SemesterCalendar
 internal fun SemesterSettingsDialog(
     current: SemesterCalendar?,
     reminderEnabled: Boolean,
+    viewMode: String,
+    onViewModeChange: (String) -> Unit,
     onExport: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (SemesterCalendar, Boolean) -> Unit
@@ -39,6 +45,7 @@ internal fun SemesterSettingsDialog(
     var times by rememberSaveable { mutableStateOf(current?.editableTimes() ?: "") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var wantReminders by rememberSaveable { mutableStateOf(reminderEnabled) }
+    var selectedViewMode by rememberSaveable { mutableStateOf(viewMode) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -50,6 +57,25 @@ internal fun SemesterSettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("仅保存在本机。设置后才能自动定位本周和显示上课时间。")
+                Text("课表视图")
+                Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+                    listOf("week" to "周视图", "day" to "日视图").forEach { (mode, label) ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .selectable(
+                                    selected = selectedViewMode == mode,
+                                    role = Role.RadioButton,
+                                    onClick = { selectedViewMode = mode }
+                                ),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selectedViewMode == mode, onClick = null)
+                            Text(label)
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = monday, onValueChange = { monday = it; error = null },
                     label = { Text("第1周周一（年-月-日）") },
@@ -79,9 +105,19 @@ internal fun SemesterSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                runCatching { SemesterCalendar.parse(monday, weeks, times) }
-                    .onSuccess { onSave(it, wantReminders) }
-                    .onFailure { error = it.message ?: "设置无效" }
+                // A view preference can be saved before the user configures the semester.
+                // Partial/invalid semester fields still fail validation instead of being discarded.
+                if (current == null && monday.isBlank() && weeks.isBlank() && times.isBlank()) {
+                    onViewModeChange(selectedViewMode)
+                    onDismiss()
+                } else {
+                    runCatching { SemesterCalendar.parse(monday, weeks, times) }
+                        .onSuccess {
+                            onViewModeChange(selectedViewMode)
+                            onSave(it, wantReminders)
+                        }
+                        .onFailure { error = it.message ?: "设置无效" }
+                }
             }) { Text("保存") }
         },
         dismissButton = {

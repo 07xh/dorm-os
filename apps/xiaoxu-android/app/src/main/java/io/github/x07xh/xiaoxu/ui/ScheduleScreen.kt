@@ -22,10 +22,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
@@ -40,7 +38,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,7 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -361,7 +357,7 @@ private fun ScheduleVerifiedContent(
         mutableStateOf(actualCurrentWeek?.takeIf { it in weekNumbers }
             ?: weekNumbers.firstOrNull() ?: ALL_WEEKS)
     }
-    var viewMode by rememberSaveable { mutableStateOf("week") }
+    var viewMode by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
     var showWeekPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weekNumbers) {
         if (selectedWeek != ALL_WEEKS && selectedWeek !in weekNumbers) {
@@ -475,7 +471,6 @@ private fun ScheduleVerifiedContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        ScheduleViewModeTabs(mode = viewMode, onChange = { viewMode = it })
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
             if (expanded) {
@@ -639,6 +634,11 @@ private fun ScheduleVerifiedContent(
         SemesterSettingsDialog(
             current = calendar,
             reminderEnabled = LocalCourseReminders.enabled(context),
+            viewMode = viewMode,
+            onViewModeChange = { selected ->
+                LocalSemesterConfigStore.saveViewMode(context, selected)
+                viewMode = selected
+            },
             onExport = openFileExport,
             onDismiss = { showSemesterSettings = false },
             onSave = { config, wantReminders ->
@@ -678,74 +678,6 @@ private fun ScheduleVerifiedContent(
                 }
             }
         )
-    }
-}
-
-/**
- * 周 / 日 切换。两个标签是同一组单选（`selectableGroup`），各自带准确描述，
- * 读屏能区分"周视图=七日历课程网格"与"日视图=单日课程列表"，并播报选中项。
- */
-@Composable
-private fun ScheduleViewModeTabs(mode: String, onChange: (String) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ViewModeTab(
-            isSelected = mode == "week",
-            description = "周视图，七日历课程网格，点击查看整周课表",
-            onClick = { onChange("week") }
-        ) {
-            Text("周视图")
-        }
-        ViewModeTab(
-            isSelected = mode == "day",
-            description = "日视图，单日课程列表，点击查看某一天的课程",
-            onClick = { onChange("day") }
-        ) {
-            Text("日视图")
-        }
-    }
-}
-
-@Composable
-private fun ViewModeTab(
-    isSelected: Boolean,
-    description: String,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        animationSpec = tween(180),
-        label = "mode-tab-bg"
-    )
-    val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
-        label = "mode-tab-fg"
-    )
-    Box(
-        modifier = Modifier
-            .heightIn(min = 48.dp)
-            .widthIn(min = 96.dp)
-            .clip(RoundedCornerShape(50))
-            .background(background)
-            // selectable 直接提供 role=Tab 与 selected，无需再手写覆盖。
-            .selectable(selected = isSelected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 10.dp)
-            .semantics {
-                contentDescription = description +
-                    if (isSelected) "，当前视图" else "，未选中"
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        CompositionLocalProvider(LocalContentColor provides foreground) { content() }
     }
 }
 

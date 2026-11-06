@@ -478,9 +478,21 @@ assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.
   '课表不依赖云端、没有旧版重复登录/同步动作');
 assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
 assert.match(schedulePanel, /Text\("重新导入"\)/);
-assert.match(schedulePanel, /var viewMode by rememberSaveable \{ mutableStateOf\("week"\) \}/);
-assert.match(schedulePanel, /Text\("周视图"\)/);
-assert.match(schedulePanel, /Text\("日视图"\)/);
+const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
+const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
+assert.match(schedulePanel, /viewMode = viewMode/);
+assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, selected\)/);
+assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
+  '周视图和日视图不得再占用课表顶部');
+assert.match(timetableSettings, /"week" to "周视图", "day" to "日视图"/);
+assert.match(timetableSettings, /current == null && monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
+  '未设置学期时仍应允许保存视图偏好');
+assert.match(timetableSettings, /onViewModeChange\(selectedViewMode\)/);
+assert.match(timetablePrefs, /fun loadViewMode\(context: Context\)/);
+assert.match(timetablePrefs, /fun saveViewMode\(context: Context, mode: String\)/);
+assert.match(timetablePrefs, /putString\(VIEW_MODE_KEY, mode\)\.apply\(\)/);
+
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);

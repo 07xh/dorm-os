@@ -7,6 +7,20 @@ import org.json.JSONObject
 object LocalSemesterConfigStore {
     private const val PREFS = "xiaoxu-local-schedule-calendar-v1"
     private const val KEY = "calendar"
+    private const val VIEW_MODE_KEY = "timetable-view-mode"
+
+    /** UI-only preference; it never changes the imported timetable or school session. */
+    fun loadViewMode(context: Context): String {
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(VIEW_MODE_KEY, "week")
+        return if (saved == "day") "day" else "week"
+    }
+
+    fun saveViewMode(context: Context, mode: String) {
+        require(mode == "week" || mode == "day") { "Unsupported timetable view mode" }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(VIEW_MODE_KEY, mode).apply()
+    }
 
     fun load(context: Context): SemesterCalendar? {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
