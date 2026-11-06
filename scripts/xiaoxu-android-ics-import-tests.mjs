@@ -26,6 +26,10 @@ assert.match(screen, /LaunchedEffect\(localScheduleRevision\)/,
   '恢复学期设置不可只依赖课程列表是否改变');
 assert.match(screen, /onExport = openFileExport/,
   '备份入口应位于已有设置，不新增第二个课表页面');
+assert.match(screen, /selectableTeachingWeeks\(data\.lessons, calendar\)/,
+  '已设置学期必须可选择无课教学周');
+assert.match(screen, /config\.currentWeek\(LocalDate\.now\(\)\)\?\.let/,
+  '首次设置学期应直接定位当前教学周，无须本周必须有课');
 // File writes and post-commit reload must run on IO; old asynchronous reads
 // must not restore an earlier timetable after a successful import.
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
