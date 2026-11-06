@@ -1536,7 +1536,7 @@ class CloudClient(context: Context) {
     }
 
     /** Only a personally approved WeChat task may change its own completion status.
-     * The owner-scoped PATCH accepts a revision and does not touch school submissions.
+     * Owner-scoped status-only POST accepts a revision and never touches school submissions.
      */
     suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean): Boolean {
         if (!state.authenticated || !state.tasksFresh || revision < 0 ||
@@ -1551,7 +1551,7 @@ class CloudClient(context: Context) {
             val body = JSONObject().put("revision", revision)
                 .put("localStatus", if (completed) "done" else "todo")
             val response = withContext(Dispatchers.IO) {
-                request("/api/v1/assignments/$id", "PATCH", body, authenticated = true)
+                request("/api/v1/assignments/$id", "POST", body, authenticated = true)
             }
             if (epoch != sessionEpoch) return false
             if (response.code != 200 ||
