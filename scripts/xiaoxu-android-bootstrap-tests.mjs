@@ -1420,8 +1420,8 @@ assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
-assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
-  '官方与微信来源使用唯一原生标签结构');
+assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
+  '官方与微信来源使用共享原生分段组件');
 assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
 assert.match(messageCenter, /private fun SourceSectionHeader\(/,
   '保留列表内的来源标题与状态语义');
