@@ -1130,8 +1130,12 @@ assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(fals
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
 assert.ok(workspace.includes('if (showLocal) item { LocalTaskEditor(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
-assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
+assert.match(workspace, /TaskRow\(localRows\[i\], today,[\s\S]*?onOpen = \{ openedTaskKey = localRows\[i\]\.key \}/,
   '本机任务仍从真实 Row 数据打开详情');
+assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
+  '首页任务中心勾选必须真实更新本机 Room 状态');
+assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
+  '云端任务不可复用本机完成操作或假装已提交到学校');
 assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
 assert.ok(workspace.includes('含上次云端快照'),
