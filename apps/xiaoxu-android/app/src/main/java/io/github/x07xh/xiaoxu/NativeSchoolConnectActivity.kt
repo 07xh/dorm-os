@@ -26,6 +26,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassActivities
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassCatalogEmpty
@@ -145,6 +146,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var redirectedToScore = false
     private val scoreIdentity by lazy { getSharedPreferences("second_class_local_identity", MODE_PRIVATE) }
     private var scoreSaveJob: Job? = null
+    private var manualReservation = false
 
     private fun invalidateCapture() {
         captureEpoch++
@@ -163,6 +165,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         provider = intent.getStringExtra(EXTRA_PROVIDER).orEmpty()
         val entry = entries[provider] ?: run { finish(); return }
+        if (provider == "second_class") {
+            SecondClassAutoRefresh.manualStarted()
+            manualReservation = true
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
@@ -569,6 +575,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     /** Fetch stays inside the official WebView origin; only sanitized data returns. */
     private fun captureSecondClassScores() {
+        val capturedAt = System.currentTimeMillis()
         val currentUrl = browser.url ?: return
         if (scoreBusy || !loaded || pageFailed ||
             !extractionAllowed("second_class", currentUrl) ||
@@ -603,7 +610,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 unlock()
                 return
             }
-            val rows = try { parseLocalSecondClassScores(payload, System.currentTimeMillis()) }
+            val rows = try { parseLocalSecondClassScores(payload, capturedAt) }
                 catch (_: Exception) { tell("积分字段校验失败，未更改旧数据。"); unlock(); return }
             val activities = try { parseLocalSecondClassActivities(payload, rows.first().capturedAt) }
                 catch (_: Exception) { tell("活动分页或字段校验失败，积分与活动旧记录均保持不变。"); unlock(); return }
@@ -626,10 +633,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) {
                                 currentCoroutineContext().ensureActive()
                                 LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
-                                    .replaceSecondClassSnapshot(rows, activities, catalog)
+                                    .replaceSecondClassSnapshot(rows, activities, catalog, accountHash = accountHash)
                             }
                             if (!valid()) return@launch
                             scoreIdentity.edit().putString("account", accountHash).commit()
+                            SecondClassAutoRefresh.onManualSave(applicationContext)
                             savedKind = "credits"
                             savedCount = rows.size
                             finishAndReturn.isEnabled = true
@@ -686,11 +694,16 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        val pendingSave = scoreSaveJob
         invalidateCapture()
         if (::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)
             browser.stopLoading()
             browser.destroy()
+        }
+        if (manualReservation) {
+            manualReservation = false
+            SecondClassAutoRefresh.manualFinishedAfter(pendingSave)
         }
         super.onDestroy()
     }

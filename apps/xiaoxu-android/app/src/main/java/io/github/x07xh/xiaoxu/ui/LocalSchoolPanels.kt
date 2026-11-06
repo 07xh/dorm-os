@@ -71,7 +71,7 @@ fun LocalSchoolConnectionPanel(
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
-            val list = records.filter { it.provider == provider }
+            val list = records.filter { it.provider == provider && it.kind != "account_binding" }
             val justImported = recentImport?.takeIf { it.provider == provider }
             // Always put the just-confirmed source/type first, even if another
             // course or activity was saved more recently.
@@ -112,6 +112,7 @@ fun LocalSchoolConnectionPanel(
                             else -> "连接第二课堂／刷新积分"
                         })
                     }
+                    if (provider == "second_class") SecondClassAutoReadControls()
                     if (provider == "second_class") Text(
                         "首次正常登录；学校会话有效时无需重复登录，过期后重新授权。下方为上次保存结果，不代表当前仍在线。",
                         style = MaterialTheme.typography.bodySmall,
