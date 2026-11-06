@@ -24,6 +24,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -69,11 +70,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
@@ -109,6 +114,9 @@ class MainActivity : ComponentActivity() {
     ) { uri ->
         if (uri != null) importTimetableFile(uri)
     }
+    private val timetableExportPicker = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> if (uri != null) exportTimetableFile(uri) }
     private val cloud by lazy { CloudClient(applicationContext) }
     private val schoolAuthReturn by lazy { SchoolAuthReturn(applicationContext) }
     private var returnedSchool by mutableStateOf<String?>(null)
@@ -141,12 +149,18 @@ class MainActivity : ComponentActivity() {
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
     // Only the latest committed import/resume read may update visible lessons.
     private var localScheduleReadSerial = 0L
+    // Changes even when only semester settings are restored and course rows stay equal.
+    private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+        }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -159,7 +173,14 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    scheduleReminderOpenCount = scheduleReminderOpenCount,
                     localLessons = localLessons,
+                    localScheduleRevision = localScheduleRevision,
+                    onLocalLessonsChanged = { saved ->
+                        localScheduleReadSerial++
+                        localLessons = saved
+                        localScheduleRevision++
+                    },
                     returnedSchool = returnedSchool,
                     localCaptureReturn = lastLocalCapture,
                     onSchoolReturnConsumed = { returnedSchool = null },
@@ -178,6 +199,9 @@ class MainActivity : ComponentActivity() {
                     },
                     openFileImport = {
                         timetableFilePicker.launch(arrayOf("*/*"))
+                    },
+                    openFileExport = {
+                        timetableExportPicker.launch("校序-课表备份-${java.time.LocalDate.now()}.json")
                     },
                     openLocalSchool = { provider ->
                         if (provider == "ncwu") {
@@ -237,22 +261,26 @@ class MainActivity : ComponentActivity() {
                     } ?: throw IllegalArgumentException("无法打开所选文件")
                     val text = bytes.toString(Charsets.UTF_8.name())
                     val lowered = fileName.lowercase()
-                    val lessons = when {
+                    val imported = when {
                         lowered.endsWith(".ics") || text.trimStart()
                             .removePrefix("\uFEFF").startsWith("BEGIN:VCALENDAR") ->
-                            LocalScheduleStore.parseIcs(text)
-                        lowered.endsWith(".json") -> LocalScheduleStore.parseCourses(text)
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseIcs(text))
+                        lowered.endsWith(".json") && text.trimStart()
+                            .removePrefix("\uFEFF").startsWith("{") ->
+                            LocalTimetableBackup.parse(text)
+                        lowered.endsWith(".json") ->
+                            LocalTimetableBackup.Imported(LocalScheduleStore.parseCourses(text))
                         else -> throw IllegalArgumentException(
-                            "请选择已转换的 .ics 或标准课表 .json；原始 .sleepdown 备份暂不支持直接读取")
+                            "请选择已转换的 .ics、标准课表 .json 或校序课表备份；原始 .sleepdown 备份暂不支持直接读取")
                     }
-                    fileName to lessons
+                    fileName to imported
                 }
                 val oldCount = localLessons.size
-                val newCount = parsed.second.size
+                val newCount = parsed.second.lessons.size
                 val less = oldCount > 0 && newCount < oldCount
                 // The earlier count-only popup concealed partial/incorrect
                 // course rows. Show actual imported fields before overwriting.
-                val preview = parsed.second
+                val preview = parsed.second.lessons
                     .sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
                     .take(30)
                     .mapIndexed { index, lesson ->
@@ -270,19 +298,33 @@ class MainActivity : ComponentActivity() {
                     (if (less) "\n\n本次课块更少，可能识别不全；建议保留旧课表。" else "") +
                     "\n\n本机解析详情（前 30 条）：\n" + preview +
                     (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
-                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步。"
+                    (if (parsed.second.calendar != null) "\n本次备份包含学期日期与节次作息，将一并恢复。"
+                     else "\n未提供学期设置，保留设备现有配置。") +
+                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步."
                 val saveImported = {
                     lifecycleScope.launch {
                         try {
-                            val (count, savedLessons) = withContext(Dispatchers.IO) {
+                            val (count, savedLessons, reminderOk) = withContext(Dispatchers.IO) {
                                 val count = LocalScheduleStore.saveParsed(
-                                    applicationContext, parsed.second)
-                                count to LocalScheduleStore.load(applicationContext)
+                                    applicationContext, parsed.second.lessons)
+                                parsed.second.calendar?.let {
+                                    LocalSemesterConfigStore.save(applicationContext, it)
+                                }
+                                val updated = LocalScheduleStore.load(applicationContext)
+                                // Saving and reminder scheduling are independent outcomes:
+                                // an alarm failure must never masquerade as an import rollback.
+                                val reminderOk = LocalCourseReminders.reconcileAfterSave(
+                                    applicationContext, updated,
+                                    LocalSemesterConfigStore.load(applicationContext))
+                                Triple(count, updated, reminderOk)
                             }
                             // Invalidate previously started resume reads after commit.
                             localScheduleReadSerial++
                             localLessons = savedLessons
-                            Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
+                            localScheduleRevision++
+                            Toast.makeText(this@MainActivity,
+                                if (reminderOk) "成功导入 $count 个课块"
+                                else "已保存 $count 个课块，但提醒维护失败；可重新打开课表重试",
                                 Toast.LENGTH_LONG).show()
                         } catch (error: Exception) {
                             Toast.makeText(this@MainActivity,
@@ -315,12 +357,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** User-selected SAF export. No cloud, credential or background network operation. */
+    private fun exportTimetableFile(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val lessons = LocalScheduleStore.load(applicationContext)
+                    val backup = LocalTimetableBackup.export(
+                        lessons, LocalSemesterConfigStore.load(applicationContext))
+                    contentResolver.openOutputStream(uri, "wt")?.use {
+                        it.write(backup.toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalArgumentException("无法写入所选文件")
+                    lessons.size
+                }
+                Toast.makeText(this@MainActivity,
+                    "已导出 $count 个课块和本机学期设置", Toast.LENGTH_LONG).show()
+            } catch (failure: Exception) {
+                Toast.makeText(this@MainActivity,
+                    failure.message ?: "课表导出失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSchoolReturn(intent)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+        }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
         }
     }
 
@@ -340,7 +407,19 @@ class MainActivity : ComponentActivity() {
             val lessons = withContext(Dispatchers.IO) {
                 LocalScheduleStore.load(applicationContext)
             }
-            if (readSerial == localScheduleReadSerial) localLessons = lessons
+            if (readSerial == localScheduleReadSerial) {
+                // Unblock the native page immediately; reminder maintenance can follow.
+                localLessons = lessons
+                localScheduleRevision++
+                if (LocalCourseReminders.enabled(applicationContext)) {
+                    launch(Dispatchers.IO) {
+                        LocalCourseReminders.reconcileAfterSave(
+                            applicationContext,
+                            LocalScheduleStore.load(applicationContext),
+                            LocalSemesterConfigStore.load(applicationContext))
+                    }
+                }
+            }
         }
     }
 }
@@ -380,19 +459,27 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    scheduleReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
+    localScheduleRevision: Int,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     returnedSchool: String?,
     localCaptureReturn: LocalSchoolImportReceipt?,
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable {
-        mutableStateOf(if (taskReminderOpenCount > 0) MainDestination.TASKS else MainDestination.HOME)
+        mutableStateOf(when {
+            taskReminderOpenCount > 0 -> MainDestination.TASKS
+            scheduleReminderOpenCount > 0 -> MainDestination.SCHEDULE
+            else -> MainDestination.HOME
+        })
     }
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
@@ -400,6 +487,12 @@ private fun NativeShell(
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
+            messagesOpen = false
+        }
+    }
+    LaunchedEffect(scheduleReminderOpenCount) {
+        if (scheduleReminderOpenCount > 0) {
+            current = MainDestination.SCHEDULE
             messagesOpen = false
         }
     }
@@ -456,13 +549,13 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
         val tabletLayout = maxWidth >= 700.dp
         Scaffold(
-            containerColor = XiaoxuPalette.Bg,
+            containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen) XiaoxuTopBar(
+                if (!messagesOpen && current != MainDestination.TASKS) XiaoxuTopBar(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
@@ -515,7 +608,7 @@ private fun NativeShell(
                         }
                     }
                 }
-                Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
+                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessagesPage(openWebsite, cloud, openArticle, onBack = { messagesOpen = false })
@@ -564,12 +657,16 @@ private fun NativeShell(
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                localLessons = localLessons, openFileImport = openFileImport)
+                                localLessons = localLessons, openFileImport = openFileImport,
+                                openFileExport = openFileExport,
+                                localScheduleRevision = localScheduleRevision,
+                                onLocalLessonsChanged = onLocalLessonsChanged)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud)
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                openLocalSchool = openLocalSchool)
+                                openLocalSchool = openLocalSchool,
+                                onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
