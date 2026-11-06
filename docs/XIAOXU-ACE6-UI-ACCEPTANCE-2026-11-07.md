@@ -18,7 +18,7 @@
 3. 在仓库根目录执行：
 
    ```powershell
-   node scripts/xiaoxu-ace6-visual-qa.mjs --apk "C:\\path\\xiaoxu-unified-native-qa.apk" --commit <对应Git提交SHA>
+   node scripts/xiaoxu-ace6-visual-qa.mjs --apk "C:\\path\\xiaoxu-unified-native-qa.apk" --commit "对应构建的40位Git提交SHA"
    ```
 
    多设备时增加 `--serial <设备序列号>`。如已有正式包且需要核对本人真实学校数据，**另开一次采集**并显式传 `--package io.github.x07xh.xiaoxu`；不得将两个包的结果合并冒充同一会话。
