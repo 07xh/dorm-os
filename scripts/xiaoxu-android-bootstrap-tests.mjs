@@ -358,24 +358,36 @@ const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
 assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
-assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
-assert.match(secondClassMain, /第二课堂官方平台/);
-assert.match(secondClassMain, /在校序内检查活动列表来源/);
+assert.match(secondClassMain, /listOf\("活动", "我的活动", "积分"\)/, '二课仅保留一层原生子导航');
+assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
+assert.match(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "读取学校活动"\)/, '读取入口可用');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
 assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
 
-assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+
 
 const localCatalogParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogEmpty.kt');
 const localReader = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js');
 const localNativeCatalog = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
 const secondClassDao = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
+assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂无活动');
+assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
+ '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
 assert.match(secondClassMain, /catalogRows\.size == 3/);
-assert.match(secondClassMain, /刷新活动广场（学校官方读取）/);
-assert.match(secondClassMain, /当前筛选暂无活动/);
-assert.match(secondClassMain, /上次官方读取/);
-assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+assert.match(secondClassMain, /Modifier\.weight\(1f\)\.heightIn\(min = 42\.dp\)/,
+ '活动筛选三项等宽与触控高度');
+assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
+ '任务中心标题不恢复旧大字号');
+assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
+ '三态数字同卡紧凑');
+assert.match(workspace, /Modifier\.size\(42\.dp\)/,
+ '四个顶部按钮统一视觉尺寸');
+assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
+assert.match(secondClassMain, /if \(record != null\) "上次读取：暂无活动" else "活动暂未获取"/,
+ '只有已核验空结果可标暂无活动，并注明上次读取');
+assert.match(secondClassMain, /record\.capturedAt/, '空结果必须关联真实读取时间');
+
 assert.match(localCatalogParser, /parseLocalSecondClassCatalogEmpty\(/);
 assert.match(localCatalogParser, /catalogStatus/);
 assert.match(localCatalogParser, /"verified_empty"/);
@@ -388,7 +400,8 @@ assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, 
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
-assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
+assert.doesNotMatch(secondClassMain, /LaunchedEffect\(|autoAttempted/,
+ '切换子导航不应自动弹出学校授权窗口');
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
 assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/);
 const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
@@ -1339,8 +1352,10 @@ assert.match(main, /MainDestination\.TASKS, MainDestination\.ACADEMIC, MainDesti
   '任务、教务、我的的旧重复顶栏必须关闭');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/,
   '页面消息中心入口应继续可达');
-assert.match(main, /Content\(withTopInset = true\)/,
-  '我的页在没有旧 TopBar 时须保留状态栏安全内边距');
+assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
+  'Scaffold 已处理状态栏，不能重复添加顶部安全区');
+assert.match(main, /selected != AcademicDestination\.SECOND_CLASS/,
+  '第二课堂不能再叠教务四栏导航');
 assert.match(main, /fun AcademicActionRow\(/,
   '教务入口必须使用连续可点击操作行');
 assert.match(main, /AcademicActionRow\("第二课堂"/,
