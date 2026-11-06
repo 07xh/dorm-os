@@ -805,7 +805,8 @@ fun RealAcademicTaskHub(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
+                    Text("任务中心", style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 24.sp, lineHeight = 31.sp),
                         color = XiaoxuPalette.Ink,
                         modifier = Modifier.semantics { heading() })
                     Text(
@@ -1452,7 +1453,7 @@ private fun TaskStatusTab(
         )
         Text(
             text = count.toString(),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
             fontWeight = FontWeight.SemiBold,
             color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
             maxLines = 1
@@ -1496,7 +1497,7 @@ private fun TaskGroupHeader(
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 title + if (showCount) " ($count)" else "",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
                 color = XiaoxuPalette.Ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1665,7 +1666,7 @@ private fun TaskRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 task.title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp, lineHeight = 20.sp),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
