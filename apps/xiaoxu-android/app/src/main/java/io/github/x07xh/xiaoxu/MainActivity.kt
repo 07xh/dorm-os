@@ -408,7 +408,7 @@ class MainActivity : ComponentActivity() {
                 localScheduleRevision++
                 if (LocalCourseReminders.enabled(applicationContext)) {
                     launch(Dispatchers.IO) {
-                        LocalCourseReminders.reconcile(
+                        LocalCourseReminders.reconcileAfterSave(
                             applicationContext,
                             LocalScheduleStore.load(applicationContext),
                             LocalSemesterConfigStore.load(applicationContext))
