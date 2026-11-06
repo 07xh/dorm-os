@@ -84,6 +84,27 @@ const split = runReader({ host: homeworkHost, path: homeworkPath,
 assert.equal(split.truncated, true);
 assert.equal(split.records.length, 0);
 
+// A valid official homework table may appear after more than 35 visible layout tables.
+// Never silently discard it and claim the imported snapshot is complete.
+const unrelatedTable = () => tableOf(['普通说明', '日期'], [['非作业内容', '本周']]);
+const afterThirtyFive = runReader({ host: homeworkHost, path: homeworkPath,
+  tables: [...Array.from({ length: 36 }, unrelatedTable), makeWorkTable(1)] });
+assert.equal(afterThirtyFive.kind, 'homework');
+assert.equal(afterThirtyFive.records.length, 1);
+assert.equal(afterThirtyFive.records[0].title, '作业 1');
+assert.equal(afterThirtyFive.truncated, undefined);
+
+// Exactly 200 visible tables remain readable; the 201st causes an explicit,
+// all-or-nothing truncation rather than silently omitting official records.
+const atTableLimit = runReader({ host: homeworkHost, path: homeworkPath,
+  tables: [...Array.from({ length: 199 }, unrelatedTable), makeWorkTable(1)] });
+assert.equal(atTableLimit.records.length, 1);
+assert.equal(atTableLimit.truncated, undefined);
+const overTableLimit = runReader({ host: homeworkHost, path: homeworkPath,
+  tables: [...Array.from({ length: 200 }, unrelatedTable), makeWorkTable(1)] });
+assert.equal(overTableLimit.truncated, true);
+assert.equal(overTableLimit.records.length, 0, 'table-limit overflow must not replace saved data');
+
 const onlyCourseNames = runReader({ host: homeworkHost, path: homeworkPath,
   tables: [tableOf(['课程名称', '提交状态'], [['高等数学', '已完成']])] });
 assert.equal(onlyCourseNames.records.length, 0, 'cannot invent a work title from a course name');
