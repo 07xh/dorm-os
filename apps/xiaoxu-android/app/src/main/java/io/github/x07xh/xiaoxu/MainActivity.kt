@@ -86,6 +86,7 @@ import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
+import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -326,17 +327,26 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Page(val label: String, val symbol: ImageVector) {
-    HOME("今日", Icons.Outlined.Home),
-    SCHEDULE("课表", Icons.Outlined.DateRange),
-    ACADEMIC("教务", Icons.Outlined.School),
-    TASKS("任务", Icons.Outlined.CheckCircle),
-    MESSAGES("消息", Icons.Outlined.MailOutline),
-    PROFILE("我的", Icons.Outlined.PersonOutline)
+/** The one source of truth for five permanent destinations; messages are not a bottom tab. */
+private val PrimaryTabs = listOf(MainDestination.HOME, MainDestination.SCHEDULE,
+    MainDestination.ACADEMIC, MainDestination.TASKS, MainDestination.PROFILE)
+
+private val MainDestination.label: String get() = when (this) {
+    MainDestination.HOME -> "今日"
+    MainDestination.SCHEDULE -> "课表"
+    MainDestination.ACADEMIC -> "教务"
+    MainDestination.TASKS -> "任务"
+    MainDestination.PROFILE -> "我的"
+}
+private val MainDestination.symbol: ImageVector get() = when (this) {
+    MainDestination.HOME -> Icons.Outlined.Home
+    MainDestination.SCHEDULE -> Icons.Outlined.DateRange
+    MainDestination.ACADEMIC -> Icons.Outlined.School
+    MainDestination.TASKS -> Icons.Outlined.CheckCircle
+    MainDestination.PROFILE -> Icons.Outlined.PersonOutline
 }
 
-/** 海报版底栏顺序（Issue #284）：今日 / 课表 / 任务 / 消息 / 我的。教务入口移到首页宫格。 */
-private val PrimaryTabs = listOf(Page.HOME, Page.SCHEDULE, Page.TASKS, Page.MESSAGES, Page.PROFILE)
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -358,22 +368,31 @@ private fun NativeShell(
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable {
-        mutableStateOf(if (taskReminderOpenCount > 0) Page.TASKS else Page.HOME)
+        mutableStateOf(if (taskReminderOpenCount > 0) MainDestination.TASKS else MainDestination.HOME)
     }
-    LaunchedEffect(taskReminderOpenCount) {
-        if (taskReminderOpenCount > 0) current = Page.TASKS
-    }
-    // 海报版式（Issue #284）：默认开启，用户可在真实数据模式顶栏切回。
+    var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
+    var messagesOpen by rememberSaveable { mutableStateOf(false) }
     val pageStateHolder = rememberSaveableStateHolder()
-    var academic by rememberSaveable { mutableStateOf(AcademicDestination.NOTICES) }
-    fun openSecondClass() {
-        val next = AcademicNavigation(academic = academic).openSecondClass()
-        academic = next.academic
-        current = Page.valueOf(next.destination.name)
+    LaunchedEffect(taskReminderOpenCount) {
+        if (taskReminderOpenCount > 0) {
+            current = MainDestination.TASKS
+            messagesOpen = false
+        }
     }
-    BackHandler(enabled = current == Page.MESSAGES || current == Page.ACADEMIC) {
-        // 教务是从首页进入的二级页面，系统返回回到首页。
-        current = Page.HOME
+    fun openSecondClass() {
+        val next = AcademicNavigation(destination = current, academic = academic).openSecondClass()
+        academic = next.academic
+        current = next.destination
+        messagesOpen = false
+    }
+    BackHandler(enabled = messagesOpen) {
+        messagesOpen = false // The contextual inbox returns to the originating tab.
+    }
+    BackHandler(
+        enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
+            academic == AcademicDestination.SERVICES
+    ) {
+        academic = AcademicDestination.OVERVIEW // Hidden service detail never becomes a fake selected top tab.
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
@@ -385,13 +404,15 @@ private fun NativeShell(
     LaunchedEffect(localCaptureReturn) {
         if (localCaptureReturn != null) {
             // Return to the matching feature after a successful local capture.
-            current = if (localCaptureReturn.provider == "chaoxing") Page.TASKS
-                      else { academic = AcademicDestination.SECOND_CLASS; Page.ACADEMIC }
+            messagesOpen = false
+            current = if (localCaptureReturn.provider == "chaoxing") MainDestination.TASKS
+                      else { academic = AcademicDestination.SECOND_CLASS; MainDestination.ACADEMIC }
         }
     }
     LaunchedEffect(returnedSchool) {
         val provider = returnedSchool ?: return@LaunchedEffect
-        current = Page.PROFILE
+        messagesOpen = false
+        current = MainDestination.PROFILE
         try {
             cloud.completeSchoolReturn(provider)
         } finally {
@@ -416,29 +437,27 @@ private fun NativeShell(
         Scaffold(
             containerColor = XiaoxuPalette.Bg,
             topBar = {
-                // 消息页独立标题；所有页面仍使用同一真实数据源。
-                if (current != Page.MESSAGES && current != Page.SCHEDULE) XiaoxuTopBar(
-                        title = "校序",
-                        subtitle = current.label,
-                        // The timetable has a dedicated local import action,
-                        // never a cloud-sync refresh icon.
-                        refreshing = current != Page.SCHEDULE && cloud.state.busy,
-                        onRefresh = if (current == Page.SCHEDULE) null
-                            else ({ scope.launch { cloud.refresh() } }),
-                        onMessages = if (current == Page.HOME) ({ current = Page.MESSAGES }) else null
-                    )
+                // Every main destination, including the locally imported timetable, opens the inbox.
+                if (!messagesOpen) XiaoxuTopBar(
+                    title = "校序",
+                    subtitle = current.label,
+                    refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
+                    onRefresh = if (current == MainDestination.SCHEDULE) null
+                        else ({ scope.launch { cloud.refresh() } }),
+                    onMessages = { messagesOpen = true }
+                )
             },
             bottomBar = {
-                if (!tabletLayout) {
+                if (!tabletLayout && !messagesOpen) {
                     NavigationBar(
                         containerColor = XiaoxuPalette.Surface,
                         contentColor = XiaoxuPalette.Ink2,
                         tonalElevation = 0.dp
                     ) {
-                        Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
+                        PrimaryTabs.forEach { page ->
                             NavigationBarItem(
-                                selected = current == page || (current == Page.ACADEMIC && page == Page.HOME),
-                                onClick = { current = page },
+                                selected = current == page,
+                                onClick = { current = page; messagesOpen = false },
                                 icon = { Icon(page.symbol, contentDescription = null) },
                                 label = { Text(page.label) },
                                 colors = NavigationBarItemDefaults.colors(
@@ -455,16 +474,16 @@ private fun NativeShell(
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout) {
+                if (tabletLayout && !messagesOpen) {
                     NavigationRail(
                         containerColor = XiaoxuPalette.Surface,
                         contentColor = XiaoxuPalette.Ink2
                     ) {
                         Spacer(Modifier.height(12.dp))
-                        Page.entries.filter { it in PrimaryTabs }.sortedBy { PrimaryTabs.indexOf(it) }.forEach { page ->
+                        PrimaryTabs.forEach { page ->
                             NavigationRailItem(
-                                selected = current == page || (current == Page.ACADEMIC && page == Page.HOME),
-                                onClick = { current = page },
+                                selected = current == page,
+                                onClick = { current = page; messagesOpen = false },
                                 icon = { Icon(page.symbol, contentDescription = null) },
                                 label = { Text(page.label) },
                                 alwaysShowLabel = true,
@@ -480,7 +499,12 @@ private fun NativeShell(
                     }
                 }
                 Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
-                    // 轻量过渡：淡入 + 轻微横向位移，不做整页滑屏，避免课表重排闪烁。
+                    if (messagesOpen) {
+                        pageStateHolder.SaveableStateProvider("messages") {
+                            MessagesPage(openWebsite, cloud, openArticle, onBack = { messagesOpen = false })
+                        }
+                    } else {
+                    // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
                     AnimatedContent(
                         targetState = current,
                         transitionSpec = {
@@ -495,15 +519,15 @@ private fun NativeShell(
                         },
                         label = "page"
                     ) { page ->
+                        pageStateHolder.SaveableStateProvider(page.name) {
                         when (page) {
-                            Page.HOME -> pageStateHolder.SaveableStateProvider("home") {
-                                RealAcademicHome(localTasks, client = cloud,
+                            MainDestination.HOME -> RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
-                                openSchedule = { current = Page.SCHEDULE },
-                                openTasks = { current = Page.TASKS },
-                                openMessages = { current = Page.MESSAGES },
-                                openProfile = { current = Page.PROFILE },
-                                openAcademic = { current = Page.ACADEMIC },
+                                openSchedule = { current = MainDestination.SCHEDULE },
+                                openTasks = { current = MainDestination.TASKS },
+                                openMessages = { messagesOpen = true },
+                                openProfile = { current = MainDestination.PROFILE },
+                                openAcademic = { current = MainDestination.ACADEMIC; academic = AcademicDestination.OVERVIEW },
                                 openLocalSchool = { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
@@ -511,27 +535,23 @@ private fun NativeShell(
                                 openFileImport = openFileImport,
                                 openGrades = {
                                     academic = AcademicDestination.GRADES
-                                    current = Page.ACADEMIC
+                                    current = MainDestination.ACADEMIC
                                 },
                                 openExams = {
                                     academic = AcademicDestination.EXAMS
-                                    current = Page.ACADEMIC
+                                    current = MainDestination.ACADEMIC
                                 },
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
-                            }
-                            Page.SCHEDULE -> SchedulePage(openWebsite, cloud,
-                                openProfile = { current = Page.PROFILE },
+                            MainDestination.SCHEDULE -> SchedulePage(openWebsite, cloud,
+                                openProfile = { current = MainDestination.PROFILE },
                                 localLessons = localLessons, openLocalImport = openLocalImport,
                                 openFileImport = openFileImport)
-                            Page.ACADEMIC -> pageStateHolder.SaveableStateProvider("academic") {
-                                AcademicPage(academic, { academic = it }, cloud, openWebsite, openArticle,
-                                    openProfile = { current = Page.PROFILE })
-                            }
-                            Page.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                            MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
+                                openWebsite, openProfile = { current = MainDestination.PROFILE })
+                            MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool)
-                            Page.MESSAGES -> MessagesPage(openWebsite, cloud, openArticle)
-                            Page.PROFILE -> ConnectionsPage(
+                            MainDestination.PROFILE -> ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
                                     else openLocalSchool(provider)
@@ -539,6 +559,8 @@ private fun NativeShell(
                                 startSchoolAuthorization, localCaptureReturn
                             )
                         }
+                        }
+                    }
                     }
                 }
             }
@@ -581,10 +603,11 @@ private fun SchedulePage(
 private fun MessagesPage(
     openWebsite: () -> Unit,
     cloud: CloudClient,
-    openArticle: (String) -> Unit
+    openArticle: (String) -> Unit,
+    onBack: () -> Unit
 ) {
-    // 消息中心自持整屏滚动（搜索 / 来源筛选 / 全文 sheet），因此不再外包一层 Content。
-    MessageCenterPanel(cloud, openWebsite, openArticle, useStatusBarInset = true)
+    MessageCenterPanel(cloud, openWebsite, openArticle,
+        useStatusBarInset = true, onBack = onBack)
 }
 
 @Composable
@@ -615,19 +638,59 @@ private fun ConnectionsPage(
 }
 
 @Composable
-private fun AcademicPage(selected: AcademicDestination, select: (AcademicDestination) -> Unit,
-    cloud: CloudClient, openWebsite: () -> Unit, openArticle: (String) -> Unit, openProfile: () -> Unit) {
-    val labels = listOf("通知", "成绩", "考试", "第二课堂", "校园服务")
+private fun AcademicPage(
+    selected: AcademicDestination,
+    select: (AcademicDestination) -> Unit,
+    openWebsite: () -> Unit,
+    openProfile: () -> Unit
+) {
+    val visibleTabs = listOf(
+        AcademicDestination.OVERVIEW to "总览",
+        AcademicDestination.GRADES to "成绩",
+        AcademicDestination.EXAMS to "考试",
+        AcademicDestination.SECOND_CLASS to "第二课堂"
+    )
     val tabStateHolder = rememberSaveableStateHolder()
     Column(Modifier.fillMaxSize()) {
-        ScrollableTabRow(selectedTabIndex = selected.ordinal, edgePadding = 0.dp) {
-            AcademicDestination.entries.forEachIndexed { index, item ->
-                Tab(selected = selected == item, onClick = { select(item) }, text = { Text(labels[index]) })
+        if (selected != AcademicDestination.SERVICES) {
+            ScrollableTabRow(
+                selectedTabIndex = visibleTabs.indexOfFirst { it.first == selected },
+                edgePadding = 0.dp
+            ) {
+                visibleTabs.forEach { (destination, title) ->
+                    Tab(selected = selected == destination, onClick = { select(destination) },
+                        text = { Text(title) })
+                }
             }
         }
         when (selected) {
-            AcademicDestination.NOTICES -> MessageCenterPanel(cloud, openWebsite, openArticle)
-            AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") { SecondClassPage() }
+            AcademicDestination.OVERVIEW -> Content {
+                item { Heading("教务中心", "学业与学校服务 · 真实数据") }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickEntry("成绩查询", Icons.Outlined.School,
+                            { select(AcademicDestination.GRADES) }, Modifier.weight(1f))
+                        QuickEntry("考试安排", Icons.Outlined.DateRange,
+                            { select(AcademicDestination.EXAMS) }, Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle,
+                            { select(AcademicDestination.SECOND_CLASS) }, Modifier.weight(1f))
+                        QuickEntry("校园服务", Icons.Outlined.Home,
+                            { select(AcademicDestination.SERVICES) }, Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Text("成绩、考试未读取前仅展示连接状态；第二课堂沿用本人本机积分与活动记录。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") {
+                SecondClassPage()
+            }
             AcademicDestination.GRADES -> Content {
                 item { Heading("成绩", "青果教务云端读取 · 与本机课表独立") }
                 item {
@@ -641,6 +704,9 @@ private fun AcademicPage(selected: AcademicDestination, select: (AcademicDestina
                 item { TextButton(onClick = openProfile) { Text("查看数据连接") } }
             }
             AcademicDestination.SERVICES -> Content {
+                item { TextButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    Text("返回教务总览")
+                } }
                 item { Heading("校园服务", "学校数据连接与服务") }
                 item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
                 item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
