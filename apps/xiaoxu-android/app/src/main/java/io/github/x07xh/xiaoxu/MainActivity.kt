@@ -722,11 +722,13 @@ private fun NativeShell(
 
 @Composable
 private fun Content(
+    topPadding: androidx.compose.ui.unit.Dp = 18.dp,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(18.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
+            top = topPadding, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
     )
@@ -880,14 +882,15 @@ private fun AcademicPage(
             }
         }
         when (selected) {
-            AcademicDestination.OVERVIEW -> Content {
+            AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
+                    // One continuous glass surface; no nested rectangle around the four rows.
                     XiaoxuGroupedSection {
-                        AcademicActionRow("成绩", Icons.Outlined.School, "未读取",
+                        AcademicActionRow("成绩", Icons.Outlined.School,
                                 onClick = { select(AcademicDestination.GRADES) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("考试", Icons.Outlined.DateRange, "未读取",
+                            AcademicActionRow("考试", Icons.Outlined.DateRange,
                                 onClick = { select(AcademicDestination.EXAMS) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
