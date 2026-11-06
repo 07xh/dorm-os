@@ -27,8 +27,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -40,24 +38,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import io.github.x07xh.xiaoxu.ui.FloatingBarItem
-import io.github.x07xh.xiaoxu.ui.FloatingBottomBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -72,7 +59,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
@@ -92,6 +78,9 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
+import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
+import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
+import io.github.x07xh.xiaoxu.ui.primaryTabLabel
 import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -368,27 +357,6 @@ class MainActivity : ComponentActivity() {
  */
 private const val PageSwitchMs = 180
 
-/** The one source of truth for five permanent destinations; messages are not a bottom tab. */
-private val PrimaryTabs = listOf(MainDestination.HOME, MainDestination.SCHEDULE,
-    MainDestination.ACADEMIC, MainDestination.TASKS, MainDestination.PROFILE)
-
-private val MainDestination.label: String get() = when (this) {
-    MainDestination.HOME -> "今日"
-    MainDestination.SCHEDULE -> "课表"
-    MainDestination.ACADEMIC -> "教务"
-    MainDestination.TASKS -> "任务"
-    MainDestination.PROFILE -> "我的"
-}
-private val MainDestination.symbol: ImageVector get() = when (this) {
-    MainDestination.HOME -> Icons.Outlined.Home
-    MainDestination.SCHEDULE -> Icons.Outlined.DateRange
-    MainDestination.ACADEMIC -> Icons.Outlined.School
-    MainDestination.TASKS -> Icons.Outlined.CheckCircle
-    MainDestination.PROFILE -> Icons.Outlined.PersonOutline
-}
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NativeShell(
@@ -480,7 +448,7 @@ private fun NativeShell(
                 // Every main destination, including the locally imported timetable, opens the inbox.
                 if (!messagesOpen) XiaoxuTopBar(
                     title = "校序",
-                    subtitle = current.label,
+                    subtitle = current.primaryTabLabel,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
                     onRefresh = if (current == MainDestination.SCHEDULE) null
                         else ({ scope.launch { cloud.refresh() } }),
@@ -489,46 +457,19 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    // 悬浮胶囊导航（PR #328 验收通过的组件）。
-                    // items 用 remember 固定：PrimaryTabs.map 每次组合都会新建 List，
-                    // 不 remember 会让 FloatingBottomBar 每帧重建 items 参数。
-                    val barItems = remember {
-                        PrimaryTabs.map { FloatingBarItem(it.label, it.symbol) }
+                    // A single renderer. NativeShell remains the sole navigation state owner.
+                    PrimaryBottomNavigation(selected = current) {
+                        current = it
+                        messagesOpen = false
                     }
-                    FloatingBottomBar(
-                        items = barItems,
-                        selectedIndex = PrimaryTabs.indexOf(current).coerceAtLeast(0),
-                        onSelect = { current = PrimaryTabs[it]; messagesOpen = false }
-                    )
                 }
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
                 if (tabletLayout && !messagesOpen) {
-                    // 横屏手机宽度会越过 700dp 阈值进入 Rail 布局，5 项超出可视高度，
-                    // 不加滚动时「我的」被裁在屏幕外且无法到达。
-                    NavigationRail(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                        containerColor = XiaoxuPalette.Surface,
-                        contentColor = XiaoxuPalette.Ink2
-                    ) {
-                        Spacer(Modifier.height(12.dp))
-                        PrimaryTabs.forEach { page ->
-                            NavigationRailItem(
-                                selected = current == page,
-                                onClick = { current = page; messagesOpen = false },
-                                icon = { Icon(page.symbol, contentDescription = null) },
-                                label = { Text(page.label) },
-                                alwaysShowLabel = true,
-                                colors = NavigationRailItemDefaults.colors(
-                                    selectedIconColor = XiaoxuPalette.BrandDeep,
-                                    selectedTextColor = XiaoxuPalette.BrandDeep,
-                                    indicatorColor = XiaoxuPalette.BrandSoft,
-                                    unselectedIconColor = XiaoxuPalette.Ink3,
-                                    unselectedTextColor = XiaoxuPalette.Ink3
-                                )
-                            )
-                        }
+                    PrimarySideNavigation(selected = current) {
+                        current = it
+                        messagesOpen = false
                     }
                 }
                 Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
@@ -631,7 +572,7 @@ private fun MessagesPage(
     onBack: () -> Unit
 ) {
     MessageCenterPanel(cloud, openWebsite, openArticle,
-        useStatusBarInset = true, onBack = onBack)
+        useStatusBarInset = false, onBack = onBack)
 }
 
 @Composable
