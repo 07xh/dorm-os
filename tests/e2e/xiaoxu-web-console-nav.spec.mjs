@@ -4,11 +4,12 @@ import {test,expect} from '@playwright/test';
 test('desktop gets workspace sidebar; mobile retains five-button navigation',async({page})=>{
  await page.goto('/#dashboard');
  const sidebar=page.locator('#sidebarNav');
- const review=sidebar.locator('[data-page="review"]');
- const connection=sidebar.locator('[data-page="settings"]');
+ const review=sidebar.locator('a[href="#review"]');
+ const connection=sidebar.locator('a[href="#settings"]');
  const desktop=page.viewportSize().width>=1180;
  if(desktop){
   await expect(page.locator('.xu-webnav-heading')).toBeVisible();
+  await expect(sidebar.locator('button[data-page]')).toHaveCount(5);
   await expect(sidebar).toHaveCSS('position','fixed');
   await expect(review).toBeVisible();
   await expect(connection).toBeVisible();
@@ -18,13 +19,14 @@ test('desktop gets workspace sidebar; mobile retains five-button navigation',asy
   expect(mainBox.x).toBeGreaterThan(navBox.x+navBox.width-4);
   await review.click();
   await expect(page).toHaveURL(/#review$/);
-  await expect(review).toHaveAttribute('aria-pressed','true');
+  await expect(review).toHaveAttribute('data-active','true');
   await expect(page.locator('[data-task-review-view]')).toBeVisible();
   await connection.click();
   await expect(page).toHaveURL(/#settings$/);
   await expect(sidebar.locator('[data-page="profile"]')).toHaveAttribute('aria-current','page');
  }else{
   await expect(page.locator('.xu-webnav-heading')).toBeHidden();
+  await expect(sidebar.locator('button[data-page]')).toHaveCount(5);
   await expect(review).toBeHidden();
   await expect(connection).toBeHidden();
   await expect(sidebar.locator('[data-page="timetable"]')).toBeVisible();
