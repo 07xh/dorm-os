@@ -908,8 +908,8 @@ fun QuickEntry(
         modifier = modifier
             .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.card))
-            .background(XiaoxuPalette.Surface)
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, RoundedCornerShape(XiaoxuRadius.card))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },
