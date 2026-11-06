@@ -1199,6 +1199,20 @@ assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDee
   '悬浮导航选中前景色须取自统一调色板');
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
+assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
+  '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
+const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
+    workspace.indexOf('/** 分区外壳', workspace.indexOf('private fun HomeGreeting(')));
+assert.match(compactGreeting, /Row\(/,
+  '日期和问候同排展示，不额外占用一层大标题');
+assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
+  '首页问候不得在全局标题下重复显示一个大标题');
+const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
+assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
+  '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
+assert.match(homeQuickEntry, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
+  '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
+
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
 assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
