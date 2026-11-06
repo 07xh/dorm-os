@@ -533,7 +533,6 @@ private fun ScheduleVerifiedContent(
                             }
                             WeeklyTimetableGrid(
                                 lessons = weekLessons,
-                            dailySections = visibleSections,
                                 dailySections = visibleSections,
                                 selectedWeekday = tabletWeekday,
                                 onSelectWeekday = { selectedWeekday = it }
