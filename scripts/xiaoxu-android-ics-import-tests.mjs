@@ -91,8 +91,8 @@ assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|clien
   '本机课表不依赖云端课程或云端新鲜度');
 assert.match(screen, /onImport = openFileImport/,
   '已导入课表仍需接通重新导入入口');
-assert.match(screen, /IconButton\(onClick = onImport\)/,
-  '紧凑课表顶栏的导入图标必须可点击');
+assert.match(screen, /label = "重新导入课表",\s*onClick = onImport/,
+  '课表导入图标继续复用原有文件选择器回调');
 assert.match(store, /fun parseIcs\(input: String\): List<VerifiedLesson>/);
 assert.match(ics, /anchors\.size == 1/);
 assert.match(ics, /MAX_EVENTS = 1200/);

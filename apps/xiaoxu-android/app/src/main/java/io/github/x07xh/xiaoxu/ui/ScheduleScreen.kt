@@ -288,22 +288,26 @@ private fun SchedulePageHeading(
                 )
             }
         }
-        if (onAdd != null) IconButton(onClick = onAdd) {
-            Icon(Icons.Outlined.Add, contentDescription = "新增课程",
-                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
-        }
-        if (onImport != null) IconButton(onClick = onImport) {
-            Icon(Icons.Outlined.FileUpload, contentDescription = "重新导入课表",
-                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
-        }
-        if (onSettings != null) IconButton(onClick = onSettings) {
-            Icon(Icons.Outlined.Settings, contentDescription = "课表设置",
-                modifier = Modifier.size(22.dp), tint = XiaoxuPalette.Ink2)
-        }
-        IconButton(onClick = onMessages) {
-            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
-                modifier = Modifier.size(21.dp), tint = XiaoxuPalette.Ink2)
-        }
+        if (onAdd != null) XiaoxuToolbarAction(
+            icon = Icons.Outlined.Add,
+            label = "新增课程",
+            onClick = onAdd
+        )
+        if (onImport != null) XiaoxuToolbarAction(
+            icon = Icons.Outlined.FileUpload,
+            label = "重新导入课表",
+            onClick = onImport
+        )
+        if (onSettings != null) XiaoxuToolbarAction(
+            icon = Icons.Outlined.Settings,
+            label = "课表设置",
+            onClick = onSettings
+        )
+        XiaoxuToolbarAction(
+            icon = Icons.Outlined.NotificationsNone,
+            label = "消息中心",
+            onClick = onMessages
+        )
     }
 }
 

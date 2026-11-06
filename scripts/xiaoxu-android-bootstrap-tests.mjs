@@ -490,9 +490,9 @@ assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
 assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
-assert.match(schedulePanel, /contentDescription = "重新导入课表"/);
-assert.match(schedulePanel, /contentDescription = "新增课程"/);
-assert.match(schedulePanel, /contentDescription = "课表设置"/);
+assert.match(schedulePanel, /label = "重新导入课表"/);
+assert.match(schedulePanel, /label = "新增课程"/);
+assert.match(schedulePanel, /label = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
 assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
@@ -1256,7 +1256,8 @@ const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07
 assert.match(scheduleVisual, /XiaoxuCard\(/);
 assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
   '本机课表空态与有课程态须使用同一标题组件');
-assert.match(scheduleVisual, /contentDescription = "重新导入课表"/);
+assert.match(scheduleVisual, /label = "重新导入课表"/);
+assert.match(scheduleVisual, /XiaoxuToolbarAction\(/, '课表工具操作和其他原生页面必须共用组件');
 assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/,
   "课表顶部不得恢复重复的操作文字栏");
 assert.match(scheduleVisual, /colorKey = id\.ifBlank \{ title \}/);
@@ -1585,7 +1586,8 @@ assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(/);
 assert.doesNotMatch(main, /private fun MessagesPage\(/, '消息使用唯一原生页面');
 const unifiedSchedule = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 assert.match(unifiedSchedule, /private fun SchedulePageHeading\(/);
-assert.match(unifiedSchedule, /IconButton\(onClick = onMessages\)/);
+assert.match(unifiedSchedule, /label = "消息中心",\s*onClick = onMessages/,
+  '课表消息入口复用统一工具按钮但保留原回调');
 
 // Automatic reads reuse the bounded local session, never credentials or a new Activity.
 const autoDriver=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassAutoReadDriver.kt');
