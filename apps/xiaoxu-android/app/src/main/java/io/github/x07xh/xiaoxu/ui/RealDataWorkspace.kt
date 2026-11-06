@@ -869,9 +869,10 @@ fun RealAcademicTaskHub(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(XiaoxuPalette.Surface)
-                    .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(XiaoxuRadius.card))
+                    .background(XiaoxuPalette.GlassTrack)
+                    .border(0.75.dp, XiaoxuPalette.GlassBorder,
+                        RoundedCornerShape(XiaoxuRadius.card))
                     .padding(5.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -1488,7 +1489,7 @@ private fun TaskStatusTab(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (active) XiaoxuPalette.BrandSoft else Color.Transparent)
+            .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
             .clickable(onClickLabel = "筛选$label", onClick = onClick)
             .heightIn(min = 62.dp)
             .padding(horizontal = 4.dp, vertical = 5.dp),
@@ -1679,8 +1680,8 @@ private fun ConnectedTaskShell(
         modifier = Modifier.fillMaxWidth()
             .padding(top = if (index == 0) 8.dp else 0.dp)
             .clip(corners)
-            .background(XiaoxuPalette.Surface)
-            .border(0.5.dp, XiaoxuPalette.Line, corners)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.5.dp, XiaoxuPalette.GlassBorder, corners)
     ) {
         if (index > 0) {
             HorizontalDivider(
