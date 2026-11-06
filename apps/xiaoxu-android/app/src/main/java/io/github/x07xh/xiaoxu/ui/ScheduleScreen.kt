@@ -752,10 +752,25 @@ private fun ScheduleVerifiedContent(
                             context, "学期设置已保存，但提醒启用失败；请重新开启",
                             Toast.LENGTH_LONG).show()
                     }
-                } else if (Build.VERSION.SDK_INT >= 33) {
-                    reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    Toast.makeText(context, "请先在系统设置中允许校序通知", Toast.LENGTH_LONG).show()
+                    // Settings and course detail must use the same distinction:
+                    // runtime permission denial can be prompted, while an app/
+                    // channel notification block must be handled in Settings.
+                    val permissionMissing = Build.VERSION.SDK_INT >= 33 &&
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    if (permissionMissing) {
+                        reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        val settings = Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName)
+                        runCatching { context.startActivity(settings) }
+                            .onFailure {
+                                Toast.makeText(context, "请在系统设置中允许校序通知",
+                                    Toast.LENGTH_LONG).show()
+                            }
+                    }
                 }
             }
         )
