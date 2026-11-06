@@ -77,6 +77,12 @@ import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
 import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -226,7 +232,10 @@ fun CloudTimetablePanel(
                             val updated = withContext(Dispatchers.IO) {
                                 val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
                                 LocalScheduleStore.saveEdited(context, edited)
-                                LocalScheduleStore.load(context)
+                                val fresh = LocalScheduleStore.load(context)
+                                LocalCourseReminders.reconcile(
+                                    context, fresh, LocalSemesterConfigStore.load(context))
+                                fresh
                             }
                             onLocalLessonsChanged(updated)
                             addingFirstCourse = false
@@ -291,7 +300,26 @@ private fun ScheduleVerifiedContent(
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
     var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
+
     val editorScope = rememberCoroutineScope()
+    val reminderPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && LocalCourseReminders.canNotify(context)) {
+            editorScope.launch {
+                withContext(Dispatchers.IO) {
+                    LocalCourseReminders.setEnabled(context, true)
+                    LocalCourseReminders.reconcile(context, data.lessons, calendar)
+                }
+            }
+        } else {
+            Toast.makeText(context, "未获取通知权限，上课提醒保持关闭", Toast.LENGTH_LONG).show()
+        }
+    }
+    LaunchedEffect(data.lessons) {
+        // Restoring a backed-up timetable may also change local semester settings.
+        calendar = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
+    }
     var showingCourseEditor by remember { mutableStateOf(false) }
     var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
     var editingBusy by remember { mutableStateOf(false) }
@@ -542,7 +570,9 @@ private fun ScheduleVerifiedContent(
                 try {
                     val saved = withContext(Dispatchers.IO) {
                         LocalScheduleStore.saveEdited(context, changed)
-                        LocalScheduleStore.load(context)
+                        val fresh = LocalScheduleStore.load(context)
+                        LocalCourseReminders.reconcile(context, fresh, calendar)
+                        fresh
                     }
                     onLocalLessonsChanged(saved)
                     showingCourseEditor = false
@@ -588,13 +618,32 @@ private fun ScheduleVerifiedContent(
     if (showSemesterSettings) {
         SemesterSettingsDialog(
             current = calendar,
+            reminderEnabled = LocalCourseReminders.enabled(context),
             onDismiss = { showSemesterSettings = false },
-            onSave = { config ->
+            onSave = { config, wantReminders ->
                 LocalSemesterConfigStore.save(context, config)
                 calendar = config
                 showSemesterSettings = false
                 config.currentWeek(LocalDate.now())?.takeIf { it in weekNumbers }?.let {
                     selectedWeek = it
+                }
+                if (!wantReminders) {
+                    editorScope.launch {
+                        withContext(Dispatchers.IO) {
+                            LocalCourseReminders.setEnabled(context, false)
+                        }
+                    }
+                } else if (LocalCourseReminders.canNotify(context)) {
+                    editorScope.launch {
+                        withContext(Dispatchers.IO) {
+                            LocalCourseReminders.setEnabled(context, true)
+                            LocalCourseReminders.reconcile(context, data.lessons, config)
+                        }
+                    }
+                } else if (Build.VERSION.SDK_INT >= 33) {
+                    reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    Toast.makeText(context, "请先在系统设置中允许校序通知", Toast.LENGTH_LONG).show()
                 }
             }
         )
