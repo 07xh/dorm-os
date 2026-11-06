@@ -174,6 +174,47 @@ assert.equal(lateEvidence.challengeEvidence.schoolScriptDefinitionSeen,true,
 assert.equal(lateEvidence.loginSupported,false,'script discovery alone never authorizes login');
 
 
+// Legacy Workers Headers expose getAll(Set-Cookie), not getSetCookie.
+// Folding two header lines can lose SESSION and even apply a sibling cookie's
+// Domain/Path to it. Use the real transport through a synthetic CAS transcript.
+let legacyPosts=0,legacyPostCookie=null,legacyCallbackCookie=null;
+const legacyCookies=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
+ const u=new URL(url);
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='GET'){
+  const values=['SESSION=synthetic-cas-session; Path=/authserver/; HttpOnly',
+   'school_locale=synthetic-locale; Domain=ncwu.edu.cn; Path=/; Expires=Wed, 21 Oct 2037 07:28:00 GMT'];
+  return {status:200,headers:{
+   getAll(name){assert.equal(name.toLowerCase(),'set-cookie');return values;},
+   get(name){return name.toLowerCase()==='set-cookie'?values.join(', '):null;}
+  },text:async()=>markup};
+ }
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
+  legacyPosts++;
+  legacyPostCookie=options.headers.cookie||'';
+  return response(302,'',{location:service});
+ }
+ if(u.hostname==='sec.ncwu.edu.cn'){
+  legacyCallbackCookie=options.headers.cookie||'';
+  return response(302,'',{location:school+'/sys',
+   'set-cookie':'school_ss=personal; Domain=ncwu.edu.cn; Path=/; Secure'});
+ }
+ return fakeSchool(url,options);
+}});
+const legacyConnection=await legacyCookies.login({
+ username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
+});
+assert.equal(legacyConnection.session.studentCode,student);
+assert.ok(legacyPostCookie.includes('SESSION=synthetic-cas-session'),
+ 'CAS POST must retain the host-only SESSION from its own response line');
+assert.ok(legacyPostCookie.includes('school_locale=synthetic-locale'),
+ 'the second Set-Cookie must also survive the Workers response');
+assert.ok(!legacyCallbackCookie.includes('SESSION='),
+ 'a sibling cookie Domain must never broaden the host-only CAS SESSION');
+assert.equal(legacyPosts,1,'cookie handling never retries a credential POST');
+assert.equal(legacyConnection.session.cookies.find(c=>c.name==='SESSION').domain,
+ 'authserver.ncwu.edu.cn');
+assert.equal(legacyConnection.session.cookies.find(c=>c.name==='SESSION').hostOnly,true);
+
 const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
 assert.equal(receivedCredential,true);
 assert.equal(connected.session.studentCode,student);
