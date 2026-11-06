@@ -489,8 +489,14 @@ assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /onRefresh = if \(current == MainDestination\.SCHEDULE\) null/,
   '课表顶栏不显示云端刷新入口');
 assert.match(main, /AcademicDestination\.GRADES -> Content/);
-assert.match(main, /青果教务云端读取 · 与本机课表独立/);
-assert.match(main, /成绩接口尚未完成本人真实数据验收/);
+assert.match(main, /AcademicDestination\.GRADES -> Content \{/,
+  '成绩保留独立页面入口');
+assert.match(main, /Text\("成绩尚未读取"/,
+  '成绩未取得真实数据时应显示明确空状态');
+assert.match(main, /TextButton\(onClick = openProfile\) \{ Text\("连接青果教务"\) \}/,
+  '成绩应能直达真实学校数据连接，而不是静态解释');
+assert.match(main, /Text\("考试安排尚未读取"/,
+  '考试未读取前不能显示模拟考试记录');
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
