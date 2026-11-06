@@ -1,0 +1,67 @@
+/* Web Console phase 2: a desktop presentation of the EXISTING site nav.
+ * Smaller screens keep the same five-button mobile navigation and all old URLs.
+ * Uses no new data/API/auth state and does not touch local coursework storage.
+ */
+.xu-webnav-heading,
+.x-v7-header .xu-web-only { display:none; }
+
+@media (min-width:1180px) {
+  .x-v7-header-inner { max-width:none; padding-inline:clamp(20px,3vw,46px); }
+  .x-v7-header .main-nav {
+    position:fixed;
+    top:92px;
+    left:max(20px,calc((100vw - 1640px)/2 + 20px));
+    width:220px;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:4px;
+    padding:12px;
+    background:var(--xu-surface);
+    border:1px solid var(--xu-line);
+    border-radius:14px;
+    box-shadow:0 8px 24px rgb(24 38 61 / 5%);
+  }
+  .x-v7-header .xu-webnav-heading {
+    display:block;
+    order:0;
+    padding:9px 12px 10px;
+    color:var(--xu-muted);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.09em;
+  }
+  .x-v7-header .xu-web-only { display:flex; }
+  .x-v7-header .nav-link {
+    justify-content:flex-start;
+    width:100%;
+    min-height:46px;
+    padding:11px 12px;
+    font-size:13px;
+    border-radius:9px;
+  }
+  .x-v7-header .nav-link[data-page="dashboard"] {order:1;}
+  .x-v7-header .nav-link[data-page="tasks"] {order:2;}
+  .x-v7-header .nav-link[data-page="review"] {order:3; padding-left:20px;}
+  .x-v7-header .nav-link[data-page="academic"] {order:4;}
+  .x-v7-header .nav-link[data-page="settings"] {order:5;}
+  .x-v7-header .nav-link[data-page="profile"] {order:6;}
+  .x-v7-header .nav-link[data-page="timetable"] {
+    order:7;
+    margin-top:12px;
+    border-top:1px solid var(--xu-line);
+    border-radius:0 0 9px 9px;
+    padding-top:15px;
+  }
+  .x-v7-header .nav-link[data-page="review"][aria-pressed="true"] {
+    background:var(--xu-soft);
+    color:var(--xu-brand);
+  }
+  .workspace main {
+    max-width:none;
+    margin-left:calc(max(20px, (100vw - 1640px) / 2 + 20px) + 242px);
+    margin-right:max(20px,calc((100vw - 1640px)/2 + 20px));
+    padding:32px 24px 72px;
+    min-width:0;
+  }
+}
