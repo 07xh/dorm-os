@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -130,6 +131,17 @@ object XiaoxuSpacing {
     val card: Dp = 16.dp
     val gap: Dp = 8.dp
 }
+
+/** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
+internal object XiaoxuPageLayout {
+    val ContentMaxWidth: Dp = 860.dp
+    val StateMaxWidth: Dp = 560.dp
+}
+
+/** 窄屏铺满，平板居中限宽；仅收敛布局规则，不修改业务或现有配色。 */
+internal fun Modifier.xiaoxuPageWidth(
+    max: Dp = XiaoxuPageLayout.ContentMaxWidth
+): Modifier = this.widthIn(max = max).fillMaxWidth()
 
 /** 课程六色：背景 / 前景 / 左侧强调条。按课程标识稳定取模，不随列表顺序变化。 */
 data class XiaoxuCourseColor(val background: Color, val foreground: Color, val accent: Color)

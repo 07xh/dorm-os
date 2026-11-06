@@ -13,6 +13,13 @@ const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/da
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 
 assert.match(strings, /<string name="app_name">校序<\/string>/);
+const designSystem = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
+const scheduleUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
+assert.match(designSystem, /fun Modifier\.xiaoxuPageWidth\(/, '正文最大宽度由唯一设计系统定义');
+assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
+assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
+assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
 assert.doesNotMatch(manifest, /com\.google\.androidbrowserhelper\.trusted\.LauncherActivity/, '退役 TWA 页面不可回流');

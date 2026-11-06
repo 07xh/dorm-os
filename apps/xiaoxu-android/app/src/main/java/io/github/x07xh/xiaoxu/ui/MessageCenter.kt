@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -205,7 +204,6 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 // 视觉常量
 // ---------------------------------------------------------------------------
 
-private val ContentMaxWidth = 860.dp
 private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
 private val TileShape = RoundedCornerShape(XiaoxuRadius.tile)
 
@@ -213,9 +211,6 @@ private val ExamTile = XiaoxuPalette.WarningSoft
 private val ExamInk = XiaoxuPalette.Warning
 private val NoticeTile = XiaoxuPalette.BrandSoft
 private val NoticeInk = XiaoxuPalette.Brand
-
-private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
-    this.widthIn(max = max).fillMaxWidth()
 
 // ---------------------------------------------------------------------------
 // 入口：MainActivity 消息页直接调用
@@ -281,7 +276,7 @@ fun MessageCenterPanel(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 state = if (showWechat) wechatListState else officialListState,
-                modifier = Modifier.fillMaxHeight().pageWidth(ContentMaxWidth),
+                modifier = Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth),
                 contentPadding = PaddingValues(
                     start = sidePadding,
                     end = sidePadding,

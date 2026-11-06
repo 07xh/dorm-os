@@ -139,8 +139,6 @@ fun formatWeeks(weeks: List<Int>): String {
 
 private val WEEKDAY_SHORT = listOf("一", "二", "三", "四", "五", "六", "日")
 private const val ALL_WEEKS = 0
-private val ContentMaxWidth = 860.dp
-private val StateMaxWidth = 560.dp
 
 private fun weekdayLong(weekday: Int): String =
     "星期" + WEEKDAY_SHORT.getOrElse(weekday - 1) { "?" }
@@ -175,10 +173,6 @@ private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
     startSection = startSection,
     endSection = endSection
 )
-
-/** 窄屏占满、宽屏居中并限宽，避免平板上正文被拉到全屏宽。 */
-private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
-    this.widthIn(max = max).fillMaxWidth()
 
 // ---------------------------------------------------------------------------
 // 入口保持现有函数名，供 MainActivity 直接调用；课表只接收本机课程和文件导入操作。
@@ -281,7 +275,7 @@ private fun LocalTimetableEmptyState(
     onImport: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().pageWidth(StateMaxWidth)
+        modifier = Modifier.fillMaxWidth().xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -398,7 +392,7 @@ private fun ScheduleVerifiedContent(
     Column(
         Modifier
             .fillMaxWidth()
-            .pageWidth(ContentMaxWidth)
+            .xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         SchedulePageHeading(onMessages)
