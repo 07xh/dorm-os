@@ -119,8 +119,10 @@ object LocalCourseReminders {
             "xiaoxu-course-${plan.id}-${plan.day}-${plan.expectedStartEpoch}"
         }
         val previous = prefs.getStringSet(ACTIVE_NAMES, emptySet()).orEmpty().toSet()
+        // Avoid re-enqueuing the entire semester every time the app resumes.
+        // Existing WorkManager jobs persist across activity restarts and reboots.
         (previous - desired.keys).forEach { manager.cancelUniqueWork(it) }
-        for ((name, plan) in desired) {
+        for ((name, plan) in desired.filterKeys { it !in previous }) {
             val input = Data.Builder()
                 .putString("id", plan.id)
                 .putString("date", plan.day.toString())
