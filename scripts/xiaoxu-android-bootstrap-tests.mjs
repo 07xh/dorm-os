@@ -1295,6 +1295,18 @@ assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
 assert.match(workspace, /total <= 1 -> RoundedCornerShape\(radius\)/,
   '单条任务仍须有完整圆角');
 
+assert.match(designSystem, /val listRowMin: Dp = 76\.dp/,
+  '任务与消息共用同一紧凑最小行高');
+assert.match(workspace, /val radius = XiaoxuRadius\.card/,
+  '任务列表首尾圆角必须沿用唯一设计系统');
+assert.match(workspace, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '任务行仍由内容扩展且使用统一最小行高');
+assert.match(messageCenter, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '官方消息行与任务行共用最小尺寸基准');
+assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.card\)/,
+  '官方消息卡片圆角必须与其他页面统一');
+
+
 const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
   workspace.indexOf('private fun TaskSectionHeader('));
 assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
