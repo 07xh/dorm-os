@@ -616,6 +616,32 @@ assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction 
 assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
   '未核验数据不能混入成绩或考试页面');
 
+const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
+    workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
+assert.match(statusTabSource, /selectable\(selected = active, role = Role\.Tab, onClick = onClick\)/,
+  '任务三态筛选须具备可访问的选中态，不只是视觉高亮');
+assert.match(workspace, /\.selectableGroup\(\)/,
+  '任务三态筛选须成组供无障碍导航');
+assert.match(statusTabSource, /XiaoxuRadius\.tile/,
+  '任务筛选圆角必须复用唯一设计系统');
+const messageSearchSource = messageCenter.slice(
+    messageCenter.indexOf('private fun MessageSearchField('),
+    messageCenter.indexOf('private fun FilterRow('));
+assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
+  '消息搜索框需与列表共用玻璃材质');
+assert.match(messageSearchSource, /GlassBorder/,
+  '消息搜索框描边须取自唯一组件调色板');
+const semesterSettingsSource = timetableSettings.slice(
+    timetableSettings.indexOf('private fun SettingsSurface('),
+    timetableSettings.indexOf('private fun SettingsActionRow('));
+assert.match(semesterSettingsSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
+  '课表设置分组圆角必须与所有设置页同源');
+assert.match(semesterSettingsSource, /background\(XiaoxuPalette\.GlassCard\)/,
+  '课表设置分组只调整材质，不移动原版弹出位置和文字');
+assert.match(semesterSettingsSource, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
+  '课表设置分组边界必须使用轻玻璃描边');
+
+
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
