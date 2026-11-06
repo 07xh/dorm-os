@@ -693,7 +693,8 @@ fun XiaoxuSheet(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink
+                    color = XiaoxuPalette.Ink,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
             content()
