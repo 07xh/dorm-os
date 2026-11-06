@@ -1199,6 +1199,10 @@ assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/, '真实页面是玻
 assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/, '同源几何布局');
 assert.match(northGeometry, /PrimaryBottomGeometry\(70\.dp, 20\.dp/, '兼容 #351 的非玻璃底栏尺寸');
 assert.match(floatingBar, /remember\(count, useNorthGlass\)/, '玻璃切换时重建正确的拖拽尺度');
+assert.match(floatingBar, /val dragState = remember\(count, useNorthGlass\)/,
+  '玻璃切换必须同步重建手势状态，避免沿用旧 press/drag');
+assert.match(floatingBar, /if \(target != currentIndex\) currentOnSelect\(target\)/,
+  '拖动回到原标签时不得重复导航或触发页面加载');
 assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/, '保持 SDK 36 原版玻璃兼容版本');
 
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
