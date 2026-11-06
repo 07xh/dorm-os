@@ -56,6 +56,18 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun editorScrollIndexMatchesActualOptionalRows() {
+        // Always present: header, status tabs, filter controls, source chips.
+        assertEquals(4, taskEditorStartIndex(false, false, false, false))
+        assertEquals(5, taskEditorStartIndex(true, false, false, false))
+        assertEquals(5, taskEditorStartIndex(false, true, false, false))
+        assertEquals(6, taskEditorStartIndex(false, true, false, true))
+        assertEquals(8, taskEditorStartIndex(true, true, true, true))
+        // Cloud editor starts immediately after local editor only if local is open.
+        assertEquals(5, taskEditorStartIndex(false, false, false, false) + 1)
+    }
+
+    @Test
     fun whitespaceAndCaseInsensitiveSearchAreStable() {
         assertEquals(records, searchWorkspaceTasks(records, "all", "  ", today))
         assertEquals(listOf("cloud:1"),
