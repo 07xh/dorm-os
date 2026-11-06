@@ -28,6 +28,27 @@ class CampusRunContractTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun ownerScopeRejectsUnverifiedOrMissingCloudIdentity() {
+        val binding = "A".repeat(43)
+        assertEquals("local", campusRunVisibleScope(false, null))
+        assertNull(campusRunVisibleScope(true, null))
+        assertNull(campusRunVisibleScope(false, binding))
+        assertNull(campusRunVisibleScope(true, "invalid-binding"))
+    }
+
+    @Test fun ownerScopeIsStableWithinSessionAndDistinctBetweenOwners() {
+        val one = "A".repeat(43)
+        val two = "B".repeat(43)
+        val a = campusRunVisibleScope(true, one)
+        val aAgain = campusRunVisibleScope(true, one)
+        val b = campusRunVisibleScope(true, two)
+        assertTrue(a!!.matches(Regex("^owner_[a-f0-9]{64}$")))
+        assertEquals(a, aAgain)
+        assertFalse(a == b)
+        assertFalse(a.contains(one))
+        assertFalse(a == "local")
+    }
+
     @Test fun manualKmParserUsesExactMetersAndNeverConvertsBlankToZero() {
         assertEquals(12_340L, parseCampusRunKilometers("12.34"))
         assertEquals(5_000L, parseCampusRunKilometers("5"))
