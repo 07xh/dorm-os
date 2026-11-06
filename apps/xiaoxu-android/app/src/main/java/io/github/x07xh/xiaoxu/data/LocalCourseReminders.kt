@@ -60,7 +60,7 @@ internal fun planCourseReminders(
             val date = calendar.dateFor(week, lesson.weekday) ?: return@weekLoop
             if (date.isAfter(now.toLocalDate().plusDays(horizonDays))) return@weekLoop
             val target = date.atTime(start).atZone(now.zone)
-            val delay = ChronoUnit.MILLIS.between(now.toInstant(), target.minusMinutes(10).toInstant())
+            val delay = ChronoUnit.MILLIS.between(now.toInstant(), target.minusMinutes(15).toInstant())
             if (delay > 0) {
                 result += CourseReminderPlan(
                     id = lesson.id,
@@ -84,6 +84,7 @@ internal fun planCourseReminders(
 object LocalCourseReminders {
     private const val PREFS = "xiaoxu-course-reminders-v1"
     private const val ENABLED = "enabled"
+    private const val COURSE_PREFIX = "course-enabled-"
     private const val ACTIVE_NAMES = "scheduled-names"
     private const val TAG = "xiaoxu-course-reminder"
     private const val CHANNEL = "xiaoxu-class-alerts"
@@ -92,6 +93,29 @@ object LocalCourseReminders {
     fun enabled(context: Context): Boolean =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(ENABLED, false)
+
+    /** Explicit per-course choice overrides the default reminder setting. */
+    fun enabledForCourse(context: Context, lessonId: String): Boolean {
+        if (lessonId.isBlank()) return false
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val key = COURSE_PREFIX + lessonId
+        return if (prefs.contains(key)) prefs.getBoolean(key, false)
+            else prefs.getBoolean(ENABLED, false)
+    }
+
+    fun setCourseEnabled(context: Context, lessonId: String, value: Boolean) {
+        require(lessonId.isNotBlank()) { "课程标识为空，不能设置课程提醒" }
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(COURSE_PREFIX + lessonId, value).apply()
+    }
+
+    fun anyEnabled(context: Context): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean(ENABLED, false) ||
+            prefs.all.any { (key, value) ->
+                key.startsWith(COURSE_PREFIX) && value == true
+            }
+    }
 
     fun canNotify(context: Context): Boolean =
         (Build.VERSION.SDK_INT < 33 ||
@@ -104,11 +128,17 @@ object LocalCourseReminders {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(ENABLED, value).apply()
         if (!value) {
-            val manager = WorkManager.getInstance(app)
-            manager.cancelAllWorkByTag(TAG)
-            manager.cancelUniqueWork(DAILY)
-            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().remove(ACTIVE_NAMES).apply()
+            // Disabling the default does not erase individually enabled courses.
+            if (anyEnabled(app)) {
+                reconcileAfterSave(app, LocalScheduleStore.load(app),
+                    LocalSemesterConfigStore.load(app))
+            } else {
+                val manager = WorkManager.getInstance(app)
+                manager.cancelAllWorkByTag(TAG)
+                manager.cancelUniqueWork(DAILY)
+                app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit().remove(ACTIVE_NAMES).apply()
+            }
         }
     }
 
@@ -133,12 +163,12 @@ object LocalCourseReminders {
         calendar: SemesterCalendar?,
         zone: ZoneId = ZoneId.systemDefault()
     ) {
-        if (!enabled(context)) return
         val app = context.applicationContext
         val manager = WorkManager.getInstance(app)
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val selectedLessons = lessons.filter { enabledForCourse(app, it.id) }
         val plans = if (calendar == null) emptyList()
-            else planCourseReminders(lessons, calendar, ZonedDateTime.now(zone))
+            else planCourseReminders(selectedLessons, calendar, ZonedDateTime.now(zone))
         val desired = plans.associateBy { plan ->
             "xiaoxu-course-${plan.id}-${plan.day}-${plan.expectedStartEpoch}"
         }
@@ -161,14 +191,16 @@ object LocalCourseReminders {
             manager.enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, work)
         }
         prefs.edit().putStringSet(ACTIVE_NAMES, desired.keys.toSet()).apply()
-        val daily = PeriodicWorkRequestBuilder<LocalCourseReminderRefreshWorker>(
-            1, TimeUnit.DAYS
-        ).build()
-        manager.enqueueUniquePeriodicWork(DAILY, ExistingPeriodicWorkPolicy.KEEP, daily)
+        if (calendar != null && selectedLessons.isNotEmpty()) {
+            val daily = PeriodicWorkRequestBuilder<LocalCourseReminderRefreshWorker>(
+                1, TimeUnit.DAYS
+            ).build()
+            manager.enqueueUniquePeriodicWork(DAILY, ExistingPeriodicWorkPolicy.KEEP, daily)
+        } else manager.cancelUniqueWork(DAILY)
     }
 
     internal fun deliver(context: Context, lesson: VerifiedLesson) {
-        if (!enabled(context) || !canNotify(context)) return
+        if (!enabledForCourse(context, lesson.id) || !canNotify(context)) return
         val app = context.applicationContext
         val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
@@ -198,7 +230,7 @@ object LocalCourseReminders {
 /** Re-read the actual current timetable before showing any notification. */
 class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-        if (!LocalCourseReminders.enabled(applicationContext)) return Result.success()
+        if (!LocalCourseReminders.anyEnabled(applicationContext)) return Result.success()
         val id = inputData.getString("id") ?: return Result.success()
         val dateText = inputData.getString("date") ?: return Result.success()
         val date = runCatching { LocalDate.parse(dateText) }.getOrNull()
@@ -227,7 +259,7 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
 /** One lightweight local refresh per day keeps future class reminders scheduled. */
 class LocalCourseReminderRefreshWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-        if (!LocalCourseReminders.enabled(applicationContext)) return Result.success()
+        if (!LocalCourseReminders.anyEnabled(applicationContext)) return Result.success()
         LocalCourseReminders.reconcile(
             applicationContext,
             LocalScheduleStore.load(applicationContext),
