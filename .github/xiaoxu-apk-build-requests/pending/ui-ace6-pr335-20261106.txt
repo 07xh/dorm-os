@@ -1,0 +1,7 @@
+校序 UI PR #335 / 一加 Ace 6 原生 APK 试构建
+
+Request: Build a debug APK from this pull request's exact head commit, run the repository static safety tests, Android Kotlin compilation and JVM unit tests, then validate and upload the artifact and SHA256 checksum.
+Purpose: verify soft gray-blue typography, subtle blue/lavender background, native bottom bar, preserved Home order, simplified task center, real local task checkbox, source/official audit semantics and message center readability.
+Device acceptance: OnePlus Ace 6 (screen 1272x2800); check dp/sp safety areas, 7-column timetable and font scaling on device after build. No automated screenshot or school account result should be claimed as real-device acceptance.
+Build is for PR review only. Do not merge to main or distribute as a production release unless CI and on-device checks pass.
+Sources: real Room/local imported timetable and existing CloudClient; no fake school data.
