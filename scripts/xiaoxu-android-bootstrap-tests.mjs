@@ -544,6 +544,9 @@ const nativeRecords = read('apps/xiaoxu-android/app/src/main/java/io/github/x07x
 const catalogObserver = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_source_observer.js');
 assert.match(localNative, /观测活动列表请求（手动）/);
 assert.match(localNative, /setOnClickListener \{ toggleCatalogObserver\(\) \}/);
+assert.match(localNative, /val outcomes = item\.optJSONArray\("outcomes"\)/);
+assert.match(localNative, /HTTP \$statusCode\/\$familyName/);
+assert.match(localNative, /未获得响应元信息/);
 assert.match(localNative, /assets\.open\("ncwu_secondclass_source_observer\.js"\)/);
 assert.match(localNative, /if \(provider == "second_class"\) root\.addView\(catalogProbe\)/);
 assert.match(catalogObserver, /window\.fetch=wrappedFetch/);
