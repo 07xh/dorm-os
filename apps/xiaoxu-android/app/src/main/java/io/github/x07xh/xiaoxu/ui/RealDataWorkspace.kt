@@ -1486,7 +1486,7 @@ private fun TaskStatusTab(
             .clip(RoundedCornerShape(14.dp))
             .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
             .clickable(onClickLabel = "筛选$label", onClick = onClick)
-            .heightIn(min = 62.dp)
+            .heightIn(min = 56.dp)
             .padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
