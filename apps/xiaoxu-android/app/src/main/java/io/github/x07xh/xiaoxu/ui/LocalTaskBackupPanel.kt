@@ -82,7 +82,7 @@ fun LocalTaskBackupPanel() {
             Text("本机任务备份与恢复", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
             Text(
-                "安装 V0.6 后可以先导出手动任务，再为后续版本升级做备份。旧版若因签名不同无法升级，不能使用此新版功能取回旧版数据，请勿直接卸载。",
+                "更换手机或重新安装前，请先导出本机手动任务。签名不一致的安装包通常无法直接覆盖升级；卸载旧版会丢失其本机数据，若旧版不支持导出，新版也无法替旧版取回。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -548,6 +548,19 @@ assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJava
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
 assert.match(main, /LocalTaskBackupPanel\(\)/);
+assert.match(main, /showLocalBackup by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '本机备份为低频设置，不能默认占据我的页面首屏');
+assert.match(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
+  '按需展开真实本机导入与导出，不能误删原功能');
+assert.match(main, /XiaoxuCard\(onClick = \{ showCloudSecondClass = !showCloudSecondClass \}\)/,
+  '第二课堂个人云端快照沿用统一卡片，不重建第二套页面');
+assert.doesNotMatch(main, /item \{ Heading\("我的",/,
+  '个人中心已有资料卡，不能叠加旧版重复主标题');
+const backupSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
+assert.doesNotMatch(backupSource, /安装 V0\.6/,
+  '不得保留过期版本号导致签名升级与本机数据提示误导');
+assert.match(backupSource, /backup\.mergeFrom\(uri\)/,
+  '原有备份文件恢复操作不得在 UI 清理中删除');
 assert.match(db, /suspend fun snapshot\(\): List<LocalTask>/);
 assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v1/);
 assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v2/);
