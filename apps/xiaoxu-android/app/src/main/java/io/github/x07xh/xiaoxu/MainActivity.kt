@@ -112,6 +112,7 @@ import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
+import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -752,35 +753,29 @@ private fun ConnectionsPage(
                 startSchoolAuthorization, localCaptureReturn)
         }
         item {
-            Text("工具", style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink)
-        }
-        item {
-            XiaoxuCard(contentPadding = 0.dp) {
-                Column {
-                    CompactActionRow("第二课堂记录", Icons.Outlined.School,
-                        expanded = showCloudSecondClass, onClick = {
-                            showCloudSecondClass = !showCloudSecondClass
-                            showLocalBackup = false
-                            showCredits = false
-                        })
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 16.dp))
-                    CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
-                        expanded = showLocalBackup, onClick = {
-                            showLocalBackup = !showLocalBackup
-                            showCloudSecondClass = false
-                            showCredits = false
-                        })
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 16.dp))
-                    CompactActionRow("开源许可", Icons.Outlined.Info,
-                        expanded = showCredits, onClick = {
-                            showCredits = !showCredits
-                            showCloudSecondClass = false
-                            showLocalBackup = false
-                        })
-                }
+            XiaoxuGroupedSection(title = "工具") {
+                CompactActionRow("第二课堂记录", Icons.Outlined.School,
+                    expanded = showCloudSecondClass, onClick = {
+                        showCloudSecondClass = !showCloudSecondClass
+                        showLocalBackup = false
+                        showCredits = false
+                    })
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+                CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
+                    expanded = showLocalBackup, onClick = {
+                        showLocalBackup = !showLocalBackup
+                        showCloudSecondClass = false
+                        showCredits = false
+                    })
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+                CompactActionRow("开源许可", Icons.Outlined.Info,
+                    expanded = showCredits, onClick = {
+                        showCredits = !showCredits
+                        showCloudSecondClass = false
+                        showLocalBackup = false
+                    })
             }
         }
         if (showCloudSecondClass) item { SecondClassPanel(cloud, openWebsite) }
