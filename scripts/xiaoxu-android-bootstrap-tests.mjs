@@ -598,7 +598,10 @@ assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官�
   '紧凑海报式公告卡仍须打开真实官方详情');
 assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
 assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/);
-assert.match(messageCenter, /sheetState = sheetState/);
+assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告详情"\)/,
+  '公告详情必须复用唯一玻璃弹层');
+assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
+  '消息页不能再创建第二套底部弹层容器');
 assert.match(messageCenter, /App 内不保存正文与附件，需通过学校官网查看/);
 assert.match(messageCenter, /不生成摘要/);
 assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
@@ -612,7 +615,8 @@ assert.match(messageCenter, /\.selectableGroup\(\)/);
 assert.match(messageCenter, /\.selectable\(\s*selected = isSelected,\s*role = Role\.Tab,/);
 assert.match(messageCenter, /\.heightIn\(min = 48\.dp\)/);
 assert.match(messageCenter, /maxWidth < 380\.dp/);
-assert.match(messageCenter, /verticalScroll\(rememberScrollState\(\)\)/);
+assert.match(designSystem, /verticalScroll\(rememberScrollState\(\)\)/,
+  '统一底部弹层必须支持内容滚动');
 assert.match(messageCenter, /mergeDescendants = true/);
 assert.match(messageCenter, /rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/);
 assert.match(messageCenter, /var openedId by rememberSaveable/);
