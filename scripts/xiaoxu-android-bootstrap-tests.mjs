@@ -675,9 +675,11 @@ assert.match(workspace, /val visible = facetWorkspaceTasks\(/, '页面对真实�
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
-assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
-    workspace.indexOf('title = "我的本机待办"'),
-  '默认任务列表优先展示课程相关与云端任务');
+assert.ok(workspace.indexOf('title = "课程任务"') <
+    workspace.indexOf('title = "微信任务"') &&
+    workspace.indexOf('title = "微信任务"') <
+    workspace.indexOf('title = "本机任务"'),
+  '任务按课程、审核通过微信、本机三个来源独立排序');
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不能重复承载群消息候选审核；必须归属消息中心');
 assert.match(messageCenter, /WechatReviewPanel\(/,
@@ -686,8 +688,9 @@ assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海�
 
 assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
 assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
-assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
-assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
+assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
+assert.match(workspace, /title = "课程任务"/, '云端课程任务须有独立分区');
+assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
 assert.match(workspace, /含上次云端快照/,
   '上次云端任务必须明确标注快照，不可冒充新读取');
