@@ -19,6 +19,14 @@ No new cloud connector, no credentials in JS result/Intent/Room/logs, no fake da
 
 ## Review focus
 
+## 2026-11-06 owner read confirmation and snapshot integrity follow-up
+
+The owner reports the shipped native QA can read. This confirms that read path only, not all official values, restart/expiry behavior or cloud QR handoff. The nonempty catalog still needs a real response; the official HTML field names alone do not lift that gate.
+
+- [ ] Execute the production DAO default method in JVM tests with a recording SQL boundary. Confirm that mixed score/activity capture times, foreign source hosts and undated batches fail before any write, while a coherent read preserves other providers.
+- [ ] Observe the new JVM failure before adding a DAO precondition for one positive capture time and the exact official business host across scores and activities. Keep existing catalog validation and Room transaction unchanged.
+- [ ] Compile and run JVM/full CI, review, merge and verify main. Retain the readable QA installation; no UI, connector or schema migration is part of this patch.
+
 ## 2026-11-06 follow-up: return to the initiating App page
 
 - [ ] Extend the existing Android bootstrap contract: a validated onSavedReceipt must set the result before finishing the intermediate Activity; a failed read must not finish it as a success. Observe the missing finish failure, then add the single finish after setSavedReceipt.
