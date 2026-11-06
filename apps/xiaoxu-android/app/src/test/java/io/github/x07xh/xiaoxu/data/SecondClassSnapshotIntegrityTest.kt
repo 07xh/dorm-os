@@ -60,6 +60,10 @@ class SecondClassSnapshotIntegrityTest {
             rejectedWithoutWrites(listOf(record("credits", at)), listOf(record("activity_summary", at)))
     }
 
+    @Test fun aLateOlderReadCannotOverwriteANewerSavedBatch() {
+        rejectedWithoutWrites(listOf(record("credits", 50)), listOf(record("activity_summary", 50)))
+    }
+
     @Test fun aCoherentReadReplacesOnlySecondClassRecordsAndClearsOldCatalog() = runBlocking {
         val other = record("course", 100).copy(provider = "chaoxing", sourceHost = "i.chaoxing.com")
         val dao = RecordingDao(listOf(record("credits", 100), record("activity_summary", 100),
