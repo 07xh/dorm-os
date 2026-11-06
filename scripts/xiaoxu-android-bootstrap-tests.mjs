@@ -385,10 +385,15 @@ assert.match(secondClass, /isSchoolReportedAggregate/);
 assert.match(secondClass, /"user_browser_export"/);
 // Native second-class navigation must keep the real owner snapshot and
 // distinguish the unverified ALL-ACTIVITIES catalog from MY signups.
-assert.match(secondClassPanel, /var tab by rememberSaveable/);
-assert.match(secondClassPanel, /"catalog" to "活动广场"/);
-assert.match(secondClassPanel, /"mine" to "我的活动"/);
-assert.match(secondClassPanel, /"score" to "素质积分"/);
+assert.doesNotMatch(secondClassPanel, /var tab by rememberSaveable/,
+  '三标签导航仅能在教务页第二课堂出现，不得在我的页面复制一套');
+assert.doesNotMatch(secondClassPanel, /"catalog" to "活动广场"/,
+  '云端个人快照不能冒充学校全部活动目录');
+assert.match(secondClassPanel, /云端第二课堂 · 个人快照/);
+assert.match(secondClassPanel, /var showActivities by rememberSaveable/);
+assert.match(secondClassPanel, /var showScores by rememberSaveable/);
+assert.match(secondClassPanel, /if \(showActivities\) MySecondClassActivities\(result\)/);
+assert.match(secondClassPanel, /if \(showScores\) SecondClassScores\(result\)/);
 assert.match(secondClassPanel, /FilterChip\(/);
 assert.match(secondClassPanel, /LaunchedEffect\(state\.authenticated\)/);
 assert.match(secondClassPanel, /client\.loadSecondClass\(\)/);

@@ -29,105 +29,84 @@ import io.github.x07xh.xiaoxu.data.SecondClassSnapshot
 import kotlinx.coroutines.launch
 
 /*
- * Real three-section second-class workspace. The activity discovery source
- * has NOT been attested: only the existing owner-protected personal D1
- * snapshot may display activity rows or official scores. No fake events,
- * campus network calls, enrollment submission, or background polling.
+ * Profile-only cloud snapshot inspector. The real three-tab second-class
+ * navigation belongs exclusively to the native Academic > SecondClassPage.
+ * This optional inspector displays the owner's preexisting cloud/D1 personal
+ * snapshot, never an all-campus activities catalog, school login or fake data.
  */
 @Composable
 fun SecondClassPanel(client: CloudClient, openWebsite: () -> Unit) {
     val state = client.state
     val scope = rememberCoroutineScope()
     val result = state.secondClass
-    var tab by rememberSaveable { mutableStateOf("catalog") }
-    val tabs = listOf(
-        "catalog" to "活动广场",
-        "mine" to "我的活动",
-        "score" to "素质积分"
-    )
+    var showActivities by rememberSaveable { mutableStateOf(false) }
+    var showScores by rememberSaveable { mutableStateOf(false) }
 
-    // Reuse the existing authenticated snapshot API on entering the screen.
-    // It does not log into the school or trigger any CAS / upstream sync.
+    // Reads the same owner-protected snapshot API; does not initiate school CAS.
     LaunchedEffect(state.authenticated) {
         if (state.authenticated) client.loadSecondClass()
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("第二课堂", style = MaterialTheme.typography.titleLarge,
+        Text("云端第二课堂 · 个人快照", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            tabs.forEach { (key, title) ->
-                FilterChip(
-                    selected = tab == key,
-                    onClick = { tab = key },
-                    label = { Text(title) }
-                )
-            }
-        }
+        Text("仅查看本人已保存的云端活动与积分。活动广场请从「教务 → 第二课堂」查看，" +
+            "云端快照尚未验证学校正在报名的全部活动目录。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-        // A verified personal activity snapshot does not prove that the
-        // school's ALL-ACTIVITIES discovery source is connected.
-        if (tab == "catalog") {
+        if (!state.authenticated) {
             SectionCard {
-                Text("活动广场 · 官方数据接入中", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "目前只验证过“我的报名活动”接口，尚未验证学校正在报名的全部活动目录。" +
-                        "因此不显示示例活动、虚构名额或报名时间。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = openWebsite) {
-                    Text("打开现有学校连接入口")
-                }
+                Text("尚未连接校序云端", fontWeight = FontWeight.SemiBold)
+                Text("未连接时不会填充模拟活动或积分。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = openWebsite) { Text("查看现有数据连接") }
             }
         } else {
-            if (!state.authenticated) {
+            Button(enabled = !state.secondClassBusy && !state.busy,
+                onClick = { scope.launch { client.loadSecondClass() } }) {
+                Text(if (state.secondClassBusy) "正在读取…" else "刷新云端个人快照")
+            }
+            state.secondClassError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+            if (result != null && !state.secondClassFresh) {
+                Text("本次尚未确认最新记录；以下如有内容，仅为上次读取的快照。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
+            }
+            if (result?.status == "stale") {
+                Text("数据已超过36小时，仅供参考，不代表学校当前记录。",
+                    color = MaterialTheme.colorScheme.error)
+            }
+            if (result == null || result.status == "not_connected") {
                 SectionCard {
-                    Text("尚未连接校序云端", fontWeight = FontWeight.SemiBold)
-                    Text("本页只显示已读取的本人活动与积分；未登录时不填充模拟数据。",
+                    Text("尚无可核验的第二课堂个人数据")
+                    Text("请先在学校官方页面完成本人登录和真实读取。",
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = openWebsite) { Text("前往学校数据连接") }
+                    TextButton(onClick = openWebsite) { Text("查看现有连接和诊断") }
                 }
             } else {
-                Button(
-                    enabled = !state.secondClassBusy && !state.busy,
-                    onClick = { scope.launch { client.loadSecondClass() } }
-                ) {
-                    Text(if (state.secondClassBusy) "正在读取…" else "刷新个人活动与积分")
-                }
-                state.secondClassError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
-                if (result != null && !state.secondClassFresh) {
-                    Text("本次尚未确认最新记录；以下如有内容，仅为上次读取的快照。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error)
-                }
-                if (result?.status == "stale") {
-                    Text("数据已超过36小时，仅供参考，不代表学校当前记录。",
-                        color = MaterialTheme.colorScheme.error)
-                }
-                if (result == null || result.status == "not_connected") {
-                    SectionCard {
-                        Text("尚无可核验的第二课堂个人数据")
-                        Text("请先在学校官方页面完成本人登录和真实读取。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = openWebsite) { Text("查看现有连接和诊断") }
+                Text(if (result.provenance == "trusted_readonly") "服务端已验证只读来源"
+                    else "用户自行导入的数据（非官方实时同步）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("上次成功读取：" + (result.lastSuccessAt ?: "未知"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SectionCard {
+                    TextButton(onClick = { showActivities = !showActivities },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(if (showActivities) "收起云端个人活动"
+                            else "查看云端个人活动（" + result.activities.size + " 条）")
                     }
-                } else {
-                    Text(
-                        if (result.provenance == "trusted_readonly") "服务端已验证只读来源"
-                        else "用户自行导入的数据（非官方实时同步）",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text("上次成功读取：" + (result.lastSuccessAt ?: "未知"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (tab == "mine") {
-                        MySecondClassActivities(result)
-                    } else {
-                        SecondClassScores(result)
+                    if (showActivities) MySecondClassActivities(result)
+                }
+                SectionCard {
+                    TextButton(onClick = { showScores = !showScores },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(if (showScores) "收起云端素质积分" else "查看云端素质积分")
                     }
+                    if (showScores) SecondClassScores(result)
                 }
             }
         }
