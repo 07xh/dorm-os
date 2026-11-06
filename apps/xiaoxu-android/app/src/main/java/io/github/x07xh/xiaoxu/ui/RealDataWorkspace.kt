@@ -674,7 +674,7 @@ fun RealAcademicTaskHub(
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
-        val managerStart = 4 + (if (showSearch) 1 else 0) +
+        val managerStart = 5 + (if (showSearch) 1 else 0) +
             (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
         val targetIndex = when (jumpTo) {
             "local" -> if (showLocal) managerStart else null
@@ -820,9 +820,9 @@ fun RealAcademicTaskHub(
         item {
             // Source selection is a secondary navigation axis, never a task status.
             LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                items(
-                    listOf("all" to "全部来源", "local" to "本机", "cloud" to "云端")
-                ) { (source, label) ->
+                val sources = listOf("all" to "全部来源", "local" to "本机", "cloud" to "云端")
+                items(count = sources.size) { i ->
+                    val (source, label) = sources[i]
                     FilterChip(
                         selected = sourceFilter == source,
                         onClick = { sourceFilter = source },
