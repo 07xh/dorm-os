@@ -176,6 +176,16 @@ internal fun searchWorkspaceTasks(
     }
 }
 
+/** LazyColumn index of the first open editor, before local/cloud rows.
+ * Always update this when adding/removing items before the editor.
+ */
+internal fun taskEditorStartIndex(
+    staleSnapshot: Boolean,
+    searchOpen: Boolean,
+    advancedFiltersOpen: Boolean,
+    managementOpen: Boolean
+): Int = 4 + listOf(staleSnapshot, searchOpen, advancedFiltersOpen, managementOpen).count { it }
+
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
  * 不推断当前教学周、上课时间或学校提交状态；云端任务保留快照标识。
@@ -748,12 +758,16 @@ fun RealAcademicTaskHub(
     }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
-    // Source and filters share the same LazyColumn, including all management forms.
+    // All optional rows must be counted. Fixed indexes shifted when old helper lines
+    // were removed, so local/cloud buttons could land on the wrong section.
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
-        val managerStart = 5 + (if (showSearch) 1 else 0) +
-            (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
+    val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
+    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
+        showAdvancedFilters, staleTasksShown) {
+        val managerStart = taskEditorStartIndex(
+            staleTasksShown, showSearch, showAdvancedFilters, showManager
+        )
         val targetIndex = when (jumpTo) {
             "local" -> if (showLocal) managerStart else null
             "cloud" -> if (showCloud) managerStart + (if (showLocal) 1 else 0) else null
