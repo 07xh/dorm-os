@@ -83,4 +83,17 @@ data class SemesterCalendar(
     }
 }
 
+/**
+ * Without an explicit semester, expose only weeks present in the imported data.
+ * Once configured, allow viewing empty teaching weeks instead of hiding them.
+ * Imported out-of-range weeks remain visible for user correction rather than
+ * silently dropping real course records.
+ */
+fun selectableTeachingWeeks(
+    lessons: List<VerifiedLesson>, calendar: SemesterCalendar?
+): List<Int> = (
+    lessons.flatMap { it.weeks.filter { week -> week in 1..35 } } +
+        (calendar?.let { (1..it.totalWeeks).toList() } ?: emptyList())
+).distinct().sorted()
+
 data class SectionTime(val start: LocalTime, val end: LocalTime)
