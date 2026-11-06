@@ -157,6 +157,10 @@ class MainActivity : ComponentActivity() {
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
                     localLessons = localLessons,
+                    onLocalLessonsChanged = { saved ->
+                        localScheduleReadSerial++
+                        localLessons = saved
+                    },
                     returnedSchool = returnedSchool,
                     localCaptureReturn = lastLocalCapture,
                     onSchoolReturnConsumed = { returnedSchool = null },
@@ -371,6 +375,7 @@ private fun NativeShell(
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     returnedSchool: String?,
     localCaptureReturn: LocalSchoolImportReceipt?,
     onSchoolReturnConsumed: () -> Unit,
@@ -558,7 +563,8 @@ private fun NativeShell(
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                localLessons = localLessons, openFileImport = openFileImport)
+                                localLessons = localLessons, openFileImport = openFileImport,
+                                onLocalLessonsChanged = onLocalLessonsChanged)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud)
