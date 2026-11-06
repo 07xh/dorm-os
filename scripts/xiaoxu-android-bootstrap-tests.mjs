@@ -357,7 +357,7 @@ const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/
 const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt');
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
-assert.match(main, /AcademicDestination\.SECOND_CLASS -> tabStateHolder\.SaveableStateProvider\("second_class"\) \{\s*SecondClassPage\(\)/);
+assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
 assert.match(secondClassMain, /listOf\("活动广场", "我的活动", "素质积分"\)/);
 assert.match(secondClassMain, /第二课堂官方平台/);
 assert.match(secondClassMain, /在校序内检查活动列表来源/);
