@@ -397,8 +397,8 @@ assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
  '共享分段控件必须等宽且具有至少44dp触控高度');
 assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
  '任务中心标题不恢复旧大字号');
-assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
- '三态数字同卡紧凑');
+assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
+ '三态数字同卡保留内容且压缩多余高度');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
 assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
