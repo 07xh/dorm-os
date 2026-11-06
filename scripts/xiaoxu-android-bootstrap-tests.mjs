@@ -398,8 +398,11 @@ assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
  '任务中心标题不恢复旧大字号');
 assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
  '三态数字同卡紧凑');
-assert.match(workspace, /Modifier\.size\(42\.dp\)/,
- '四个顶部按钮统一视觉尺寸');
+assert.match(workspace, /XiaoxuToolbarAction\(/,
+ '任务中心四个顶部动作必须复用统一操作组件');
+assert.match(unifiedSegment, /fun XiaoxuToolbarAction\(/);
+assert.match(unifiedSegment, /modifier = Modifier\.size\(42\.dp\)/,
+ '四个顶部按钮由共享组件统一为42dp');
 assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(record != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '只有已核验空结果可标暂无活动，并注明上次读取');
