@@ -936,7 +936,7 @@ fun RealAcademicTaskHub(
         if (showLocal) item { LocalTaskEditor(localTasks, dao) }
         if (showCloud) item { CloudTaskEditor(client) }
         if (visible.size > 80) item {
-            Text("仅显示前80条，另有 " + (visible.size - 80) + " 条未展示",
+            Text("已显示 " + shown.size + " / " + visible.size + " 条，可调整筛选查看剩余任务",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
