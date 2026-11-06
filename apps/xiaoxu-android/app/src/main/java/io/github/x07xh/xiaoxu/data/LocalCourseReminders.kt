@@ -169,7 +169,7 @@ object LocalCourseReminders {
 }
 
 /** Re-read the actual current timetable before showing any notification. */
-class LocalCourseReminderWorker(context: Context, params: Worker) : Worker(context, params) {
+class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         if (!LocalCourseReminders.enabled(applicationContext)) return Result.success()
         val id = inputData.getString("id") ?: return Result.success()
@@ -198,7 +198,7 @@ class LocalCourseReminderWorker(context: Context, params: Worker) : Worker(conte
 }
 
 /** One lightweight local refresh per day keeps future class reminders scheduled. */
-class LocalCourseReminderRefreshWorker(context: Context, params: Worker) : Worker(context, params) {
+class LocalCourseReminderRefreshWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         if (!LocalCourseReminders.enabled(applicationContext)) return Result.success()
         LocalCourseReminders.reconcile(
