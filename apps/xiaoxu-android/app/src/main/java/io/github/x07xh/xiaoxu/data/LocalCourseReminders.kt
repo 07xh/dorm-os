@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -110,6 +111,21 @@ object LocalCourseReminders {
                 .edit().remove(ACTIVE_NAMES).apply()
         }
     }
+
+    /**
+     * Reminder maintenance is secondary to committed timetable data.
+     * Never report a successful course import/edit as failed because WorkManager
+     * could not enqueue jobs. Return false so the UI can warn independently.
+     */
+    fun reconcileAfterSave(
+        context: Context,
+        lessons: List<VerifiedLesson>,
+        calendar: SemesterCalendar?
+    ): Boolean = runCatching {
+        reconcile(context, lessons, calendar)
+    }.onFailure {
+        Log.w("XiaoxuTimetable", "Local class reminder reconciliation failed", it)
+    }.isSuccess
 
     fun reconcile(
         context: Context,
