@@ -1125,6 +1125,23 @@ assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选�
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
+const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
+  workspace.indexOf('/** 首页与任务中心共用任务详情'));
+assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
+  '任务列表应取消 LazyColumn 默认行间距以连接同组任务');
+assert.match(taskHubRegion,
+  /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
+  '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
+assert.match(taskHubRegion,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
+  '本机任务维持逐条 lazy item 与稳定 key');
+assert.match(workspace, /private fun ConnectedTaskShell\(/,
+  '任务行使用共享首尾圆角与连接线容器');
+assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
+  '相邻任务之间必须只有轻分割线');
+assert.match(workspace, /total <= 1 -> RoundedCornerShape\(radius\)/,
+  '单条任务仍须有完整圆角');
+
 const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
   workspace.indexOf('private fun TaskSectionHeader('));
 assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
