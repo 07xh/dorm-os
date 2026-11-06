@@ -60,6 +60,32 @@ class SecondClassSnapshotIntegrityTest {
             rejectedWithoutWrites(listOf(record("credits", at)), listOf(record("activity_summary", at)))
     }
 
+    @Test fun aLateOlderReadCannotOverwriteANewerSavedBatch() {
+        rejectedWithoutWrites(listOf(record("credits", 50)), listOf(record("activity_summary", 50)))
+    }
+
+    @Test fun confirmedBindingIsSavedInTheSameDaoOperation() = runBlocking {
+        val dao = RecordingDao(emptyList())
+        dao.replaceSecondClassSnapshot(listOf(record("credits")), listOf(record("activity_summary")),
+            accountHash = "a".repeat(64))
+        val binding = dao.rows.single { it.kind == "account_binding" }
+        assertEquals("a".repeat(64), binding.details)
+        assertEquals(200L, binding.capturedAt)
+        assertEquals("dekt.ncwu.edu.cn", binding.sourceHost)
+    }
+
+    @Test fun autoReadCannotWriteAfterADifferentAccountWasConfirmed() {
+        val old = listOf(record("credits", 100), record("activity_summary", 100),
+            record("account_binding", 100).copy(details = "b".repeat(64)))
+        val dao = RecordingDao(old)
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { dao.replaceSecondClassSnapshot(listOf(record("credits")),
+                listOf(record("activity_summary")), accountHash = "a".repeat(64), expectedBinding = "a".repeat(64)) }
+        }
+        assertEquals(old, dao.rows)
+        assertEquals(emptyList<String>(), dao.writes)
+    }
+
     @Test fun aCoherentReadReplacesOnlySecondClassRecordsAndClearsOldCatalog() = runBlocking {
         val other = record("course", 100).copy(provider = "chaoxing", sourceHost = "i.chaoxing.com")
         val dao = RecordingDao(listOf(record("credits", 100), record("activity_summary", 100),

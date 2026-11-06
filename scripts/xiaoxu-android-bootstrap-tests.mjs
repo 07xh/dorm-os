@@ -398,7 +398,7 @@ assert.match(localReader, /includeCatalog = false/);
 assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
 assert.match(localReader, /catalogStatus='nonempty_unverified'/);
 assert.match(localNativeCatalog, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
-assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog\)/);
+assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, accountHash = accountHash\)/);
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
@@ -764,7 +764,7 @@ assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativ
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
 assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
-assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider \}/);
+assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
 assert.match(localSchoolUi, /已从本机数据库重新读取/);
 assert.match(localSchoolUi, /查看本机全部/);
@@ -1465,3 +1465,17 @@ assert.doesNotMatch(main, /private fun MessagesPage\(/, '消息使用唯一原�
 const unifiedSchedule = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 assert.match(unifiedSchedule, /private fun SchedulePageHeading\(/);
 assert.match(unifiedSchedule, /IconButton\(onClick = onMessages\)/);
+
+// Automatic reads reuse the bounded local session, never credentials or a new Activity.
+const autoDriver=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassAutoReadDriver.kt');
+const autoRefresh=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassAutoRefresh.kt');
+assert.doesNotMatch(autoDriver+autoRefresh,/addJavascriptInterface|document\.cookie|getCookie\(|startActivity\(|HttpURLConnection/);
+assert.match(autoDriver,/withTimeout\(90_000\)/);
+assert.match(autoDriver,/ncwu_secondclass_local\.js/);
+assert.match(autoRefresh,/matchesConfirmedAccount/);
+assert.match(autoRefresh,/expectedBinding = expected/);
+assert.match(localNative,/accountHash = accountHash/);
+
+const autoControls=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt');
+assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foreground automatic reads must be owned by the Activity lifecycle, not a retained composition');
+assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);
