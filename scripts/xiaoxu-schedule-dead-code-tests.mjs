@@ -38,6 +38,8 @@ assert.doesNotMatch(source, /client:\s*CloudClient|openWebsite:\s*\(\)\s*->\s*Un
   'Local timetable must not accept unused cloud, website, profile, or legacy import callbacks');
 assert.match(source,/localLessons\.isEmpty\(\)/,
   'Empty timetable must be based on the actual local import');
-assert.match(source,/LocalTimetableEmptyState\(openFileImport\)/,
+assert.match(source,/LocalTimetableEmptyState\(/,
   'Import action remains reachable');
+assert.match(source,/onImport = openFileImport, onMessages = onMessages/,
+  'Empty timetable retains both local import and the single native inbox entry');
 console.log('Local timetable uses only live UI; retired cloud-state views removed');
