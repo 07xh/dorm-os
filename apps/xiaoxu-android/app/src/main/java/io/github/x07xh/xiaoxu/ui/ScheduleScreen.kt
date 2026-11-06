@@ -388,7 +388,6 @@ private fun ScheduleVerifiedContent(
                     showingCourseEditor = true
                 }) { Text("新增") }
                 TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
-                TextButton(onClick = openFileExport) { Text("备份") }
                 OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
                     Text("重新导入")
                 }
@@ -619,6 +618,7 @@ private fun ScheduleVerifiedContent(
         SemesterSettingsDialog(
             current = calendar,
             reminderEnabled = LocalCourseReminders.enabled(context),
+            onExport = openFileExport,
             onDismiss = { showSemesterSettings = false },
             onSave = { config, wantReminders ->
                 LocalSemesterConfigStore.save(context, config)
