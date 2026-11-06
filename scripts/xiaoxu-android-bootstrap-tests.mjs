@@ -367,7 +367,12 @@ const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x
 assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
 assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
-assert.match(secondClassMain, /listOf\("活动", "我的活动", "积分"\)/, '二课仅保留一层原生子导航');
+assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = sectionOptions/, '二课必须使用唯一共享分段组件');
+for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积分']]) {
+  assert.ok(secondClassMain.includes(`XiaoxuSegmentOption("${key}", "${label}")`),
+    '二课三个真实业务分区必须保留：' + label);
+}
+assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
 assert.match(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "读取学校活动"\)/, '读取入口可用');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
