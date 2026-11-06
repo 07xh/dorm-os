@@ -286,28 +286,27 @@ fun MessageCenterPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item {
-                    MessageHeader(
-                        noticeTotal = state.notices.size,
-                        matched = filtered.size,
-                        filterKey = filterKey,
-                        pendingCount = state.pendingWechatCount,
-                        authenticated = state.authenticated,
-                        wechatError = state.wechatError,
-                        onRefresh = refresh,
-                        onBack = onBack
-                    )
+                    MessageHeader(onRefresh = refresh, onBack = onBack)
                 }
                 item {
                     TabRow(selectedTabIndex = if (showWechat) 1 else 0) {
                         Tab(
                             selected = !showWechat,
                             onClick = { sourceTab = MSG_FILTER_NOTICE },
-                            text = { Text("官方通知") }
+                            text = {
+                                Text("官方通知" +
+                                    if (state.notices.isNotEmpty()) " (${state.notices.size})" else "")
+                            }
                         )
                         Tab(
                             selected = showWechat,
                             onClick = { sourceTab = MSG_FILTER_WECHAT },
-                            text = { Text("微信审核") }
+                            text = {
+                                Text("微信审核" +
+                                    if (state.authenticated && state.wechatError == null &&
+                                        state.pendingWechatCount != null)
+                                        " (${state.pendingWechatCount})" else "")
+                            }
                         )
                     }
                 }
@@ -430,116 +429,33 @@ fun MessageCenterPanel(
 // 头部：英文小标 + 大标题 + 双来源信息卡（对齐海报 MESSAGE CENTER 区）
 // ---------------------------------------------------------------------------
 
+/** 紧凑统一页头；来源计数归入来源标签，不重复堆叠摘要卡片。 */
 @Composable
-private fun MessageHeader(
-    noticeTotal: Int,
-    matched: Int,
-    filterKey: String,
-    pendingCount: Int?,
-    authenticated: Boolean,
-    wechatError: String?,
-    onRefresh: () -> Unit,
-    onBack: (() -> Unit)?
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .padding(top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onBack, role = Role.Button)
-                        .semantics { contentDescription = "返回原页面" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = null,
-                        tint = XiaoxuPalette.Ink2
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "MESSAGE CENTER",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.4.sp,
-                    maxLines = 1
-                )
-                Text(
-                    text = "消息中心",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .background(XiaoxuPalette.Surface)
-                    .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.pill))
-                    .clickable(onClick = onRefresh, role = Role.Button)
-                    .padding(horizontal = 14.dp)
-                    .semantics { contentDescription = "刷新官方公告与待审核数量" },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = XiaoxuPalette.BrandDeep
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "刷新",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = XiaoxuPalette.BrandDeep
-                    )
-                }
-            }
+        if (onBack != null) {
+            XiaoxuToolbarAction(
+                icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                label = "返回原页面",
+                onClick = onBack
+            )
         }
         Text(
-            text = "来源清楚 · 分类查看 · 微信候选人工确认",
-            style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
+            text = "消息中心",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = XiaoxuPalette.Ink,
+            modifier = Modifier.weight(1f).semantics { heading() }
         )
-        Spacer(Modifier.height(2.dp))
-        // 两张来源信息卡并排：窄屏靠 maxLines + 省略号收敛，不换行挤压。
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SourceChip(
-                label = "华水官方公告",
-                detail = when {
-                    noticeTotal == 0 -> "暂无已保存公告"
-                    filterKey == MSG_FILTER_NOTICE || filterKey == MSG_FILTER_EXAM ->
-                        "其中 $matched 条"
-                    else -> "共 $noticeTotal 条"
-                },
-                icon = Icons.Outlined.MailOutline,
-                container = XiaoxuPalette.BrandSoft,
-                ink = XiaoxuPalette.BrandDeep,
-                modifier = Modifier.weight(1f)
-            )
-            SourceChip(
-                label = "微信候选",
-                detail = pendingWechatShortLabel(pendingCount, authenticated, wechatError),
-                icon = Icons.Outlined.PersonOutline,
-                container = XiaoxuPalette.WarningSoft,
-                ink = XiaoxuPalette.Warning,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        XiaoxuToolbarAction(
+            icon = Icons.Outlined.Refresh,
+            label = "刷新官方公告与待审核数量",
+            onClick = onRefresh
+        )
     }
 }
 

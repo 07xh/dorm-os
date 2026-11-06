@@ -570,7 +570,8 @@ assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写
 // 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
 // 顶部不能再用单一「官方来源」徽标覆盖整页。
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
-assert.match(messageCenter, /noticeTotal == 0 -> "暂无已保存公告"/, "没有读取证据时不得冒充本次成功读到零条");
+assert.match(messageCenter, /state\.notices\.isNotEmpty\(\)/,
+  "只有已读取的公告数量非零时，顶部来源标签才显示计数");
 assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
 assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
 assert.match(messageCenter, /title = "华水官方公告"/);
@@ -1392,13 +1393,18 @@ assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\
   '窄屏任务分区标题必须给来源和条数预留空间');
 // Issue #275：消息中心与「我的」按七张海报/四屏 HTML 精细化，只换视觉层级，
 // 真实来源、审核事务与数据边界一律不动。
-assert.match(messageCenter, /MESSAGE CENTER/, '消息页头部需复刻海报的英文小标');
+assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
+  '消息顶栏不再重复展示英文装饰标题');
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /modifier = Modifier\.weight\(1f\)/, '双来源信息卡并排占位');
 assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
 assert.match(messageCenter, /fun SourceChip\(\n/, '来源信息卡为私有独立组件');
+assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
+  '消息统一使用紧凑页头');
+assert.match(messageCenter, /XiaoxuToolbarAction\(/,
+  '消息刷新及返回须复用工具按钮');
 assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
@@ -1464,8 +1470,8 @@ assert.match(messageCenter, /wechatError != null -> "待审核候选 \$count 条
   '长文案须说明是本次读取失败的快照');
 assert.match(messageCenter, /count == null -> "数量未读取"/,
   '数量为空时不得伪造为 0');
-assert.match(messageCenter, /pendingWechatShortLabel\(pendingCount, authenticated, wechatError\)/,
-  '来源信息卡须把 wechatError 传给短文案');
+assert.match(messageCenter, /state\.authenticated && state\.wechatError == null &&/,
+  '微信标签仅在会话正常且计数有效时展示真实数量');
 assert.match(messageCenter, /pendingWechatShortLabel\(\n\s*state\.pendingWechatCount,\n\s*state\.authenticated,\n\s*state\.wechatError\n\s*\)/,
   '微信候选分区头须把 wechatError 传给短文案');
 assert.match(wechatReview, /pendingWechatLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
