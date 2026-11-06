@@ -286,6 +286,8 @@ private fun LocalTimetableEmptyState(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SchedulePageHeading(onMessages)
+        Text("本机课表 · 离线查看",
+            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
             Icon(Icons.Outlined.DateRange, contentDescription = null,
                 modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
