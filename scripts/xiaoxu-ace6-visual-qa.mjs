@@ -18,7 +18,7 @@ if (help) {
     '用法: node scripts/xiaoxu-ace6-visual-qa.mjs [选项]',
     '  --package <id>  默认 io.github.x07xh.xiaoxu.unifiedqa（隔离 QA 包）',
     '  --serial <id>   多台 adb 设备时指定真实手机序列号',
-    '  --apk <file>    记录本机 APK SHA256，不会自动安装',
+    '  --apk <file>    验证本机 QA APK 与手机实际安装 APK 的 SHA256，不会自动安装',
     '  --commit <sha>  记录与截图对应的 GitHub 源码提交',
     '  --out <folder>  输出目录（默认用户主目录 Xiaoxu-Visual-QA）',
     '说明：需已安装 Android Platform Tools，手机 USB 调试并授权电脑。',
@@ -94,6 +94,18 @@ if (apkPath) {
   const bytes = fs.readFileSync(path.resolve(apkPath));
   apkSha256 = crypto.createHash('sha256').update(bytes).digest('hex');
 }
+// Read the installed package's base APK in the normal ADB shell. If the
+// device blocks that read, keep build identity unverified; never require root.
+const installedBase = installed.split(/\r?\n/)
+  .map(line => line.startsWith('package:') ? line.slice('package:'.length).trim() : '')
+  .find(file => file.endsWith('/base.apk'));
+const remoteDigestOutput = installedBase
+  ? adb(['shell', 'sha256sum', installedBase], false, true) : '';
+const installedDigestMatch = /^([a-f0-9]{64})(?:\s|$)/i.exec(remoteDigestOutput);
+const installedApkSha256 = installedDigestMatch?.[1]?.toLowerCase() ?? null;
+const installedMatchesLocal = apkSha256 && installedApkSha256
+  ? apkSha256 === installedApkSha256 : null;
+const declaredCommitLooksLikeSha = /^[a-f0-9]{7,40}$/i.test(gitCommit);
 const metadata = {
   capturedAt: new Date().toISOString(),
   device: { brand, model, deviceCode, androidRelease: release, api: sdk },
@@ -101,7 +113,16 @@ const metadata = {
     size: adb(['shell', 'wm', 'size'], false, true),
     density: adb(['shell', 'wm', 'density'], false, true)
   },
-  app: { packageName, installedPath: installed.split('\n')[0], gitCommit, apkSha256 },
+  app: {
+    packageName,
+    installedPath: installed.split('\n')[0],
+    gitCommit,
+    apkSha256,
+    installedApkSha256,
+    installedMatchesLocal,
+    declaredCommitLooksLikeSha,
+    gitCommitVerifiedAgainstRepository: false
+  },
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
@@ -158,10 +179,16 @@ try {
   const captured = new Set(metadata.scenes.filter(x => x.captured).map(x => x.name));
   metadata.missingReferenceScenes =
     metadata.requiredReferenceScenes.filter(x => !captured.has(x));
-  metadata.result = metadata.missingReferenceScenes.length === 0
-    ? 'pending_manual_comparison' : 'incomplete_reference_screenshots';
+  metadata.result = metadata.missingReferenceScenes.length > 0
+    ? 'incomplete_reference_screenshots'
+    : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
+      ? 'unverified_installed_build' : 'pending_manual_comparison';
   fs.writeFileSync(path.join(output, 'manifest.json'),
     JSON.stringify(metadata, null, 2) + '\n', 'utf8');
 }
 console.log('\n采集完成：' + output);
+console.log('截图采集状态：' + metadata.result);
+if (metadata.result === 'unverified_installed_build') {
+  console.log('无法核实已安装包与本机 QA APK 一致：请提供 --apk 和 --commit，并检查 adb 读取权限。');
+}
 console.log('请与北化课表原图逐页人工对照；数据来源和登录态需本人独立确认。');
