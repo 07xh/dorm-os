@@ -845,7 +845,7 @@ fun QuickEntry(
 ) {
     Column(
         modifier = modifier
-            .heightIn(min = 76.dp)
+            .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.card))
             .background(XiaoxuPalette.Surface)
             .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
@@ -857,7 +857,7 @@ fun QuickEntry(
     ) {
         Box(
             Modifier
-                .size(32.dp)
+                .size(38.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(tone.containerColor),
             contentAlignment = Alignment.Center
@@ -866,13 +866,13 @@ fun QuickEntry(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tone.contentColor,
-                modifier = Modifier.size(17.dp)
+                modifier = Modifier.size(21.dp)
             )
         }
         Spacer(Modifier.height(6.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             color = XiaoxuPalette.Ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
