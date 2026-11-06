@@ -1,4 +1,5 @@
 import {authorize,json} from '../../assignments.js';
+import {safeCasErrorKind} from '../../../../../lib/academic-cas-failure-evidence.mjs';
 import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,schoolConnectAttemptStatus,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
  e.code==='interactive_login_required'?409:['sync_failed','upstream_unavailable'].includes(e.code)?502:503;
@@ -52,6 +53,7 @@ export async function onRequestPost(context){
    ...(secondFailure&&e.failureStage==='cas_return'&&reasons.has(e?.casReturnReason)?
     {casReturnReason:e.casReturnReason}:{}),
    ...(secondFailure&&e.failureStage==='cas_return'&&knownHosts.has(e?.casReturnHost)?
-    {casReturnHost:e.casReturnHost}:{})},responseCode({code}));
+    {casReturnHost:e.casReturnHost}:{}),
+   ...(secondFailure&&safeCasErrorKind(e)?{casErrorKind:safeCasErrorKind(e)}:{})},responseCode({code}));
  }
 }
