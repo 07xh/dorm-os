@@ -13,7 +13,12 @@ enum class CampusRunProvenance {
     USER_IMPORT
 }
 
+/**
+ * App record labels; a displayed "达标" does not independently prove that a
+ * specific number of meters was credited to the semester assessment.
+ */
 enum class CampusRunRecordStatus { VALID, INVALID, PENDING, UNKNOWN }
+enum class CampusRunRecordKind { SCORE_RUN, FREE_RUN, AI_EXERCISE, INDOOR_EXERCISE, UNKNOWN }
 
 data class CampusRunRecord(
     val recordKey: String,
@@ -21,7 +26,10 @@ data class CampusRunRecord(
     val rawMeters: Long?,
     val effectiveMeters: Long?,
     val durationSeconds: Long?,
-    val status: CampusRunRecordStatus
+    val status: CampusRunRecordStatus,
+    val kind: CampusRunRecordKind = CampusRunRecordKind.UNKNOWN,
+    /** A separately displayed "存在异常" flag, not another validity state. */
+    val hasAnomaly: Boolean? = null
 )
 
 data class CampusRunSnapshot(
@@ -31,12 +39,22 @@ data class CampusRunSnapshot(
     val capturedAtEpochMillis: Long,
     /** May be null when no authoritative term was observed. */
     val termLabel: String?,
+    /** Source-displayed semester target; must not be guessed from term history. */
     val targetMeters: Long?,
+    /** "计入成绩" semester meters, distinct from all other distance metrics. */
     val effectiveMeters: Long?,
+    /** "学期累计总里程", including distances not credited to the grade. */
     val rawMeters: Long?,
     /** True only if the source explicitly confirmed complete pagination. */
     val historyComplete: Boolean,
-    val records: List<CampusRunRecord>
+    val records: List<CampusRunRecord>,
+    /** Home dashboard "累计跑量": time scope unverified, NOT semester rawMeters. */
+    val dashboardAccumulatedMeters: Long? = null,
+    /** Dashboard "本周跑量": a separate window from the semester fields. */
+    val weeklyMeters: Long? = null,
+    /** "—次" on the official page means null, not zero. */
+    val totalRunCount: Int? = null,
+    val effectiveRunCount: Int? = null
 ) {
     /** Never sum a potentially partial history list into semester totals. */
     fun remainingMeters(): Long? =
@@ -83,11 +101,21 @@ fun validateCampusRunSnapshot(
     require(snapshot.targetMeters == null ||
         snapshot.targetMeters in 1..MAX_TOTAL_METERS) { "invalid_target" }
     require(validDistance(snapshot.effectiveMeters, MAX_TOTAL_METERS) &&
-        validDistance(snapshot.rawMeters, MAX_TOTAL_METERS)) { "invalid_total" }
+        validDistance(snapshot.rawMeters, MAX_TOTAL_METERS) &&
+        validDistance(snapshot.dashboardAccumulatedMeters, MAX_TOTAL_METERS) &&
+        validDistance(snapshot.weeklyMeters, MAX_TOTAL_METERS)) { "invalid_total" }
+    require(snapshot.totalRunCount == null ||
+        snapshot.totalRunCount in 0..1_000_000) { "invalid_run_count" }
+    require(snapshot.effectiveRunCount == null ||
+        snapshot.effectiveRunCount in 0..1_000_000) { "invalid_credit_count" }
+    require(snapshot.totalRunCount == null || snapshot.effectiveRunCount == null ||
+        snapshot.effectiveRunCount <= snapshot.totalRunCount) { "inconsistent_counts" }
     require(snapshot.effectiveMeters == null || snapshot.rawMeters == null ||
         snapshot.effectiveMeters <= snapshot.rawMeters) { "inconsistent_totals" }
     require(snapshot.targetMeters != null || snapshot.effectiveMeters != null ||
-        snapshot.rawMeters != null || snapshot.records.isNotEmpty()) {
+        snapshot.rawMeters != null || snapshot.dashboardAccumulatedMeters != null ||
+        snapshot.weeklyMeters != null || snapshot.totalRunCount != null ||
+        snapshot.effectiveRunCount != null || snapshot.records.isNotEmpty()) {
         "no_observed_data"
     }
     require(snapshot.records.size <= MAX_RECORDS) { "too_many_records" }
