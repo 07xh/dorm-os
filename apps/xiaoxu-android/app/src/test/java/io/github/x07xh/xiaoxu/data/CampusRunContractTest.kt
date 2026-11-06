@@ -47,6 +47,57 @@ class CampusRunContractTest {
         assertEquals(100.0, exceeded.progressPercent()!!, 0.0001)
     }
 
+    @Test fun screenshotMetricsStayInSeparateScopes() {
+        // Fully synthetic fixture: no personal IDs, screenshots, or HAR values.
+        val values = validateCampusRunSnapshot(sample(
+            target = 120_000L, effective = 15_000L, raw = 24_500L
+        ).copy(
+            dashboardAccumulatedMeters = 46_000L,
+            weeklyMeters = 0L,
+            totalRunCount = null,
+            effectiveRunCount = null
+        ), now)
+        assertEquals(105_000L, values.remainingMeters())
+        assertEquals(12.5, values.progressPercent()!!, 0.0001)
+        assertEquals(24_500L, values.rawMeters)
+        assertEquals(46_000L, values.dashboardAccumulatedMeters)
+        assertEquals(0L, values.weeklyMeters)
+        assertNull(values.totalRunCount) // UI "--次" is unknown, never zero.
+        assertNull(values.effectiveRunCount)
+    }
+
+    @Test fun validityAndAnomalyRemainIndependentOfDisplayedDistance() {
+        val invalid = CampusRunRecord(
+            "uncredited-1", now - 500_000L,
+            rawMeters = 2_500L, effectiveMeters = null,
+            durationSeconds = 980L, status = CampusRunRecordStatus.INVALID,
+            kind = CampusRunRecordKind.SCORE_RUN, hasAnomaly = true
+        )
+        val result = validateCampusRunSnapshot(sample(
+            records = listOf(invalid)
+        ), now)
+        assertEquals(CampusRunRecordStatus.INVALID, result.records[0].status)
+        assertEquals(CampusRunRecordKind.SCORE_RUN, result.records[0].kind)
+        assertEquals(true, result.records[0].hasAnomaly)
+        assertNull(result.records[0].effectiveMeters)
+        // Nothing about a distance alone establishes a credited result.
+        assertEquals(2_500L, result.effectiveMeters)
+    }
+
+    @Test fun separateDashboardMetricsAndOfficialCountsAreValidated() {
+        rejects { validateCampusRunSnapshot(
+            sample().copy(weeklyMeters = -10L), now) }
+        rejects { validateCampusRunSnapshot(
+            sample().copy(dashboardAccumulatedMeters = -1L), now) }
+        rejects { validateCampusRunSnapshot(
+            sample().copy(totalRunCount = -1), now) }
+        rejects { validateCampusRunSnapshot(
+            sample().copy(totalRunCount = 2, effectiveRunCount = 3), now) }
+        val zero = validateCampusRunSnapshot(
+            sample().copy(totalRunCount = 0, effectiveRunCount = 0), now)
+        assertEquals(0, zero.totalRunCount)
+    }
+
     @Test fun trustedClaimRequiresVerifiedOwnerEvidence() {
         rejects { validateCampusRunSnapshot(
             sample(provenance = CampusRunProvenance.TRUSTED_READONLY), now) }
