@@ -27,6 +27,14 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
+/** Only enqueue new class alarms and cancel removed ones, rather than rebuilding on every resume. */
+internal data class ReminderWorkDelta(val toCancel: Set<String>, val toEnqueue: Set<String>)
+
+internal fun reminderWorkDelta(
+    existing: Set<String>,
+    requested: Set<String>
+) = ReminderWorkDelta(toCancel = existing - requested, toEnqueue = requested - existing)
+
 /** Inexact, device-local, opt-in class reminders; no network or wake lock. */
 internal data class CourseReminderPlan(
     val id: String,
@@ -119,10 +127,11 @@ object LocalCourseReminders {
             "xiaoxu-course-${plan.id}-${plan.day}-${plan.expectedStartEpoch}"
         }
         val previous = prefs.getStringSet(ACTIVE_NAMES, emptySet()).orEmpty().toSet()
-        // Avoid re-enqueuing the entire semester every time the app resumes.
-        // Existing WorkManager jobs persist across activity restarts and reboots.
-        (previous - desired.keys).forEach { manager.cancelUniqueWork(it) }
-        for ((name, plan) in desired.filterKeys { it !in previous }) {
+        // Existing jobs survive activity restarts; alter only the changed work names.
+        val delta = reminderWorkDelta(previous, desired.keys)
+        delta.toCancel.forEach { manager.cancelUniqueWork(it) }
+        for (name in delta.toEnqueue) {
+            val plan = desired.getValue(name)
             val input = Data.Builder()
                 .putString("id", plan.id)
                 .putString("date", plan.day.toString())
