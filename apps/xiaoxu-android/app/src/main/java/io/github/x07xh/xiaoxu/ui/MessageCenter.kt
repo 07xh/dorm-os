@@ -565,13 +565,13 @@ private fun SourceChip(
         modifier = modifier
             .clip(RoundedCornerShape(XiaoxuRadius.tile))
             .background(container)
-            .padding(horizontal = 10.dp, vertical = 9.dp)
+            .padding(horizontal = 11.dp, vertical = 11.dp)
             .semantics(mergeDescendants = true) { contentDescription = "$label：$detail" },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(32.dp)
                 .clip(RoundedCornerShape(9.dp))
                 .background(Color.White.copy(alpha = 0.72f)),
             contentAlignment = Alignment.Center
@@ -579,7 +579,7 @@ private fun SourceChip(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(15.dp),
+                modifier = Modifier.size(18.dp),
                 tint = ink
             )
         }
@@ -843,7 +843,8 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     onClick()
                 }
             )
-            .padding(13.dp)
+            .heightIn(min = 84.dp)
+            .padding(14.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = buildString {
                     append(noticeCategoryLabel(notice.category))
@@ -860,7 +861,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(46.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(if (isExam) ExamTile else NoticeTile),
             contentAlignment = Alignment.Center
@@ -868,7 +869,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
             Icon(
                 imageVector = if (isExam) Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
                 tint = if (isExam) ExamInk else NoticeInk
             )
         }
@@ -879,7 +880,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
         ) {
             Text(
                 text = notice.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = XiaoxuPalette.Ink,
                 maxLines = 3,
