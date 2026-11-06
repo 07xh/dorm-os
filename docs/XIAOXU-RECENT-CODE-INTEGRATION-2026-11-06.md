@@ -1,6 +1,6 @@
 # 校序近期代码整理基线（2026-11-06）
 
-> 代码基线：`main@60f34ecd71eb3558b4cb35a679e30c5ceb045d06`。本记录仅整理**已经合入 main 的事实**与当前未合并变更；PR 合并、CI、APK 编译、真机数据验收分别统计。唯一现行执行规则为根目录 [AGENTS.md](../AGENTS.md)。
+> 初始审计基线：`main@60f34ecd`；本次状态复核：`main@e783502958ec`。本记录区分 **PR 合并、CI、APK 编译、真机数据验收**；唯一现行开发约束为根目录 [AGENTS.md](../AGENTS.md)。
 
 ## 一、近期已合并代码与唯一归属
 
@@ -16,23 +16,35 @@
 
 注意：`ui/SecondClassPanel.kt` 是仍被 `MainActivity.kt` 的云端面板使用的**旧数据来源展示入口**，并非可直接删除的 Demo。先保持现有双来源隔离，不做新登录器。
 
-## 二、并行 PR：合并前必须重新对比 main
+## 二、近期实际合并与旧 PR 处置（更新于 2026-11-06）
 
-- [#301](https://github.com/07xh/dorm-os/pull/301)：消息来源独立滚动与任务空状态。覆盖 `ui/MessageCenter.kt`、`ui/RealDataWorkspace.kt`；与 #284 的 MessageCenter 改动重叠，也依赖已更新的主分支。应先 rebase、检查差异、再跑对应 Android 单测。
-- [#284](https://github.com/07xh/dorm-os/pull/284)：我的外观设置和第二课堂快照。覆盖 `MainActivity.kt`、`CloudPanels.kt`、`MessageCenter.kt` 等；主线后续已大幅更新。不能按历史补丁直接合并覆盖新二课、消息或个人 UI。
-- [#279](https://github.com/07xh/dorm-os/pull/279)：本机课表 IO 与云端并发刷新。覆盖 `MainActivity.kt`、`data/CloudClient.kt`；须以当前课表仅本地导入、学习通批量核验为前提重新审查。
-- [#247](https://github.com/07xh/dorm-os/pull/247)：二课本机只读协议探针。它是诊断工具，不是完成的 Android 自动接入。
-- #205、#207、#208、#175 等旧提案/工具 PR 要单独判断现行相关性，**不因开着就按编号全部合并**；TapFlow/NFC 分支不归入校序本轮整理。
+| 交付 | 真实状态 | 源码范围 / 验收边界 |
+| --- | --- | --- |
+| [#306](https://github.com/07xh/dorm-os/pull/306) 清理 import / 建立整理基线 | **已合并** | 移除经核对的五条未使用 Compose import；不删除仍有调用的 SecondClassPanel |
+| [#307](https://github.com/07xh/dorm-os/pull/307) 校园跑账号隔离 | **已合并** | 本机手动数据按校序账号会话隔离，不是校园跑平台自动接入 |
+| [#309](https://github.com/07xh/dorm-os/pull/309) 清理退役课表视图 | **已合并** | 移除无调用的旧云端课表 Compose 私有组件，保留本地课表导入与兼容测试模型 |
+| [#301](https://github.com/07xh/dorm-os/pull/301) 消息和任务空状态 | **已合并** | 官方/微信来源独立滚动；无官方读取证据时不能显示已验证空状态 |
+| [#308](https://github.com/07xh/dorm-os/pull/308) 启动与刷新性能 | **已合并** | 课表 IO 后台读取/提交与序号防旧数据覆盖，公告及个人记录并发刷新 |
+| [#310](https://github.com/07xh/dorm-os/pull/310) 第二课堂三标签交互 | **已合并** | 三标签各自滚动位置、重复刷新保护；原生 Android JVM 与全仓 CI 通过 |
+| [#311](https://github.com/07xh/dorm-os/pull/311) 旧内嵌网页帮助函数 | **已合并** | 清理退役的网页内联帮助逻辑；不是 Android UI 或连接器新功能 |
+| [#279](https://github.com/07xh/dorm-os/pull/279)、[#284](https://github.com/07xh/dorm-os/pull/284) 历史分支 | **已关闭，未合并** | #279 已由 #308 重新移植；#284 的可用二课交互已由 #310 移植，**未完成**的我的外观偏好在 [#312](https://github.com/07xh/dorm-os/issues/312) 跟踪 |
 
-## 三、此次已实施的最小整理
+[#247](https://github.com/07xh/dorm-os/pull/247) 仍是二课本机诊断探针，不代表三平台完成自动接入。#205、#207、#208、#175 等旧提案/工具 PR 须按现行有效性单独审查；TapFlow/NFC 分支不属于本次校序整理。
 
-- `ui/ScheduleScreen.kt`：移除不再使用的 `Crossfade`、`LazyColumn`、`rememberCoroutineScope`、`launch` imports。
-- `ui/SecondClassPanel.kt`：移除未使用的 `OutlinedButton` import。
-- 不触碰学校认证、连接器、数据库迁移、既有用户数据、工作流构建请求与本机任务。暂不拆分 `MainActivity.kt` / `CloudClient.kt` / `RealDataWorkspace.kt`，避免与未合并工作重叠。
+## 三、持续有效的代码边界
 
-## 四、后续清理与验收门禁
+- `ui/ScheduleScreen.kt`：#306 删除 4 条未使用 import；#309 删除失效的私有云端视图，不影响本机导入与实际课表组件。
+- `ui/SecondClassPanel.kt`：#306 删除 1 条未使用 import；该文件仍存在真实调用点，不因名称看似历史而直接删除。
+- `MainActivity.kt` / `data/CloudClient.kt`：复用 #308 已合并的异步读写及并行刷新；不得回退到旧 #279 的同步 UI 阻塞实现。
+- `ui/MessageCenter.kt` / `ui/RealDataWorkspace.kt`：#301 为已合并行为，必须保持未读取/读取失败/已验证空列表的真实证据门禁。
+- `SecondClassPage.kt`：保留主线的活动广场、我的活动、素质积分三标签与来源区分；#310 仅改交互，**不证明**非空活动已成功读取或积分已与本人学校官网核对。
+- 统一 Android JVM 回归复用现有 `.github/workflows/xiaoxu-campus-run-jvm.yml`，匹配原生 Kotlin 源码、Gradle 配置及 Manifest；执行 `:app:testDebugUnitTest` 编译和单测，**不构建 APK**。
+- 暂不进行跨模块大规模拆分，不创建第二套认证器、持久化账户数据库、假课表、模拟作业或替代已存在的连接器。
 
-1. PR 对比最新 `main`，先核对新旧 UI 的真实调用点与云端/本机数据边界；优先解决 #301/#284/#279 重叠与回归，再考虑结构拆分。
-2. `npm run check`、必要的 Android `:app:testDebugUnitTest` / `:app:assembleDebug` 必须有实际执行结果；本轮仅 import 清理，**未在本地执行 Android 构建或真机验证**。
-3. 学习通课程作业、青果本人课表和第二课堂积分活动仍以官方本人数据逐项比对；校园跑仍限本机记录契约。静态测试、HAR 空响应、源代码合并不能取代真实数据验收。
-4. Android APK 仍按 `docs/XIAOXU-REPO-HYGIENE-2026-11-05.md` 的显式请求规则构建，不要靠普通整理提交反复触发 APK。
+## 四、实际验收与后续门禁
+
+1. #310 的 GitHub Actions 原生 JVM 回归和 DORM OS CI 已通过；#308 也已通过 GitHub Kotlin JVM/通用 CI。但本轮**没有**重新产出 Android Debug APK、真机滚动截图或五次冷启动时间测量。
+2. 新改动必须先对比最新 `main` 与并行 PR；对原生 Kotlin 先检查 JVM 编译/单测，再进行相关真机交互。测试绿色**不等于**三个平台本人真实数据完成接入。
+3. 学习通本人所有课程与作业、青果官方完整课表、第二课堂积分与活动依旧以官方真实数据逐项比对；校园跑目前仍限本人本机只读记录契约。课表**仅本机导入**，不可把本机数据写成青果云端同步。
+4. [#312](https://github.com/07xh/dorm-os/issues/312) 的系统/浅色/深色偏好**未交付**；不应把已关闭 #284 的旧设计系统代码误当已完成。
+5. Android APK 仅依照 `docs/XIAOXU-REPO-HYGIENE-2026-11-05.md` 的明确构建请求规则申请；普通代码清理、文档同步、JVM 回归不产生 APK 构建请求。
