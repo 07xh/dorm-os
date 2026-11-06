@@ -389,8 +389,11 @@ assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完�
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
 assert.match(secondClassMain, /catalogRows\.size == 3/);
-assert.match(secondClassMain, /Modifier\.weight\(1f\)\.heightIn\(min = 42\.dp\)/,
- '活动筛选三项等宽与触控高度');
+const unifiedSegment = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
+assert.match(secondClassMain, /XiaoxuSegmentedControl\(/,
+ '活动筛选由统一原生分段控件承担');
+assert.match(unifiedSegment, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
+ '统一分段控件必须保持三项等宽及至少44dp触控高度');
 assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
  '任务中心标题不恢复旧大字号');
 assert.match(workspace, /\.heightIn\(min = 62\.dp\)/,
