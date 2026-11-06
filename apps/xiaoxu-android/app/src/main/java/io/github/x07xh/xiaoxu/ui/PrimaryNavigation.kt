@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
@@ -83,6 +84,8 @@ internal fun PrimaryBottomNavigation(
         items = items,
         selectedIndex = PrimaryTabs.indexOf(selected).coerceAtLeast(0),
         backdrop = backdrop,
+        // Original v1.0.83 selected tint; no custom palette reinterpretation.
+        selectedContentColor = if (backdrop != null) Color(0xFF0057D9) else XiaoxuPalette.BrandDeep,
         onSelect = { onSelect(PrimaryTabs[it]) }
     )
 }
