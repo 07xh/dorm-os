@@ -55,7 +55,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -812,7 +812,7 @@ private fun CompactPageHeading(
             color = XiaoxuPalette.Ink)
         if (onRefresh != null) {
             IconButton(onClick = onRefresh, enabled = !refreshing) {
-                Icon(Icons.Outlined.Cloud, contentDescription = "刷新数据",
+                Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
                     tint = XiaoxuPalette.Ink2)
             }
         }
@@ -910,11 +910,11 @@ private fun AcademicPage(
                 item {
                     XiaoxuCard(contentPadding = 0.dp) {
                         Column {
-                            AcademicActionRow("成绩", Icons.Outlined.School, "待连接",
+                            AcademicActionRow("成绩", Icons.Outlined.School, "未读取",
                                 onClick = { select(AcademicDestination.GRADES) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("考试", Icons.Outlined.DateRange, "待连接",
+                            AcademicActionRow("考试", Icons.Outlined.DateRange, "未读取",
                                 onClick = { select(AcademicDestination.EXAMS) })
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                                 modifier = Modifier.padding(horizontal = 16.dp))
