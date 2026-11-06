@@ -71,6 +71,11 @@ const brand = adb(['shell', 'getprop', 'ro.product.brand']);
 const deviceCode = adb(['shell', 'getprop', 'ro.product.device']);
 const sdk = Number(adb(['shell', 'getprop', 'ro.build.version.sdk']));
 const release = adb(['shell', 'getprop', 'ro.build.version.release']);
+const isEmulator = adb(['shell', 'getprop', 'ro.kernel.qemu'], false, true) === '1' ||
+  adb(['shell', 'getprop', 'ro.boot.qemu'], false, true) === '1';
+if (isEmulator) {
+  throw new Error('当前是 Android 模拟器，不得标记为一加 Ace 6 真机证据');
+}
 if (!/oneplus/i.test(brand) || !/PLQ110|Ace[\s_-]*6/i.test(model + ' ' + deviceCode)) {
   throw new Error('设备未确认为一加 Ace 6：' + brand + ' ' + model + ' (' + deviceCode + ')');
 }
