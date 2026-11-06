@@ -59,7 +59,6 @@ object LocalScheduleEditor {
             val remaining = original.weeks.filterNot { it == weekOnly }
             if (remaining.isNotEmpty()) kept += original.copy(weeks = remaining)
         }
-        require(kept.isNotEmpty()) { "不能删除最后一门课程；请使用重新导入替换课表" }
         return kept
     }
 }
