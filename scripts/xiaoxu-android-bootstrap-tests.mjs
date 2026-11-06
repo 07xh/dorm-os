@@ -467,10 +467,10 @@ assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|add
 assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
 // Indexed occupancy is equivalent to the former per-cell lesson filter, while
 // avoiding a full list scan for every slot during Compose recompositions.
-assert.match(nativeWeekGrid, /for \\(section in lesson\\.startSection\\.coerceAtLeast\\(1\\)\\.\\.lesson\\.endSection\\.coerceAtMost\\(maxSection\\)\\)/);
-assert.match(nativeWeekGrid, /buckets\\[lesson\\.weekday\\]\\[section\\]\\.add\\(lesson\\)/);
-assert.match(nativeWeekGrid, /val available = occupancy\\[day\\]\\[section\\]/);
-assert.match(nativeWeekGrid, /val next = occupancy\\[day\\]\\[probe\\]/);
+assert.match(nativeWeekGrid, /for \(section in lesson\.startSection\.coerceAtLeast\(1\)\.\.lesson\.endSection\.coerceAtMost\(maxSection\)\)/);
+assert.match(nativeWeekGrid, /buckets\[lesson\.weekday\]\[section\]\.add\(lesson\)/);
+assert.match(nativeWeekGrid, /val available = occupancy\[day\]\[section\]/);
+assert.match(nativeWeekGrid, /val next = occupancy\[day\]\[probe\]/);
 assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
 assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
 assert.match(nativeWeekGrid, /val dayWidth = if \(compact\) \(maxWidth - labelWidth - 8\.dp\) \/ 7/,
