@@ -502,12 +502,12 @@ assert.match(schedulePanel, /dailySections = visibleSections/);
 assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, newViewMode\)/);
 assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
   '周视图和日视图不得再占用课表顶部');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("week", "周视图"\)/,
- '设置必须保留周视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("day", "日视图"\)/,
- '设置必须保留日视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentedControl\(/,
- '课表周日偏好必须复用统一玻璃分段控件');
+assert.match(timetableSettings, /listOf\("week" to "周视图", "day" to "日视图"\)/,
+ '参考版课表设置必须同时保留周视图和日视图选项');
+assert.match(timetableSettings, /viewMode == mode/,
+ '设置的选中态必须跟随真实用户偏好');
+assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/,
+ '周日偏好与学期数据必须通过原保存回调提交');
 assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
   '未设置学期时仍应允许保存视图偏好');
 assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/);
