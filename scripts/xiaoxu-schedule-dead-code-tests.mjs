@@ -30,8 +30,10 @@ assert.doesNotMatch(source,/sealed interface ScheduleUiState|fun deriveScheduleU
   'Retired cloud timetable UI state must not reappear in the active screen');
 assert.doesNotMatch(source,/华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
   'Local-only course detail cannot offer an unreachable cloud-verified branch');
-assert.match(source,/text = "本机导入 · 待核对"/,
-  'Course details must keep the pending-confirmation provenance label');
+assert.match(source,/sourceLabel = "本机导入 · " \+ data\.lessons\.size \+ " 个课块 · 待本人核对"/,
+  'Import provenance must remain visible in the timetable header');
+assert.doesNotMatch(source,/text = "本机导入 · 待核对"/,
+  'Course detail should retain exact reference screenshot copy without a duplicated provenance badge');
 assert.match(source,/CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
   'Home course detail must reuse the same drawer without cloud-source flags');
 assert.doesNotMatch(source, /client:\s*CloudClient|openWebsite:\s*\(\)\s*->\s*Unit|openProfile:\s*\(\(\)\s*->\s*Unit\)\?|openLocalImport:/,
