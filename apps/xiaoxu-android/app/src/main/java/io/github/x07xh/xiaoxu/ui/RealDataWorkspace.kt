@@ -1255,6 +1255,7 @@ fun RealAcademicTaskHub(
                     Text("逐项官方状态（本次本人会话读取） · 显示 " +
                         (if (showAllOfficialHomework) officialRows.size else
                             minOf(30, officialRows.size)) + " / " + officialRows.size,
+                        modifier = Modifier.padding(top = 12.dp),
                         style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
                 }
                 items(
@@ -1291,9 +1292,10 @@ fun RealAcademicTaskHub(
                 }
                 if (officialRows.size > 30) {
                     item {
-                        TextButton(onClick = {
-                            showAllOfficialHomework = !showAllOfficialHomework
-                        }) {
+                        TextButton(
+                            modifier = Modifier.padding(top = 12.dp),
+                            onClick = { showAllOfficialHomework = !showAllOfficialHomework }
+                        ) {
                             Text(if (showAllOfficialHomework) "收起至前 30 条"
                                 else "展开其余 ${officialRows.size - 30} 条官方作业")
                         }
@@ -1318,7 +1320,7 @@ fun RealAcademicTaskHub(
                 )
             }
             if (showCandidates) item {
-                XiaoxuCard {
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
                     WechatReviewPanel(
                         client = client,
                         pendingCount = state.pendingWechatCount,
@@ -1328,7 +1330,7 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            XiaoxuCard {
+            XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
                 SectionHeader(
                     title = "学习通与本机页面快照",
                     caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
@@ -1359,6 +1361,7 @@ fun RealAcademicTaskHub(
         if (capturedHomework.isEmpty()) {
             item {
                 Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
+                    modifier = Modifier.padding(top = 12.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
@@ -1367,7 +1370,8 @@ fun RealAcademicTaskHub(
             items(count = minOf(capturedHomework.size, 500),
                 key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
                 val work = capturedHomework[index]
-                XiaoxuCard(contentPadding = 8.dp) { SnapshotRow(work) }
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
+                    contentPadding = 8.dp) { SnapshotRow(work) }
             }
         }
         item {
@@ -1379,10 +1383,19 @@ fun RealAcademicTaskHub(
                 showCount = false
             )
         }
-        item { LocalSchoolRecordSection(setOf("course")) }
-        item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
+        item {
+            Box(Modifier.padding(top = 12.dp)) {
+                LocalSchoolRecordSection(setOf("course"))
+            }
+        }
+        item {
+            Box(Modifier.padding(top = 12.dp)) {
+                ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") })
+            }
+        }
          item {
             Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1551,7 +1564,7 @@ private fun TaskSectionHeader(
     showCount: Boolean = true
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
