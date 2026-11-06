@@ -137,6 +137,8 @@ class MainActivity : ComponentActivity() {
     }
     private var shouldRefreshAfterWebsite = false
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
+    // Only the latest committed import/resume read may update visible lessons.
+    private var localScheduleReadSerial = 0L
     private var taskReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,7 +148,8 @@ class MainActivity : ComponentActivity() {
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
-        localLessons = LocalScheduleStore.load(this)
+        // The Compose shell should appear before reading/parsing the local timetable.
+        // onResume loads the snapshot from IO without blocking cold start.
         receiveSchoolReturn(intent)
         setContent {
             // 统一主题入口（Issue #268）：颜色 / 字级 / 圆角只在 ui/XiaoxuDesignSystem.kt 定义一次。
@@ -270,14 +273,23 @@ class MainActivity : ComponentActivity() {
                     (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
                     "\n\n文件导入仅保存在本机，不代表青果官方实时同步。"
                 val saveImported = {
-                    try {
-                        val count = LocalScheduleStore.saveParsed(this@MainActivity, parsed.second)
-                        localLessons = LocalScheduleStore.load(this@MainActivity)
-                        Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
-                            Toast.LENGTH_LONG).show()
-                    } catch (error: Exception) {
-                        Toast.makeText(this@MainActivity, error.message ?: "导入失败，旧课表未修改",
-                            Toast.LENGTH_LONG).show()
+                    lifecycleScope.launch {
+                        try {
+                            val (count, savedLessons) = withContext(Dispatchers.IO) {
+                                val count = LocalScheduleStore.saveParsed(
+                                    applicationContext, parsed.second)
+                                count to LocalScheduleStore.load(applicationContext)
+                            }
+                            // Invalidate previously started resume reads after commit.
+                            localScheduleReadSerial++
+                            localLessons = savedLessons
+                            Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
+                                Toast.LENGTH_LONG).show()
+                        } catch (error: Exception) {
+                            Toast.makeText(this@MainActivity,
+                                error.message ?: "导入失败，旧课表未修改",
+                                Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
                 AlertDialog.Builder(this@MainActivity)
@@ -324,7 +336,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        localLessons = LocalScheduleStore.load(this)
+        val readSerial = ++localScheduleReadSerial
+        lifecycleScope.launch {
+            val lessons = withContext(Dispatchers.IO) {
+                LocalScheduleStore.load(applicationContext)
+            }
+            if (readSerial == localScheduleReadSerial) localLessons = lessons
+        }
     }
 }
 

@@ -15,8 +15,13 @@ assert.match(main, /contentResolver\.openInputStream\(uri\)/,
   'Read only the selected file URI');
 assert.match(main, /LocalScheduleStore\.parseIcs\(text\)/);
 assert.match(main, /LocalScheduleStore\.parseCourses\(text\)/);
-assert.match(main, /LocalScheduleStore\.saveParsed\(this@MainActivity, parsed\.second\)/);
-assert.match(main, /localLessons = LocalScheduleStore\.load\(this@MainActivity\)/);
+// File writes and post-commit reload must run on IO; old asynchronous reads
+// must not restore an earlier timetable after a successful import.
+assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
+assert.match(main, /applicationContext, parsed\.second/);
+assert.match(main, /count to LocalScheduleStore\.load\(applicationContext\)/);
+assert.match(main, /localScheduleReadSerial\+\+/);
+assert.match(main, /localLessons = savedLessons/);
 assert.match(main, /课表数量减少，请核对/);
 assert.match(main, /本机解析详情（前 30 条）/);
 assert.match(main, /lesson\.weeks\.joinToString\(","\)/);

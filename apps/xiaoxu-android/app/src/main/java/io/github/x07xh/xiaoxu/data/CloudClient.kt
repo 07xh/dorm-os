@@ -17,6 +17,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HttpsURLConnection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -273,8 +275,12 @@ class CloudClient(context: Context) {
         lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
-            refreshNotices()
-            refreshPrivate()
+            // Public announcement latency must not block owner task refresh.
+            // Each coroutine updates its distinct CloudUiState fields on main.
+            coroutineScope {
+                launch { refreshNotices() }
+                launch { refreshPrivate() }
+            }
         } finally { state = state.copy(busy = false) }
     }
 
@@ -309,7 +315,8 @@ class CloudClient(context: Context) {
         // must never certify that a school session is still active.
         state = state.copy(tasksFresh = false, connectionsFresh = false,
             scheduleFresh = false, secondClassFresh = false)
-        if (session.load() == null) {
+        // Android Keystore decryption may block; keep it off main.
+        if (withContext(Dispatchers.IO) { session.load() } == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 lessons = emptyList(), scheduleStatus = "not_connected", scheduleFetchedAt = null,
