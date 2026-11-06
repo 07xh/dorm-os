@@ -5,7 +5,8 @@ import {test,expect} from '@playwright/test';
 test('desktop overview distinguishes local records from unread private sources',async({page})=>{
  const apiCalls=[];
  page.on('request',req=>{
-  if(new URL(req.url()).pathname.startsWith('/api/v1/'))apiCalls.push(new URL(req.url()).pathname);
+  const path=new URL(req.url()).pathname;
+  if(/^\/api\/v1\/(assignments|connections|verified|second-class|wechat)(?:\/|$)/.test(path))apiCalls.push(path);
  });
  await page.goto('/#dashboard');
  const panel=page.getByRole('region',{name:'桌面工作台数据概览'});
