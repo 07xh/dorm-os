@@ -627,12 +627,26 @@ private fun ScheduleVerifiedContent(
             if (editingBusy) return
             editingBusy = true
             editingError = null
+            val previouslyEditedId = editOriginal?.id
             editorScope.launch {
                 try {
                     val (saved, reminderOk) = withContext(Dispatchers.IO) {
                         LocalScheduleStore.saveEdited(context, changed)
                         val fresh = LocalScheduleStore.load(context)
-                        fresh to LocalCourseReminders.reconcileAfterSave(context, fresh, calendar)
+                        val preferenceOk = if (previouslyEditedId.isNullOrBlank()) true else {
+                            runCatching {
+                                LocalCourseReminders.migrateCourseEnabled(
+                                    context, previouslyEditedId,
+                                    io.github.x07xh.xiaoxu.data.remappedCourseIds(
+                                        previouslyEditedId, changed, fresh
+                                    )
+                                )
+                            }.getOrDefault(false)
+                        }
+                        val scheduled = LocalCourseReminders.reconcileAfterSave(
+                            context, fresh, calendar
+                        )
+                        fresh to (preferenceOk && scheduled)
                     }
                     onLocalLessonsChanged(saved)
                     showingCourseEditor = false
