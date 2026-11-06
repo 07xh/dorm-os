@@ -827,32 +827,13 @@ fun XiaoxuTopBar(
             .background(Color.Transparent)
             // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
             .statusBarsPadding()
-            .padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 22.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep),
-                        start = Offset.Zero, end = Offset(90f, 90f)
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "序",
-                style = MaterialTheme.typography.titleSmall,
-                color = Color.White
-            )
-        }
-        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink,
                 maxLines = 1
             )
