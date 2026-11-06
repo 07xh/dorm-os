@@ -312,10 +312,16 @@ private fun ScheduleVerifiedContent(
     ) { granted ->
         if (granted && LocalCourseReminders.canNotify(context)) {
             editorScope.launch {
-                withContext(Dispatchers.IO) {
-                    LocalCourseReminders.setEnabled(context, true)
-                    LocalCourseReminders.reconcile(context, data.lessons, calendar)
+                val reminderOk = withContext(Dispatchers.IO) {
+                    runCatching {
+                        LocalCourseReminders.setEnabled(context, true)
+                        LocalCourseReminders.reconcileAfterSave(
+                            context, LocalScheduleStore.load(context),
+                            LocalSemesterConfigStore.load(context))
+                    }.getOrDefault(false)
                 }
+                if (!reminderOk) Toast.makeText(
+                    context, "课程未改变，但上课提醒启用失败；请重新开启", Toast.LENGTH_LONG).show()
             }
         } else {
             Toast.makeText(context, "未获取通知权限，上课提醒保持关闭", Toast.LENGTH_LONG).show()
@@ -635,16 +641,26 @@ private fun ScheduleVerifiedContent(
                 }
                 if (!wantReminders) {
                     editorScope.launch {
-                        withContext(Dispatchers.IO) {
-                            LocalCourseReminders.setEnabled(context, false)
+                        val disabled = withContext(Dispatchers.IO) {
+                            runCatching {
+                                LocalCourseReminders.setEnabled(context, false)
+                            }.isSuccess
                         }
+                        if (!disabled) Toast.makeText(
+                            context, "通知设置保存失败，请重试", Toast.LENGTH_LONG).show()
                     }
                 } else if (LocalCourseReminders.canNotify(context)) {
                     editorScope.launch {
-                        withContext(Dispatchers.IO) {
-                            LocalCourseReminders.setEnabled(context, true)
-                            LocalCourseReminders.reconcile(context, data.lessons, config)
+                        val reminderOk = withContext(Dispatchers.IO) {
+                            runCatching {
+                                LocalCourseReminders.setEnabled(context, true)
+                                LocalCourseReminders.reconcileAfterSave(
+                                    context, LocalScheduleStore.load(context), config)
+                            }.getOrDefault(false)
                         }
+                        if (!reminderOk) Toast.makeText(
+                            context, "学期设置已保存，但提醒启用失败；请重新开启",
+                            Toast.LENGTH_LONG).show()
                     }
                 } else if (Build.VERSION.SDK_INT >= 33) {
                     reminderPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
