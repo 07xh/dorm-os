@@ -72,6 +72,11 @@ assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
 
 const cloud = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CloudClient.kt');
+const taskUpdateRoute = read('functions/api/v1/assignments/[id].js');
+assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
+  'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
+assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
+  '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
 const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
@@ -675,16 +680,22 @@ assert.match(workspace, /val visible = facetWorkspaceTasks\(/, '页面对真实�
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
-assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
-    workspace.indexOf('title = "我的本机待办"'),
-  '默认任务列表优先展示课程相关与云端任务');
-assert.match(workspace, /WechatReviewPanel\(/, '任务中心必须复用原生微信人工审核');
+assert.ok(workspace.indexOf('title = "课程任务"') <
+    workspace.indexOf('title = "微信任务"') &&
+    workspace.indexOf('title = "微信任务"') <
+    workspace.indexOf('title = "本机任务"'),
+  '任务按课程、审核通过微信、本机三个来源独立排序');
+assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
+  '任务中心不能重复承载群消息候选审核；必须归属消息中心');
+assert.match(messageCenter, /WechatReviewPanel\(/,
+  '消息中心继续保留原生微信候选审核');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
 
 assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
 assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
-assert.match(workspace, /本机本人待办/, '本机待办须有独立分区');
-assert.match(workspace, /校序云端任务/, '云端任务须有独立分区');
+assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
+assert.match(workspace, /title = "课程任务"/, '云端课程任务须有独立分区');
+assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
 assert.match(workspace, /含上次云端快照/,
   '上次云端任务必须明确标注快照，不可冒充新读取');
@@ -1116,32 +1127,104 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /private fun TaskStatusTab\(/, '任务中心必须使用蓝色胶囊状态切换，不能沿用数字大卡');
+assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须可操作');
+assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
+assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
+  '三项统计应采用上下标签和数量而非横排大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
-assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区须使用图标白卡而非散乱的纯文本标题');
-assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
-assert.match(workspace, /var showCandidates by rememberSaveable/, '微信候选列表必须可折叠');
+assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
+const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
+  workspace.indexOf('/** 首页与任务中心共用任务详情'));
+assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
+  '任务列表应取消 LazyColumn 默认行间距以连接同组任务');
+assert.match(taskHubRegion,
+  /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
+  '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
+assert.match(taskHubRegion,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
+  '本机任务维持逐条 lazy item 与稳定 key');
+assert.match(workspace, /private fun ConnectedTaskShell\(/,
+  '任务行使用共享首尾圆角与连接线容器');
+assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
+  '相邻任务之间必须只有轻分割线');
+assert.match(workspace, /total <= 1 -> RoundedCornerShape\(radius\)/,
+  '单条任务仍须有完整圆角');
+
+const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
+  workspace.indexOf('private fun TaskSectionHeader('));
+assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
+  '任务列表分组不应再套独立大卡造成页面拼接感');
+assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
+  '精简分组后仍须保留可触控的最小高度');
+assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\)\) append\("，"\)\.append\(badge\)/,
+  '有实际来源状态时保留无障碍描述，普通任务不追加无用小字');
+assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)/,
+  '没有必要说明的任务分组不应占第二行辅助文字');
+assert.doesNotMatch(workspace, /title = "群消息任务候选"|showCandidates/,
+  '任务中心不得再展示待审核微信群消息区块或保存其折叠状态');
+assert.match(workspace, /title = "微信任务"/,
+  '审核通过的微信任务必须在任务中心独立成组');
+assert.match(workspace, /var showWechatTasks by rememberSaveable/,
+  '微信任务独立于课程/本机分组折叠');
+assert.match(taskHubRegion,
+  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = wechatRows\.size\)/,
+  '微信任务必须维持独立带 key 的 LazyColumn 列表');
+assert.match(workspace, /val wechatRows = shown\.filter \{ it\.category == "wechat" \}/,
+  '微信任务不能混入普通云端任务的列表');
+assert.match(workspace, /val cloudRows = shown\.filter \{ it\.category == "cloud" \}/,
+  '普通云端任务不应包含微信审核通过的任务');
+assert.match(workspace, /"wechat" -> "微信任务"/,
+  '原生任务标题与筛选菜单必须识别微信来源');
+assert.match(workspace, /task\.provider == "wechat"/,
+  '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
+assert.match(messageCenter, /text = \{ Text\("微信审核"\) \}/,
+  '群消息候选唯一审核位置必须是消息中心的微信审核标签');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.ok(workspace.includes('if (showLocal) item { LocalTaskEditor(localTasks, dao) }'),
-  '本机任务仍用实际 Room 管理器，非假按钮');
-assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
+assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
+  '本机任务只在管理展开时展示真实 Room 编辑器');
+assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
+  '关闭任务管理也必须隐藏云端新建表单');
+assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
+  '顶部新增按钮再次点击应完整收起编辑区');
+assert.match(workspace, /TaskRow\(localRows\[i\], today,[\s\S]*?onOpen = \{ openedTaskKey = localRows\[i\]\.key \}/,
   '本机任务仍从真实 Row 数据打开详情');
+assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
+  '首页任务中心勾选必须真实更新本机 Room 状态');
+assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
+  '云端任务不可复用本机完成操作或假装已提交到学校');
+assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
+  '微信审核任务必须复用本人云端任务写接口而不是只读装饰勾选框');
+assert.match(cloud, /it\.provider == "wechat" && it\.revision == revision/,
+  '仅后端审核已确认微信来源、且版本匹配的任务允许个人勾选');
+assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "POST", body, authenticated = true\)/,
+  '微信任务个人完成使用 Android 支持的 POST 且携带原有本人认证');
+assert.match(cloud, /put\("localStatus", if \(completed\) "done" else "todo"\)/,
+  '微信任务勾选只操作个人状态，不更改学校官方提交状态');
+assert.match(workspace, /onToggleWechat = if \(state\.tasksFresh && row\.revision >= 0\)/,
+  '只有本次新鲜读取并携带版本号的微信任务才能勾选');
+assert.match(workspace, /task\.category == "wechat" && onToggleWechat != null/,
+  '微信任务复用可点击 Checkbox，普通云端任务继续保持只读');
+assert.match(workspace, /actionEnabled = updatingWechatKey == null/,
+  '微信任务写入期间必须禁止重复触发');
+
 assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
 assert.ok(workspace.includes('含上次云端快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
   '任务来源必须复用共享来源标签');
-assert.ok(workspace.includes('WechatReviewPanel('),
-  '任务中心只能复用既有原生微信审核组件，禁止重复实现候选审核器');
-assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
-  '未知审核数量不得在任务页显示为 0 条');
+assert.ok(!workspace.includes('WechatReviewPanel('),
+  '任务中心只展示已保存任务，不能复制微信候选审核器');
+assert.ok(messageCenter.includes('WechatReviewPanel('),
+  '消息中心保留唯一原生审核器和真实候选计数');
+assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
+  '待审核数量仍以消息中心真实读取结果为准');
 assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
 assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
 assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详情"\)/,
@@ -1153,10 +1236,10 @@ assert.match(workspace, /上次云端快照 · 待核对/,
   '旧云端任务不得伪装成刚同步');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*jumpTo = "local"/,
-  '本机任务详情应展开本机管理并定位至真实表单');
-assert.match(workspace, /else \{\s*showCloud = true\s*jumpTo = "cloud"/,
-  '云端任务详情应展开云端管理并定位至真实表单');
+assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
+  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
+assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
+  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.padding\(top = 4\.dp, bottom = 2\.dp\)/,
   '消息页按海报式独立标题布局，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
@@ -1183,7 +1266,9 @@ assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(show
   '云端表单跳转须考虑本机管理展开与否');
 assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
-assert.match(workspace, /sourceFilter == source/, '来源与状态分别筛选');
+assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
+assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
+assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
   '待完成统计卡应真实切换过滤器');
@@ -1202,7 +1287,7 @@ assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图�
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /modifier = Modifier\.weight\(1f\)/, '双来源信息卡并排占位');
-assert.match(messageCenter, /size\(42\.dp\)/, '公告卡使用 42dp 图标块');
+assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
 assert.match(messageCenter, /fun SourceChip\(\n/, '来源信息卡为私有独立组件');
 assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,

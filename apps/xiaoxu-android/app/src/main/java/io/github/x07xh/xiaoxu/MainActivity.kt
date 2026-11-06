@@ -24,6 +24,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +70,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -456,13 +458,13 @@ private fun NativeShell(
         onDispose { appLifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
         val tabletLayout = maxWidth >= 700.dp
         Scaffold(
-            containerColor = XiaoxuPalette.Bg,
+            containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen) XiaoxuTopBar(
+                if (!messagesOpen && current != MainDestination.TASKS) XiaoxuTopBar(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
@@ -515,7 +517,7 @@ private fun NativeShell(
                         }
                     }
                 }
-                Surface(color = XiaoxuPalette.Bg, modifier = Modifier.fillMaxSize()) {
+                Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessagesPage(openWebsite, cloud, openArticle, onBack = { messagesOpen = false })
@@ -569,7 +571,8 @@ private fun NativeShell(
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud)
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                openLocalSchool = openLocalSchool)
+                                openLocalSchool = openLocalSchool,
+                                onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> ConnectionsPage(
                                 openWebsite, cloud, { provider ->
                                     if (provider == "second_class") openSecondClass()
