@@ -1234,6 +1234,10 @@ assert.match(floatingBar, /\.layerBackdrop\(opticalTint\)/,
   '隐藏着色源必须由原版 Backdrop 图层提供');
 assert.match(floatingBar, /\.alpha\(0f\)/,
   '隐藏采样层不能产生第二条可见导航栏');
+assert.equal((floatingBar.match(/\\.selectable\\(/g) || []).length, 1,
+  '液态玻璃隐藏光学图层不能再创建一套可点击 Tab');
+assert.match(floatingBar, /if \\(useNorthGlass\\) rememberLayerBackdrop\\(\\) else null/,
+  '光学额外图层只能在真玻璃模式创建，其他平台不承担额外开销');
 assert.match(floatingBar, /\.clearAndSetSemantics \{\}/,
   '采样图标不能形成第二组无障碍焦点');
 assert.match(floatingBar, /\.zIndex\(1f\)/,
