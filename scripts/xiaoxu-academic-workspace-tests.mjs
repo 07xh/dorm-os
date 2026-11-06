@@ -18,6 +18,9 @@ for(let i=1;i<=5;i++){
  })[i];
  sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 }
+// Task ledger queries include reviewed WeChat task provenance in the live schema.
+sqlite.exec(readFileSync(new URL(
+ '../migrations/0017_academic_wechat_candidates.sql',import.meta.url),'utf8'));
 const db={
  prepare(sql){let params=[];return{
    bind(...values){params=values;return this;},
