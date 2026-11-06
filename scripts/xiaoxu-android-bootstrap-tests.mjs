@@ -894,7 +894,11 @@ assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(/,
 const startup = main.slice(main.indexOf('override fun onCreate'), main.indexOf('private fun importTimetableFile'));
 assert.doesNotMatch(startup, /LocalScheduleStore\.load\(/);
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*LocalScheduleStore\.load\(applicationContext\)/);
-assert.match(main, /if \(readSerial == localScheduleReadSerial\) localLessons = lessons/);
+assert.match(main, /if \(readSerial == localScheduleReadSerial\) \{/);
+assert.match(main, /localLessons = lessons\s*localScheduleRevision\+\+/,
+  '日历设置变化时即使课程数据相同也必须更新本机课表视图');
+assert.match(main, /if \(LocalCourseReminders\.enabled\(applicationContext\)\)/,
+  '提醒维护必须默认跳过未启用的用户');
 assert.match(cloud, /coroutineScope\s*\{\s*launch\s*\{\s*refreshNotices\(\)\s*\}\s*launch\s*\{\s*refreshPrivate\(\)/);
 assert.match(cloud, /withContext\(Dispatchers\.IO\) \{ session\.load\(\) \}/);
 assert.match(schedulePanel, /本机导入/);
