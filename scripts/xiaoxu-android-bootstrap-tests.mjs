@@ -1130,8 +1130,8 @@ assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色�
 assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
-assert.match(design, /val card: Dp = 18\.dp/, '基础卡圆角须为 18dp');
-assert.match(design, /val hero: Dp = 22\.dp/, '重要卡圆角须为 22dp');
+assert.match(design, /val card: Dp = 24\.dp/, '基础卡圆角沿用 #351 统一组件 24dp');
+assert.match(design, /val hero: Dp = 28\.dp/, '重要卡圆角沿用 #351 统一组件 28dp');
 assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
