@@ -500,7 +500,12 @@ assert.match(schedulePanel, /viewMode = viewMode/);
 assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, selected\)/);
 assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
   '周视图和日视图不得再占用课表顶部');
-assert.match(timetableSettings, /"week" to "周视图", "day" to "日视图"/);
+assert.match(timetableSettings, /XiaoxuSegmentOption\("week", "周视图"\)/,
+ '设置必须保留周视图选项');
+assert.match(timetableSettings, /XiaoxuSegmentOption\("day", "日视图"\)/,
+ '设置必须保留日视图选项');
+assert.match(timetableSettings, /XiaoxuSegmentedControl\(/,
+ '课表周日偏好必须复用统一玻璃分段控件');
 assert.match(timetableSettings, /current == null && monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
   '未设置学期时仍应允许保存视图偏好');
 assert.match(timetableSettings, /onViewModeChange\(selectedViewMode\)/);
