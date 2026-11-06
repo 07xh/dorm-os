@@ -340,6 +340,7 @@ assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
 
 const localCatalogParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogEmpty.kt');
 const localReader = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js');
+const localNativeCatalog = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/NativeSchoolConnectActivity.kt');
 const secondClassDao = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
 assert.match(secondClassMain, /"catalog_empty"/);
 assert.match(secondClassMain, /catalogRows\.size == 3/);
@@ -354,8 +355,8 @@ assert.match(localCatalogParser, /catalogEmptyFilters/);
 assert.match(localReader, /includeCatalog = false/);
 assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
 assert.match(localReader, /catalogStatus='nonempty_unverified'/);
-assert.match(localNative, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
-assert.match(localNative, /replaceSecondClassSnapshot\(rows, activities, catalog\)/);
+assert.match(localNativeCatalog, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
+assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog\)/);
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
