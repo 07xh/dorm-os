@@ -1,12 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -33,14 +28,10 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Room
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,9 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -91,14 +79,10 @@ import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.LocalDate
 
 /*
- * 校序课表页四态 UI（Issue #209）。
- *
- * 数据边界：
- * - 不发起网络请求、不解析接口、不写数据库。唯一来源是 CloudClient.state，
- *   唯一触发的动作是 CloudClient.refresh()（与顶部全局刷新同一个公开方法）。
- * - 没有可信课程时不渲染任何课程占位，只渲染对应的真实状态。
- * - 不推断当前教学周、不做上课倒计时：VerifiedLesson 只给节次与周次，缺少开学日期与
- *   节次作息时间表，任何"第 N 周 / 还有 X 分钟"的结论都等于伪造数据。
+ * 校序课表页现以本机导入的 localLessons 为唯一显示数据源。
+ * 下方的 ScheduleUiState / deriveScheduleUiState 是历史云端状态兼容模型，
+ * 仍供已有 JVM 测试校验数据新鲜度，但不再驱动当前课表页面。
+ * 未核验学校开学日期及作息表前，仍不能推断教学周或上课倒计时。
  */
 
 // ---------------------------------------------------------------------------
@@ -649,89 +633,6 @@ private fun DayLessonList(
  * badge 严格使用现有 Verified.stale/refreshing 与本机来源，不更改学校数据判断。
  */
 @Composable
-private fun ScheduleHeader(
-    subtitle: String,
-    onRefresh: () -> Unit,
-    localImport: Boolean,
-    stale: Boolean,
-    refreshing: Boolean
-) {
-    val badgeLabel = when {
-        localImport -> "本机导入 · 待核对"
-        refreshing -> "刷新中 · 上次课表"
-        stale -> "上次读取 · 待刷新"
-        else -> "官网可信读取"
-    }
-    val badgeTone = if (localImport || stale || refreshing) XiaoxuTone.Warning
-        else XiaoxuTone.Success
-    XiaoxuCard(
-        modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
-        contentPadding = 16.dp
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "我的课表",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-                SourceBadge(text = badgeLabel, tone = badgeTone)
-            }
-            TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = 48.dp)) {
-                Icon(
-                    Icons.Outlined.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(if (localImport) "核对" else "刷新")
-            }
-        }
-        if (subtitle.isNotBlank()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2
-            )
-        }
-    }
-}
-
-@Composable
-private fun ScheduleBanner(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    containerColor: Color,
-    contentColor: Color,
-    compact: Boolean = false
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(containerColor)
-            .padding(horizontal = 14.dp, vertical = if (compact) 10.dp else 12.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = contentColor)
-        Spacer(Modifier.width(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            )
-            Text(text = message, style = MaterialTheme.typography.bodySmall, color = contentColor)
-        }
-    }
-}
-
-@Composable
 private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -1148,19 +1049,6 @@ private fun SectionBadge(label: String) {
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(48.dp)
-        )
-        Text(text = value, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
 private fun ScheduleFooterNote() {
     Text(
         text = "按完整学期展示；未接入开学日期与节次作息时间，因此不推断当前周、不计算上课倒计时。",
@@ -1173,186 +1061,6 @@ private fun ScheduleFooterNote() {
 // ---------------------------------------------------------------------------
 // 未连接 / 加载 / 错误 / 无来源 / 未验证 / 可信空结果
 // ---------------------------------------------------------------------------
-
-@Composable
-private fun ScheduleLoadingState() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pageWidth(ContentMaxWidth)
-            .padding(horizontal = 18.dp, vertical = 16.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "正在读取可信课表",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = "只展示已通过校验的本人课程，读取完成前不显示任何示例课程。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        SkeletonBlock(Modifier.fillMaxWidth().height(64.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(7) { SkeletonBlock(Modifier.weight(1f).height(56.dp)) }
-        }
-        repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(84.dp)) }
-    }
-}
-
-@Composable
-private fun SkeletonBlock(modifier: Modifier) {
-    val transition = rememberInfiniteTransition(label = "skeleton")
-    val shift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1300, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "skeleton-shift"
-    )
-    val base = MaterialTheme.colorScheme.surfaceVariant
-    val brush = Brush.linearGradient(
-        colors = listOf(
-            base.copy(alpha = 0.45f),
-            base.copy(alpha = 0.85f),
-            base.copy(alpha = 0.45f)
-        ),
-        start = Offset(-320f + shift * 1400f, 0f),
-        end = Offset(shift * 1400f, 0f)
-    )
-    Box(modifier.clip(RoundedCornerShape(14.dp)).background(brush))
-}
-
-@Composable
-private fun ScheduleNotConnectedState(
-    openLocalImport: () -> Unit,
-    openProfile: (() -> Unit)?
-) {
-    StateScaffold(
-        icon = Icons.Outlined.CloudOff,
-        title = "尚未读取课表",
-        message = "在 App 内登录学校账号后导入课表。"
-    ) {
-        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
-        if (openProfile != null) {
-            OutlinedButton(onClick = openProfile) {
-                Text("云端同步设置（可选）")
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScheduleSourceMissingState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
-    StateScaffold(
-        icon = Icons.Outlined.DateRange,
-        title = "还没有可展示的课程",
-        message = "先从 App 内读取本人课表。"
-    ) {
-        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
-        OutlinedButton(onClick = onRefresh) { Text("重新检查云端课表") }
-    }
-}
-
-@Composable
-private fun ScheduleUnverifiedState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
-    StateScaffold(
-        icon = Icons.Outlined.Info,
-        title = "云端课表来源未核验",
-        message = "可改用 App 内官方页面读取本人课表。"
-    ) {
-        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
-        OutlinedButton(onClick = onRefresh) { Text("重试云端核验") }
-    }
-}
-
-@Composable
-private fun ScheduleFailedState(
-    message: String,
-    openLocalImport: () -> Unit,
-    onRefresh: () -> Unit
-) {
-    StateScaffold(
-        icon = Icons.Outlined.Warning,
-        title = "云端课表读取失败",
-        message = message,
-        accent = true
-    ) {
-        Button(onClick = openLocalImport) { Text("改用 App 内青果课表读取") }
-        OutlinedButton(onClick = onRefresh) {
-            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("重试云端")
-        }
-    }
-}
-
-@Composable
-private fun ScheduleEmptyState(openLocalImport: () -> Unit, onRefresh: () -> Unit) {
-    StateScaffold(
-        icon = Icons.Outlined.DateRange,
-        title = "云端来源返回 0 门课程",
-        message = "云端未返回课程；这不等于你的学校账号没有课表。可以在 App 内打开个人课表并主动导入。"
-    ) {
-        Button(onClick = openLocalImport) { Text("在 App 内导入青果课表") }
-        OutlinedButton(onClick = onRefresh) { Text("重新读取云端") }
-    }
-}
-
-@Composable
-private fun StateScaffold(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    accent: Boolean = false,
-    content: @Composable () -> Unit
-) {
-    XiaoxuCard(
-        modifier = Modifier
-            .pageWidth(StateMaxWidth)
-            .padding(horizontal = 18.dp, vertical = 16.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        contentPadding = 18.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    if (accent) MaterialTheme.colorScheme.errorContainer
-                    else MaterialTheme.colorScheme.primaryContainer
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(26.dp),
-                tint = if (accent) MaterialTheme.colorScheme.onErrorContainer
-                else MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() }
-        )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (accent) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        content()
-    }
-}
 
 @Composable
 private fun EmptyHint(icon: ImageVector, title: String, message: String) {

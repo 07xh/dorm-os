@@ -23,14 +23,14 @@ assert.match(main, /lesson\.weeks\.joinToString\(","\)/);
 assert.match(main, /lesson\.location\.ifBlank/);
 assert.match(main, /lesson\.teacher\.ifBlank/);
 assert.match(main, /val preview = parsed\.second/);
-// 本机导入是课表唯一数据源；旧云端状态仅供历史回归，不渲染到新页面。
-assert.match(screen, /localImport -> "本机导入 · 待核对"/,
-  '本机导入必须一直标记为待核对');
-assert.match(screen, /stale -> "上次读取 · 待刷新"/,
-  '旧云端课表不能显示成最新已核验');
-assert.match(screen, /SourceBadge\(text = badgeLabel, tone = badgeTone\)/,
-  '来源标签必须沿用共享组件');
-assert.match(screen, /本机导入 · 待核对/);
+// 本机导入是课表唯一数据源；只检查当前真实渲染的组件，
+// 不再要求已废弃的云端 Header / stale badge 继续存在。
+assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
+  '本机导入源标签须明确待本人核对');
+assert.match(screen, /Text\("本机导入 · " \+ data.lessons.size \+ " 个课块 · 请核对课程信息",/,
+  '当前课表必须直接提示本人核对导入课程');
+assert.match(screen, /text = if \(localImport\) "本机导入 · 待核对"/,
+  '课程详情仍必须标明本机导入来源');
 assert.match(screen, /localImport = data\.sourceLabel\.contains\("本机导入"\)/);
 assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened, localImport = localImport/);
 assert.match(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/);
