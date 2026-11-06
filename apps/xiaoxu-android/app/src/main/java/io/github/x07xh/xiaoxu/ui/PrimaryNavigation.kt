@@ -3,6 +3,13 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -87,6 +94,22 @@ internal fun PrimaryBottomNavigation(
         // Original v1.0.83 selected tint; no custom palette reinterpretation.
         selectedContentColor = if (backdrop != null) Color(0xFF0057D9) else XiaoxuPalette.BrandDeep,
         onSelect = { onSelect(PrimaryTabs[it]) }
+    )
+}
+
+/**
+ * Reserves precisely the same space as CourseSelector's 8 + 72 + 8dp dock
+ * and the current system navigation inset. This contains no navigation UI:
+ * the actual glass bar is overlaid once, outside the backdrop capture layer.
+ * Scaffold must own content padding; child screens must not add a second inset.
+ */
+@Composable
+internal fun PrimaryGlassNavigationReserve() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+            .height(88.dp)
     )
 }
 
