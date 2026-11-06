@@ -1,0 +1,43 @@
+name: Xiaoxu Campus Run JVM Contract
+
+# Campus run is a strictly isolated data contract.  Compile and execute the
+# Android JVM tests without generating a distributable APK or deploying.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/CampusRunContract.kt'
+      - 'apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/data/CampusRunContractTest.kt'
+      - '.github/workflows/xiaoxu-campus-run-jvm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  campus-run-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install compile SDK (no device/emulator)
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Run native Kotlin data contract unit tests
+        run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest --no-daemon --stacktrace
+      - name: Upload JVM test reports only on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-run-jvm-unit-test-reports
+          path: |
+            apps/xiaoxu-android/app/build/reports/tests/
+            apps/xiaoxu-android/app/build/test-results/
+          retention-days: 7
