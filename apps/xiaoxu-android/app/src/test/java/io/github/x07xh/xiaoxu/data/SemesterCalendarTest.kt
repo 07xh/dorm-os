@@ -65,13 +65,13 @@ class SemesterCalendarTest {
         assertThrows(IllegalArgumentException::class.java) {
             SemesterCalendar.parse(
                 "2026-09-07", "18",
-                "1 08:00-08:45\\n2 08:40-09:25"
+                "1 08:00-08:45\n2 08:40-09:25"
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
             SemesterCalendar.parse(
                 "2026-09-07", "18",
-                "2 10:00-10:45\\n1 13:00-13:45"
+                "2 10:00-10:45\n1 13:00-13:45"
             )
         }
         // The invariant must also protect callers constructing data classes directly.
@@ -87,7 +87,7 @@ class SemesterCalendarTest {
         // Adjacent classes, including an inter-class break, are valid.
         assertEquals(2, SemesterCalendar.parse(
             "2026-09-07", "18",
-            "2 09:00-09:45\\n1 08:00-09:00"
+            "2 09:00-09:45\n1 08:00-09:00"
         ).sectionTimes.size)
     }
 
