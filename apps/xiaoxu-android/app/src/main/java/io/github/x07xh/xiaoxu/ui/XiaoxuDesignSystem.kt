@@ -83,7 +83,7 @@ object XiaoxuPalette {
     val BrandSoft = Color(0xFFEAF1FF)
 
     /** 页面背景 */
-    val Bg = Color(0xFFF3F5FC)
+    val Bg = Color(0xFFF4F7FD)
 
     /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
     val PageGradient = Brush.verticalGradient(
