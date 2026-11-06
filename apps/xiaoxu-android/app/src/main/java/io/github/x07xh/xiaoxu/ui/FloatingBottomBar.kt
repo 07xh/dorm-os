@@ -1,5 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.os.Build
+import com.kyant.backdrop.Backdrop
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -155,11 +158,17 @@ fun FloatingBottomBar(
     selectedContentColor: Color = XiaoxuPalette.BrandDeep,
     showLabels: Boolean = true,
     applyNavigationBarInset: Boolean = true,
-    draggable: Boolean = true
+    draggable: Boolean = true,
+    backdrop: Backdrop? = null
 ) {
     if (items.isEmpty()) return
     val count = items.size
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
+    // Original v1.0.83 glass geometry only on supported real lens platforms.
+    val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    val visualHeight = if (useNorthGlass) 72.dp else BarHeight
+    val horizontalInset = if (useNorthGlass) 16.dp else BarHorizontalInset
+    val bottomInset = if (useNorthGlass) 8.dp else BarBottomInset
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val touchSlop = LocalViewConfiguration.current.touchSlop
@@ -175,10 +184,10 @@ fun FloatingBottomBar(
                 } else Modifier
             )
             .padding(
-                start = BarHorizontalInset,
-                end = BarHorizontalInset,
-                top = 4.dp,
-                bottom = BarBottomInset
+                start = horizontalInset,
+                end = horizontalInset,
+                top = if (useNorthGlass) 8.dp else 4.dp,
+                bottom = bottomInset
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -273,10 +282,12 @@ fun FloatingBottomBar(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(BarHeight)
-                .shadow(elevation = 12.dp, shape = BarShape, clip = false)
-                .clip(BarShape)
-                .background(containerColor)
+                .height(visualHeight)
+                .then(
+                    if (useNorthGlass && backdrop != null) Modifier.northGlassTrack(backdrop)
+                    else Modifier.shadow(elevation = 12.dp, shape = BarShape, clip = false)
+                        .clip(BarShape).background(containerColor)
+                )
                 .then(gestureModifier)
         ) {
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
@@ -293,8 +304,11 @@ fun FloatingBottomBar(
                     .width(cellWidthDp)
                     .fillMaxHeight()
                     .padding(IndicatorInset)
-                    .clip(IndicatorShape)
-                    .background(indicatorColor)
+                    .then(
+                        if (useNorthGlass && backdrop != null) {
+                            Modifier.northGlassIndicator(backdrop) { drag.pressProgress }
+                        } else Modifier.clip(IndicatorShape).background(indicatorColor)
+                    )
                     .graphicsLayer {
                         // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
                         val p = drag.pressProgress
@@ -314,6 +328,7 @@ fun FloatingBottomBar(
                         item = item,
                         selected = index == safeIndex,
                         showLabel = showLabels,
+                        useNorthGlass = useNorthGlass,
                         selectedContentColor = selectedContentColor,
                         unselectedContentColor = unselectedContentColor,
                         modifier = Modifier.width(cellWidthDp),
@@ -330,6 +345,7 @@ private fun FloatingBarCell(
     item: FloatingBarItem,
     selected: Boolean,
     showLabel: Boolean,
+    useNorthGlass: Boolean,
     selectedContentColor: Color,
     unselectedContentColor: Color,
     modifier: Modifier = Modifier,
@@ -370,7 +386,7 @@ private fun FloatingBarCell(
                 contentDescription = null, // 文字已承担语义，避免 TalkBack 重复朗读。
                 tint = contentColor,
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(if (useNorthGlass) 24.dp else 22.dp)
                     .graphicsLayer {
                         // draw 阶段读 animation，跳过重组。
                         val s = if (selected) PressedScale else 1f
@@ -386,7 +402,7 @@ private fun FloatingBarCell(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = item.label,
-                fontSize = 10.sp,
+                fontSize = if (useNorthGlass) 12.sp else 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,
