@@ -545,6 +545,17 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
   '已经授权但系统通知被禁用时，应打开通知设置而不是重复请求权限');
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
+const timetableSettingsCallback = schedulePanel.slice(
+  schedulePanel.indexOf('if (showSemesterSettings) {'),
+  schedulePanel.indexOf('private fun DayLessonList(')
+);
+assert.match(timetableSettingsCallback, /val permissionMissing = Build\.VERSION\.SDK_INT >= 33 &&/,
+  '课表设置的提醒开关也要区分缺失权限与已授予但通知被关闭');
+assert.match(timetableSettingsCallback,
+  /if \(permissionMissing\) \{\s*reminderPermissionLauncher\.launch\(Manifest\.permission\.POST_NOTIFICATIONS\)/,
+  '只在确实缺少通知运行时权限时请求权限');
+assert.match(timetableSettingsCallback, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
+  '课表设置中通知总开关关闭时必须进入系统设置');
 
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
