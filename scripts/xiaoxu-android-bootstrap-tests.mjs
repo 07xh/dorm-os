@@ -838,7 +838,12 @@ const importer = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xia
 const localStore = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
 const script = read('apps/xiaoxu-android/app/src/main/assets/ncwu_qingguo_local.js');
 assert.match(manifest, /android:name="\.LocalQingguoImportActivity"[\s\S]*?android:exported="false"/);
-assert.match(main, /openLocalImport = /);
+assert.match(main, /if \(provider == "ncwu"\) \{\s*startActivity\(Intent\(this@MainActivity, LocalQingguoImportActivity::class\.java\)\)/,
+  '本机青果入口仍通过数据连接中心的官方来源选择器可达');
+assert.doesNotMatch(main, /\bopenLocalImport\b|\bSchedulePage\(/,
+  '旧课表转发回调与空代理页面不应继续存在');
+assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(/,
+  '课表路由应直接渲染本机课表');
 // Timetable persistence must not parse on the cold-start UI thread.
 const startup = main.slice(main.indexOf('override fun onCreate'), main.indexOf('private fun importTimetableFile'));
 assert.doesNotMatch(startup, /LocalScheduleStore\.load\(/);

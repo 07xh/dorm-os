@@ -34,6 +34,8 @@ assert.match(source,/text = "本机导入 · 待核对"/,
   'Course details must keep the pending-confirmation provenance label');
 assert.match(source,/CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
   'Home course detail must reuse the same drawer without cloud-source flags');
+assert.doesNotMatch(source, /client:\s*CloudClient|openWebsite:\s*\(\)\s*->\s*Unit|openProfile:\s*\(\(\)\s*->\s*Unit\)\?|openLocalImport:/,
+  'Local timetable must not accept unused cloud, website, profile, or legacy import callbacks');
 assert.match(source,/localLessons\.isEmpty\(\)/,
   'Empty timetable must be based on the actual local import');
 assert.match(source,/LocalTimetableEmptyState\(openFileImport\)/,

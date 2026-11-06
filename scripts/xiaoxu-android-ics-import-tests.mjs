@@ -50,6 +50,8 @@ const currentTimetableEntry = screen.slice(
   screen.indexOf('fun CloudTimetablePanel('),
   screen.indexOf('private fun ScheduleVerifiedContent(')
 );
+assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(\s*localLessons = localLessons,\s*openFileImport = openFileImport\)/,
+  '真实课表入口只传递本机课程与文件选择器');
 assert.match(currentTimetableEntry, /localLessons\.isEmpty\(\)/);
 assert.match(currentTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.match(currentTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);

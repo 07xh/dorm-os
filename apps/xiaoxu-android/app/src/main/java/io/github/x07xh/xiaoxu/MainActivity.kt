@@ -174,9 +174,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    openLocalImport = {
-                        startActivity(Intent(this@MainActivity, LocalQingguoImportActivity::class.java))
-                    },
                     openFileImport = {
                         timetableFilePicker.launch(arrayOf("*/*"))
                     },
@@ -379,7 +376,6 @@ private fun NativeShell(
     localCaptureReturn: LocalSchoolImportReceipt?,
     onSchoolReturnConsumed: () -> Unit,
     startSchoolAuthorization: (String) -> Unit,
-    openLocalImport: () -> Unit,
     openFileImport: () -> Unit,
     openLocalSchool: (String) -> Unit,
     consumeWebsiteReturn: () -> Boolean,
@@ -562,10 +558,8 @@ private fun NativeShell(
                                 },
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
-                            MainDestination.SCHEDULE -> SchedulePage(openWebsite, cloud,
-                                openProfile = { current = MainDestination.PROFILE },
-                                localLessons = localLessons, openLocalImport = openLocalImport,
-                                openFileImport = openFileImport)
+                            MainDestination.SCHEDULE -> CloudTimetablePanel(
+                                localLessons = localLessons, openFileImport = openFileImport)
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud)
@@ -606,17 +600,6 @@ private fun Heading(title: String, subtitle: String) {
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-}
-
-@Composable
-private fun SchedulePage(
-    openWebsite: () -> Unit, cloud: CloudClient, openProfile: () -> Unit,
-    localLessons: List<VerifiedLesson>, openLocalImport: () -> Unit,
-    openFileImport: () -> Unit
-) {
-    // 课表页自持整屏滚动（星期条 + 课程列表），因此不再外包一层 Content/LazyColumn。
-    CloudTimetablePanel(cloud, openWebsite, openProfile, localLessons, openLocalImport,
-        openFileImport)
 }
 
 @Composable
