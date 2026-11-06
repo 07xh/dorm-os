@@ -1,0 +1,54 @@
+name: Xiaoxu Second-class WebView Runtime
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/xiaoxu-android/app/src/androidTest/**'
+      - 'apps/xiaoxu-android/app/src/main/java/**/SecondClassAuto*.kt'
+      - 'apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js'
+      - '.github/workflows/xiaoxu-secondclass-webview.yml'
+permissions:
+  contents: read
+jobs:
+  detached-reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Enable KVM for emulator
+        run: sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest --no-daemon --stacktrace
+      - name: Stage tested APK and SDK verification tool
+        if: success()
+        run: |
+          mkdir -p "$RUNNER_TEMP/secondclass-runtime"
+          cp apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/secondclass-runtime/"
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" "$RUNNER_TEMP/secondclass-runtime/"
+          cd "$RUNNER_TEMP/secondclass-runtime"
+          sha256sum app-debug.apk apksigner.jar > files.sha256
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: secondclass-auto-runtime-apk
+          path: ${{ runner.temp }}/secondclass-runtime/
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secondclass-detached-webview-reports
+          path: apps/xiaoxu-android/app/build/reports/androidTests/
+          if-no-files-found: ignore

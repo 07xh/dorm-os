@@ -31,7 +31,8 @@ interface NativeSchoolRecordDao {
     @Transaction
     suspend fun replaceSecondClassSnapshot(
         scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>,
-        catalogEmpty: List<NativeSchoolRecord> = emptyList()
+        catalogEmpty: List<NativeSchoolRecord> = emptyList(),
+        accountHash: String? = null, expectedBinding: String? = null
     ) {
         require(scores.isNotEmpty() && scores.size <= 50)
         require(scores.all { it.provider == "second_class" && it.kind == "credits" })
@@ -46,6 +47,15 @@ interface NativeSchoolRecordDao {
         require((scores + activities).all {
             it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == capturedAt
         })
+        require(accountHash == null || accountHash.matches(Regex("^[a-f0-9]{64}$")))
+        require(expectedBinding == null || expectedBinding == accountHash)
+        val saved = snapshotKind("second_class", "credits").maxOfOrNull { it.capturedAt } ?: 0
+        require(capturedAt >= saved) { "stale_secondclass_batch" }
+        val bindings = snapshotKind("second_class", "account_binding")
+        if (expectedBinding != null && bindings.isNotEmpty()) {
+            require(bindings.size == 1 && bindings.single().details == expectedBinding &&
+                bindings.single().capturedAt == saved && bindings.single().sourceHost == "dekt.ncwu.edu.cn")
+        }
         // The validated catalog is tied to this account's verified score read.
         // Clear an earlier owner's empty snapshot on successful account switch,
         // even when the current catalog is unavailable or nonempty/unverified.
@@ -61,7 +71,11 @@ interface NativeSchoolRecordDao {
         deleteKind("second_class", "credits")
         deleteKind("second_class", "activity")
         deleteKind("second_class", "activity_summary")
+        deleteKind("second_class", "account_binding")
         insertAll(scores + activities + catalogEmpty)
+        if (accountHash != null) insertAll(listOf(NativeSchoolRecord(
+            "second_class", "account_binding", "current", "", accountHash,
+            "dekt.ncwu.edu.cn", capturedAt)))
     }
     @Query("SELECT * FROM native_school_records ORDER BY capturedAt DESC, provider, kind, title")
     fun observe(): Flow<List<NativeSchoolRecord>>

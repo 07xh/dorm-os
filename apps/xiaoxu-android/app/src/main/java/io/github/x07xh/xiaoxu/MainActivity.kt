@@ -7,6 +7,9 @@ import android.widget.Toast
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -103,6 +106,7 @@ import kotlinx.coroutines.launch
  * Existing owner-auth and connector pages remain on the verified HTTPS website.
  */
 class MainActivity : ComponentActivity() {
+    private var secondClassAutoJob: Job? = null
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
     private val timetableFilePicker = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -333,8 +337,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStop() {
+        secondClassAutoJob?.cancel()
+        secondClassAutoJob = null
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
+        secondClassAutoJob?.cancel()
+        secondClassAutoJob = lifecycleScope.launch {
+            delay(1_000) // Let the native shell display before WebView startup.
+            SecondClassAutoRefresh.reconcile(applicationContext)
+            SecondClassAutoRefresh.refreshIfDue(applicationContext)
+        }
         val readSerial = ++localScheduleReadSerial
         lifecycleScope.launch {
             val lessons = withContext(Dispatchers.IO) {
