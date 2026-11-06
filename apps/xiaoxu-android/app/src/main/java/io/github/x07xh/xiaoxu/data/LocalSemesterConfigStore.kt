@@ -8,6 +8,7 @@ object LocalSemesterConfigStore {
     private const val PREFS = "xiaoxu-local-schedule-calendar-v1"
     private const val KEY = "calendar"
     private const val VIEW_MODE_KEY = "timetable-view-mode"
+    private const val VISIBLE_SECTIONS_KEY = "timetable-visible-sections"
 
     /** UI-only preference; it never changes the imported timetable or school session. */
     fun loadViewMode(context: Context): String {
@@ -20,6 +21,18 @@ object LocalSemesterConfigStore {
         require(mode == "week" || mode == "day") { "Unsupported timetable view mode" }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(VIEW_MODE_KEY, mode).apply()
+    }
+
+
+    /** Only controls how many section rows are shown, never discards real courses. */
+    fun loadSections(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(VISIBLE_SECTIONS_KEY, 12).coerceIn(1, 24)
+
+    fun saveSections(context: Context, count: Int) {
+        require(count in 1..24)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(VISIBLE_SECTIONS_KEY, count).apply()
     }
 
     fun load(context: Context): SemesterCalendar? {
