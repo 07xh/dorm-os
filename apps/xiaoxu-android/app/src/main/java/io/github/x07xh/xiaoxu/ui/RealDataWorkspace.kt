@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -702,7 +704,8 @@ private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Uni
 fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
     openWebsite: () -> Unit,
-    openLocalSchool: (String) -> Unit = {}
+    openLocalSchool: (String) -> Unit = {},
+    onMessages: () -> Unit
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -784,17 +787,19 @@ fun RealAcademicTaskHub(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
+                        color = XiaoxuPalette.Ink,
+                        modifier = Modifier.semantics { heading() })
                     Text(
-                        today.format(DateTimeFormatter.ofPattern("yyyy年M月d日 · EEEE",
+                        today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE",
                             java.util.Locale.CHINA)),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = XiaoxuPalette.Ink2
                     )
-                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold, color = XiaoxuPalette.Ink,
-                        modifier = Modifier.semantics { heading() })
-                    Text("课程任务 · 群消息审核 · 个人待办",
-                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                }
+                IconButton(onClick = onMessages) {
+                    Icon(Icons.Outlined.NotificationsNone,
+                        contentDescription = "打开消息中心", tint = XiaoxuPalette.Ink2)
                 }
                 IconButton(
                     modifier = Modifier.clip(RoundedCornerShape(12.dp))
@@ -847,14 +852,10 @@ fun RealAcademicTaskHub(
                 )
             }
         }
-        item {
-            Text(
-                if (!state.tasksFresh && state.tasks.isNotEmpty())
-                    "含上次云端快照 " + state.tasks.size + " 条"
-                else "仅统计已保存的任务",
+        if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
+            Text("含上次云端快照 " + state.tasks.size + " 条",
                 style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2
-            )
+                color = XiaoxuPalette.Ink2)
         }
         if (showSearch) item {
             OutlinedTextField(
@@ -876,11 +877,9 @@ fun RealAcademicTaskHub(
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
             ) {
-                Text("任务来源分开保存，学校提交状态需另行核验",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showAdvancedFilters = !showAdvancedFilters }) {
                     Icon(Icons.Outlined.Tune, contentDescription = null,
                         modifier = Modifier.size(16.dp))
@@ -936,8 +935,8 @@ fun RealAcademicTaskHub(
         }
         if (showLocal) item { LocalTaskEditor(localTasks, dao) }
         if (showCloud) item { CloudTaskEditor(client) }
-        item {
-            Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
+        if (visible.size > 80) item {
+            Text("仅显示前80条，另有 " + (visible.size - 80) + " 条未展示",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1351,20 +1350,20 @@ private fun TaskStatusTab(
     Row(
         modifier = modifier
             .clip(shape)
-            .background(if (active) XiaoxuPalette.Brand else XiaoxuPalette.Surface)
-            .border(1.dp, if (active) XiaoxuPalette.Brand else XiaoxuPalette.Line, shape)
+            .background(if (active) XiaoxuPalette.BrandSoft else XiaoxuPalette.Surface)
+            .border(1.dp, if (active) XiaoxuPalette.BrandSoft else XiaoxuPalette.Line, shape)
             .clickable(onClick = onClick)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 7.dp, vertical = 11.dp),
+            .heightIn(min = 54.dp)
+            .padding(horizontal = 7.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, fontSize = 12.sp,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-            color = if (active) Color.White else XiaoxuPalette.Ink2, maxLines = 1)
+        Text(label, fontSize = 13.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2, maxLines = 1)
         Spacer(Modifier.width(5.dp))
-        Text(count.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-            color = if (active) Color.White else XiaoxuPalette.Ink)
+        Text(count.toString(), fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink)
     }
 }
 
@@ -1511,7 +1510,6 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
         DUE_WEEK -> XiaoxuPalette.Brand
         else -> XiaoxuPalette.Ink2
     }
-    val cloud = task.storage == "cloud"
     val statusText = if (task.done) "个人已完成" else due.label
     val statusInk = if (task.done) XiaoxuPalette.Success else dueTone
     val statusBackground = when {
@@ -1524,7 +1522,7 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
+            .heightIn(min = 82.dp)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
@@ -1535,24 +1533,21 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(42.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(if (cloud) XiaoxuPalette.BrandSoft else XiaoxuPalette.SuccessSoft),
-            contentAlignment = Alignment.Center
-        ) {
+        // 统一任务标记；不根据课程名称或平台臆测任务类型。
+        // 整行进入详情，云端状态不会被此图标误操作为已提交。
+        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
             Icon(
-                if (cloud) Icons.Outlined.MenuBook else Icons.Outlined.CheckBox,
+                if (task.done) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (cloud) XiaoxuPalette.Brand else XiaoxuPalette.Success
+                modifier = Modifier.size(24.dp),
+                tint = if (task.done) XiaoxuPalette.Brand else XiaoxuPalette.Ink3
             )
         }
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 task.title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
