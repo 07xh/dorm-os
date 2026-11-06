@@ -109,7 +109,12 @@ const steps = [
   ['04-tasks', '任务中心：核对三态数量、来源切换、长列表、搜索及返回'],
   ['05-task-detail', '任务详情：打开已有一条任务核对原生详情；不要修改完成状态'],
   ['06-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
-  ['07-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过']
+  ['07-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过'],
+  ['08-glass-rest', '北化玻璃导航静止态：与原版 APK 核对轨道轮廓、透明高光、图标和选中透镜'],
+  ['09-glass-rapid-tabs', '连续快速切换五个底栏标签：检查玻璃滑块不跳位、不闪白、不残留放大状态；记录帧统计'],
+  ['10-glass-drag-return', '从当前标签拖动到相邻标签再拖回并松手：检查自然回弹和无重复页面刷新'],
+  ['11-glass-course-content', '在有课程色块的课表上移动底栏滑块：检查文字/背景折射无脏灰圈和错位采样'],
+  ['12-glass-gesture-inset', '使用 Android 16 全屏手势返回与横竖屏切换：确认底栏可点区域和系统安全区无重叠']
 ];
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 try {
@@ -139,6 +144,8 @@ try {
       png: name + '.png', frameDump: name + '.gfxinfo.txt',
       totalFrames: total ? Number(total[1]) : null,
       jankyFrames: janky ? Number(janky[1]) : null,
+      jankyFramePercent: total && janky && Number(total[1]) > 0
+        ? Math.round(Number(janky[1]) * 10000 / Number(total[1])) / 100 : null,
       screenshotSha256: crypto.createHash('sha256').update(png).digest('hex')
     });
     console.log('已保存 ' + name + '.png；未根据截图推定验收通过。');
