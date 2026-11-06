@@ -1281,8 +1281,8 @@ assert.match(messageCenter, /NoticeDetailSheet\(/,
   '保留公告真实详情及官方链接');
 assert.ok(panels.includes('XiaoxuCard {'),
   '个人中心和学校连接卡采用共享样式');
-assert.ok(panels.includes('title = "学校数据连接"'),
-  '个人中心保留本机学校官方读取入口');
+assert.ok(panels.includes('SectionHeader(title = "数据连接")'),
+  '个人中心保留直接可见的本机学校官方读取入口');
 assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImport)'),
   '不得移除原生学校读取入口');
 assert.ok(panels.includes('if (cloudAdvanced) {'),
