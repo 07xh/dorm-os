@@ -1227,6 +1227,18 @@ assert.match(northGlyphs, /drawBooks\(|drawCalendar\(|drawLightning\(|drawChart\
   '必须保留北化的五套原版动画图形');
 assert.match(floatingBar, /northGlassTrack\(/);
 assert.match(floatingBar, /northGlassIndicator\(/);
+
+assert.match(floatingBar, /rememberCombinedBackdrop\(backdrop, opticalTint\)/,
+  '原版折射采样必须包含页面背景与隐藏图标着色层');
+assert.match(floatingBar, /\.layerBackdrop\(opticalTint\)/,
+  '隐藏着色源必须由原版 Backdrop 图层提供');
+assert.match(floatingBar, /\.alpha\(0f\)/,
+  '隐藏采样层不能产生第二条可见导航栏');
+assert.match(floatingBar, /\.clearAndSetSemantics \{\}/,
+  '采样图标不能形成第二组无障碍焦点');
+assert.match(floatingBar, /\.zIndex\(1f\)/,
+  '真实物理透镜应叠在可见图标之上，而不是画在图标背后');
+
 assert.match(northGeometry, /interpolateDp\(72\.dp, 62\.dp, squeeze\)/,
   '短屏与常规屏的底栏尺寸须源于原版');
 assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/, '录制真实页面与渐变背景');
