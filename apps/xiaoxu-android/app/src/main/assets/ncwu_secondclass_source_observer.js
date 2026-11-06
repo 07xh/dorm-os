@@ -36,7 +36,21 @@
       const raw=typeof input==='string'?input:
         (input&&typeof input.url==='string'?input.url:null);
       if(!raw||raw.length>2048)return null;
-      const url=new URL(raw,location.href);
+      // The observed NCWU activity HTML declares <base href="http://dekt.ncwu.edu.cn/">.
+      // Its relative Ajax path "sys/stu/activity" resolves under the SITE ROOT,
+      // not relative to /sys/stu/activity. The browser upgrades the official
+      // base to HTTPS; only normalize that exact known origin/root base.
+      let requestBase=location.href;
+      try {
+        const declared=typeof document!=='undefined'&&document.baseURI
+          ?new URL(document.baseURI):null;
+        if(declared&&declared.hostname==='dekt.ncwu.edu.cn'&&
+           (declared.protocol==='https:'||declared.protocol==='http:')&&
+           declared.pathname==='/'&&!declared.username&&!declared.password&&
+           !declared.search&&!declared.hash)
+          requestBase=host+'/';
+      }catch{}
+      const url=new URL(raw,requestBase);
       if(url.origin!==host||url.username||url.password)return null;
       // Only static paths; no query string, student identifiers, tokens,
       // response data or arbitrary URLs are retained.
