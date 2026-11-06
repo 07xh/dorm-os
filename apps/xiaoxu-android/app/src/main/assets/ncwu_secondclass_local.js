@@ -143,8 +143,9 @@
       const catalogPath='/sys/stu/activity';
       for(const title of ['报名中','待验证','即将开始报名']){
         requestStage='catalog_request';
-        diagnostic.httpStatus=null;
-        diagnostic.contentType=null;
+        // Keep the personal-score/activities HTTP result unchanged:
+        // parseLocalSecondClassScores requires its verified 200 status.
+        // Catalog diagnostics must not overwrite that independent contract.
         let res;
         try{
           res=await fetch(host+catalogPath,{
