@@ -208,6 +208,28 @@ class CollectorTests(TestCase):
             self.assertEqual(req.get_header("User-agent"), "Xiaoxu-Desktop-Connector/1.0")
             self.assertEqual(req.get_header("Authorization"), "Bearer " + "wxu_" + "x"*43)
             self.assertEqual(req.full_url, "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest")
+    def test_network_error_category_does_not_leak_details(self):
+        from urllib.error import URLError
+        import socket
+        import ssl
+        cases = [
+            (socket.gaierror(11001, "private.dns.internal"), "DNS 域名解析失败"),
+            (ssl.SSLCertVerificationError(1, "private certificate"), "HTTPS 证书验证失败"),
+            (TimeoutError("private internal endpoint"), "HTTPS 连接超时"),
+            (ConnectionRefusedError("private local port"), "HTTPS 连接被拒绝"),
+            (OSError("Tunnel connection failed: private proxy"), "代理隧道连接失败"),
+            (OSError("secret proxy username:password"), "网络连接失败"),
+        ]
+        for reason, expected in cases:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = URLError(reason)
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_" + "x"*43, {"records": []})
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn("private", str(caught.exception))
+                self.assertNotIn("secret", str(caught.exception))
+                self.assertNotIn("wxu_", str(caught.exception))
+
     def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
         import io
         from urllib.error import HTTPError
