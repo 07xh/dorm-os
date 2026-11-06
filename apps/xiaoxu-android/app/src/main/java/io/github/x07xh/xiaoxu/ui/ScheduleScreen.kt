@@ -1200,7 +1200,7 @@ private fun CourseDetailBottomSheet(
                     icon = Icons.Outlined.Schedule,
                     label = "上课时间",
                     value = "周" + WEEKDAY_SHORT.getOrElse(lesson.weekday - 1) { "?" } +
-                        " · " + lesson.sectionLabel,
+                        " · 第 " + lesson.startSection + "–" + lesson.endSection + " 节",
                     modifier = Modifier.weight(1f)
                 )
                 CourseDetailInfoCard(
@@ -1213,7 +1213,7 @@ private fun CourseDetailBottomSheet(
             Spacer(Modifier.height(26.dp))
             CourseDetailInfoRow(Icons.Outlined.PersonOutline, "教师", lesson.teacher)
             Spacer(Modifier.height(20.dp))
-            CourseDetailInfoRow(Icons.Outlined.DateRange, "周次", lesson.weeksLabel)
+            CourseDetailInfoRow(Icons.Outlined.DateRange, "周次", lesson.weeksLabel.removePrefix("第"))
             Spacer(Modifier.height(26.dp))
             Row(
                 modifier = Modifier.fillMaxWidth()
