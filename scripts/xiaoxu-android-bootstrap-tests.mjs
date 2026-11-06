@@ -678,7 +678,10 @@ assert.match(workspace, /if \(showSchoolRecords\) \{/,
 assert.ok(workspace.indexOf('title = "课程相关与云端任务"') <
     workspace.indexOf('title = "我的本机待办"'),
   '默认任务列表优先展示课程相关与云端任务');
-assert.match(workspace, /WechatReviewPanel\(/, '任务中心必须复用原生微信人工审核');
+assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
+  '任务中心不能重复承载群消息候选审核；必须归属消息中心');
+assert.match(messageCenter, /WechatReviewPanel\(/,
+  '消息中心继续保留原生微信候选审核');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
 
 assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
@@ -1150,8 +1153,10 @@ assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
   '精简分组后仍须保留可触控的最小高度');
 assert.match(compactTaskHeader, /append\("，"\)\.append\(badge\)/,
   '折叠分组必须保留真实来源及核验状态的无障碍说明');
-assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
-assert.match(workspace, /var showCandidates by rememberSaveable/, '微信候选列表必须可折叠');
+assert.doesNotMatch(workspace, /title = "群消息任务候选"|showCandidates/,
+  '任务中心不得再展示待审核微信群消息区块或保存其折叠状态');
+assert.match(messageCenter, /text = \{ Text\("微信审核"\) \}/,
+  '群消息候选唯一审核位置必须是消息中心的微信审核标签');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
@@ -1174,10 +1179,12 @@ assert.ok(workspace.includes('含上次云端快照'),
   '未核验云端数据不得被统计描述为最新');
 assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
   '任务来源必须复用共享来源标签');
-assert.ok(workspace.includes('WechatReviewPanel('),
-  '任务中心只能复用既有原生微信审核组件，禁止重复实现候选审核器');
-assert.ok(workspace.includes('showCount = state.pendingWechatCount != null'),
-  '未知审核数量不得在任务页显示为 0 条');
+assert.ok(!workspace.includes('WechatReviewPanel('),
+  '任务中心只展示已保存任务，不能复制微信候选审核器');
+assert.ok(messageCenter.includes('WechatReviewPanel('),
+  '消息中心保留唯一原生审核器和真实候选计数');
+assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
+  '待审核数量仍以消息中心真实读取结果为准');
 assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
 assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
 assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详情"\)/,
