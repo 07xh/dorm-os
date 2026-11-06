@@ -88,6 +88,10 @@ import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
 import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.Settings as AndroidSettings
+import androidx.core.content.ContextCompat
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -1267,11 +1271,22 @@ private fun CourseDetailBottomSheet(
                                 Toast.makeText(context, "请先在课表设置中填写学期与上课时间",
                                     Toast.LENGTH_LONG).show()
                             } else if (!LocalCourseReminders.canNotify(context)) {
-                                if (Build.VERSION.SDK_INT >= 33) {
+                                val runtimePermissionGranted = Build.VERSION.SDK_INT < 33 ||
+                                    ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.POST_NOTIFICATIONS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                if (!runtimePermissionGranted && Build.VERSION.SDK_INT >= 33) {
                                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else {
-                                    Toast.makeText(context, "请在系统设置中允许校序通知",
-                                        Toast.LENGTH_LONG).show()
+                                    // Permission may be granted while app notifications remain
+                                    // disabled. A second permission prompt cannot repair that.
+                                    val settings = Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName)
+                                    runCatching { context.startActivity(settings) }
+                                        .onFailure {
+                                            Toast.makeText(context, "请在系统设置中开启校序通知",
+                                                Toast.LENGTH_LONG).show()
+                                        }
                                 }
                             } else applyReminder(true)
                         }
