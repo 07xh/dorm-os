@@ -25,7 +25,7 @@ assert.match(main, /localScheduleRevision = localScheduleRevision/,
   '课表版本变动必须送达原生课表');
 assert.match(screen, /LaunchedEffect\(localScheduleRevision\)/,
   '恢复学期设置不可只依赖课程列表是否改变');
-assert.match(screen, /onExport = openFileExport/,
+assert.match(screen, /onExport = \{\s*showSemesterSettings = false\s*openFileExport\(\)/,
   '备份入口应位于已有设置，不新增第二个课表页面');
 assert.match(screen, /selectableTeachingWeeks\(data\.lessons, calendar\)/,
   '已设置学期必须可选择无课教学周');
@@ -59,8 +59,10 @@ assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核
   '本机导入源标签须明确待本人核对');
 assert.match(screen, /sourceLabel = "本机导入 · " \+ data.lessons.size \+ " 个课块 · 待本人核对",/,
   '当前课表必须直接提示本人核对导入课程');
-assert.match(screen, /text = "本机导入 · 待核对"/,
-  '课程详情必须明确标记本机导入，不能暗示学校官方核验');
+assert.match(screen, /sourceLabel = "本机导入 · " \+ data.lessons.size/,
+  '本机来源核验标记由课表页头显示，详情抽屉保持参考图文字不变');
+assert.doesNotMatch(screen, /text = "本机导入 · 待核对"/,
+  '课程详情不得加入参考图之外的状态文案');
 assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened,/);
 assert.match(screen, /onDismiss = \{ selectedCourseKey = null \}/);
 assert.match(screen, /onEdit = \{/,

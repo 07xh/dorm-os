@@ -24,7 +24,7 @@ class LocalCourseReminderPlanTest {
         val result = planCourseReminders(listOf(lesson), config, now, 14)
         assertEquals(listOf(LocalDate.parse("2026-09-07"),
             LocalDate.parse("2026-09-14")), result.map { it.day })
-        assertEquals(19 * 60 * 60 * 1000L + 50 * 60 * 1000L, result.first().delayMillis)
+        assertEquals(19 * 60 * 60 * 1000L + 45 * 60 * 1000L, result.first().delayMillis)
     }
 
     @Test fun unchangedTimetableDoesNotResubmitExistingJobs() {
