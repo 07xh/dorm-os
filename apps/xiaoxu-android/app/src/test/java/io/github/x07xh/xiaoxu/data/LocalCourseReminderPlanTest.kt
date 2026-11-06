@@ -42,7 +42,7 @@ class LocalCourseReminderPlanTest {
         val now = ZonedDateTime.of(2026, 9, 6, 12, 0, 0, 0, zone)
         val moved = SemesterCalendar.parse(
             "2026-09-07", "18",
-            "1 08:30-09:15\\n2 09:20-10:05"
+            "1 08:30-09:15\n2 09:20-10:05"
         )
         val original = planCourseReminders(listOf(lesson), config, now).first()
         val modified = planCourseReminders(listOf(lesson), moved, now).first()
