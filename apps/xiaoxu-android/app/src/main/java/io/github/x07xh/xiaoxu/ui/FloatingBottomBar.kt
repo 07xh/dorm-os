@@ -2,6 +2,9 @@ package io.github.x07xh.xiaoxu.ui
 
 import android.os.Build
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
 import io.github.x07xh.xiaoxu.ui.northglass.NorthPhosphorNavigationIcon
 import io.github.x07xh.xiaoxu.ui.northglass.rememberNorthNavigationIconPlayback
@@ -45,8 +48,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +60,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -62,6 +68,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
 import io.github.x07xh.xiaoxu.ui.nav.DampedDragAnimation
@@ -169,6 +176,12 @@ fun FloatingBottomBar(
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
     val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
+    // CourseSelector v1.0.83 uses a hidden tinted glyph layer as an additional
+    // source for the optical selector. It is drawing-only, never a second nav.
+    val opticalTint = if (useNorthGlass) rememberLayerBackdrop() else null
+    val indicatorBackdrop =
+        if (backdrop != null && opticalTint != null) rememberCombinedBackdrop(backdrop, opticalTint)
+        else backdrop
     val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
     val visualHeight = geometry.trackHeight
     val horizontalInset = geometry.horizontalPadding
@@ -312,6 +325,7 @@ fun FloatingBottomBar(
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
             Box(
                 Modifier
+                    .zIndex(1f)
                     .offset {
                         // 不要在这里手动镜像 RTL：Modifier.offset{} 内部用
                         // placeable.placeRelative()，RTL 下会自动把 x 翻成
@@ -324,9 +338,9 @@ fun FloatingBottomBar(
                     .fillMaxHeight()
                     .padding(horizontal = IndicatorInset, vertical = geometry.indicatorVerticalPadding)
                     .then(
-                        if (useNorthGlass && backdrop != null) {
+                        if (useNorthGlass && indicatorBackdrop != null) {
                             Modifier.northGlassIndicator(
-                                backdrop = backdrop,
+                                backdrop = indicatorBackdrop,
                                 pressProgress = { drag.pressProgress },
                                 velocityPx = { drag.velocity * cellWidthPx },
                                 indicatorScale = { physicalScale() }
@@ -363,6 +377,58 @@ fun FloatingBottomBar(
                             onSelect(index)
                         }
                     )
+                }
+            }
+            if (opticalTint != null) {
+                // Original BUCT hidden tint pass, captured by rememberCombinedBackdrop.
+                // Alpha zero means no visible duplicate and no hit-test / semantics.
+                // It samples exactly the same five glyphs and labels as this dock.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(visualHeight - 2 * geometry.indicatorVerticalPadding)
+                        .align(Alignment.Center)
+                        .alpha(0f)
+                        .layerBackdrop(opticalTint)
+                        .graphicsLayer(colorFilter = ColorFilter.tint(selectedContentColor))
+                        .clearAndSetSemantics {},
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEachIndexed { index, item ->
+                        Column(
+                            Modifier.width(cellWidthDp).fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (item.northSymbol != null) {
+                                NorthPhosphorNavigationIcon(
+                                    spec = item.northSymbol,
+                                    selection = if (index == safeIndex) 1f else 0f,
+                                    phase = { iconPlayback?.phase(index) ?: 1f },
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            if (showLabels) {
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = item.label,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    fontWeight = if (index == safeIndex) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
