@@ -1,0 +1,14 @@
+校序一加 Ace 6 · UI + 课表 V2 独立联合 QA 包
+
+Purpose: compile the existing native Compose app with reviewed task center UI (#335), accepted WeChat tasks and published backend dependency (#337), timetable V2 P0 (#327) and P1 backup/reminders (#329) on a single integration branch.
+
+This is a diagnostic build. Do not merge the draft UI and timetable PRs or publish a mainline APK from this marker.
+
+Required:
+- Run static security/real-data checks plus complete Android JVM unit tests.
+- Build the regular debug artifact for CI only, then a separately installable .timetableqa APK with independent local storage and distinct school-auth callback host.
+- Inspect package identity and SHA-256 and preserve normal app version 0.8.10/31 without downgrading.
+- Confirm home order intact, three distinct task sources, user-approved WeChat item personal completion, seven-day timetable, semester config, single-week edits, backup/import and reminders.
+- Never claim Ace 6 physical testing or live personal school data from CI.
+
+Note: The isolated QA app has fresh storage by design; it does not inherit the installed app's real local timetable or tasks.

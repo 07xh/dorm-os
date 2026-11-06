@@ -28,7 +28,8 @@ private const val KEY_ALIAS = "xiaoxu_owner_cookie_aes_v1"
 
 data class CloudTask(
     val id: String, val title: String, val status: String,
-    val kind: String, val provider: String?, val due: String?
+    val kind: String, val provider: String?, val due: String?,
+    val revision: Int = -1
 )
 data class ChaoxingCourse(
     val courseId: String, val classId: String, val cpi: String, val title: String
@@ -393,8 +394,11 @@ class CloudClient(context: Context) {
                             .takeIf { it.isNotBlank() && it != "null" }
                             ?: o.optString("due_local_date")
                                 .takeIf { it.isNotBlank() && it != "null" }
+                        val revision = o.optLong("revision", -1L)
+                            .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
-                            o.optString("local_status"), o.optString("kind"), provider, due))
+                            o.optString("local_status"), o.optString("kind"), provider, due,
+                            revision))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
@@ -1529,6 +1533,50 @@ class CloudClient(context: Context) {
             state = state.copy(authMessage = "连接失败，请检查网络、登录配置或登录响应")
             false
         } finally { state = state.copy(signingIn = false) }
+    }
+
+    /** Only a personally approved WeChat task may change its own completion status.
+     * Owner-scoped status-only POST accepts a revision and never touches school submissions.
+     */
+    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean): Boolean {
+        if (!state.authenticated || !state.tasksFresh || revision < 0 ||
+            !Regex("^[A-Za-z0-9_-]{1,100}$").matches(id)) return false
+        val current = state.tasks.firstOrNull {
+            it.id == id && it.provider == "wechat" && it.revision == revision
+        } ?: return false
+        if (current.status == "done" && completed ||
+            current.status != "done" && !completed) return true
+        val epoch = sessionEpoch
+        return try {
+            val body = JSONObject().put("revision", revision)
+                .put("localStatus", if (completed) "done" else "todo")
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/assignments/$id", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            if (response.code != 200 ||
+                response.json.optJSONObject("item")?.optString("id") != id) {
+                if (response.code in setOf(401, 409)) refreshPrivate()
+                state = state.copy(privateError = when (response.code) {
+                    401 -> "登录状态已过期，请重新连接"
+                    409 -> "任务已被其他设备更新，请刷新后重试"
+                    else -> "微信任务状态更新失败，请重试"
+                })
+                return false
+            }
+            refreshPrivate()
+            val updated = state.tasks.firstOrNull { it.id == id && it.provider == "wechat" }
+            if (state.tasksFresh && updated != null &&
+                (updated.status == "done") == completed) true
+            else {
+                state = state.copy(privateError = "云端可能已更新，但本次刷新未确认，请重新刷新")
+                false
+            }
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch)
+                state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")
+            false
+        }
     }
 
     suspend fun addCloudTask(title: String): Boolean {
