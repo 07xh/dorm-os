@@ -16,10 +16,20 @@ import org.json.JSONObject
  * No campus credentials, HAR, Cookies, GPS tracks, or remote API requests.
  * The schema is deliberately separate from a future trusted school connector.
  */
-class LocalCampusRunStore(context: Context) {
+class LocalCampusRunStore(context: Context, private val scope: String) {
+    init {
+        require(scope == "local" || Regex("^owner_[a-f0-9]{64}$").matches(scope)) {
+            "invalid_campus_run_scope"
+        }
+    }
+    // A second owner's ciphertext has a different key and AEAD binding.
     private val preferences = context.applicationContext.getSharedPreferences(
-        "xiaoxu_campus_run_manual_v1", Context.MODE_PRIVATE
+        "xiaoxu_campus_run_manual_v2", Context.MODE_PRIVATE
     )
+    private val ivKey = "iv_$scope"
+    private val cipherKey = "cipher_$scope"
+    private val associatedData = ("xiaoxu-campus-run-manual-v2|" + scope)
+        .toByteArray(Charsets.UTF_8)
 
     private fun secret(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -39,7 +49,8 @@ class LocalCampusRunStore(context: Context) {
         val snapshot = input.toSnapshot(nowEpochMillis)
         require(snapshot.provenance == CampusRunProvenance.USER_IMPORT)
         val json = JSONObject()
-            .put("schema", "xiaoxu/campus-run-manual-v1")
+            .put("schema", "xiaoxu/campus-run-manual-v2")
+            .put("scope", scope)
             .put("capturedAt", snapshot.capturedAtEpochMillis)
             .put("term", snapshot.termLabel ?: JSONObject.NULL)
             .put("target", snapshot.targetMeters ?: JSONObject.NULL)
@@ -49,33 +60,34 @@ class LocalCampusRunStore(context: Context) {
             .put("weekly", snapshot.weeklyMeters ?: JSONObject.NULL)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secret())
-        cipher.updateAAD(AAD)
+        cipher.updateAAD(associatedData)
         val encrypted = cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
         require(preferences.edit()
-            .putString("iv", Base64.getEncoder().encodeToString(cipher.iv))
-            .putString("cipher", Base64.getEncoder().encodeToString(encrypted))
+            .putString(ivKey, Base64.getEncoder().encodeToString(cipher.iv))
+            .putString(cipherKey, Base64.getEncoder().encodeToString(encrypted))
             .commit()) { "campus_run_local_write_failed" }
         return snapshot
     }
 
     fun load(nowEpochMillis: Long): CampusRunSnapshot? {
-        if (!preferences.contains("cipher")) return null
+        if (!preferences.contains(cipherKey)) return null
         return try {
             val iv = Base64.getDecoder().decode(
-                preferences.getString("iv", null) ?: error("missing_iv")
+                preferences.getString(ivKey, null) ?: error("missing_iv")
             )
             require(iv.size == 12) { "invalid_iv" }
             val encrypted = Base64.getDecoder().decode(
-                preferences.getString("cipher", null) ?: error("missing_cipher")
+                preferences.getString(cipherKey, null) ?: error("missing_cipher")
             )
             require(encrypted.size in 17..4_096) { "invalid_cipher" }
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, secret(), GCMParameterSpec(128, iv))
-            cipher.updateAAD(AAD)
+            cipher.updateAAD(associatedData)
             val plaintext = String(cipher.doFinal(encrypted), Charsets.UTF_8)
             require(plaintext.length <= 2_000) { "oversized_snapshot" }
             val json = JSONObject(plaintext)
-            require(json.getString("schema") == "xiaoxu/campus-run-manual-v1")
+            require(json.getString("schema") == "xiaoxu/campus-run-manual-v2")
+            require(json.getString("scope") == scope)
             fun nullableMeters(name: String): Long? =
                 if (json.isNull(name)) null else {
                     val value = json.get(name)
@@ -106,11 +118,12 @@ class LocalCampusRunStore(context: Context) {
     }
 
     fun clear() {
-        require(preferences.edit().clear().commit()) { "campus_run_local_clear_failed" }
+        require(preferences.edit().remove(ivKey).remove(cipherKey).commit()) {
+            "campus_run_local_clear_failed"
+        }
     }
 
     private companion object {
-        const val KEY_ALIAS = "xiaoxu_campus_run_manual_aes_v1"
-        val AAD = "xiaoxu-campus-run-manual-v1".toByteArray(Charsets.UTF_8)
+        const val KEY_ALIAS = "xiaoxu_campus_run_manual_aes_v2"
     }
 }
