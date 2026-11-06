@@ -337,6 +337,28 @@ assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::cla
 assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
 
 assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+
+const localCatalogParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogEmpty.kt');
+const localReader = read('apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js');
+const secondClassDao = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeSchoolRecords.kt');
+assert.match(secondClassMain, /"catalog_empty"/);
+assert.match(secondClassMain, /catalogRows\.size == 3/);
+assert.match(secondClassMain, /刷新活动广场（学校官方读取）/);
+assert.match(secondClassMain, /当前筛选暂无活动/);
+assert.match(secondClassMain, /上次官方读取/);
+assert.match(secondClassMain, /尚未验证所有正在报名的活动目录/);
+assert.match(localCatalogParser, /parseLocalSecondClassCatalogEmpty\(/);
+assert.match(localCatalogParser, /catalogStatus/);
+assert.match(localCatalogParser, /"verified_empty"/);
+assert.match(localCatalogParser, /catalogEmptyFilters/);
+assert.match(localReader, /includeCatalog = false/);
+assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
+assert.match(localReader, /catalogStatus='nonempty_unverified'/);
+assert.match(localNative, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
+assert.match(localNative, /replaceSecondClassSnapshot\(rows, activities, catalog\)/);
+assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
+assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
+
 assert.match(secondClassMain, /tab != 0 && scores.isNotEmpty\(\) && !attempted/);
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
 assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/);
