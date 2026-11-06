@@ -12,9 +12,11 @@ const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 
-assert.match(strings, /https:\/\/dorm-os-dk9\.pages\.dev\/#dashboard/);
+assert.match(strings, /<string name="app_name">校序<\/string>/);
+assert.doesNotMatch(strings, /<string name="start_url"/, '原生 App 不再使用 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
-assert.match(manifest, /android:name="com\.google\.androidbrowserhelper\.trusted\.LauncherActivity"[\s\S]*?android:exported="false"/);
+assert.doesNotMatch(manifest, /com\.google\.androidbrowserhelper\.trusted\.LauncherActivity/, '原 TWA 启动入口已退役');
+assert.doesNotMatch(appGradle, /com\.google\.androidbrowserhelper:androidbrowserhelper/, '原 TWA 依赖不能回流');
 assert.match(manifest, /android:allowBackup="false"/);
 assert.match(manifest, /android:usesCleartextTraffic="false"/);
 assert.doesNotMatch(manifest, /READ_SMS|READ_CONTACTS|QUERY_ALL_PACKAGES|BIND_ACCESSIBILITY_SERVICE/i);
