@@ -10,7 +10,19 @@
 ## Global constraints
 No new cloud connector, no credentials in JS result/Intent/Room/logs, no fake data, no native HTTP session handoff claim. Failed or cancelled capture preserves old data. Explicit user request authorizes Android build and release; real device checks require an attached owner device.
 
+## 2026-11-06 correction: enforce the approved official-device entry
+
+- [ ] Disable second-class cloud password POST before body parsing or upstream access; the old preflight must never authorize credential entry. Preserve encrypted existing sessions and read-only refresh.
+- [ ] Remove the misleading scan-detection/password UI. Browser entry directs to the existing App official reader without asserting a cloud QR grant.
+- [ ] Make the existing standalone App connection open its official reader directly, then forward only validated successful local-save receipt fields. Keep regular Academic tab browsing unchanged.
+- [ ] Replace tests for the retired password route with denial/no-upstream tests; verify real browser UI, Android compile/JVM checks and independent review. Do not mark cloud QR association or real-device acceptance complete.
+
 ## Review focus
+
+## 2026-11-06 follow-up: return to the initiating App page
+
+- [ ] Extend the existing Android bootstrap contract: a validated onSavedReceipt must set the result before finishing the intermediate Activity; a failed read must not finish it as a success. Observe the missing finish failure, then add the single finish after setSavedReceipt.
+- [ ] Run bootstrap and existing reader checks, request Android compile/JVM tests, review and merge only the focused main patch. Create a separate QA integration branch from #338's exact native-UI snapshot plus verified main and this fix; never overwrite or merge #338. Validate and deliver that APK as QA, with real school authentication and cloud QR linkage still unverified.
 Anonymous aggregate with no identified semester must fail. Mixed accounts fail. Text/plain JSON accepted. Navigation during async read must never save. Confirmed local snapshot must not imply live authorization.
 
 ### Task 1: Fixed same-origin score reader

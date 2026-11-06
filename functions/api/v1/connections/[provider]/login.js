@@ -1,4 +1,5 @@
 import {authorize,json} from '../../assignments.js';
+import {safeCasErrorKind} from '../../../../../lib/academic-cas-failure-evidence.mjs';
 import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,schoolConnectAttemptStatus,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
  e.code==='interactive_login_required'?409:['sync_failed','upstream_unavailable'].includes(e.code)?502:503;
@@ -6,6 +7,11 @@ export async function onRequestPost(context){
  const auth=await authorize(context);if(auth.response)return auth.response;
  if(!checkSchoolMutation(context.request))return json({error:'forbidden_origin_or_format'},403);
  const provider=context.params?.provider;
+ // This retired route must not read a school password or contact CAS.
+ // Second-class authorization belongs to the existing on-device official flow.
+ if(provider==='second_class')return json({
+  error:'second_class_official_authorization_required'
+ },410);
  // Only a registered server-side official adapter may accept credentials.
  // A school CAS round trip is only attempted through the trusted server
  // adapter. The adapter rejects interactive/unsupported challenges and only
@@ -52,6 +58,7 @@ export async function onRequestPost(context){
    ...(secondFailure&&e.failureStage==='cas_return'&&reasons.has(e?.casReturnReason)?
     {casReturnReason:e.casReturnReason}:{}),
    ...(secondFailure&&e.failureStage==='cas_return'&&knownHosts.has(e?.casReturnHost)?
-    {casReturnHost:e.casReturnHost}:{})},responseCode({code}));
+    {casReturnHost:e.casReturnHost}:{}),
+   ...(secondFailure&&safeCasErrorKind(e)?{casErrorKind:safeCasErrorKind(e)}:{})},responseCode({code}));
  }
 }

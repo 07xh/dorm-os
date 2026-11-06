@@ -108,7 +108,8 @@ test('native second-class tabs retain independent scroll and prevent duplicate r
   assert.doesNotMatch(page,/verticalScroll\(rememberScrollState\(\)\)/);
   assert.match(page,/if \(refreshing\) return/);
   assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
-  assert.match(page,/val succeeded = result\.resultCode == Activity\.RESULT_OK/);
+  assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);
+  assert.match(page,/val succeeded = receipt != null/);
   assert.match(page,/refreshing = false/);
   assert.match(page,/enabled = !refreshing/);
   assert.match(page,/onRefreshResult\?\.invoke\(false\)/);

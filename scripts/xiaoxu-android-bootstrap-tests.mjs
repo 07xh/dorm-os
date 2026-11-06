@@ -400,14 +400,22 @@ assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, 
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
-assert.doesNotMatch(secondClassMain, /LaunchedEffect\(|autoAttempted/,
+assert.doesNotMatch(secondClassMain, /LaunchedEffect\((?:scores|section|tab)|autoAttempted/,
  '切换子导航不应自动弹出学校授权窗口');
 assert.match(secondClassMain, /NativeSchoolConnectActivity\.EXTRA_AUTO_SCORE/);
 assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/, '学校官方读取返回结果必须传给调用页');
 const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
 assert.match(secondClassHome, /SecondClassPage\(/);
-assert.match(secondClassHome, /onRefreshResult = \{ success ->/);
-assert.match(secondClassHome, /setResult\(Activity\.RESULT_OK\)/);
+assert.match(secondClassHome, /onSavedReceipt = \{ receipt ->/);
+assert.match(secondClassHome, /onSavedReceipt = \{ receipt ->\s*setSavedReceipt\(receipt\)\s*finish\(\)/,
+  'a validated save must return directly to the initiating page after setting its receipt');
+assert.match(secondClassHome, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
+assert.match(secondClassHome, /EXTRA_SAVED_COUNT, receipt\.savedCount/);
+assert.match(secondClassHome, /connectOnOpen = true/);
+assert.match(secondClassHome, /if \(!success\) setSavedReceipt\(null\)/);
+assert.match(secondClassHome, /savedInstanceState\?\.getInt\(RECEIPT_COUNT, 0\)/);
+assert.match(secondClassHome, /outState\.putInt\(RECEIPT_COUNT, savedReceipt\?\.savedCount \?: 0\)/);
+assert.match(secondClassMain, /SecondClassSaveReceipt\.validate/);
 assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
     'second-class local entry must reuse the main page, not maintain duplicate UI');
 

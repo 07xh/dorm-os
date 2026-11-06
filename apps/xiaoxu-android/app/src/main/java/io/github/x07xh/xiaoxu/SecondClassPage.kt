@@ -2,6 +2,7 @@ package io.github.x07xh.xiaoxu
 
 import android.app.Activity
 import android.content.Intent
+import io.github.x07xh.xiaoxu.data.SecondClassSaveReceipt
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,6 +53,8 @@ import java.util.Date
 @Composable
 fun SecondClassPage(
     onRefreshResult: ((Boolean) -> Unit)? = null,
+    onSavedReceipt: ((SecondClassSaveReceipt) -> Unit)? = null,
+    connectOnOpen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -69,8 +73,11 @@ fun SecondClassPage(
             setOf("报名中", "待验证", "即将开始报名") &&
         catalogRows.map { it.capturedAt }.distinct().size == 1
 
-    var section by rememberSaveable { mutableIntStateOf(0) }
+    var section by rememberSaveable { mutableIntStateOf(if (connectOnOpen) 2 else 0) }
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
+    var attempted by rememberSaveable { mutableStateOf(false) }
+    // Configuration changes must not open a second official reader.
+
     var refreshing by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     // Each section owns its scroll position; switching never jumps to a stale offset.
@@ -80,9 +87,16 @@ fun SecondClassPage(
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result ->
         refreshing = false
-        val succeeded = result.resultCode == Activity.RESULT_OK
+        val receipt = if (result.resultCode == Activity.RESULT_OK) SecondClassSaveReceipt.validate(
+            result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER),
+            result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_RETURN_KIND),
+            result.data?.getIntExtra(NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
+        ) else null
+        val succeeded = receipt != null
         error = if (succeeded) null else "本次未更新，可重新读取"
+
         onRefreshResult?.invoke(succeeded)
+        if (receipt != null) onSavedReceipt?.invoke(receipt)
     }
 
     fun refreshPersonalRecords() {
@@ -105,6 +119,16 @@ fun SecondClassPage(
             context.startActivity(Intent(Intent.ACTION_VIEW,
                 Uri.parse("https://dekt.ncwu.edu.cn/")))
         }.onFailure { error = "无法打开学校官网" }
+    }
+
+    // Only the explicit connection entry opens authorization automatically.
+    // Browsing native sections alone never launches the school reader.
+    LaunchedEffect(connectOnOpen) {
+        if (connectOnOpen && !attempted) {
+            attempted = true
+            refreshPersonalRecords()
+        }
+
     }
 
     Column(modifier.fillMaxSize()) {

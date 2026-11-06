@@ -8,6 +8,7 @@ import {
  schoolSessionStates,SchoolLoginError
 } from '../lib/academic-school-login.mjs';
 import {onRequestPost as loginPost} from '../functions/api/v1/connections/[provider]/login.js';
+import {onRequestGet as loginPreflight} from '../functions/api/v1/connections/[provider]/preflight.js';
 globalThis.crypto??=webcrypto;
 const random=webcrypto.getRandomValues(new Uint8Array(32));
 const secret=Buffer.from(random).toString('base64url');
@@ -26,6 +27,16 @@ assert.equal(new SchoolLoginError('authorization_failed','personal_data','cas_se
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','cas_server_failure','cas_auth_server').casReturnHost,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);
+const casKinds=['flow_execution_marker','crypto_marker','flow_and_crypto_markers'];
+for(const kind of casKinds)
+ assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure','cas_auth_server',kind).casErrorKind,kind);
+for(const args of [
+ ['authorization_failed','personal_data','cas_server_failure','cas_auth_server','crypto_marker'],
+ ['authorization_failed','cas_return','cas_request_rejected','cas_auth_server','crypto_marker'],
+ ['authorization_failed','cas_return','cas_server_failure','second_class_callback','crypto_marker'],
+ ['authorization_failed','cas_return','cas_server_failure','cas_auth_server','PRIVATE_HTML'],
+ ['invalid_credentials','cas_return','cas_server_failure','cas_auth_server','crypto_marker']
+])assert.equal(new SchoolLoginError(...args).casErrorKind,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
 assert.equal(new SchoolLoginError('authorization_failed','identity_evidence').failureStage,'identity_evidence');
 assert.equal(new SchoolLoginError('authorization_failed','custom_details').failureStage,undefined);
@@ -43,7 +54,7 @@ assert.equal(denied.status,503);
 assert.ok(!JSON.stringify(await denied.json()).includes('password'));
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
-for(const name of ['0001_academic_core.sql','0011_academic_provider_sessions.sql'])
+for(const name of ['0001_academic_core.sql','0010_academic_owner_auth.sql','0011_academic_provider_sessions.sql'])
  sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 sqlite.prepare('INSERT INTO academic_users(id,created_at) VALUES (?,?)')
  .run('owner-a',new Date().toISOString());
@@ -103,6 +114,46 @@ await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
  e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&
  e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained'&&
  e.casReturnHost==='cas_auth_server');
+
+// Exercise the real authenticated route and session-vault wrapper. All
+// tokens, school responses and accounts below are synthetic and local.
+const ownerToken='A'.repeat(43),ownerAt=new Date().toISOString();
+const tokenHash=Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode(ownerToken))).toString('hex');
+sqlite.prepare('INSERT INTO academic_auth_identities(id,user_id,login_identifier,enrolled_at) VALUES (?,?,?,?)')
+ .run('synthetic-identity','owner-a','synthetic-owner',ownerAt);
+sqlite.prepare('INSERT INTO academic_auth_sessions(id,identity_id,token_hash,created_at,expires_at) VALUES (?,?,?,?,?)')
+ .run('synthetic-session','synthetic-identity',tokenHash,ownerAt,new Date(Date.now()+3600000).toISOString());
+// No request body or adapter may be touched by an old cached client.
+const retiredRequest=new Request('https://site.example/api/v1/connections/second_class/login',{
+ method:'POST',headers:{origin:'https://site.example','content-type':'application/json',
+  cookie:'__Host-xiaoxu_session='+ownerToken},body:'SYNTHETIC_CREDENTIALS_NEVER_READ'
+});
+retiredRequest.text=async()=>{assert.fail('retired route must not read credentials');};
+let retiredCalls=0;
+const retiredResponse=await loginPost({params:{provider:'second_class'},
+ env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password',SCHOOL_SESSION_KEY:secret},
+ data:{academicSchoolAdapters:{second_class:{...phaseFailureAdapter,
+  async login(){retiredCalls++;throw Error('must not contact school');}
+ }}},request:retiredRequest});
+assert.equal(retiredResponse.status,410);
+assert.match(retiredResponse.headers.get('cache-control'),/no-store/);
+assert.deepEqual(await retiredResponse.json(),{error:'second_class_official_authorization_required'});
+assert.equal(retiredCalls,0);
+const retiredPreflight=await loginPreflight({params:{provider:'second_class'},
+ env:{ACADEMIC_DB:db,ACADEMIC_AUTH_MODE:'owner_password'},
+ data:{academicSchoolAdapters:{second_class:{preflight:async()=>{
+  assert.fail('official-device entry must not probe the old cloud password flow');
+ }}}},request:new Request('https://site.example/api/v1/connections/second_class/preflight',{
+  headers:{cookie:'__Host-xiaoxu_session='+ownerToken}
+ })});
+assert.equal(retiredPreflight.status,200);
+assert.deepEqual(await retiredPreflight.json(),{
+ status:'official_app_required',loginSupported:false,nativeLoginReady:false,
+ officialLoginUrl:'https://dekt.ncwu.edu.cn/',qrSessionLinked:false,
+ schoolAuthorized:false,automaticSync:false
+});
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE provider=?').get('second_class').n,0);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_auth_login_attempts').get().n,0);
 
 result=await connectSchoolAccount({db,userId:'owner-a',provider:'ncwu',adapter,
  username:'official-student-account',password:'ephemeral-school-password',secret,
