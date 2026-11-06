@@ -452,7 +452,7 @@ private fun HomeCourseList(
 private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
     val courseColor = xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = XiaoxuSpacing.listRowMin)
             .clickable(onClickLabel = "查看课程详情", onClick = onOpen)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

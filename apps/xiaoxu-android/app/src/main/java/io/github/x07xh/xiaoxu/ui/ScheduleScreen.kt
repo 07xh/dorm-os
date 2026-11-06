@@ -1079,7 +1079,7 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth()) {
             Box(
-                Modifier.width(4.dp).heightIn(min = 76.dp)
+                Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
                     .background(courseColor.accent)
             )
             Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {

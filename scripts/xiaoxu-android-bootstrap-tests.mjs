@@ -1284,6 +1284,12 @@ assert.match(homeQuickEntry, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
 assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
+const homeRowSource = workspace.slice(workspace.indexOf('private fun HomeCourseRecordRow('),
+    workspace.indexOf('/** 两张统计卡', workspace.indexOf('private fun HomeCourseRecordRow(')));
+assert.match(homeRowSource, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '首页课程行与消息及任务列表使用一致的最小触控高度');
+assert.match(schedulePanel, /Modifier\.width\(4\.dp\)\.heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
+  '课表课程色条沿用既有高度并复用设计系统，课程颜色不改变');
 assert.ok(workspace.includes('HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })'),
   '课程行点击复用原详情');
 assert.ok(workspace.includes('homeCoursePreview(lessons).forEachIndexed'),
