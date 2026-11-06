@@ -18,6 +18,12 @@ android {
         targetSdk 35
         versionCode 31
         versionName '0.8.10'
+        // Normal application identity remains unchanged. Only explicit QA builds
+        // use their own app data and authorization-return host.
+        manifestPlaceholders = [
+            qaAppLabel: '@string/app_name',
+            schoolAuthHost: 'school-auth-return'
+        ]
     }
 
     compileOptions {
@@ -31,6 +37,14 @@ android {
         compose true
     }
     buildTypes {
+        debug {
+            if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
+                applicationIdSuffix '.timetableqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 联合验收'
+                // Never intercept the installed app's school authorization deep link.
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-timetable-qa'
+            }
+        }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
         // 装不上设备也就不会被误当正式产物分发；只有显式传 -PxiaoxuPerfRelease=true
         // 时才复用 debug 签名，用于在本机测量 R8 包的真实表现。
