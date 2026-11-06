@@ -690,7 +690,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     onClick()
                 }
             )
-            .heightIn(min = 84.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .padding(14.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = buildString {
