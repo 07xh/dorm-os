@@ -107,6 +107,9 @@ assert.match(workspace, /openLocalSchool\("chaoxing"\)/);
 assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
 assert.match(workspace, /fun combineWorkspaceTasks\(/);
 assert.match(workspace, /fun RealAcademicHome\(/);
+assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|private val WorkspaceBlue\b/,
+  '已废弃的首页展示卡片和专用颜色不得回流');
+assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
 assert.match(workspace, /CloudTasksPanel\(client\)/);
