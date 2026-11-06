@@ -1302,8 +1302,10 @@ assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
   '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
-assert.match(messageCenter, /Text\("微信审核" \+/,
-  '微信审核标签可以附真实数量，但入口归属必须仍在消息中心');
+assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
+  '微信审核标签仍由真实候选计数生成');
+assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
+  '微信候选入口必须留在消息中心的唯一来源选择器');
 assert.match(messageCenter, /WechatReviewPanel\(/,
   '已保存候选只允许从消息中心审核');
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
@@ -1515,8 +1517,10 @@ assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
   '系统返回键也必须关闭消息页并恢复原一级页');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
   '页面状态跨导航保留');
-assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
-  '消息分官方通知与微信审核');
+assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
+  '消息来源采用共享玻璃分段控件');
+assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
+  '仍须保留官方通知来源');
 assert.match(messageCenter, /sourceTab == MSG_FILTER_WECHAT/, '区分微信与官方来源');
 assert.match(messageCenter, /onBack: \(\(\) -> Unit\)\? = null/,
   '消息提供返回回调');
