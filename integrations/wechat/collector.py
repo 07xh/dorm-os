@@ -5,7 +5,7 @@
 首次运行需在校序网站显式绑定电脑并选择微信群；消息筛选为保守规则，
 不代表 AI 准确理解，更不代表官方学校作业状态。
 
-运行环境：Python 3.12，微信工具的 tool/deps_x64/deps 已在 PYTHONPATH。
+运行环境：Python 3.12 虚拟环境，PYTHONPATH 仅包含微信工具 tool。
 """
 from __future__ import annotations
 
@@ -135,6 +135,25 @@ def fingerprint(secret: bytes, *parts: object) -> str:
     return base64.urlsafe_b64encode(hmac.new(secret, value, hashlib.sha256).digest()).rstrip(b"=").decode("ascii")
 
 
+def contract_text(value: str, max_units: int) -> str:
+    """Match the Cloudflare JS contract's UTF-16 unit limit, not Python len().
+
+    JavaScript counts emoji and other non-BMP glyphs as two string units.
+    Do not retain C0 control characters rejected by the server.
+    """
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    remaining = max_units
+    output = []
+    for char in value:
+        units = 2 if ord(char) > 0xFFFF else 1
+        if units > remaining:
+            break
+        output.append(char)
+        remaining -= units
+    return "".join(output).strip()
+
+
 def due_date(text: str, sent_ts: int) -> dict:
     sent = datetime.fromtimestamp(sent_ts, CHINA).date()
     for regex in (DAY_ISO, DAY_SHORT):
@@ -176,7 +195,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
         kind = "activity"
     else:
         kind = "homework"
-    return {"kind": kind, "title": cleaned[:120], "deadline": due_date(text, sent_ts)}
+    return {"kind": kind, "title": contract_text(cleaned, 120), "deadline": due_date(text, sent_ts)}
 
 
 def extract_groups(config: dict, secret: bytes, cursors: dict, *,
@@ -239,7 +258,7 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
             candidate_key = fingerprint(secret, "candidate", msg_key, 0)
             candidates.append({
                 "messageKey": msg_key, "candidateKey": candidate_key,
-                "chatKey": group_key, "chatLabel": chat,
+                "chatKey": group_key, "chatLabel": contract_text(chat, 80),
                 "kind": task["kind"], "title": task["title"],
                 "sentAt": datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "deadline": task["deadline"],
@@ -293,6 +312,21 @@ def submit(site: str, token: str, payload: dict) -> dict:
             pass
         if code in known:
             raise BridgeError(f"云端拒绝批次（HTTP {exc.code}，{code}）：{known[code]}") from None
+        if exc.code == 422:
+            # Never show raw server content; only expose allowlisted schema codes.
+            schema_errors = {
+                "batch_invalid", "schema_unsupported", "device_id_invalid",
+                "batch_id_invalid", "captured_at_invalid", "batch_size_invalid",
+                "record_invalid", "message_key_invalid", "candidate_key_invalid",
+                "chat_key_invalid", "duplicate_candidate", "kind_invalid",
+                "title_invalid", "chat_label_invalid", "excerpt_invalid",
+                "sent_at_invalid", "sent_at_future", "deadline_invalid",
+            }
+            detail = code if code in schema_errors else "unknown_schema_error"
+            raise BridgeError(
+                f"云端字段校验失败（HTTP 422，{detail}）；"
+                "保留原同步进度，请更新采集器后再试。"
+            ) from None
         if exc.code == 403:
             raise BridgeError("云端拒绝批次（HTTP 403，非校序已知错误）；可能是网络或 Cloudflare 安全检查。无需重配群聊。") from None
         raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查设备授权或云端服务。") from None
