@@ -1,0 +1,8 @@
+校序 Android 0.8.9 (versionCode 30) 首页 V2 课程切换与窄屏快捷入口构建请求
+唯一真实数据：首页课程来自本机导入 localLessons，按星期展示课程课块；不推算学期教学周、当前节次、学校提交状态。
+单张 Hero 主卡保留原版视觉，同时可逐条查看该星期的全部课块；选择课程后继续复用课表的真实课程详情底部抽屉。
+窄屏（<420dp）学业服务为 2×2，宽屏为四等分；路由保持成绩/考试/第二课堂/学习通原生入口。
+新增 HomeCourseSequenceTest 覆盖空列表、多课程、重新导入后已删除课程回退；不更动 Room、CloudClient、其他平台会话。
+PR 触发原有 Build Xiaoxu Android Alpha：静态安全检查、真实 Gradle :app:assembleDebug + :app:testDebugUnitTest、APK ZIP/DEX/Manifest 与 SHA256。
+只有 PR CI + Android 编译成功才可合并 main；main 再触发最终安装包并核查准确提交 SHA。
+Debug APK 并非正式签名发行版，不代表 Android 16 真机视觉及本人官方数据已经核验；更新失败时不可未经备份卸载旧版。
