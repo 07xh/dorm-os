@@ -81,79 +81,47 @@ private fun connectionStatusLabel(connection: PlatformConnection?): String = whe
     else -> "未连接本人学校账号"
 }
 
-/** Existing first-party API; school sessions are not transferred to Android. */
+/**
+ * Cloud task creation only. The canonical saved-task list and its freshness/source
+ * badges are rendered exactly once by RealAcademicTaskHub, never duplicated here.
+ * This editor does not infer school homework submission or change the owner session.
+ */
 @Composable
-fun CloudTasksPanel(client: CloudClient) {
+fun CloudTaskEditor(client: CloudClient) {
     val state = client.state
     val scope = rememberCoroutineScope()
     var title by rememberSaveable { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("校序云端任务", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
+    XiaoxuCard {
+        Text("新增校序云端任务", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink)
         if (!state.authenticated) {
-            Text("连接校序云端后显示已有任务。本机任务不受影响。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("云端未连接。请在「我的 → 数据连接」授权后新增；本机待办不受影响。",
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         } else {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it.take(120) },
-                        label = { Text("新增云端任务") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Button(
-                        enabled = title.isNotBlank() && !state.busy,
-                        onClick = {
-                            val value = title
-                            scope.launch { if (client.addCloudTask(value)) title = "" }
-                        }
-                    ) { Text("保存至云端") }
-                }
-            }
-            if (!state.tasksFresh) {
-                Text("本次任务列表未能核验最新结果；下方若有记录，仅为旧快照。",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
-            }
-            if (state.tasks.isEmpty() && state.tasksFresh) {
-                Text("当前云端任务列表为空（已完成本次读取）。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            state.tasks.take(50).forEach { task ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(task.title, fontWeight = FontWeight.Medium)
-                        val source = when (task.provider) {
-                            "chaoxing" -> "学习通来源（不代表已核验完成状态）"
-                            "ncwu" -> "青果来源"
-                            "second_class" -> "第二课堂来源"
-                            else -> "校序个人任务"
-                        }
-                        Text(source + " · " + when (task.status) {
-                            "done" -> "个人标记已完成"
-                            "in_progress" -> "进行中"
-                            else -> "待办"
-                        }, style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (!task.due.isNullOrBlank()) {
-                            Text("截止：" + task.due,
-                                style = MaterialTheme.typography.labelMedium)
-                        }
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it.take(120) },
+                label = { Text("任务标题") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                enabled = title.isNotBlank() && !state.busy,
+                onClick = {
+                    val value = title.trim()
+                    if (value.isNotEmpty()) {
+                        scope.launch { if (client.addCloudTask(value)) title = "" }
                     }
-                }
-            }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("保存至云端") }
         }
         if (state.privateError != null) {
-            Text(state.privateError, color = MaterialTheme.colorScheme.error)
+            Text(state.privateError, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error)
         }
-        Text("本机任务与云端任务分开显示，不自动合并，避免重复或误覆盖。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("保存后的任务显示在上方统一任务列表；个人完成标记不等于学校已提交。",
+            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
     }
 }
 

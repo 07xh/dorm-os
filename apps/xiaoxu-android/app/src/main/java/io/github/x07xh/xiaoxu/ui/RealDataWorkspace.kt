@@ -931,11 +931,11 @@ fun RealAcademicTaskHub(
                 OutlinedButton(
                     onClick = { showCloud = !showCloud; if (showCloud) jumpTo = "cloud" },
                     modifier = Modifier.weight(1f)
-                ) { Text(if (showCloud) "收起云端管理" else "云端任务管理") }
+                ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
             }
         }
-        if (showLocal) item { LocalTaskBoard(localTasks, dao) }
-        if (showCloud) item { CloudTasksPanel(client) }
+        if (showLocal) item { LocalTaskEditor(localTasks, dao) }
+        if (showCloud) item { CloudTaskEditor(client) }
         item {
             Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
                 style = MaterialTheme.typography.labelSmall,
@@ -1333,7 +1333,7 @@ internal fun WorkspaceTaskDetailSheet(
         OutlinedButton(onClick = onManage,
             modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
             Text(if (selectedTask.storage == "local")
-                "打开本机任务管理" else "打开云端任务管理")
+                "打开本机任务管理" else "新增云端任务")
         }
     }
 }

@@ -111,8 +111,26 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskBoard\(localTasks, dao\)/);
-assert.match(workspace, /CloudTasksPanel\(client\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+
+const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(localEditorSource, /fun LocalTaskEditor\(/);
+assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
+assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
+  '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
+assert.match(localEditorSource, /dao\.setCompleted\(task\.id, checked\)/,
+  '本机任务完成/取消完成操作不能丢失');
+assert.match(localEditorSource, /dao\.remove\(task\.id\)/,
+  '本机删除确认功能不能丢失');
+assert.match(localEditorSource, /LocalDeadlineReminders\.setEnabled\(/,
+  '本机截止提醒的明确授权开关不能丢失');
+assert.match(workspace, /CloudTaskEditor\(client\)/);
+assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
+assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
+assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
+  '退役的嵌套云端任务列表不应重新出现在管理面板');
+assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
+  '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
 assert.match(workspace, /未核定当前教学周/, '未知教学周不得虚构今日真实课程');
@@ -150,8 +168,10 @@ assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh =
 assert.match(cloud, /tasksFresh = tasks != null/);
 assert.match(cloud, /!fresh -> "云端任务清单刷新失败/, '批量核验必须披露任务清单刷新失败');
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
-assert.match(panels, /if \(!state\.tasksFresh\)/);
-assert.match(panels, /本次任务列表未能核验最新结果/);
+assert.match(workspace, /!state\.tasksFresh && state\.tasks\.isNotEmpty\(\)/,
+  '云端任务快照新鲜度必须由统一任务中心说明');
+assert.match(workspace, /含上次云端快照/,
+  '旧快照提醒不可因删除嵌套列表而消失');
 assert.match(panels, /client\.syncChaoxingAllCourses\(\)/);
 assert.match(panels, /platform\?\.verified == true && !state\.chaoxingBusy/);
 assert.match(panels, /一键核验全部课程作业/);
@@ -1104,7 +1124,7 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.ok(workspace.includes('if (showLocal) item { LocalTaskBoard(localTasks, dao) }'),
+assert.ok(workspace.includes('if (showLocal) item { LocalTaskEditor(localTasks, dao) }'),
   '本机任务仍用实际 Room 管理器，非假按钮');
 assert.ok(workspace.includes('TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })'),
   '本机任务仍从真实 Row 数据打开详情');
