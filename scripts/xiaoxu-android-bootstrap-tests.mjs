@@ -1471,6 +1471,19 @@ assert.match(main, /academic != AcademicDestination\.OVERVIEW/,
   '所有教务详情统一支持系统返回至总览');
 assert.match(main, /fun AcademicActionRow\(/,
   '教务入口必须使用连续可点击操作行');
+assert.match(main, /AcademicDestination\.OVERVIEW -> Content\(topPadding = 6\.dp\)/,
+  '教务总览须收紧标题和内容之间的空白');
+const academicOverviewSource = main.slice(
+    main.indexOf('AcademicDestination.OVERVIEW -> Content('),
+    main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
+);
+assert.match(academicOverviewSource, /XiaoxuGroupedSection\s*\{/,
+  '四个教务入口只能使用一层连续玻璃分组');
+assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
+  '教务连续分组内部不能再套第二层方形卡片');
+assert.doesNotMatch(academicOverviewSource, /"未读取"/,
+  '教务总览只做导航，未核验状态留在真实详情页');
+
 assert.match(main, /AcademicActionRow\("第二课堂"/,
   '真实第二课堂必须保留直接可达入口');
 assert.match(main, /CampusRunPanel\(cloud\)/,
