@@ -308,7 +308,7 @@ fun FloatingBottomBar(
                     }
                     .width(cellWidthDp)
                     .fillMaxHeight()
-                    .padding(IndicatorInset)
+                    .padding(horizontal = IndicatorInset, vertical = if (useNorthGlass) 8.dp else IndicatorInset)
                     .then(
                         if (useNorthGlass && backdrop != null) {
                             Modifier.northGlassIndicator(backdrop) { drag.pressProgress }
