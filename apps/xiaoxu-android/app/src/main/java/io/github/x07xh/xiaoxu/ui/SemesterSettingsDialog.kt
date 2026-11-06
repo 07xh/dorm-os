@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -55,6 +56,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.temporal.TemporalAdjusters
+import java.time.format.DateTimeFormatter
 
 /*
  * Settings and course detail follow the supplied timetable reference.
@@ -183,7 +185,8 @@ internal fun SemesterSettingsDialog(
                 SettingsActionRow(
                     title = "第一周开始日期",
                     subtitle = "按所选日期所在周的周一计算周次",
-                    value = monday.takeIf { it.isNotBlank() } ?: "选择日期",
+                    value = runCatching { LocalDate.parse(monday).format(DateTimeFormatter.ofPattern("yyyy年M月d日")) }
+                        .getOrNull() ?: "选择日期",
                     icon = "date",
                     onClick = {
                         val date = runCatching { LocalDate.parse(monday) }.getOrNull()
@@ -343,8 +346,8 @@ private fun SettingsActionRow(
                     .background(if (icon == "date") Color(0xFF1688F4) else Color(0xFFFFA317)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.DateRange, contentDescription = null,
-                    modifier = Modifier.size(22.dp), tint = Color.White)
+                Icon(if (icon == "date") Icons.Outlined.DateRange else Icons.Outlined.Schedule,
+                    contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
             }
             Spacer(Modifier.width(12.dp))
         }
