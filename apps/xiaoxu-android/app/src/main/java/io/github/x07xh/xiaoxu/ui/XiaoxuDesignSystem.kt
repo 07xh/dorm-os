@@ -1,5 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,7 +92,14 @@ object XiaoxuPalette {
         listOf(Color(0xFFF0F6FF), Color(0xFFF4F2FC), Color(0xFFF7F3FD))
     )
 
-    /** 卡片 */
+    /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
+    val GlassCard = Color.White.copy(alpha = 0.88f)
+    val GlassBorder = Color.White.copy(alpha = 0.78f)
+    val GlassTrack = Color.White.copy(alpha = 0.48f)
+    val GlassIndicator = Color.White.copy(alpha = 0.54f)
+    val SheetSurface = Color(0xFFF9FAFF)
+
+    /** 不改变课程颜色，统一其他页面的基础材质。 */
     val Surface = Color(0xFFFFFFFF)
 
     /** 次级面（分组底、未核验底） */
@@ -116,11 +127,11 @@ object XiaoxuPalette {
     val NeutralSoft = Color(0xFFF1F4FA)
 }
 
-/** 圆角：18dp 基础卡，22dp 重要卡（Hero / 抽屉顶角）。 */
+/** 参考北化的大圆角几何，全 App 同源，不为各页面另建 CardShape。 */
 object XiaoxuRadius {
-    val card: Dp = 18.dp
-    val hero: Dp = 22.dp
-    val tile: Dp = 14.dp
+    val card: Dp = 24.dp
+    val hero: Dp = 28.dp
+    val tile: Dp = 16.dp
     val pill: Dp = 999.dp
 }
 
@@ -263,7 +274,7 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
 fun XiaoxuCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(XiaoxuRadius.card),
-    container: Color = XiaoxuPalette.Surface,
+    container: Color = XiaoxuPalette.GlassCard,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
@@ -271,10 +282,11 @@ fun XiaoxuCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, shape, clip = false)
+            .shadow(0.5.dp, shape, clip = false)
             .clip(shape)
             .background(container)
-            .border(1.dp, XiaoxuPalette.Line, shape)
+            .border(0.75.dp, if (container == XiaoxuPalette.GlassCard)
+                XiaoxuPalette.GlassBorder else XiaoxuPalette.Line, shape)
             .then(
                 if (onClick != null) {
                     Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
@@ -284,6 +296,73 @@ fun XiaoxuCard(
         verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.gap),
         content = content
     )
+}
+
+/** 同一个分段选择器供课表设置、二课、成绩与任务筛选使用；不持有业务状态。 */
+data class XiaoxuSegmentOption(val key: String, val label: String)
+
+@Composable
+fun XiaoxuSegmentedControl(
+    options: List<XiaoxuSegmentOption>,
+    selectedKey: String,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (options.isEmpty()) return
+    val track = RoundedCornerShape(999.dp)
+    Row(
+        modifier = modifier.fillMaxWidth().clip(track)
+            .background(XiaoxuPalette.GlassTrack)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, track)
+            .padding(4.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        options.forEach { option ->
+            val selected = selectedKey == option.key
+            val itemShape = RoundedCornerShape(999.dp)
+            val itemColor = animateColorAsState(
+                targetValue = if (selected) XiaoxuPalette.GlassIndicator else Color.Transparent,
+                animationSpec = tween(180), label = "xiaoxu-segment-bg"
+            ).value
+            val inkColor = animateColorAsState(
+                targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
+                animationSpec = tween(180), label = "xiaoxu-segment-text"
+            ).value
+            Box(
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                    .clip(itemShape).background(itemColor)
+                    .then(if (selected) Modifier.border(0.75.dp, XiaoxuPalette.GlassBorder, itemShape)
+                        else Modifier)
+                    .selectable(selected = selected, role = Role.Tab,
+                        onClick = { if (!selected) onSelected(option.key) }),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(option.label, style = MaterialTheme.typography.titleSmall,
+                    color = inkColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** 连续分组设置：只管理展示与布局，业务回调仍属于对应页面。 */
+@Composable
+fun XiaoxuGroupedSection(
+    title: String? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!title.isNullOrBlank()) {
+            Text(title, style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(start = 14.dp))
+        }
+        val sectionShape = RoundedCornerShape(XiaoxuRadius.card)
+        Column(Modifier.fillMaxWidth().clip(sectionShape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, sectionShape)
+            .padding(vertical = 4.dp), content = content)
+    }
 }
 
 /**
@@ -599,7 +678,9 @@ fun XiaoxuSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = XiaoxuPalette.Surface
+        shape = RoundedCornerShape(topStart = XiaoxuRadius.hero, topEnd = XiaoxuRadius.hero),
+        scrimColor = Color(0xFF23354F).copy(alpha = 0.22f),
+        containerColor = XiaoxuPalette.SheetSurface
     ) {
         Column(
             modifier = Modifier
