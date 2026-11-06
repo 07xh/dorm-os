@@ -859,7 +859,8 @@ private fun AcademicPage(
     select: (AcademicDestination) -> Unit,
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
-    cloud: CloudClient
+    cloud: CloudClient,
+    onMessages: () -> Unit
 ) {
     val visibleTabs = listOf(
         AcademicDestination.OVERVIEW to "总览",
@@ -868,67 +869,142 @@ private fun AcademicPage(
         AcademicDestination.SECOND_CLASS to "第二课堂"
     )
     val tabStateHolder = rememberSaveableStateHolder()
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp)) {
+            CompactPageHeading(title = "教务", onMessages = onMessages)
+        }
         if (selected != AcademicDestination.SERVICES) {
-            ScrollableTabRow(
-                selectedTabIndex = visibleTabs.indexOfFirst { it.first == selected },
-                edgePadding = 0.dp
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(XiaoxuPalette.Surface)
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                visibleTabs.forEach { (destination, title) ->
-                    Tab(selected = selected == destination, onClick = { select(destination) },
-                        text = { Text(title) })
+                visibleTabs.forEach { (destination, label) ->
+                    Box(
+                        modifier = Modifier.weight(1f)
+                            .heightIn(min = 44.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selected == destination) XiaoxuPalette.BrandSoft
+                                else Color.Transparent)
+                            .clickable(onClick = { select(destination) }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (selected == destination) XiaoxuPalette.BrandDeep
+                                else XiaoxuPalette.Ink2,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
         when (selected) {
             AcademicDestination.OVERVIEW -> Content {
-                item { Heading("教务中心", "学业与学校服务 · 真实数据") }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        QuickEntry("成绩查询", Icons.Outlined.School,
-                            { select(AcademicDestination.GRADES) }, Modifier.weight(1f))
-                        QuickEntry("考试安排", Icons.Outlined.DateRange,
-                            { select(AcademicDestination.EXAMS) }, Modifier.weight(1f))
+                    XiaoxuCard(contentPadding = 0.dp) {
+                        Column {
+                            AcademicActionRow("成绩", Icons.Outlined.School, "待连接",
+                                onClick = { select(AcademicDestination.GRADES) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("考试", Icons.Outlined.DateRange, "待连接",
+                                onClick = { select(AcademicDestination.EXAMS) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle,
+                                onClick = { select(AcademicDestination.SECOND_CLASS) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("校园服务", Icons.Outlined.Home,
+                                onClick = { select(AcademicDestination.SERVICES) })
+                        }
                     }
                 }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle,
-                            { select(AcademicDestination.SECOND_CLASS) }, Modifier.weight(1f))
-                        QuickEntry("校园服务", Icons.Outlined.Home,
-                            { select(AcademicDestination.SERVICES) }, Modifier.weight(1f))
-                    }
-                }
-                item {
-                    Text("成绩、考试未读取前仅展示连接状态；第二课堂沿用本人本机积分与活动记录。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
-            AcademicDestination.SECOND_CLASS -> tabStateHolder.SaveableStateProvider("second_class") {
-                SecondClassPage()
-            }
+            AcademicDestination.SECOND_CLASS ->
+                tabStateHolder.SaveableStateProvider("second_class") {
+                    SecondClassPage()
+                }
             AcademicDestination.GRADES -> Content {
-                item { Heading("成绩", "青果教务云端读取 · 与本机课表独立") }
                 item {
-                    Text("成绩接口尚未完成本人真实数据验收，当前不会展示模拟成绩。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    XiaoxuCard {
+                        Text("成绩尚未读取", style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink)
+                        TextButton(onClick = openProfile) { Text("连接青果教务") }
+                    }
                 }
-                item { TextButton(onClick = openProfile) { Text("查看青果教务连接") } }
             }
             AcademicDestination.EXAMS -> Content {
-                item { Heading("考试", "尚未连接可验证的本人考试数据") }
-                item { TextButton(onClick = openProfile) { Text("查看数据连接") } }
+                item {
+                    XiaoxuCard {
+                        Text("考试安排尚未读取", style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink)
+                        TextButton(onClick = openProfile) { Text("查看数据连接") }
+                    }
+                }
             }
             AcademicDestination.SERVICES -> Content {
-                item { TextButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                    Text("返回教务总览")
-                } }
-                item { Heading("校园服务", "学校数据连接与服务") }
+                item {
+                    TextButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                        Text("返回教务")
+                    }
+                }
                 item { CampusRunPanel(cloud) }
-                item { TextButton(onClick = openProfile) { Text("管理数据连接") } }
-                item { TextButton(onClick = openWebsite) { Text("打开校序网站") } }
+                item {
+                    XiaoxuCard(contentPadding = 0.dp) {
+                        Column {
+                            AcademicActionRow("数据连接", Icons.Outlined.School,
+                                onClick = openProfile)
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                            AcademicActionRow("打开校序网站", Icons.Outlined.Home,
+                                onClick = openWebsite)
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AcademicActionRow(
+    title: String,
+    icon: ImageVector,
+    status: String? = null,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(34.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(XiaoxuPalette.BrandSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null,
+                tint = XiaoxuPalette.BrandDeep, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+        if (status != null) {
+            Text(status, style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink3)
+            Spacer(Modifier.width(7.dp))
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
     }
 }
