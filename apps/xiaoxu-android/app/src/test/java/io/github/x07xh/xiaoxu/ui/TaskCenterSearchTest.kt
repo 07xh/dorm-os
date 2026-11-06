@@ -1,5 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.data.CloudTask
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -53,6 +54,32 @@ class TaskCenterSearchTest {
         // Completed items must not appear in the this-week deadline subset.
         assertTrue(facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
             "all", true, today).isEmpty())
+    }
+
+    @Test
+    fun approvedWechatTasksStayInSeparateGroupWhileUsingExistingCloudStorage() {
+        val cloud = listOf(
+            CloudTask("wx-accepted", "群通知实验任务", "todo", "manual", "wechat", "2026-11-08"),
+            CloudTask("course-1", "课程待办", "todo", "manual", "chaoxing", null),
+            CloudTask("manual-1", "普通云端待办", "done", "manual", null, null)
+        )
+        val combined = combineWorkspaceTasks(emptyList(), cloud)
+        assertEquals(3, combined.size)
+        val wechat = combined.single { it.key == "cloud:wx-accepted" }
+        assertEquals("wechat", wechat.category)
+        assertEquals("cloud", wechat.storage)
+        assertEquals("微信任务", wechat.origin)
+        assertEquals(listOf("cloud:wx-accepted"),
+            facetWorkspaceTasks(combined, "wechat", false, today).map { it.key })
+        assertEquals(setOf("cloud:course-1", "cloud:manual-1"),
+            facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
+        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
+        assertEquals(listOf("cloud:wx-accepted"),
+            facetWorkspaceTasks(
+                searchWorkspaceTasks(combined, "pending", "", today),
+                "wechat", true, today
+            ).map { it.key })
     }
 
     @Test
