@@ -1749,13 +1749,16 @@ private fun TaskRow(
                 textDecoration = if (task.done) TextDecoration.LineThrough else null,
                 color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
-            Text(
-                task.origin,
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // 微信任务已在独立分组，列表行不重复显示来源小字。
+            if (task.category != "wechat") {
+                Text(
+                    task.origin,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
