@@ -5,6 +5,7 @@ const file = name => readFileSync(name, 'utf8');
 const main = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
 const screen = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 const store = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
+const localReminders = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalCourseReminders.kt');
 const ics = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/IcsTimetableParser.kt');
 const test = file('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/data/IcsTimetableParserTest.kt');
 
@@ -41,6 +42,9 @@ assert.match(main, /已保存 \$count 个课块，但提醒维护失败/,
   '若课表保存成功但通知维护失败，必须提供准确反馈');
 assert.match(screen, /LocalCourseReminders\.reconcileAfterSave\(/,
   '手动添加或单周编辑成功也不能被提醒调度错误掩盖');
+assert.match(localReminders, /fun reconcileAfterSave\(/);
+assert.match(localReminders, /runCatching\s*\{\s*reconcile\(context, lessons, calendar\)\s*\}/,
+  '提醒错误必须被独立捕获，不得回滚已经持久化的课程');
 assert.match(main, /localScheduleReadSerial\+\+/);
 assert.match(main, /localLessons = savedLessons/);
 assert.match(main, /课表数量减少，请核对/);
