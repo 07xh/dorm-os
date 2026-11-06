@@ -1193,6 +1193,21 @@ assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
   '首页任务中心勾选必须真实更新本机 Room 状态');
 assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
   '云端任务不可复用本机完成操作或假装已提交到学校');
+assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
+  '微信审核任务必须复用本人云端任务写接口而不是只读装饰勾选框');
+assert.match(cloud, /it\.provider == "wechat" && it\.revision == revision/,
+  '仅后端审核已确认微信来源、且版本匹配的任务允许个人勾选');
+assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "PATCH", body, authenticated = true\)/,
+  '个人完成必须走已有带认证的 PATCH 接口');
+assert.match(cloud, /put\("localStatus", if \(completed\) "done" else "todo"\)/,
+  '微信任务勾选只操作个人状态，不更改学校官方提交状态');
+assert.match(workspace, /onToggleWechat = if \(state\.tasksFresh && row\.revision >= 0\)/,
+  '只有本次新鲜读取并携带版本号的微信任务才能勾选');
+assert.match(workspace, /task\.category == "wechat" && onToggleWechat != null/,
+  '微信任务复用可点击 Checkbox，普通云端任务继续保持只读');
+assert.match(workspace, /actionEnabled = updatingWechatKey == null/,
+  '微信任务写入期间必须禁止重复触发');
+
 assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
 assert.ok(workspace.includes('含上次云端快照'),
