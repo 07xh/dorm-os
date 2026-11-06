@@ -1190,7 +1190,7 @@ assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
 assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
-assert.match(workspace, /onAction = openFileImport/, '首页空课表须可直接导入本机课表');
+assert.match(workspace, /TextButton\(onClick = openFileImport\)/, '首页空课表须可直接导入本机课表');
 assert.match(main, /openFileImport = openFileImport/, '主导航须连接已有文件选择器');
 assert.match(main, /openGrades = [^,]*AcademicDestination\.GRADES/s, '成绩须打开教务真实子页面');
 assert.match(main, /openExams = [^,]*AcademicDestination\.EXAMS/s, '考试须打开教务真实子页面');
