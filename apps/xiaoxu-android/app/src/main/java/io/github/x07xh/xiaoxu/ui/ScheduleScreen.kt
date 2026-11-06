@@ -73,7 +73,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.LocalDate
 
@@ -165,22 +164,15 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
     this.widthIn(max = max).fillMaxWidth()
 
 // ---------------------------------------------------------------------------
-// 入口：保持既有函数名与包路径，MainActivity 仍调用 CloudTimetablePanel
+// 入口保持现有函数名，供 MainActivity 直接调用；课表只接收本机课程和文件导入操作。
 // ---------------------------------------------------------------------------
 
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun CloudTimetablePanel(
-    client: CloudClient,
-    openWebsite: () -> Unit,
-    openProfile: (() -> Unit)? = null,
-    localLessons: List<VerifiedLesson> = emptyList(),
-    openLocalImport: () -> Unit = {},
-    openFileImport: () -> Unit = {}
+    localLessons: List<VerifiedLesson>,
+    openFileImport: () -> Unit
 ) {
-    // Timetable has exactly one source of truth: the locally imported schedule.
-    // CloudClient remains available to other tabs (tasks, grades and connections),
-    // but neither its auth state nor its schedule snapshot controls this page.
+    // Local import is the only timetable source of truth; no cloud/session dependency.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
         Column(
@@ -193,7 +185,6 @@ fun CloudTimetablePanel(
                 ScheduleVerifiedContent(
                     data = localImportedScheduleView(localLessons),
                     expanded = expanded,
-                    openLocalImport = openFileImport,
                     openFileImport = openFileImport
                 )
             }
@@ -239,7 +230,6 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
 private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
     expanded: Boolean,
-    openLocalImport: () -> Unit,
     openFileImport: () -> Unit
 ) {
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
@@ -376,7 +366,6 @@ private fun ScheduleVerifiedContent(
                         weekday = tabletWeekday,
                         todayWeekday = todayWeekday,
                         onOpen = openCourse,
-                        openLocalImport = openLocalImport,
                         modifier = Modifier.weight(1f).padding(start = 12.dp)
                     )
                 }
@@ -411,8 +400,7 @@ private fun ScheduleVerifiedContent(
                     weekday = effectiveWeekday,
                     todayWeekday = todayWeekday,
                     onOpen = openCourse,
-                    openLocalImport = openLocalImport,
-                    modifier = Modifier.weight(1f).padding(start = 12.dp)
+                        modifier = Modifier.weight(1f).padding(start = 12.dp)
                 )
             }
         } else {
@@ -429,8 +417,7 @@ private fun ScheduleVerifiedContent(
                     selectedWeek = selectedWeek,
                     weekday = effectiveWeekday,
                     todayWeekday = todayWeekday,
-                    onOpen = openCourse,
-                    openLocalImport = openLocalImport
+                    onOpen = openCourse
                 )
             }
         }
@@ -524,7 +511,6 @@ private fun DayLessonList(
     weekday: Int,
     todayWeekday: Int,
     onOpen: (String) -> Unit,
-    openLocalImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
