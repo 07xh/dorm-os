@@ -141,6 +141,9 @@ object XiaoxuSpacing {
     val section: Dp = 14.dp
     val card: Dp = 16.dp
     val gap: Dp = 8.dp
+
+    /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
+    val listRowMin: Dp = 76.dp
 }
 
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
