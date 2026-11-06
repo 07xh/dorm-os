@@ -590,7 +590,8 @@ assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, 
   '两个分区都要渲染分区标题');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
 assert.match(messageCenter, /SourceChip\(/);
-assert.match(messageCenter, /label = "华水官方公告"/);
+assert.ok(messageCenter.includes('Text("官方通知" +'),
+  '官方来源与真实公告数量必须由来源 Tab 提供');
 
 // 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
 assert.match(messageCenter, /onClickLabel = "查看这条公告的详情与官网链接"/,
