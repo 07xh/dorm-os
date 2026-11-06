@@ -648,7 +648,15 @@ assert.match(main, /else \{ academic = AcademicDestination\.SECOND_CLASS; MainDe
 assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
 assert.match(panels, /startSchoolAuthorization\(id\)/);
 assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
-assert.match(manifest, /android:scheme="xiaoxu" android:host="school-auth-return"/);
+assert.match(manifest, /android:scheme="xiaoxu" android:host="\\$\\{schoolAuthHost\\}"/);
+assert.match(appGradle, /schoolAuthHost: 'school-auth-return'/,
+  'The normal application must retain its existing authorization return URI');
+assert.match(appGradle, /applicationIdSuffix '\\.timetableqa'/,
+  'QA installs must have a distinct Android application id');
+assert.match(appGradle, /manifestPlaceholders\\.schoolAuthHost = 'school-auth-return-timetable-qa'/,
+  'QA must not steal the normal application authorization deep link');
+assert.match(ci, /xiaoxu-timetable-qa-isolated/,
+  'QA APK must be uploaded separately, not replace the normal build artifact');
 const handoff = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SchoolAuthReturn.kt');
 assert.match(handoff, /SecureRandom\(\)\.nextBytes\(bytes\)/);
 assert.match(handoff, /MessageDigest\.isEqual/);
