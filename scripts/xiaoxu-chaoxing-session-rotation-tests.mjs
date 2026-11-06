@@ -90,6 +90,7 @@ assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active
 // A verified owner can still receive 403 from one downstream inbox endpoint.
 // Do not delete the good owner session or hide verified historical data.
 mode='downstream403';
+await assert.rejects(()=>read(),e=>e.code==='upstream_unavailable');
 await assert.rejects(()=>refreshSchoolAccount({db,userId:'owner1',
  provider:'chaoxing',adapter:newAdapter(),secret,
  sync:async(_db,_user,_provider,source)=>{
