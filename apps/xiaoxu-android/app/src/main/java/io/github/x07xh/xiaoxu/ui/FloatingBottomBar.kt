@@ -122,6 +122,8 @@ private val IndicatorInset: Dp = 6.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val IndicatorShape = RoundedCornerShape(percent = 50)
 private const val PressedScale = 1.06f
+// CourseSelector 1.0.83 GlassRecipe.SelectionIndicatorPressedScale.
+private const val NorthGlassPressedScale = 78f / 56f
 private const val ColorAnimMs = 180
 
 /**
@@ -211,11 +213,20 @@ fun FloatingBottomBar(
                 valueRange = 0f..(count - 1).toFloat(),
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
-                pressedScale = PressedScale,
+                pressedScale = if (useNorthGlass) NorthGlassPressedScale else PressedScale,
                 onDragStarted = {},
                 onDragStopped = {},
                 onDrag = { _, _ -> }
             )
+        }
+
+        // Source CapsuleNavigationBar.indicatorScale: same velocity transform for
+        // the lens and the highlight (no separately scaling the rim).
+        fun physicalScale(): Pair<Float, Float> {
+            val v = drag.velocity / 6f
+            val sx = drag.scaleX / (1f - (v * 0.75f).coerceIn(-0.22f, 0.22f))
+            val sy = drag.scaleY * (1f - (v * 0.25f).coerceIn(-0.22f, 0.22f))
+            return sx to sy
         }
 
         // 手势回调只捕获一次，用 rememberUpdatedState 保证始终读到最新值。
@@ -289,7 +300,13 @@ fun FloatingBottomBar(
                 .fillMaxWidth()
                 .height(visualHeight)
                 .then(
-                    if (useNorthGlass && backdrop != null) Modifier.northGlassTrack(backdrop)
+                    if (useNorthGlass && backdrop != null) {
+                        Modifier.northGlassTrack(
+                            backdrop = backdrop,
+                            pressProgress = { drag.pressProgress },
+                            indicatorExpansion = { (drag.scaleX + drag.scaleY) / 2f - 1f }
+                        )
+                    }
                     else Modifier.shadow(elevation = 12.dp, shape = BarShape, clip = false)
                         .clip(BarShape).background(containerColor)
                 )
@@ -311,15 +328,21 @@ fun FloatingBottomBar(
                     .padding(horizontal = IndicatorInset, vertical = if (useNorthGlass) 8.dp else IndicatorInset)
                     .then(
                         if (useNorthGlass && backdrop != null) {
-                            Modifier.northGlassIndicator(backdrop) { drag.pressProgress }
+                            Modifier.northGlassIndicator(
+                                backdrop = backdrop,
+                                pressProgress = { drag.pressProgress },
+                                velocityPx = { drag.velocity * cellWidthPx },
+                                indicatorScale = { physicalScale() }
+                            )
                         } else Modifier.clip(IndicatorShape).background(indicatorColor)
                     )
-                    .graphicsLayer {
-                        // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
-                        val p = drag.pressProgress
-                        scaleX = 1f + 0.04f * p
-                        scaleY = 1f + 0.02f * p
-                    }
+                    .then(
+                        if (useNorthGlass) Modifier else Modifier.graphicsLayer {
+                            val p = drag.pressProgress
+                            scaleX = 1f + 0.04f * p
+                            scaleY = 1f + 0.02f * p
+                        }
+                    )
             )
 
             Row(
