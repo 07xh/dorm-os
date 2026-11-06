@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.test'
+    id 'org.jetbrains.kotlin.android'
+    id 'androidx.baselineprofile'
+}
+
+android {
+    namespace 'io.github.x07xh.xiaoxu.benchmark'
+    compileSdk 36
+
+    defaultConfig {
+        // Baseline Profile 只对 API 28+ 有意义：更低版本系统会做全量 AOT 编译。
+        // 这是独立 test 模块，minSdk 不必跟随 app 的 26。
+        minSdk 28
+        targetSdk 35
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    targetProjectPath ':app'
+    // 让 benchmark 在自己进程里跑，避免和被测算进程互相干扰。
+    experimentalProperties["android.experimental.self-instrumenting"] = true
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+baselineProfile {
+    // 本机只有 AVD，不接 GMD（Gradle Managed Device 需要额外下载系统镜像）。
+    // 生成 profile 时用已连接的模拟器：gradle :app:generateBaselineProfile
+    useConnectedDevices = true
+}
+
+dependencies {
+    implementation 'androidx.test.ext:junit:1.2.1'
+    implementation 'androidx.benchmark:benchmark-macro-junit4:1.3.4'
+    implementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+}

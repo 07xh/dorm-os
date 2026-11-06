@@ -15,6 +15,9 @@
         android:usesCleartextTraffic="false"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- 允许 macrobenchmark / perfetto 以 shell 身份采集性能数据。
+             release 构建也保留，否则无法在非 debug 包上测量真实表现。 -->
+        <profileable android:shell="true" />
         <activity
             android:name=".SecondClassHomeActivity"
             android:exported="false"
