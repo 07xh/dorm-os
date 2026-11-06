@@ -159,27 +159,6 @@ fun filterLocalTasks(tasks: List<LocalTask>, filterKey: String, today: LocalDate
         else -> tasks
     }
 
-data class TaskStats(val pending: Int, val dueThisWeek: Int, val overdue: Int, val done: Int)
-
-fun taskStats(tasks: List<LocalTask>, today: LocalDate): TaskStats {
-    val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val sunday = monday.plusDays(6)
-    var pending = 0
-    var week = 0
-    var overdue = 0
-    var done = 0
-    tasks.forEach { task ->
-        if (task.completed) {
-            done++
-            return@forEach
-        }
-        pending++
-        val date = parseDue(task.due) ?: return@forEach
-        if (date.isBefore(today)) overdue++
-        if (!date.isBefore(monday) && !date.isAfter(sunday)) week++
-    }
-    return TaskStats(pending, week, overdue, done)
-}
 
 fun dueLabel(task: LocalTask, today: LocalDate): String {
     val date = parseDue(task.due) ?: return "未填截止"

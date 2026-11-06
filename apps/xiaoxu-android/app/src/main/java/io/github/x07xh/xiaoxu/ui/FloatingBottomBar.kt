@@ -108,7 +108,7 @@ data class FloatingBarItem(
     val badge: Int? = null
 )
 
-private val BarHeight: Dp = 64.dp
+private val BarHeight: Dp = 70.dp
 private val BarHorizontalInset: Dp = 20.dp
 private val BarBottomInset: Dp = 10.dp
 private val IndicatorInset: Dp = 6.dp
@@ -370,7 +370,7 @@ private fun FloatingBarCell(
                 contentDescription = null, // 文字已承担语义，避免 TalkBack 重复朗读。
                 tint = contentColor,
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(24.dp)
                     .graphicsLayer {
                         // draw 阶段读 animation，跳过重组。
                         val s = if (selected) PressedScale else 1f
@@ -386,7 +386,7 @@ private fun FloatingBarCell(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = item.label,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,
