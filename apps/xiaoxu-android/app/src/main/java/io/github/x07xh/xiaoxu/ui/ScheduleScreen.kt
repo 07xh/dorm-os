@@ -189,6 +189,7 @@ fun CloudTimetablePanel(
     localLessons: List<VerifiedLesson>,
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
+    localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
@@ -214,6 +215,7 @@ fun CloudTimetablePanel(
                     expanded = expanded,
                     openFileImport = openFileImport,
                     openFileExport = openFileExport,
+                    localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = onLocalLessonsChanged
                 )
             }
@@ -295,6 +297,7 @@ private fun ScheduleVerifiedContent(
     expanded: Boolean,
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
+    localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     val context = LocalContext.current
@@ -316,8 +319,8 @@ private fun ScheduleVerifiedContent(
             Toast.makeText(context, "未获取通知权限，上课提醒保持关闭", Toast.LENGTH_LONG).show()
         }
     }
-    LaunchedEffect(data.lessons) {
-        // Restoring a backed-up timetable may also change local semester settings.
+    LaunchedEffect(localScheduleRevision) {
+        // Restore may change only the semester settings, leaving course rows identical.
         calendar = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
     }
     var showingCourseEditor by remember { mutableStateOf(false) }
