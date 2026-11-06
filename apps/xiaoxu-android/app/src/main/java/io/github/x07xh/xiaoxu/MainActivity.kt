@@ -111,6 +111,7 @@ import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
+import io.github.x07xh.xiaoxu.ui.XiaoxuMotion
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
@@ -461,7 +462,6 @@ class MainActivity : ComponentActivity() {
  * 旧实现 fadeOut(120) 比 fadeIn(180) 早 60ms 结束，中间 60ms 只有半透明新页，
  * 透出 Scaffold 背景色，观感就是"闪白"。
  */
-private const val PageSwitchMs = 180
 
 /** The one source of truth for five permanent destinations; messages are not a bottom tab. */
 private val PrimaryTabs = listOf(MainDestination.HOME, MainDestination.SCHEDULE,
@@ -651,17 +651,17 @@ private fun NativeShell(
                     AnimatedContent(
                         targetState = current,
                         transitionSpec = {
-                            // enter / exit 同长（PageSwitchMs），消除旧页先消失的半透明空档。
+                            // enter / exit 同长（XiaoxuMotion.PageSwitchMs），消除旧页先消失的半透明空档。
                             // 位移收到 width/32（约 33px）：只作方向提示，不做整页平移，
                             // 缩小课表这类重页在新旧共存期的重绘面积。
                             val forward = targetState.ordinal >= initialState.ordinal
                             val direction = if (forward) 1 else -1
                             (
-                                fadeIn(animationSpec = tween(PageSwitchMs)) +
-                                    slideInHorizontally(animationSpec = tween(PageSwitchMs)) { width ->
+                                fadeIn(animationSpec = tween(XiaoxuMotion.PageSwitchMs)) +
+                                    slideInHorizontally(animationSpec = tween(XiaoxuMotion.PageSwitchMs)) { width ->
                                         direction * (width / 32)
                                     }
-                                ) togetherWith fadeOut(animationSpec = tween(PageSwitchMs))
+                                ) togetherWith fadeOut(animationSpec = tween(XiaoxuMotion.PageSwitchMs))
                         },
                         label = "page"
                     ) { page ->

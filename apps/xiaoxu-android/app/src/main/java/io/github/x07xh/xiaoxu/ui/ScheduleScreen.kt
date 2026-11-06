@@ -830,13 +830,13 @@ private fun SelectablePill(
     val background by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.surface,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "pill-bg"
     )
     val foreground by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "pill-fg"
     )
     Box(
@@ -888,13 +888,13 @@ private fun DayCell(
             isToday -> MaterialTheme.colorScheme.primaryContainer
             else -> MaterialTheme.colorScheme.surface
         },
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "day-bg"
     )
     val labelColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "day-label"
     )
     Column(
@@ -951,7 +951,7 @@ private fun WeekdaySideBar(counts: Map<Int, Int>, selected: Int, today: Int, onS
             val background by animateColorAsState(
                 targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surface,
-                animationSpec = tween(180),
+                animationSpec = tween(XiaoxuMotion.SelectionMs),
                 label = "side-bg-$day"
             )
             Row(
@@ -1042,7 +1042,7 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.985f else 1f,
-        animationSpec = tween(120),
+        animationSpec = tween(XiaoxuMotion.FeedbackMs),
         label = "card-press"
     )
     Card(

@@ -1175,6 +1175,11 @@ assert.match(design, /val hero: Dp = 28\.dp/, '重要卡与底部弹层圆角须
 assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
+assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
+assert.match(main, /tween\(XiaoxuMotion\.PageSwitchMs\)/, '主导航切页引用统一动画参数');
+assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
+assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
+assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
 assert.match(design, /fun XiaoxuHero\(/, '须有渐变主卡');
 assert.match(design, /fun MetricCard\(/, '须有统计卡');

@@ -595,13 +595,13 @@ private fun MessagePill(
     val background by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary
         else XiaoxuPalette.Surface,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-bg"
     )
     val foreground by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
         else XiaoxuPalette.Ink2,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-fg"
     )
     Row(

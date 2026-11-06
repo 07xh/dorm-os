@@ -146,6 +146,13 @@ object XiaoxuSpacing {
     val listRowMin: Dp = 76.dp
 }
 
+/** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
+internal object XiaoxuMotion {
+    const val PageSwitchMs = 180
+    const val SelectionMs = 180
+    const val FeedbackMs = 120
+}
+
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
 internal object XiaoxuPageLayout {
     val ContentMaxWidth: Dp = 860.dp
@@ -326,11 +333,11 @@ fun XiaoxuSegmentedControl(
             val itemShape = RoundedCornerShape(999.dp)
             val itemColor = animateColorAsState(
                 targetValue = if (selected) XiaoxuPalette.GlassIndicator else Color.Transparent,
-                animationSpec = tween(180), label = "xiaoxu-segment-bg"
+                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
             ).value
             val inkColor = animateColorAsState(
                 targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(180), label = "xiaoxu-segment-text"
+                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
             ).value
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
