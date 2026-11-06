@@ -373,11 +373,14 @@ class CloudClient(context: Context) {
         try {
             val pages = CloudAssignmentPages()
             while (!pages.complete) {
+                // Account changes or a newer refresh invalidate all remaining pages.
+                if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
                 val offset = pages.nextOffset
                 val r = withContext(Dispatchers.IO) {
                     request("/api/v1/assignments?limit=100&offset=$offset",
                         authenticated = true)
                 }
+                if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
                 if (r.code != 200) throw IllegalStateException("assignments_page_failed")
                 val array = r.json.getJSONArray("items")
                 if (array.length() > 100) throw IllegalStateException("oversized_page")
