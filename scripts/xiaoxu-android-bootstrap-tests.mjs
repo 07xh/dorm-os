@@ -464,7 +464,8 @@ const localTimetableEntry = schedulePanel.slice(
 );
 assert.match(localTimetableEntry, /if \(localLessons\.isEmpty\(\)\)/,
   '无本机课程只显示本地导入空态');
-assert.match(localTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);
+assert.match(localTimetableEntry, /LocalTimetableEmptyState\(/);
+assert.match(localTimetableEntry, /onMessages = onMessages/, '课表消息入口由唯一内容页处理');
 assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
@@ -1457,3 +1458,10 @@ assert.match(workspace, /清除本周截止筛选/,
     '任务空状态需要直接撤销冲突筛选');
 
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
+
+// The shell must not stack a global banner above the local timetable heading.
+assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(/);
+assert.doesNotMatch(main, /private fun MessagesPage\(/, '消息使用唯一原生页面');
+const unifiedSchedule = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+assert.match(unifiedSchedule, /private fun SchedulePageHeading\(/);
+assert.match(unifiedSchedule, /IconButton\(onClick = onMessages\)/);

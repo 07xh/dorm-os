@@ -16,8 +16,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -112,7 +110,6 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
-import io.github.x07xh.xiaoxu.ui.QuickEntry
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -573,9 +570,7 @@ private fun NativeShell(
             containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen && current !in setOf(
-                    MainDestination.TASKS, MainDestination.ACADEMIC, MainDestination.PROFILE
-                )) XiaoxuTopBar(
+                if (!messagesOpen && current == MainDestination.HOME) XiaoxuTopBar(
                     title = "校序",
                     subtitle = current.label,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
@@ -631,7 +626,8 @@ private fun NativeShell(
                 Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
-                            MessagesPage(openWebsite, cloud, openArticle, onBack = { messagesOpen = false })
+                            MessageCenterPanel(cloud, openWebsite, openArticle,
+                                useStatusBarInset = true, onBack = { messagesOpen = false })
                         }
                     } else {
                     // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
@@ -680,7 +676,8 @@ private fun NativeShell(
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
-                                onLocalLessonsChanged = onLocalLessonsChanged)
+                                onLocalLessonsChanged = onLocalLessonsChanged,
+                                onMessages = { messagesOpen = true })
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
@@ -716,25 +713,6 @@ private fun Content(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
     )
-}
-
-@Composable
-private fun Heading(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun MessagesPage(
-    openWebsite: () -> Unit,
-    cloud: CloudClient,
-    openArticle: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    MessageCenterPanel(cloud, openWebsite, openArticle,
-        useStatusBarInset = true, onBack = onBack)
 }
 
 @Composable

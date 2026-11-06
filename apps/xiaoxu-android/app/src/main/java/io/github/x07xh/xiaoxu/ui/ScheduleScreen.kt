@@ -29,6 +29,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Room
@@ -37,6 +38,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -188,7 +190,8 @@ fun CloudTimetablePanel(
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
-    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
+    onMessages: () -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
     val context = LocalContext.current
@@ -203,10 +206,10 @@ fun CloudTimetablePanel(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (localLessons.isEmpty()) {
-                LocalTimetableEmptyState(openFileImport) {
-                    addError = null
-                    addingFirstCourse = true
-                }
+                LocalTimetableEmptyState(
+                    onImport = openFileImport, onMessages = onMessages,
+                    onAdd = { addError = null; addingFirstCourse = true }
+                )
             } else {
                 ScheduleVerifiedContent(
                     data = localImportedScheduleView(localLessons),
@@ -214,7 +217,8 @@ fun CloudTimetablePanel(
                     openFileImport = openFileImport,
                     openFileExport = openFileExport,
                     localScheduleRevision = localScheduleRevision,
-                    onLocalLessonsChanged = onLocalLessonsChanged
+                    onLocalLessonsChanged = onLocalLessonsChanged,
+                    onMessages = onMessages
                 )
             }
         }
@@ -253,18 +257,35 @@ fun CloudTimetablePanel(
     }
 }
 
+/** Empty and populated timetables use one compact native heading. */
 @Composable
-private fun LocalTimetableEmptyState(onImport: () -> Unit, onAdd: () -> Unit) {
+private fun SchedulePageHeading(onMessages: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "我的课表", modifier = Modifier.weight(1f).semantics { heading() },
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink
+        )
+        IconButton(onClick = onMessages) {
+            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
+                modifier = Modifier.size(21.dp), tint = XiaoxuPalette.Ink2)
+        }
+    }
+}
+
+@Composable
+private fun LocalTimetableEmptyState(
+    onImport: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth().pageWidth(StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("我的课表", style = MaterialTheme.typography.headlineSmall,
-            color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() })
-        Text("本机课表 · 离线查看 · 不需要连接教务账号",
-            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        SchedulePageHeading(onMessages)
         XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
             Icon(Icons.Outlined.DateRange, contentDescription = null,
                 modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
@@ -297,7 +318,8 @@ private fun ScheduleVerifiedContent(
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
-    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
+    onMessages: () -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
@@ -377,28 +399,20 @@ private fun ScheduleVerifiedContent(
             .pageWidth(ContentMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
+        SchedulePageHeading(onMessages)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("我的课表", style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() })
-                Text("本机导入 · " + data.lessons.size + " 个课块 · 请核对课程信息",
-                    style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = {
-                    editOriginal = null
-                    editingError = null
-                    showingCourseEditor = true
-                }) { Text("新增") }
-                TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
-                OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                    Text("重新导入")
-                }
+            TextButton(onClick = {
+                editOriginal = null
+                editingError = null
+                showingCourseEditor = true
+            }) { Text("新增") }
+            TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
+            OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
+                Text("导入")
             }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
