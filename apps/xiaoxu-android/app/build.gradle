@@ -39,10 +39,10 @@ android {
     buildTypes {
         debug {
             if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
-                applicationIdSuffix '.timetableqa'
-                manifestPlaceholders.qaAppLabel = '校序 · 联合验收'
+                applicationIdSuffix '.secondclassqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 二课验证'
                 // Never intercept the installed app's school authorization deep link.
-                manifestPlaceholders.schoolAuthHost = 'school-auth-return-timetable-qa'
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-secondclass-qa'
             }
         }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，

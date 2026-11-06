@@ -691,9 +691,9 @@ assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
 assert.match(manifest, /android:scheme="xiaoxu" android:host="\$\{schoolAuthHost\}"/);
 assert.match(appGradle, /schoolAuthHost: 'school-auth-return'/,
   'The normal application must retain its existing authorization return URI');
-assert.match(appGradle, /applicationIdSuffix '\.timetableqa'/,
+assert.match(appGradle, /applicationIdSuffix '\.secondclassqa'/,
   'QA installs must have a distinct Android application id');
-assert.match(appGradle, /manifestPlaceholders\.schoolAuthHost = 'school-auth-return-timetable-qa'/,
+assert.match(appGradle, /manifestPlaceholders\.schoolAuthHost = 'school-auth-return-secondclass-qa'/,
   'QA must not steal the normal application authorization deep link');
 assert.match(ci, /xiaoxu-timetable-qa-isolated/,
   'QA APK must be uploaded separately, not replace the normal build artifact');
