@@ -492,7 +492,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val payload = JSONObject(decoded)
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
-                    tell("当前页面超过 120 条可见记录，已阻止截断导入；旧记录保持不变。可在官网分页，逐页使用「分页追加本页」读取。")
+                    tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
                     return@evaluateJavascript
                 }
                 val kind = payload.optString("kind")
@@ -710,6 +710,9 @@ private const val READ_VISIBLE_PAGE = """
   const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
   // A partial snapshot must never replace previously saved personal records.
   const MAX_RECORDS = 120;
+  // Bound DOM traversal, but never silently drop tables beyond an arbitrary prefix.
+  const MAX_TABLES = 200;
+  let visibleTables = 0;
   const rows = [];
   let kind = '';
   // The all-task page may also contain course/summary tables. Those are NOT
@@ -718,8 +721,10 @@ private const val READ_VISIBLE_PAGE = """
     host === 'mooc1-api.chaoxing.com' &&
     location.pathname === '/mooc-ans/mooc2/work/all-task';
   for (const doc of docs) {
-    for (const table of Array.from(doc.querySelectorAll('table')).slice(0,35)) {
+    for (const table of Array.from(doc.querySelectorAll('table'))) {
       if (!onScreen(table)) continue;
+      if (++visibleTables > MAX_TABLES)
+        return JSON.stringify({host,kind,records:[],truncated:true});
       const trs = Array.from(table.querySelectorAll('tr')).filter(onScreen);
       if (trs.length < 2) continue;
       const header = Array.from(trs[0].querySelectorAll('th,td')).map(el => clean(el.innerText));
