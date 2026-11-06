@@ -253,6 +253,7 @@ fun RealAcademicHome(
     // Sheets look up the current records by stable keys, not saved copies of
     // possibly stale local/cloud data. Reuse Schedule/Message details directly.
     var openedLessonKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedHomeCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedNoticeKey by rememberSaveable { mutableStateOf<String?>(null) }
     val onLessonOpen: (VerifiedLesson) -> Unit = { openedLessonKey = homeLessonKey(it) }
@@ -260,8 +261,16 @@ fun RealAcademicHome(
     val onNoticeOpen: (String) -> Unit = { openedNoticeKey = it }
 
     val hero: @Composable () -> Unit = {
-        HomeHero(sameWeekday.firstOrNull(), localLessons.isNotEmpty(), weekdayLabel,
-            openSchedule, openFileImport, onLessonOpen)
+        HomeHero(
+            lessons = sameWeekday,
+            hasTimetable = localLessons.isNotEmpty(),
+            weekdayLabel = weekdayLabel,
+            selectedCourseKey = selectedHomeCourseKey,
+            onSelectCourse = { selectedHomeCourseKey = it },
+            openSchedule = openSchedule,
+            openFileImport = openFileImport,
+            onOpenLesson = onLessonOpen
+        )
     }
     val tasks: @Composable () -> Unit = {
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
@@ -344,7 +353,14 @@ fun RealAcademicHome(
 }
 
 private fun homeLessonKey(lesson: VerifiedLesson): String =
-    "${lesson.id}:${lesson.weekday}:${lesson.startSection}:${lesson.endSection}:${lesson.title}"
+    "${lesson.id}:${lesson.term}:${lesson.weekday}:${lesson.startSection}:" +
+        "${lesson.endSection}:${lesson.title}:${lesson.weeks.sorted().joinToString(",")}"
+
+internal fun resolveHomeCourseIndex(courseKeys: List<String>, selectedKey: String?): Int {
+    if (selectedKey == null) return 0
+    val index = courseKeys.indexOf(selectedKey)
+    return if (index >= 0) index else 0
+}
 
 /** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
 @Composable
@@ -398,28 +414,62 @@ private fun HomeSection(
 /** 本机导入课表按星期展示课程记录；周次未知时不得暗示今日真实开课。 */
 @Composable
 private fun HomeHero(
-    lesson: VerifiedLesson?,
+    lessons: List<VerifiedLesson>,
     hasTimetable: Boolean,
     weekdayLabel: String,
+    selectedCourseKey: String?,
+    onSelectCourse: (String) -> Unit,
     openSchedule: () -> Unit,
     openFileImport: () -> Unit,
     onOpenLesson: (VerifiedLesson) -> Unit
 ) {
+    // The same weekday may contain many week-specific course blocks. Preserve
+    // one main card, but make every imported block reachable without leaving Home.
+    val selectedIndex = resolveHomeCourseIndex(lessons.map(::homeLessonKey), selectedCourseKey)
+    val lesson = lessons.getOrNull(selectedIndex)
     when {
-        lesson != null -> XiaoxuHero(
-            kicker = "${weekdayLabel}课程记录 · 本机课表",
-            title = lesson.title,
-            supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
-                lesson.location.ifBlank { "教室未提供" } + " · " +
-                lesson.teacher.ifBlank { "教师未提供" },
-            badge = "待核对",
-            meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
-            modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
-                onOpenLesson(lesson)
-            },
-            actionLabel = "全部课表",
-            onAction = openSchedule
-        )
+        lesson != null -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            XiaoxuHero(
+                kicker = "${weekdayLabel}课程记录 · 本机课表",
+                title = lesson.title,
+                supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
+                    lesson.location.ifBlank { "教室未提供" } + " · " +
+                    lesson.teacher.ifBlank { "教师未提供" },
+                badge = if (lessons.size > 1)
+                    "${selectedIndex + 1}/${lessons.size} · 待核对" else "待核对",
+                meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
+                modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
+                    onOpenLesson(lesson)
+                },
+                actionLabel = "全部课表",
+                onAction = openSchedule
+            )
+            if (lessons.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${weekdayLabel}共 ${lessons.size} 条课块记录",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2,
+                        maxLines = 2
+                    )
+                    OutlinedButton(
+                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex - 1])) },
+                        enabled = selectedIndex > 0,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("上一条") }
+                    OutlinedButton(
+                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex + 1])) },
+                        enabled = selectedIndex < lessons.lastIndex,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("下一条") }
+                }
+            }
+        }
         hasTimetable -> XiaoxuHero(
             kicker = "${weekdayLabel}课程记录",
             title = "没有对应星期的课程记录",
@@ -469,13 +519,41 @@ private fun HomeQuickBlock(
     openChaoxing: () -> Unit
 ) {
     HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
-            QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
-            QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
-                Modifier.weight(1f), XiaoxuTone.Success)
-            QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
-                Modifier.weight(1f), XiaoxuTone.Warning)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth < 420.dp) {
+                // Four single-line labels in a 320–400dp phone would become
+                // cramped. Keep native QuickEntry, arranged in two clear rows.
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
+                        QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
+                            Modifier.weight(1f), XiaoxuTone.Success)
+                        QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
+                            Modifier.weight(1f), XiaoxuTone.Warning)
+                    }
+                }
+            } else {
+                Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                    QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
+                    QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
+                    QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
+                        Modifier.weight(1f), XiaoxuTone.Success)
+                    QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
+                        Modifier.weight(1f), XiaoxuTone.Warning)
+                }
+            }
         }
     }
 }
