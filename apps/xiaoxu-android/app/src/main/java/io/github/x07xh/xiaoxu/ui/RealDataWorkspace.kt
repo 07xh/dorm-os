@@ -43,6 +43,8 @@ import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -184,7 +186,7 @@ internal fun taskEditorStartIndex(
     searchOpen: Boolean,
     advancedFiltersOpen: Boolean,
     managementOpen: Boolean
-): Int = 4 + listOf(staleSnapshot, searchOpen, advancedFiltersOpen, managementOpen).count { it }
+): Int = 3 + listOf(staleSnapshot, searchOpen, advancedFiltersOpen, managementOpen).count { it }
 
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
@@ -729,6 +731,7 @@ fun RealAcademicTaskHub(
     }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
+    var sourceMenuOpen by rememberSaveable { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
@@ -838,17 +841,38 @@ fun RealAcademicTaskHub(
                 IconButton(
                     modifier = Modifier.clip(RoundedCornerShape(12.dp))
                         .background(XiaoxuPalette.Brand),
-                    onClick = { showManager = true; showLocal = true; jumpTo = "local" }
+                    onClick = {
+                        if (showManager && showLocal) {
+                            showManager = false
+                            showLocal = false
+                            showCloud = false
+                            jumpTo = null
+                        } else {
+                            showManager = true
+                            showLocal = true
+                            showCloud = false
+                            jumpTo = "local"
+                        }
+                    }
                 ) {
-                    Icon(Icons.Outlined.Add, contentDescription = "新增本机任务",
-                        tint = Color.White)
+                    Icon(
+                        if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
+                        contentDescription = if (showManager && showLocal)
+                            "收起新建本机任务" else "新增本机任务",
+                        tint = Color.White
+                    )
                 }
             }
         }
         item {
+            // One continuous status strip; values come from real saved tasks.
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(XiaoxuPalette.Surface)
+                    .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(18.dp))
+                    .padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
                     label = "待完成", count = all.count { !it.done },
@@ -890,31 +914,68 @@ fun RealAcademicTaskHub(
             )
         }
         item {
+            // Source and management controls stay compact; full filters are on demand.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { showAdvancedFilters = !showAdvancedFilters }) {
-                    Icon(Icons.Outlined.Tune, contentDescription = null,
-                        modifier = Modifier.size(16.dp))
-                    Text("筛选")
+                Box(modifier = Modifier.weight(1f)) {
+                    TextButton(
+                        onClick = { sourceMenuOpen = true },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(
+                            when (sourceFilter) {
+                                "local" -> "本机来源"
+                                "cloud" -> "云端来源"
+                                else -> "全部来源"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink
+                        )
+                        Icon(Icons.Outlined.ExpandMore, contentDescription = "选择任务来源",
+                            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(20.dp))
+                    }
+                    DropdownMenu(
+                        expanded = sourceMenuOpen,
+                        onDismissRequest = { sourceMenuOpen = false }
+                    ) {
+                        val sources = listOf("all" to "全部来源",
+                            "local" to "本机来源", "cloud" to "云端来源")
+                        sources.forEach { (source, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    sourceFilter = source
+                                    sourceMenuOpen = false
+                                }
+                            )
+                        }
+                    }
                 }
-                TextButton(onClick = { showManager = !showManager }) {
-                    Text(if (showManager) "收起管理" else "任务管理")
+                TextButton(
+                    onClick = {
+                        if (showManager) {
+                            showManager = false
+                            showLocal = false
+                            showCloud = false
+                            jumpTo = null
+                        } else {
+                            showManager = true
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
+                    Text(if (showManager) "收起管理" else "管理",
+                        style = MaterialTheme.typography.labelLarge)
                 }
-            }
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                val sources = listOf("all" to "全部来源", "local" to "本机", "cloud" to "云端")
-                items(count = sources.size) { i ->
-                    val (source, label) = sources[i]
-                    FilterChip(
-                        selected = sourceFilter == source,
-                        onClick = { sourceFilter = source },
-                        label = { Text(label) }
-                    )
+                IconButton(
+                    onClick = { showAdvancedFilters = !showAdvancedFilters },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Outlined.Tune,
+                        contentDescription = if (showAdvancedFilters) "收起日期筛选" else "筛选截止日期",
+                        tint = XiaoxuPalette.Ink2, modifier = Modifier.size(21.dp))
                 }
             }
         }
@@ -948,8 +1009,8 @@ fun RealAcademicTaskHub(
                 ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
             }
         }
-        if (showLocal) item { LocalTaskEditor(localTasks, dao) }
-        if (showCloud) item { CloudTaskEditor(client) }
+        if (showManager && showLocal) item { LocalTaskEditor(localTasks, dao) }
+        if (showManager && showCloud) item { CloudTaskEditor(client) }
         if (visible.size > 80) item {
             Text("已显示 " + shown.size + " / " + visible.size + " 条，可调整筛选查看剩余任务",
                 style = MaterialTheme.typography.labelSmall,
@@ -987,6 +1048,7 @@ fun RealAcademicTaskHub(
                             sourceFilter != "all" -> sourceFilter = "all"
                             onlyThisWeek -> onlyThisWeek = false
                             else -> {
+                                showManager = true
                                 showLocal = true
                                 jumpTo = "local"
                             }
@@ -1313,11 +1375,14 @@ fun RealAcademicTaskHub(
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
             onManage = {
+                showManager = true
                 if (selectedTask.storage == "local") {
                     showLocal = true
+                    showCloud = false
                     jumpTo = "local"
                 } else {
                     showCloud = true
+                    showLocal = false
                     jumpTo = "cloud"
                 }
                 openedTaskKey = null
@@ -1362,30 +1427,36 @@ internal fun WorkspaceTaskDetailSheet(
 
 
 
-/** Main three blue-and-white pills, populated only from saved tasks. */
+/** Three real-data statuses in a single container, sized through the shared typography. */
 @Composable
 private fun TaskStatusTab(
     label: String, count: Int, active: Boolean, modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    Row(
+    Column(
         modifier = modifier
-            .clip(shape)
-            .background(if (active) XiaoxuPalette.BrandSoft else XiaoxuPalette.Surface)
-            .border(1.dp, if (active) XiaoxuPalette.BrandSoft else XiaoxuPalette.Line, shape)
-            .clickable(onClick = onClick)
-            .heightIn(min = 54.dp)
-            .padding(horizontal = 7.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (active) XiaoxuPalette.BrandSoft else Color.Transparent)
+            .clickable(onClickLabel = "筛选$label", onClick = onClick)
+            .heightIn(min = 74.dp)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
     ) {
-        Text(label, fontSize = 13.sp,
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2, maxLines = 1)
-        Spacer(Modifier.width(5.dp))
-        Text(count.toString(), fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink)
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
+            maxLines = 1
+        )
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
+            maxLines = 1
+        )
     }
 }
 
