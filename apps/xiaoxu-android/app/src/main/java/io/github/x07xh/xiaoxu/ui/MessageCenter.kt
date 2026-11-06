@@ -449,62 +449,6 @@ private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
 }
 
 /**
- * 来源信息卡：图标块 + 来源名 + 真实计数。
- * 只陈述"从哪来、多少条"，不表达任何核验结论，也不放角标。
- */
-@Composable
-private fun SourceChip(
-    label: String,
-    detail: String,
-    icon: ImageVector,
-    container: Color,
-    ink: Color,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(container)
-            .padding(horizontal = 11.dp, vertical = 11.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$label：$detail" },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(Color.White.copy(alpha = 0.72f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = ink
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = ink,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall,
-                color = ink.copy(alpha = 0.8f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-/**
  * 来源分区标题：把"哪一份数据"写在列表前面，避免混合页面被当成同一个来源。
  */
 @Composable

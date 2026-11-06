@@ -589,7 +589,8 @@ assert.match(messageCenter, /badge = "本人云端"/);
 assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, true,
   '两个分区都要渲染分区标题');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
-assert.match(messageCenter, /SourceChip\(/);
+assert.doesNotMatch(messageCenter, /private fun SourceChip\(/,
+  '来源摘要卡已退出消息主布局，防止第二套来源容器回流');
 assert.ok(messageCenter.includes('val noticeTitle = "官方通知" +'),
   '官方来源分段标题必须仍显示真实公告数量');
 
@@ -1419,9 +1420,11 @@ assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
 assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
-assert.match(messageCenter, /modifier = Modifier\.weight\(1f\)/, '双来源信息卡并排占位');
+assert.match(messageCenter, /TabRow\(selectedTabIndex = if \(showWechat\) 1 else 0\)/,
+  '官方与微信来源使用唯一原生标签结构');
 assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
-assert.match(messageCenter, /fun SourceChip\(\n/, '来源信息卡为私有独立组件');
+assert.match(messageCenter, /private fun SourceSectionHeader\(/,
+  '保留列表内的来源标题与状态语义');
 assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
   '消息统一使用紧凑页头');
 assert.match(messageCenter, /XiaoxuToolbarAction\(/,
