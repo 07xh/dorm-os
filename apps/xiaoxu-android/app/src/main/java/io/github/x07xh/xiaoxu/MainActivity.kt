@@ -299,22 +299,27 @@ class MainActivity : ComponentActivity() {
                 val saveImported = {
                     lifecycleScope.launch {
                         try {
-                            val (count, savedLessons) = withContext(Dispatchers.IO) {
+                            val (count, savedLessons, reminderOk) = withContext(Dispatchers.IO) {
                                 val count = LocalScheduleStore.saveParsed(
                                     applicationContext, parsed.second.lessons)
                                 parsed.second.calendar?.let {
                                     LocalSemesterConfigStore.save(applicationContext, it)
                                 }
                                 val updated = LocalScheduleStore.load(applicationContext)
-                                LocalCourseReminders.reconcile(applicationContext, updated,
+                                // Saving and reminder scheduling are independent outcomes:
+                                // an alarm failure must never masquerade as an import rollback.
+                                val reminderOk = LocalCourseReminders.reconcileAfterSave(
+                                    applicationContext, updated,
                                     LocalSemesterConfigStore.load(applicationContext))
-                                count to updated
+                                Triple(count, updated, reminderOk)
                             }
                             // Invalidate previously started resume reads after commit.
                             localScheduleReadSerial++
                             localLessons = savedLessons
                             localScheduleRevision++
-                            Toast.makeText(this@MainActivity, "成功导入 " + count + " 个课块",
+                            Toast.makeText(this@MainActivity,
+                                if (reminderOk) "成功导入 $count 个课块"
+                                else "已保存 $count 个课块，但提醒维护失败；可重新打开课表重试",
                                 Toast.LENGTH_LONG).show()
                         } catch (error: Exception) {
                             Toast.makeText(this@MainActivity,
