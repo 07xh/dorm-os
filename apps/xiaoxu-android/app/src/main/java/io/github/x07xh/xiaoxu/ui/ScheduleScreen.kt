@@ -185,6 +185,11 @@ fun CloudTimetablePanel(
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
+    val context = LocalContext.current
+    val editorScope = rememberCoroutineScope()
+    var addingFirstCourse by remember { mutableStateOf(false) }
+    var addBusy by remember { mutableStateOf(false) }
+    var addError by remember { mutableStateOf<String?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
         Column(
@@ -192,7 +197,10 @@ fun CloudTimetablePanel(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (localLessons.isEmpty()) {
-                LocalTimetableEmptyState(openFileImport)
+                LocalTimetableEmptyState(openFileImport) {
+                    addError = null
+                    addingFirstCourse = true
+                }
             } else {
                 ScheduleVerifiedContent(
                     data = localImportedScheduleView(localLessons),
@@ -203,10 +211,38 @@ fun CloudTimetablePanel(
             }
         }
     }
+    if (addingFirstCourse) {
+        CourseEditorDialog(
+            original = null, selectedWeek = null, busy = addBusy,
+            externalError = addError,
+            onDismiss = { if (!addBusy) addingFirstCourse = false },
+            onSave = { replacement, _ ->
+                if (!addBusy) {
+                    addBusy = true
+                    editorScope.launch {
+                        try {
+                            val updated = withContext(Dispatchers.IO) {
+                                val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
+                                LocalScheduleStore.saveEdited(context, edited)
+                                LocalScheduleStore.load(context)
+                            }
+                            onLocalLessonsChanged(updated)
+                            addingFirstCourse = false
+                        } catch (failure: Exception) {
+                            addError = failure.message ?: "添加课程失败"
+                        } finally {
+                            addBusy = false
+                        }
+                    }
+                }
+            },
+            onDelete = { }
+        )
+    }
 }
 
 @Composable
-private fun LocalTimetableEmptyState(onImport: () -> Unit) {
+private fun LocalTimetableEmptyState(onImport: () -> Unit, onAdd: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().pageWidth(StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
@@ -229,6 +265,9 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
         }
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text("从文件导入课表")
+        }
+        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("手动添加第一门课程")
         }
         Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
