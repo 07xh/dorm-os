@@ -1128,6 +1128,10 @@ assert.match(design, /fun MetricCard\(/, '须有统计卡');
 assert.match(design, /fun CourseTile\(/, '须有课程色块');
 assert.match(design, /fun SectionHeader\(/, '须有分区标题');
 assert.match(design, /fun SourceBadge\(/, '须有来源徽标');
+assert.match(design, /fun XiaoxuToolbarAction\(/, '工具区图标应只有一套组件');
+assert.ok(workspace.includes('XiaoxuToolbarAction('), '任务页复用统一工具图标');
+assert.ok(workspace.includes('taskScope.launch { client.refreshPrivate() }'),
+  '统一工具图标不能移除真实刷新动作');
 assert.match(design, /fun StatusChip\(/, '须有状态标签');
 assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
 assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');

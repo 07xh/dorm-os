@@ -778,6 +778,36 @@ fun XiaoxuEmpty(
 }
 
 
+
+/** 统一页内工具图标：只有主要操作有淡色底，避免每页单独叠四套按钮卡片。 */
+@Composable
+internal fun XiaoxuToolbarAction(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    emphasized: Boolean = false
+) {
+    IconButton(
+        modifier = Modifier.size(42.dp)
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .then(if (emphasized) Modifier.background(XiaoxuPalette.BrandSoft) else Modifier),
+        enabled = enabled,
+        onClick = onClick
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(20.dp),
+            tint = when {
+                !enabled -> XiaoxuPalette.Ink3
+                emphasized -> XiaoxuPalette.BrandDeep
+                else -> XiaoxuPalette.Ink2
+            }
+        )
+    }
+}
+
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
 @Composable
 fun XiaoxuTopBar(

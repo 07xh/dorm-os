@@ -827,42 +827,27 @@ fun RealAcademicTaskHub(
                         maxLines = 1
                     )
                 }
-                IconButton(
-                    modifier = Modifier.size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Surface),
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.NotificationsNone,
+                    label = "消息中心",
                     onClick = onMessages
-                ) {
-                    Icon(Icons.Outlined.NotificationsNone,
-                        contentDescription = "消息中心",
-                        modifier = Modifier.size(20.dp), tint = XiaoxuPalette.Ink2)
-                }
-                IconButton(
-                    modifier = Modifier.size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Surface),
+                )
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.Search,
+                    label = "搜索任务",
                     onClick = { showSearch = !showSearch }
-                ) {
-                    Icon(Icons.Outlined.Search, contentDescription = "搜索任务",
-                        modifier = Modifier.size(20.dp), tint = XiaoxuPalette.BrandDeep)
-                }
-                IconButton(
-                    modifier = Modifier.size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Surface),
+                )
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.Refresh,
+                    label = "刷新校序云端任务",
                     onClick = { taskScope.launch { client.refreshPrivate() } },
                     enabled = state.authenticated && !state.busy
-                ) {
-                    Icon(Icons.Outlined.Refresh,
-                        contentDescription = "刷新校序云端任务",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (state.authenticated) XiaoxuPalette.BrandDeep
-                            else XiaoxuPalette.Ink3)
-                }
-                IconButton(
-                    modifier = Modifier.size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Brand),
+                )
+                XiaoxuToolbarAction(
+                    icon = if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
+                    label = if (showManager && showLocal)
+                        "收起新建本机任务" else "新增本机任务",
+                    emphasized = true,
                     onClick = {
                         if (showManager && showLocal) {
                             showManager = false
@@ -876,14 +861,7 @@ fun RealAcademicTaskHub(
                             jumpTo = "local"
                         }
                     }
-                ) {
-                    Icon(
-                        if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
-                        contentDescription = if (showManager && showLocal)
-                            "收起新建本机任务" else "新增本机任务",
-                        modifier = Modifier.size(21.dp), tint = Color.White
-                    )
-                }
+                )
             }
         }
         item {
