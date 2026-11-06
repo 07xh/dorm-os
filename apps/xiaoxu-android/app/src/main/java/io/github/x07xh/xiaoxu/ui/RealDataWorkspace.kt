@@ -516,11 +516,17 @@ private fun HomeQuickBlock(
                 // Four single-line labels in a 320–400dp phone would become
                 // cramped. Keep native QuickEntry, arranged in two clear rows.
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
                         QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
                             Modifier.weight(1f), XiaoxuTone.Success)
                         QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
@@ -528,7 +534,10 @@ private fun HomeQuickBlock(
                     }
                 }
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                     QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
                     QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
                     QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
