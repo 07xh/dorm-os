@@ -81,10 +81,10 @@ import kotlin.math.roundToInt
  * `inspectDragGestures`（见 `ui/nav/`，Apache-2.0 原件 + SleepDown 1.1 修改，
  * 署名见 `THIRD_PARTY_NOTICES.md`）。这两个文件零项目内部依赖，可独立抽取。
  *
- * **未**复用其 `LiquidBottomTabs`：该实现依赖 `glass` 模块 41 个文件 / 6559 行
- * 与 `com.kyant.backdrop` 液态玻璃库，无法独立抽取，强行移植等于把整套玻璃
- * 基础设施搬进校序，与「避免新一轮架构重构」直接冲突。本组件只用 Compose
- * 原生绘制复刻同样的**交互**（悬浮、滑动、压感），不复制其**渲染**。
+ * 2026-11-07：仍不引入 SleepDown 整套 `LiquidBottomTabs` 或玻璃模块。
+ * Android 13+ 的轨道、选中透镜、Phosphor 图标和组合采样来自北化课表
+ * v1.0.83（见 `NorthGlassNavChrome.kt` / `ui/northglass/`）；
+ * 较低 API 的 Compose 回退在本组件中保留，不构建第二套导航状态。
  *
  * ## 手势语义（PR #328 修复，不可回退）
  *
