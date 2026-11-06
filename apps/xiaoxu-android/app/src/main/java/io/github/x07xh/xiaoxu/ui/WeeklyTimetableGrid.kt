@@ -61,12 +61,13 @@ internal fun WeeklyTimetableGrid(
     lessons: List<VerifiedLesson>,
     selectedWeekday: Int? = null,
     onSelectWeekday: ((Int) -> Unit)? = null,
+    dailySections: Int = 12,
     onLessonClick: (VerifiedLesson) -> Unit
 ) {
     val all = remember(lessons) {
         lessons.sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
     }
-    val maxSection = (all.maxOfOrNull { it.endSection } ?: 12).coerceIn(12, 24)
+    val maxSection = maxOf(dailySections.coerceIn(1, 24), all.maxOfOrNull { it.endSection } ?: 0).coerceAtMost(24)
     // Create an indexed per-slot snapshot once when the imported lessons change.
     // Previously each rendered grid cell rescanned all lessons, repeatedly during UI recomposition.
     val occupancy = remember(all, maxSection) {
