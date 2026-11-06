@@ -30,6 +30,7 @@ import io.github.x07xh.xiaoxu.data.SemesterCalendar
 internal fun SemesterSettingsDialog(
     current: SemesterCalendar?,
     reminderEnabled: Boolean,
+    onExport: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (SemesterCalendar, Boolean) -> Unit
 ) {
@@ -83,6 +84,11 @@ internal fun SemesterSettingsDialog(
                     .onFailure { error = it.message ?: "设置无效" }
             }) { Text("保存") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { onDismiss(); onExport() }) { Text("导出备份") }
+                TextButton(onClick = onDismiss) { Text("取消") }
+            }
+        }
     )
 }
