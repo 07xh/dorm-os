@@ -147,7 +147,7 @@ assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(workspace, /未核定当前教学周/, '未知教学周不得虚构今日真实课程');
+assert.match(workspace, /本机导入，周次待核对/, '未知教学周须明确标注为未核对的本机记录');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -1142,8 +1142,8 @@ assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
 assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
 const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
-assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.BrandSoft/,
-  '悬浮导航选中底色须取自统一调色板');
+assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
+  '悬浮导航选中玻璃材质须取自唯一设计系统');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
   '悬浮导航选中前景色须取自统一调色板');
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
@@ -1171,7 +1171,7 @@ assert.match(workspace, /QuickEntry\("第二课堂"/);
 assert.match(workspace, /QuickEntry\("学习通"/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
-assert.match(workspace, /未核定当前教学周/, '不完整的教学周信息不能伪装成当日实际课程');
+assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
 assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
 assert.match(workspace, /onAction = openFileImport/, '首页空课表须可直接导入本机课表');
 assert.match(main, /openFileImport = openFileImport/, '主导航须连接已有文件选择器');
