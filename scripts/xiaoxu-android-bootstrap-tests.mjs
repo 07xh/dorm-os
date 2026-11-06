@@ -17,6 +17,10 @@ assert.match(visualQa, /\['04-schedule-settings',/,'一加 Ace 6 真机流程必
 assert.match(visualQa, /\['05-schedule-day',/,'需要可选采集日视图，避免只核验周视图');
 assert.match(visualQa, /requiredReferenceScenes:\s*\['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day'\]/);
 assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
+assert.match(visualQa, /sha256sum', installedBase/,'必须尝试核对手机实际安装 APK 的哈希');
+assert.match(visualQa, /installedMatchesLocal !== true/,'无法核实安装包与本机文件一致时不可开始人工视觉验收');
+assert.match(visualQa, /unverified_installed_build/,'截图完整也不能掩盖 APK 版本证据不足');
+assert.match(visualQa, /gitCommitVerifiedAgainstRepository: false/,'采集脚本不可把用户填写的提交 SHA 冒充已核验');
 assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
   '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
