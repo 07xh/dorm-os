@@ -597,15 +597,24 @@ assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /onRefresh = if \(current == MainDestination\.SCHEDULE\) null/,
   '课表顶栏不显示云端刷新入口');
-assert.match(main, /AcademicDestination\.GRADES -> Content/);
-assert.match(main, /AcademicDestination\.GRADES -> Content \{/,
-  '成绩保留独立页面入口');
-assert.match(main, /Text\("成绩尚未读取"/,
-  '成绩未取得真实数据时应显示明确空状态');
-assert.match(main, /TextButton\(onClick = openProfile\) \{ Text\("连接青果教务"\) \}/,
-  '成绩应能直达真实学校数据连接，而不是静态解释');
-assert.match(main, /Text\("考试安排尚未读取"/,
-  '考试未读取前不能显示模拟考试记录');
+assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
+  '成绩页面入口仍为独立原生内容页');
+assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
+  '考试页面与成绩统一页内间距');
+const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
+    main.indexOf('AcademicDestination.SERVICES -> Content('));
+assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
+  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
+assert.match(academicGradeArea, /title = "成绩尚未读取"/,
+  '成绩未取得本人真实数据时明确为空态');
+assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
+  '考试未读取前不能显示模拟考试安排');
+assert.match(academicGradeArea, /actionLabel = "连接青果教务",\s*onAction = openProfile/,
+  '成绩操作必须打开现有学校连接中心');
+assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/,
+  '考试操作必须打开现有学校连接中心');
+assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
+  '未核验数据不能混入成绩或考试页面');
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
