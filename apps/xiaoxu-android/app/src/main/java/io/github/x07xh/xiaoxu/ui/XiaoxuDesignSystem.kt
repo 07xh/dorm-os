@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -802,7 +803,13 @@ fun XiaoxuTopBar(
             }
         }
         if (onMessages != null) {
-            TextButton(onClick = onMessages) { Text("消息") }
+            IconButton(onClick = onMessages) {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsNone,
+                    contentDescription = "打开消息中心",
+                    tint = XiaoxuPalette.Ink2
+                )
+            }
         }
         if (onRefresh != null) {
             IconButton(onClick = onRefresh, enabled = !refreshing) {
