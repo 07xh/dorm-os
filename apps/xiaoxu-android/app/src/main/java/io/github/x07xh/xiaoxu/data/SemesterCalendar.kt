@@ -23,7 +23,8 @@ data class SemesterCalendar(
 
     /** Outside the configured teaching term is not represented as a valid week. */
     fun currentWeek(date: LocalDate): Int? {
-        val week = ChronoUnit.WEEKS.between(firstMonday, date).toInt() + 1
+        if (date.isBefore(firstMonday)) return null
+        val week = ChronoUnit.DAYS.between(firstMonday, date).toInt() / 7 + 1
         return week.takeIf { it in 1..totalWeeks }
     }
 
