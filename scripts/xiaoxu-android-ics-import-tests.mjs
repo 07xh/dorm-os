@@ -48,7 +48,7 @@ const currentTimetableEntry = screen.slice(
   screen.indexOf('private fun ScheduleVerifiedContent(')
 );
 assert.match(currentTimetableEntry, /localLessons\.isEmpty\(\)/);
-assert.match(currentTimetableEntry, /localImportedScheduleState\(localLessons\)/);
+assert.match(currentTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.match(currentTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);
 assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/,
   '本机课表不依赖云端课程或云端新鲜度');

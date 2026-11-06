@@ -409,7 +409,7 @@ const localTimetableEntry = schedulePanel.slice(
 assert.match(localTimetableEntry, /if \(localLessons\.isEmpty\(\)\)/,
   '无本机课程只显示本地导入空态');
 assert.match(localTimetableEntry, /LocalTimetableEmptyState\(openFileImport\)/);
-assert.match(localTimetableEntry, /localImportedScheduleState\(localLessons\)/);
+assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
 assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
@@ -1037,21 +1037,21 @@ assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出�
 // 课表主页面继续保留本机导入及来源分离门禁。
 assert.match(cloud, /scheduleStatus = "local_only"/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
-assert.match(schedulePanel, /fun localImportedScheduleState\(/);
+assert.match(schedulePanel, /fun localImportedScheduleView\(/);
 assert.match(schedulePanel, /本机课表 · 离线查看/);
 assert.match(schedulePanel, /"本机导入 · " \+ data\.lessons\.size/);
 assert.match(panels, /enabled = id != "ncwu"/,
   '青果的旧服务器课表同步不可被当做成绩同步');
 
 
-const freshnessTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ScheduleFreshnessTest.kt');
-assert.match(freshnessTest, /class ScheduleFreshnessTest/);
-assert.match(freshnessTest, /readyWithPreviousLessonsAndFailedScheduleReadIsStale/);
-assert.match(freshnessTest, /readyWithPreviousLessonsWhileRefreshingShowsRefreshing/);
-assert.match(freshnessTest, /serverMarkedStaleStaysStaleEvenWhenReadSucceeded/);
-assert.match(freshnessTest, /freshSuccessfulReadIsVerifiedForThisRead/);
-assert.match(freshnessTest, /taskOrWechatFailureDoesNotTaintSuccessfulScheduleRead/);
-assert.match(freshnessTest, /localImportedTimetableIsIndependentFromCloudFreshness/);
+const localSourceTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/LocalTimetableSourceTest.kt');
+assert.match(localSourceTest, /class LocalTimetableSourceTest/);
+assert.match(localSourceTest, /importedLessonsArePassedThroughWithoutInventingOrFiltering/);
+assert.match(localSourceTest, /localImportNeverClaimsOfficialCloudVerification/);
+assert.match(localSourceTest, /missingImportDoesNotSynthesizeCourses/);
+assert.match(localSourceTest, /replacingImportDoesNotMergeStaleLocalLessons/);
+assert.doesNotMatch(schedulePanel, /sealed interface ScheduleUiState|fun deriveScheduleUiState\(/,
+  'Retired cloud timetable display logic must not return');
 
 // 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
 const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
