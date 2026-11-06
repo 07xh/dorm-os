@@ -28,7 +28,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,6 +36,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -85,6 +85,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
+import io.github.x07xh.xiaoxu.ui.PrimaryGlassNavigationReserve
 import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.ui.primaryTabLabel
 import io.github.x07xh.xiaoxu.ui.QuickEntry
@@ -448,19 +449,16 @@ private fun NativeShell(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tabletLayout = maxWidth >= 700.dp
-        // Source background is captured once as a layer, never via per-frame bitmap readback.
-        // The bar is still the only bottom navigation renderer; no second Scaffold or dock.
-        val navBackdrop = if (!tabletLayout && Build.VERSION.SDK_INT >= 33) {
+        // Capture the page *behind* the dock, not a flat color swatch. Keeping
+        // the dock outside layerBackdrop prevents feedback/sampling of itself.
+        val navBackdrop = if (!tabletLayout && !messagesOpen && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
-        if (navBackdrop != null) {
-            Box(
-                Modifier.fillMaxSize()
-                    .layerBackdrop(navBackdrop)
-                    .background(XiaoxuPalette.Bg)
-            )
-        }
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier.fillMaxSize().then(
+                if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
+            ),
             containerColor = XiaoxuPalette.Bg,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
@@ -475,10 +473,15 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    // A single renderer. NativeShell remains the sole navigation state owner.
-                    PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) {
-                        current = it
-                        messagesOpen = false
+                    if (navBackdrop != null) {
+                        // Only geometry/inset in Scaffold: draw the real dock once
+                        // above its captured page, as a sibling of Scaffold.
+                        PrimaryGlassNavigationReserve()
+                    } else {
+                        PrimaryBottomNavigation(selected = current, backdrop = null) {
+                            current = it
+                            messagesOpen = false
+                        }
                     }
                 }
             }
@@ -558,6 +561,15 @@ private fun NativeShell(
                     }
                 }
             }
+        }
+        if (navBackdrop != null && !messagesOpen) {
+            Box(Modifier.align(Alignment.BottomCenter)) {
+                PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) {
+                    current = it
+                    messagesOpen = false
+                }
+            }
+        }
         }
     }
 }
