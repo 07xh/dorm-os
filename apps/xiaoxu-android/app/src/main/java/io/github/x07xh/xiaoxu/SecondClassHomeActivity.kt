@@ -57,6 +57,7 @@ class SecondClassHomeActivity : ComponentActivity() {
                             },
                             onSavedReceipt = { receipt ->
                                 setSavedReceipt(receipt)
+                                finish()
                             },
                             modifier = Modifier.weight(1f)
                         )

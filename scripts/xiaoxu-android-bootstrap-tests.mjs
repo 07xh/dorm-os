@@ -389,6 +389,8 @@ assert.match(secondClassMain, /onRefreshResult\?\.invoke\(succeeded\)/);
 const secondClassHome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassHomeActivity.kt');
 assert.match(secondClassHome, /SecondClassPage\(/);
 assert.match(secondClassHome, /onSavedReceipt = \{ receipt ->/);
+assert.match(secondClassHome, /onSavedReceipt = \{ receipt ->\s*setSavedReceipt\(receipt\)\s*finish\(\)/,
+  'a validated save must return directly to the initiating page after setting its receipt');
 assert.match(secondClassHome, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
 assert.match(secondClassHome, /EXTRA_SAVED_COUNT, receipt\.savedCount/);
 assert.match(secondClassHome, /connectOnOpen = true/);
