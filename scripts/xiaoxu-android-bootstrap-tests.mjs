@@ -1512,6 +1512,14 @@ assert.match(main, /SecondClassPage\(\)/,
   '第二课堂独立内容仍须可达');
 
 assert.match(panels, /fun ProfileMetric\(/, '我的页真实指标格');
+
+const profileMetricSource = panels.slice(panels.indexOf('private fun ProfileMetric('),
+  panels.indexOf('/** 本机优先',panels.indexOf('private fun ProfileMetric(')));
+assert.doesNotMatch(profileMetricSource, /background\(XiaoxuPalette\.SurfaceAlt\)/,
+  '我的账户统计不能再各自嵌套灰色背景小卡，保持单层玻璃信息结构');
+assert.match(profileMetricSource, /MaterialTheme\.typography\.titleMedium/,
+  '我的真实数值须保持可读字级');
+
 assert.match(panels, /fun SettingRow\(/, '我的页分组设置行');
 assert.match(panels, /fun PlatformStatusCard\(/, '三个学校平台需真实状态卡');
 assert.match(panels, /通用头像（未接入真实头像）/, '没有真实头像时只放通用图标');
