@@ -758,8 +758,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.9'/, '0.8.9 首页交互版本须准确标注');
-assert.match(appGradle, /versionCode 30\b/, '0.8.9 版本码须递增，避免重装旧包');
+assert.match(appGradle, /versionName '0\.8\.10'/, '0.8.10 整合测试版须准确标注');
+assert.match(appGradle, /versionCode 31\b/, '0.8.10 版本码须递增，便于区分整合包');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
