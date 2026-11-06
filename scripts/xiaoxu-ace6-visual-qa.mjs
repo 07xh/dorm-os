@@ -140,6 +140,19 @@ const steps = [
   ['08-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
   ['09-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过']
 ];
+// Screenshot validation must check which application is actually in the
+// foreground, rather than accepting a PNG of Settings, launcher or another app.
+function isTargetInForeground() {
+  const windowDump = adb(['shell', 'dumpsys', 'window', 'windows'], false, true);
+  const focus = windowDump.split(/\r?\n/).find(line => /\bmCurrentFocus\s*=/.test(line));
+  if (focus) return focus.includes(packageName + '/');
+  const activityDump = adb(['shell', 'dumpsys', 'activity', 'activities'], false, true);
+  const resumed = activityDump.split(/\r?\n/).find(
+    line => /\b(?:topResumedActivity|mResumedActivity|ResumedActivity)\s*[:=]/.test(line)
+  );
+  return Boolean(resumed?.includes(packageName + '/'));
+}
+
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 try {
   console.log('真机：' + brand + ' ' + model + '，Android ' + release);
@@ -153,6 +166,10 @@ try {
     }
     adb(['shell', 'dumpsys', 'gfxinfo', packageName, 'reset'], false, true);
     await rl.question('请在当前界面实际点击、滚动和返回，然后停在要对照的画面，按 Enter 截图：');
+    const foregroundVerified = isTargetInForeground();
+    if (!foregroundVerified) {
+      console.log('警告：当前前台无法确认是校序，截图仍保存但不计入有效复刻证据。');
+    }
     const png = adb(['exec-out', 'screencap', '-p'], true);
     if (png.length < 100 || !png.subarray(0, 8).equals(
       Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
@@ -164,7 +181,7 @@ try {
     const total = gfx.match(/Total frames rendered:\s*(\d+)/i);
     const janky = gfx.match(/Janky frames:\s*(\d+)/i);
     metadata.scenes.push({
-      name, captured: true,
+      name, captured: true, foregroundVerified,
       png: name + '.png', frameDump: name + '.gfxinfo.txt',
       totalFrames: total ? Number(total[1]) : null,
       jankyFrames: janky ? Number(janky[1]) : null,
@@ -176,7 +193,8 @@ try {
   rl.close();
   // A screenshot collector is not a visual comparator. Missing the essential
   // reference scenes must never be reported as a complete QA evidence set.
-  const captured = new Set(metadata.scenes.filter(x => x.captured).map(x => x.name));
+  const captured = new Set(metadata.scenes
+    .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
   metadata.missingReferenceScenes =
     metadata.requiredReferenceScenes.filter(x => !captured.has(x));
   metadata.result = metadata.missingReferenceScenes.length > 0
