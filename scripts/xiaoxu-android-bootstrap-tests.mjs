@@ -1143,21 +1143,22 @@ assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDee
   '悬浮导航选中前景色须取自统一调色板');
 assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
-assert.match(workspace, /private fun HomeHero\(/, '首页须有 Hero 主卡');
+assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
+assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
 assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
 assert.ok(workspace.includes('HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })'),
   '课程行点击复用原详情');
-assert.ok(workspace.includes('lessons.take(4).forEachIndexed'),
+assert.ok(workspace.includes('homeCoursePreview(lessons).forEachIndexed'),
   '首页一次最多显示四条课程记录');
 assert.ok(workspace.includes('xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })'),
   '首页和课表必须共享稳定的课程颜色');
 assert.doesNotMatch(workspace.slice(workspace.indexOf('val hero: @Composable'), workspace.indexOf('val tasks: @Composable')),
   /HomeHero\(/, '首页不能继续调用旧轮播');
-assert.ok(workspace.includes("internal fun resolveHomeCourseIndex("), '首页课程轮播必须有稳定的回退索引');
-assert.ok(workspace.includes("onSelectCourse(homeLessonKey(lessons[selectedIndex + 1]))"), '多课程应可切换至下一条');
+assert.doesNotMatch(workspace, /resolveHomeCourseIndex|selectedHomeCourseKey|onSelectCourse\(/,
+  '首页旧轮播状态须清退');
 assert.ok(workspace.includes('maxWidth < 420.dp'), '窄屏学业入口须自动调整为两行');
 const homeCourseSequence = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/HomeCourseSequenceTest.kt');
-assert.match(homeCourseSequence, /removedOrReimportedCourseFallsBackWithoutIndexCrash/, '课程重导入须测试索引回退');
+assert.match(homeCourseSequence, /firstFourPreserveSequenceFromLongList/, '首页列表必须保持记录顺序');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
 assert.match(workspace, /QuickEntry\("成绩"/, '首页学业入口须指向真实子页面');
 assert.match(workspace, /QuickEntry\("考试"/);

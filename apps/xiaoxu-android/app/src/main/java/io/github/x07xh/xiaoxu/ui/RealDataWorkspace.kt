@@ -344,11 +344,8 @@ private fun homeLessonKey(lesson: VerifiedLesson): String =
     "${lesson.id}:${lesson.term}:${lesson.weekday}:${lesson.startSection}:" +
         "${lesson.endSection}:${lesson.title}:${lesson.weeks.sorted().joinToString(",")}"
 
-internal fun resolveHomeCourseIndex(courseKeys: List<String>, selectedKey: String?): Int {
-    if (selectedKey == null) return 0
-    val index = courseKeys.indexOf(selectedKey)
-    return if (index >= 0) index else 0
-}
+/** 按原始顺序截取首页最多四条真实课程记录。 */
+internal fun <T> homeCoursePreview(records: List<T>): List<T> = records.take(4)
 
 /** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
 @Composable
@@ -399,90 +396,9 @@ private fun HomeSection(
     }
 }
 
-/** 本机导入课表按星期展示课程记录；周次未知时不得暗示今日真实开课。 */
-@Composable
-private fun HomeHero(
-    lessons: List<VerifiedLesson>,
-    hasTimetable: Boolean,
-    weekdayLabel: String,
-    selectedCourseKey: String?,
-    onSelectCourse: (String) -> Unit,
-    openSchedule: () -> Unit,
-    openFileImport: () -> Unit,
-    onOpenLesson: (VerifiedLesson) -> Unit
-) {
-    // The same weekday may contain many week-specific course blocks. Preserve
-    // one main card, but make every imported block reachable without leaving Home.
-    val selectedIndex = resolveHomeCourseIndex(lessons.map(::homeLessonKey), selectedCourseKey)
-    val lesson = lessons.getOrNull(selectedIndex)
-    when {
-        lesson != null -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            XiaoxuHero(
-                kicker = "${weekdayLabel}课程记录 · 本机课表",
-                title = lesson.title,
-                supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
-                    lesson.location.ifBlank { "教室未提供" } + " · " +
-                    lesson.teacher.ifBlank { "教师未提供" },
-                badge = if (lessons.size > 1)
-                    "${selectedIndex + 1}/${lessons.size} · 待核对" else "待核对",
-                meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
-                modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
-                    onOpenLesson(lesson)
-                },
-                actionLabel = "全部课表",
-                onAction = openSchedule
-            )
-            if (lessons.size > 1) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "${weekdayLabel}共 ${lessons.size} 条课块记录",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2,
-                        maxLines = 2
-                    )
-                    OutlinedButton(
-                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex - 1])) },
-                        enabled = selectedIndex > 0,
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("上一条") }
-                    OutlinedButton(
-                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex + 1])) },
-                        enabled = selectedIndex < lessons.lastIndex,
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("下一条") }
-                }
-            }
-        }
-        hasTimetable -> XiaoxuHero(
-            kicker = "${weekdayLabel}课程记录",
-            title = "没有对应星期的课程记录",
-            supporting = "不等于今天停课，请以实际教学周和学校通知为准。",
-            badge = "本机导入",
-            tone = XiaoxuTone.Neutral,
-            actionLabel = "查看课表",
-            onAction = openSchedule
-        )
-        else -> XiaoxuHero(
-            kicker = "我的课表",
-            title = "还没有导入课表",
-            supporting = "导入 ICS / JSON 文件，课程将保存在本机并可离线查看。",
-            tone = XiaoxuTone.Neutral,
-            badge = "未导入",
-            actionLabel = "从文件导入课表",
-            onAction = openFileImport
-        )
-    }
-}
-
-
 /**
  * 首屏只展示本人本机导入的同星期课块。周次未知时仅称“课程记录”，避免冒充今日实际开课。
- * QA 阶段保留旧 HomeHero 作为比对，验证后删除旧入口/轮播实现。
+ * 课程行复用原课程详情抽屉，不再保留旧单卡轮播。
  */
 @Composable
 private fun HomeCourseList(
@@ -502,7 +418,7 @@ private fun HomeCourseList(
         XiaoxuCard(contentPadding = 12.dp) {
             when {
                 lessons.isNotEmpty() -> {
-                    lessons.take(4).forEachIndexed { index, lesson ->
+                    homeCoursePreview(lessons).forEachIndexed { index, lesson ->
                         if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
                         HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })
                     }
