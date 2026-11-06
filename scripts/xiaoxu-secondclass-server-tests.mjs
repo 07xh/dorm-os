@@ -83,6 +83,6 @@ const invalidRedirect=makeNcwuSecondClassServerAdapter({fetcher:async()=>{
  outbound++;return response(302,'',{location:'https://outsider.example/'});
 }});
 const invalidReader=await invalidRedirect.forSession({session:original,userId:'synthetic-owner'});
-await assert.rejects(()=>invalidReader.verifySession(),e=>e.code==='interactive_login_required');
+await assert.rejects(()=>invalidReader.verifySession(),e=>e.code==='authorization_failed');
 assert.equal(outbound,1,'no request may leave the fixed school allowlist');
 console.log('Second-class read-only transport: password transport blocked, existing-session identity, reads, rotation, redirect and cookie scope passed');
