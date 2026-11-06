@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -45,6 +48,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
@@ -61,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -75,6 +80,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
@@ -149,6 +155,7 @@ private fun weekdayLong(weekday: Int): String =
 @Immutable
 private data class LessonUi(
     val key: String,
+    val sourceId: String,
     val colorKey: String,
     val title: String,
     val sectionLabel: String,
@@ -163,6 +170,7 @@ private data class LessonUi(
 
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
     key = (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday",
+    sourceId = id,
     // 与首页 CourseTile 共用相同的稳定课程标识，跨页面保持六色一致。
     colorKey = id.ifBlank { title },
     title = title.ifBlank { "未命名课程" },
@@ -367,7 +375,8 @@ private fun ScheduleVerifiedContent(
         mutableStateOf(actualCurrentWeek?.takeIf { it in weekNumbers }
             ?: weekNumbers.firstOrNull() ?: ALL_WEEKS)
     }
-    var viewMode by rememberSaveable { mutableStateOf("week") }
+    var viewMode by rememberSaveable { mutableStateOf(ScheduleViewPreferences.loadMode(context)) }
+    var visibleSections by rememberSaveable { mutableStateOf(ScheduleViewPreferences.loadSections(context)) }
     var showWeekPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weekNumbers) {
         if (selectedWeek != ALL_WEEKS && selectedWeek !in weekNumbers) {
@@ -481,7 +490,6 @@ private fun ScheduleVerifiedContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        ScheduleViewModeTabs(mode = viewMode, onChange = { viewMode = it })
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
             if (expanded) {
@@ -502,6 +510,8 @@ private fun ScheduleVerifiedContent(
                             }
                             WeeklyTimetableGrid(
                                 lessons = weekLessons,
+                            dailySections = visibleSections,
+                                dailySections = visibleSections,
                                 selectedWeekday = tabletWeekday,
                                 onSelectWeekday = { selectedWeekday = it }
                             ) { item ->
@@ -645,15 +655,35 @@ private fun ScheduleVerifiedContent(
         SemesterSettingsDialog(
             current = calendar,
             reminderEnabled = LocalCourseReminders.enabled(context),
-            onExport = openFileExport,
-            onDismiss = { showSemesterSettings = false },
-            onSave = { config, wantReminders ->
-                LocalSemesterConfigStore.save(context, config)
-                calendar = config
+            initialViewMode = viewMode,
+            initialSections = visibleSections,
+            onAddCourse = {
                 showSemesterSettings = false
-                config.currentWeek(LocalDate.now())?.let {
-                    selectedWeek = it
+                editOriginal = null
+                editingError = null
+                showingCourseEditor = true
+            },
+            onImport = {
+                showSemesterSettings = false
+                openFileImport()
+            },
+            onExport = {
+                showSemesterSettings = false
+                openFileExport()
+            },
+            onDismiss = { showSemesterSettings = false },
+            onSave = { config, wantReminders, newViewMode, newSections ->
+                ScheduleViewPreferences.save(context, newViewMode, newSections)
+                viewMode = newViewMode
+                visibleSections = newSections
+                if (config != null) {
+                    LocalSemesterConfigStore.save(context, config)
+                    calendar = config
+                    config.currentWeek(LocalDate.now())?.let {
+                        selectedWeek = it
+                    }
                 }
+                showSemesterSettings = false
                 if (!wantReminders) {
                     editorScope.launch {
                         val disabled = withContext(Dispatchers.IO) {
@@ -670,7 +700,7 @@ private fun ScheduleVerifiedContent(
                             runCatching {
                                 LocalCourseReminders.setEnabled(context, true)
                                 LocalCourseReminders.reconcileAfterSave(
-                                    context, LocalScheduleStore.load(context), config)
+                                    context, LocalScheduleStore.load(context), calendar)
                             }.getOrDefault(false)
                         }
                         if (!reminderOk) Toast.makeText(
@@ -684,74 +714,6 @@ private fun ScheduleVerifiedContent(
                 }
             }
         )
-    }
-}
-
-/**
- * 周 / 日 切换。两个标签是同一组单选（`selectableGroup`），各自带准确描述，
- * 读屏能区分"周视图=七日历课程网格"与"日视图=单日课程列表"，并播报选中项。
- */
-@Composable
-private fun ScheduleViewModeTabs(mode: String, onChange: (String) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ViewModeTab(
-            isSelected = mode == "week",
-            description = "周视图，七日历课程网格，点击查看整周课表",
-            onClick = { onChange("week") }
-        ) {
-            Text("周视图")
-        }
-        ViewModeTab(
-            isSelected = mode == "day",
-            description = "日视图，单日课程列表，点击查看某一天的课程",
-            onClick = { onChange("day") }
-        ) {
-            Text("日视图")
-        }
-    }
-}
-
-@Composable
-private fun ViewModeTab(
-    isSelected: Boolean,
-    description: String,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        animationSpec = tween(180),
-        label = "mode-tab-bg"
-    )
-    val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
-        label = "mode-tab-fg"
-    )
-    Box(
-        modifier = Modifier
-            .heightIn(min = 48.dp)
-            .widthIn(min = 96.dp)
-            .clip(RoundedCornerShape(50))
-            .background(background)
-            // selectable 直接提供 role=Tab 与 selected，无需再手写覆盖。
-            .selectable(selected = isSelected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 10.dp)
-            .semantics {
-                contentDescription = description +
-                    if (isSelected) "，当前视图" else "，未选中"
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        CompositionLocalProvider(LocalContentColor provides foreground) { content() }
     }
 }
 
@@ -1118,73 +1080,204 @@ internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit
     CourseDetailBottomSheet(lesson.toUi(), onDismiss = onDismiss)
 }
 
-/** 真实课程详情：原生模态抽屉，不推断作息时间，不提供未实现的提醒开关。 */
+/**
+ * 课程详情直接复刻参考图的底部抽屉结构：保留原弹出位置，
+ * 标题、两张信息卡、教师/周次和提醒的位置不随页面来源变化。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseDetailBottomSheet(
     lesson: LessonUi, onDismiss: () -> Unit, timeLabel: String? = null,
     onEdit: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var reminderSelected by remember(lesson.sourceId) {
+        mutableStateOf(
+            lesson.sourceId.isNotBlank() &&
+                LocalCourseReminders.enabledForCourse(context, lesson.sourceId)
+        )
+    }
+    fun applyReminder(enabled: Boolean) {
+        LocalCourseReminders.setCourseEnabled(context, lesson.sourceId, enabled)
+        reminderSelected = enabled
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                LocalCourseReminders.reconcileAfterSave(
+                    context, LocalScheduleStore.load(context),
+                    LocalSemesterConfigStore.load(context)
+                )
+            }
+            if (!ok) Toast.makeText(context, "提醒设置已保存，但调度失败", Toast.LENGTH_LONG).show()
+        }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && LocalCourseReminders.canNotify(context)) applyReminder(true)
+        else Toast.makeText(context, "未获得通知权限，课程提醒保持关闭", Toast.LENGTH_SHORT).show()
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
+        containerColor = Color(0xFFF6F7FC),
+        dragHandle = {
+            Box(
+                Modifier.padding(top = 12.dp, bottom = 12.dp)
+                    .size(width = 48.dp, height = 5.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xFFDADFE9))
+            )
+        }
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 34.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Text(
-                text = lesson.title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.semantics { heading() }
-            )
-            Text(
-                text = "本机导入 · 待核对",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider()
-            CourseSheetRow("星期", weekdayLong(lesson.weekday))
-            CourseSheetRow("上课教室", lesson.location)
-            CourseSheetRow("任课教师", lesson.teacher)
-            CourseSheetRow("上课周次", lesson.weeksLabel)
-            CourseSheetRow("节次", lesson.sectionLabel)
-            if (timeLabel != null) CourseSheetRow("上课时间", timeLabel)
-            CourseSheetRow("学期", lesson.term)
-            if (onEdit != null) {
-                TextButton(onClick = onEdit, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text("编辑课程")
+            Row(verticalAlignment = Alignment.Top) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(width = 34.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF66BD72)))
+                        Spacer(Modifier.width(10.dp))
+                        Text("课程详情", style = MaterialTheme.typography.bodyLarge,
+                            color = XiaoxuPalette.Ink)
+                    }
+                    // Long press preserves the existing edit action without adding
+                    // a new visible label or rearranging the reference layout.
+                    Text(
+                        lesson.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = XiaoxuPalette.Ink,
+                        modifier = Modifier
+                            .then(if (onEdit == null) Modifier else Modifier.combinedClickable(
+                                onClick = onEdit,
+                                onLongClick = onEdit
+                            ))
+                            .semantics { heading() }
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Outlined.Close, contentDescription = "关闭课程详情",
+                        modifier = Modifier.size(29.dp), tint = XiaoxuPalette.Ink2)
                 }
             }
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text("关闭详情")
+            Spacer(Modifier.height(22.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CourseDetailInfoCard(
+                    icon = Icons.Outlined.Schedule,
+                    label = "上课时间",
+                    value = "周" + WEEKDAY_SHORT.getOrElse(lesson.weekday - 1) { "?" } +
+                        " · " + lesson.sectionLabel,
+                    modifier = Modifier.weight(1f)
+                )
+                CourseDetailInfoCard(
+                    icon = Icons.Outlined.Room,
+                    label = "上课地点",
+                    value = lesson.location,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(26.dp))
+            CourseDetailInfoRow(Icons.Outlined.PersonOutline, "教师", lesson.teacher)
+            Spacer(Modifier.height(20.dp))
+            CourseDetailInfoRow(Icons.Outlined.DateRange, "周次", lesson.weeksLabel)
+            Spacer(Modifier.height(26.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(21.dp))
+                    .background(Color(0xFFF7F1FA))
+                    .padding(horizontal = 18.dp, vertical = 17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Outlined.NotificationsNone, contentDescription = null,
+                    modifier = Modifier.size(24.dp), tint = XiaoxuPalette.Ink2)
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text("课程提醒", color = XiaoxuPalette.Ink,
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        (if (reminderSelected) "已开启" else "未开启") + " · 上课前 15 分钟",
+                        color = XiaoxuPalette.Ink2,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                Switch(
+                    checked = reminderSelected,
+                    enabled = lesson.sourceId.isNotBlank(),
+                    onCheckedChange = { checked ->
+                        if (!checked) {
+                            applyReminder(false)
+                        } else {
+                            val configured = LocalSemesterConfigStore.load(context)
+                            if (configured == null ||
+                                configured.sectionTimes[lesson.startSection] == null) {
+                                Toast.makeText(context, "请先在课表设置中填写学期与上课时间",
+                                    Toast.LENGTH_LONG).show()
+                            } else if (!LocalCourseReminders.canNotify(context)) {
+                                if (Build.VERSION.SDK_INT >= 33) {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    Toast.makeText(context, "请在系统设置中允许校序通知",
+                                        Toast.LENGTH_LONG).show()
+                                }
+                            } else applyReminder(true)
+                        }
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CourseSheetRow(label: String, value: String) {
+private fun CourseDetailInfoCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFFF8F3FC))
+            .padding(horizontal = 15.dp, vertical = 17.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null,
+                tint = Color(0xFF1675D5), modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(9.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink)
+        }
+        Text(value, style = MaterialTheme.typography.titleMedium,
+            color = XiaoxuPalette.Ink, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun CourseDetailInfoRow(icon: ImageVector, label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 30.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            label,
-            modifier = Modifier.width(90.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            value,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Icon(icon, contentDescription = null,
+            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink2)
+        Spacer(Modifier.width(12.dp))
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
     }
 }
 
