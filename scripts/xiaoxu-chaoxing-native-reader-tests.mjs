@@ -105,6 +105,16 @@ const overTableLimit = runReader({ host: homeworkHost, path: homeworkPath,
 assert.equal(overTableLimit.truncated, true);
 assert.equal(overTableLimit.records.length, 0, 'table-limit overflow must not replace saved data');
 
+// Hidden framework tables do not count toward the visible table budget,
+// so an otherwise valid owner-visible work list must not be falsely rejected.
+const hiddenTable = () => ({ ...unrelatedTable(), getClientRects: () => [] });
+const withHiddenLayoutTables = runReader({ host: homeworkHost, path: homeworkPath,
+  tables: [...Array.from({ length: 220 }, hiddenTable), makeWorkTable(1)] });
+assert.equal(withHiddenLayoutTables.records.length, 1);
+assert.equal(withHiddenLayoutTables.records[0].title, '作业 1');
+assert.equal(withHiddenLayoutTables.truncated, undefined);
+
+
 const onlyCourseNames = runReader({ host: homeworkHost, path: homeworkPath,
   tables: [tableOf(['课程名称', '提交状态'], [['高等数学', '已完成']])] });
 assert.equal(onlyCourseNames.records.length, 0, 'cannot invent a work title from a course name');
