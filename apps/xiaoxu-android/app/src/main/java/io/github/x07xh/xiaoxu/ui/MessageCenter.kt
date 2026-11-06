@@ -673,10 +673,10 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.dp, CardShape, clip = false)
+            .shadow(0.5.dp, CardShape, clip = false)
             .clip(CardShape)
-            .background(XiaoxuPalette.Surface)
-            .border(1.dp, XiaoxuPalette.Line, CardShape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, CardShape)
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(),
