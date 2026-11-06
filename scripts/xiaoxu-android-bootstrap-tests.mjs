@@ -1156,9 +1156,9 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.ok(workspace.includes('if (showManager && showLocal) item { LocalTaskEditor(localTasks, dao) }'),
+assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
   '本机任务只在管理展开时展示真实 Room 编辑器');
-assert.ok(workspace.includes('if (showManager && showCloud) item { CloudTaskEditor(client) }'),
+assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
   '关闭任务管理也必须隐藏云端新建表单');
 assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
   '顶部新增按钮再次点击应完整收起编辑区');
