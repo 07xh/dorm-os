@@ -13,7 +13,15 @@ for(const path of [
  'scripts/xiaoxu-ncwu-cas-native-tests.mjs',
  'scripts/xiaoxu-second-class-school-login-tests.mjs',
  'scripts/xiaoxu-second-class-foreground-sync-tests.mjs',
- 'docs/XIAOXU-SECONDCLASS-NATIVE-CAS-M23.md'
+ 'docs/XIAOXU-SECONDCLASS-NATIVE-CAS-M23.md',
+ 'functions/api/academic/second-class-cas.js',
+ 'lib/academic-cas-failure-evidence.mjs',
+ 'scripts/probe-ncwu-secondclass-cas-live.mjs',
+ 'scripts/verify-cloudflare-secondclass-cas.mjs',
+ 'scripts/xiaoxu-cloudflare-secondclass-cas-tests.mjs',
+ 'lib/academic-ncwu-sudy-codec.mjs',
+ 'scripts/xiaoxu-ncwu-sudy-codec-tests.mjs',
+ 'scripts/xiaoxu-ncwu-sudy-transport-tests.mjs'
 ])assert.equal(existsSync(new URL('../'+path,import.meta.url)),false,'obsolete script/endpoint remains: '+path);
 const ui=read('public/xiaoxu-academic-client.js');
 const source=read('functions/api/v1/connections.js');
@@ -23,6 +31,16 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
  assert.equal(ui.includes(token),false,'obsolete connection-center UI remains: '+token);
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
+assert.equal(pkg.includes('xiaoxu-cloudflare-secondclass-cas-tests.mjs'),false);
+assert.equal(pkg.includes('xiaoxu-ncwu-sudy-codec-tests.mjs'),false);
+const server=read('lib/academic-ncwu-secondclass-server.mjs');
+assert.equal(server.includes('async preflight('),false,'retired server CAS form probe must not return');
+assert.equal(server.includes('inspectCasForm('),false,'retired CAS password form inspector must not return');
+assert.ok(server.includes('async forSession('),'owner-bound existing session reader must remain');
+assert.ok(server.includes('async login('),'server login must explicitly refuse credentials');
+assert.equal(read('.github/workflows/check.yml').includes('probe-ncwu-secondclass-cas-live'),false);
+assert.equal(read('.github/workflows/deploy-cloudflare.yml').includes('verify-cloudflare-secondclass-cas'),false);
+assert.equal(read('public/xiaoxu-academic-client.js').includes('casErrorKind'),false);
 assert.ok(ui.includes('打开学校官方平台'),'official entry remains');
 assert.ok(ui.includes('请在校序 App 的'),'official App reader is the connection entry');
 assert.equal(ui.includes('扫码会话尚未接入校序'),false,'obsolete QR placeholder is removed');
