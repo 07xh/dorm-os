@@ -59,7 +59,7 @@ class TaskCenterSearchTest {
     @Test
     fun approvedWechatTasksStayInSeparateGroupWhileUsingExistingCloudStorage() {
         val cloud = listOf(
-            CloudTask("wx-accepted", "群通知实验任务", "todo", "manual", "wechat", "2026-11-08"),
+            CloudTask("wx-accepted", "群通知实验任务", "todo", "manual", "wechat", "2026-11-08", revision = 7),
             CloudTask("course-1", "课程待办", "todo", "manual", "chaoxing", null),
             CloudTask("manual-1", "普通云端待办", "done", "manual", null, null)
         )
@@ -68,6 +68,7 @@ class TaskCenterSearchTest {
         val wechat = combined.single { it.key == "cloud:wx-accepted" }
         assertEquals("wechat", wechat.category)
         assertEquals("cloud", wechat.storage)
+        assertEquals(7, wechat.revision)
         assertEquals("微信任务", wechat.origin)
         assertEquals(listOf("cloud:wx-accepted"),
             facetWorkspaceTasks(combined, "wechat", false, today).map { it.key })
