@@ -1,6 +1,8 @@
 import {authorize,json} from '../assignments.js';
 import {patchPersonalTask,WorkspaceError} from '../../../../lib/academic-workspace.mjs';
-export async function onRequestPatch(context){
+// Same owner-protected task mutation. Android's HttpURLConnection does not
+// reliably support PATCH; POST here is limited to personal completion only.
+async function updatePersonalTask(context,statusOnly){
  const req=context.request, origin=req.headers.get('origin');
  if((origin&&origin!==new URL(req.url).origin)||
     req.headers.get('sec-fetch-site')==='cross-site')return json({error:'forbidden_origin'},403);
@@ -12,9 +14,15 @@ export async function onRequestPatch(context){
    const raw=await req.text();
    if(raw.length>16000)return json({error:'payload_too_large'},413);
    let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_json'},400);}
+   if(statusOnly&&(!body||typeof body!=='object'||Array.isArray(body)||
+      Object.keys(body).sort().join(',')!=='localStatus,revision'))
+     return json({error:'personal_status_only'},422);
    return json({item:await patchPersonalTask(auth.db,auth.userId,context.params.id,body)});
  }catch(e){
    if(e instanceof WorkspaceError)return json({error:e.code},e.status);
    return json({error:'database_unavailable'},503);
  }
 }
+
+export async function onRequestPatch(context){return updatePersonalTask(context,false);}
+export async function onRequestPost(context){return updatePersonalTask(context,true);}
