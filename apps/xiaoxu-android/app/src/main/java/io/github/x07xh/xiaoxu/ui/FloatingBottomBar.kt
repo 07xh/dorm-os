@@ -3,6 +3,7 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -149,8 +150,8 @@ fun FloatingBottomBar(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = XiaoxuPalette.Surface,
-    indicatorColor: Color = XiaoxuPalette.BrandSoft,
+    containerColor: Color = XiaoxuPalette.GlassTrack,
+    indicatorColor: Color = XiaoxuPalette.GlassIndicator,
     unselectedContentColor: Color = XiaoxuPalette.Ink3,
     selectedContentColor: Color = XiaoxuPalette.BrandDeep,
     showLabels: Boolean = true,
@@ -274,9 +275,10 @@ fun FloatingBottomBar(
             Modifier
                 .fillMaxWidth()
                 .height(BarHeight)
-                .shadow(elevation = 12.dp, shape = BarShape, clip = false)
+                .shadow(elevation = 3.dp, shape = BarShape, clip = false)
                 .clip(BarShape)
                 .background(containerColor)
+                .border(0.85.dp, XiaoxuPalette.GlassBorder, BarShape)
                 .then(gestureModifier)
         ) {
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
@@ -295,6 +297,7 @@ fun FloatingBottomBar(
                     .padding(IndicatorInset)
                     .clip(IndicatorShape)
                     .background(indicatorColor)
+                    .border(0.75.dp, XiaoxuPalette.GlassBorder, IndicatorShape)
                     .graphicsLayer {
                         // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
                         val p = drag.pressProgress
