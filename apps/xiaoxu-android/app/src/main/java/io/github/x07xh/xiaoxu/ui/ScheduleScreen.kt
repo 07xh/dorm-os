@@ -182,6 +182,7 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 fun CloudTimetablePanel(
     localLessons: List<VerifiedLesson>,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
@@ -206,6 +207,7 @@ fun CloudTimetablePanel(
                     data = localImportedScheduleView(localLessons),
                     expanded = expanded,
                     openFileImport = openFileImport,
+                    openFileExport = openFileExport,
                     onLocalLessonsChanged = onLocalLessonsChanged
                 )
             }
@@ -283,6 +285,7 @@ private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
     expanded: Boolean,
     openFileImport: () -> Unit,
+    openFileExport: () -> Unit,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     val context = LocalContext.current
@@ -357,6 +360,7 @@ private fun ScheduleVerifiedContent(
                     showingCourseEditor = true
                 }) { Text("新增") }
                 TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
+                TextButton(onClick = openFileExport) { Text("备份") }
                 OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
                     Text("重新导入")
                 }
