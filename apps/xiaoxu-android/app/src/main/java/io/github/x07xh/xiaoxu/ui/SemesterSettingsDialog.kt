@@ -3,6 +3,7 @@ package io.github.x07xh.xiaoxu.ui
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -308,9 +309,12 @@ private fun SettingsGroupTitle(title: String) {
 
 @Composable
 private fun SettingsSurface(content: @Composable () -> Unit) {
+    // Preserve reference layout/position; use the same glass layer as other settings pages.
+    val shape = RoundedCornerShape(XiaoxuRadius.card)
     Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.74f)),
+        modifier = Modifier.fillMaxWidth().clip(shape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, shape),
         content = { content() }
     )
 }
