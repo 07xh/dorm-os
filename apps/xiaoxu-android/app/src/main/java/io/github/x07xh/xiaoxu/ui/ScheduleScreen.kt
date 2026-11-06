@@ -279,7 +279,7 @@ private fun SchedulePageHeading(
         Column(Modifier.weight(1f)) {
             Text(
                 "我的课表", modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink
             )
             if (sourceLabel != null) {

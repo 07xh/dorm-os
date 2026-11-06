@@ -235,7 +235,7 @@ private val XiaoxuTypography = Typography(
         fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = (-0.2).sp
     ),
-    titleLarge = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
+    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),

@@ -436,7 +436,7 @@ private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
         }
         Text(
             text = "消息中心",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = XiaoxuPalette.Ink,
             modifier = Modifier.weight(1f).semantics { heading() }

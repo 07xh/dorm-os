@@ -403,8 +403,14 @@ assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
  '活动类别须保留报名中筛选');
 assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
  '共享分段控件必须等宽且具有至少44dp触控高度');
-assert.match(workspace, /fontSize = 20\.sp, lineHeight = 26\.sp/,
- '任务中心标题不恢复旧大字号');
+assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
+ '一级页面共用20sp字级与26sp行高');
+assert.match(schedulePanel, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
+ '课表标题从统一主题取得字级');
+assert.match(messageCenter, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
+ '消息标题从统一主题取得字级');
+assert.match(workspace, /Text\("任务中心",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
+ '任务标题从统一主题取得字级');
 assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
  '三态数字同卡保留内容且压缩多余高度');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,

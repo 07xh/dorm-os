@@ -812,8 +812,7 @@ fun RealAcademicTaskHub(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text("任务中心",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = 20.sp, lineHeight = 26.sp),
+                        style = MaterialTheme.typography.titleLarge,
                         color = XiaoxuPalette.Ink,
                         maxLines = 1,
                         modifier = Modifier.semantics { heading() })
