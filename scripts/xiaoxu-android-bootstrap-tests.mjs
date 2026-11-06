@@ -1121,7 +1121,15 @@ assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
-assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区须使用图标白卡而非散乱的纯文本标题');
+assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
+const compactTaskHeader = workspace.slice(workspace.indexOf('private fun TaskGroupHeader('),
+  workspace.indexOf('private fun TaskSectionHeader('));
+assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
+  '任务列表分组不应再套独立大卡造成页面拼接感');
+assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
+  '精简分组后仍须保留可触控的最小高度');
+assert.match(compactTaskHeader, /append\("，"\)\.append\(badge\)/,
+  '折叠分组必须保留真实来源及核验状态的无障碍说明');
 assert.match(workspace, /title = "群消息任务候选"/, '独立微信候选区必须存在');
 assert.match(workspace, /var showCandidates by rememberSaveable/, '微信候选列表必须可折叠');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
