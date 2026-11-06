@@ -2,6 +2,7 @@ package io.github.x07xh.xiaoxu
 
 import android.app.Activity
 import android.content.Intent
+import io.github.x07xh.xiaoxu.data.SecondClassSaveReceipt
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +48,8 @@ import java.util.Date
 @Composable
 fun SecondClassPage(
     onRefreshResult: ((Boolean) -> Unit)? = null,
+    onSavedReceipt: ((SecondClassSaveReceipt) -> Unit)? = null,
+    connectOnOpen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -64,7 +67,7 @@ fun SecondClassPage(
         catalogRows.map { it.title }.toSet() == setOf("报名中", "待验证", "即将开始报名") &&
         catalogRows.map { it.capturedAt }.distinct().size == 1
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(if (connectOnOpen) 2 else 0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
     // In-flight state is not persisted: a restored Activity must allow retry.
     var refreshing by remember { mutableStateOf(false) }
@@ -76,10 +79,16 @@ fun SecondClassPage(
     val scoresScroll = rememberScrollState()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         refreshing = false
-        val succeeded = result.resultCode == Activity.RESULT_OK
+        val receipt = if (result.resultCode == Activity.RESULT_OK) SecondClassSaveReceipt.validate(
+            result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER),
+            result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_RETURN_KIND),
+            result.data?.getIntExtra(NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
+        ) else null
+        val succeeded = receipt != null
         message = if (succeeded) "本次刷新已保存"
             else "本次未更新，保留上次数据；可重试或在官网重新登录"
         onRefreshResult?.invoke(succeeded)
+        if (receipt != null) onSavedReceipt?.invoke(receipt)
     }
     fun refreshPersonalRecords() {
         if (refreshing) return
@@ -93,6 +102,15 @@ fun SecondClassPage(
             refreshing = false
             message = "无法打开学校读取页面，已保留上次数据"
             onRefreshResult?.invoke(false)
+        }
+    }
+
+    // A tap on the existing connection entry goes directly to the official
+    // reader once. A configuration change must not launch a second reader.
+    LaunchedEffect(connectOnOpen) {
+        if (connectOnOpen && !attempted) {
+            attempted = true
+            refreshPersonalRecords()
         }
     }
 
