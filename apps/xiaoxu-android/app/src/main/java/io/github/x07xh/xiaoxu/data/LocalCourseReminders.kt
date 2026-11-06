@@ -173,7 +173,8 @@ class LocalCourseReminderWorker(context: Context, params: Worker) : Worker(conte
     override fun doWork(): Result {
         if (!LocalCourseReminders.enabled(applicationContext)) return Result.success()
         val id = inputData.getString("id") ?: return Result.success()
-        val date = runCatching { LocalDate.parse(inputData.getString("date")) }.getOrNull()
+        val dateText = inputData.getString("date") ?: return Result.success()
+        val date = runCatching { LocalDate.parse(dateText) }.getOrNull()
             ?: return Result.success()
         val expectedStart = inputData.getLong("startEpoch", -1L)
         if (expectedStart <= 0L || !LocalCourseReminders.canNotify(applicationContext)) {
