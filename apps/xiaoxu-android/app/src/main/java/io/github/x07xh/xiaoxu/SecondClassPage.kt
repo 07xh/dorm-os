@@ -66,18 +66,34 @@ fun SecondClassPage(
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
+    // In-flight state is not persisted: a restored Activity must allow retry.
+    var refreshing by remember { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf("显示本机上次保存结果") }
+    // A single scroll state shared by three tabs incorrectly carries the position
+    // of a long activity list into a short score or catalog list.
+    val catalogScroll = rememberScrollState()
+    val activitiesScroll = rememberScrollState()
+    val scoresScroll = rememberScrollState()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        refreshing = false
         val succeeded = result.resultCode == Activity.RESULT_OK
         message = if (succeeded) "本次刷新已保存"
             else "本次未更新，保留上次数据；可重试或在官网重新登录"
         onRefreshResult?.invoke(succeeded)
     }
     fun refreshPersonalRecords() {
+        if (refreshing) return
+        refreshing = true
         message = "正在打开官方会话核验并刷新个人记录…"
-        reader.launch(Intent(context, NativeSchoolConnectActivity::class.java)
-            .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
-            .putExtra(NativeSchoolConnectActivity.EXTRA_AUTO_SCORE, true))
+        try {
+            reader.launch(Intent(context, NativeSchoolConnectActivity::class.java)
+                .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
+                .putExtra(NativeSchoolConnectActivity.EXTRA_AUTO_SCORE, true))
+        } catch (_: android.content.ActivityNotFoundException) {
+            refreshing = false
+            message = "无法打开学校读取页面，已保留上次数据"
+            onRefreshResult?.invoke(false)
+        }
     }
 
     // Only refresh verified personal data when the user opens those sections.
@@ -96,7 +112,12 @@ fun SecondClassPage(
                     text = { Text(label) })
             }
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        val currentScroll = when (tab) {
+            0 -> catalogScroll
+            1 -> activitiesScroll
+            else -> scoresScroll
+        }
+        Column(Modifier.fillMaxSize().verticalScroll(currentScroll).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (tab == 0) {
                 val labels = listOf("报名中", "待验证", "即将开始报名")
@@ -137,8 +158,8 @@ fun SecondClassPage(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         Button(onClick = { attempted = true; refreshPersonalRecords() },
-                            modifier = Modifier.fillMaxWidth()) {
-                            Text("刷新活动广场（学校官方读取）")
+                            enabled = !refreshing, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (refreshing) "正在读取…" else "刷新活动广场（学校官方读取）")
                         }
                         OutlinedButton(onClick = {
                             runCatching {
@@ -164,9 +185,10 @@ fun SecondClassPage(
             } else {
                 Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { attempted = true; refreshPersonalRecords() },
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(if (scores.isEmpty() && activities.isEmpty())
-                        "连接并读取本人积分与活动" else "刷新积分与报名活动")
+                    enabled = !refreshing, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (refreshing) "正在读取…"
+                        else if (scores.isEmpty() && activities.isEmpty())
+                            "连接并读取本人积分与活动" else "刷新积分与报名活动")
                 }
                 val rows = if (tab == 2) {
                     scores.sortedBy { if (it.title == "学校积分合计") 0 else 1 }
