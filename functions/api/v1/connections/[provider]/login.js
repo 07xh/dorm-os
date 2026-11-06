@@ -1,5 +1,4 @@
 import {authorize,json} from '../../assignments.js';
-import {safeCasErrorKind} from '../../../../../lib/academic-cas-failure-evidence.mjs';
 import {availableSchoolAdapter,connectSchoolAccount,prepareNcwuAccountReview,checkSchoolMutation,validSchoolLoginInput,schoolConnectAttemptStatus,SchoolLoginError} from '../../../../../lib/academic-school-login.mjs';
 const responseCode=e=>e.code==='invalid_credentials'?400:e.code==='authorization_failed'?422:
  e.code==='interactive_login_required'?409:['sync_failed','upstream_unavailable'].includes(e.code)?502:503;
@@ -45,20 +44,6 @@ export async function onRequestPost(context){
   return json(result,200);
  }catch(e){
   const code=e instanceof SchoolLoginError?e.code:'sync_failed';
-  // Emit only fixed, non-sensitive failure phases for the owner's own
-  // second-class attempt. Never return CAS URLs, form values or credentials.
-  const stages=new Set(['cas_return','personal_data','identity_evidence']);
-  const reasons=new Set(['unexpected_response','login_page_remained',
-   'service_callback_incomplete','unexpected_school_landing',
-   'cas_request_rejected','cas_rate_limited','cas_server_failure']);
-  const secondFailure=provider==='second_class'&&
-   code==='authorization_failed'&&stages.has(e?.failureStage);
-  const knownHosts=new Set(['cas_auth_server','second_class_callback','second_class_portal']);
-  return json({error:code,...(secondFailure?{failureStage:e.failureStage}:{}),
-   ...(secondFailure&&e.failureStage==='cas_return'&&reasons.has(e?.casReturnReason)?
-    {casReturnReason:e.casReturnReason}:{}),
-   ...(secondFailure&&e.failureStage==='cas_return'&&knownHosts.has(e?.casReturnHost)?
-    {casReturnHost:e.casReturnHost}:{}),
-   ...(secondFailure&&safeCasErrorKind(e)?{casErrorKind:safeCasErrorKind(e)}:{})},responseCode({code}));
+  return json({error:code},responseCode({code}));
  }
 }
