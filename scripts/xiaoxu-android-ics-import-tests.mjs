@@ -43,6 +43,10 @@ assert.match(main, /已保存 \$count 个课块，但提醒维护失败/,
 assert.match(screen, /LocalCourseReminders\.reconcileAfterSave\(/,
   '手动添加或单周编辑成功也不能被提醒调度错误掩盖');
 assert.match(localReminders, /fun reconcileAfterSave\(/);
+assert.match(localReminders, /getNotificationChannel\(CHANNEL\)/,
+  '已禁用的上课提醒通知渠道不能被误判为可通知');
+assert.match(localReminders, /channel\.importance != NotificationManager\.IMPORTANCE_NONE/,
+  '原生提醒必须尊重系统通知渠道开关');
 assert.match(localReminders, /runCatching\s*\{\s*reconcile\(context, lessons, calendar\)\s*\}/,
   '提醒错误必须被独立捕获，不得回滚已经持久化的课程');
 assert.match(main, /localScheduleReadSerial\+\+/);
