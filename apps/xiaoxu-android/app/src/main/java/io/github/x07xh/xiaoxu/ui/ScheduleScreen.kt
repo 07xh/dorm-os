@@ -400,6 +400,8 @@ private fun ScheduleVerifiedContent(
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         SchedulePageHeading(onMessages)
+        Text("本机导入 · " + data.lessons.size + " 个课块 · 待本人核对",
+            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.End,
