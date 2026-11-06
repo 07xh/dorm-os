@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.sp
  * 校序统一 UI 设计系统 v1（Issue #268 第一阶段）。
  *
  * 只描述"看起来怎样"：颜色、圆角、字级、间距、状态语义。
- * 不接触任何数据判定——什么算"已核验"由 CloudClient / deriveScheduleUiState 决定，
+ * 不接触任何数据判定——云端状态由 CloudClient 负责，本机课表仅标注待核对，
  * 本文件只负责把结论画出来，绝不自行推断教学周、倒计时或"下一节课"。
  */
 

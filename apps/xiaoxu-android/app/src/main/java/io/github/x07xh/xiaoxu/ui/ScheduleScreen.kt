@@ -232,7 +232,7 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// 已验证 + 真实数据
+// 本机导入 + 真实课程数据
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -242,7 +242,6 @@ private fun ScheduleVerifiedContent(
     openLocalImport: () -> Unit,
     openFileImport: () -> Unit
 ) {
-    val localImport = data.sourceLabel.contains("本机导入")
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
     val weekNumbers = remember(data.lessons) {
         data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
@@ -436,11 +435,11 @@ private fun ScheduleVerifiedContent(
             }
         }
     }
-    // 详情始终从本次已验证的课程集合查找，不保留旧课程快照。
+    // 详情从当前筛选的本机课程集合查找，避免回显已替换的旧课表。
     val opened = filtered.firstOrNull { it.key == selectedCourseKey }
     if (opened != null) {
         CourseDetailBottomSheet(
-            lesson = opened, localImport = localImport,
+            lesson = opened,
             onDismiss = { selectedCourseKey = null }
         )
     }
@@ -875,14 +874,14 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
 /** 首页与完整课表共用同一课程详情抽屉和真实课程映射。 */
 @Composable
 internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit) {
-    CourseDetailBottomSheet(lesson.toUi(), localImport = true, onDismiss = onDismiss)
+    CourseDetailBottomSheet(lesson.toUi(), onDismiss = onDismiss)
 }
 
 /** 真实课程详情：原生模态抽屉，不推断作息时间，不提供未实现的提醒开关。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseDetailBottomSheet(
-    lesson: LessonUi, localImport: Boolean, onDismiss: () -> Unit
+    lesson: LessonUi, onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -903,8 +902,7 @@ private fun CourseDetailBottomSheet(
                 modifier = Modifier.semantics { heading() }
             )
             Text(
-                text = if (localImport) "本机导入 · 待核对"
-                    else "华水青果 · 可信只读",
+                text = "本机导入 · 待核对",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
