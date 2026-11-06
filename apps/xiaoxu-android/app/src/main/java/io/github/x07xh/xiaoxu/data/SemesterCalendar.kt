@@ -19,6 +19,16 @@ data class SemesterCalendar(
         require(firstMonday.dayOfWeek == DayOfWeek.MONDAY) { "第1周日期必须是周一" }
         require(totalWeeks in 1..35) { "学期周数必须在1至35周之间" }
         require(sectionTimes.keys.all { it in 1..24 }) { "节次必须在1至24节之间" }
+        var previousEnd: LocalTime? = null
+        sectionTimes.toSortedMap().forEach { (section, time) ->
+            require(time.end.isAfter(time.start)) { "第${section}节结束时间必须晚于开始时间" }
+            previousEnd?.let { end ->
+                require(!time.start.isBefore(end)) {
+                    "第${section}节与前面节次时间重叠或顺序错误"
+                }
+            }
+            previousEnd = time.end
+        }
     }
 
     /** Outside the configured teaching term is not represented as a valid week. */
