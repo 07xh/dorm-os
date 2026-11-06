@@ -549,7 +549,14 @@ assert.match(localNative, /if \(provider == "second_class"\) root\.addView\(cata
 assert.match(catalogObserver, /window\.fetch=wrappedFetch/);
 assert.match(catalogObserver, /XMLHttpRequest\.prototype\.open=wrappedOpen/);
 assert.match(catalogObserver, /window\.fetch===wrappedFetch/);
-assert.doesNotMatch(catalogObserver, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|XMLHttpRequest\.prototype\.send\s*=/);
+// Only the status and response Content-Type of the existing school request
+// are readable. Do not allow any response body or other response header.
+assert.match(catalogObserver, /response\.headers&&response\.headers\.get\('content-type'\)/);
+assert.match(catalogObserver, /getResponseHeader\('content-type'\)/);
+const metadataOnly = catalogObserver
+  .replace("response.headers&&response.headers.get('content-type')", "")
+  .replace("getResponseHeader('content-type')", "");
+assert.doesNotMatch(metadataOnly, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|getResponseHeader\(|XMLHttpRequest\.prototype\.send\s*=/);
 
 const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
