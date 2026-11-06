@@ -74,6 +74,7 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
@@ -144,11 +145,15 @@ class MainActivity : ComponentActivity() {
     // Only the latest committed import/resume read may update visible lessons.
     private var localScheduleReadSerial = 0L
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+        }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -161,6 +166,7 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    scheduleReminderOpenCount = scheduleReminderOpenCount,
                     localLessons = localLessons,
                     onLocalLessonsChanged = { saved ->
                         localScheduleReadSerial++
@@ -317,7 +323,10 @@ class MainActivity : ComponentActivity() {
                                 parsed.second.calendar?.let {
                                     LocalSemesterConfigStore.save(applicationContext, it)
                                 }
-                                count to LocalScheduleStore.load(applicationContext)
+                                val updated = LocalScheduleStore.load(applicationContext)
+                                LocalCourseReminders.reconcile(applicationContext, updated,
+                                    LocalSemesterConfigStore.load(applicationContext))
+                                count to updated
                             }
                             // Invalidate previously started resume reads after commit.
                             localScheduleReadSerial++
@@ -362,6 +371,9 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
         }
+        if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
+            scheduleReminderOpenCount++
+        }
     }
 
     private fun receiveSchoolReturn(intent: Intent?) {
@@ -378,7 +390,11 @@ class MainActivity : ComponentActivity() {
         val readSerial = ++localScheduleReadSerial
         lifecycleScope.launch {
             val lessons = withContext(Dispatchers.IO) {
-                LocalScheduleStore.load(applicationContext)
+                val snapshot = LocalScheduleStore.load(applicationContext)
+                LocalCourseReminders.reconcile(
+                    applicationContext, snapshot,
+                    LocalSemesterConfigStore.load(applicationContext))
+                snapshot
             }
             if (readSerial == localScheduleReadSerial) localLessons = lessons
         }
@@ -413,6 +429,7 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    scheduleReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     returnedSchool: String?,
@@ -427,7 +444,11 @@ private fun NativeShell(
     openArticle: (String) -> Unit
 ) {
     var current by rememberSaveable {
-        mutableStateOf(if (taskReminderOpenCount > 0) MainDestination.TASKS else MainDestination.HOME)
+        mutableStateOf(when {
+            taskReminderOpenCount > 0 -> MainDestination.TASKS
+            scheduleReminderOpenCount > 0 -> MainDestination.SCHEDULE
+            else -> MainDestination.HOME
+        })
     }
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
@@ -435,6 +456,12 @@ private fun NativeShell(
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
+            messagesOpen = false
+        }
+    }
+    LaunchedEffect(scheduleReminderOpenCount) {
+        if (scheduleReminderOpenCount > 0) {
+            current = MainDestination.SCHEDULE
             messagesOpen = false
         }
     }
