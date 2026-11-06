@@ -1,4 +1,4 @@
-# 校序本机微信采集：使用已验证的 Python 3.12 虚拟环境，不依赖系统默认 Python。
+﻿# 校序本机微信采集：使用已验证的 Python 3.12 虚拟环境，不依赖系统默认 Python。
 # 仅加载微信工具源码；三方依赖从 py312-venv 读取，不再混用捆绑 deps。
 param(
  [Parameter(Position=0)]
