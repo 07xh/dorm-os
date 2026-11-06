@@ -232,16 +232,17 @@ fun CloudTimetablePanel(
                     addBusy = true
                     editorScope.launch {
                         try {
-                            val updated = withContext(Dispatchers.IO) {
+                            val (updated, reminderOk) = withContext(Dispatchers.IO) {
                                 val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
                                 LocalScheduleStore.saveEdited(context, edited)
                                 val fresh = LocalScheduleStore.load(context)
-                                LocalCourseReminders.reconcile(
+                                fresh to LocalCourseReminders.reconcileAfterSave(
                                     context, fresh, LocalSemesterConfigStore.load(context))
-                                fresh
                             }
                             onLocalLessonsChanged(updated)
                             addingFirstCourse = false
+                            if (!reminderOk) Toast.makeText(
+                                context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
                         } catch (failure: Exception) {
                             addError = failure.message ?: "添加课程失败"
                         } finally {
@@ -571,15 +572,16 @@ private fun ScheduleVerifiedContent(
             editingError = null
             editorScope.launch {
                 try {
-                    val saved = withContext(Dispatchers.IO) {
+                    val (saved, reminderOk) = withContext(Dispatchers.IO) {
                         LocalScheduleStore.saveEdited(context, changed)
                         val fresh = LocalScheduleStore.load(context)
-                        LocalCourseReminders.reconcile(context, fresh, calendar)
-                        fresh
+                        fresh to LocalCourseReminders.reconcileAfterSave(context, fresh, calendar)
                     }
                     onLocalLessonsChanged(saved)
                     showingCourseEditor = false
                     editOriginal = null
+                    if (!reminderOk) Toast.makeText(
+                        context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
                 } catch (failure: Exception) {
                     editingError = failure.message ?: "本机课表修改失败"
                 } finally {
