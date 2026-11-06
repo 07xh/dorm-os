@@ -76,6 +76,4 @@ dependencies {
     baselineProfile(project(':benchmark'))
     testImplementation 'junit:junit:4.13.2'
 
-    // Preserve the reviewed TWA launcher only as an explicitly named legacy fallback.
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
 }
