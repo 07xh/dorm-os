@@ -74,6 +74,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 
 /*
@@ -142,7 +145,8 @@ private data class LessonUi(
     val weeksLabel: String,
     val term: String,
     val weekday: Int,
-    val startSection: Int
+    val startSection: Int,
+    val endSection: Int
 )
 
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
@@ -156,7 +160,8 @@ private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
     weeksLabel = formatWeeks(weeks),
     term = term.ifBlank { "学期未标注" },
     weekday = weekday,
-    startSection = startSection
+    startSection = startSection,
+    endSection = endSection
 )
 
 /** 窄屏占满、宽屏居中并限宽，避免平板上正文被拉到全屏宽。 */
@@ -232,14 +237,19 @@ private fun ScheduleVerifiedContent(
     expanded: Boolean,
     openFileImport: () -> Unit
 ) {
+    val context = LocalContext.current
+    var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
+    var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
+    val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
     val weekNumbers = remember(data.lessons) {
         data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
     }
-    // The first available teaching week is a safe, deterministic preview.
-    // Without an official semester start it must NOT be labeled current week.
+    // Current-week selection requires the user's explicit semester start date.
+    // Without it, fall back to the first imported week, never a guessed "today".
     var selectedWeek by rememberSaveable {
-        mutableStateOf(weekNumbers.firstOrNull() ?: ALL_WEEKS)
+        mutableStateOf(actualCurrentWeek?.takeIf { it in weekNumbers }
+            ?: weekNumbers.firstOrNull() ?: ALL_WEEKS)
     }
     var viewMode by rememberSaveable { mutableStateOf("week") }
     var showWeekPicker by rememberSaveable { mutableStateOf(false) }
@@ -287,8 +297,11 @@ private fun ScheduleVerifiedContent(
                 Text("本机导入 · " + data.lessons.size + " 个课块 · 请核对课程信息",
                     style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
             }
-            OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                Text("重新导入")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showSemesterSettings = true }) { Text("学期设置") }
+                OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
+                    Text("重新导入")
+                }
             }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
@@ -323,6 +336,26 @@ private fun ScheduleVerifiedContent(
                     enabled = currentIndex < weekNumbers.lastIndex,
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("下一周") }
+            }
+        }
+        if (calendar != null && selectedWeek != ALL_WEEKS) {
+            val monday = calendar?.dateFor(selectedWeek, 1)
+            val sunday = calendar?.dateFor(selectedWeek, 7)
+            if (monday != null && sunday != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("$monday 至 $sunday",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (actualCurrentWeek in weekNumbers && selectedWeek != actualCurrentWeek) {
+                        TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
+                            Text("返回本周")
+                        }
+                    }
+                }
             }
         }
         if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
@@ -427,7 +460,22 @@ private fun ScheduleVerifiedContent(
     if (opened != null) {
         CourseDetailBottomSheet(
             lesson = opened,
+            timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
             onDismiss = { selectedCourseKey = null }
+        )
+    }
+    if (showSemesterSettings) {
+        SemesterSettingsDialog(
+            current = calendar,
+            onDismiss = { showSemesterSettings = false },
+            onSave = { config ->
+                LocalSemesterConfigStore.save(context, config)
+                calendar = config
+                showSemesterSettings = false
+                config.currentWeek(LocalDate.now())?.takeIf { it in weekNumbers }?.let {
+                    selectedWeek = it
+                }
+            }
         )
     }
 }
@@ -867,7 +915,7 @@ internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseDetailBottomSheet(
-    lesson: LessonUi, onDismiss: () -> Unit
+    lesson: LessonUi, onDismiss: () -> Unit, timeLabel: String? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -898,6 +946,7 @@ private fun CourseDetailBottomSheet(
             CourseSheetRow("任课教师", lesson.teacher)
             CourseSheetRow("上课周次", lesson.weeksLabel)
             CourseSheetRow("节次", lesson.sectionLabel)
+            if (timeLabel != null) CourseSheetRow("上课时间", timeLabel)
             CourseSheetRow("学期", lesson.term)
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("关闭详情")
@@ -945,7 +994,7 @@ private fun SectionBadge(label: String) {
 @Composable
 private fun ScheduleFooterNote() {
     Text(
-        text = "按完整学期展示；未接入开学日期与节次作息时间，因此不推断当前周、不计算上课倒计时。",
+        text = "课程来自本机导入；日期和节次时间仅依据本人设置，未进行教务实时核验。",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
