@@ -34,10 +34,13 @@ assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核
   '本机导入源标签须明确待本人核对');
 assert.match(screen, /Text\("本机导入 · " \+ data.lessons.size \+ " 个课块 · 请核对课程信息",/,
   '当前课表必须直接提示本人核对导入课程');
-assert.match(screen, /text = if \(localImport\) "本机导入 · 待核对"/,
-  '课程详情仍必须标明本机导入来源');
-assert.match(screen, /localImport = data\.sourceLabel\.contains\("本机导入"\)/);
-assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened, localImport = localImport/);
+assert.match(screen, /text = "本机导入 · 待核对"/,
+  '课程详情必须明确标记本机导入，不能暗示学校官方核验');
+assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened,\s*onDismiss =/);
+assert.match(screen, /CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
+  '首页与课表复用本机来源的同一课程详情');
+assert.doesNotMatch(screen, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
+  '禁止已退役的云端可信详情分支回流');
 assert.match(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/);
 assert.match(screen, /个课块/);
 
