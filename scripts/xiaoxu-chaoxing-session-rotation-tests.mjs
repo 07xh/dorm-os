@@ -38,7 +38,7 @@ const fakeFetch=async(url,options)=>{
   baseCookies.push(cookie);
   if(mode==='offline')return new Response('temporarily down',{status:503});
   if(mode==='expired')return new Response('<html>login required</html>');
-  if(!cookie.includes('cx_s=initial')&&!cookie.includes('cx_s=rotated'))
+  if(!/^cx_s=(initial|rotated|rotated403|rotated401)(?:;|$)/.test(cookie))
    return new Response('<html>login required</html>');
   if(mode==='rotate'&&cookie.includes('cx_s=initial'))
    return new Response(profile,{headers:{
@@ -47,8 +47,11 @@ const fakeFetch=async(url,options)=>{
  }
  if(u.pathname==='/pc/notice/getNoticeList'){
   noticeCookies.push(cookie);
-  if(mode==='downstream403')return new Response('access not available',{status:403});
-  assert.match(cookie,/cx_s=(initial|rotated)/);
+  if(mode==='downstream403')return new Response('access not available',{status:403,
+   headers:{'set-cookie':'cx_s=rotated403; Domain=.chaoxing.com; Path=/; HttpOnly'}});
+  if(mode==='downstream401')return new Response('access not available',{status:401,
+   headers:{'set-cookie':'cx_s=rotated401; Domain=.chaoxing.com; Path=/; HttpOnly'}});
+  assert.match(cookie,/cx_s=(initial|rotated|rotated403|rotated401)/);
   return new Response(JSON.stringify({status:true,notices:{
    list:[],lastPage:true,lastGetId:''}}));
  }
@@ -97,6 +100,21 @@ await assert.rejects(()=>refreshSchoolAccount({db,userId:'owner1',
   await source.readNoticePage({cursor:null});
  }}),e=>e.code==='sync_failed');
 assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
+// A 403 can rotate the jar even though that request failed. It must survive
+// into the next independent read, not force the owner to rescan.
+mode='normal';
+baseCookies.length=0;
+await read();
+assert.match(baseCookies[0],/cx_s=rotated403/);
+// A downstream 401 after independently verified owner identity is also
+// insufficient to prove global logout; persist its rotated cookie as well.
+mode='downstream401';
+await assert.rejects(()=>read(),e=>e.code==='upstream_unavailable');
+assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
+mode='normal';
+baseCookies.length=0;
+await read();
+assert.match(baseCookies[0],/cx_s=rotated401/);
 
 // A newer login wins against a stale trusted read that completes later.
 mode='normal';
