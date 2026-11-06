@@ -588,8 +588,8 @@ private fun NativeShell(
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
                 if (!messagesOpen && current == MainDestination.HOME) XiaoxuTopBar(
-                    title = "校序",
-                    subtitle = current.label,
+                    title = "今日",
+                    subtitle = null,
                     refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
                     onRefresh = if (current == MainDestination.SCHEDULE) null
                         else ({ scope.launch { cloud.refresh() } }),
