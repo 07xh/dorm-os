@@ -7,6 +7,7 @@ import {
  listWechatCandidates,listWechatDevices,revokeWechatDevice,reviewWechatCandidate,WechatDeviceError
 } from '../lib/academic-wechat-device-sync.mjs';
 import {WECHAT_CANDIDATE_SCHEMA} from '../lib/academic-wechat-candidate-contract.mjs';
+import {listAssignments} from '../lib/academic-assignments.mjs';
 import {onRequestPost as ingestRoute} from '../functions/api/v1/wechat/ingest.js';
 
 globalThis.crypto??=webcrypto;
@@ -102,6 +103,14 @@ assert.ok(accepted.assignmentId);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
  'one explicitly approved candidate becomes one existing manual task');
 assert.equal(sqlite.prepare('SELECT kind FROM academic_assignments').get().kind,'manual');
+const acceptedTasks=await listAssignments(db,owner);
+assert.equal(acceptedTasks.length,1);
+assert.equal(acceptedTasks[0].id,accepted.assignmentId);
+assert.equal(acceptedTasks[0].source_provider,'wechat',
+ 'reviewed WeChat tasks must carry authenticated source provenance in the normal task API');
+assert.equal(acceptedTasks[0].local_status,'todo');
+assert.equal((await listAssignments(db,'owner-b')).length,0,
+ 'another owner must not see the approved WeChat assignment');
 assert.equal((await listWechatCandidates(db,owner)).length,0,
  'approved candidates are removed from pending inbox');
 await refused(reviewWechatCandidate(db,owner,pending.id,'accept'),'candidate_already_reviewed');
@@ -113,6 +122,8 @@ const otherPending=(await listWechatCandidates(db,owner))[0];
 assert.equal((await reviewWechatCandidate(db,owner,otherPending.id,'dismiss')).status,'dismissed');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
  'dismissing a candidate never creates a task');
+assert.deepEqual((await listAssignments(db,owner)).map(t=>t.source_provider),['wechat'],
+ 'dismissing another candidate does not promote or reclassify any task');
 
 await refused(revokeWechatDevice(db,'owner-b',device.id),'device_not_found');
 assert.equal((await revokeWechatDevice(db,owner,device.id)).revoked,true);
