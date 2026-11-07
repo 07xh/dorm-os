@@ -1093,7 +1093,7 @@ fun RealAcademicTaskHub(
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
         }
-        if (visible.isEmpty()) {
+        if (shown.isEmpty()) {
             item {
                 XiaoxuEmpty(
                     modifier = Modifier.padding(top = 12.dp),
