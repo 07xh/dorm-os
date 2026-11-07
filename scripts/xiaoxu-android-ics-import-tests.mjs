@@ -27,7 +27,7 @@ assert.match(main, /localScheduleRevision = localScheduleRevision/,
   '课表版本变动必须送达原生课表');
 assert.match(screen, /LaunchedEffect\(localScheduleRevision\)/,
   '恢复学期设置不可只依赖课程列表是否改变');
-assert.match(screen, /onExport = \{\s*onSettingsOpenChanged\(false\)\s*openFileExport\(\)/,
+assert.match(screen, /onExport = \{\s*onSettingsOpenChanged\(false\)\s*onSettingsAction\("export"\)\s*openFileExport\(\)/,
   '备份入口应留在同窗口课表设置，并关闭子页面后调起系统文件选择器');
 assert.match(screen, /selectableTeachingWeeks\(data\.lessons, calendar\)/,
   '已设置学期必须可选择无课教学周');
@@ -108,7 +108,7 @@ assert.match(screen, /LocalTimetableEmptyState\(/);
 assert.match(currentTimetableEntry, /onMessages = onMessages/, '空课表也必须保留消息入口');
 assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/,
   '本机课表不依赖云端课程或云端新鲜度');
-assert.match(screen, /onImport = \{\s*onSettingsOpenChanged\(false\)\s*openFileImport\(\)/,
+assert.match(screen, /onImport = \{\s*onSettingsOpenChanged\(false\)\s*onSettingsAction\("import"\)\s*openFileImport\(\)/,
   '导入仅从课表设置连接原有文件选择器');
 assert.match(settings, /title = "导入课表"/);
 assert.doesNotMatch(screen, /label = "重新导入课表"/,

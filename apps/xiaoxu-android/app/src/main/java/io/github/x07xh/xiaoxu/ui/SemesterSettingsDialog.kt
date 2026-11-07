@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -73,14 +72,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 internal fun SemesterSettingsPage(
     current: SemesterCalendar?,
-    reminderEnabled: Boolean,
     initialViewMode: String,
     initialSections: Int,
     onAddCourse: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
     onDismiss: () -> Unit,
-    onSave: (SemesterCalendar?, Boolean, String, Int) -> Unit
+    onSave: (SemesterCalendar?, String, Int) -> Unit
 ) {
     val context = LocalContext.current
     var monday by rememberSaveable { mutableStateOf(current?.firstMonday?.toString().orEmpty()) }
@@ -88,7 +86,6 @@ internal fun SemesterSettingsPage(
     var times by rememberSaveable { mutableStateOf(current?.editableTimes().orEmpty()) }
     var viewMode by rememberSaveable { mutableStateOf(initialViewMode) }
     var sections by rememberSaveable { mutableStateOf(initialSections.coerceIn(1, 24)) }
-    var wantReminders by rememberSaveable { mutableStateOf(reminderEnabled) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val errorField = semesterSettingsErrorField(error)
     var sectionsMenu by remember { mutableStateOf(false) }
@@ -139,7 +136,7 @@ internal fun SemesterSettingsPage(
                         // The view preference is valid even before any semester is configured.
                         val config = if (monday.isBlank() && weeks.isBlank() && times.isBlank())
                             null else SemesterCalendar.parse(monday, weeks, times)
-                        onSave(config, wantReminders, viewMode, sections)
+                        onSave(config, viewMode, sections)
                     } catch (failure: IllegalArgumentException) {
                         error = failure.message ?: "课表设置无效"
                     }
@@ -232,24 +229,6 @@ internal fun SemesterSettingsPage(
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(title = "导出备份", onClick = onExport)
-            }
-
-            SettingsGroupTitle("课程提醒")
-            SettingsSurface {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.NotificationsNone, contentDescription = null,
-                        tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Text("上课提醒", style = MaterialTheme.typography.bodyLarge,
-                            color = XiaoxuPalette.Ink)
-                        Text("上课前约 15 分钟 · 系统可能延后",
-                            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-                    }
-                    XiaoxuSettingsSwitch(checked = wantReminders, onCheckedChange = { wantReminders = it })
-                }
             }
 
             SettingsGroupTitle("本课表作息")

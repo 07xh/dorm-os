@@ -51,8 +51,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.School
@@ -90,20 +88,16 @@ import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
-import io.github.x07xh.xiaoxu.ui.ConnectionsPanel
+import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
-import io.github.x07xh.xiaoxu.ui.LocalTaskBackupPanel
-import io.github.x07xh.xiaoxu.ui.OpenSourceCreditsPanel
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
-import io.github.x07xh.xiaoxu.ui.SecondClassPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuMotion
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
-import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
@@ -487,6 +481,7 @@ private fun NativeShell(
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
     // Native timetable settings is a child route of Schedule, not a Dialog window.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
     val pageStateHolder = rememberSaveableStateHolder()
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
@@ -508,6 +503,10 @@ private fun NativeShell(
     }
     BackHandler(enabled = current == MainDestination.SCHEDULE && scheduleSettingsOpen) {
         scheduleSettingsOpen = false
+    }
+    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute != "home") {
+        profileSettingsRoute = if (profileSettingsRoute == "licenses") "about" else "home"
     }
     BackHandler(enabled = messagesOpen) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
@@ -537,6 +536,7 @@ private fun NativeShell(
         val provider = returnedSchool ?: return@LaunchedEffect
         messagesOpen = false
         current = MainDestination.PROFILE
+        profileSettingsRoute = "connections"
         try {
             cloud.completeSchoolReturn(provider)
         } finally {
@@ -582,7 +582,8 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen &&
-                    (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
+                    ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
+                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
                     // Layout-only reserve. Actual dock sits outside the sampled subtree.
                     PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
@@ -590,9 +591,11 @@ private fun NativeShell(
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
                 if (tabletLayout && !messagesOpen &&
-                    (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
+                    ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
+                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
                     PrimarySideNavigation(selected = current) { selected ->
                         current = selected
+                        profileSettingsRoute = "home"
                         messagesOpen = false
                     }
                 }
@@ -659,15 +662,53 @@ private fun NativeShell(
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
-                            MainDestination.PROFILE -> ConnectionsPage(
-                                openWebsite, cloud, { provider ->
-                                    if (provider == "second_class") openSecondClass()
-                                    else openLocalSchool(provider)
-                                },
-                                startSchoolAuthorization, localCaptureReturn,
-                                onMessages = { messagesOpen = true },
-                                onRefresh = { scope.launch { cloud.refresh() } }
-                            )
+                            MainDestination.PROFILE -> {
+                                if (profileSettingsRoute == "timetable-settings" ||
+                                    profileSettingsRoute == "timetable-action") {
+                                    // A native child of 我的/设置, not a switch to the timetable tab.
+                                    // Keeping current == PROFILE avoids AnimatedContent rendering a
+                                    // second full timetable page and glass dock during entry.
+                                    CloudTimetablePanel(
+                                        localLessons = localLessons,
+                                        openFileImport = openFileImport,
+                                        openFileExport = openFileExport,
+                                        localScheduleRevision = localScheduleRevision,
+                                        onLocalLessonsChanged = onLocalLessonsChanged,
+                                        onMessages = { messagesOpen = true },
+                                        settingsOpen = profileSettingsRoute == "timetable-settings",
+                                        onSettingsOpenChanged = { open ->
+                                            profileSettingsRoute =
+                                                if (open) "timetable-settings" else "timetable-action"
+                                        },
+                                        onSettingsClosed = { profileSettingsRoute = "home" },
+                                        onSettingsAction = { action ->
+                                            // Keep the same composition while adding a course.
+                                            // Import/export opens the system picker and returns to 设置.
+                                            if (action != "add") profileSettingsRoute = "home"
+                                        },
+                                        onEditorClosed = { profileSettingsRoute = "home" }
+                                    )
+                                } else {
+                                    ProfileSettingsPage(
+                                        route = profileSettingsRoute,
+                                        onRouteChange = { profileSettingsRoute = it },
+                                        onScheduleSettings = {
+                                            profileSettingsRoute = "timetable-settings"
+                                        },
+                                        client = cloud,
+                                        openWebsite = openWebsite,
+                                        openLocalSchool = { provider ->
+                                            if (provider == "second_class") openSecondClass()
+                                            else openLocalSchool(provider)
+                                        },
+                                        startSchoolAuthorization = startSchoolAuthorization,
+                                        recentImport = localCaptureReturn,
+                                        localTasks = localTasks,
+                                        onMessages = { messagesOpen = true },
+                                        onRefresh = { scope.launch { cloud.refresh() } }
+                                    )
+                                }
+                            }
                         }
                         }
                     }
@@ -676,10 +717,12 @@ private fun NativeShell(
             }
         }
         if (!tabletLayout && !messagesOpen &&
-            (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
+            ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
+                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
             Box(Modifier.align(Alignment.BottomCenter)) {
                 PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
                     current = selected
+                    profileSettingsRoute = "home"
                     messagesOpen = false
                 }
             }
@@ -700,60 +743,6 @@ private fun Content(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
     )
-}
-
-@Composable
-private fun ConnectionsPage(
-    openWebsite: () -> Unit, cloud: CloudClient,
-    openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
-    localCaptureReturn: LocalSchoolImportReceipt?,
-    onMessages: () -> Unit, onRefresh: () -> Unit
-) {
-    // 工具详情由独立 Dialog 承载，不向 LazyColumn 中插入项目，避免页面跳动。
-    var selectedTool by rememberSaveable { mutableStateOf<String?>(null) }
-    Content {
-        item {
-            CompactPageHeading(title = "我的", onMessages = onMessages,
-                onRefresh = onRefresh, refreshing = cloud.state.busy)
-        }
-        // Existing ConnectionsPanel is the real authorization and local reader.
-        item {
-            ConnectionsPanel(cloud, openWebsite, openLocalSchool,
-                startSchoolAuthorization, localCaptureReturn)
-        }
-        item {
-            XiaoxuGroupedSection(title = "工具") {
-                CompactActionRow("第二课堂记录", Icons.Outlined.School,
-                    onClick = { selectedTool = "second_class" })
-                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp))
-                CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
-                    onClick = { selectedTool = "backup" })
-                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp))
-                CompactActionRow("开源许可", Icons.Outlined.Info,
-                    onClick = { selectedTool = "credits" })
-            }
-        }
-    }
-    val tool = selectedTool
-    if (tool != null) {
-        XiaoxuGlassDialog(
-            title = when (tool) {
-                "second_class" -> "第二课堂记录"
-                "backup" -> "任务备份与恢复"
-                else -> "开源组件与致谢"
-            },
-            onDismiss = { selectedTool = null },
-            dismissLabel = if (tool == "credits") "我知道了" else "完成"
-        ) {
-            when (tool) {
-                "second_class" -> SecondClassPanel(cloud, openWebsite)
-                "backup" -> LocalTaskBackupPanel()
-                "credits" -> OpenSourceCreditsPanel()
-            }
-        }
-    }
 }
 
 @Composable
@@ -780,36 +769,6 @@ private fun CompactPageHeading(
             Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
                 tint = XiaoxuPalette.Ink2)
         }
-    }
-}
-
-@Composable
-private fun CompactActionRow(
-    title: String,
-    icon: ImageVector,
-    expanded: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(11.dp))
-                .background(XiaoxuPalette.BrandSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = XiaoxuPalette.BrandDeep,
-                modifier = Modifier.size(19.dp))
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
-        Icon(if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.ChevronRight,
-            contentDescription = if (expanded) "收起$title" else "展开$title",
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(19.dp))
     }
 }
 

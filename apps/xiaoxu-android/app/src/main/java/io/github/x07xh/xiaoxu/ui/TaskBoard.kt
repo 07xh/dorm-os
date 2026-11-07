@@ -38,12 +38,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.Manifest
-import android.os.Build
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,7 +63,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
-import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.TASK_SOURCE_LOCAL
 import java.time.DayOfWeek
 import java.time.Instant
@@ -192,30 +185,6 @@ private val DueLaterInk = Color(0xFF6B7B93)
 fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var reminderEnabled by remember { mutableStateOf(LocalDeadlineReminders.enabled(context)) }
-    val askNotifications = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            LocalDeadlineReminders.setEnabled(context, true)
-            reminderEnabled = true
-            LocalDeadlineReminders.reconcile(context, tasks)
-        }
-    }
-    fun setReminderEnabled(value: Boolean) {
-        if (!value) {
-            LocalDeadlineReminders.setEnabled(context, false)
-            reminderEnabled = false
-        } else if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED) {
-            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            LocalDeadlineReminders.setEnabled(context, true)
-            reminderEnabled = true
-            LocalDeadlineReminders.reconcile(context, tasks)
-        }
-    }
     val today = LocalDate.now()
     var draft by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf(TASK_SOURCE_LOCAL) }
@@ -288,27 +257,6 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
                             Text("清除")
                         }
                     }
-                }
-                // Opt-in only. These dates are manually entered and never verified school deadlines.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("本机截止通知", style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold)
-                        Text(
-                            if (reminderEnabled && !LocalDeadlineReminders.canNotify(context))
-                                "系统通知已关闭，请到应用通知设置允许"
-                            else "仅本人填写的日期，提前一天及截止当天约 09:00 提醒",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    XiaoxuSettingsSwitch(
-                        checked = reminderEnabled,
-                        onCheckedChange = ::setReminderEnabled
-                    )
                 }
                 Button(
                     onClick = ::addTask,
