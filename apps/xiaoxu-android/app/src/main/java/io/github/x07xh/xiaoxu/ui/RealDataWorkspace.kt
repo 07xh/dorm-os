@@ -194,9 +194,9 @@ internal fun combineWorkspaceTasks(
             }
             val trustedStatus = trustedChaoxingPlatformStatus(
                 task.provider, task.sourceExternalId, task.officialStatus)
-            val localStatus = localEvidence[task.sourceExternalId]
-                ?.let(::nativeChaoxingVisibleStatus)
-            // Only a newer owner-visible completed status may promote a
+            val localStatus = task.sourceExternalId
+                ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatus)
+            // Only owner-visible completed evidence may promote a
             // missing/old pending label for display. Never override a returned
             // official work or mutate D1/Room personal completion.
             val fromLocal = trustedStatus !in setOf("submitted", "graded", "returned") &&
