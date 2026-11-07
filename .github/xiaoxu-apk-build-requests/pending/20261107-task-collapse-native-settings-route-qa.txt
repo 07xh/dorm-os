@@ -1,0 +1,8 @@
+Manual QA build request — 2026-11-07
+Requested by user for Android App UI regression QA.
+Scope:
+- Task center first entry: course task group collapsed by default, user toggling preserved.
+- Timetable settings: same-Activity page, no full-screen Dialog window shadow; bottom navigation hidden until dismissed.
+- Preserve existing timetable data, edits, imports, exports, reminders, and visible styling.
+QA gate: compile, JVM tests, integrity, isolated installable APK and OnePlus Ace 6 visual check.
+Do not automatically merge PR #351 or deploy production.

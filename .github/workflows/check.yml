@@ -3,7 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
+# New commits supersede older PR jobs; published main builds never cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 jobs:
@@ -54,12 +59,6 @@ jobs:
         run: node --test scripts/xiaoxu-secondclass-local-reader-tests.mjs scripts/xiaoxu-secondclass-local-activities-tests.mjs
       - name: Windows WeChat collector logic tests (synthetic only)
         run: python3 -m unittest discover -s integrations/wechat -p 'test_*.py'
-      - name: Read-only current NCWU second-class CAS compatibility (no login)
-        timeout-minutes: 2
-        continue-on-error: true
-        run: |
-          node scripts/probe-ncwu-secondclass-cas-live.mjs
-          node scripts/xiaoxu-ncwu-sudy-transport-tests.mjs --live
       - name: Desktop and mobile end-to-end tests
         run: npm run test:e2e
       - name: Upload failure traces and screenshots

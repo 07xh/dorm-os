@@ -233,10 +233,10 @@ await assert.rejects(
    sqlite.prepare(
     "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
    ).run(replacementRow.ciphertext,replacementRow.nonce);
-   throw Object.assign(new Error('old upstream session expired'),
+   throw Object.assign(new Error('downstream authorization ambiguous after owner proof'),
     {code:'authorization_failed'});
   }}),
- e=>e.code==='session_expired');
+ e=>e.code==='sync_failed','a downstream failure must not classify owner login as expired');
 assert.deepEqual(sqlite.prepare(
  "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
 ).get(),replacementRow,'stale sync must not delete a successful newer encrypted session');

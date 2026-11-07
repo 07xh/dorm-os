@@ -24,8 +24,6 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -38,15 +36,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.Manifest
-import android.os.Build
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,7 +63,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
-import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.TASK_SOURCE_LOCAL
 import java.time.DayOfWeek
 import java.time.Instant
@@ -159,27 +149,6 @@ fun filterLocalTasks(tasks: List<LocalTask>, filterKey: String, today: LocalDate
         else -> tasks
     }
 
-data class TaskStats(val pending: Int, val dueThisWeek: Int, val overdue: Int, val done: Int)
-
-fun taskStats(tasks: List<LocalTask>, today: LocalDate): TaskStats {
-    val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val sunday = monday.plusDays(6)
-    var pending = 0
-    var week = 0
-    var overdue = 0
-    var done = 0
-    tasks.forEach { task ->
-        if (task.completed) {
-            done++
-            return@forEach
-        }
-        pending++
-        val date = parseDue(task.due) ?: return@forEach
-        if (date.isBefore(today)) overdue++
-        if (!date.isBefore(monday) && !date.isAfter(sunday)) week++
-    }
-    return TaskStats(pending, week, overdue, done)
-}
 
 fun dueLabel(task: LocalTask, today: LocalDate): String {
     val date = parseDue(task.due) ?: return "未填截止"
@@ -196,7 +165,6 @@ fun dueLabel(task: LocalTask, today: LocalDate): String {
 // 视觉常量
 // ---------------------------------------------------------------------------
 
-private val CardShape = RoundedCornerShape(15.dp)
 private val ChipShape = RoundedCornerShape(8.dp)
 
 private val SourceChipBg = Color(0xFFEAF2FF)
@@ -217,35 +185,14 @@ private val DueLaterInk = Color(0xFF6B7B93)
 fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var reminderEnabled by remember { mutableStateOf(LocalDeadlineReminders.enabled(context)) }
-    val askNotifications = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            LocalDeadlineReminders.setEnabled(context, true)
-            reminderEnabled = true
-            LocalDeadlineReminders.reconcile(context, tasks)
-        }
-    }
-    fun setReminderEnabled(value: Boolean) {
-        if (!value) {
-            LocalDeadlineReminders.setEnabled(context, false)
-            reminderEnabled = false
-        } else if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED) {
-            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            LocalDeadlineReminders.setEnabled(context, true)
-            reminderEnabled = true
-            LocalDeadlineReminders.reconcile(context, tasks)
-        }
-    }
     val today = LocalDate.now()
     var draft by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf(TASK_SOURCE_LOCAL) }
     var due by rememberSaveable { mutableStateOf<String?>(null) }
     var filterKey by rememberSaveable { mutableStateOf(TASK_FILTER_ALL) }
+    // The editor lives inside the parent task feed; compose only a bounded batch
+    // instead of eagerly creating 200 nested Material cards on every visit.
+    var visibleLimit by rememberSaveable(filterKey) { mutableStateOf(30) }
     var pickerOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<LocalTask?>(null) }
 
@@ -264,11 +211,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ---------- 新建 ----------
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(18.dp)
-        ) {
+        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "新建本机待办",
@@ -315,27 +258,6 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
                         }
                     }
                 }
-                // Opt-in only. These dates are manually entered and never verified school deadlines.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("本机截止通知", style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold)
-                        Text(
-                            if (reminderEnabled && !LocalDeadlineReminders.canNotify(context))
-                                "系统通知已关闭，请到应用通知设置允许"
-                            else "仅本人填写的日期，提前一天及截止当天约 09:00 提醒",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = reminderEnabled,
-                        onCheckedChange = ::setReminderEnabled
-                    )
-                }
                 Button(
                     onClick = ::addTask,
                     enabled = draft.isNotBlank(),
@@ -355,7 +277,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
 
         // The canonical task center owns all counters and status tabs.
         // Keep only editing filters here so the user can still reach older local
-        // records beyond the main view's first 80 and toggle/delete them.
+        // records and toggle/delete them.
         // ---------- 本机编辑筛选 ----------
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = TASK_FILTERS.size, key = { index -> TASK_FILTERS[index].key }) { index ->
@@ -375,32 +297,37 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
         )
 
-        // ---------- 列表 ----------
+        // ---------- 连续玻璃编辑列表：分页渲染，不丢失任何 Room 记录 ----------
         if (visible.isEmpty()) {
             EmptyTaskHint(filterKey = filterKey, hasAny = tasks.isNotEmpty())
+        } else {
+            val shown = visible.take(visibleLimit)
+            XiaoxuGroupSurface {
+                shown.forEachIndexed { index, task ->
+                    androidx.compose.runtime.key(task.id) {
+                        TaskRow(
+                            task = task,
+                            today = today,
+                            onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
+                            onDelete = { pendingDelete = task }
+                        )
+                    }
+                    if (index < shown.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = XiaoxuPalette.Line.copy(alpha = 0.35f),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
+            }
+            if (visible.size > shown.size) {
+                TextButton(
+                    onClick = { visibleLimit = (visibleLimit + 30).coerceAtMost(visible.size) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                ) { Text("显示更多本机任务（剩余 ${visible.size - shown.size} 条）") }
+            }
         }
-        visible.take(200).forEach { task ->
-            TaskRow(
-                task = task,
-                today = today,
-                onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
-                onDelete = { pendingDelete = task }
-            )
-        }
-        if (visible.size > 200) {
-            Text(
-                text = "仅显示前 200 条，其余请先完成或删除。",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        HorizontalDivider()
-        Text(
-            text = "本机任务独立保存在手机上，断网可用；与云端任务、学习通作业分开显示，不自动合并。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 
     if (pickerOpen) {
@@ -456,14 +383,14 @@ private fun SourcePill(
     onClick: () -> Unit
 ) {
     val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surface,
+        targetValue = if (isSelected) XiaoxuPalette.Brand
+        else XiaoxuPalette.GlassCard,
         animationSpec = tween(180),
         label = "task-pill-bg"
     )
     val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (isSelected) Color.White
+        else XiaoxuPalette.Ink2,
         animationSpec = tween(180),
         label = "task-pill-fg"
     )
@@ -499,16 +426,11 @@ private fun TaskRow(
     onDelete: () -> Unit
 ) {
     val state = dueStateOf(task, today)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardShape
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
+        Checkbox(
                 checked = task.completed,
                 onCheckedChange = onToggle,
                 modifier = Modifier.semantics {
@@ -538,16 +460,15 @@ private fun TaskRow(
                     }
                 }
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "删除“" + task.title + "”",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                Icons.Outlined.DeleteOutline,
+                contentDescription = "删除“" + task.title + "”",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -579,26 +500,25 @@ private fun EmptyTaskHint(filterKey: String, hasAny: Boolean) {
         filterKey == TASK_FILTER_DONE -> "还没有标记完成的任务。"
         else -> "这个筛选下没有任务。"
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            Icons.Outlined.DateRange,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    XiaoxuCard(contentPadding = 0.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .padding(16.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Outlined.DateRange,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

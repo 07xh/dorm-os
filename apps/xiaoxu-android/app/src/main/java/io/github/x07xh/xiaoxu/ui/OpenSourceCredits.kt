@@ -1,7 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,12 +41,13 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
             }.getOrElse { "" }
         }
     }
-    XiaoxuCard(modifier = modifier) {
-        Text("开源组件与致谢", style = MaterialTheme.typography.titleSmall)
+    // 标题与背景统一由 Dialog 提供，去掉造成灰色内框的二层玻璃卡片。
+    Column(modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "本 App 包含两处第三方代码：拾光课程表的青果教务适配（MIT）与 SleepDown 课程表" +
-                "的导航动画驱动（署名非商业、源码可见许可 1.1，非 OSI 开源许可）。后者为修改版，" +
-                "仅替换 package 与文件头注释，逻辑未改动；校序按两者中更严格的一方履行义务。",
+            "本 App 使用拾光教务适配（MIT）、SleepDown 导航手势（署名非商业许可 1.1）" +
+                "和北化课表 v1.0.83 玻璃材质及图标（GPL-3.0）。完整声明见下方。" +
+                " 组合分发的许可证兼容性尚未审查，当前仅供开发与设备验收。",
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
@@ -56,6 +59,9 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
                 runCatching { uriHandler.openUri("https://github.com/ShiGuangSchedule/shiguang_warehouse") }
             }) { Text("拾光课程表", style = MaterialTheme.typography.labelMedium) }
         }
+        TextButton(onClick = {
+            runCatching { uriHandler.openUri("https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83") }
+        }) { Text("北化课表 · GPL-3.0", style = MaterialTheme.typography.labelMedium) }
         Text(
             if (notices.isBlank()) "许可全文随 APK 分发：assets/THIRD_PARTY_NOTICES.txt"
             else notices,
