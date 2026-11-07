@@ -185,10 +185,11 @@ class CampusRunObservedMappingTest {
         val reader = object : CampusRunAuthorizedDecodedReader {
             override suspend fun currentSubjectFingerprint() = fingerprint
             override suspend fun semester() = CampusRunAuthorizedDecodedSemester(
-                fingerprint, semesterData()
+                fingerprint, semesterData(), verifiedFieldSemantics = true
             )
             override suspend fun historyPage(cursor: String?) = CampusRunAuthorizedDecodedPage(
-                fingerprint, listOf(historyRow()), nextCursor = null, isLastPage = true
+                fingerprint, listOf(historyRow()), nextCursor = null, isLastPage = true,
+                verifiedFieldSemantics = true, paginationVerified = true
             )
         }
         val source = CampusRunObservedMappingSource(reader, summaryBindings, historyBindings)
@@ -214,10 +215,11 @@ class CampusRunObservedMappingTest {
         val reader = object : CampusRunAuthorizedDecodedReader {
             override suspend fun currentSubjectFingerprint() = fingerprint
             override suspend fun semester() = CampusRunAuthorizedDecodedSemester(
-                other, semesterData()
+                other, semesterData(), verifiedFieldSemantics = true
             )
             override suspend fun historyPage(cursor: String?) = CampusRunAuthorizedDecodedPage(
-                fingerprint, emptyList<Map<String, Any?>>(), nextCursor = null, isLastPage = true
+                fingerprint, emptyList<Map<String, Any?>>(), nextCursor = null, isLastPage = true,
+                verifiedFieldSemantics = true, paginationVerified = true
             )
         }
         val state = CampusRunReadOnlyQuery(
@@ -234,7 +236,7 @@ class CampusRunObservedMappingTest {
         val reader = object : CampusRunAuthorizedDecodedReader {
             override suspend fun currentSubjectFingerprint() = fingerprint
             override suspend fun semester() =
-                CampusRunAuthorizedDecodedSemester(fingerprint, protected)
+                CampusRunAuthorizedDecodedSemester(fingerprint, protected, verifiedFieldSemantics = true)
             override suspend fun historyPage(cursor: String?): CampusRunAuthorizedDecodedPage {
                 throw AssertionError("history must not be requested after an opaque summary")
             }
@@ -242,6 +244,64 @@ class CampusRunObservedMappingTest {
         val result = CampusRunReadOnlyQuery(
             CampusRunObservedMappingSource(reader, summaryBindings, historyBindings)
         ).refreshSummary(fingerprint, now)
+        assertTrue(result is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.INVALID_DATA,
+            (result as CampusRunViewState.Unavailable).reason)
+    }
+
+    @Test fun candidateSemesterFromOpenSourceCannotClaimTrustedGrade() = runBlocking {
+        val unverified = object : CampusRunAuthorizedDecodedReader {
+            override suspend fun currentSubjectFingerprint() = fingerprint
+            override suspend fun semester() = CampusRunAuthorizedDecodedSemester(
+                fingerprint, semesterData(), verifiedFieldSemantics = false
+            )
+            override suspend fun historyPage(cursor: String?): CampusRunAuthorizedDecodedPage {
+                throw AssertionError("unverified source must not fetch history")
+            }
+        }
+        val result = CampusRunReadOnlyQuery(
+            CampusRunObservedMappingSource(unverified, summaryBindings, historyBindings)
+        ).refreshSummary(fingerprint, now)
+        assertTrue(result is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.INVALID_DATA,
+            (result as CampusRunViewState.Unavailable).reason)
+    }
+
+    @Test fun unknownUpstreamPaginationCannotBePublishedAsCompleteHistory() = runBlocking {
+        val source = object : CampusRunAuthorizedDecodedReader {
+            override suspend fun currentSubjectFingerprint() = fingerprint
+            override suspend fun semester() = CampusRunAuthorizedDecodedSemester(
+                fingerprint, semesterData(), verifiedFieldSemantics = true
+            )
+            override suspend fun historyPage(cursor: String?) = CampusRunAuthorizedDecodedPage(
+                fingerprint, listOf(historyRow()), nextCursor = null, isLastPage = true,
+                verifiedFieldSemantics = true, paginationVerified = false
+            )
+        }
+        val query = CampusRunReadOnlyQuery(
+            CampusRunObservedMappingSource(source, summaryBindings, historyBindings)
+        )
+        val result = query.refresh(fingerprint, now)
+        assertTrue(result is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.INVALID_DATA,
+            (result as CampusRunViewState.Unavailable).reason)
+    }
+
+    @Test fun unverifiedHistoryPageRejectedEvenWithKnownLastPage() = runBlocking {
+        val source = object : CampusRunAuthorizedDecodedReader {
+            override suspend fun currentSubjectFingerprint() = fingerprint
+            override suspend fun semester() = CampusRunAuthorizedDecodedSemester(
+                fingerprint, semesterData(), verifiedFieldSemantics = true
+            )
+            override suspend fun historyPage(cursor: String?) = CampusRunAuthorizedDecodedPage(
+                fingerprint, listOf(historyRow()), nextCursor = null, isLastPage = true,
+                verifiedFieldSemantics = false, paginationVerified = true
+            )
+        }
+        val query = CampusRunReadOnlyQuery(
+            CampusRunObservedMappingSource(source, summaryBindings, historyBindings)
+        )
+        val result = query.refresh(fingerprint, now)
         assertTrue(result is CampusRunViewState.Unavailable)
         assertEquals(CampusRunFailure.INVALID_DATA,
             (result as CampusRunViewState.Unavailable).reason)
