@@ -702,6 +702,32 @@ assert.match(timetableSettingsCallback,
 assert.match(timetableSettingsCallback, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
   '课表设置中通知总开关关闭时必须进入系统设置');
 
+
+const weekPickerBody = schedulePanel.slice(
+  schedulePanel.indexOf('private fun WeekSelector('),
+  schedulePanel.indexOf('private fun SelectablePill(')
+);
+assert.match(weekPickerBody, /rememberLazyListState\(/,
+  '周次选择条必须保存真实横向滚动状态');
+assert.match(weekPickerBody, /LaunchedEffect\(weeks, selected\)/,
+  '第10周等当前选中周次必须自动定位至可见范围');
+assert.match(weekPickerBody, /weekListState\.scrollToItem\(/,
+  '周次列表必须随选中项滚动，而非永远从第1周开始');
+assert.match(weekPickerBody, /LazyRow\(state = weekListState/,
+  '周次列表必须绑定滚动状态');
+const settingsHeaderError = timetableSettings.slice(
+  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
+  timetableSettings.indexOf('SettingsGroupTitle("学期与显示")')
+);
+assert.match(settingsHeaderError, /if \(error != null\) \{/,
+  '设置验证错误须在顶部完成按钮附近显示');
+assert.match(timetableSettings, /hasError = errorField == "weeks"/,
+  '学期周数错误须高亮对应设置行');
+assert.match(timetableSettings, /hasError = errorField == "date"/,
+  '学期日期错误须高亮对应设置行');
+assert.doesNotMatch(timetableSettings, /modifier = Modifier\.padding\(top = 14\.dp\)/,
+  '设置错误不得仅显示在节次列表末尾');
+
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
 assert.doesNotMatch(schedulePanel, /"全部周次 ▾"|"显示全部周次"|label = "全部",\s*isSelected = selected == ALL_WEEKS/,
   '课表不得暴露无用途的整学期混合周次入口');

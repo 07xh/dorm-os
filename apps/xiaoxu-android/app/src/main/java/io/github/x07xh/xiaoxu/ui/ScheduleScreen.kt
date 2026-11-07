@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -774,6 +775,17 @@ private fun DayLessonList(
  */
 @Composable
 private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
+    // The chosen teaching week may be outside the first visible chips
+    // (for example week 10 while the row is still displaying weeks 1–6).
+    val selectedIndex = weeks.indexOf(selected)
+    val weekListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)
+    )
+    LaunchedEffect(weeks, selected) {
+        if (selectedIndex >= 0) {
+            weekListState.scrollToItem((selectedIndex - 2).coerceAtLeast(0))
+        }
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = "周次",
@@ -781,7 +793,7 @@ private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Uni
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.width(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(state = weekListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = weeks.size, key = { index -> weeks[index] }) { index ->
                 val week = weeks[index]
                 SelectablePill(

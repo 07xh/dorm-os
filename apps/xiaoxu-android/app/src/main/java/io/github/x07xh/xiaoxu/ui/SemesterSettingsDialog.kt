@@ -50,6 +50,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,6 +91,7 @@ internal fun SemesterSettingsPage(
     var sections by rememberSaveable { mutableStateOf(initialSections.coerceIn(1, 24)) }
     var wantReminders by rememberSaveable { mutableStateOf(reminderEnabled) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    val errorField = semesterSettingsErrorField(error)
     var sectionsMenu by remember { mutableStateOf(false) }
     var weeksMenu by remember { mutableStateOf(false) }
     var dateOpen by remember { mutableStateOf(false) }
@@ -143,10 +147,48 @@ internal fun SemesterSettingsPage(
                 }) { Text("完成", color = XiaoxuPalette.Brand, fontSize = 16.sp) }
             }
 
-            SettingsGroupTitle("显示设置")
+            // Save is in the header. Validation feedback must appear beside it,
+            // rather than below a long list of period rows.
+            if (error != null) {
+                Text(
+                    text = error.orEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+
+            // Use SleepDown's compact grouped hierarchy without adding mock
+            // timetable features or replacing the existing Xiaoxu controls.
+            SettingsGroupTitle("学期与显示")
             SettingsSurface {
+                SettingsActionRow(
+                    title = "学期周数",
+                    value = if (weeks.isBlank()) "设置周数" else weeks + " 周",
+                    hasError = errorField == "weeks",
+                    onClick = { weeksMenu = true }
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                SettingsActionRow(
+                    title = "第一周开始日期",
+                    subtitle = "按所在周的周一计算",
+                    value = runCatching {
+                        LocalDate.parse(monday).format(
+                            DateTimeFormatter.ofPattern("yyyy年M月d日"))
+                    }.getOrNull() ?: "选择日期",
+                    icon = "date",
+                    hasError = errorField == "date",
+                    onClick = { dateOpen = true }
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text("默认课表视图",
@@ -161,53 +203,26 @@ internal fun SemesterSettingsPage(
                         onSelected = { viewMode = it }
                     )
                 }
-            }
-
-            SettingsGroupTitle("自定义课程")
-            SettingsSurface {
-                SettingsActionRow(
-                    title = "添加课程",
-                                        onClick = onAddCourse
-                )
-            }
-
-            SettingsGroupTitle("基础设置")
-            SettingsSurface {
-                SettingsActionRow(
-                    title = "第一周开始日期",
-                    subtitle = "按所在周的周一计算",
-                    value = runCatching { LocalDate.parse(monday).format(DateTimeFormatter.ofPattern("yyyy年M月d日")) }
-                        .getOrNull() ?: "选择日期",
-                    icon = "date",
-                    onClick = { dateOpen = true }
-                )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
                     title = "每天节数",
-                                        value = sections.toString() + " 节",
+                    value = sections.toString() + " 节",
                     icon = "time",
                     onClick = { sectionsMenu = true }
                 )
-                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
-                SettingsActionRow(
-                    title = "学期周数",
-                    value = if (weeks.isBlank()) "设置周数" else weeks + " 周",
-                    onClick = { weeksMenu = true }
-                )
             }
 
-            SettingsGroupTitle("课表数据")
+            SettingsGroupTitle("课程与数据")
             SettingsSurface {
+                SettingsActionRow(title = "添加课程", onClick = onAddCourse)
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
                     title = "导入课表",
                     subtitle = "从 .ics 或 .json 文件导入",
                     onClick = onImport
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
-                SettingsActionRow(
-                    title = "导出备份",
-                                        onClick = onExport
-                )
+                SettingsActionRow(title = "导出备份", onClick = onExport)
             }
 
             SettingsGroupTitle("课程提醒")
@@ -228,7 +243,7 @@ internal fun SemesterSettingsPage(
                 }
             }
 
-            SettingsGroupTitle("节次时间")
+            SettingsGroupTitle("本课表作息")
             SettingsSurface {
                 repeat(sections) { zeroBased ->
                     val index = zeroBased + 1
@@ -259,10 +274,6 @@ internal fun SemesterSettingsPage(
                         color = XiaoxuPalette.Line, thickness = 0.6.dp
                     )
                 }
-            }
-            if (error != null) {
-                Text(error.orEmpty(), modifier = Modifier.padding(top = 14.dp),
-                    color = MaterialTheme.colorScheme.error)
             }
         }
 
@@ -398,6 +409,16 @@ internal fun SemesterSettingsPage(
     }
 }
 
+
+/** Maps the existing parser's field-specific validation to the corresponding row. */
+private fun semesterSettingsErrorField(message: String?): String = when {
+    message == null -> ""
+    "周数" in message -> "weeks"
+    "周一" in message || "日期" in message -> "date"
+    "时间" in message || "节次" in message -> "times"
+    else -> ""
+}
+
 @Composable
 private fun SettingsGroupTitle(title: String) {
     Text(title, modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 10.dp),
@@ -416,10 +437,13 @@ private fun SettingsActionRow(
     subtitle: String? = null,
     value: String? = null,
     icon: String? = null,
+    hasError: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 55.dp else 66.dp)
+            .background(if (hasError) MaterialTheme.colorScheme.error.copy(alpha = 0.07f)
+                else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -436,7 +460,8 @@ private fun SettingsActionRow(
             Spacer(Modifier.width(12.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
+            Text(title, style = MaterialTheme.typography.bodyLarge,
+                color = if (hasError) MaterialTheme.colorScheme.error else XiaoxuPalette.Ink)
             if (subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
             }
