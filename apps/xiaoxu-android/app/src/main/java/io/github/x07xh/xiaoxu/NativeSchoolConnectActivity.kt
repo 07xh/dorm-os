@@ -649,6 +649,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             } catch (_: Exception) {
                 tell("活动广场名称字段校验失败，旧记录保持不变。"); unlock(); return
             }
+            val catalogVerified = payload.optString("catalogStatus") in
+                setOf("verified_empty", "verified_nonempty")
             val catalogMessage = when {
                 catalogActivities.isNotEmpty() ->
                     "活动广场已读取 ${catalogActivities.size} 条已验证的活动名称（其他字段未核对）"
@@ -656,7 +658,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     "活动广场三个筛选本次均返回0条"
                 payload.optString("catalogStatus") == "nonempty_unverified" ->
                     "活动广场有非空结果，但字段或分页尚未核验；不保存猜测记录"
-                else -> "活动广场暂无可用的已验证快照"
+                else -> "活动广场本次未核验；旧目录仅在同账号时保留"
             }
             val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
             val accountHash = payload.optString("accountHash")
@@ -672,7 +674,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) {
                                 currentCoroutineContext().ensureActive()
                                 LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
-                                    .replaceSecondClassSnapshot(rows, activities, catalog, catalogActivities, accountHash = accountHash)
+                                    .replaceSecondClassSnapshot(rows, activities, catalog, catalogActivities,
+                                        accountHash = accountHash, catalogVerified = catalogVerified)
                             }
                             if (!valid()) return@launch
                             scoreIdentity.edit().putString("account", accountHash).commit()
