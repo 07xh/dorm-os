@@ -52,8 +52,10 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /FloatingBottomBar/, '底部导航须使用统一悬浮组件');
-assert.match(main, /NavigationRail/);
+assert.match(main, /PrimaryBottomNavigation\(selected = current, backdrop = navBackdrop\)/,
+  '主壳层须只放一套可折射玻璃底栏');
+assert.match(main, /PrimarySideNavigation\(selected = current\)/,
+  '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
@@ -1384,8 +1386,43 @@ const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
   '悬浮导航选中玻璃材质须取自唯一设计系统');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
-  '悬浮导航选中前景色须取自统一调色板');
-assert.match(main, /NavigationRailItemDefaults\.colors/, '平板侧栏选中态须统一配色');
+  '悬浮导航旧设备回退继续使用统一调色板');
+const navGeometry = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryBottomGeometry.kt');
+const glassChrome = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/NorthGlassNavChrome.kt');
+const northIcon = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthPhosphorNavigationIcon.kt');
+const northMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthNavigationIconPlayback.kt');
+assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/);
+assert.match(appGradle, /io\.github\.kyant0:shapes:1\.2\.0/);
+assert.match(main, /rememberLayerBackdrop\(\)/);
+assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/);
+assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/);
+assert.equal((main.match(/Scaffold\(/g) || []).length, 1,
+  '主壳层只能有一套 Scaffold');
+assert.doesNotMatch(main, /\bFloatingBottomBar\(/,
+  '实际底栏统一经过 PrimaryBottomNavigation 适配器');
+assert.match(primaryNavigation, /FloatingBottomBar\(/);
+assert.match(primaryNavigation, /PrimaryBottomNavigationReserve\(/);
+assert.match(navGeometry, /val contentReserve: Dp get\(\) = trackHeight \+ topPadding \+ bottomPadding/);
+assert.match(navGeometry, /trackHeight = track/);
+assert.match(floatingBar, /rememberCombinedBackdrop\(backdrop, tintLayer\)/,
+  '透镜必须合并当前页面与原版前景采样');
+assert.match(floatingBar, /Modifier\.northGlassTrack\(/);
+assert.match(floatingBar, /Modifier\.northGlassIndicator\(/);
+assert.match(floatingBar, /onDragCancel = \{/);
+assert.match(floatingBar, /drag\.updateValue\(currentIndex\.toFloat\(\)\)/,
+  '中断拖拽不能误选新页面');
+assert.match(glassChrome, /fun Modifier\.northGlassTrack\(/);
+assert.match(glassChrome, /fun Modifier\.northGlassIndicator\(/);
+assert.match(northIcon, /NorthPhosphorNavigationIcon\(/);
+assert.match(northMotion, /rememberNorthNavigationIconPlayback\(/);
+assert.match(main, /XiaoxuGlassDialog\(/,
+  '#361 居中浮层合流后不得被旧版 MainActivity 覆盖');
+assert.match(appGradle, /xiaoxuRuntimeTest/,
+  '不能用旧 #353 Gradle 覆盖 #351 本机运行时安全测试配置');
+
+const primaryNavigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
+assert.match(primaryNavigation, /NavigationRailItemDefaults\.colors/,
+  '侧栏选中态须统一配色，不在 MainActivity 重复维护');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
 assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
@@ -1805,17 +1842,17 @@ assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
 // #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
 assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
   '主导航不得重新出现演示版/真实版切换');
-assert.match(main, /PrimaryTabs = listOf\(MainDestination\.HOME, MainDestination\.SCHEDULE/,
-  '五项一级导航必须保留');
-assert.match(main, /MainDestination\.ACADEMIC, MainDestination\.TASKS, MainDestination\.PROFILE\)/,
-  '教务应是第三项');
+assert.match(primaryNavigation, /PrimaryTabs = listOf\([\s\S]*MainDestination\.HOME,[\s\S]*MainDestination\.SCHEDULE,[\s\S]*MainDestination\.ACADEMIC,[\s\S]*MainDestination\.TASKS,[\s\S]*MainDestination\.PROFILE/,
+  '唯一导航配置保留今日、课表、教务、任务、我的顺序');
+assert.doesNotMatch(main, /private val PrimaryTabs|NavigationRail\(/,
+  '业务壳层不能重建第二套导航表或侧栏组件');
 assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/, '全局消息入口');
 assert.match(main, /openAcademic = \{ current = MainDestination\.ACADEMIC; academic = AcademicDestination\.OVERVIEW \}/,
   '教务快捷入口打开总览');
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/,
   '消息中心复用真实数据');
-assert.match(main, /useStatusBarInset = true, onBack = \{ messagesOpen = false \}\)/,
+assert.match(main, /useStatusBarInset = false, onBack = \{ messagesOpen = false \}\)/,
   '消息页面直接传入返回来源页的回调，无重复中间包装组件');
 assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
   '系统返回键也必须关闭消息页并恢复原一级页');
