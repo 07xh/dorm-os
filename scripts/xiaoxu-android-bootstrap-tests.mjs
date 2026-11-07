@@ -1153,7 +1153,7 @@ assert.match(wechatReview, /ModalBottomSheet\(/);
 assert.match(wechatReview, /AlertDialog\(/);
 assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
 assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
-assert.match(wechatReview, /候选摘要 · 请核对原消息后确认/);
+assert.match(wechatReview, /候选正文仅用于核对，加入任务前请确认内容与截止日期/);
 assert.doesNotMatch(wechatReview, /HttpURLConnection|openConnection|WebView|CookieManager|READ_SMS|READ_CONTACTS/);
 assert.match(reviewRoute, /authorize\(context\)/);
 assert.match(reviewRoute, /sec-fetch-site/);
