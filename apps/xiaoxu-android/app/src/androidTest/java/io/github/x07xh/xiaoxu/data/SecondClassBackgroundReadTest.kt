@@ -31,14 +31,18 @@ class SecondClassBackgroundReadTest {
     @Before fun prepare() = runBlocking {
         settings.edit().clear().putBoolean("enabled", true).putBoolean("background", true).commit()
         identity.edit().clear().putString("salt", "b".repeat(32)).putString("account", hash).commit()
+        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "account_binding"))
+            dao.deleteKind("second_class", kind)
         dao.replaceSecondClassSnapshot(parseLocalSecondClassScores(payload(), savedAt),
             parseLocalSecondClassActivities(payload(), savedAt), accountHash = hash)
     }
-    @After fun clean() {
+    @After fun clean() = runBlocking {
         SecondClassAutoRefresh.configure(c, false, false)
-        WorkManager.getInstance(c).getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
+        awaitCancellationOfScheduledWork()
         settings.edit().clear().commit()
         identity.edit().clear().commit()
+        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "account_binding"))
+            dao.deleteKind("second_class", kind)
     }
     @Test fun disablingBackgroundCancelsTheActualReadAndPreservesRoom() = runBlocking {
         val before = dao.snapshot()
@@ -49,10 +53,12 @@ class SecondClassBackgroundReadTest {
                 awaitCancellation()
             }
         }
-        withTimeout(10_000) { entered.await() }
-        SecondClassAutoRefresh.configure(c, true, false)
-        withTimeout(5_000) { reading.join() }
-        assertTrue("opt-out must cancel the in-flight background job", reading.isCancelled)
+        try {
+            withTimeout(10_000) { entered.await() }
+            SecondClassAutoRefresh.configure(c, true, false)
+            withTimeout(5_000) { reading.join() }
+            assertTrue("opt-out must cancel the in-flight background job", reading.isCancelled)
+        } finally { reading.cancelAndJoin() }
         assertEquals("idle", SecondClassAutoRefresh.status(c))
         assertEquals(before, dao.snapshot())
         assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
@@ -76,6 +82,7 @@ class SecondClassBackgroundReadTest {
     }
     @Test fun automaticSuccessIsRecordedOnlyAfterRoomSaveAndManualSaveDoesNotChangeIt() = runBlocking {
         SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertTrue(SecondClassAutoRefresh.lastBackgroundCheck(c) > 0)
         val success = SecondClassAutoRefresh.lastSuccess(c)
         assertTrue(success > savedAt)
         assertTrue(SecondClassAutoRefresh.lastSuccessWasBackground(c))
@@ -95,7 +102,22 @@ class SecondClassBackgroundReadTest {
         assertEquals(before, dao.snapshot())
         assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
     }
-    @Test fun scheduleIsUniqueAndOptOutCancelsIt() {
+    @Test fun identityInvalidationDoesNotLeaveAReadStuckOrOverwriteData() = runBlocking {
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            identity.edit().putString("salt", "c".repeat(32)).commit()
+            payload()
+        }
+        assertEquals("idle", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+    }
+    private suspend fun awaitCancellationOfScheduledWork() = withTimeout(10_000) {
+        val work = WorkManager.getInstance(c)
+        while (work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
+                .any { !it.state.isFinished }) delay(50)
+    }
+    @Test fun scheduleIsUniqueAndOptOutCancelsIt() = runBlocking {
         // A fresh snapshot ensures a real Worker cannot contact the school.
         settings.edit().putLong("attempt", System.currentTimeMillis()).commit()
         SecondClassAutoRefresh.reconcile(c)
@@ -104,6 +126,7 @@ class SecondClassBackgroundReadTest {
         val jobs = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
         assertEquals(1, jobs.count { !it.state.isFinished })
         SecondClassAutoRefresh.configure(c, true, false)
+        awaitCancellationOfScheduledWork()
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
         assertTrue(cancelled.all { it.state == WorkInfo.State.CANCELLED || it.state.isFinished })
     }
