@@ -129,4 +129,60 @@ class SecondClassSnapshotIntegrityTest {
         assertEquals(old, dao.rows)
         assertEquals(emptyList<String>(), dao.writes)
     }
+
+
+    @Test fun unavailableCatalogKeepsOnlySameOwnersLastVerifiedRecords() = runBlocking {
+        val account = "a".repeat(64)
+        val earlier = listOf(
+            record("credits", 100),
+            record("activity_summary", 100),
+            record("catalog_empty", 100).copy(title = "待验证"),
+            record("catalog_activity", 100).copy(
+                title = "之前核验的活动", details = "筛选：报名中\n来源：学校活动广场"),
+            record("account_binding", 100).copy(details = account)
+        )
+        val dao = RecordingDao(earlier)
+        val scores = listOf(record("credits"))
+        val activities = listOf(record("activity_summary"))
+        dao.replaceSecondClassSnapshot(scores, activities,
+            accountHash = account, expectedBinding = account, catalogVerified = false)
+        val after = dao.rows
+        assertEquals(scores + activities, after.filter {
+            it.kind == "credits" || it.kind == "activity_summary"
+        })
+        assertEquals(earlier.filter { it.kind == "catalog_empty" || it.kind == "catalog_activity" },
+            after.filter { it.kind == "catalog_empty" || it.kind == "catalog_activity" })
+        assertEquals(100L, after.single { it.kind == "catalog_activity" }.capturedAt)
+        assertEquals(200L, after.single { it.kind == "account_binding" }.capturedAt)
+    }
+
+    @Test fun switchingOwnerMustNotRetainPreviousCatalog() = runBlocking {
+        val dao = RecordingDao(listOf(
+            record("credits", 100),
+            record("activity_summary", 100),
+            record("catalog_activity", 100).copy(
+                details = "筛选：报名中\n来源：学校活动广场"),
+            record("account_binding", 100).copy(details = "a".repeat(64))
+        ))
+        dao.replaceSecondClassSnapshot(
+            listOf(record("credits")), listOf(record("activity_summary")),
+            accountHash = "b".repeat(64), catalogVerified = false)
+        assertTrue(dao.rows.none { it.kind == "catalog_activity" || it.kind == "catalog_empty" })
+        assertEquals("b".repeat(64), dao.rows.single { it.kind == "account_binding" }.details)
+    }
+
+    @Test fun unverifiedCatalogCannotInsertIncomingUntrustedRows() {
+        val old = listOf(record("credits", 100), record("activity_summary", 100))
+        val dao = RecordingDao(old)
+        val injected = record("catalog_activity").copy(details = "筛选：报名中\n来源：未核验")
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking {
+                dao.replaceSecondClassSnapshot(
+                    listOf(record("credits")), listOf(record("activity_summary")),
+                    catalogActivities = listOf(injected), catalogVerified = false)
+            }
+        }
+        assertEquals(old, dao.rows)
+        assertEquals(emptyList<String>(), dao.writes)
+    }
 }
