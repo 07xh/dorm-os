@@ -37,6 +37,85 @@ class CollectorTests(TestCase):
         self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
+    def test_extract_https_links_basics(self):
+        self.assertEqual(
+            bridge.extract_https_links(
+                "实验报告模板 https://course.example/hw/template.zip 请下载"),
+            ["https://course.example/hw/template.zip"])
+        # Chinese punctuation directly after the URL must not join the URL,
+        # and the title keeps the redacted placeholder instead of the link.
+        links = bridge.extract_https_links(
+            "详情见https://x.example/a，截止前提交。备用：https://x.example/b。")
+        self.assertEqual(links, ["https://x.example/a", "https://x.example/b"])
+        # Unbalanced markdown-style paren is not part of the URL.
+        self.assertEqual(
+            bridge.extract_https_links("参考(https://x.example/c)"),
+            ["https://x.example/c"])
+        self.assertEqual(
+            bridge.extract_https_links("括号内(https://x.example/d)后缀"),
+            ["https://x.example/d"])
+        # http is never accepted, only https.
+        self.assertEqual(bridge.extract_https_links("看 http://x.example/e 提交"), [])
+        # Embedded credentials make the URL invalid.
+        self.assertEqual(
+            bridge.extract_https_links("看 https://user:pw@x.example/f 提交"), [])
+        self.assertEqual(bridge.extract_https_links("没有链接也要提交"), [])
+
+    def test_extract_https_links_caps_and_dedups(self):
+        four = " ".join(f"https://x.example/{i}" for i in range(4))
+        self.assertEqual(len(bridge.extract_https_links(four)), 3)
+        dup = "https://x.example/same https://x.example/same"
+        self.assertEqual(bridge.extract_https_links(dup),
+                         ["https://x.example/same"])
+        self.assertEqual(bridge.extract_https_links("x" * 600), [])
+
+    def test_classify_keeps_links_out_of_title(self):
+        ts = 1793764800
+        task = bridge.classify(
+            "11月6日前提交报告，模板 https://school.example/hw1 提交", ts)
+        self.assertNotIn("school.example", task["title"])
+        self.assertIn("[链接]", task["title"])
+        self.assertEqual(task["links"], ["https://school.example/hw1"])
+
+    def test_records_carry_links_without_changing_identity(self):
+        ts = 1793764800
+        secret = b"link-test-secret"
+        rows = [("shard/Msg", 7, ts,
+                 "11月6日提交实验报告 https://lab.example/report 逾期不收")]
+        def reader(name, cutoff):
+            yield from rows
+        records, _, _ = bridge.extract_groups(
+            {"chats": ["群"]}, secret, {}, reader=reader, now_ts=ts + 10)
+        self.assertEqual(records[0]["links"], ["https://lab.example/report"])
+        self.assertNotIn("lab.example", records[0]["title"])
+        base = {**records[0], "links": None}
+        def reader_plain(name, cutoff):
+            yield ("shard/Msg", 7, ts, "11月6日提交实验报告 逾期不收")
+        plain, _, _ = bridge.extract_groups(
+            {"chats": ["群"]}, secret, {}, reader=reader_plain, now_ts=ts + 10)
+        self.assertEqual(records[0]["candidateKey"], plain[0]["candidateKey"],
+                         "links must not change the stable candidate identity")
+
+    def test_cloud_schema_utf16_limits_and_control_characters(self):
+        # Python length differs from JS UTF-16 length for emoji/non-BMP glyphs.
+        text = "提交报告" + "📘"*85 + chr(1) + "请按时提交"
+        task = bridge.classify(text, 1793764800)
+        self.assertLessEqual(len(task["title"].encode("utf-16-le")) // 2, 120)
+        self.assertNotIn(chr(1), task["title"])
+
+        chat = "专业课程" + "🎓"*42
+        def reader(name, cutoff):
+            self.assertEqual(name, chat, "look up full chat name, never truncated name")
+            yield ("shard", 11, 1793764800, "提交电工报告")
+
+        records, _, _ = bridge.extract_groups(
+            {"chats": [chat]}, b"test-device-secret", {},
+            reader=reader, now_ts=1793765000
+        )
+        self.assertEqual(len(records), 1)
+        self.assertLessEqual(len(records[0]["chatLabel"].encode("utf-16-le")) // 2, 80)
+        self.assertEqual(records[0]["title"], "提交电工报告")
+
     def test_selected_groups_only_deterministic(self):
         ts = 1793764800
         secret = b"only-local-hmac-test-key"
@@ -208,6 +287,101 @@ class CollectorTests(TestCase):
             self.assertEqual(req.get_header("User-agent"), "Xiaoxu-Desktop-Connector/1.0")
             self.assertEqual(req.get_header("Authorization"), "Bearer " + "wxu_" + "x"*43)
             self.assertEqual(req.full_url, "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest")
+    def test_network_error_category_does_not_leak_details(self):
+        from urllib.error import URLError
+        import socket
+        import ssl
+        cases = [
+            (socket.gaierror(11001, "private.dns.internal"), "DNS 域名解析失败"),
+            (ssl.SSLCertVerificationError(1, "private certificate"), "HTTPS 证书验证失败"),
+            (TimeoutError("private internal endpoint"), "HTTPS 连接超时"),
+            (ConnectionRefusedError("private local port"), "HTTPS 连接被拒绝"),
+            (OSError("Tunnel connection failed: private proxy"), "代理隧道连接失败"),
+            (OSError("secret proxy username:password"), "网络连接失败"),
+        ]
+        for reason, expected in cases:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = URLError(reason)
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev", "wxu_" + "x"*43, {"records": []})
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn("private", str(caught.exception))
+                self.assertNotIn("secret", str(caught.exception))
+                self.assertNotIn("wxu_", str(caught.exception))
+
+    def test_sensitive_link_params_rejected(self):
+        # Credential-style query/fragment parameters never reach the cloud.
+        self.assertEqual(
+            bridge.extract_https_links("填表 https://school.example/form?token=abc 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links(
+                "看 https://school.example/a?id=1&api_key=x "
+                "和 https://school.example/b#access_token=xyz 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links(
+                "看 https://school.example/a?id=1&next=2 提交"),
+            ["https://school.example/a?id=1&next=2"])
+        # Word-boundary matching: classcode is a plain value, invite_code is
+        # conservatively treated as sensitive.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/d?classcode=7 提交"),
+            ["https://school.example/d?classcode=7"])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/d?invite_code=7 提交"), [])
+        # Malformed percent-encoding is treated as unvalidatable.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/e?na%2me=1 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/e?na%2me=%zz 提交"), [])
+        # camelCase composites hit the substring tier (regression for V1.1
+        # review: authToken / clientSecret slipped past boundary matching).
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?authToken=x 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?clientSecret=y 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?secretKey=z 提交"), [])
+        # Percent-encoded bytes that are not valid UTF-8 must be rejected the
+        # same way JavaScript decodeURIComponent throws (V1.1 review P0):
+        # unquote(errors="replace") used to silently accept ?%FF=1.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/g?%FFx=1 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/g?%C3%A9d=1 提交"),
+            ["https://school.example/g?%C3%A9d=1"])
+
+    def test_link_port_validation_matches_js(self):
+        # WHATWG new URL() rejects non-numeric and out-of-range ports; the
+        # collector must agree so one bad link cannot sink a whole batch.
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:abc/report 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:99999/x 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:8443/x 提交"),
+            ["https://school.example:8443/x"])
+
+    def test_http_422_reports_safe_contract_code(self):
+        import io
+        from urllib.error import HTTPError
+        for body, expected in [
+            (b'{"error":"title_invalid"}', "title_invalid"),
+            (b'{"error":"chat_label_invalid"}', "chat_label_invalid"),
+            (b'{"error":"links_invalid"}', "links_invalid"),
+            (b'{"error":"secret_or_untrusted_response"}', "unknown_schema_error"),
+        ]:
+            with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:
+                opener.return_value.open.side_effect = HTTPError(
+                    "https://dorm-os-dk9.pages.dev/api/v1/wechat/ingest",
+                    422, "Unprocessable", {"Content-Type":"application/json"}, io.BytesIO(body)
+                )
+                with self.assertRaises(bridge.BridgeError) as caught:
+                    bridge.submit("https://dorm-os-dk9.pages.dev",
+                                  "wxu_" + "x"*43, {"records":[]})
+                self.assertIn(expected, str(caught.exception))
+                self.assertNotIn("secret_or_untrusted_response", str(caught.exception))
+                self.assertNotIn("wxu_", str(caught.exception))
+
     def test_http_403_reports_api_code_without_exposing_sensitive_response(self):
         import io
         from urllib.error import HTTPError

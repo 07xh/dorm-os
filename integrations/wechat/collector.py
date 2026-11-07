@@ -5,7 +5,7 @@
 首次运行需在校序网站显式绑定电脑并选择微信群；消息筛选为保守规则，
 不代表 AI 准确理解，更不代表官方学校作业状态。
 
-运行环境：Python 3.12，微信工具的 tool/deps_x64/deps 已在 PYTHONPATH。
+运行环境：Python 3.12 虚拟环境，PYTHONPATH 仅包含微信工具 tool。
 """
 from __future__ import annotations
 
@@ -22,7 +22,9 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import sqlite3
+import ssl
 import sys
 import time
 import urllib.error
@@ -39,7 +41,27 @@ MAX_ROWS_PER_CHAT = 1500
 PAGE = 250
 OVERLAP_SECONDS = 24 * 3600
 BOOTSTRAP_SECONDS = 72 * 3600
+MAX_LINKS = 3
+MAX_LINK_LEN = 512
 TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|ddl|考试|测验|互评|报名|签到|考核|作图|结课|打卡", re.I)
+# Link extraction keeps the URL body away from adjacent Chinese text: real
+# chat links percent-encode non-ASCII, so raw CJK/full-width characters mark
+# the boundary between the URL and the surrounding sentence.
+LINK_URL = re.compile(
+    r"https://[^\s<>\"'`\x5c\x7f\u2e80-\u9fff\ufe30-\ufe4f\uff00-\uffef]+", re.I)
+LINK_TRAIL_PUNCT = ".,;:!?\u2026\u00b7\u2014\u201d\uff0c\u3002\uff1b\uff01\uff1f\u3001\uff09)]}\u3011\u300d\u300f\u3009"
+# Query/fragment parameter names that mark credential-bearing URLs. Two tiers
+# keep camelCase composites covered without over-matching:
+# - SUBSTR: high-specificity credential words match anywhere in the name
+#   (authToken, clientSecret, secretKey, refreshToken, ... all hit).
+# - PARAM: generic words (code, key, auth, session, ...) only match as whole
+#   tokens separated by _ or -, so "classcode" and "keyboard" stay safe.
+SENSITIVE_SUBSTR = re.compile(
+    r"token|secret|password|passwd|credential|jwt|bearer|oauth", re.I)
+SENSITIVE_PARAM = re.compile(
+    r"(?:^|[_-])(?:auth|authorization|session|sessionid|sid|sig|signature|sas|"
+    r"apikey|api[_-]?key|api[_-]?secret|code|key|pass|pwd)(?:$|[_-])", re.I)
+PERCENT_INVALID = re.compile(r"%(?![0-9A-Fa-f]{2})")
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
 CLEAN_LONG_ID = re.compile(r"(?<!\d)\d{8,}(?!\d)")
@@ -133,6 +155,25 @@ def fingerprint(secret: bytes, *parts: object) -> str:
     return base64.urlsafe_b64encode(hmac.new(secret, value, hashlib.sha256).digest()).rstrip(b"=").decode("ascii")
 
 
+def contract_text(value: str, max_units: int) -> str:
+    """Match the Cloudflare JS contract's UTF-16 unit limit, not Python len().
+
+    JavaScript counts emoji and other non-BMP glyphs as two string units.
+    Do not retain C0 control characters rejected by the server.
+    """
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    remaining = max_units
+    output = []
+    for char in value:
+        units = 2 if ord(char) > 0xFFFF else 1
+        if units > remaining:
+            break
+        output.append(char)
+        remaining -= units
+    return "".join(output).strip()
+
+
 def due_date(text: str, sent_ts: int) -> dict:
     sent = datetime.fromtimestamp(sent_ts, CHINA).date()
     for regex in (DAY_ISO, DAY_SHORT):
@@ -154,11 +195,77 @@ def due_date(text: str, sent_ts: int) -> dict:
     return {"precision": "unknown"}
 
 
+def _sensitive_params(raw: str) -> bool:
+    """True when a query/fragment carries a credential-style parameter name."""
+    for piece in re.split(r"[&;]", raw):
+        if not piece:
+            continue
+        raw_name = piece.split("=", 1)[0]
+        # Malformed percent-encoding is treated as unvalidatable and dropped,
+        # matching the JavaScript contract's decode failure behaviour.
+        if PERCENT_INVALID.search(raw_name):
+            return True
+        try:
+            # errors="strict" mirrors JavaScript decodeURIComponent: byte
+            # sequences that are not valid UTF-8 (e.g. %FF) raise instead of
+            # being replaced, so both ends reject the same URLs.
+            name = urllib.parse.unquote(raw_name, errors="strict").strip()
+        except UnicodeDecodeError:
+            return True
+        if name and (SENSITIVE_SUBSTR.search(name) or SENSITIVE_PARAM.search(name)):
+            return True
+    return False
+
+
+def extract_https_links(text: str) -> list[str]:
+    """Extract at most MAX_LINKS validated HTTPS links from a message body.
+
+    Validation is structural only and mirrors the cloud contract's WHATWG
+    URL checks (scheme, hostname, no credentials, numeric port in range, no
+    credential-style query/fragment parameters such as ?token= or
+    #access_token=). Links are never opened, previewed or fetched; only
+    their literal text is kept for later human review.
+    """
+    seen: set[str] = set()
+    links: list[str] = []
+    for match in LINK_URL.finditer(text):
+        url = match.group(0)
+        while url and url[-1] in LINK_TRAIL_PUNCT:
+            url = url[:-1]
+        # Markdown/wiki style "(see https://x/a)" keeps the closing bracket
+        # out; an unbalanced opening paren means it was never part of the URL.
+        while url.count("(") > url.count(")"):
+            url = url[:-1]
+            while url and url[-1] in LINK_TRAIL_PUNCT:
+                url = url[:-1]
+        if not 12 <= len(url) <= MAX_LINK_LEN or url in seen:
+            continue
+        try:
+            parts = urllib.parse.urlsplit(url)
+            port = parts.port
+        except ValueError:
+            continue
+        if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+            continue
+        if port is not None and not 0 <= port <= 65535:
+            continue
+        if _sensitive_params(parts.query) or _sensitive_params(parts.fragment):
+            continue
+        if any(ord(ch) < 0x20 or ch == "\x7f" for ch in url):
+            continue
+        seen.add(url)
+        links.append(url)
+        if len(links) >= MAX_LINKS:
+            break
+    return links
+
+
 def classify(text: str, sent_ts: int) -> dict | None:
     # Only task-like text messages are considered. Never upload full chat,
     # attachments, sender names, phone numbers, cookies or external URLs.
     if not TASK_WORDS.search(text):
         return None
+    links = extract_https_links(text)
     cleaned = CLEAN_URL.sub("[链接]", text)
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
@@ -174,7 +281,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
         kind = "activity"
     else:
         kind = "homework"
-    return {"kind": kind, "title": cleaned[:120], "deadline": due_date(text, sent_ts)}
+    return {"kind": kind, "title": contract_text(cleaned, 120), "deadline": due_date(text, sent_ts), "links": links}
 
 
 def extract_groups(config: dict, secret: bytes, cursors: dict, *,
@@ -237,10 +344,11 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
             candidate_key = fingerprint(secret, "candidate", msg_key, 0)
             candidates.append({
                 "messageKey": msg_key, "candidateKey": candidate_key,
-                "chatKey": group_key, "chatLabel": chat,
+                "chatKey": group_key, "chatLabel": contract_text(chat, 80),
                 "kind": task["kind"], "title": task["title"],
                 "sentAt": datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "deadline": task["deadline"],
+                "links": task.get("links", []),
             })
         next_cursors[chat] = max_ts or now_ts
         summary.append(f"已选群：扫描 {total} 条文本记录")
@@ -291,11 +399,43 @@ def submit(site: str, token: str, payload: dict) -> dict:
             pass
         if code in known:
             raise BridgeError(f"云端拒绝批次（HTTP {exc.code}，{code}）：{known[code]}") from None
+        if exc.code == 422:
+            # Never show raw server content; only expose allowlisted schema codes.
+            schema_errors = {
+                "batch_invalid", "schema_unsupported", "device_id_invalid",
+                "batch_id_invalid", "captured_at_invalid", "batch_size_invalid",
+                "record_invalid", "message_key_invalid", "candidate_key_invalid",
+                "chat_key_invalid", "duplicate_candidate", "kind_invalid",
+                "title_invalid", "chat_label_invalid", "excerpt_invalid",
+                "sent_at_invalid", "sent_at_future", "deadline_invalid",
+                "links_invalid",
+            }
+            detail = code if code in schema_errors else "unknown_schema_error"
+            raise BridgeError(
+                f"云端字段校验失败（HTTP 422，{detail}）；"
+                "保留原同步进度，请更新采集器后再试。"
+            ) from None
         if exc.code == 403:
             raise BridgeError("云端拒绝批次（HTTP 403，非校序已知错误）；可能是网络或 Cloudflare 安全检查。无需重配群聊。") from None
         raise BridgeError(f"云端拒绝批次（HTTP {exc.code}）；请检查设备授权或云端服务。") from None
-    except urllib.error.URLError:
-        raise BridgeError("网络连接失败：校序云端暂时无法访问") from None
+    except urllib.error.URLError as exc:
+        # urllib hides DNS, TLS, proxy and timeout failures under the same
+        # URLError. Report only a fixed category: raw errors can expose
+        # proxy credentials, private hostnames or network details.
+        reason = exc.reason
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            message = "HTTPS 证书验证失败：请检查系统时间、证书及网络代理配置"
+        elif isinstance(reason, socket.gaierror):
+            message = "DNS 域名解析失败：电脑无法解析校序域名"
+        elif isinstance(reason, TimeoutError):
+            message = "HTTPS 连接超时：请检查电脑网络或代理"
+        elif isinstance(reason, ConnectionRefusedError):
+            message = "HTTPS 连接被拒绝：请检查网络或代理"
+        elif isinstance(reason, OSError) and "tunnel connection failed" in str(reason).lower():
+            message = "代理隧道连接失败：请检查电脑代理配置"
+        else:
+            message = "网络连接失败：无法到达校序服务，请检查网络或代理"
+        raise BridgeError(message) from None
     if (result.get("reviewStatus") != "needs_review" or
             type(result.get("received")) is not int or
             result["received"] != len(payload.get("records", []))):

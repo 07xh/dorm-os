@@ -45,8 +45,8 @@ export async function onRequestGet(context){
     // Require an owner-decryptable session AND trusted personal read batch.
     const flow=describeSecondClassAuthorization({sessionState,verifiedSession:verified});
     return {...row,status:verified?'connected':'not_connected',sessionState,
-     loginMode:available?'native_cas_probe':'unavailable',authFlow:flow,
-     nativeCasPreflight:available,automaticSync:false,
+     loginMode:flow.loginMode,authFlow:flow,
+     nativeCasPreflight:false,automaticSync:false,
      accountAuthorization:verified?'verified_session':'not_verified'};
    }
    if(row.id==='ncwu')return {...row,sessionState,

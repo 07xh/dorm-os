@@ -23,13 +23,13 @@ for(const token of ['data-xu-bridge-','data-xu-second-class-import',
  assert.equal(ui.includes(token),false,'obsolete connection-center UI remains: '+token);
 assert.equal(source.includes('browserBridge'),false,'obsolete provider state remains');
 assert.equal(pkg.includes('xiaoxu-secondclass-browser-bridge-tests.mjs'),false);
-assert.ok(ui.includes('打开官网（不会绑定校序）'),'official link remains but cannot be mistaken for binding');
-assert.ok(ui.includes('官网登录不会自动关联校序'),'honest unverified CAS status remains');
-assert.ok(ui.includes('扫码会话尚未接入校序'),'QR not a linked session');
-assert.ok(ui.includes('检测扫码接入'),'QR discovery actionable');
+assert.ok(ui.includes('打开学校官方平台'),'official entry remains');
+assert.ok(ui.includes('请在校序 App 的'),'official App reader is the connection entry');
+assert.equal(ui.includes('扫码会话尚未接入校序'),false,'obsolete QR placeholder is removed');
+assert.equal(ui.includes('检测扫码接入'),false,'discovery must not masquerade as an authorization flow');
 assert.equal(ui.includes('第二课堂连接状态'),false,'duplicate guide removed');
 assert.ok(read('functions/api/v1/connections/[provider]/preflight.js').includes('qrSessionLinked:false'));
-assert.ok(ui.includes('data-xu-cas-check="second_class"'),'explicit school CAS preflight remains');
+assert.equal(ui.includes('data-xu-cas-check="second_class"'),false,'retired second-class password preflight removed');
 assert.equal(ui.includes('maybeAutoRefreshSecondClass'),false);
 assert.equal(ui.includes('data-xu-second-class-official-only'),false,'obsolete official-only blockade removed');
 assert.ok(ui.includes('form.dataset.xuSchoolLogin=checkProvider'));

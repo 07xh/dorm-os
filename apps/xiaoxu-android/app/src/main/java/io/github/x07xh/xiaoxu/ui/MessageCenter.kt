@@ -246,6 +246,22 @@ fun MessageCenterPanel(
     val filtered = remember(state.notices, query, filterKey) {
         filterNotices(state.notices, query, filterKey)
     }
+    // 稳定 key：筛选 / 搜索会重排 filtered，没有 key 时 LazyColumn 按 index 复用 slot，
+    // NoticeCard 内部的 MutableInteractionSource 会串到别的公告上。
+    // 公告 id 可能为空或重复，这里先去重，避免 "Key was already used" 崩溃。
+    val noticeKeys = remember(filtered) {
+        val seen = HashSet<String>(filtered.size)
+        filtered.map { notice ->
+            val base = notice.id.ifBlank { notice.url }.ifBlank { "notice" }
+            var candidate = base
+            var suffix = 1
+            while (!seen.add(candidate)) {
+                suffix++
+                candidate = "$base#$suffix"
+            }
+            candidate
+        }
+    }
     val showWechat = sourceTab == MSG_FILTER_WECHAT
 
     // The two sources never masquerade as one another in the visible list.
@@ -366,7 +382,7 @@ fun MessageCenterPanel(
                             else "匹配 ${filtered.size} 条"
                         )
                     }
-                    items(count = filtered.size) { index ->
+                    items(count = filtered.size, key = { index -> noticeKeys[index] }) { index ->
                         val notice = filtered[index]
                         NoticeCard(
                             notice = notice,

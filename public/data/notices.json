@@ -2,20 +2,20 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-05T18:03:58.019Z",
+  "lastSuccessAt": "2026-11-06T17:31:45.960Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-05T18:03:58.019Z",
+      "lastSuccessAt": "2026-11-06T17:31:45.960Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-05T18:03:58.019Z",
+      "lastSuccessAt": "2026-11-06T17:31:45.960Z",
       "count": 8
     },
     {
@@ -244,6 +244,33 @@
       "category": "教学"
     },
     {
+      "id": "ncwu-6f1c6af291eae7a1",
+      "title": "华北水利水电大学教学综合管理服务平台升级项目单一来源采购结果公告 11-06",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3009.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-5819250dfd41c2d7",
+      "title": "华北水利水电大学雨课堂网络在线教学平台项目单一来源采购结果公告 11-06",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3010.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-083e24afed765907",
+      "title": "华北水利水电大学华水学堂网络在线教学平台项目单一来源采购结果公告 11-06",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3011.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
       "id": "ncwu-f0350827581cfc16",
       "title": "2025-2026学年第一学期期初补考 08-25",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1034/2633.htm",
@@ -400,6 +427,15 @@
       "id": "ncwu-a60186d9c1c88235",
       "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-322450993ef0c061",
+      "title": "关于进行2026—2027学年第一学期期中教学检查的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23373.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",

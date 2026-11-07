@@ -4,7 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {patchPersonalTask,readTaskHistory,readSourceHealth,WorkspaceError}
  from '../lib/academic-workspace.mjs';
 import {listAssignments} from '../lib/academic-assignments.mjs';
-import {onRequestPatch} from '../functions/api/v1/assignments/[id].js';
+import {onRequestPatch,onRequestPost} from '../functions/api/v1/assignments/[id].js';
 
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
@@ -18,6 +18,11 @@ for(let i=1;i<=5;i++){
  })[i];
  sqlite.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 }
+// Task ledger queries include reviewed WeChat task provenance in the live schema.
+sqlite.exec(readFileSync(new URL(
+ '../migrations/0017_academic_wechat_candidates.sql',import.meta.url),'utf8'));
+sqlite.exec(readFileSync(new URL(
+ '../migrations/0018_academic_wechat_candidate_links.sql',import.meta.url),'utf8'));
 const db={
  prepare(sql){let params=[];return{
    bind(...values){params=values;return this;},
@@ -115,4 +120,20 @@ const forbidden=await onRequestPatch({
  params:{id:'manual-1'},env:{}
 });
 assert.equal(forbidden.status,403);
+const androidNoSession=await onRequestPost({
+ request:new Request('https://example.com/api/v1/assignments/manual-1',{
+ method:'POST',headers:{'content-type':'application/json'},
+ body:JSON.stringify({revision:2,localStatus:'todo'})}),
+ params:{id:'manual-1'},env:{ACADEMIC_DB:db}
+});
+assert.equal(androidNoSession.status,503,
+ 'Android personal-status POST must fail closed without owner authentication');
+const androidForeignOrigin=await onRequestPost({
+ request:new Request('https://example.com/api/v1/assignments/manual-1',{
+ method:'POST',headers:{origin:'https://evil.example','content-type':'application/json'},
+ body:JSON.stringify({revision:2,localStatus:'todo'})}),
+ params:{id:'manual-1'},env:{}
+});
+assert.equal(androidForeignOrigin.status,403,
+ 'Android personal-status POST must retain same-origin enforcement');
 console.log('校序 M3: D1 迁移/用户隔离/并发版本/历史事件/平台只读限制/健康状态/鉴权拒绝全部通过');

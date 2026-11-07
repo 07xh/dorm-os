@@ -10,7 +10,7 @@
 
 ## 电脑准备（Windows PowerShell）
 
-用户已安装 PC 微信、Node.js、Git，且已验证 Astral Python 3.12.15（x64）及独立 `deps_x64` 依赖。**保留这些已有环境，不再重装。** 原 `wxcli.cmd` 会选择默认的 Python 3.15，不适合当前机器。
+用户已安装 PC 微信、Node.js、Git；本人已验证 `~/.wechat-cli/py312-venv/Scripts/python.exe`（Python 3.12.15）与 `click>=8.1,<9`、`pycryptodome>=3.19,<4`、`zstandard>=0.22,<1` 可正常导入和启动 CLI。**运行采集桥接时只设置 `PYTHONPATH` 指向 `tool`，不得再加入旧 `deps` 或缺失的 `deps_x64`。** 原 `wxcli.cmd` 会选择默认的 Python 3.15，不适合当前机器。
 
 ```powershell
 node -v
@@ -35,9 +35,10 @@ npx github:syskuku/wechat-todo
 ### 本地验收（不包含云端上传）
 
 ```powershell
-$env:PYTHONPATH="$env:USERPROFILE\.wechat-cli\tool;$env:USERPROFILE\.wechat-cli\deps_x64;$env:USERPROFILE\.wechat-cli\deps"
-py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" sessions --limit 10
-py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" history "你的课程群名称" --limit 20 --format text
+$env:PYTHONPATH="$env:USERPROFILE\.wechat-cli\tool"
+$python="$env:USERPROFILE\.wechat-cli\py312-venv\Scripts\python.exe"
+& $python "$env:USERPROFILE\.wechat-cli\tool\entry.py" sessions --limit 10
+& $python "$env:USERPROFILE\.wechat-cli\tool\entry.py" history "你的课程群名称" --limit 20 --format text
 ```
 
 第一条应返回可读的会话列表；第二条选择自己正常参与的课程群，确认历史消息时间与内容。此阶段不需要 AI Agent；如果希望体验上游现成的“更新待办”工作流，还需要在兼容的 AI Agent 中运行两个已安装 Skills。
@@ -49,7 +50,7 @@ py -V:Astral/CPython3.12.15 "$env:USERPROFILE\.wechat-cli\tool\entry.py" history
 以下步骤不会安装第二个微信读取工具，也不会把 WeChat / 学校账号凭据提交到 GitHub：
 
 1. 在校序现有「任务」页面展开「微信待审核」，登录校序本人账号后主动点「读取我的候选消息」。在「电脑设备管理」中填写电脑名称，点击「生成一次性设备凭据」。复制**设备 ID** 和 **一次性凭据** 到本人的可信电脑；不得发给任何聊天机器人或贴到 Issue。正式网页已发布，但是否实际连接成功应通过设备最近同步时间验收。
-2. 在 Windows 上获取已经合并到 `main` 的 `integrations/wechat/` 目录。必须下载正式 `main` 版本，不使用临时 PR 分支。`run.ps1` 使用用户已验证的 `py -V:Astral/CPython3.12.15` 和 `.wechat-cli/deps_x64`，不会动默认 Python 3.15。
+2. 在 Windows 上获取**合并并完成验证后**的 `main` 分支 `integrations/wechat/` 目录。`run.ps1` 使用本机 `~/.wechat-cli/py312-venv/Scripts/python.exe`，只加载 `.wechat-cli/tool` 源码；不再要求 `deps_x64`，不会改变默认 Python 3.15。修复处于 PR 阶段时，不得把旧 `main` 脚本当成已修复版本。
 3. 首次从 PowerShell 在项目目录执行 `& .\integrations\wechat\run.ps1 setup`。网址默认为 `https://dorm-os-dk9.pages.dev`；按提示输入设备 ID 和凭据（凭据输入不回显），逐个输入允许同步的群名。默认**不选任何群**。敏感凭据通过 Windows DPAPI 绑定当前登录用户保存，绝不写入 PowerShell 历史。
 4. 先执行 `& .\integrations\wechat\run.ps1 preview`，在**本机**检查候选数量和标题，不上传任何消息。确认分类可接受后，再手动执行 `& .\integrations\wechat\run.ps1 sync`。
 5. 到校序「任务 → 微信待审核」主动刷新，逐项「确认加入待办」或「忽略」。只有确认的候选进入原有云端待办；状态绝不冒充学习通/青果官方已提交。

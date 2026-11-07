@@ -641,14 +641,17 @@ private fun PlatformStatusCard(
                 }
             }
             PrimaryAction(
-                label = when (platform?.sessionState) {
+                label = if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
                     "expired", "unreadable" -> "重新授权"
                     "active" -> "管理授权"
                     else -> "连接账号"
                 },
-                enabled = client.ownerSessionBinding() != null,
+                enabled = id == "second_class" || client.ownerSessionBinding() != null,
                 modifier = Modifier.weight(1f)
-            ) { startSchoolAuthorization(id) }
+            ) {
+                if (id == "second_class") openLocalSchool(id)
+                else startSchoolAuthorization(id)
+            }
         }
         // Reuse the native school reader for one-phone users.
         // Local visible records remain separate from verified cloud sync.

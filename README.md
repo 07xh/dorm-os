@@ -137,3 +137,19 @@ NFC 主操作区只显示标签管理和扫描状态；步骤、自检、最近�
 ## V4.5 手机操作层级与滚动体验
 
 手机端提示消息避开底部导航与安全区；NFC、课表、生活菜单改为向上展开，避免被固定底栏遮住；菜单操作触控高度统一到 44px；移动端页面导航不再执行全页平滑跳动，内部长表单保留原生触控滚动。对应测试覆盖菜单实际位置、提示消息与底栏间距及窄屏无横向溢出。浏览器自动化仍不替代真机触摸/滚动体验验收。
+
+## 致谢与许可
+
+校序 Android 的「我的」页底部设有「开源组件与致谢」区块，原文渲染随 APK 分发的
+`apps/xiaoxu-android/app/src/main/assets/THIRD_PARTY_NOTICES.txt`。完整声明、上游文件
+映射表与逐条履行情况见 [`apps/xiaoxu-android/THIRD_PARTY_NOTICES.md`](apps/xiaoxu-android/THIRD_PARTY_NOTICES.md)。
+
+| 上游项目 | 用于 | 许可证 |
+| --- | --- | --- |
+| [ShiGuangSchedule/shiguang_warehouse](https://github.com/ShiGuangSchedule/shiguang_warehouse) | 青果教务课表提取策略，适配为 `assets/ncwu_qingguo_local.js` | MIT |
+| [xiaomanjun233/SleepDown-Schedule](https://github.com/xiaomanjun233/SleepDown-Schedule) | 悬浮底部导航动画驱动，即 `ui/nav/DampedDragAnimation.kt`、`ui/nav/DragGestureInspector.kt`（仅改 package 与文件头注释） | 署名非商业、源码可见许可 1.1（非 OSI 开源许可） |
+
+SleepDown 的两个文件派生自 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
+的 Apache-2.0 代码，故同时受 Apache-2.0 与许可 1.1 约束，本项目按更严格的一方履行。
+**许可 1.1 限定非商业使用：若校序未来收费、投放广告或上架付费分发，必须先移除上述两个
+文件并换用自研动画驱动。** 该前提同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md`。

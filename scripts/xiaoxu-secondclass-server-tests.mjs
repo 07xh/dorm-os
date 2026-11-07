@@ -2,7 +2,7 @@
  * No real credentials, student records, HTTP requests or CAS tickets.
  */
 import assert from 'node:assert/strict';
-import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError,observeOfficialWeChatEntry,summarizeSchoolSubmitFunctionScript}
+import {makeNcwuSecondClassServerAdapter,inspectCasForm,NcwuCasError,observeOfficialWeChatEntry,summarizeSchoolSubmitFunctionScript,makeSecondClassSessionJar}
  from '../lib/academic-ncwu-secondclass-server.mjs';
 import {NCWU_SECOND_CLASS_READS} from '../lib/academic-ncwu-second-class.mjs';
 const school='https://dekt.ncwu.edu.cn';
@@ -73,359 +73,87 @@ assert.throws(()=>inspectCasForm(markup.replace('</form>','<input name="captcha"
  e=>e instanceof NcwuCasError&&e.code==='interactive_login_required');
 assert.throws(()=>inspectCasForm(markup.replace('sec.ncwu.edu.cn','thirdparty.invalid'),casUrl),
  e=>e.code==='interactive_login_required');
-const calls=[];
+// The retired adapter must reject all credential inputs before any request.
+let networkReads=0;
+const retired=makeNcwuSecondClassServerAdapter({fetcher:async()=>{
+ networkReads++;throw Error('must not contact school');
+}});
+for(const input of [{username:'SYNTHETIC_ACCOUNT',password:'DO_NOT_SEND'},{}])
+ await assert.rejects(()=>retired.login(input),
+  e=>e.code==='interactive_login_required'&&e.reason==='official_app_authorization_required');
+assert.equal(networkReads,0);
+
+// Existing encrypted sessions remain read-only and independently identity-bound.
 const student='SYNTHETIC_STUDENT';
-let receivedCredential=false,activityReads=0;
-async function fakeSchool(url,options){
- const u=new URL(url),method=options.method;
- calls.push({host:u.hostname,path:u.pathname,method,hasCookie:!!options.headers.cookie});
- assert.equal(u.protocol,'https:');
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
-  return response(302,'',{location:'/rump_frontend/login/?next=%2Fsys',
-   'set-cookie':'ncwu_synthetic_cookie=dkt-session; Domain=ncwu.edu.cn; Path=/; Secure'});
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/')
-  return response(200,'<a href="'+casUrl.replace(/&/g,'&amp;')+'">学校认证</a>');
- if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login'&&method==='GET')
-  return response(200,markup,{'set-cookie':'school_auth=auth-opaque; Path=/authserver/; Secure'});
- if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login'&&method==='POST'){
-  assert.ok(options.headers.cookie?.includes('school_auth=auth-opaque'));
-  // Preserve ordinary official CAS form metadata, not a caller URL.
-  assert.equal(options.headers.origin,'https://authserver.ncwu.edu.cn');
-  assert.equal(options.headers.referer,casUrl);
-  const data=new URLSearchParams(options.body);
-  assert.deepEqual(Object.fromEntries(data),{
-   execution:'e1s1',_eventId:'submit',username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
-  });
-  receivedCredential=true;
-  return response(302,'',{location:service+'?ticket=ONLY_IN_SCHOOL_REQUEST'});
- }
- if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/loginFromCas/')
-  return response(302,'',{location:school+'/sys',
-   'set-cookie':'school_ss=personal; Domain=ncwu.edu.cn; Path=/; Secure'});
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/sys')
-  return response(200,'<main>School Account</main>');
- if(u.hostname==='dekt.ncwu.edu.cn'&&method==='POST'){
-  assert.ok(options.headers.cookie?.includes('school_ss=personal'));
-  assert.equal(options.headers.origin,school);
-  if(u.pathname===NCWU_SECOND_CLASS_READS.scores)
-   return response(200,JSON.stringify({data:[{student_code:student,
-    school_term_index:100,score_value:4.5,score_plus:2,
-    activity_type1_score:1.5}],startIndex:0,totalPage:0,totalSize:1}));
-  if(u.pathname===NCWU_SECOND_CLASS_READS.scoreTypes)
-   return response(200,JSON.stringify([{code:'1',name:'志愿服务'}]));
-  if(u.pathname===NCWU_SECOND_CLASS_READS.activities){
-   activityReads++;
-   const data=new URLSearchParams(options.body);
-   assert.equal(data.get('page'),'1');
-   return response(200,JSON.stringify({data:[{
-    id:'synthetic-1',activity_name:'合成活动',student_code:student,
-    school_year:'2026-2027',school_term:'1',
-    signup_state:'1',verify_state:'1',activity_state:'5',
-    score_value:1.5
-   }],totalPage:1,totalSize:1,startIndex:1}));
-  }
- }
- throw Error('unexpected request '+method+' '+url);
+const original={studentCode:student,cookies:[{
+ name:'school_ss',value:'synthetic-old',domain:'ncwu.edu.cn',path:'/',hostOnly:false
+}]};
+const calls=[];
+async function readonlySchool(url,options){
+ const u=new URL(url);calls.push({host:u.hostname,path:u.pathname,method:options.method});
+ if(u.pathname==='/'&&options.method==='GET')return response(302,'',{location:casUrl});
+ if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')return response(200,markup);
+ assert.equal(u.hostname,'dekt.ncwu.edu.cn');
+ assert.equal(options.method,'POST');
+ assert.ok(Object.values(NCWU_SECOND_CLASS_READS).includes(u.pathname));
+ assert.equal(new URLSearchParams(options.body).has('password'),false);
+ assert.ok(options.headers.cookie?.includes('school_ss='));
+ if(u.pathname===NCWU_SECOND_CLASS_READS.scores)
+  return response(200,JSON.stringify({data:[{student_code:student,
+   school_term_index:100,score_value:4.5,score_plus:2,activity_type1_score:1.5}],
+   startIndex:0,totalPage:0,totalSize:1}));
+ if(u.pathname===NCWU_SECOND_CLASS_READS.scoreTypes)
+  return response(200,JSON.stringify([{code:'1',name:'志愿服务'}]));
+ if(u.pathname===NCWU_SECOND_CLASS_READS.activities)
+  return response(200,JSON.stringify({data:[{id:'synthetic-1',activity_name:'合成活动',
+   student_code:student,school_year:'2026-2027',school_term:'1',signup_state:'1',
+   verify_state:'1',activity_state:'5',score_value:1.5}],totalPage:1,totalSize:1,startIndex:1}),
+   {'set-cookie':'school_ss=synthetic-rotated; Domain=ncwu.edu.cn; Path=/; Secure'});
+ throw Error('unexpected readonly endpoint');
 }
-const adapter=makeNcwuSecondClassServerAdapter({fetcher:fakeSchool});
-const preflight=await adapter.preflight();
-assert.deepEqual(preflight,{loginSupported:true,mode:'password_form_verified'});
-assert.equal(receivedCredential,false,'preflight must not collect or submit credentials');
-assert.equal(observeOfficialWeChatEntry('<p>请使用微信扫码登录</p>'),true);
-assert.equal(observeOfficialWeChatEntry('<script>请使用微信扫码登录</script>'),false,
- 'script-only text does not prove a visible school QR option');
-assert.equal(observeOfficialWeChatEntry('<div>学校官方密码登录</div>'),false);
-// Discover the visible school option without QR token, secret, callback or cookies.
-const qrEntry=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
-  return response(200,'<section>请使用微信扫码登录</section>'+markup);
- return fakeSchool(url,options);
-}});
-assert.deepEqual(await qrEntry.preflight(),{
- loginSupported:true,mode:'password_form_verified',officialWeChatEntryObserved:true
-});
-const qrWithChallenge=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
-  return response(200,'<p>请使用微信扫码登录</p>'+markup.replace('</form>',
-   '<input name="captcha" type="text"></form>'));
- return fakeSchool(url,options);
-}});
-const qrChallengeStatus=await qrWithChallenge.preflight();
-assert.equal(qrChallengeStatus.loginSupported,false);
-assert.equal(qrChallengeStatus.mode,'interactive_login_required');
-assert.equal(qrChallengeStatus.reason,'interactive_challenge_required');
-assert.equal(qrChallengeStatus.officialWeChatEntryObserved,true);
-assert.equal(qrChallengeStatus.challengeEvidence?.passwordFormSeen,true);
-assert.equal(qrChallengeStatus.challengeEvidence?.challengeControlSeen,true);
-const lateScript=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname==='/authserver/login')
-  return response(200,markup.replace('<form ', '<form onsubmit="return doPcMobilesubmit()" ')+
-   Array.from({length:10},(_,i)=>'<script src="/authserver/js/public-'+i+'.js"></script>').join(''));
- if(u.hostname==='authserver.ncwu.edu.cn'&&u.pathname.endsWith('.js')){
-  assert.equal(options.headers.cookie,undefined,'public script inspection must not send session cookies');
-  return response(200,u.pathname.endsWith('public-9.js')?normalFunction:'/* vendor */');
- }
- return fakeSchool(url,options);
-}});
-const lateEvidence=await lateScript.preflight({inspectScripts:true});
-assert.equal(lateEvidence.challengeEvidence.schoolScriptDefinitionSeen,true,
- 'handler in the tenth public script must not be silently excluded');
-assert.equal(lateEvidence.loginSupported,false,'script discovery alone never authorizes login');
-
-
-const connected=await adapter.login({username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'});
-assert.equal(receivedCredential,true);
-assert.equal(connected.session.studentCode,student);
-assert.ok(connected.session.cookies?.length>0);
-assert.ok(!JSON.stringify(connected.session).includes('EPHEMERAL_PASSWORD'));
-assert.ok(!JSON.stringify(connected.session).includes('SYNTHETIC_ACCOUNT'));
-const read=await adapter.forSession({session:connected.session,userId:'owner_synthetic'});
-const verified=await read.verifySession();
+const adapter=makeNcwuSecondClassServerAdapter({fetcher:readonlySchool});
+const reader=await adapter.forSession({session:original,userId:'synthetic-owner'});
+const verified=await reader.verifySession();
 assert.equal(verified.authorized,true);
-assert.equal(verified.principalBoundTo,'owner_synthetic');
-const page=await read.readPage({cursor:null,session:verified.session});
+assert.equal(verified.principalBoundTo,'synthetic-owner');
+const page=await reader.readPage({cursor:null,session:verified.session});
 assert.equal(page.activities[0].points,1.5);
-const score=await read.readOfficialScores();
-assert.equal(score.aggregate.qualityScore,4.5);
-assert.equal(score.aggregate.volunteerHours,2);
-assert.ok(activityReads>0);
-assert.ok(calls.every(x=>['dekt.ncwu.edu.cn','authserver.ncwu.edu.cn',
- 'sec.ncwu.edu.cn'].includes(x.host)));
-assert.ok(calls.some(x=>x.host==='dekt.ncwu.edu.cn'&&x.path===NCWU_SECOND_CLASS_READS.scores));
+const scores=await reader.readOfficialScores();
+assert.equal(scores.aggregate.qualityScore,4.5);
+assert.equal(scores.aggregate.volunteerHours,2);
+assert.equal(reader.getRefreshedSession().cookies.find(c=>c.name==='school_ss').value,'synthetic-rotated');
+assert.equal(original.cookies[0].value,'synthetic-old','a read cannot mutate the stored input snapshot');
+assert.ok(calls.every(c=>c.host==='dekt.ncwu.edu.cn'),'personal reads never POST credentials to CAS');
+const beforeProbe=calls.length;
+assert.equal((await adapter.preflight()).loginSupported,true,'public form inspection remains informational only');
+assert.ok(calls.slice(beforeProbe).every(c=>c.method==='GET'));
+await assert.rejects(()=>adapter.login({username:'SYNTHETIC_ACCOUNT',password:'DO_NOT_SEND'}),
+ e=>e.code==='interactive_login_required');
 
-// A school-side Set-Cookie during a personal read must be returned to the
-// encrypted owner session, never silently discarded after successful sync.
-const rotating=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const res=await fakeSchool(url,options);
- if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.activities&&options.method==='POST')
-  return response(200,await res.text(),{
-   'set-cookie':'school_ss=post-read; Domain=ncwu.edu.cn; Path=/; Secure'
-  });
- return res;
-}});
-const loginBeforeRotation=await rotating.login({
- username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
-});
-const rotatingReader=await rotating.forSession({
- session:loginBeforeRotation.session,userId:'owner_synthetic'
-});
-const oldCookie=loginBeforeRotation.session.cookies.find(c=>c.name==='school_ss')?.value;
-assert.equal(oldCookie,'personal');
-await rotatingReader.verifySession();
-await rotatingReader.readPage({cursor:null,session:{studentCode:student}});
-const rotatedSession=rotatingReader.getRefreshedSession();
-assert.equal(rotatedSession.studentCode,student,'rotation cannot alter the student principal');
-assert.equal(rotatedSession.cookies.find(c=>c.name==='school_ss')?.value,'post-read');
-assert.equal(loginBeforeRotation.session.cookies.find(c=>c.name==='school_ss')?.value,'personal',
- 'the original input session remains unchanged');
+const mismatched=await adapter.forSession({session:{...original,studentCode:'OTHER_SYNTHETIC'},userId:'synthetic-owner'});
+await assert.rejects(()=>mismatched.verifySession(),e=>e.code==='authorization_failed');
+const expired=makeNcwuSecondClassServerAdapter({fetcher:async()=>response(200,'<html>Login required</html>')});
+const expiredReader=await expired.forSession({session:original,userId:'synthetic-owner'});
+await assert.rejects(()=>expiredReader.verifySession(),e=>e.code==='authorization_failed');
 
+// Header compatibility and host-only scope still protect saved read sessions.
+const jar=makeSecondClassSessionJar();
+const cookieLines=['SESSION=synthetic-cas; Path=/authserver/; HttpOnly',
+ 'school_locale=synthetic; Domain=ncwu.edu.cn; Path=/; Expires=Wed, 21 Oct 2037 07:28:00 GMT'];
+jar.merge({headers:{getAll:()=>cookieLines,get:()=>cookieLines.join(', ')}},new URL(casUrl));
+assert.ok(jar.header(new URL(casUrl)).includes('SESSION=synthetic-cas'));
+assert.ok(jar.header(new URL(casUrl)).includes('school_locale=synthetic'));
+assert.ok(!jar.header(new URL(service)).includes('SESSION='));
+jar.merge(response(200,'',{'set-cookie':'spoof=x; Domain=authserver.ncwu.edu.cn; Path=/'}),new URL(school));
+assert.ok(!jar.header(new URL(casUrl)).includes('spoof='));
+
+for(const html of [markup.replace('</form>','<input name="captcha"></form>'),
+ '<script>encryptPassword(raw)</script>'+markup]){
+ const challenged=makeNcwuSecondClassServerAdapter({fetcher:async(url)=>
+  new URL(url).hostname==='authserver.ncwu.edu.cn'?response(200,html):response(302,'',{location:casUrl})});
+ assert.equal((await challenged.preflight()).loginSupported,false);
+}
 const unsafe=makeNcwuSecondClassServerAdapter({fetcher:async()=>response(302,'',{
- location:'https://outsider.example/capture?secret=SECRET'
-})});
-assert.deepEqual(await unsafe.preflight(),{loginSupported:false,mode:'interactive_login_required',
- reason:'unrecognized_auth_flow'});
-await assert.rejects(()=>unsafe.login({username:'u',password:'p'}),
- e=>e.code==='interactive_login_required');
-const challenge=makeNcwuSecondClassServerAdapter({fetcher:async(url,opts)=>{
- const u=new URL(url);
- if(u.pathname==='/')return response(302,'',{location:'/rump_frontend/login/'});
- if(u.pathname==='/rump_frontend/login/')
-  return response(200,'<a href="'+casUrl+'">认证</a>');
- if(u.hostname==='authserver.ncwu.edu.cn')return response(200,
-  markup.replace('</form>','<input name="captcha" type="text"></form>'));
- throw Error('unexpected challenge flow');
-}});
-const challengeStatus=await challenge.preflight();
-assert.equal(challengeStatus.loginSupported,false);
-assert.equal(challengeStatus.mode,'interactive_login_required');
-assert.equal(challengeStatus.reason,'interactive_challenge_required');
-assert.equal(challengeStatus.challengeEvidence?.challengeControlSeen,true);
-assert.throws(()=>inspectCasForm('<script>encryptPassword(raw)</script>'+markup,casUrl),
- e=>e.code==='interactive_login_required');
-const domainScope=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='dekt.ncwu.edu.cn'&&new URL(url).pathname==='/')
-  return response(302,'',{location:'/rump_frontend/login/',
-   'set-cookie':'school_auth=spoof; Domain=authserver.ncwu.edu.cn; Path=/; Secure'});
- if(new URL(url).hostname==='authserver.ncwu.edu.cn')
-  assert.ok(!options.headers.cookie?.includes('school_auth=spoof'));
- return fakeSchool(url,options);
-}});
-assert.equal((await domainScope.preflight()).loginSupported,true);
-
-// School service may expose a static redirect in HTML instead of an anchor.
-// Follow only the already allowlisted CAS endpoint and exact service.
-for(const mode of ['meta','literal_location']){
- let inspected=false;
- const alternate=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
-  const u=new URL(url);
-  if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/'){
-   inspected=true;
-   return response(200,mode==='meta'?
-    '<meta http-equiv="refresh" content="0;url='+casUrl.replace(/&/g,'&amp;')+'">':
-    '<script>window.location.replace("'+casUrl+'");</script>');
-  }
-  return fakeSchool(url,options);
- }});
- assert.deepEqual(await alternate.preflight(),{loginSupported:true,mode:'password_form_verified'});
- assert.equal(inspected,true);
-}
-const rejectedHandoff=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/rump_frontend/login/')
-  return response(200,'<meta http-equiv="refresh" content="0;url=https://outsider.example/capture?token=NOT_SENT">');
- return fakeSchool(url,options);
-}});
-assert.deepEqual(await rejectedHandoff.preflight(),{loginSupported:false,mode:'interactive_login_required',
- reason:'cas_handoff_unrecognized'});
-const transforms=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='GET')
-  return response(200,'<script>encryptPassword(raw)</script>'+markup);
- return fakeSchool(url,options);
-}});
-assert.deepEqual(await transforms.preflight(),{loginSupported:false,mode:'interactive_login_required',
- reason:'password_transform_required'});
-const schoolDown=makeNcwuSecondClassServerAdapter({fetcher:async()=>{throw Error('school failed');}});
-assert.deepEqual(await schoolDown.preflight(),{loginSupported:false,mode:'upstream_unavailable',
- reason:'school_unreachable'});
-
-let postAttempts=0;
-const noReplay=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST'){
-  postAttempts++;
-  return response(307,'',{location:'https://dekt.ncwu.edu.cn/sys'});
- }
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>noReplay.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}), e=>e.code==='interactive_login_required');
-assert.equal(postAttempts,1);
-// The exact school-owned CAS callback can respond 200 HTML, not only 302.
-let htmlCallbackPasswordPosts=0;
-const casHtmlLanding=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
-  htmlCallbackPasswordPosts++;
- if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/loginFromCas/')
-  return response(200,'<main>School-owned service</main>',{
-   'set-cookie':'school_ss=personal; Domain=ncwu.edu.cn; Path=/; Secure'
-  });
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/'&&
-    options.headers.cookie?.includes('school_ss=personal'))
-  return response(302,'',{location:school+'/sys'});
- return fakeSchool(url,options);
-}});
-const verifiedHtmlCallback=await casHtmlLanding.login({
- username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
-});
-assert.equal(verifiedHtmlCallback.session.studentCode,student);
-assert.equal(htmlCallbackPasswordPosts,1,'password POST must never be replayed');
-// A school-branded callback page WITHOUT a verified personal read is not
-// permission to mark the school account connected.
-const emptyCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/loginFromCas/')
-  return response(200,'<main>School-owned service</main>');
- if(u.hostname==='dekt.ncwu.edu.cn'&&u.pathname===NCWU_SECOND_CLASS_READS.scores)
-  return response(200,'<html>Login required</html>');
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>emptyCallback.login({
- username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
-}),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
-// Distinguish a school CAS login that never returns to the service,
-// a rejected personal business endpoint, and a non-unique student identity.
-// These synthetic tests never use school credentials or external requests.
-const casNoReturn=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
-  return response(200,markup);
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>casNoReturn.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained');
-// The final CAS response class is safely identified without exposing an
-// upstream status code, response text, redirect target, or account signal.
-for(const [status,reason] of [
- [400,'cas_request_rejected'],[401,'cas_request_rejected'],
- [403,'cas_request_rejected'],[429,'cas_rate_limited'],
- [500,'cas_server_failure'],[503,'cas_server_failure']
-]){
- const abnormalStatus=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
-  if(new URL(url).hostname==='authserver.ncwu.edu.cn'&&options.method==='POST')
-   return response(status,'Synthetic school response');
-  return fakeSchool(url,options);
- }});
- await assert.rejects(()=>abnormalStatus.login({username:'SYNTHETIC_ACCOUNT',
-  password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
-  e.failureStage==='cas_return'&&e.casReturnReason===reason&&
-  e.casReturnHost==='cas_auth_server'&&
-  !JSON.stringify(e).includes('Synthetic school response'));
-}
-// This must classify the actual FAILED school hop, not merely the original
-// login POST. None of the error shapes may expose school URLs/tickets/cookies.
-for(const [failingHost,expected] of [
- ['sec.ncwu.edu.cn','second_class_callback'],
- ['dekt.ncwu.edu.cn','second_class_portal']
-]){
- const failingSchoolHop=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
-  const u=new URL(url);
-  if(u.hostname===failingHost&&
-     (failingHost==='sec.ncwu.edu.cn'?
-      u.pathname==='/rump_frontend/loginFromCas/':u.pathname==='/sys'))
-   return response(503,'PRIVATE SCHOOL FAILURE');
-  return fakeSchool(url,options);
- }});
- await assert.rejects(()=>failingSchoolHop.login({
-  username:'SYNTHETIC_ACCOUNT',password:'EPHEMERAL_PASSWORD'
- }),e=>e.code==='authorization_failed'&&e.failureStage==='cas_return'&&
-  e.casReturnReason==='cas_server_failure'&&e.casReturnHost===expected&&
-  !JSON.stringify(e).includes('PRIVATE SCHOOL FAILURE')&&
-  !JSON.stringify(e).includes('https://'));
-}
-let afterSchoolCallback=false;
-const unfinishedCallback=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='sec.ncwu.edu.cn'&&
-    u.pathname==='/rump_frontend/loginFromCas/'){
-  afterSchoolCallback=true;
-  return response(200,'<main>Callback</main>');
- }
- // Initially the official entry has the ordinary login link. Only after
- // the callback does it redirect back to CAS, proving completion failed.
- if(afterSchoolCallback&&u.hostname==='dekt.ncwu.edu.cn'&&u.pathname==='/')
-  return response(302,'',{location:casUrl});
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>unfinishedCallback.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='service_callback_incomplete');
-const unknownLanding=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- const u=new URL(url);
- if(u.hostname==='sec.ncwu.edu.cn'&&
-    u.pathname==='/rump_frontend/loginFromCas/')
-  return response(302,'',{location:'https://sec.ncwu.edu.cn/rump_frontend/other/'});
- if(u.hostname==='sec.ncwu.edu.cn'&&u.pathname==='/rump_frontend/other/')
-  return response(200,'<main>Different school page</main>');
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>unknownLanding.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='unexpected_school_landing');
-const personalDataRejected=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.scores&&options.method==='POST')
-  return response(200,'<html>School login required</html>');
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>personalDataRejected.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='personal_data');
-const identityAmbiguous=makeNcwuSecondClassServerAdapter({fetcher:async(url,options)=>{
- if(new URL(url).pathname===NCWU_SECOND_CLASS_READS.scores&&options.method==='POST')
-  return response(200,JSON.stringify({data:[
-   {student_code:'SYNTHETIC_ONE'},{student_code:'SYNTHETIC_TWO'}]}));
- return fakeSchool(url,options);
-}});
-await assert.rejects(()=>identityAmbiguous.login({username:'SYNTHETIC_ACCOUNT',
- password:'EPHEMERAL_PASSWORD'}),e=>e.code==='authorization_failed'&&e.failureStage==='identity_evidence');
-console.log('M23 NCWU CAS transport: synthetics, identity, cookie scope, preflight, read-only business endpoints, MFA and redirect refusal passed');
-
+ location:'https://outsider.example/'})});
+assert.equal((await unsafe.preflight()).loginSupported,false);
+console.log('Second-class official-only entry: password transport retired; saved-session identity, reads, cookie rotation and scope passed');

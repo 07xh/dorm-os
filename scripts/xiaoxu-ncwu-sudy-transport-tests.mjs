@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {makeNcwuSecondClassServerAdapter} from '../lib/academic-ncwu-secondclass-server.mjs';
-import {verifyNcwuSudySource,encodeNcwuSudyPassword} from '../lib/academic-ncwu-sudy-codec.mjs';
+import {verifyNcwuSudySource} from '../lib/academic-ncwu-sudy-codec.mjs';
 // Only public static JS is loaded. All account, CAS, cookies and business
 // responses below are synthetic. Never execute the downloaded school code.
 const source=process.argv[2]==='--live'?
@@ -34,12 +34,7 @@ function school({html=markup,script=source}={}){
   }
   if(u.pathname==='/authserver/login'){
    if(options.method==='GET')return response(200,html);
-   posts++;
-   const data=new URLSearchParams(options.body);
-   assert.equal(data.get('password'),encodeNcwuSudyPassword('Synthetic_Pass123!'));
-   assert.equal(data.get('encrypted'),'SYNTHETIC');
-   assert.equal(data.get('execution'),'SYNTHETIC');
-   return response(302,'',{location:service});
+   posts++;throw Error('retired CAS POST must never occur');
   }
   if(u.hostname==='sec.ncwu.edu.cn')return response(302,'',{location:'https://dekt.ncwu.edu.cn/sys'});
   if(u.pathname==='/sys')return response(200,'<main>Synthetic</main>');
@@ -51,8 +46,9 @@ function school({html=markup,script=source}={}){
 const good=school();
 assert.equal((await good.adapter.preflight()).loginSupported,true);
 assert.equal(good.posts(),0);
-assert.equal((await good.adapter.login({username:'SYNTHETIC',password:'Synthetic_Pass123!'})).session.studentCode,'SYNTHETIC');
-assert.equal(good.posts(),1);
+await assert.rejects(()=>good.adapter.login({username:'SYNTHETIC',password:'Synthetic_Pass123!'}),
+ e=>e.reason==='official_app_authorization_required');
+assert.equal(good.posts(),0);
 const irrelevantDuplicate=school({html:markup+'<div class="a" class="b"></div>'});
 assert.equal((await irrelevantDuplicate.adapter.preflight()).loginSupported,true,
  'unrelated page markup must not be parsed as a credential form');
@@ -66,5 +62,5 @@ for(const fixture of [
  await assert.rejects(()=>denied.adapter.login({username:'SYNTHETIC',password:'Synthetic_Pass123!'}));
  assert.equal(denied.posts(),0,'unverified source or mandatory challenge must prevent password POST');
 }
-console.log('Sudy transport: pinned public source, encrypted synthetic POST, identity, tamper and page-wide CAPTCHA refusal passed');
+console.log('Sudy transport: pinned public read-only source, retired password transport, tamper and CAPTCHA refusal passed');
 

@@ -1,0 +1,3 @@
+User authorization: continue second-class #200; complete the previously approved App official-device read/save/return flow and ship an installable QA build.
+Build scope: compile APK and run JVM tests; close the intermediate Activity only after a validated committed-save receipt has been set.
+No cloud QR handoff or owner-device success claim. Keep #338's UI/device acceptance gate; integrate on a separate branch without changing #338.
