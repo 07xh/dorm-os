@@ -1,0 +1,6 @@
+校序 PR #351 一加 Ace 6 / Android 16 页面动效 QA 构建请求
+源码基线：74764c9916783db2e7bbab21cc32a4ee08a11022
+目标：验证 SleepDown 风格一级页方向切换与设置二级页阻尼动效
+产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版
+门禁：Android 编译、JVM 回归、APK SHA256；真机 FPS/无灰边/无重影仍需独立验收
+不得自动合并 main；不得替换正式包或声明完成真机验收。
