@@ -1475,6 +1475,10 @@ fun RealAcademicTaskHub(
                                 color = if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
                                     XiaoxuPalette.Success else XiaoxuPalette.Warning)
                         }
+                        course.failure?.let { issue ->
+                            Text(issue.label, style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning)
+                        }
                         if (course.coverage in setOf(ChaoxingCourseCoverage.COUNT_VERIFIED,
                                 ChaoxingCourseCoverage.LIST_ONLY)) {
                             val statuses = ledger?.statuses ?: emptyMap()
