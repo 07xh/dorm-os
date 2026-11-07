@@ -118,6 +118,20 @@ class SecondClassBackgroundReadTest {
         assertEquals(before, dao.snapshot())
         assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
     }
+    @Test fun temporaryForbiddenResponseDoesNotPermanentlyDisableAutomaticReads() = runBlocking {
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            JSONObject("{\"ok\":false,\"httpStatus\":403,\"stage\":\"activity_http\"}")
+        }
+        assertEquals("failed", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+        // Bypass only the normal attempt throttle, not the failure state.
+        settings.edit().putLong("attempt", 0).commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > 0)
+    }
     @Test fun roomRejectsAChangedBindingWithoutAdvancingSuccessEvidence() = runBlocking {
         settings.edit().putLong("success_at", 123_456L).commit()
         var changed: List<NativeSchoolRecord> = emptyList()

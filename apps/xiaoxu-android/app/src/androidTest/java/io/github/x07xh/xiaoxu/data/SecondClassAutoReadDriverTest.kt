@@ -2,6 +2,9 @@ package io.github.x07xh.xiaoxu.data
 
 import android.content.Context
 import android.webkit.WebView
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.*
@@ -68,7 +71,58 @@ class SecondClassAutoReadDriverTest {
             }
             null
         } catch (failure: AutoReadFailure) { failure.status }
-        assertEquals("needs_reconnect", error)
+        assertEquals("failed", error)
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun existingOfficialSsoMayReturnToTheOwnerScorePage() = runBlocking {
+        val destroyed = AtomicInteger()
+        val result = withTimeout(30_000) {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : WebView(it) {
+                    override fun loadUrl(url: String) {
+                        // Simulate only observed first-party redirect callbacks;
+                        // the runtime APK cannot contact the school network.
+                        for (hop in listOf(
+                            "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore",
+                            "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
+                            "https://sec.ncwu.edu.cn/rump_frontend/loginFromCas/?ticket=SYNTHETIC"
+                        )) {
+                            webViewClient.onPageStarted(this, hop, null)
+                            if (destroyed.get() != 0) return
+                        }
+                        loadDataWithBaseURL(url, html, "text/html", "UTF-8", null)
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+        }
+        assertTrue(result.toString(), result.getBoolean("ok"))
+        assertTrue(result.getBoolean("identityMatched"))
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun forbiddenResponseIsRetryableWithoutClaimingTheOwnerLoggedOut() = runBlocking {
+        val destroyed = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : WebView(it) {
+                    override fun loadUrl(url: String) {
+                        val request = object : WebResourceRequest {
+                            override fun getUrl() = Uri.parse(url)
+                            override fun isForMainFrame() = true
+                            override fun isRedirect() = false
+                            override fun hasGesture() = false
+                            override fun getMethod() = "GET"
+                            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+                        }
+                        webViewClient.onReceivedHttpError(this, request,
+                            WebResourceResponse("text/html", "UTF-8", 403, "Forbidden", emptyMap(), null))
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
         assertEquals(1, destroyed.get())
     }
 }
