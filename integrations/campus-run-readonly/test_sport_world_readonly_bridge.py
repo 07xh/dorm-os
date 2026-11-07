@@ -172,6 +172,27 @@ class SportWorldReadOnlyBridgeTests(unittest.TestCase):
         with self.assertRaises(ReadOnlyAccessError):
             self.bridge.read_semester()
 
+    def test_changing_session_during_read_cannot_publish_results(self):
+        original = self.policy.get_semester_summary
+
+        def switch_token_mid_request():
+            result = original()
+            self.policy.token = "REPLACED_SYNTHETIC_SESSION"
+            return result
+
+        self.policy.get_semester_summary = switch_token_mid_request
+        with self.assertRaises(ReadOnlyAccessError):
+            self.bridge.read_semester()
+
+    def test_subsequent_subject_or_session_change_is_rejected(self):
+        self.history.uid = "67890"
+        with self.assertRaises(ReadOnlyAccessError):
+            self.bridge.read_history_page()
+        self.history.uid = "12345"
+        self.history.token = "REPLACED_SYNTHETIC_SESSION"
+        with self.assertRaises(ReadOnlyAccessError):
+            self.bridge.read_history_page()
+
     def test_opaque_or_business_error_not_success(self):
         self.policy.results["/api/v55/runnings/recordssummary/semester"] = {
             "r": "cipher", "s": "sign", "v": 3
