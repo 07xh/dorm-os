@@ -1592,6 +1592,18 @@ assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 500ms 动�
 assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
+assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
+  '设置转场必须裁剪页边界，防止滑动时文字越界');
+assert.match(profileSettings, /Column\(modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
+  '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
+assert.match(main, /label = "profileTimetableChild"/,
+  '我的→课表设置仍走同一二级页宿主');
+assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
+  '课表设置子页面必须用整页背景阻断旧卡片重影');
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "academicChild"/,
+  '教务子页面转场必须裁剪边界');
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
+  '教务详情需全幅不透明背景，避免切页文字叠印');
 assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
   '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
