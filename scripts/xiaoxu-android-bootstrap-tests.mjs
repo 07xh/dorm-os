@@ -10,6 +10,18 @@ const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
 const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
+// RC1 retired these sources and superseded QA requests. Deleting them is not
+// enough: later UI branches must not silently restore obsolete containers.
+const obsoleteUiPaths = [
+  'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt',
+  'apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotionTest.kt',
+  '.github/xiaoxu-apk-build-requests/pending/20261107-sleepdown-page-motion-pr351-qa.txt'
+];
+for (const path of obsoleteUiPaths) {
+  assert.equal(existsSync(new URL('../' + path, import.meta.url)), false,
+    '淘汰代码或构建请求不可从旧 UI 分支恢复: ' + path);
+}
+
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
