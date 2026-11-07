@@ -1374,7 +1374,7 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.10'/, '联合验收保持主分支版本号');
+assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
 assert.match(appGradle, /versionCode 32\b/, '0.8.11 RC 的版本码应递增');
 
 /* Official-page local readable content, tested only with synthetic DOM.
