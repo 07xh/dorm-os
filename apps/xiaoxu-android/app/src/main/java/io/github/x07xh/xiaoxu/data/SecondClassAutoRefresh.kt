@@ -111,6 +111,12 @@ object SecondClassAutoRefresh {
             val activities = parseLocalSecondClassActivities(payload, startedAt)
             val catalog = parseLocalSecondClassCatalogEmpty(payload, startedAt)
             val catalogActivities = parseLocalSecondClassCatalogActivities(payload, startedAt)
+            // A failed catalog read must never replace previously verified
+            // activities during an unattended refresh.
+            if (payload.optString("catalogStatus") !in setOf("verified_empty", "verified_nonempty")) {
+                state("failed")
+                return
+            }
             currentCoroutineContext().ensureActive()
             if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
                 identity.getString("salt", null) != salt) return

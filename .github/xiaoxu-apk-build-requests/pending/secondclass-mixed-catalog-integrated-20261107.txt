@@ -1,0 +1,1 @@
+QA opt-in: test second-class mixed catalog, automatic refresh preservation, and current #351 unified app build. Draft only; do not merge; verify live activity on Ace 6.
