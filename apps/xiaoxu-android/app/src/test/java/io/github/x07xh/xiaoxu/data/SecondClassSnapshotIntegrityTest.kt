@@ -95,4 +95,38 @@ class SecondClassSnapshotIntegrityTest {
         dao.replaceSecondClassSnapshot(scores, activities)
         assertEquals(listOf(other) + scores + activities, dao.rows)
     }
+
+    @Test fun mixedOfficialCatalogSavesOnlyActualEmptyFiltersAndRealCards() = runBlocking {
+        val dao = RecordingDao(listOf(record("credits", 100), record("activity_summary", 100),
+            record("catalog_empty", 100).copy(title = "报名中")))
+        val empty = listOf("待验证", "即将开始报名").mapIndexed { index, filter ->
+            record("catalog_empty").copy(fingerprint = "empty-$index", title = filter)
+        }
+        val card = record("catalog_activity").copy(fingerprint = "real-card",
+            title = "合成活动", details = "筛选：报名中\\n来源：学校活动广场")
+        val scores = listOf(record("credits"))
+        val activities = listOf(record("activity_summary"))
+        dao.replaceSecondClassSnapshot(scores, activities, empty, listOf(card))
+        assertEquals(scores + activities + empty + card, dao.rows)
+        assertEquals(setOf("待验证", "即将开始报名"),
+            dao.rows.filter { it.kind == "catalog_empty" }.map { it.title }.toSet())
+        assertEquals(listOf("合成活动"),
+            dao.rows.filter { it.kind == "catalog_activity" }.map { it.title })
+    }
+
+    @Test fun conflictingEmptyFilterCannotEraseExistingActivityCards() {
+        val old = listOf(record("credits", 100), record("activity_summary", 100),
+            record("catalog_activity", 100).copy(fingerprint = "prior",
+                details = "筛选：报名中\\n来源：学校活动广场"))
+        val dao = RecordingDao(old)
+        val empty = listOf(record("catalog_empty").copy(title = "报名中"))
+        val card = record("catalog_activity").copy(details = "筛选：报名中\\n来源：学校活动广场")
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { dao.replaceSecondClassSnapshot(
+                listOf(record("credits")), listOf(record("activity_summary")),
+                empty, listOf(card)) }
+        }
+        assertEquals(old, dao.rows)
+        assertEquals(emptyList<String>(), dao.writes)
+    }
 }
