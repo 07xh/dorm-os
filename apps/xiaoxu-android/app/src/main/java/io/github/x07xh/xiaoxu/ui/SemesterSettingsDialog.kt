@@ -309,14 +309,8 @@ private fun SettingsGroupTitle(title: String) {
 
 @Composable
 private fun SettingsSurface(content: @Composable () -> Unit) {
-    // Preserve reference layout/position; use the same glass layer as other settings pages.
-    val shape = RoundedCornerShape(XiaoxuRadius.card)
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(shape)
-            .background(XiaoxuPalette.GlassCard)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, shape),
-        content = { content() }
-    )
+    // Keep 北化's original group spacing and controls; share only the glass container.
+    XiaoxuGroupSurface { content() }
 }
 
 @Composable
