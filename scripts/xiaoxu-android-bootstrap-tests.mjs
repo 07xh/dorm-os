@@ -528,6 +528,12 @@ assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
   '课程信息必须复用同一玻璃分组组件');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
   '编辑节次不能再出现孤立弹框');
+assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
+  '编辑课程星期须使用与课表设置同一套原生分段选择组件');
+assert.match(courseEditor, /selectedKey = weekday/,
+  '星期选中态必须来自正在编辑的真实课程');
+assert.match(courseEditor, /onSelected = \{ weekday = it \}/,
+  '选择星期必须更新已有课程字段而非仅展示');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
 assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
   '保留已确认的仅删除选中周次行为');
