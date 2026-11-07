@@ -1840,7 +1840,7 @@ assert.match(workspace, /title = "微信任务"/,
 assert.match(workspace, /var showWechatTasks by rememberSaveable/,
   '微信任务独立于课程/本机分组折叠');
 assert.match(taskHubRegion,
-  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = wechatRows\.size\)/,
+  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size,/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = shown\.filter \{ it\.category == "wechat" \}/,
   '微信任务不能混入普通云端任务的列表');
