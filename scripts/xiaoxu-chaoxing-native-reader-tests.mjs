@@ -56,7 +56,7 @@ function runReader({ host, path, tables = [], tasks = [], courses = [] }) {
     querySelectorAll(selector) {
       if (selector === 'iframe') return [];
       if (selector === 'table') return tables;
-      if (selector === 'li[onclick*="goTask"]') return tasks;
+      if (selector === 'li[data]') return tasks;
       if (selector.startsWith('.course-name[title]')) return courses;
       return [];
     }
