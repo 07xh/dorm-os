@@ -308,8 +308,12 @@ fun XiaoxuCard(
             .fillMaxWidth()
             .clip(shape)
             .background(container)
-            .border(0.75.dp, if (container == XiaoxuPalette.GlassCard)
-                XiaoxuPalette.GlassBorder else XiaoxuPalette.Line, shape)
+            .border(
+                if (container == XiaoxuPalette.GlassCard) XiaoxuSpacing.glassStroke else 0.75.dp,
+                if (container == XiaoxuPalette.GlassCard) XiaoxuPalette.GlassBorder
+                else XiaoxuPalette.Line,
+                shape
+            )
             .then(
                 if (onClick != null) {
                     Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
