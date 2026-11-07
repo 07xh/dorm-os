@@ -1964,8 +1964,10 @@ assert.match(workspace, /云端日期仅供参考/,
   '首页只保留一次云端日期来源提示，不伪称学校正式截止日');
 assert.match(workspace, /countUpcomingLocalDeadlines\(all, today\)/,
   '首页近期截止使用单一已测试的来源安全统计函数');
-assert.match(workspace, /task.storage == "local" && !task.done/,
-  '近期截止仅统计本人填写的未完成任务');
+assert.match(workspace, /hasPersonalDue\(task\) && !considerCompleteInTaskList\(task\)/,
+  '近期截止仅统计本人填写或已审核微信个人计划，排除来源日期和完成任务');
+assert.match(workspace, /task.storage == "local" \|\| \(task.provider == "wechat" && task.personalTargetAt != null\)/,
+  '来源云端日期不能冒充本人计划或学校官方截止');
 assert.match(workspace, /!it.isBefore\(today\) && !it.isAfter\(today.plusDays\(3\)\)/,
   '历史逾期记录不得混入未来三天的近期截止统计');
 const dueTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/WorkspaceDueProvenanceTest.kt');
