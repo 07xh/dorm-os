@@ -1473,7 +1473,7 @@ assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
 assert.match(design, /fun XiaoxuGlassDialog\(/,
   '必须存在同一居中玻璃详情容器');
 const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
-  design.indexOf('/**\n * 蓝色渐变主卡'));
+  design.indexOf('fun MetricCard('));
 assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
   '平台与二课的详情应使用浮层，不再在卡片内向下展开');
 assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
@@ -1511,7 +1511,7 @@ assert.match(primaryCardSource, /XiaoxuSpacing\.glassStroke/,
 assert.doesNotMatch(primaryCardSource, /\.shadow\(/,
   '普通玻璃卡不得重新叠加可见灰色投影');
 
-assert.match(design, /fun XiaoxuHero\(/, '须有渐变主卡');
+assert.doesNotMatch(design, /fun XiaoxuHero\(/, '已无生产调用的旧渐变主卡不得由静态门禁强制保留');
 assert.match(design, /fun MetricCard\(/, '须有统计卡');
 assert.match(design, /fun CourseTile\(/, '须有课程色块');
 assert.match(design, /fun SectionHeader\(/, '须有分区标题');

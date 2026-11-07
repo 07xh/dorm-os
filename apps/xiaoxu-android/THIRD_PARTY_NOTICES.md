@@ -39,7 +39,7 @@ SOFTWARE.
 
 ## SleepDown课程表（署名非商业、源码可见许可 1.1）
 
-PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未改动，仅替换 package 并补充来源头注释**）：
+PR #328 起，校序的悬浮底部导航复用以下两个文件。初始移植只替换 package 与来源头注释；2026-11-07 删除了无调用的动画完成回调 API，现用拖动与回弹逻辑保持不变：
 
 - 项目：[xiaomanjun233/SleepDown-Schedule](https://github.com/xiaomanjun233/SleepDown-Schedule)
 - 原作者：xiaomanjun233
@@ -48,7 +48,7 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未�
 
 | 校序文件 | 上游文件 | 变更 |
 | --- | --- | --- |
-| `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt` | 仅改 package 与文件头注释 |
+| `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt` | package、来源注释；删除无调用的 animateToValueAndThen 完成回调 API |
 | `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DragGestureInspector.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt` | 仅改 package 与文件头注释 |
 
 这两个上游文件自身基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。

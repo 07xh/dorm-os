@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 for(const path of [
+ 'lib/academic-second-class-source-map.mjs',
+ 'lib/academic-ncwu-second-class-catalog.mjs',
+ 'scripts/xiaoxu-second-class-mapping-tests.mjs',
+ 'scripts/xiaoxu-second-class-catalog-tests.mjs',
  'public/xiaoxu-second-class-export.user.js',
  'functions/api/v1/second-class/bridge.js',
  'functions/api/v1/second-class/bridge/ingest.js',

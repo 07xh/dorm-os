@@ -1,12 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,33 +28,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -504,121 +492,6 @@ fun XiaoxuExpandableGlassRow(
     }
     if (expanded) {
         XiaoxuGlassDialog(title = title, onDismiss = onToggle, content = content)
-    }
-}
-
-/**
- * 蓝色渐变主卡。
- *
- * tone = Brand 用于有真实数据的"今日课程"；tone = Neutral 用于未连接 / 未核验 / 加载中，
- * 让"没拿到数据"在视觉上一眼可辨，不做成蓝卡假装有内容。
- */
-@Composable
-fun XiaoxuHero(
-    kicker: String,
-    title: String,
-    supporting: String,
-    modifier: Modifier = Modifier,
-    tone: XiaoxuTone = XiaoxuTone.Brand,
-    badge: String? = null,
-    meta: String? = null,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
-) {
-    val shape = RoundedCornerShape(XiaoxuRadius.hero)
-    val colors = if (tone == XiaoxuTone.Neutral) {
-        listOf(Color(0xFF3A4A64), Color(0xFF22303F))
-    } else {
-        listOf(XiaoxuPalette.Brand, XiaoxuPalette.BrandDeep)
-    }
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(6.dp, shape, clip = false)
-            .clip(shape)
-            .background(Brush.linearGradient(colors, start = Offset.Zero, end = Offset(1080f, 900f)))
-            .drawBehind {
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.08f),
-                    radius = size.minDimension * 0.62f,
-                    center = Offset(size.width * 0.98f, -size.height * 0.20f)
-                )
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.05f),
-                    radius = size.minDimension * 0.44f,
-                    center = Offset(size.width * 0.70f, size.height * 1.10f)
-                )
-            }
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = kicker,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            if (badge != null) {
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = badge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = supporting,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.86f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (meta != null) {
-            Text(
-                text = meta,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.66f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(4.dp))
-            Box(
-                Modifier
-                    .heightIn(min = 44.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .background(Color.White)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (tone == XiaoxuTone.Neutral) XiaoxuPalette.Ink else XiaoxuPalette.BrandDeep,
-                    maxLines = 1
-                )
-            }
-        }
     }
 }
 

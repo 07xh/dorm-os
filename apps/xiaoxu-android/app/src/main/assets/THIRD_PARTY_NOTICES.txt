@@ -27,8 +27,9 @@ SleepDown 课程表 — 署名非商业、源码可见许可 1.1
 Copyright (c) 2026 SleepDown 课程表项目作者 (xiaomanjun233)
 https://github.com/xiaomanjun233/SleepDown-Schedule
 
-本 App 的悬浮底部导航复用该项目两个文件，逻辑未改动，仅替换 package
-并补充文件头注释：
+本 App 的悬浮底部导航复用该项目两个文件，初始移植替换 package 并补充来源。
+2026-11-07 删除 DampedDragAnimation 无调用的 animateToValueAndThen 完成回调 API；
+现用拖动与回弹逻辑保持不变：
   ui/nav/DampedDragAnimation.kt
     <- app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt
   ui/nav/DragGestureInspector.kt
