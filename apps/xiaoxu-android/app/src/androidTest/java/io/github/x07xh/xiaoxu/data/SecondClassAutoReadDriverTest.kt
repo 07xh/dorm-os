@@ -125,4 +125,50 @@ class SecondClassAutoReadDriverTest {
         assertEquals("failed", error)
         assertEquals(1, destroyed.get())
     }
+    @Test fun schoolHoldingPageUsesOnlyTheFixedExistingCasService() = runBlocking {
+        val destroyed = AtomicInteger()
+        val loads = mutableListOf<String>()
+        val score = "https://dekt.ncwu.edu.cn/sys/stu/score"
+        val cas = "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F"
+        val result = withTimeout(30_000) {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : WebView(it) {
+                    override fun loadUrl(url: String) {
+                        loads.add(url)
+                        when (url) {
+                            score -> loadDataWithBaseURL(
+                                "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore",
+                                "<html>Official login gateway</html>", "text/html", "UTF-8", null)
+                            cas -> loadDataWithBaseURL(score, html, "text/html", "UTF-8", null)
+                            else -> error("unapproved navigation")
+                        }
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+        }
+        assertTrue(result.toString(), result.getBoolean("ok"))
+        assertEquals(listOf(score, cas), loads)
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun anActualCasLoginPageStillRequiresTheOwner() = runBlocking {
+        val destroyed = AtomicInteger()
+        val error = try {
+            withTimeout(15_000) {
+                readSecondClassAutomatically(c, "a".repeat(32)) {
+                    object : WebView(it) {
+                        override fun loadUrl(url: String) {
+                            loadDataWithBaseURL(
+                                "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
+                                "<html>Official interactive login required</html>", "text/html", "UTF-8", null)
+                        }
+                        override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                    }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("needs_reconnect", error)
+        assertEquals(1, destroyed.get())
+    }
 }

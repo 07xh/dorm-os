@@ -132,6 +132,34 @@ class SecondClassBackgroundReadTest {
         assertEquals("updated", SecondClassAutoRefresh.status(c))
         assertTrue(SecondClassAutoRefresh.lastSuccess(c) > 0)
     }
+    @Test fun downstreamUnauthorizedResponseDoesNotClaimGlobalLogout() = runBlocking {
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            JSONObject("{\"ok\":false,\"httpStatus\":401,\"stage\":\"activity_http\"}")
+        }
+        assertEquals("failed", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+    }
+    @Test fun legacyAmbiguousReconnectGetsExactlyOneOwnerVerifiedRecheck() = runBlocking {
+        settings.edit().putString("status", "needs_reconnect").commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > 0)
+        dao.insertAll(dao.snapshot().map { it.copy(capturedAt = savedAt) })
+        settings.edit().putString("status", "needs_reconnect").putLong("attempt", 0).commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> error("a genuine new expiry must stay paused") }
+        assertEquals("needs_reconnect", SecondClassAutoRefresh.status(c))
+    }
+    @Test fun policyUpgradeDoesNotResetAnAccountChangeOrOptOut() = runBlocking {
+        settings.edit().putString("status", "needs_confirmation").commit()
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> error("account change needs the owner") }
+        assertEquals("needs_confirmation", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(hash, identity.getString("account", null))
+        assertTrue(SecondClassAutoRefresh.background(c))
+    }
     @Test fun roomRejectsAChangedBindingWithoutAdvancingSuccessEvidence() = runBlocking {
         settings.edit().putLong("success_at", 123_456L).commit()
         var changed: List<NativeSchoolRecord> = emptyList()

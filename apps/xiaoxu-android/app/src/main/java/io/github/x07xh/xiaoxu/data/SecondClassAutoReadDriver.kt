@@ -34,12 +34,20 @@ internal suspend fun readSecondClassAutomatically(
                 val browser = createBrowser(context.applicationContext)
                 var cleaned = false
                 var started = false
-                val scoreUrl = "https://dekt.ncwu.edu.cn/sys/stu/score"
+                var navigations = 0
+                var pageEpoch = 0
+                var currentPageUrl: String? = null
+                var ssoAttempted = false
+                var returnedToScore = false
+                val scoreUrl = SecondClassAutoSessionNavigation.SCORE
                 val key = JSONObject.quote("xuAuto" + UUID.randomUUID().toString().replace("-", ""))
                 fun cleanup() {
                     if (cleaned) return
                     cleaned = true
                     handler.removeCallbacksAndMessages(null)
+                    // A redirect or failed business request may also rotate a
+                    // session. Persist the normal jar before destroying WebView.
+                    runCatching { CookieManager.getInstance().flush() }
                     runCatching { browser.webViewClient = WebViewClient() }
                     runCatching { browser.stopLoading() }
                     runCatching { browser.destroy() }
@@ -49,13 +57,13 @@ internal suspend fun readSecondClassAutomatically(
                     cleanup()
                     continuation.resumeWithException(AutoReadFailure(status))
                 }
-                fun poll(remaining: Int) {
-                    if (!continuation.isActive || cleaned) return
+                fun poll(remaining: Int, epoch: Int) {
+                    if (!continuation.isActive || cleaned || epoch != pageEpoch) return
                     if (remaining <= 0) { fail("failed"); return }
                     browser.evaluateJavascript("window[$key]==null?null:window[$key]") { encoded ->
-                        if (!continuation.isActive || cleaned) return@evaluateJavascript
+                        if (!continuation.isActive || cleaned || epoch != pageEpoch) return@evaluateJavascript
                         val text = runCatching { JSONTokener(encoded).nextValue() as? String }.getOrNull()
-                        if (text == null) handler.postDelayed({ poll(remaining - 1) }, 250)
+                        if (text == null) handler.postDelayed({ poll(remaining - 1, epoch) }, 250)
                         else {
                             val payload = runCatching { JSONObject(text) }.getOrNull()
                             if (payload == null) fail("failed")
@@ -68,18 +76,18 @@ internal suspend fun readSecondClassAutomatically(
                         }
                     }
                 }
-                fun begin(remaining: Int) {
-                    if (!continuation.isActive || cleaned) return
+                fun begin(remaining: Int, epoch: Int) {
+                    if (!continuation.isActive || cleaned || epoch != pageEpoch) return
                     // Readiness only: the unchanged reader still performs all
                     // visible account checks before/after business requests.
                     browser.evaluateJavascript("Array.from(document.querySelectorAll('h3,h4')).some(function(e){return e.getClientRects().length && /\\[[A-Za-z0-9_-]{1,50}\\]/.test(e.innerText||'');})") { ready ->
-                        if (!continuation.isActive || cleaned) return@evaluateJavascript
+                        if (!continuation.isActive || cleaned || epoch != pageEpoch) return@evaluateJavascript
                         if (ready != "true") {
-                            if (remaining > 0) handler.postDelayed({ begin(remaining - 1) }, 250)
+                            if (remaining > 0) handler.postDelayed({ begin(remaining - 1, epoch) }, 250)
                             else fail("failed")
                         } else browser.evaluateJavascript(
                             "window[$key]=null;($script)(${JSONObject.quote(salt)},true,true).then(function(r){window[$key]=JSON.stringify(r);},function(){window[$key]=JSON.stringify({ok:false});});"
-                        ) { if (continuation.isActive && !cleaned) poll(280) }
+                        ) { if (continuation.isActive && !cleaned && epoch == pageEpoch) poll(280, epoch) }
                     }
                 }
                 continuation.invokeOnCancellation { handler.post { cleanup() } }
@@ -99,22 +107,52 @@ internal suspend fun readSecondClassAutomatically(
                     browser.webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                             if (!request.isForMainFrame) return false
-                            if (request.url.toString() == scoreUrl) return false
-                            fail("needs_reconnect"); return true
+                            if (SecondClassAutoSessionNavigation.page(request.url.toString(), request.method) != null) return false
+                            fail("failed"); return true
                         }
                         override fun onPageStarted(view: WebView, url: String?, icon: android.graphics.Bitmap?) {
-                            if (url != scoreUrl) fail("needs_reconnect")
+                            if (cleaned || !continuation.isActive) return
+                            pageEpoch++
+                            currentPageUrl = url
+                            started = false
+                            if (++navigations > 10 || SecondClassAutoSessionNavigation.page(url) == null) fail("failed")
                         }
                         override fun onPageFinished(view: WebView, url: String?) {
-                            if (cleaned || !continuation.isActive) return
-                            if (url != scoreUrl) { fail("needs_reconnect"); return }
-                            if (!started) { started = true; begin(12) }
+                            if (cleaned || !continuation.isActive || url != currentPageUrl) return
+                            when (SecondClassAutoSessionNavigation.page(url)) {
+                                SecondClassAutoSessionNavigation.Page.SCORE ->
+                                    if (!started) { started = true; begin(12, pageEpoch) }
+                                SecondClassAutoSessionNavigation.Page.GATEWAY -> {
+                                    if (ssoAttempted) { fail("needs_reconnect"); return }
+                                    ssoAttempted = true
+                                    // The known school holding page requires a
+                                    // GET to its registered CAS service. Never
+                                    // inspect fields or submit a login form.
+                                    view.loadUrl(SecondClassAutoSessionNavigation.CAS)
+                                }
+                                SecondClassAutoSessionNavigation.Page.CALLBACK,
+                                SecondClassAutoSessionNavigation.Page.LANDING -> {
+                                    if (returnedToScore) { fail("failed"); return }
+                                    returnedToScore = true
+                                    view.loadUrl(scoreUrl)
+                                }
+                                SecondClassAutoSessionNavigation.Page.CAS -> {
+                                    // Give the school's existing session its
+                                    // normal redirect opportunity. A login page
+                                    // that stays here requires the owner.
+                                    val epoch = pageEpoch
+                                    handler.postDelayed({
+                                        if (!cleaned && continuation.isActive && epoch == pageEpoch) fail("needs_reconnect")
+                                    }, 3_000)
+                                }
+                                null -> fail("failed")
+                            }
                         }
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                             if (request.isForMainFrame) fail("failed")
                         }
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
-                            if (request.isForMainFrame) fail(if (response.statusCode in setOf(401, 403)) "needs_reconnect" else "failed")
+                            if (request.isForMainFrame) fail(if (response.statusCode == 401) "needs_reconnect" else "failed")
                         }
                         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                             handler.cancel(); fail("failed")
