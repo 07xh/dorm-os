@@ -216,13 +216,13 @@ assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继�
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
 assert.match(db, /suspend fun updateDetails\(id: Long, title: String, source: String\?, due: String\?\): Int/,
-  '仅增加个人本机任务字段更新，不新增数据库');
+  'Room must support editing only personal task metadata');
 assert.match(localTaskUi, /internal fun LocalTaskEditSheet\(/,
-  '本机任务须允许通过共享原生浮层编辑');
+  'Local task detail must open shared native editor');
 assert.match(localTaskUi, /dao\.updateDetails\(task\.id, cleanTitle, source, due\)/,
-  '已有本机任务编辑必须回写 Room');
+  'Local task editor persists actual Room record');
 assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
-  '任务详情中的编辑操作应打开当前任务而非新增页');
+  'Task details edit the selected local row rather than create a duplicate');
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -805,8 +805,22 @@ assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
   '不得回退到与参考图不一致的圆形时钟选择');
 assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
   '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
-assert.match(timetableTimeWheel, /maxValue = 23/);
-assert.match(timetableTimeWheel, /maxValue = 59/);
+assert.match(timetableTimeWheel, /HOUR_OPTIONS = \(0\.\.23\)\.toList\(\)/,
+  '小时数字范围必须保持 00–23');
+assert.match(timetableTimeWheel, /MINUTE_OPTIONS = \(0\.\.59\)\.toList\(\)/,
+  '分钟数字范围必须保持 00–59');
+assert.match(timetableTimeWheel, /internal fun XiaoxuNumberWheel\(/,
+  '时间、学期周数和每天节数必须复用唯一原生数字滚轮');
+assert.match(timetableSettings, /XiaoxuNumberWheel\(/,
+  '学期周数和每天节数已使用同一丝滑数字滚轮');
+assert.match(timetableSettings, /selectedNumber = it/,
+  '滚动时只更新临时选择值');
+assert.match(timetableSettings, /if \(choosingSections\) sections = selectedNumber/,
+  '确认才持久更新每天节数草稿');
+assert.match(timetableSettings, /else weeks = selectedNumber\.toString\(\)/,
+  '确认才更新学期周数草稿');
+assert.doesNotMatch(timetableSettings, /options\.forEach \{ number ->/,
+  '旧学期/节数 35 行列表滚动实现应清理');
 assert.match(timetableTimeWheel, /setOnValueChangedListener/,
   '滚动数字必须更新对应的小时或分钟草稿');
 assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
@@ -1673,19 +1687,29 @@ assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
 assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从设计系统读取');
 assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
-assert.match(pageMotion, /private fun stationaryFadeThrough\(durationMillis: Int\)/,
-  '主导航与二级页使用唯一静态淡出淡入转场');
-assert.match(pageMotion, /fadeIn\([\s\S]*?delayMillis = exitMillis/,
-  '新页面必须在旧页面退出后淡入，避免旧文字和新文字叠影');
-assert.match(pageMotion, /togetherWith fadeOut\(/,
-  '旧内容应柔和淡出而不是横向移动');
+assert.match(pageMotion, /private fun stablePageReveal\(durationMillis: Int\)/,
+  '所有原生路由共用不露底的静态内容进入动画');
+assert.match(pageMotion, /initialAlpha = 0\.94f/,
+  '目标页面须从接近全不透明状态呈现，不可从0透明度闪入');
+assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
+  '旧页面不得在新页面绘制前淡出造成空白频闪');
+assert.match(pageMotion, /targetContentZIndex = 1f/,
+  '新页面必须绘制在旧页面上方，避免快速切页残影');
 assert.match(pageMotion, /sizeTransform = null/,
-  '不同页面的容器几何必须固定，避免尺寸动画造成晃动');
+  '通过ContentTransform构造器停用布局尺寸变化动画');
+assert.match(pageMotion, /durationMillis = durationMillis\.coerceAtMost\(140\)/,
+  '轻量透明度过渡不应长时间影响重型内容页');
+assert.doesNotMatch(pageMotion, /delayMillis|fadeOut\(|stationaryFadeThrough|\.using\(/,
+  '禁止恢复先消失再出现的空白相位或不支持的尺寸API');
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
+  '主页面动画宿主维持固定大小且裁剪边界');
+assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
+  '设置详情维持全尺寸固定容器');
 assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
   '页面转场不得移动或缩放整屏，也不得弹簧回弹');
-assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.PageSwitchMs\)/,
+assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.PageSwitchMs\)/,
   '五个主标签保留220ms轻量动感');
-assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.SettingsDetailMs\)/,
+assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.SettingsDetailMs\)/,
   '设置、教务及课表二级页复用200ms轻量动感');
 assert.match(design, /const val PageSwitchMs = 220/, '一级页面仍按220ms短时过渡');
 assert.match(design, /const val SettingsDetailMs = 200/, '二级页面仍按200ms短时过渡');
@@ -1961,7 +1985,7 @@ assert.match(taskHubRegion,
   /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
   '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
 assert.match(taskHubRegion,
-  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i,\s*total = localRows\.size,/,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = localRows\.size,/,
   '本机任务维持逐条 lazy item 与稳定 key');
 assert.match(workspace, /private fun ConnectedTaskShell\(/,
   '任务行使用共享首尾圆角与连接线容器');
@@ -2012,17 +2036,17 @@ assert.match(taskHubRegion,
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
   '审核通过微信任务保持独立缓存分组');
 assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "course" \} \}/,
-  '学习通课程任务保留独立缓存分组');
+  '可信学习通任务作为课程任务单独分组');
 assert.match(workspace, /val otherCloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '普通云端待办不可混入课程任务');
+  '普通云端待办不得混入课程任务');
 assert.match(workspace, /title = "云端待办"/,
-  '普通云端个人待办有独立默认折叠组');
+  '普通云端任务有独立折叠分组');
 assert.match(workspace, /source == "cloud"[\s\S]*?task\.storage == "cloud"/,
-  '云端来源筛选保留课程与普通云端记录');
+  '云端筛选仍覆盖课程和普通云端记录');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /when \(task\.provider\) \{[\s\S]*?"wechat" -> "wechat"/,
-  '微信来源仅由后端 provider 字段判断，不得通过标题或群聊文本猜测');
+  '微信来源仅由后端 provider 字段判断，不从群聊标题推测');
 assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
   '微信审核标签仍由真实候选计数生成');
 assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
@@ -2136,11 +2160,11 @@ assert.match(cloud, /platform_status/,
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
 assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
-  '本机任务详情必须定位到当前记录的编辑浮层，不再误入新建页');
+  '本机任务详情必须指向已有记录的编辑浮层');
 assert.match(workspace, /if \(editingLocal != null\) \{\s*LocalTaskEditSheet\(/,
-  '只有当前本机记录可以打开原生编辑浮层');
+  '编辑浮层绑定原 Room 记录');
 assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*OutlinedButton\(onClick = onManage/,
-  '云端和学校来源记录不得展示冒充编辑入口的操作');
+  '云端和学校任务详情不显示虚假编辑按钮');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),

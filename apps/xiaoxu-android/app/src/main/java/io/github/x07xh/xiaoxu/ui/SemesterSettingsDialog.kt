@@ -373,41 +373,63 @@ internal fun SemesterSettingsPage(
         }
     }
 
-    // Both selectors use the same centered glass overlay as the app's detail views.
-    // The bounded inner scroll prevents 35 weeks from covering the entire settings page.
+    // Week count and section count share the same mature native wheel as
+    // class-time editing. Remove the older eager 35-row scrolling dialog.
     if (sectionsMenu || weeksMenu) {
         val choosingSections = sectionsMenu
-        val dismissChooser = { sectionsMenu = false; weeksMenu = false }
-        val options = if (choosingSections) listOf(8, 10, 12, 14, 16, 18, 20, 24)
-            else (1..35).toList()
-        XiaoxuGlassDialog(
-            title = if (choosingSections) "每天节数" else "学期周数",
-            onDismiss = dismissChooser,
-            dismissLabel = "取消"
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 312.dp)
-                    .verticalScroll(rememberScrollState())
+        val options = if (choosingSections)
+            (listOf(8, 10, 12, 14, 16, 18, 20, 24) + sections).distinct().sorted()
+        else (1..35).toList()
+        val initial = if (choosingSections) sections
+            else weeks.toIntOrNull()?.takeIf { it in 1..35 } ?: options.first()
+        androidx.compose.runtime.key(choosingSections) {
+            var selectedNumber by remember { mutableIntStateOf(initial) }
+            val closeSelector = { sectionsMenu = false; weeksMenu = false }
+            val shape = RoundedCornerShape(30.dp)
+            Dialog(
+                onDismissRequest = closeSelector,
+                properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
-                options.forEach { number ->
-                    val selected = if (choosingSections) number == sections
-                        else number.toString() == weeks
-                    SettingsActionRow(
-                        title = number.toString() + if (choosingSections) " 节" else " 周",
-                        value = if (selected) "已选择" else null,
-                        onClick = {
-                            if (choosingSections) sections = number
-                            else weeks = number.toString()
-                            error = null
-                            dismissChooser()
-                        }
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 440.dp)
+                        .clip(shape).background(XiaoxuPalette.PageGradient)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
+                        .padding(horizontal = 20.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        if (choosingSections) "每天节数" else "学期周数",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink
                     )
-                    if (number != options.last()) {
-                        HorizontalDivider(
-                            color = XiaoxuPalette.Line,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp
-                        )
+                    XiaoxuNumberWheel(
+                        options = options,
+                        selected = selectedNumber,
+                        label = if (choosingSections) "每天节数" else "学期周数",
+                        onSelected = { selectedNumber = it },
+                        modifier = Modifier.width(150.dp),
+                        cyclic = false
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = closeSelector,
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("取消", color = XiaoxuPalette.Ink) }
+                        Button(
+                            onClick = {
+                                if (choosingSections) sections = selectedNumber
+                                else weeks = selectedNumber.toString()
+                                error = null
+                                closeSelector()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("确定") }
                     }
                 }
             }
