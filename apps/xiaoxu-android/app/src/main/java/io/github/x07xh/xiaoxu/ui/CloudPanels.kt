@@ -486,10 +486,11 @@ private fun PlatformStatusCard(
         it.coverage != ChaoxingCourseCoverage.COUNT_VERIFIED
     }
     val workIncomplete = unresolvedWork.isNotEmpty()
+    val activeWorkIncomplete = workIncomplete && platform?.sessionState == "active"
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
         !state.connectionsFresh -> XiaoxuTone.Warning
-        workIncomplete -> XiaoxuTone.Warning
+        activeWorkIncomplete -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
     }
@@ -533,7 +534,7 @@ private fun PlatformStatusCard(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
-                        workIncomplete -> "本人授权有效；部分课程作业仍待核验"
+                        activeWorkIncomplete -> "本人授权有效；部分课程作业仍待核验"
                         else -> connectionStatusLabel(platform)
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -547,7 +548,7 @@ private fun PlatformStatusCard(
                 text = when {
                     !state.authenticated -> "云端未连接"
                     !state.connectionsFresh -> "状态待刷新"
-                    workIncomplete -> "作业部分已读取"
+                    activeWorkIncomplete -> "作业部分已读取"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
                     platform?.sessionState == "active" -> "尚未核验数据"
