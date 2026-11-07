@@ -197,7 +197,7 @@ fun CloudTimetablePanel(
     settingsOpen: Boolean = false,
     onSettingsOpenChanged: (Boolean) -> Unit = {},
     onSettingsClosed: () -> Unit = {},
-    onSettingsAction: (String) -> Unit = {},
+    onSettingsFileAction: () -> Unit = {},
     onEditorClosed: () -> Unit = {}
 ) {
     // Both timetable and settings occupy the same native Activity content window.
@@ -214,7 +214,7 @@ fun CloudTimetablePanel(
             settingsOpen = settingsOpen,
             onSettingsOpenChanged = onSettingsOpenChanged,
             onSettingsClosed = onSettingsClosed,
-            onSettingsAction = onSettingsAction,
+            onSettingsFileAction = onSettingsFileAction,
             onEditorClosed = onEditorClosed
         )
     }
@@ -314,7 +314,7 @@ private fun ScheduleVerifiedContent(
     settingsOpen: Boolean,
     onSettingsOpenChanged: (Boolean) -> Unit,
     onSettingsClosed: () -> Unit,
-    onSettingsAction: (String) -> Unit,
+    onSettingsFileAction: () -> Unit,
     onEditorClosed: () -> Unit
 ) {
     val context = LocalContext.current
@@ -662,19 +662,18 @@ private fun ScheduleVerifiedContent(
             initialSections = visibleSections,
             onAddCourse = {
                 onSettingsOpenChanged(false)
-                onSettingsAction("add")
                 editOriginal = null
                 editingError = null
                 showingCourseEditor = true
             },
             onImport = {
                 onSettingsOpenChanged(false)
-                onSettingsAction("import")
+                onSettingsFileAction()
                 openFileImport()
             },
             onExport = {
                 onSettingsOpenChanged(false)
-                onSettingsAction("export")
+                onSettingsFileAction()
                 openFileExport()
             },
             onDismiss = {
