@@ -775,20 +775,13 @@ internal fun NoticeDetailSheet(
                 tone = if (notice.category == "exam") XiaoxuTone.Warning else XiaoxuTone.Brand
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(XiaoxuPalette.BrandSoft)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = notice.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        // The sheet already owns the glass material; don't nest a solid title tile.
+        Text(
+            text = notice.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = XiaoxuPalette.Ink,
+            fontWeight = FontWeight.SemiBold
+        )
         SheetMetaRow(label = "来源", value = "华水教务官网（www2.ncwu.edu.cn）")
         SheetMetaRow(
             label = "发布",
