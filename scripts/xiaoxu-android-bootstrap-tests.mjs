@@ -1578,6 +1578,15 @@ assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
 assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
 assert.match(main, /xiaoxuPrimaryPageTransition\(/, '主导航切换须走统一动效入口');
+assert.match(main, /label = "academicChild"/, '教务总览和详情必须共用整页转场宿主');
+assert.match(main, /if \(initialState == AcademicDestination\.OVERVIEW\) "home" else "detail"/,
+  '教务详情返回必须识别逆向滑动，不能直接替换页面');
+assert.match(main, /label = "profileTimetableChild"/,
+  '我的→课表设置必须进入二级页面动画，不可直接换掉设置宿主');
+assert.match(main, /if \(timetableChild\)/,
+  '课表设置应作为我的页面子路由渲染');
+assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
+  '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
 assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 360ms 动效从设计系统读取');
 assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 500ms 动效从设计系统读取');
 assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
