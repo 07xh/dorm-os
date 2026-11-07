@@ -14,8 +14,9 @@ const ci = read('.github/workflows/build-xiaoxu-android.yml');
 const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
 assert.match(visualQa, /\['03-course-detail',/,'一加 Ace 6 真机流程必须单独采集课程详情底部弹窗');
 assert.match(visualQa, /\['04-schedule-settings',/,'一加 Ace 6 真机流程必须采集原课表设置页');
-assert.match(visualQa, /\['05-schedule-day',/,'需要可选采集日视图，避免只核验周视图');
-assert.match(visualQa, /requiredReferenceScenes:\s*\['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day'\]/);
+assert.match(visualQa, /\['05-schedule-day',/,'需要采集日视图，避免只核验周视图');
+assert.match(visualQa, /\['06-course-editor',/,'编辑课程全屏玻璃页面是必需的真机截图场景');
+assert.match(visualQa, /requiredReferenceScenes:\s*\['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor'\]/);
 assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
 assert.match(visualQa, /function isTargetInForeground\(\)/,
   '真机截图须核验校序应用位于前台');
