@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -135,12 +138,21 @@ fun SecondClassPage(
                 XiaoxuSegmentOption("2", "积分")
             )
         }
-        XiaoxuSegmentedControl(
-            options = sectionOptions,
-            selectedKey = section.toString(),
-            onSelected = { section = it.toInt() },
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .padding(start = 18.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            XiaoxuSegmentedControl(
+                options = sectionOptions,
+                selectedKey = section.toString(),
+                onSelected = { section = it.toInt() },
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                Icon(Icons.Outlined.Refresh, contentDescription = "从学校重新读取第二课堂")
+            }
+        }
         val currentScroll = when (section) {
             0 -> catalogScroll
             1 -> activitiesScroll
@@ -187,24 +199,15 @@ fun SecondClassPage(
                             color = XiaoxuPalette.Ink2
                         )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = ::refreshPersonalRecords,
-                            enabled = !refreshing,
-                            modifier = Modifier.weight(1f)
-                        ) { Text(if (refreshing) "读取中…" else "读取学校活动") }
-                        TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
-                    }
+                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                 }
             } else {
                 val rows = if (section == 2) {
                     scores.sortedBy { if (it.title == "学校积分合计") 0 else 1 }
                 } else {
-                    activities.sortedBy { if (it.kind == "activity_summary") 0 else 1 }
+                    // Summary headings (e.g. "本人报名活动") are navigation labels,
+                    // not individual registrations; never render them as activity cards.
+                    activities.filter { it.kind == "activity" }
                 }
                 if (rows.isEmpty()) {
                     XiaoxuCard {
@@ -213,16 +216,8 @@ fun SecondClassPage(
                             style = MaterialTheme.typography.titleMedium,
                             color = XiaoxuPalette.Ink
                         )
-                        Button(onClick = ::refreshPersonalRecords,
-                            enabled = !refreshing,
-                            modifier = Modifier.fillMaxWidth()) {
-                            Text(if (refreshing) "读取中…" else "读取本人数据")
-                        }
                     }
                 } else {
-                    TextButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
-                        Text(if (refreshing) "读取中…" else "刷新")
-                    }
                     rows.forEach { row ->
                         // Only real, stored school details expand. Empty details remain static.
                         androidx.compose.runtime.key(row.provider, row.kind, row.fingerprint) {

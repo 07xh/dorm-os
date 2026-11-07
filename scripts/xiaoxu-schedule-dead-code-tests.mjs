@@ -42,8 +42,8 @@ assert.match(source,/data\.lessons\.isEmpty\(\)/,
   'Empty timetable must be based on the actual local import');
 assert.match(source,/LocalTimetableEmptyState\(/,
   'Import action remains reachable');
-assert.match(source,/onSettings = \{ showSemesterSettings = true \}/,
-  'Empty timetable reaches the same settings host and inbox as imported timetable');
+assert.match(source,/onSettings = \{ onSettingsOpenChanged\(true\) \}/,
+  'Empty timetable reaches the native settings route and inbox as imported timetable');
 assert.doesNotMatch(source,/label = "重新导入课表"/,
   'File import must not remain in the timetable heading');
 console.log('Local timetable uses only live UI; retired cloud-state views removed');

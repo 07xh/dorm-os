@@ -780,18 +780,13 @@ internal fun NoticeDetailSheet(
             color = XiaoxuPalette.Ink,
             fontWeight = FontWeight.SemiBold
         )
-        SheetMetaRow(label = "来源", value = "华水教务官网（www2.ncwu.edu.cn）")
+        SheetMetaRow(label = "来源", value = "华水教务官网")
         SheetMetaRow(
             label = "发布",
-            value = if (notice.dateLabel.isBlank()) "官方页面未提供日期标签"
-            else notice.dateLabel + "（原文站点给出，年份未二次核验）"
+            value = notice.dateLabel.ifBlank { "未标注" }
         )
-        SheetMetaRow(label = "分类", value = noticeCategoryLabel(notice.category))
-        SheetMetaRow(label = "正文", value = "App 内不保存正文与附件，需通过学校官网查看")
-        HorizontalDivider(color = XiaoxuPalette.Line)
         Text(
-            text = "校序只保存官方标题、分类、日期标签与原文链接；这里不复制网页正文、" +
-                "不生成摘要，也没有附件下载入口。",
+            text = "正文请在学校官网查看",
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
@@ -820,20 +815,6 @@ internal fun NoticeDetailSheet(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onDismiss, role = Role.Button),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "关闭",
-                style = MaterialTheme.typography.labelLarge,
-                color = XiaoxuPalette.Ink2
-            )
         }
     }
 }

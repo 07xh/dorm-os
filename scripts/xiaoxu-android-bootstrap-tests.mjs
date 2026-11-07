@@ -319,8 +319,16 @@ assert.match(cloud, /ChaoxingCourseCoverage\.NOT_CHECKED, emptyList\(\)/,
   '未检查课程必须显式列出，不能冒充零作业');
 assert.match(cloud, /if \(epoch != sessionEpoch \|\| !state\.authenticated\) return/,
   '学校授权失效后不得恢复旧会话里的审核账本');
-assert.match(workspace, /title = "学习通 · 官方作业核验"/,
-  '官方逐门验收清单必须进入真实任务页，不可只在隐藏设置里');
+assert.match(workspace, /title = "学习通作业"/,
+  '官方作业读取入口必须直接出现在真实任务页');
+assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
+  '学习通部分读取不得冒充全部课程已核验');
+assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "全部课程条数已核验"/,
+  '只有证据完整且刷新成功才显示完整核验');
+assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
+  '本机页面记录需保留入口及真实数量');
+assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
+  '正式任务首页不得继续显示面向开发的旧卡片标题');
 assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
   '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
 assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
@@ -450,7 +458,12 @@ for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积�
 }
 assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
-assert.match(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "读取学校活动"\)/, '读取入口可用');
+assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
+  '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
+assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
+  '汇总标题不可显示为个人活动卡片');
+assert.doesNotMatch(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "刷新"\)/,
+  '禁止回退为内容列表上方的重复刷新文字');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
 assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
 
@@ -577,6 +590,28 @@ assert.match(schedulePanel, /label = "新增课程"/);
 assert.match(schedulePanel, /label = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+assert.match(timetableSettings, /internal fun SemesterSettingsPage\(/,
+  '课表设置必须是同 Activity 内原生子页面');
+const timetablePageSource = timetableSettings.slice(
+  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
+  timetableSettings.indexOf('// Use Material3 date/time controls')
+);
+assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
+  '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
+assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
+  '课表设置需要填满当前主导航内容窗口');
+assert.match(schedulePanel, /if \(!settingsOpen\) \{/,
+  '默认课表内容和设置页必须互斥，不得浮层叠放');
+assert.match(schedulePanel, /if \(settingsOpen\) \{\s*SemesterSettingsPage\(/,
+  '设置页必须走同窗口渲染分支，不得用 Compose Dialog');
+assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '导航层应保存课表子页面状态');
+assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
+  '安卓系统返回键应从课表设置回到课表');
+assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{ scheduleSettingsOpen = it \}/,
+  '课表路由状态必须由唯一 NativeShell 维护');
+assert.match(main, /current != MainDestination\.SCHEDULE \|\| !scheduleSettingsOpen/,
+  '课表设置显示时底部导航与占位须同时隐藏');
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
 assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
@@ -630,6 +665,14 @@ assert.match(timetableSettings, /onSelected = \{ viewMode = it \}/,
  '点击分段项应更新设置草稿，保存动作仍由完成按钮触发');
 assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/,
  '周日偏好与学期数据必须通过原保存回调提交');
+assert.match(timetableSettings, /DatePicker\(state = dateState/,
+  '日期选择须使用统一 Compose 控件');
+assert.match(timetableSettings, /TimePicker\(state = pickerState\)/,
+  '节次时间选择须使用统一 Compose 控件');
+assert.match(timetableSettings, /if \(sectionsMenu \|\| weeksMenu\)/,
+  '节数与周数弹层需统一为可滚动玻璃选择器');
+assert.doesNotMatch(timetableSettings, /android\.app\.(DatePickerDialog|TimePickerDialog)|DropdownMenu\(/,
+  '课表设置不可重新混用系统旧弹窗或漂浮长菜单');
 assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
   '未设置学期时仍应允许保存视图偏好');
 assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/);
@@ -648,7 +691,7 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
 const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (showSemesterSettings) {'),
+  schedulePanel.indexOf('if (settingsOpen) {'),
   schedulePanel.indexOf('private fun DayLessonList(')
 );
 assert.match(timetableSettingsCallback, /val permissionMissing = Build\.VERSION\.SDK_INT >= 33 &&/,
@@ -838,8 +881,14 @@ assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告
   '公告详情必须复用唯一玻璃弹层');
 assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
   '消息页不能再创建第二套底部弹层容器');
-assert.match(messageCenter, /App 内不保存正文与附件，需通过学校官网查看/);
-assert.match(messageCenter, /不生成摘要/);
+assert.match(messageCenter, /正文请在学校官网查看/,
+  '仅有官方元数据时不编造公告正文');
+const officialNoticeDetail = messageCenter.slice(
+  messageCenter.indexOf('internal fun NoticeDetailSheet('),
+  messageCenter.indexOf('private fun SheetMetaRow(')
+);
+assert.doesNotMatch(officialNoticeDetail, /text = "关闭"/,
+  '公告详情仅使用共享弹层的完成按钮，不能重复关闭');
 assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
 
 // 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
@@ -1647,6 +1696,12 @@ assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选�
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
+assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '首次进入任务中心的课程任务必须默认折叠');
+assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
+  '用户点击课程任务后必须仍能展开和收起');
+assert.match(workspace, /if \(showCourseTasks\) \{/,
+  '课程列表显示必须只由当前展开状态控制');
 const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
   workspace.indexOf('/** 首页与任务中心共用任务详情'));
 assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,

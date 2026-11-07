@@ -162,14 +162,6 @@ internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: Loca
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
-/** Personal upcoming window shared with countUpcomingLocalDeadlines: only
- * self-entered, not-yet-passed dates within the next 3 days count as real
- * personal deadlines. Calendar-week filtering would both miss day 4+ and
- * wrongly include earlier dates in the same Monday-Sunday span.
- */
-internal fun upcomingPersonalDeadline(date: LocalDate?, today: LocalDate): Boolean =
-    date != null && !date.isBefore(today) && !date.isAfter(today.plusDays(3))
-
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -181,8 +173,7 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         when (filter) {
             "pending" -> !task.done
             "done" -> task.done
-            "week" -> task.storage == "local" && !task.done &&
-                upcomingPersonalDeadline(task.date, today)
+            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -195,7 +186,7 @@ internal fun facetWorkspaceTasks(
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
         (!thisWeekOnly || (task.storage == "local" && !task.done &&
-            upcomingPersonalDeadline(task.date, today)))
+            thisWeek(task.date, today)))
 }
 
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
@@ -775,7 +766,9 @@ fun RealAcademicTaskHub(
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
-    var showCourseTasks by rememberSaveable { mutableStateOf(true) }
+    // Default collapsed on first entry. Saveable state still restores a user's
+    // subsequent expand/collapse choice when switching tabs or rotating.
+    var showCourseTasks by rememberSaveable { mutableStateOf(false) }
     var showWechatTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
@@ -1216,16 +1209,18 @@ fun RealAcademicTaskHub(
         // never enters owner-completed task counters or guesses missing dates.
         item {
             TaskGroupHeader(
-                title = "学习通 · 官方作业核验",
+                title = "学习通作业",
                 count = auditSummary.verifiedWorkRows,
-                badge = if (auditSummary.fullyCoveredAndRefreshed)
-                    "全部课程条数已核验" else "覆盖未全部证实",
-                note = when {
-                    state.chaoxingBatchBusy -> "正在逐门读取本人课程的官方状态"
-                    state.chaoxingBatchCheckedAt != null ->
-                        "本次 ${auditSummary.checkedCourses}/${auditSummary.totalCourses} 门课程有结果"
-                    else -> "尚无本次逐门核验结果，不能据此判断作业总数"
+                badge = when {
+                    state.chaoxingBatchBusy -> "读取中"
+                    auditSummary.fullyCoveredAndRefreshed -> "全部课程条数已核验"
+                    state.chaoxingBatchCheckedAt != null -> "部分已读取"
+                    else -> "未读取"
                 },
+                note = if (state.chaoxingBatchCheckedAt != null &&
+                    auditSummary.totalCourses > 0)
+                    "课程 ${auditSummary.checkedCourses}/${auditSummary.totalCourses}"
+                else "",
                 icon = Icons.Outlined.MenuBook,
                 expanded = showOfficialAudit,
                 onClick = { showOfficialAudit = !showOfficialAudit },
@@ -1383,19 +1378,18 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
-                SectionHeader(
-                    title = "学习通与本机页面快照",
-                    caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
-                    actionLabel = if (showSchoolRecords) "收起" else "展开查看与同步",
-                    onAction = { showSchoolRecords = !showSchoolRecords }
-                )
-            }
+            TaskGroupHeader(
+                title = "本机读取",
+                count = capturedHomework.size,
+                badge = "",
+                note = "",
+                icon = Icons.Outlined.School,
+                expanded = showSchoolRecords,
+                onClick = { showSchoolRecords = !showSchoolRecords },
+                showCount = capturedHomework.isNotEmpty()
+            )
         }
         if (showSchoolRecords) {
-        item {
-            HorizontalDivider(Modifier.padding(top = 6.dp))
-        }
         item {
             TaskSectionHeader(
                 title = "学习通 · 本机作业快照",

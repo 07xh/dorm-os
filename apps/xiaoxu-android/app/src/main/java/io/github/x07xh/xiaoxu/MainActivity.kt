@@ -494,6 +494,8 @@ private fun NativeShell(
     }
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
+    // Native timetable settings is a child route of Schedule, not a Dialog window.
+    var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
     val pageStateHolder = rememberSaveableStateHolder()
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
@@ -512,6 +514,9 @@ private fun NativeShell(
         academic = next.academic
         current = next.destination
         messagesOpen = false
+    }
+    BackHandler(enabled = current == MainDestination.SCHEDULE && scheduleSettingsOpen) {
+        scheduleSettingsOpen = false
     }
     BackHandler(enabled = messagesOpen) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
@@ -585,14 +590,16 @@ private fun NativeShell(
                 )
             },
             bottomBar = {
-                if (!tabletLayout && !messagesOpen) {
+                if (!tabletLayout && !messagesOpen &&
+                    (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
                     // Layout-only reserve. Actual dock sits outside the sampled subtree.
                     PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout && !messagesOpen) {
+                if (tabletLayout && !messagesOpen &&
+                    (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
                     PrimarySideNavigation(selected = current) { selected ->
                         current = selected
                         messagesOpen = false
@@ -652,7 +659,9 @@ private fun NativeShell(
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
                                 onLocalLessonsChanged = onLocalLessonsChanged,
-                                onMessages = { messagesOpen = true })
+                                onMessages = { messagesOpen = true },
+                                settingsOpen = scheduleSettingsOpen,
+                                onSettingsOpenChanged = { scheduleSettingsOpen = it })
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
@@ -675,7 +684,8 @@ private fun NativeShell(
                 }
             }
         }
-        if (!tabletLayout && !messagesOpen) {
+        if (!tabletLayout && !messagesOpen &&
+            (current != MainDestination.SCHEDULE || !scheduleSettingsOpen)) {
             Box(Modifier.align(Alignment.BottomCenter)) {
                 PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
                     current = selected
