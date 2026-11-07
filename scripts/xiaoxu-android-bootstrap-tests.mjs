@@ -777,6 +777,16 @@ assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
   '官方消息筛选未选中态与导航共用轻玻璃材质');
 assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
   '官方消息筛选不可恢复旧1dp灰色硬描边');
+
+const skeletonSource = messageCenter.slice(
+  messageCenter.indexOf('private fun MessageSkeleton('));
+assert.match(skeletonSource, /height\(76\.dp\)/,
+  '消息占位不应在内容为空时占据过厚的灰色长卡');
+assert.match(skeletonSource, /background\(XiaoxuPalette\.GlassTrack\)/,
+  '消息加载占位必须采用统一玻璃轨道材质');
+assert.match(messageCenter, /container = MaterialTheme\.colorScheme\.errorContainer/,
+  '云端公告读取失败仍显示明确的错误语义');
+
 const messageBannerSource = messageCenter.slice(
   messageCenter.indexOf('private fun MessageBanner('),
   messageCenter.indexOf('private fun MessageErrorCard('));
