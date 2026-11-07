@@ -843,11 +843,11 @@ private const val READ_VISIBLE_PAGE = """
   if (!rows.length && provider === 'chaoxing' &&
       host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
     // Mirror the already-tested FIRST-PARTY backend list evidence: each
-    // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
-    // Never read the li "data" attribute: it may contain an auth token.
+    // visible li[data] has title p.overHidden2 and status p.status.
+    // Only extract validated numeric IDs from data; discard signed tokens.
     for (const doc of docs) {
       // Completed work may lack goTask entirely. Only visible official
-      // rows carrying the title selector are kept; never inspect li.data.
+      // rows carrying the title selector are kept; do not export li.data.
       const tasks = doc.querySelectorAll('li[data]');
       for (const li of Array.from(tasks)) {
         if (!onScreen(li)) continue;
@@ -864,7 +864,7 @@ private const val READ_VISIBLE_PAGE = """
           const link = new URL(raw, location.href);
           const qp = link.searchParams, courseId = qp.get('courseId');
           const classId = qp.get('classId'), workId = qp.get('workId') || qp.get('workid');
-          const num = value => /^\\d{1,24}$/.test(value || '');
+          const num = value => /^\d{1,24}$/.test(value || '');
           if (link.protocol === 'https:' && link.hostname === 'mooc1.chaoxing.com' &&
               ['/mooc-ans/mooc2/work/task','/mooc-ans/mooc2/work/dowork',
                '/work/dowork'].includes(link.pathname) &&
