@@ -1671,8 +1671,12 @@ assert.match(pageMotion, /fadeIn\([\s\S]*?delayMillis = exitMillis/,
   '新页面必须在旧页面退出后淡入，避免旧文字和新文字叠影');
 assert.match(pageMotion, /togetherWith fadeOut\(/,
   '旧内容应柔和淡出而不是横向移动');
-assert.match(pageMotion, /\.using\(null\)/,
-  '不同页面的容器几何必须固定，避免尺寸动画造成晃动');
+assert.doesNotMatch(pageMotion, /sizeTransform =|\.using\(/,
+  '当前 Compose 版本不允许直接重写 ContentTransform 尺寸变换；容器由页面全尺寸宿主保持稳定');
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
+  '主页面动画宿主维持固定大小且裁剪边界');
+assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
+  '设置详情维持全尺寸固定容器');
 assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
   '页面转场不得移动或缩放整屏，也不得弹簧回弹');
 assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.PageSwitchMs\)/,
