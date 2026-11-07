@@ -265,16 +265,6 @@ internal fun searchWorkspaceTasks(
     }
 }
 
-/** LazyColumn index of the first open editor, before local/cloud rows.
- * Always update this when adding/removing items before the editor.
- */
-internal fun taskEditorStartIndex(
-    staleSnapshot: Boolean,
-    searchOpen: Boolean,
-    advancedFiltersOpen: Boolean,
-    managementOpen: Boolean
-): Int = 3 + listOf(staleSnapshot, searchOpen, advancedFiltersOpen, managementOpen).count { it }
-
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
  * 不推断当前教学周、上课时间或学校提交状态；云端任务保留快照标识。
@@ -845,6 +835,9 @@ fun RealAcademicTaskHub(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
+    // Independent dialogs: do not insert large editors into the task feed.
+    var showLocalEditor by rememberSaveable { mutableStateOf(false) }
+    var showCloudEditor by rememberSaveable { mutableStateOf(false) }
     var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     // Default collapsed on first entry. Saveable state still restores a user's
@@ -891,29 +884,6 @@ fun RealAcademicTaskHub(
             course.homework.map { work -> course to work }
         }
     }
-    var showLocal by rememberSaveable { mutableStateOf(false) }
-    var showCloud by rememberSaveable { mutableStateOf(false) }
-    // All optional rows must be counted. Fixed indexes shifted when old helper lines
-    // were removed, so local/cloud buttons could land on the wrong section.
-    val taskListState = rememberLazyListState()
-    var jumpTo by remember { mutableStateOf<String?>(null) }
-    val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
-    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
-        showAdvancedFilters, staleTasksShown) {
-        val managerStart = taskEditorStartIndex(
-            staleTasksShown, showSearch, showAdvancedFilters, showManager
-        )
-        val targetIndex = when (jumpTo) {
-            "local" -> if (showLocal) managerStart else null
-            "cloud" -> if (showCloud) managerStart + (if (showLocal) 1 else 0) else null
-            "filters" -> 1
-            else -> null
-        }
-        if (targetIndex != null) {
-            taskListState.animateScrollToItem(targetIndex)
-            jumpTo = null
-        }
-    }
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
@@ -931,7 +901,6 @@ fun RealAcademicTaskHub(
     val otherCloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
     LazyColumn(
-        state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
         // Keep connected task rows as separate lazy items with zero gaps.
@@ -977,23 +946,10 @@ fun RealAcademicTaskHub(
                     enabled = state.authenticated && !state.busy
                 )
                 XiaoxuToolbarAction(
-                    icon = if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
-                    label = if (showManager && showLocal)
-                        "收起新建本机任务" else "新增本机任务",
+                    icon = Icons.Outlined.Add,
+                    label = "新增本机任务",
                     emphasized = true,
-                    onClick = {
-                        if (showManager && showLocal) {
-                            showManager = false
-                            showLocal = false
-                            showCloud = false
-                            jumpTo = null
-                        } else {
-                            showManager = true
-                            showLocal = true
-                            showCloud = false
-                            jumpTo = "local"
-                        }
-                    }
+                    onClick = { showLocalEditor = true }
                 )
             }
         }
@@ -1013,17 +969,17 @@ fun RealAcademicTaskHub(
                 TaskStatusTab(
                     label = "待完成", count = all.count { !considerCompleteInTaskList(it) },
                     active = filter == "pending", modifier = Modifier.weight(1f),
-                    onClick = { filter = "pending"; jumpTo = "filters" }
+                    onClick = { filter = "pending" }
                 )
                 TaskStatusTab(
                     label = "全部", count = all.size,
                     active = filter == "all", modifier = Modifier.weight(1f),
-                    onClick = { filter = "all"; jumpTo = "filters" }
+                    onClick = { filter = "all" }
                 )
                 TaskStatusTab(
                     label = "已完成", count = all.count { considerCompleteInTaskList(it) },
                     active = filter == "done", modifier = Modifier.weight(1f),
-                    onClick = { filter = "done"; jumpTo = "filters" }
+                    onClick = { filter = "done" }
                 )
             }
         }
@@ -1093,16 +1049,7 @@ fun RealAcademicTaskHub(
                     }
                 }
                 TextButton(
-                    onClick = {
-                        if (showManager) {
-                            showManager = false
-                            showLocal = false
-                            showCloud = false
-                            jumpTo = null
-                        } else {
-                            showManager = true
-                        }
-                    },
+                    onClick = { showManager = !showManager },
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) {
                     Text(if (showManager) "收起管理" else "管理",
@@ -1145,13 +1092,13 @@ fun RealAcademicTaskHub(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { showLocal = !showLocal; if (showLocal) jumpTo = "local" },
+                    onClick = { showLocalEditor = true },
                     modifier = Modifier.weight(1f)
-                ) { Text(if (showLocal) "收起本机管理" else "新建 / 管理本机") }
+                ) { Text("新建 / 管理本机") }
                 OutlinedButton(
-                    onClick = { showCloud = !showCloud; if (showCloud) jumpTo = "cloud" },
+                    onClick = { showCloudEditor = true },
                     modifier = Modifier.weight(1f)
-                ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
+                ) { Text("新增云端任务") }
             }
         }
         if (showManager) item {
@@ -1177,12 +1124,6 @@ fun RealAcademicTaskHub(
                     modifier = Modifier.weight(1f)
                 ) { Text("恢复已清理 (${archivedRows.size})") }
             }
-        }
-        if (showManager && showLocal) item {
-            Column(Modifier.padding(top = 12.dp)) { LocalTaskEditor(localTasks, dao) }
-        }
-        if (showManager && showCloud) item {
-            Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
         }
         if (shown.isEmpty()) {
             item {
@@ -1216,11 +1157,7 @@ fun RealAcademicTaskHub(
                             searchQuery.isNotBlank() -> searchQuery = ""
                             sourceFilter != "all" -> sourceFilter = "all"
                             onlyThisWeek -> onlyThisWeek = false
-                            else -> {
-                                showManager = true
-                                showLocal = true
-                                jumpTo = "local"
-                            }
+                            else -> showLocalEditor = true
                         }
                     }
                 )
@@ -1693,6 +1630,16 @@ fun RealAcademicTaskHub(
     if (editingLocal != null) {
         LocalTaskEditSheet(task = editingLocal, dao = dao,
             onDismiss = { editingLocalId = null })
+    }
+    if (showLocalEditor) {
+        XiaoxuSheet(onDismiss = { showLocalEditor = false }, title = "本机任务管理") {
+            LocalTaskEditor(localTasks, dao)
+        }
+    }
+    if (showCloudEditor) {
+        XiaoxuSheet(onDismiss = { showCloudEditor = false }, title = "新增云端任务") {
+            CloudTaskEditor(client)
+        }
     }
     if (showArchiveSheet) {
         XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {

@@ -2102,12 +2102,12 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
-  '本机任务只在管理展开时展示真实 Room 编辑器');
-assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
-  '关闭任务管理也必须隐藏云端新建表单');
-assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
-  '顶部新增按钮再次点击应完整收起编辑区');
+assert.match(workspace, /if \(showLocalEditor\) \{\s*XiaoxuSheet\([\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
+  '本机编辑器只在独立玻璃弹层显示，不能把列表推下去');
+assert.match(workspace, /if \(showCloudEditor\) \{\s*XiaoxuSheet\([\s\S]*?CloudTaskEditor\(client\)/,
+  '云端新建只出现在独立玻璃弹层');
+assert.doesNotMatch(workspace, /taskEditorStartIndex|jumpTo|showManager && showLocal|showManager && showCloud/,
+  '彻底清理旧的管理器滚动索引和双重展开状态');
 assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
   '本机任务仍从稳定来源 key 打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
@@ -2225,29 +2225,22 @@ assert.ok(panels.includes('LocalSchoolConnectionPanel('),
 assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
-// Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
-assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
-  '任务中心必须保留独立可滚动列表状态');
-assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
-  '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
-  '云端表单跳转须考虑本机管理展开与否');
-assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
+// TaskCenter P2: independent editors and stable filtering, no scroll-offset math.
+assert.doesNotMatch(workspace, /taskListState\.animateScrollToItem|taskEditorStartIndex|jumpTo/,
+  '删除失效的滚动跳转和多余位置计算');
+assert.match(workspace, /showLocalEditor by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '本机编辑从统一玻璃弹层打开');
+assert.match(workspace, /showCloudEditor by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '云端任务新增从独立弹层打开');
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
-assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
-assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
-assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
-assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
-assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
-  '待完成统计卡应真实切换过滤器');
-assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
-  '已完成统计卡应真实切换过滤器');
-assert.match(workspace, /jumpTo = "local"/,
-  '本机任务按钮应自动定位管理区域');
-assert.match(workspace, /jumpTo = "cloud"/,
-  '云端任务按钮应自动定位管理区域');
+assert.match(workspace, /sourceFilter = source/, '来源选择仍更新筛选条件');
+assert.match(workspace, /DropdownMenu\(/, '任务来源保留唯一选择菜单');
+assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选仍可用');
+assert.match(workspace, /onClick = \{ filter = "pending" \}/, '待办统计直接筛选，无额外滚动');
+assert.match(workspace, /onClick = \{ filter = "done" \}/, '已完成统计直接筛选，无额外滚动');
 assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
-  '窄屏任务分区标题必须给来源和条数预留空间');
+  '窄屏任务分区标题仍应适配');
+
 // Issue #275：消息中心与「我的」按七张海报/四屏 HTML 精细化，只换视觉层级，
 // 真实来源、审核事务与数据边界一律不动。
 assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
