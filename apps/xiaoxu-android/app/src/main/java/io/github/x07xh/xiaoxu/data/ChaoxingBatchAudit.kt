@@ -64,7 +64,9 @@ fun summarizeChaoxingAudit(
             audit.size == totalCourses &&
             audit.map { it.courseKey }.distinct().size == totalCourses &&
             countVerified == totalCourses &&
-            taskLedgerFresh
+            taskLedgerFresh &&
+            // Complete list coverage does not prove every official status is known.
+            work.none { it.statusCode == "unknown" }
     )
 }
 
