@@ -158,7 +158,8 @@ object XiaoxuSpacing {
 
 /** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
 internal object XiaoxuMotion {
-    const val PageSwitchMs = 180
+    const val PageSwitchMs = 360
+    const val SettingsDetailMs = 500
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
