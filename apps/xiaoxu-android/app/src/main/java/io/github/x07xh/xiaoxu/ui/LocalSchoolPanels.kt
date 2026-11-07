@@ -63,11 +63,6 @@ fun LocalSchoolConnectionPanel(
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by dao.observe().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("三个平台 · 本机读取", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
-        Text("下方是 App 内入口。学校的正式登录页仍属于学校；本人登录并读取当前可见列表后，记录仅保存在此设备。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
@@ -78,24 +73,21 @@ fun LocalSchoolConnectionPanel(
             val prioritized = if (justImported == null) list else
                 list.filter { it.kind == justImported.kind } +
                     list.filter { it.kind != justImported.kind }
-            var expanded by rememberSaveable(provider, recentImport?.serial) {
+            var platformOpen by rememberSaveable(provider, recentImport?.serial) {
+                mutableStateOf(justImported != null)
+            }
+            var allRecordsExpanded by rememberSaveable(provider, recentImport?.serial) {
                 mutableStateOf(false)
             }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            XiaoxuExpandableGlassRow(
+                title = name,
+                subtitle = if (provider == "ncwu") "课表在课表页查看"
+                    else if (list.isEmpty()) "暂无本机读取记录"
+                    else "已保存 ${list.size} 条本机记录",
+                expanded = platformOpen,
+                onToggle = { platformOpen = !platformOpen }
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(name, fontWeight = FontWeight.SemiBold)
-                        Text(if (provider == "ncwu") "专用课表导入 · 课表页查看"
-                             else if (list.isEmpty()) "暂无本机读取记录"
-                             else "已保存 " + list.size + " 条",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(when (provider) {
                         "chaoxing" -> "本人课程、作业列表 · 读取后在任务页查看"
                         "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
@@ -138,7 +130,7 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
-                    prioritized.take(if (expanded) prioritized.size
+                    prioritized.take(if (allRecordsExpanded) prioritized.size
                         else if (justImported != null) 12 else 3)
                         .forEach { item ->
                             Text(kindLabel(item.kind) + " · " + item.title,
@@ -146,7 +138,7 @@ fun LocalSchoolConnectionPanel(
                                 style = MaterialTheme.typography.bodySmall)
                             if (item.details.isNotBlank()) Text(
                                 item.details,
-                                maxLines = if (expanded || provider == "second_class" && item.kind == "credits") 8 else 2,
+                                maxLines = if (allRecordsExpanded || provider == "second_class" && item.kind == "credits") 8 else 2,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -159,8 +151,8 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     if (list.size > (if (justImported != null) 12 else 3)) {
-                        TextButton(onClick = { expanded = !expanded }) {
-                            Text(if (expanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
+                        TextButton(onClick = { allRecordsExpanded = !allRecordsExpanded }) {
+                            Text(if (allRecordsExpanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
                         }
                     }
                 }
