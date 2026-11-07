@@ -948,6 +948,16 @@ assert.match(noticeDetailSource, /text = notice\.title/,
   '官方公告标题仍来自真实读取记录');
 assert.doesNotMatch(noticeDetailSource, /background\(XiaoxuPalette\.BrandSoft\)/,
   '官方公告玻璃抽屉不再额外嵌套实心标题卡片');
+assert.match(designSystem, /internal fun XiaoxuDialogPrimaryButton\(/,
+  '弹窗主按钮必须由统一设计系统维护');
+assert.match(designSystem, /XiaoxuDialogPrimaryButton\(onClick = onDismiss\)/,
+  '完成按钮必须复用统一胶囊主按钮');
+assert.match(noticeDetailSource, /XiaoxuDialogPrimaryButton\(/,
+  '官网原文按钮必须复用完成按钮的胶囊组件');
+assert.match(noticeDetailSource, /onClick = \{ openArticle\(notice\.url\) \}/,
+  '官网链接跳转行为必须保留');
+assert.doesNotMatch(noticeDetailSource, /RoundedCornerShape\(14\.dp\)/,
+  '公告不得恢复旧 14dp 按钮圆角');
 const secondaryActionSource = panels.slice(panels.indexOf('private fun SecondaryAction('));
 assert.match(secondaryActionSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
   '我的连接次要操作统一玻璃描边而非旧1dp灰色硬边');

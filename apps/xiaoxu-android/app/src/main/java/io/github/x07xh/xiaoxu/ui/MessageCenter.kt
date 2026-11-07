@@ -788,31 +788,17 @@ internal fun NoticeDetailSheet(
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(XiaoxuPalette.Brand)
-                .clickable(onClick = { openArticle(notice.url) }, role = Role.Button)
-                .semantics { contentDescription = "在官网查看原文" },
-            contentAlignment = Alignment.Center
+        XiaoxuDialogPrimaryButton(
+            onClick = { openArticle(notice.url) },
+            modifier = Modifier.semantics { contentDescription = "在官网查看原文" }
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.OpenInNew,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp),
-                    tint = Color.White
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "在官网查看原文",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Icon(
+                Icons.AutoMirrored.Outlined.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.size(17.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("在官网查看原文")
         }
     }
 }

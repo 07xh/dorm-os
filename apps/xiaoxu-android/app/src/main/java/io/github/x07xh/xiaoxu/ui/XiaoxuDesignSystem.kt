@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -738,15 +739,29 @@ fun XiaoxuGlassDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
             )
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                shape = RoundedCornerShape(999.dp)
-            ) {
+            XiaoxuDialogPrimaryButton(onClick = onDismiss) {
                 Text(dismissLabel)
             }
         }
     }
+}
+
+/**
+ * 唯一的弹窗主按钮外观：原文链接与完成操作共用 Material3
+ * 胶囊按钮的尺寸、圆角、配色和触控反馈。
+ */
+@Composable
+internal fun XiaoxuDialogPrimaryButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
+        shape = RoundedCornerShape(999.dp),
+        content = content
+    )
 }
 
 /**
