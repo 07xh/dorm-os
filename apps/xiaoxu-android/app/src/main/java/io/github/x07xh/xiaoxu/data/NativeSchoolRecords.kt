@@ -33,7 +33,8 @@ interface NativeSchoolRecordDao {
         scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>,
         catalogEmpty: List<NativeSchoolRecord> = emptyList(),
         catalogActivities: List<NativeSchoolRecord> = emptyList(),
-        accountHash: String? = null, expectedBinding: String? = null
+        accountHash: String? = null, expectedBinding: String? = null,
+        catalogVerified: Boolean = true
     ) {
         require(scores.isNotEmpty() && scores.size <= 50)
         require(scores.all { it.provider == "second_class" && it.kind == "credits" })
@@ -61,6 +62,9 @@ interface NativeSchoolRecordDao {
         // Clear an earlier owner's empty snapshot on successful account switch,
         // even when the current catalog is unavailable or nonempty/unverified.
         require(catalogEmpty.size in 0..3 && catalogActivities.size <= 120)
+        // Failed/unknown catalog responses may update verified personal scores,
+        // but cannot carry newly inferred catalog records.
+        require(catalogVerified || (catalogEmpty.isEmpty() && catalogActivities.isEmpty()))
         require(catalogEmpty.all {
             it.provider == "second_class" && it.kind == "catalog_empty" &&
                 it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == scores.first().capturedAt
@@ -77,13 +81,24 @@ interface NativeSchoolRecordDao {
         require(catalogActivities.none { row ->
             catalogEmpty.any { zero -> row.details.startsWith("筛选：${zero.title}\n") }
         })
-        deleteKind("second_class", "catalog_empty")
-        deleteKind("second_class", "catalog_activity")
+        // Keep the prior catalog only when its persisted binding proves it
+        // belongs to this same owner. A new/changed account always clears it.
+        // Retained catalog rows keep their original capture timestamps, so UI
+        // cannot misrepresent this attempt as a freshly verified catalog read.
+        val preserveCatalog = !catalogVerified && accountHash != null &&
+            bindings.size == 1 && bindings.single().details == accountHash &&
+            bindings.single().sourceHost == "dekt.ncwu.edu.cn" &&
+            bindings.single().capturedAt == saved
+        if (!preserveCatalog) {
+            deleteKind("second_class", "catalog_empty")
+            deleteKind("second_class", "catalog_activity")
+        }
         deleteKind("second_class", "credits")
         deleteKind("second_class", "activity")
         deleteKind("second_class", "activity_summary")
         deleteKind("second_class", "account_binding")
-        insertAll(scores + activities + catalogEmpty + catalogActivities)
+        val catalogSnapshot = if (catalogVerified) catalogEmpty + catalogActivities else emptyList()
+        insertAll(scores + activities + catalogSnapshot)
         if (accountHash != null) insertAll(listOf(NativeSchoolRecord(
             "second_class", "account_binding", "current", "", accountHash,
             "dekt.ncwu.edu.cn", capturedAt)))
