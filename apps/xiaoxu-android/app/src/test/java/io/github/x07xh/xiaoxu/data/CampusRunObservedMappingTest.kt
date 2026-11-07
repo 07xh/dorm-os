@@ -80,12 +80,19 @@ class CampusRunObservedMappingTest {
     }
 
     @Test fun opaqueEnvelopeIsOnlyShapeNotADecryptedBusinessResponse() {
+        val cipherB64 = java.util.Base64.getEncoder()
+            .encodeToString(ByteArray(16) { 42.toByte() })
+        val signatureB64 = java.util.Base64.getEncoder()
+            .encodeToString(ByteArray(128) { 7.toByte() })
         val shape = inspectCampusRunOpaqueEnvelope(
-            "{\"r\":\"encrypted-content\",\"s\":\"opaque\",\"v\":3}"
+            "{\"r\":\"$cipherB64\",\"s\":\"$signatureB64\",\"v\":3}"
         )
         assertEquals(3, shape.responseVersion)
-        assertEquals(17, shape.rCharacters)
-        assertEquals(6, shape.sCharacters)
+        assertEquals(cipherB64.length, shape.rCharacters)
+        assertEquals(signatureB64.length, shape.sCharacters)
+        assertEquals(16, shape.rDecodedBytes)
+        assertEquals(128, shape.sDecodedBytes)
+        assertTrue(shape.rBlockAligned16)
         rejects { inspectCampusRunOpaqueEnvelope("{\"r\":{},\"s\":\"a\",\"v\":1}") }
         rejects { inspectCampusRunOpaqueEnvelope("{\"r\":\"a\",\"s\":\"b\"}") }
         rejects { inspectCampusRunOpaqueEnvelope("{\"r\":\"a\",\"s\":\"b\",\"v\":1,\"data\":[]}") }
