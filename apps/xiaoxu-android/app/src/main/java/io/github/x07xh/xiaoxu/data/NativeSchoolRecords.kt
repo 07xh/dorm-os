@@ -71,11 +71,11 @@ interface NativeSchoolRecordDao {
         require(catalogActivities.all {
             it.provider == "second_class" && it.kind == "catalog_activity" &&
                 it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == capturedAt &&
-                knownFilters.any { filter -> it.details.startsWith("筛选：$filter\\n") }
+                knownFilters.any { filter -> it.details.startsWith("筛选：$filter\n") }
         })
         require(catalogActivities.map { it.fingerprint }.distinct().size == catalogActivities.size)
         require(catalogActivities.none { row ->
-            catalogEmpty.any { zero -> row.details.startsWith("筛选：${zero.title}\\n") }
+            catalogEmpty.any { zero -> row.details.startsWith("筛选：${zero.title}\n") }
         })
         deleteKind("second_class", "catalog_empty")
         deleteKind("second_class", "catalog_activity")
