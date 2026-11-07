@@ -139,17 +139,18 @@ internal fun parseWorkspaceDue(value: String?): LocalDate? {
  * unverified IDs cannot decide which personal task record is canonical.
  */
 internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<CloudTask> {
-    val trustedIds = cloud.asSequence().filter {
-        trustedChaoxingPlatformStatus(it.provider,it.sourceExternalId,it.officialStatus) != null
-    }.mapNotNull { it.sourceExternalId }.toSet()
-    val shownOfficialIds = mutableSetOf<String>()
+    // Only one independently verified source row is a safe canonical record.
+    // If two trusted rows disagree or duplicate, keep ALL evidence visible
+    // instead of guessing which row to hide.
+    val verified = cloud.filter {
+        trustedChaoxingPlatformStatus(it.provider, it.sourceExternalId, it.officialStatus) != null
+    }.groupBy { it.sourceExternalId }
+    val canonical = verified.filterValues { it.size == 1 }
+        .mapNotNull { (key, rows) -> key?.let { it to rows.single().id } }.toMap()
     return cloud.filter { row ->
         val sourceId = row.sourceExternalId
-        if (row.provider != "chaoxing" || sourceId == null ||
-            sourceId !in trustedIds) true
-        else trustedChaoxingPlatformStatus(
-            row.provider, sourceId, row.officialStatus
-        ) != null && shownOfficialIds.add(sourceId)
+        row.provider != "chaoxing" || sourceId == null ||
+            canonical[sourceId]?.let { it == row.id } != false
     }
 }
 
