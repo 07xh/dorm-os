@@ -1414,7 +1414,11 @@ assert.match(localNative, /replaceKind\(provider, kind, accepted\)/);
 assert.match(localNative, /LocalTaskDatabase\.open\(applicationContext\)/);
 assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
-assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
+assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 200\)/,
+  'Chaoxing visible-page append must match the new 200-row reader limit');
+assert.match(nativeRecords, /val pageLimit = if \(provider == "chaoxing"\) 200 else 120/,
+  'Non-Chaoxing local readers must retain their original 120-row bound');
+assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= pageLimit\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
 assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
