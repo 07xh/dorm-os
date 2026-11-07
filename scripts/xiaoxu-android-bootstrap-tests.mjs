@@ -192,8 +192,8 @@ const cloud = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu
 const taskUpdateRoute = read('functions/api/v1/assignments/[id].js');
 assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
   'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
-assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
-  '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
+assert.match(taskUpdateRoute, /keys!=='localStatus,revision'&&keys!=='personalTargetAt,revision'/,
+  'Android POST 只允许本人完成状态或个人计划时间，禁止改写来源字段');
 const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
@@ -247,10 +247,19 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao,/);
+assert.match(workspace, /TaskPersonalEditSheet\(/, '本机与已审核微信任务复用唯一编辑弹层');
+assert.match(workspace, /editingTaskKey = selectedTask.key/,
+  '任务详情编辑直接打开现有统一编辑器，不跳转重复任务页');
+
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
+assert.match(localEditorSource, /internal fun TaskPersonalEditSheet\(/);
+assert.match(localEditorSource, /dao\.updateDetails\(localTask\.id, title\.trim\(\), source, date\)/);
+assert.match(localEditorSource, /client\.setWechatPersonalPlanDate\(/);
+assert.doesNotMatch(localEditorSource, /internal fun LocalTaskEditSheet\(/,
+  '不得同时保留另一套本机编辑浮层');
 assert.match(localEditorSource, /XiaoxuCard\(/,
   '本机任务编辑与列表必须使用唯一设计系统玻璃卡片');
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
@@ -2098,7 +2107,7 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
+assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao,/,
   '本机任务只在管理展开时展示真实 Room 编辑器');
 assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
   '关闭任务管理也必须隐藏云端新建表单');
