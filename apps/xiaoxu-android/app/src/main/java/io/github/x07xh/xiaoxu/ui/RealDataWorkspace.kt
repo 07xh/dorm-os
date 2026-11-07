@@ -94,6 +94,7 @@ import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
+import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
@@ -156,8 +157,22 @@ internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<
     }
 }
 
-internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask>): List<WorkspaceTask> =
+internal fun combineWorkspaceTasks(
+    local: List<LocalTask>, cloud: List<CloudTask>,
+    native: List<NativeSchoolRecord> = emptyList()
+): List<WorkspaceTask> =
     buildList {
+        // An official work tuple, not a title, allows local WebView evidence
+        // to appear in the SAME task list without duplicating cloud records.
+        val localEvidence = native.mapNotNull { record ->
+            val id = nativeChaoxingWorkSourceId(record)
+            val status = nativeChaoxingVisibleStatus(record)
+            if (id != null && status in setOf("todo", "returned", "submitted", "graded"))
+                id to record else null
+        }.groupBy({ it.first }, { it.second })
+            .mapValues { (_, records) -> records.maxByOrNull { it.capturedAt }!! }
+        val cloudIds = cloud.filter { it.provider == "chaoxing" }
+            .mapNotNull { it.sourceExternalId }.toSet()
         local.forEach { task ->
             val source = when (task.source) {
                 "chaoxing" -> "本人标注学习通"
@@ -177,15 +192,32 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
             }
-            add(WorkspaceTask("cloud:" + task.id, task.title, source,
+            val trustedStatus = trustedChaoxingPlatformStatus(
+                task.provider, task.sourceExternalId, task.officialStatus)
+            val localStatus = localEvidence[task.sourceExternalId]
+                ?.let(::nativeChaoxingVisibleStatus)
+            // Only a newer owner-visible completed status may promote a
+            // missing/old pending label for display. Never override a returned
+            // official work or mutate D1/Room personal completion.
+            val fromLocal = trustedStatus !in setOf("submitted", "graded", "returned") &&
+                localStatus in setOf("submitted", "graded")
+            val visibleStatus = if (fromLocal) localStatus else trustedStatus
+            add(WorkspaceTask("cloud:" + task.id, task.title,
+                if (fromLocal) "$source · 本机官网已完成" else source,
                 task.status == "done", parseWorkspaceDue(task.due),
-                "云端记录，需核对来源", "cloud",
+                if (fromLocal) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
                 task.revision, task.provider, task.links,
-                task.sourceExternalId,
-                trustedChaoxingPlatformStatus(
-                    task.provider, task.sourceExternalId, task.officialStatus
-                )))
+                task.sourceExternalId, visibleStatus))
+        }
+        localEvidence.filterKeys { it !in cloudIds }.forEach { (id, record) ->
+            val status = nativeChaoxingVisibleStatus(record)
+            add(WorkspaceTask(
+                "native:" + record.fingerprint, record.title,
+                "学习通 · 本机官网", false, null, "本机官方页面观察",
+                "native", "cloud", provider = "chaoxing",
+                sourceExternalId = id, officialStatus = status
+            ))
         }
     }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -818,19 +850,19 @@ fun RealAcademicTaskHub(
     val context = LocalContext.current
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
-    val allRecords = remember(localTasks, state.tasks) {
-        combineWorkspaceTasks(localTasks, state.tasks)
+    val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
+    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val capturedHomework = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    }
+    val allRecords = remember(localTasks, state.tasks, capturedHomework) {
+        combineWorkspaceTasks(localTasks, state.tasks, capturedHomework)
     }
     val all = remember(allRecords, archivedKeys) {
         visibleWorkspaceTasks(allRecords, archivedKeys)
     }
     val archivedRows = remember(allRecords, archivedKeys) {
         allRecords.filter { it.key in archivedKeys }
-    }
-    val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
-    val capturedHomework = remember(schoolRows) {
-        schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
     val capturedStudyTasks = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "study_task" }
@@ -1731,6 +1763,7 @@ internal fun WorkspaceTaskDetailSheet(
                 when (selectedTask.category) {
                     "wechat" -> "微信任务"
                     "local" -> "本机任务"
+                    "native" -> "本机官网读取"
                     else -> "云端任务"
                 },
                 if (selectedTask.category == "local") XiaoxuTone.Brand else XiaoxuTone.Neutral
@@ -1749,7 +1782,10 @@ internal fun WorkspaceTaskDetailSheet(
         Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
             selectedDue.label, style = MaterialTheme.typography.bodyMedium)
         Text(if (selectedTask.officialStatus != null) {
-            "上次官方同步：" + officialTaskStatusLabel(selectedTask.officialStatus) +
+            (if (selectedTask.storage == "native" ||
+                    selectedTask.dateSource == "本机官方页面观察")
+                "本机官方页面：" else "上次官方同步：") +
+                officialTaskStatusLabel(selectedTask.officialStatus) +
                 " · 与个人完成标记分开"
         } else if (selectedTask.storage == "cloud") {
             if (tasksFresh) "云端任务记录；尚无可核对的学校提交状态"
@@ -1766,7 +1802,7 @@ internal fun WorkspaceTaskDetailSheet(
             ) { Text("打开学习通核对") }
             Text(
                 if (selectedTask.officialStatus != null)
-                    "已关联学习通来源作业 ID。状态以最近一次可信同步为准，刷新后再核对。"
+                    "已关联学习通官方作业 ID。云端与本机状态来源独立，不按标题合并或提交作业。"
                 else "本条记录尚无可关联的官方作业 ID，请在学习通读取本人作业。",
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
@@ -2220,7 +2256,7 @@ private fun SnapshotRow(work: NativeSchoolRecord) {
             }
             if (work.details.isNotBlank()) {
                 Text(
-                    text = work.details,
+                    text = work.details.substringBefore(" · 官方作业身份："),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
