@@ -2,14 +2,9 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,7 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -63,11 +57,6 @@ fun LocalSchoolConnectionPanel(
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by dao.observe().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("三个平台 · 本机读取", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
-        Text("下方是 App 内入口。学校的正式登录页仍属于学校；本人登录并读取当前可见列表后，记录仅保存在此设备。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
@@ -78,24 +67,21 @@ fun LocalSchoolConnectionPanel(
             val prioritized = if (justImported == null) list else
                 list.filter { it.kind == justImported.kind } +
                     list.filter { it.kind != justImported.kind }
-            var expanded by rememberSaveable(provider, recentImport?.serial) {
+            var platformOpen by rememberSaveable(provider, recentImport?.serial) {
+                mutableStateOf(justImported != null)
+            }
+            var allRecordsExpanded by rememberSaveable(provider, recentImport?.serial) {
                 mutableStateOf(false)
             }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            XiaoxuExpandableGlassRow(
+                title = name,
+                subtitle = if (provider == "ncwu") "课表在课表页查看"
+                    else if (list.isEmpty()) "暂无本机读取记录"
+                    else "已保存 ${list.size} 条本机记录",
+                expanded = platformOpen,
+                onToggle = { platformOpen = !platformOpen }
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(name, fontWeight = FontWeight.SemiBold)
-                        Text(if (provider == "ncwu") "专用课表导入 · 课表页查看"
-                             else if (list.isEmpty()) "暂无本机读取记录"
-                             else "已保存 " + list.size + " 条",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(when (provider) {
                         "chaoxing" -> "本人课程、作业列表 · 读取后在任务页查看"
                         "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
@@ -138,7 +124,7 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
-                    prioritized.take(if (expanded) prioritized.size
+                    prioritized.take(if (allRecordsExpanded) prioritized.size
                         else if (justImported != null) 12 else 3)
                         .forEach { item ->
                             Text(kindLabel(item.kind) + " · " + item.title,
@@ -146,7 +132,7 @@ fun LocalSchoolConnectionPanel(
                                 style = MaterialTheme.typography.bodySmall)
                             if (item.details.isNotBlank()) Text(
                                 item.details,
-                                maxLines = if (expanded || provider == "second_class" && item.kind == "credits") 8 else 2,
+                                maxLines = if (allRecordsExpanded || provider == "second_class" && item.kind == "credits") 8 else 2,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -159,8 +145,8 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     if (list.size > (if (justImported != null) 12 else 3)) {
-                        TextButton(onClick = { expanded = !expanded }) {
-                            Text(if (expanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
+                        TextButton(onClick = { allRecordsExpanded = !allRecordsExpanded }) {
+                            Text(if (allRecordsExpanded) "收起记录" else "查看本机全部 ${list.size} 条记录")
                         }
                     }
                 }
@@ -179,29 +165,31 @@ fun LocalSchoolRecordSection(types: Set<String>) {
     val all by dao.observe().collectAsState(initial = emptyList())
     val rows = all.filter { it.kind in types }
     if (rows.isEmpty()) return
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    var expanded by rememberSaveable(types.sorted().joinToString("|")) {
+        mutableStateOf(false)
+    }
+    XiaoxuExpandableGlassRow(
+        title = "手机本机读取",
+        subtitle = "已保存 ${rows.size} 条本机记录",
+        expanded = expanded,
+        onToggle = { expanded = !expanded }
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("手机本机读取", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold)
-            Text("来自本人在官方网页明确触发的只读导入；不是实时官方接口同步。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall)
-            rows.take(12).forEach { record: NativeSchoolRecord ->
-                Text(schoolLabel(record.provider) + " · " + kindLabel(record.kind) +
-                    " · " + record.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium)
-                if (record.details.isNotBlank())
-                    Text(record.details, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall)
-            }
-            if (rows.size > 12) {
-                Text("还有 " + (rows.size - 12) + " 条本机记录，请到「我的」查看各平台。",
+        Text("来自本人在官方网页明确触发的只读导入；不是实时官方接口同步。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall)
+        rows.take(12).forEach { record: NativeSchoolRecord ->
+            Text(schoolLabel(record.provider) + " · " + kindLabel(record.kind) +
+                " · " + record.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium)
+            if (record.details.isNotBlank()) {
+                Text(record.details, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall)
             }
+        }
+        if (rows.size > 12) {
+            Text("还有 " + (rows.size - 12) + " 条本机记录，请到「我的」查看各平台。",
+                style = MaterialTheme.typography.labelSmall)
         }
     }
 }

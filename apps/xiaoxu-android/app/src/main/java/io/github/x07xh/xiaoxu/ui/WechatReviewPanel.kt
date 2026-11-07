@@ -231,7 +231,8 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
         ModalBottomSheet(
             onDismissRequest = { if (!reviewing) selectedId = null },
             sheetState = sheet,
-            containerColor = XiaoxuPalette.Surface
+            containerColor = XiaoxuPalette.Surface,
+            scrimColor = XiaoxuPalette.ModalScrim
         ) {
             Column(
                 modifier = Modifier
@@ -279,6 +280,8 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                     style = MaterialTheme.typography.bodyMedium,
                     color = XiaoxuPalette.Ink
                 )
+                // Links belong to the same owner-scoped candidate, not to a new page.
+                WechatTaskLinkActions(selected.links)
                 HorizontalDivider(color = XiaoxuPalette.Line)
                 Text(
                     text = "候选摘要 · 请核对原消息后确认",

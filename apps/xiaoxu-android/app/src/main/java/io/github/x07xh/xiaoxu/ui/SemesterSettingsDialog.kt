@@ -1,0 +1,540 @@
+package io.github.x07xh.xiaoxu.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.temporal.TemporalAdjusters
+import java.time.format.DateTimeFormatter
+
+/*
+ * Settings and course detail follow the supplied timetable reference.
+ * The lesson grid, weekday selector and course colors are deliberately untouched.
+ * Unknown school dates/times remain unset: never insert demo timetable data.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SemesterSettingsPage(
+    current: SemesterCalendar?,
+    initialViewMode: String,
+    initialSections: Int,
+    onAddCourse: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
+    onDismiss: () -> Unit,
+    onSave: (SemesterCalendar?, String, Int) -> Unit
+) {
+    val context = LocalContext.current
+    var monday by rememberSaveable { mutableStateOf(current?.firstMonday?.toString().orEmpty()) }
+    var weeks by rememberSaveable { mutableStateOf(current?.totalWeeks?.toString().orEmpty()) }
+    var times by rememberSaveable { mutableStateOf(current?.editableTimes().orEmpty()) }
+    var viewMode by rememberSaveable { mutableStateOf(initialViewMode) }
+    var sections by rememberSaveable { mutableStateOf(initialSections.coerceIn(1, 24)) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    val errorField = semesterSettingsErrorField(error)
+    var sectionsMenu by remember { mutableStateOf(false) }
+    var sectionTimesExpanded by rememberSaveable { mutableStateOf(false) }
+    var weeksMenu by remember { mutableStateOf(false) }
+    var dateOpen by remember { mutableStateOf(false) }
+    var editingSection by remember { mutableIntStateOf(0) }
+    var editingEnd by remember { mutableStateOf(false) }
+    var stagedStart by remember { mutableStateOf(LocalTime.of(8, 0)) }
+    var timeError by remember { mutableStateOf<String?>(null) }
+
+    fun editSectionTime(index: Int) {
+        editingSection = index
+        editingEnd = false
+        stagedStart = findSectionTime(times, index)?.first ?: LocalTime.of(8, 0)
+        timeError = null
+    }
+
+    // Routed content in the existing Activity window, not a full-screen Dialog.
+    Column(
+            modifier = Modifier.fillMaxSize()
+                .background(XiaoxuPalette.PageGradient)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp)
+                .padding(bottom = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                XiaoxuSoftIconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(46.dp),
+                    backgroundColor = Color.White.copy(alpha = 0.65f)
+                ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课表设置") }
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text("课表设置", fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
+                        color = XiaoxuPalette.Ink)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(XiaoxuPalette.Brand))
+                        Spacer(Modifier.width(7.dp))
+                        Text("学期起始与节次时间", style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.Ink2)
+                    }
+                }
+                TextButton(onClick = {
+                    try {
+                        // The view preference is valid even before any semester is configured.
+                        val config = if (monday.isBlank() && weeks.isBlank() && times.isBlank())
+                            null else SemesterCalendar.parse(monday, weeks, times)
+                        onSave(config, viewMode, sections)
+                    } catch (failure: IllegalArgumentException) {
+                        error = failure.message ?: "课表设置无效"
+                    }
+                }) { Text("完成", color = XiaoxuPalette.Brand, fontSize = 16.sp) }
+            }
+
+            // Save is in the header. Validation feedback must appear beside it,
+            // rather than below a long list of period rows.
+            if (error != null) {
+                Text(
+                    text = error.orEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+
+            // Use SleepDown's compact grouped hierarchy without adding mock
+            // timetable features or replacing the existing Xiaoxu controls.
+            SettingsGroupTitle("学期与显示")
+            XiaoxuGroupSurface {
+                SettingsActionRow(
+                    title = "学期周数",
+                    value = if (weeks.isBlank()) "设置周数" else weeks + " 周",
+                    hasError = errorField == "weeks",
+                    onClick = { weeksMenu = true }
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                SettingsActionRow(
+                    title = "第一周开始日期",
+                    subtitle = "按所在周的周一计算",
+                    value = runCatching {
+                        LocalDate.parse(monday).format(
+                            DateTimeFormatter.ofPattern("yyyy年M月d日"))
+                    }.getOrNull() ?: "选择日期",
+                    icon = "date",
+                    hasError = errorField == "date",
+                    onClick = { dateOpen = true }
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                // Keep the label and its choice aligned with other settings rows.
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val controlWidth = ((maxWidth - 32.dp) * 0.56f).coerceAtMost(210.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("默认课表视图",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 1)
+                        Spacer(Modifier.width(8.dp))
+                        XiaoxuSegmentedControl(
+                            options = listOf(
+                                XiaoxuSegmentOption("week", "周视图"),
+                                XiaoxuSegmentOption("day", "日视图")
+                            ),
+                            selectedKey = viewMode,
+                            onSelected = { viewMode = it },
+                            modifier = Modifier.width(controlWidth),
+                            fillWidth = false,
+                            compact = true
+                        )
+                    }
+                }
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                SettingsActionRow(
+                    title = "每天节数",
+                    value = sections.toString() + " 节",
+                    icon = "time",
+                    onClick = { sectionsMenu = true }
+                )
+            }
+
+            SettingsGroupTitle("课程与数据")
+            XiaoxuGroupSurface {
+                SettingsActionRow(title = "添加课程", onClick = onAddCourse)
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                SettingsActionRow(
+                    title = "导入课表",
+                    subtitle = "从 .ics 或 .json 文件导入",
+                    onClick = onImport
+                )
+                HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                SettingsActionRow(title = "导出备份", onClick = onExport)
+            }
+
+            SettingsGroupTitle("本课表作息")
+            XiaoxuGroupSurface {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                        .clickable { sectionTimesExpanded = !sectionTimesExpanded }
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("节次时间", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
+                    Text(if (sectionTimesExpanded) "收起" else "$sections 节 · 查看与编辑",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Ink2)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                        tint = XiaoxuPalette.Ink3,
+                        modifier = Modifier.size(20.dp).rotate(if (sectionTimesExpanded) 90f else 0f))
+                }
+                if (sectionTimesExpanded) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp),
+                        color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                    repeat(sections) { zeroBased ->
+                    val index = zeroBased + 1
+                    val pair = findSectionTime(times, index)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 55.dp)
+                            .clickable { editSectionTime(index) }
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("第 " + index + " 节", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
+                        Text(
+                            pair?.let { it.first.toString() + " - " + it.second.toString() }
+                                ?: "设置时间",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (pair == null) XiaoxuPalette.Brand else XiaoxuPalette.Ink2
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Outlined.ChevronRight, contentDescription = null,
+                            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    if (index < sections) HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = XiaoxuPalette.Line, thickness = 0.6.dp
+                    )
+                    }
+                }
+            }
+        }
+
+    // Keep the existing date chooser; use a numeric wheel for lesson times.
+    // Only the top-right 完成 persists the validated semester settings.
+    if (dateOpen) {
+        val initialDay = runCatching { LocalDate.parse(monday) }.getOrNull() ?: LocalDate.now()
+        val dateState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDay.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { dateOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dateState.selectedDateMillis?.let { epoch ->
+                        monday = LocalDate.ofEpochDay(epoch / 86_400_000L)
+                            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                            .toString()
+                        error = null
+                    }
+                    dateOpen = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dateOpen = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = dateState, showModeToggle = false)
+        }
+    }
+
+    if (editingSection > 0) {
+        // The user's reference uses numeric scrolling wheels, not a clock dial.
+        // Keep the original two-step start/end workflow and local-only draft.
+        androidx.compose.runtime.key(editingSection, editingEnd) {
+            val existing = findSectionTime(times, editingSection)
+            val initial = if (editingEnd) existing?.second ?: stagedStart.plusMinutes(45)
+                else stagedStart
+            var pickedHour by remember { mutableIntStateOf(initial.hour) }
+            var pickedMinute by remember { mutableIntStateOf(initial.minute) }
+            val shape = RoundedCornerShape(30.dp)
+            Dialog(
+                onDismissRequest = { editingSection = 0 },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.91f).widthIn(max = 440.dp)
+                        .clip(shape).background(XiaoxuPalette.PageGradient)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
+                        .padding(horizontal = 20.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        "第 " + editingSection + " 节" +
+                            if (editingEnd) " · 结束时间" else " · 开始时间",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink
+                    )
+                    Text(
+                        pickedHour.toString().padStart(2, '0') + ":" +
+                            pickedMinute.toString().padStart(2, '0'),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontSize = 38.sp,
+                        color = XiaoxuPalette.BrandDeep
+                    )
+                    XiaoxuTimeWheel(
+                        hour = pickedHour,
+                        minute = pickedMinute,
+                        onHourChanged = { pickedHour = it; timeError = null },
+                        onMinuteChanged = { pickedMinute = it; timeError = null }
+                    )
+                    if (timeError != null) {
+                        Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { editingSection = 0 },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("取消", color = XiaoxuPalette.Ink) }
+                        Button(
+                            onClick = {
+                                val chosen = LocalTime.of(pickedHour, pickedMinute)
+                                if (!editingEnd) {
+                                    stagedStart = chosen
+                                    editingEnd = true
+                                    timeError = null
+                                } else if (!chosen.isAfter(stagedStart)) {
+                                    timeError = "结束时间应晚于开始时间"
+                                } else {
+                                    times = replaceSectionTime(
+                                        times, editingSection, stagedStart, chosen
+                                    )
+                                    error = null
+                                    timeError = null
+                                    editingSection = 0
+                                }
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text(if (editingEnd) "保存时间" else "下一步") }
+                    }
+                }
+            }
+        }
+    }
+
+    // Week count and section count share the same mature native wheel as
+    // class-time editing. Remove the older eager 35-row scrolling dialog.
+    if (sectionsMenu || weeksMenu) {
+        val choosingSections = sectionsMenu
+        val options = if (choosingSections)
+            (listOf(8, 10, 12, 14, 16, 18, 20, 24) + sections).distinct().sorted()
+        else (1..35).toList()
+        val initial = if (choosingSections) sections
+            else weeks.toIntOrNull()?.takeIf { it in 1..35 } ?: options.first()
+        androidx.compose.runtime.key(choosingSections) {
+            var selectedNumber by remember { mutableIntStateOf(initial) }
+            val closeSelector = { sectionsMenu = false; weeksMenu = false }
+            val shape = RoundedCornerShape(30.dp)
+            Dialog(
+                onDismissRequest = closeSelector,
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 440.dp)
+                        .clip(shape).background(XiaoxuPalette.PageGradient)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
+                        .padding(horizontal = 20.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        if (choosingSections) "每天节数" else "学期周数",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink
+                    )
+                    XiaoxuNumberWheel(
+                        options = options,
+                        selected = selectedNumber,
+                        label = if (choosingSections) "每天节数" else "学期周数",
+                        onSelected = { selectedNumber = it },
+                        modifier = Modifier.width(150.dp),
+                        cyclic = false
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = closeSelector,
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("取消", color = XiaoxuPalette.Ink) }
+                        Button(
+                            onClick = {
+                                if (choosingSections) sections = selectedNumber
+                                else weeks = selectedNumber.toString()
+                                error = null
+                                closeSelector()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("确定") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/** Maps the existing parser's field-specific validation to the corresponding row. */
+private fun semesterSettingsErrorField(message: String?): String = when {
+    message == null -> ""
+    "周数" in message -> "weeks"
+    "周一" in message || "日期" in message -> "date"
+    "时间" in message || "节次" in message -> "times"
+    else -> ""
+}
+
+@Composable
+private fun SettingsGroupTitle(title: String) {
+    Text(title, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 7.dp),
+        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+}
+
+@Composable
+private fun SettingsActionRow(
+    title: String,
+    subtitle: String? = null,
+    value: String? = null,
+    icon: String? = null,
+    hasError: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 55.dp else 66.dp)
+            .background(if (hasError) MaterialTheme.colorScheme.error.copy(alpha = 0.07f)
+                else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Box(
+                modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
+                    .background(XiaoxuPalette.BrandSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(if (icon == "date") Icons.Outlined.DateRange else Icons.Outlined.Schedule,
+                    contentDescription = null, modifier = Modifier.size(22.dp),
+                    tint = XiaoxuPalette.BrandDeep)
+            }
+            Spacer(Modifier.width(12.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge,
+                color = if (hasError) MaterialTheme.colorScheme.error else XiaoxuPalette.Ink)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (value != null) {
+            Spacer(Modifier.width(8.dp))
+            Text(value, style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Brand)
+        }
+    }
+}
+
+private fun findSectionTime(raw: String, number: Int): Pair<LocalTime, LocalTime>? {
+    val line = raw.lineSequence().firstOrNull {
+        it.trim().substringBefore(" ").toIntOrNull() == number
+    }?.trim() ?: return null
+    val parts = line.substringAfter(" ", "").split("-")
+    if (parts.size != 2) return null
+    val a = runCatching { LocalTime.parse(parts[0].trim()) }.getOrNull() ?: return null
+    val b = runCatching { LocalTime.parse(parts[1].trim()) }.getOrNull() ?: return null
+    return a to b
+}
+
+private fun replaceSectionTime(raw: String, index: Int, start: LocalTime, end: LocalTime): String {
+    val map = linkedMapOf<Int, String>()
+    raw.lineSequence().filter { it.isNotBlank() }.forEach { line ->
+        val key = line.trim().substringBefore(" ").toIntOrNull()
+        if (key != null) map[key] = line
+    }
+    map[index] = index.toString() + " " + start + "-" + end
+    return map.toSortedMap().values.joinToString("\n")
+}

@@ -48,6 +48,27 @@ internal fun planLocalReminders(tasks: List<LocalTask>, now: ZonedDateTime): Lis
         }
     }
 
+/**
+ * The active reminder date is the only persisted field that affects its jobs.
+ * A full first reconciliation also cancels stale jobs for completed records.
+ * Subsequent Room emissions touch just the affected IDs, including deletions.
+ */
+internal fun changedLocalReminderIds(
+    previous: List<LocalTask>?,
+    current: List<LocalTask>
+): Set<Long> {
+    val currentById = current.asSequence().filter { it.id > 0 }.associateBy { it.id }
+    if (previous == null) return currentById.keys
+
+    val previousById = previous.asSequence().filter { it.id > 0 }.associateBy { it.id }
+    fun activeDue(task: LocalTask?): String? =
+        task?.takeUnless { it.completed }?.due?.takeIf { it.isNotBlank() }
+
+    return (previousById.keys + currentById.keys).filterTo(mutableSetOf()) { id ->
+        activeDue(previousById[id]) != activeDue(currentById[id])
+    }
+}
+
 object LocalDeadlineReminders {
     private const val PREFS = "xiaoxu-local-reminders-v1"
     private const val ENABLED = "enabled"
@@ -64,17 +85,28 @@ object LocalDeadlineReminders {
         if (!value) WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(TAG)
     }
 
-    /** Invoked on every actual Room task update; WorkManager persists jobs through reboot. */
-    fun reconcile(context: Context, tasks: List<LocalTask>, zone: ZoneId = ZoneId.systemDefault()) {
+    /** Reconcile changed Room records; WorkManager persists jobs across reboot. */
+    fun reconcile(
+        context: Context,
+        tasks: List<LocalTask>,
+        zone: ZoneId = ZoneId.systemDefault(),
+        previousTasks: List<LocalTask>? = null
+    ) {
         if (!enabled(context)) return
+        val affectedIds = changedLocalReminderIds(previousTasks, tasks)
+        if (affectedIds.isEmpty()) return
+
         val app = context.applicationContext
         val manager = WorkManager.getInstance(app)
-        val plans = planLocalReminders(tasks, ZonedDateTime.now(zone))
+        val affectedTasks = tasks.filter { it.id in affectedIds }
+        val plans = planLocalReminders(affectedTasks, ZonedDateTime.now(zone))
         val wanted = plans.associateBy { workName(it.taskId, it.phase) }
 
-        tasks.forEach { task ->
+        // IDs no longer in Room are still present in affectedIds, so deleted
+        // tasks' scheduled jobs get cancelled rather than merely expiring later.
+        affectedIds.forEach { taskId ->
             listOf("before", "today").forEach { phase ->
-                val name = workName(task.id, phase)
+                val name = workName(taskId, phase)
                 val plan = wanted[name]
                 if (plan == null) {
                     manager.cancelUniqueWork(name)

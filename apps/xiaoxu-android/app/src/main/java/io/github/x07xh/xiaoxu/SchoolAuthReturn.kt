@@ -13,6 +13,8 @@ import java.security.SecureRandom
  * No student ID, CAS ticket, owner Cookie or school Cookie enters a URL.
  */
 internal class SchoolAuthReturn(context: Context) {
+    // Match the build variant's declared callback host, not a production-only literal.
+    private val expectedReturnHost = context.applicationContext.getString(R.string.school_auth_return_host)
     private val prefs = context.applicationContext.getSharedPreferences(
         "xiaoxu_school_auth_handoff_v1", Context.MODE_PRIVATE
     )
@@ -39,7 +41,7 @@ internal class SchoolAuthReturn(context: Context) {
     }
 
     fun consume(uri: Uri?, ownerBinding: String?): String? {
-        if (uri?.scheme != "xiaoxu" || uri.host != "school-auth-return" ||
+        if (uri?.scheme != "xiaoxu" || uri.host != expectedReturnHost ||
             uri.port != -1 || !uri.path.isNullOrEmpty() || uri.fragment != null ||
             uri.queryParameterNames != setOf("source", "state") ||
             uri.getQueryParameters("source").size != 1 ||

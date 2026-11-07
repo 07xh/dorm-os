@@ -61,12 +61,28 @@ internal fun WeeklyTimetableGrid(
     lessons: List<VerifiedLesson>,
     selectedWeekday: Int? = null,
     onSelectWeekday: ((Int) -> Unit)? = null,
+    dailySections: Int = 12,
     onLessonClick: (VerifiedLesson) -> Unit
 ) {
     val all = remember(lessons) {
         lessons.sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
     }
-    val maxSection = (all.maxOfOrNull { it.endSection } ?: 12).coerceIn(12, 24)
+    val maxSection = maxOf(dailySections.coerceIn(1, 24), all.maxOfOrNull { it.endSection } ?: 0).coerceAtMost(24)
+    // Create an indexed per-slot snapshot once when the imported lessons change.
+    // Previously each rendered grid cell rescanned all lessons, repeatedly during UI recomposition.
+    val occupancy = remember(all, maxSection) {
+        val buckets = Array(8) { Array(maxSection + 1) { mutableListOf<VerifiedLesson>() } }
+        for (lesson in all) {
+            if (lesson.weekday !in 1..7) continue
+            for (section in lesson.startSection.coerceAtLeast(1)..lesson.endSection.coerceAtMost(maxSection)) {
+                buckets[lesson.weekday][section].add(lesson)
+            }
+        }
+        Array(8) { day -> Array(maxSection + 1) { section -> buckets[day][section].toList() } }
+    }
+    val dayCounts = remember(all) { IntArray(8).also { counts ->
+        all.forEach { lesson -> if (lesson.weekday in 1..7) counts[lesson.weekday]++ }
+    } }
     val days = listOf("一", "二", "三", "四", "五", "六", "日")
     var overlapChoices by remember { mutableStateOf<List<VerifiedLesson>>(emptyList()) }
 
@@ -138,7 +154,7 @@ internal fun WeeklyTimetableGrid(
                             .semantics {
                                 contentDescription = "周$day" +
                                     (if (isSelected) "，当前选中" else "") +
-                                    "，${all.count { it.weekday == weekday }} 个课块" +
+                                    "，${dayCounts[weekday]} 个课块" +
                                     (if (onSelectWeekday == null) "" else "，查看当天课程")
                             },
                         contentAlignment = Alignment.Center
@@ -173,9 +189,7 @@ internal fun WeeklyTimetableGrid(
                     Column(Modifier.width(dayWidth)) {
                         var section = 1
                         while (section <= maxSection) {
-                            val available = all.filter {
-                                it.weekday == day && section in it.startSection..it.endSection
-                            }
+                            val available = occupancy[day][section]
                             // Merge only consecutive sections with the EXACT
                             // same course set. Split again at overlaps/boundaries
                             // so the drawing never invents a longer class.
@@ -183,9 +197,7 @@ internal fun WeeklyTimetableGrid(
                             if (available.isNotEmpty()) {
                                 while (section + span <= maxSection) {
                                     val probe = section + span
-                                    val next = all.filter {
-                                        it.weekday == day && probe in it.startSection..it.endSection
-                                    }
+                                    val next = occupancy[day][probe]
                                     if (next != available) break
                                     span++
                                 }
