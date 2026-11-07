@@ -29,8 +29,17 @@ private const val KEY_ALIAS = "xiaoxu_owner_cookie_aes_v1"
 data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?,
-    val revision: Int = -1
+    val revision: Int = -1,
+    val links: List<String> = emptyList()
 )
+
+/** Parse the optional V1 link contract without making unrelated tasks fail. */
+private fun readCloudLinks(row: JSONObject): List<String> {
+    val values = row.optJSONArray("links") ?: return emptyList()
+    val raw = (0 until minOf(values.length(), 3)).mapNotNull { values.opt(it) as? String }
+    return safeCloudLinks(raw)
+}
+
 data class ChaoxingCourse(
     val courseId: String, val classId: String, val cpi: String, val title: String
 ) {
@@ -64,7 +73,8 @@ data class AcademicNotice(
 data class WechatCandidate(
     val id: String, val kind: String, val title: String,
     val excerpt: String?, val chatLabel: String?, val sentAt: String,
-    val duePrecision: String, val dueLocalDate: String?
+    val duePrecision: String, val dueLocalDate: String?,
+    val links: List<String> = emptyList()
 )
 data class PlatformConnection(
     val id: String, val name: String, val status: String,
@@ -398,7 +408,7 @@ class CloudClient(context: Context) {
                             .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
                             o.optString("local_status"), o.optString("kind"), provider, due,
-                            revision))
+                            revision, if (provider == "wechat") readCloudLinks(o) else emptyList()))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
@@ -483,7 +493,8 @@ class CloudClient(context: Context) {
                         .takeIf { it.isNotBlank() && it != "null" }?.take(240)
                     val chat = row.optString("chatLabel")
                         .takeIf { it.isNotBlank() && it != "null" }?.take(80)
-                    add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due))
+                    add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due,
+                        readCloudLinks(row)))
                 }
             }
         } catch (_: Exception) {
