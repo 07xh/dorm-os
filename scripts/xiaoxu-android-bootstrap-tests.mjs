@@ -206,7 +206,8 @@ assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(schedulePanel, /本机导入 · 待本人核对/,
+assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
+  /本机导入 · 待本人核对/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
