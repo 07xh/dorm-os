@@ -1208,16 +1208,18 @@ fun RealAcademicTaskHub(
         // never enters owner-completed task counters or guesses missing dates.
         item {
             TaskGroupHeader(
-                title = "学习通 · 官方作业核验",
+                title = "学习通作业",
                 count = auditSummary.verifiedWorkRows,
-                badge = if (auditSummary.fullyCoveredAndRefreshed)
-                    "全部课程条数已核验" else "覆盖未全部证实",
-                note = when {
-                    state.chaoxingBatchBusy -> "正在逐门读取本人课程的官方状态"
-                    state.chaoxingBatchCheckedAt != null ->
-                        "本次 ${auditSummary.checkedCourses}/${auditSummary.totalCourses} 门课程有结果"
-                    else -> "尚无本次逐门核验结果，不能据此判断作业总数"
+                badge = when {
+                    state.chaoxingBatchBusy -> "读取中"
+                    auditSummary.fullyCoveredAndRefreshed -> "全部课程条数已核验"
+                    state.chaoxingBatchCheckedAt != null -> "部分已读取"
+                    else -> "未读取"
                 },
+                note = if (state.chaoxingBatchCheckedAt != null &&
+                    auditSummary.totalCourses > 0)
+                    "课程 ${auditSummary.checkedCourses}/${auditSummary.totalCourses}"
+                else "",
                 icon = Icons.Outlined.MenuBook,
                 expanded = showOfficialAudit,
                 onClick = { showOfficialAudit = !showOfficialAudit },
@@ -1375,19 +1377,18 @@ fun RealAcademicTaskHub(
             }
         }
         item {
-            XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
-                SectionHeader(
-                    title = "学习通与本机页面快照",
-                    caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
-                    actionLabel = if (showSchoolRecords) "收起" else "展开查看与同步",
-                    onAction = { showSchoolRecords = !showSchoolRecords }
-                )
-            }
+            TaskGroupHeader(
+                title = "本机读取",
+                count = capturedHomework.size,
+                badge = "",
+                note = "",
+                icon = Icons.Outlined.FolderOpen,
+                expanded = showSchoolRecords,
+                onClick = { showSchoolRecords = !showSchoolRecords },
+                showCount = capturedHomework.isNotEmpty()
+            )
         }
         if (showSchoolRecords) {
-        item {
-            HorizontalDivider(Modifier.padding(top = 6.dp))
-        }
         item {
             TaskSectionHeader(
                 title = "学习通 · 本机作业快照",
