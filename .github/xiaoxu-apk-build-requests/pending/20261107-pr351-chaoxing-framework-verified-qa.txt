@@ -1,0 +1,4 @@
+Build request for merged PR #396 inside #351 native UI branch.
+Merge commit: 74feef0ceeced16a0cf87f34cc7b1eccd8bfb903.
+Validate owner trusted source status joins, duplicate legacy import handling, exact source-ID task dedup, native UI navigation and isolated QA package.
+Do not deploy production main. Owner account comparison remains separate.
