@@ -68,6 +68,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
+import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
+import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
 import io.github.x07xh.xiaoxu.data.PlatformConnection
 import kotlinx.coroutines.launch
 
@@ -477,9 +479,18 @@ private fun PlatformStatusCard(
         platform?.sessionState == "active"
     val refreshing = state.schoolSyncBusyProvider == id ||
         (id == "chaoxing" && state.chaoxingBusy)
+    // Authorization to read courses is not proof of complete homework coverage.
+    val workAudit = if (id == "chaoxing" &&
+        state.chaoxingBatchCheckedAt != null) state.chaoxingBatchAudit else emptyList()
+    val unresolvedWork = workAudit.filter {
+        it.coverage != ChaoxingCourseCoverage.COUNT_VERIFIED
+    }
+    val workIncomplete = unresolvedWork.isNotEmpty()
+    val activeWorkIncomplete = workIncomplete && platform?.sessionState == "active"
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
         !state.connectionsFresh -> XiaoxuTone.Warning
+        activeWorkIncomplete -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
     }
@@ -523,6 +534,7 @@ private fun PlatformStatusCard(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
+                        activeWorkIncomplete -> "本人授权有效；部分课程作业仍待核验"
                         else -> connectionStatusLabel(platform)
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -536,6 +548,7 @@ private fun PlatformStatusCard(
                 text = when {
                     !state.authenticated -> "云端未连接"
                     !state.connectionsFresh -> "状态待刷新"
+                    activeWorkIncomplete -> "作业部分已读取"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
                     platform?.sessionState == "active" -> "尚未核验数据"
@@ -699,8 +712,41 @@ private fun PlatformStatusCard(
                 Text(
                     text = result,
                     style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3
+                    color = if (workIncomplete) XiaoxuPalette.Warning else XiaoxuPalette.Ink3
                 )
+            }
+            // Keep the failure visible in Data Connections itself. Previously
+            // only the separate Task page exposed the per-course evidence.
+            if (workAudit.isNotEmpty()) {
+                val summary = summarizeChaoxingAudit(
+                    workAudit, state.chaoxingCourses.size, state.chaoxingBatchTaskLedgerFresh)
+                Text(
+                    "本次可信作业：已提交 ${summary.statuses["submitted"] ?: 0}、" +
+                        "已批阅 ${summary.statuses["graded"] ?: 0}、" +
+                        "未提交 ${summary.statuses["todo"] ?: 0}、" +
+                        "退回 ${summary.statuses["returned"] ?: 0}、" +
+                        "未知 ${summary.statuses["unknown"] ?: 0}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2
+                )
+                unresolvedWork.take(8).forEach { course ->
+                    val detail = when (course.coverage) {
+                        ChaoxingCourseCoverage.FAILED ->
+                            "读取失败 · " + (course.failure?.label ?: "未获得可核实的故障类型")
+                        ChaoxingCourseCoverage.NOT_CHECKED -> "尚未读取，不能判定为已提交"
+                        ChaoxingCourseCoverage.LIST_ONLY -> "状态已读取，作业总量尚未核验"
+                        ChaoxingCourseCoverage.COUNT_VERIFIED -> "已核验"
+                    }
+                    Text(
+                        "${course.courseTitle}：$detail",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Warning
+                    )
+                }
+                if (unresolvedWork.size > 8) {
+                    Text("另有 ${unresolvedWork.size - 8} 门待核验；在任务页查看全部。",
+                        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3)
+                }
             }
             state.chaoxingError?.let {
                 Text(
