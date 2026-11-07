@@ -77,4 +77,31 @@ class ChaoxingBatchAuditTest {
             throw AssertionError("unverified school row must not enter audit")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun failedCourseExplainsCauseWithoutClaimingOfficialCompletion() {
+        assertEquals(ChaoxingReadIssue.LIST_INCOMPLETE,
+            classifyChaoxingReadIssue("work_list_incomplete", 422))
+        assertEquals(ChaoxingReadIssue.AUTHORIZATION,
+            classifyChaoxingReadIssue("session_expired", 409))
+        assertEquals(ChaoxingReadIssue.STORAGE,
+            classifyChaoxingReadIssue("database_unavailable", 503))
+        assertEquals(ChaoxingReadIssue.UPSTREAM,
+            classifyChaoxingReadIssue("upstream_unavailable", 502))
+        assertEquals(ChaoxingReadIssue.INVALID_RESPONSE,
+            classifyChaoxingReadIssue("unrecognized-private-detail", 422))
+        val failed = ChaoxingCourseAudit("102:1:2", "工程制图",
+            ChaoxingCourseCoverage.FAILED, emptyList(),
+            ChaoxingReadIssue.LIST_INCOMPLETE)
+        val report = summarizeChaoxingAudit(listOf(failed), 1, true)
+        assertEquals(1, report.failedCourses)
+        assertEquals(0, report.verifiedWorkRows)
+        assertFalse(report.fullyCoveredAndRefreshed)
+        assertFalse(failed.failure!!.label.contains("http", ignoreCase = true))
+        try {
+            ChaoxingCourseAudit("102:1:2", "工程制图",
+                ChaoxingCourseCoverage.COUNT_VERIFIED,
+                listOf(work("1", "todo")), ChaoxingReadIssue.NETWORK)
+            throw AssertionError("a successful course cannot carry a failed-read reason")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
