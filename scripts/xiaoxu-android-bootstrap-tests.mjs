@@ -1,6 +1,6 @@
 // Static boundary tests for native Android V0.2. Android CI also compiles the real APK.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -456,7 +456,8 @@ assert.match(coursePanel, /包含图片，请在学习通官方页面查看原�
 assert.doesNotMatch(coursePanel, /自动填写|自动代交|显示正确答案/);
 
 const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassSnapshot.kt');
-const secondClassPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt');
+assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt', import.meta.url)), false,
+  '已退役的重复第二课堂云端快照页面不可重新加入源码');
 assert.doesNotMatch(main, /SecondClassPanel\(cloud, openWebsite\)/,
   '第二课堂个人记录不应返回我的设置入口');
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
@@ -560,29 +561,10 @@ assert.match(secondClass, /provenance == "trusted_readonly"/);
 assert.match(secondClass, /"user_import"/);
 assert.match(secondClass, /isSchoolReportedAggregate/);
 assert.match(secondClass, /"user_browser_export"/);
-// Native second-class navigation must keep the real owner snapshot and
-// distinguish the unverified ALL-ACTIVITIES catalog from MY signups.
-assert.doesNotMatch(secondClassPanel, /var tab by rememberSaveable/,
-  '三标签导航仅能在教务页第二课堂出现，不得在我的页面复制一套');
-assert.doesNotMatch(secondClassPanel, /"catalog" to "活动广场"/,
-  '云端个人快照不能冒充学校全部活动目录');
-assert.match(secondClassPanel, /云端第二课堂 · 个人快照/);
-assert.match(secondClassPanel, /var showActivities by rememberSaveable/);
-assert.match(secondClassPanel, /var showScores by rememberSaveable/);
-assert.match(secondClassPanel, /if \(showActivities\) MySecondClassActivities\(result\)/);
-assert.match(secondClassPanel, /if \(showScores\) SecondClassScores\(result\)/);
-assert.match(secondClassPanel, /FilterChip\(/);
-assert.match(secondClassPanel, /LaunchedEffect\(state\.authenticated\)/);
-assert.match(secondClassPanel, /client\.loadSecondClass\(\)/);
-assert.match(secondClassPanel, /result\.activities\.filter/);
-assert.match(secondClassPanel, /state\.secondClassFresh/);
-assert.match(secondClassPanel, /本次尚未确认最新记录/);
-assert.match(secondClassPanel, /尚未验证学校正在报名的全部活动目录/);
-assert.match(secondClassPanel, /官方汇总不与逐条活动分数相加/);
-assert.doesNotMatch(secondClassPanel, /SecondClassActivity\(|HttpURLConnection|WebView|CookieManager|schoolPassword|addJavascriptInterface/);
-
-assert.match(secondClassPanel, /用户自行导入的数据（非官方实时同步）/);
-assert.doesNotMatch(secondClass + secondClassPanel, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
+// Keep the native Academic > SecondClass page and verified cloud data model,
+// without retaining a second unused Compose page in Profile.
+assert.match(secondClassMain, /fun SecondClassPage\(/);
+assert.doesNotMatch(secondClass, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
 // 课表改为唯一的本机导入来源：以前的云端四态仅保留为旧工具函数。
 const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
