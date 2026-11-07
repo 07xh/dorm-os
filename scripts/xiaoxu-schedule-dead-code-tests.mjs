@@ -38,10 +38,12 @@ assert.match(source,/CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDi
   'Home course detail must reuse the same drawer without cloud-source flags');
 assert.doesNotMatch(source, /client:\s*CloudClient|openWebsite:\s*\(\)\s*->\s*Unit|openProfile:\s*\(\(\)\s*->\s*Unit\)\?|openLocalImport:/,
   'Local timetable must not accept unused cloud, website, profile, or legacy import callbacks');
-assert.match(source,/localLessons\.isEmpty\(\)/,
+assert.match(source,/data\.lessons\.isEmpty\(\)/,
   'Empty timetable must be based on the actual local import');
 assert.match(source,/LocalTimetableEmptyState\(/,
   'Import action remains reachable');
-assert.match(source,/onImport = openFileImport, onMessages = onMessages/,
-  'Empty timetable retains both local import and the single native inbox entry');
+assert.match(source,/onSettings = \{ showSemesterSettings = true \}/,
+  'Empty timetable reaches the same settings host and inbox as imported timetable');
+assert.doesNotMatch(source,/label = "重新导入课表"/,
+  'File import must not remain in the timetable heading');
 console.log('Local timetable uses only live UI; retired cloud-state views removed');
