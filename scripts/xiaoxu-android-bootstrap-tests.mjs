@@ -1325,6 +1325,13 @@ assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本�
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
+const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
+  design.indexOf('/** 同一个分段选择器', design.indexOf('fun XiaoxuCard(')));
+assert.match(primaryCardSource, /XiaoxuSpacing\.glassStroke/,
+  '最常用玻璃卡必须使用设计系统的0.5dp边缘，而不是遗留的0.75dp硬灰边');
+assert.doesNotMatch(primaryCardSource, /\.shadow\(/,
+  '普通玻璃卡不得重新叠加可见灰色投影');
+
 assert.match(design, /fun XiaoxuHero\(/, '须有渐变主卡');
 assert.match(design, /fun MetricCard\(/, '须有统计卡');
 assert.match(design, /fun CourseTile\(/, '须有课程色块');
