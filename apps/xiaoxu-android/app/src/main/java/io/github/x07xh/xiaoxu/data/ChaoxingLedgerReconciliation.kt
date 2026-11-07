@@ -62,7 +62,7 @@ fun reconcileChaoxingLedger(
         // trusted rows cannot be counted as reconciled persistence.
         val stored = if (ledgerFresh && canMatch) audit.homework.count { work ->
             val id = "work:${parts[0]}:${parts[1]}:${work.workId}"
-            verifiedById[id]?.size == 1
+            verifiedById[id]?.singleOrNull()?.officialStatus == work.statusCode
         } else null
         val missing = stored?.let { audit.homework.size - it }
         audit.courseKey to ChaoxingCourseLedgerCheck(
