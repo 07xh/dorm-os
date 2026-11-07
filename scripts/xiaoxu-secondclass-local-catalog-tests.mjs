@@ -132,9 +132,12 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
     'missing official total is unknown, not fabricated zero');
   assert.match(page,/if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
     'do not show personal activity count without a complete batch');
-  assert.match(page,/catalogRows\.size == 3/);
+  assert.match(page,/val catalogActivities = all\.filter/,
+    'catalog list reads only persisted validated local records');
+  assert.match(page,/visibleCatalogActivities\.isNotEmpty\(\)/,
+    'nonempty verified official catalog renders native cards');
   assert.match(page,/if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
-  assert.doesNotMatch(page,/catalogActivities|row\.reviewStatus == "approved"/);
+  assert.doesNotMatch(page,/row\.reviewStatus == "approved"/);
   assert.match(page,/XiaoxuGlassDialog\(/, 'details use existing glass dialog, not inline expansion');
   const header = page.slice(page.indexOf('item(key = "points_header")'),
     page.indexOf('item(key = "metrics")'));
