@@ -129,6 +129,51 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun trustedSubmissionLeavesPersonalFlagUntouchedButMovesOutOfPending() {
+        val records = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("verified-submitted", "同名作业", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:1:2:3",
+                officialStatus = "submitted"),
+            CloudTask("verified-graded", "另一份已批阅", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:9:8:7",
+                officialStatus = "graded"),
+            CloudTask("returned", "需要重新交", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:2:2:2",
+                officialStatus = "returned"),
+            CloudTask("legacy", "同名作业", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "legacy-id",
+                officialStatus = "submitted"),
+            CloudTask("wechat", "其他平台", "todo", "manual",
+                "wechat", null, sourceExternalId = "work:1:2:3",
+                officialStatus = "graded")
+        ))
+        val submitted = records.single { it.key == "cloud:verified-submitted" }
+        assertEquals(false, submitted.done)
+        assertEquals(true, considerCompleteInTaskList(submitted))
+        assertEquals(
+            setOf("cloud:verified-submitted", "cloud:verified-graded"),
+            searchWorkspaceTasks(records, "done", "", today).map { it.key }.toSet()
+        )
+        assertEquals(
+            setOf("cloud:returned", "cloud:legacy", "cloud:wechat"),
+            searchWorkspaceTasks(records, "pending", "", today).map { it.key }.toSet()
+        )
+    }
+
+    @Test
+    fun deviceOnlyArchiveIsExactIdScopedAndRestorable() {
+        val records = listOf(
+            WorkspaceTask("cloud:11", "同名", "学习通记录", false, null, "", "cloud"),
+            WorkspaceTask("cloud:12", "同名", "学习通记录", false, null, "", "cloud"),
+            WorkspaceTask("local:11", "同名", "本机", false, null, "", "local")
+        )
+        assertEquals(records, visibleWorkspaceTasks(records, emptySet()))
+        val cleaned = visibleWorkspaceTasks(records, setOf("cloud:11"))
+        assertEquals(listOf("cloud:12", "local:11"), cleaned.map { it.key })
+        assertEquals(records, visibleWorkspaceTasks(records, emptySet()))
+    }
+
+    @Test
     fun editorScrollIndexMatchesActualOptionalRows() {
         // Always present: header, status strip, combined source/filter controls.
         assertEquals(3, taskEditorStartIndex(false, false, false, false))
