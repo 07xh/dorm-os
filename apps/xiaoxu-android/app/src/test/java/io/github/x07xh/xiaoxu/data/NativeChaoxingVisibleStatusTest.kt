@@ -38,6 +38,20 @@ class NativeChaoxingVisibleStatusTest {
             row("学习计划状态：未完成", "study_task", "task.chaoxing.com")))
     }
 
+    @Test fun exactSchoolWorkTupleRequiresMatchingFingerprint() {
+        val identity = "work:123:456:987"
+        val details = "当前网页显示的状态：已完成 · 官方作业身份：$identity"
+        val hash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|homework|" + identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val record = row(details).copy(fingerprint = hash)
+        assertEquals(identity, nativeChaoxingWorkSourceId(record))
+        assertNull(nativeChaoxingWorkSourceId(record.copy(fingerprint = "wrong")))
+        assertNull(nativeChaoxingWorkSourceId(record.copy(sourceHost = "other.example")))
+        assertNull(nativeChaoxingWorkSourceId(record.copy(
+            details = "当前网页显示的状态：已完成 · 官方作业身份：work:123:456:bad")))
+    }
+
     @Test fun ignoreUnrelatedWordsAndUntrustedOrigin() {
         assertNull(nativeChaoxingVisibleStatus(row("作业标题：已完成的程序")))
         assertNull(nativeChaoxingVisibleStatus(row(
