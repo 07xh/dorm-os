@@ -51,6 +51,7 @@ import androidx.core.content.ContextCompat
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
+import io.github.x07xh.xiaoxu.data.WechatPersonalReminders
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
@@ -159,7 +160,7 @@ fun ProfileSettingsPage(
                     ConnectionsPanel(client, openWebsite, openLocalSchool,
                         startSchoolAuthorization, recentImport)
                 }
-                "notifications" -> item { NotificationSettingsContent(localTasks) }
+                "notifications" -> item { NotificationSettingsContent(localTasks, client) }
                 "backup" -> item { LocalTaskBackupPanel() }
                 "about" -> item {
                     val version = remember(context) {
@@ -231,7 +232,7 @@ private fun ReminderToggleRow(
 }
 
 @Composable
-private fun NotificationSettingsContent(tasks: List<LocalTask>) {
+private fun NotificationSettingsContent(tasks: List<LocalTask>, client: CloudClient) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(LocalCourseReminders.enabled(context)) }
@@ -253,15 +254,21 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
     }
 
     fun toggleDeadline(value: Boolean) {
+        val ownerTasks = client.state.tasks
+        val ownerFresh = client.state.authenticated && client.state.tasksFresh
         scope.launch {
             val success = withContext(Dispatchers.IO) {
                 runCatching {
                     LocalDeadlineReminders.setEnabled(context, value)
-                    if (value) LocalDeadlineReminders.reconcile(context, tasks)
+                    if (value) {
+                        LocalDeadlineReminders.reconcile(context, tasks)
+                        if (ownerFresh) WechatPersonalReminders.reconcile(
+                            context, ownerTasks, client.ownerSessionBinding())
+                    }
                 }.isSuccess
             }
             deadlineEnabled = LocalDeadlineReminders.enabled(context)
-            if (!success) Toast.makeText(context, "本机截止提醒更新失败", Toast.LENGTH_LONG).show()
+            if (!success) Toast.makeText(context, "个人任务提醒更新失败，请重试", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -319,8 +326,8 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
     Spacer(Modifier.height(16.dp))
     XiaoxuGroupedSection(title = "任务提醒") {
         ReminderToggleRow(
-            title = "本机截止提醒",
-            subtitle = "仅提醒手动填写的日期，提前一天及当天约 09:00",
+            title = "个人任务截止提醒",
+            subtitle = "本机任务与已审核微信任务的本人日期；提前一天及当天约 09:00，微信需云端刷新",
             checked = deadlineEnabled,
             onCheckedChange = { value ->
                 when {
