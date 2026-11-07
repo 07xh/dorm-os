@@ -125,6 +125,8 @@ assert.equal(sqlite.prepare('SELECT kind FROM academic_assignments').get().kind,
 const acceptedTasks=await listAssignments(db,owner);
 assert.equal(acceptedTasks.length,1);
 assert.equal(acceptedTasks[0].id,accepted.assignmentId);
+assert.equal(acceptedTasks[0].wechat_excerpt,detailed,
+ 'approved task must retain its reviewed message details');
 assert.equal(acceptedTasks[0].source_provider,'wechat',
  'reviewed WeChat tasks must carry authenticated source provenance in the normal task API');
 assert.equal(acceptedTasks[0].local_status,'todo');
