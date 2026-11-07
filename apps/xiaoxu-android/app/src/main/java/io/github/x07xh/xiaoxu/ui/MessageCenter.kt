@@ -508,7 +508,7 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
             .fillMaxWidth()
             .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .border(0.75.dp, XiaoxuPalette.GlassBorder,
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
                 RoundedCornerShape(XiaoxuRadius.tile))
             .semantics { contentDescription = "搜索官方公告：标题或日期" },
         singleLine = true,
@@ -678,10 +678,9 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(0.5.dp, CardShape, clip = false)
             .clip(CardShape)
             .background(XiaoxuPalette.GlassCard)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, CardShape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, CardShape)
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(),
