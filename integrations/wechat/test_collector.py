@@ -37,6 +37,24 @@ class CollectorTests(TestCase):
         self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
+    def test_full_redacted_message_keeps_long_details_and_marks_overflow(self):
+        body = "11月7日提交实验报告\\n" + "需要包含原理、步骤和数据。" * 180
+        task = bridge.classify(body, 1793764800)
+        self.assertLessEqual(len(task["title"].encode("utf-16-le")) // 2, 120)
+        self.assertIn("需要包含原理", task["excerpt"])
+        self.assertGreater(len(task["excerpt"]), 240)
+        self.assertEqual(task["excerpt"], body)
+
+        secret = "13812345678"
+        protected = bridge.classify(
+            "提交实验报告\\n" + secret + " example@school.edu", 1793764800)
+        self.assertNotIn(secret, protected["excerpt"])
+        self.assertNotIn("example@school.edu", protected["excerpt"])
+        too_long = bridge.classify("提交实验报告" + "说明" * 3000, 1793764800)
+        self.assertLessEqual(len(too_long["excerpt"].encode("utf-16-le")) // 2,
+                             bridge.MAX_EXCERPT_UNITS)
+        self.assertIn("剩余部分请在微信查看", too_long["excerpt"])
+
     def test_extract_https_links_basics(self):
         self.assertEqual(
             bridge.extract_https_links(
