@@ -476,6 +476,24 @@ assert.doesNotMatch(secondClassMain, /sectionOptions|val currentScroll|section =
 assert.match(secondClassMain, /LazyColumn\(/, '二课单列表惰性加载，避免逐页向下展开');
 assert.match(secondClassMain, /selectedTermTitle by rememberSaveable/,
   '积分支持已读取的真实学期选择');
+const secondClassPointsHeader = secondClassMain.slice(
+  secondClassMain.indexOf('item(key = "points_header")'),
+  secondClassMain.indexOf('item(key = "metrics")'));
+assert.match(secondClassPointsHeader, /Text\("积分概览"/,
+  '积分概览标题直接在第一行');
+assert.match(secondClassPointsHeader, /DropdownMenu\(/,
+  '学期下拉必须位于积分概览标题同行');
+assert.doesNotMatch(secondClassMain, /item\(key = "term_selector"\)/,
+  '学期选择不再单独占据积分卡下方的一张大卡片');
+const secondClassBreakdown = secondClassMain.slice(
+  secondClassMain.indexOf('item(key = "term_breakdown")'),
+  secondClassMain.indexOf('item(key = "activities_header")'));
+assert.match(secondClassBreakdown, /Text\("积分明细"/,
+  '积分明细默认只显示可点击的摘要行');
+assert.doesNotMatch(secondClassBreakdown, /secondClassCategories\(|entries\.forEach|selectedTerm\.details/,
+  '六类积分默认不能在主页面向下展开');
+assert.match(secondClassMain, /if \(detailRecord\.kind == "credits"\)/,
+  '六类积分在共享居中玻璃弹窗中展示');
 assert.match(secondClassMain, /secondClassPoints\(schoolTotal\) \?: "—"/,
   '学校总积分不能凭空变成零');
 assert.match(secondClassMain, /if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
