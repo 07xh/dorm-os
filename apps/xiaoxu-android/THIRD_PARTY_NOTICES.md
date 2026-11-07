@@ -53,7 +53,7 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未�
 
 这两个上游文件自身基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。
 
-**未复用的部分**：校序**没有**复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块、界面资源或应用包结构。悬浮胶囊的渲染层（`ui/FloatingBottomBar.kt`）是校序自行编写的 Compose 原生实现。
+**未复用的部分**：校序**没有**复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块、界面资源或应用包结构。`ui/FloatingBottomBar.kt` 保留校序自己的 Compose 手势驱动与旧系统回退，Android 13+ 的玻璃轨道、透镜和图标另外适配自下述北化课表 GPL-3.0 项目。
 
 ### 许可 1.1 的履行情况
 
@@ -68,3 +68,17 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件（**逻辑未�
 | 保留本许可与原始版权声明 | 本文件 + 两个源文件的文件头 |
 
 > 若校序未来改为商业分发（应用商店付费、广告、收费服务），**必须先移除**这两个文件并换用自研动画驱动。此约束同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` 的「§0 许可证前提」。
+
+---
+
+## 北化课表 / CourseSelector v1.0.83 玻璃导航（GPL-3.0）
+
+- 来源：[znjhahaha/zhengfang-apk v1.0.83](https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83)，原作者及其他贡献者依原项目 Git 历史。
+- 许可证：GNU General Public License version 3（GPL-3.0）。
+- 本次适配：保留校序单一 Compose Shell、导航手势和页面状态；移植轨道玻璃配方、物理折射透镜、Phosphor 原版导航图标路径及播放逻辑，调整 Android SDK 36 与校序五项路由的兼容边界。
+- 对应文件：`ui/NorthGlassNavChrome.kt`、`ui/PrimaryBottomGeometry.kt`、`ui/northglass/NorthAppSymbolSpec.kt`、`ui/northglass/NorthNavigationIconMotion.kt`、`ui/northglass/NorthNavigationIconPlayback.kt`、`ui/northglass/NorthPhosphorNavigationIcon.kt`，以及 `ui/FloatingBottomBar.kt` 与 `ui/PrimaryNavigation.kt` 中的相关适配。
+- 上游可复核：`app/src/main/java/com/tyust/course/ui/system/CapsuleNavigationBar.kt` 和上游玻璃材质相关文件。
+- 许可全文：`app/src/main/assets/LICENSE-GPL-3.0.txt`，与上游 v1.0.83 的 `LICENSE` 一致；随测试 APK 一起打包。
+- 依赖：`io.github.kyant0:backdrop:2.0.0-alpha03`、`io.github.kyant0:shapes:1.2.0`，对应依赖项目的许可证也需在正式发布前完成清点。
+
+**许可证发布门禁**：GPL-3.0 对分发和相应源码有要求；现有 SleepDown 修改版采用非商业限制许可，不能直接假设其条款与 GPL-3.0 的整体组合发布义务兼容。当前只作为研发与设备 QA 验证，未经专门的许可兼容审查和相应源码/许可证准备，不发布对外正式 APK。构建成功不构成法律兼容性证明。
