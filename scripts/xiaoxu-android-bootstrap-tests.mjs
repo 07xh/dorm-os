@@ -1383,6 +1383,7 @@ assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
 assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
 const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
+const primaryNavigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
   '悬浮导航选中玻璃材质须取自唯一设计系统');
 assert.match(floatingBar, /selectedContentColor: Color = XiaoxuPalette\.BrandDeep/,
@@ -1420,7 +1421,6 @@ assert.match(main, /XiaoxuGlassDialog\(/,
 assert.match(appGradle, /xiaoxuRuntimeTest/,
   '不能用旧 #353 Gradle 覆盖 #351 本机运行时安全测试配置');
 
-const primaryNavigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
 assert.match(primaryNavigation, /NavigationRailItemDefaults\.colors/,
   '侧栏选中态须统一配色，不在 MainActivity 重复维护');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
