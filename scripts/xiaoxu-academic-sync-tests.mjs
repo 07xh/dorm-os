@@ -132,12 +132,33 @@ sqlite.prepare(`INSERT INTO academic_legacy_links
   (user_id,legacy_id,assignment_id,legacy_source,legacy_external_id,
    original_fingerprint,migrated_at) VALUES (?,?,?,?,?,?,?)`)
   .run('a','old-work-5','legacy-three','chaoxing','work:4','duplicate2',initialTime);
-await assert.rejects(()=>applyReadOnlySnapshot(db,'a','conn',snapshot([make('work:4')]),
-  options('2026-11-03T15:00:00.000Z')),AcademicSyncError);
-assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,5,
-  'ambiguous matching may not create a new record');
+const ambiguous=await applyReadOnlySnapshot(db,'a','conn',snapshot([
+  make('work:4',{title:'官方真实作业',status:'submitted'})
+]),options('2026-11-03T15:00:00.000Z'));
+assert.equal(ambiguous.inserted,1,
+  'duplicate legacy IDs must not prevent an independently verified official record');
+assert.equal(ambiguous.linked,0,
+  'ambiguous legacy rows may not be mutated or silently linked');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,6);
+const canonical=sqlite.prepare(
+  "SELECT a.id,a.title,a.local_status,s.platform_status FROM academic_assignment_sources s "+
+  "JOIN academic_assignments a ON a.id=s.assignment_id WHERE s.external_id='work:4'"
+).get();
+assert.equal(canonical.title,'官方真实作业');
+assert.equal(canonical.platform_status,'submitted');
+assert.equal(canonical.local_status,'todo');
+assert.ok(!['legacy-two','legacy-three'].includes(canonical.id));
+assert.equal(sqlite.prepare("SELECT title FROM academic_assignments WHERE id='legacy-two'").get().title,
+  '重复旧任务');
+assert.equal(sqlite.prepare("SELECT title FROM academic_assignments WHERE id='legacy-three'").get().title,
+  '另一旧任务');
+const replay=await applyReadOnlySnapshot(db,'a','conn',snapshot([
+  make('work:4',{title:'官方真实作业',status:'submitted'})
+]),options('2026-11-03T16:00:00.000Z'));
+assert.equal(replay.inserted,0,'verified source ID reuses one canonical assignment');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,6);
 
 const allRuns=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_sync_runs').get().n;
-assert.equal(allRuns,5);
-assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignment_events').get().n,8);
-console.log('校序 M2：真实 SQLite 只读快照合并、截止日变更、个人状态保护、历史去重和失败隔离通过');
+assert.equal(allRuns,7);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignment_events').get().n,9);
+console.log('校序 M2：真实 SQLite 只读快照合并、重复历史 ID 隔离、官方新记录核验、个人状态保护通过');
