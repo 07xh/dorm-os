@@ -2002,10 +2002,12 @@ assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
-assert.match(workspace, /pinTaskListViewport\(\)\s*showCourseTasks = !showCourseTasks/,
-  '课程任务展开/收起时须保留用户当前浏览位置');
-assert.match(workspace, /taskListState\.requestScrollToItem\(/,
-  '只调整已有 LazyColumn 的测量锚点，不新增滚动容器');
+assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
+  '课程任务仍支持直接展开与收起');
+assert.match(workspace, /item\(key = "group:course"\)/,
+  '保留稳定分组 key 以维护 LazyColumn 的可视位置');
+assert.doesNotMatch(workspace, /requestScrollToItem\(/,
+  '不得以变动的数值索引强行定位，导致其他任务分组跳跃');
 assert.match(workspace, /if \(showCourseTasks\) \{/,
   '课程列表显示必须只由当前展开状态控制');
 assert.match(workspace, /item\(key = "group:course"\)/,
