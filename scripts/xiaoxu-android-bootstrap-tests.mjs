@@ -9,6 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
@@ -1540,7 +1541,14 @@ assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
 assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
-assert.match(main, /tween\(XiaoxuMotion\.PageSwitchMs\)/, '主导航切页引用统一动画参数');
+assert.match(main, /xiaoxuPrimaryPageTransition\(/, '主导航切换须走统一动效入口');
+assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 360ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 500ms 动效从设计系统读取');
+assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
+assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
+  '设置二级页须保持方向明确的推进与返回');
+assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
+  '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
