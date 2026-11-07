@@ -408,8 +408,10 @@ private fun ScheduleVerifiedContent(
     var visibleSections by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadSections(context)) }
     var showWeekPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weekNumbers) {
-        if (selectedWeek != ALL_WEEKS && selectedWeek !in weekNumbers) {
-            selectedWeek = weekNumbers.firstOrNull() ?: ALL_WEEKS
+        // 只允许具体教学周被用户选择；ALL_WEEKS 仅用于无有效周次的内部空态。
+        if (weekNumbers.isNotEmpty() && selectedWeek !in weekNumbers) {
+            selectedWeek = actualCurrentWeek?.takeIf { it in weekNumbers }
+                ?: weekNumbers.first()
         }
     }
     var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
@@ -463,7 +465,7 @@ private fun ScheduleVerifiedContent(
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                    .background(XiaoxuPalette.Surface)
+                    .background(XiaoxuPalette.GlassCard)
                     .padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -479,7 +481,7 @@ private fun ScheduleVerifiedContent(
                     enabled = weekNumbers.size > 1,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
-                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "全部周次 ▾",
+                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = XiaoxuPalette.Ink)
@@ -512,13 +514,6 @@ private fun ScheduleVerifiedContent(
                     }
                 }
             }
-        }
-        if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
-            Text(
-                text = "当前混合展示整学期课块；选择具体周次才能判断那周是否有课。",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
@@ -814,14 +809,6 @@ private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Uni
         )
         Spacer(Modifier.width(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                SelectablePill(
-                    label = "全部",
-                    isSelected = selected == ALL_WEEKS,
-                    a11yLabel = "显示全部周次",
-                    onClick = { onSelect(ALL_WEEKS) }
-                )
-            }
             items(count = weeks.size, key = { index -> weeks[index] }) { index ->
                 val week = weeks[index]
                 SelectablePill(
