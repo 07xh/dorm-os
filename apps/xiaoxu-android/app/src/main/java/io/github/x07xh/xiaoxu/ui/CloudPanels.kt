@@ -1,6 +1,13 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.graphics.BitmapFactory
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +45,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -501,8 +510,20 @@ private fun PlatformStatusCard(
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
     }
-    XiaoxuCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        label = "platform-glass-chevron"
+    )
+    XiaoxuCard(contentPadding = 14.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                .clickable(role = Role.Button,
+                    onClickLabel = if (expanded) "收起$title授权操作" else "展开$title授权操作",
+                    onClick = { expanded = !expanded }),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
                     .size(38.dp)
@@ -549,7 +570,20 @@ private fun PlatformStatusCard(
                 },
                 tone = statusTone
             )
+            Icon(
+                Icons.Outlined.ExpandMore, contentDescription = null,
+                tint = XiaoxuPalette.Ink2,
+                modifier = Modifier.size(20.dp).rotate(rotation)
+            )
         }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
+                fadeIn(animationSpec = tween(XiaoxuMotion.SelectionMs)),
+            exit = shrinkVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
+                fadeOut(animationSpec = tween(XiaoxuMotion.SelectionMs))
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.connectionsFresh && platform?.verified == true &&
             platform.lastSuccessAt != null) {
             Text(
@@ -716,6 +750,8 @@ private fun PlatformStatusCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink3
             )
+        }
+            }
         }
     }
 }
