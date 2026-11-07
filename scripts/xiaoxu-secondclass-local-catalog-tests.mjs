@@ -113,6 +113,19 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
   assert.match(page,/if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
   assert.doesNotMatch(page,/catalogActivities|row\.reviewStatus == "approved"/);
   assert.match(page,/XiaoxuGlassDialog\(/, 'details use existing glass dialog, not inline expansion');
+  const header = page.slice(page.indexOf('item(key = "points_header")'),
+    page.indexOf('item(key = "metrics")'));
+  assert.match(header,/Text\("积分概览"/);
+  assert.match(header,/DropdownMenu\(/,'term selector stays in the overview title row');
+  assert.doesNotMatch(page,/item\(key = "term_selector"\)/,
+    'no separate term card beneath the summary');
+  const breakdown = page.slice(page.indexOf('item(key = "term_breakdown")'),
+    page.indexOf('item(key = "activities_header")'));
+  assert.match(breakdown,/Text\("积分明细"/);
+  assert.doesNotMatch(breakdown,/secondClassCategories\(/,
+    'six categories must not be expanded in the default scroll list');
+  assert.match(page,/if \(detailRecord\.kind == "credits"\)/,
+    'points are only expanded inside the glass dialog');
   assert.match(page,/if \(refreshing\) return/);
   assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
   assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);
