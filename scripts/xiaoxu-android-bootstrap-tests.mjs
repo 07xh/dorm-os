@@ -2017,8 +2017,8 @@ assert.match(workspace, /source == "cloud"[\s\S]*?task\.storage == "cloud"/,
   '云端来源筛选保留课程与普通云端记录');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
-assert.match(workspace, /task\.provider == "wechat"/,
-  '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
+assert.match(workspace, /when \(task\.provider\) \{[\s\S]*?"wechat" -> "wechat"/,
+  '微信来源仅由后端 provider 字段判断，不得通过标题或群聊文本猜测');
 assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
   '微信审核标签仍由真实候选计数生成');
 assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
