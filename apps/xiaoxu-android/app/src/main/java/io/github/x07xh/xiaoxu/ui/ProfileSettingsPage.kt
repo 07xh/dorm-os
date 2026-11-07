@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -75,15 +74,8 @@ fun ProfileSettingsPage(
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
-    androidx.compose.animation.AnimatedContent(
-        targetState = route,
-        transitionSpec = {
-            xiaoxuSettingsRouteTransition(initialState, targetState)
-        },
-        modifier = Modifier.fillMaxSize().clipToBounds(),
-        label = "settingsDetail"
-    ) { animatedRoute ->
-    val title = when (animatedRoute) {
+    ImmediateRouteContent(route = route) { currentRoute ->
+    val title = when (currentRoute) {
         "connections" -> "数据连接"
         "notifications" -> "通知与提醒"
         "backup" -> "备份与恢复"
@@ -91,14 +83,13 @@ fun ProfileSettingsPage(
         "licenses" -> "开源许可"
         else -> "设置"
     }
-    val goBack = { onRouteChange(if (animatedRoute == "licenses") "about" else "home") }
-    // Each animated route paints an opaque page, so the outgoing settings
-    // labels/cards cannot bleed through the incoming full-screen page.
+    val goBack = { onRouteChange(if (currentRoute == "licenses") "about" else "home") }
+    // Each child paints an opaque page inside the shared clipped route host.
     Column(modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            if (animatedRoute != "home") {
+            if (currentRoute != "home") {
                 IconButton(onClick = goBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
                 }
@@ -106,7 +97,7 @@ fun ProfileSettingsPage(
             Text(title, modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink)
-            if (animatedRoute == "home") {
+            if (currentRoute == "home") {
                 IconButton(onClick = onRefresh, enabled = !client.state.busy) {
                     Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                 }
@@ -121,7 +112,7 @@ fun ProfileSettingsPage(
                 start = 18.dp, end = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when (animatedRoute) {
+            when (currentRoute) {
                 "home" -> {
                     item {
                         XiaoxuGroupedSection {

@@ -60,7 +60,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -300,19 +299,24 @@ fun RealAcademicHome(
         visibleWorkspaceTasks(combineWorkspaceTasks(localTasks, state.tasks), archivedKeys)
     }
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
-    val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    val nativeRows by rememberLocalRows(nativeDao) { nativeDao.observe() }
+    val localHomework = remember(nativeRows) {
+        nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    }
 
     // Both Home and Schedule use the SAME locally imported timetable. Never fall
     // back to cloud course snapshots; the timetable is available while offline.
-    val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
-        .sortedBy { it.startSection }
+    val sameWeekday = remember(localLessons, today) {
+        localLessons.filter { it.weekday == today.dayOfWeek.value }.sortedBy { it.startSection }
+    }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = all.count { !considerCompleteInTaskList(it) }
+    val pending = remember(all) { all.count { !considerCompleteInTaskList(it) } }
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
-    val attention = countUpcomingLocalDeadlines(all, today)
-    val upcoming = all.filter { !considerCompleteInTaskList(it) }.take(3)
+    val attention = remember(all, today) { countUpcomingLocalDeadlines(all, today) }
+    val upcoming = remember(all) {
+        all.asSequence().filter { !considerCompleteInTaskList(it) }.take(3).toList()
+    }
     val cloudSnapshotRows = state.tasks.size
     // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
     // One provenance hint in the task section; do not repeat the same technical
@@ -823,11 +827,12 @@ fun RealAcademicTaskHub(
     val all = remember(allRecords, archivedKeys) {
         visibleWorkspaceTasks(allRecords, archivedKeys)
     }
+    val completedCount = remember(all) { all.count { considerCompleteInTaskList(it) } }
     val archivedRows = remember(allRecords, archivedKeys) {
         allRecords.filter { it.key in archivedKeys }
     }
     val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val schoolRows by rememberLocalRows(schoolDao) { schoolDao.observe() }
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
@@ -1001,7 +1006,7 @@ fun RealAcademicTaskHub(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
-                    label = "待完成", count = all.count { !considerCompleteInTaskList(it) },
+                    label = "待完成", count = all.size - completedCount,
                     active = filter == "pending", modifier = Modifier.weight(1f),
                     onClick = { filter = "pending"; jumpTo = "filters" }
                 )
@@ -1011,7 +1016,7 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "all"; jumpTo = "filters" }
                 )
                 TaskStatusTab(
-                    label = "已完成", count = all.count { considerCompleteInTaskList(it) },
+                    label = "已完成", count = completedCount,
                     active = filter == "done", modifier = Modifier.weight(1f),
                     onClick = { filter = "done"; jumpTo = "filters" }
                 )

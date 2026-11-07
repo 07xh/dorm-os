@@ -73,17 +73,22 @@ jobs:
           retention-days: 14
       # The normal debug APK above remains unchanged. The second, opt-in QA
       # package uses distinct Android app identity and private app storage.
-      - name: Compile isolated unified native UI QA APK for side-by-side testing
+      - name: Compile optimized isolated native UI QA APK for side-by-side testing
         if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
-          gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon
-          out=apps/xiaoxu-android/app/build/outputs/apk/debug
-          test -s "$out/app-debug.apk"
+          gradle -p apps/xiaoxu-android :app:assembleRelease -PxiaoxuIsolatedQa=true -PxiaoxuPerfRelease=true --no-daemon
+          out=apps/xiaoxu-android/app/build/outputs/apk/release
+          test -s "$out/app-release.apk"
           aapt_bin="$ANDROID_HOME/build-tools/36.0.0/aapt"
-          actual_package=$("$aapt_bin" dump badging "$out/app-debug.apk" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")
+          "$aapt_bin" dump badging "$out/app-release.apk" > "$RUNNER_TEMP/xiaoxu-qa-badging.txt"
+          actual_package=$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/xiaoxu-qa-badging.txt")
           test "$actual_package" = "io.github.x07xh.xiaoxu.unifiedqa"
-          cp "$out/app-debug.apk" "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk"
+          if grep -q '^application-debuggable' "$RUNNER_TEMP/xiaoxu-qa-badging.txt"; then
+            echo 'Performance QA must not be a debuggable APK'
+            exit 1
+          fi
+          cp "$out/app-release.apk" "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk"
           (cd "$RUNNER_TEMP" && sha256sum xiaoxu-unified-native-qa.apk > xiaoxu-unified-native-qa.apk.sha256)
           unzip -t "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk" >/dev/null
       - name: Upload separately installable unified native UI QA APK

@@ -19,7 +19,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,9 +58,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
+import io.github.x07xh.xiaoxu.ui.rememberLocalRows
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -93,7 +92,7 @@ import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
-import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
+import io.github.x07xh.xiaoxu.ui.ImmediateRouteContent
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
@@ -516,7 +515,7 @@ private fun NativeShell(
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
-    val localTasks by dao.observe().collectAsState(initial = emptyList())
+    val localTasks by rememberLocalRows(dao) { dao.observe() }
     val reminderContext = LocalContext.current
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
@@ -577,7 +576,7 @@ private fun NativeShell(
             ),
             containerColor = Color.Transparent,
             // Keep Scaffold measurements stable while switching tabs. HOME owns
-            // its own header within the animated page; other tabs already have headers.
+            // its own header within the current page; other tabs already have headers.
             topBar = {},
             bottomBar = {
                 if (!tabletLayout && showPrimaryNavigation) {
@@ -601,7 +600,7 @@ private fun NativeShell(
                                 useStatusBarInset = false, onBack = { messagesOpen = false })
                         }
                     } else {
-                    // Only one heavy tab is ever composed; no AnimatedContent overlap.
+                    // Only the current heavy tab is composed.
                     // Keep per-tab SaveableStateProvider so filters/scroll survive.
                     val page = current
                     Box(Modifier.fillMaxSize().clipToBounds()) {
@@ -659,27 +658,17 @@ private fun NativeShell(
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
-                                // Reuse the existing settings-depth motion for the timetable
-                                // child. It must not bypass the settings host on entry/back.
-                                AnimatedContent(
-                                    targetState = profileSettingsRoute == "timetable-settings" ||
-                                        profileSettingsRoute == "timetable-editor",
-                                    transitionSpec = {
-                                        xiaoxuSettingsRouteTransition(
-                                            if (initialState) "detail" else "home",
-                                            if (targetState) "detail" else "home"
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxSize().clipToBounds(),
-                                    label = "profileTimetableChild"
+                                ImmediateRouteContent(
+                                    route = profileSettingsRoute == "timetable-settings" ||
+                                        profileSettingsRoute == "timetable-editor"
                                 ) { timetableChild ->
                                     // Each target child owns an opaque full-size layer. The
                                     // timetable/editor must not show settings text behind it.
                                     Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
                                     if (timetableChild) {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
-                                    // Keeping current == PROFILE avoids AnimatedContent rendering a
-                                    // second full timetable page and glass dock during entry.
+                                    // Keeping current == PROFILE avoids a second timetable tab
+                                    // and glass dock during entry.
                                     CloudTimetablePanel(
                                         localLessons = localLessons,
                                         openFileImport = openFileImport,
@@ -700,9 +689,7 @@ private fun NativeShell(
                                     )
                                 } else {
                                     ProfileSettingsPage(
-                                        route = if (profileSettingsRoute == "timetable-settings" ||
-                                            profileSettingsRoute == "timetable-editor") "home"
-                                            else profileSettingsRoute,
+                                        route = profileSettingsRoute,
                                         onRouteChange = { profileSettingsRoute = it },
                                         onScheduleSettings = {
                                             profileSettingsRoute = "timetable-settings"
@@ -794,20 +781,8 @@ private fun AcademicPage(
     cloud: CloudClient,
     onMessages: () -> Unit
 ) {
-    val tabStateHolder = rememberSaveableStateHolder()
-    // Animate the whole academic child, including its header, as a single page.
-    // The second-class Room data and per-destination saveable state remain owned here.
-    AnimatedContent(
-        targetState = selected,
-        transitionSpec = {
-            xiaoxuSettingsRouteTransition(
-                if (initialState == AcademicDestination.OVERVIEW) "home" else "detail",
-                if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
-            )
-        },
-        modifier = Modifier.fillMaxSize().clipToBounds(),
-        label = "academicChild"
-    ) { academicRoute ->
+    // One current child; the shared host saves each destination's local UI state.
+    ImmediateRouteContent(route = selected) { academicRoute ->
     Column(
         modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -858,10 +833,7 @@ private fun AcademicPage(
                     }
                 }
             }
-            AcademicDestination.SECOND_CLASS ->
-                tabStateHolder.SaveableStateProvider("second_class") {
-                    SecondClassPage()
-                }
+            AcademicDestination.SECOND_CLASS -> SecondClassPage()
             AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
                 item {
                     XiaoxuEmpty(

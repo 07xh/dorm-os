@@ -9,7 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
-const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt');
+await import('./xiaoxu-page-routing-tests.mjs');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
@@ -241,7 +241,7 @@ assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
 assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/, '首页只匹配本机导入课表星期');
 assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
   /本机导入 · 待本人核对/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
@@ -499,7 +499,7 @@ assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/git
 assert.doesNotMatch(main, /SecondClassPanel\(cloud, openWebsite\)/,
   '第二课堂个人记录不应返回我的设置入口');
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
-assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
+assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
 assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = catalogOptions/,
   '单页二课只保留活动广场的共享筛选控件');
 assert.match(secondClassMain, /XiaoxuGlassDialog\(/,
@@ -557,7 +557,7 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /val catalogActivities = all\.filter/,
+assert.match(secondClassMain, /val catalogActivities = remember\(all\) \{\s*all\.filter/,
   '第二课堂活动广场必须读取本机已验证的非空目录记录');
 assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
@@ -691,15 +691,11 @@ assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?Dialog\(/,
   '节次时间数字滚轮可使用独立居中弹窗，不能误判为全屏设置');
 assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
   '课表节次时间保留当前数字滚轮交互');
-assert.match(schedulePanel, /targetState = settingsOpen/,
-  '课表和设置应复用一个动画内容宿主');
-assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
-  '课表设置推进和返回应具有明确的动画入口');
-assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
-  '课表设置应复用统一阻尼推进与返回动画');
-assert.match(schedulePanel, /if \(!animatedSettingsOpen\) \{/,
-  '默认课表与设置按动画目标状态互斥，不得额外叠加 Dialog');
-assert.match(schedulePanel, /if \(animatedSettingsOpen\) \{\s*SemesterSettingsPage\(/,
+assert.match(schedulePanel, /ImmediateRouteContent\(route = settingsOpen\)/,
+  '课表与设置复用即时路由宿主并保存各自页面状态');
+assert.match(schedulePanel, /if \(!currentSettingsOpen\) \{/,
+  '默认课表与设置按当前路由状态互斥，不得额外叠加 Dialog');
+assert.match(schedulePanel, /if \(currentSettingsOpen\) \{\s*SemesterSettingsPage\(/,
   '课表设置应在同窗口中绘制，不得再建独立 Window');
 assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '导航层应保存课表子页面状态');
@@ -707,8 +703,8 @@ assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE 
   '安卓系统返回键应从课表设置回到课表');
 assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{/,
   '课表路由状态必须由唯一 NativeShell 维护');
-assert.match(main, /MainDestination\.PROFILE -> \{[\s\S]*?AnimatedContent\([\s\S]*?label = "profileTimetableChild"[\s\S]*?if \(timetableChild\)/,
-  '课表设置须作为我的原生二级路由，使用统一二级页转场，不切换主标签页');
+assert.match(main, /MainDestination\.PROFILE -> \{[\s\S]*?ImmediateRouteContent\([\s\S]*?if \(timetableChild\)/,
+  '课表设置须作为我的原生二级路由，保存二级页状态，不切换主标签页');
 assert.match(main, /settingsOpen = profileSettingsRoute == "timetable-settings"/,
   '课表设置应直接渲染同一课表设置组件，不能先露出周视图');
 assert.match(main, /onScheduleSettings = \{\s*profileSettingsRoute = "timetable-settings"\s*\}/,
@@ -845,7 +841,7 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
 const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (animatedSettingsOpen) {'),
+  schedulePanel.indexOf('if (currentSettingsOpen) {'),
   schedulePanel.indexOf('private fun DayLessonList(')
 );
 assert.match(timetableSettingsCallback, /LocalCourseReminders\.anyEnabled\(context\)/,
@@ -1255,9 +1251,9 @@ assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevatio
   '删除本机连接中的旧 Material 灰色卡片阴影');
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
-assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
+assert.match(workspace, /val nativeRows by rememberLocalRows\(nativeDao\) \{ nativeDao\.observe\(\) \}/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机作业快照/);
@@ -1671,61 +1667,18 @@ assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToB
   '主导航只构建当前页面，不同时合成两个页面');
 assert.doesNotMatch(main, /targetState = current,/,
   '主导航不能恢复 AnimatedContent 的双屏叠加');
-assert.match(main, /label = "academicChild"/, '教务总览和详情必须共用整页转场宿主');
-assert.match(main, /if \(initialState == AcademicDestination\.OVERVIEW\) "home" else "detail"/,
-  '教务详情返回必须识别逆向滑动，不能直接替换页面');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的→课表设置必须进入二级页面动画，不可直接换掉设置宿主');
-assert.match(main, /if \(timetableChild\)/,
-  '课表设置应作为我的页面子路由渲染');
-assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
-  '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotionTest.kt');
-assert.match(pageMotionJvmTest, /fun mainTabsHaveNoEnterOrExitAnimation\(/,
-  'JVM 回归必须验证主标签无过渡动画');
-assert.match(pageMotionJvmTest, /fun everySecondaryRouteUsesImmediateTransition\(/,
-  'JVM 回归必须验证设置、课表和教务即时切页');
-assert.match(pageMotion, /private fun immediatePageSwitch\(\): ContentTransform/,
-  '二级页共用唯一无动效切换');
-assert.match(pageMotion, /targetContentEnter = EnterTransition\.None/,
-  '新页面不能播放淡入/位移动效');
-assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
-  '旧页面不能播放淡出/位移动效');
-assert.match(pageMotion, /sizeTransform = null/,
-  '禁用动画期间的容器尺寸调整');
-assert.doesNotMatch(pageMotion, /fadeIn|fadeOut|slideIn|slideOut|scaleIn|scaleOut|spring\(|tween\(/,
-  '禁用页面级动效以恢复即时切换性能');
+assert.match(main, /ImmediateRouteContent\(route = selected\)/,
+  '教务详情共用即时路由宿主');
+assert.match(profileSettings, /ImmediateRouteContent\(route = route\)/,
+  '设置子页面保存自己的滚动和筛选状态');
+assert.match(main, /route = profileSettingsRoute,/,
+  '我的设置子页直接使用当前路由，无已退役转场的 home 路由替身');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
-  '无动画切页须保留每栏滚动与筛选状态');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置页不得直接替换内容丢失过渡');
-assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
-  '课表设置也必须使用同一无位移动效');
-assert.match(main, /label = "academicChild"/,
-  '教务多个二级页保留其单独的内容转场宿主');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的到课表设置继续使用原生子页面宿主');
-assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
-  '五个主页面仅组合当前标签内容并保留边界裁剪');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
-  '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
-assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
-  '设置二级页须保持方向明确的推进与返回');
-assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
-  '设置转场必须裁剪页边界，防止滑动时文字越界');
+  '主标签切换保留页面状态');
 assert.match(profileSettings, /Column\(modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
-  '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
-assert.match(main, /label = "profileTimetableChild"/,
-  '我的→课表设置仍走同一二级页宿主');
-assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
-  '课表设置子页面必须用整页背景阻断旧卡片重影');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "academicChild"/,
-  '教务子页面转场必须裁剪边界');
+  '设置子页面绘制完整背景');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\),\s*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/,
-  '教务详情需全幅不透明背景，避免切页文字叠印');
-assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
-  '不允许恢复主导航文字重影交叉淡入');
-assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
+  '教务子页面绘制完整背景');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
@@ -1757,7 +1710,7 @@ assert.doesNotMatch(design, /import io\.github\.x07xh\.xiaoxu\.data\./,
   '设计系统不得依赖数据层');
 assert.match(main, /XiaoxuTheme \{/, 'Shell 须使用统一主题');
 assert.match(main, /XiaoxuTopBar\(/, 'Shell 须使用统一顶栏');
-assert.match(main, /AnimatedContent\(/, '页面切换须有轻量过渡');
+assert.doesNotMatch(main, /AnimatedContent\(/, '页面切换不再创建已退役的动画宿主');
 const floatingBar = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/FloatingBottomBar.kt');
 const primaryNavigation = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryNavigation.kt');
 assert.match(floatingBar, /indicatorColor: Color = XiaoxuPalette\.GlassIndicator/,
@@ -1862,7 +1815,7 @@ assert.match(workspace, /QuickEntry\("成绩"/, '首页学业入口须指向真�
 assert.match(workspace, /QuickEntry\("考试"/);
 assert.match(workspace, /QuickEntry\("第二课堂"/);
 assert.match(workspace, /QuickEntry\("学习通"/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
 assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
@@ -1942,10 +1895,10 @@ assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须
 assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
 assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
   '三项统计应采用上下标签和数量而非横排大卡');
-assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
+assert.match(workspace, /label = "待完成", count = all\.size - completedCount/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
-assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
+assert.match(workspace, /label = "已完成", count = completedCount/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
@@ -2226,7 +2179,7 @@ assert.match(main, /onMessages = \{ messagesOpen = true \}/,
 assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
   'Scaffold 已处理状态栏，不能重复添加顶部安全区');
 assert.match(main, /if \(academicRoute != AcademicDestination\.OVERVIEW\)/,
-  '教务各详情页在 AnimatedContent 当前目标页面统一原生返回，不叠加二级标签');
+  '教务各详情页在当前子页面统一原生返回，不叠加二级标签');
 assert.doesNotMatch(main, /val visibleTabs = listOf\(/,
   '教务总览操作行已承担导航，不能再重复显示四项标签');
 assert.match(main, /academic != AcademicDestination\.OVERVIEW/,

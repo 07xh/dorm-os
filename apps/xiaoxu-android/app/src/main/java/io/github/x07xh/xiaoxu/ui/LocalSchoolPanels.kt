@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +54,7 @@ fun LocalSchoolConnectionPanel(
 ) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val records by dao.observe().collectAsState(initial = emptyList())
+    val records by rememberLocalRows(dao) { dao.observe() }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
@@ -162,7 +161,7 @@ fun LocalSchoolConnectionPanel(
 fun LocalSchoolRecordSection(types: Set<String>) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val all by dao.observe().collectAsState(initial = emptyList())
+    val all by rememberLocalRows(dao) { dao.observe() }
     val rows = all.filter { it.kind in types }
     if (rows.isEmpty()) return
     var expanded by rememberSaveable(types.sorted().joinToString("|")) {

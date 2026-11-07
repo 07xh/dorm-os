@@ -331,15 +331,17 @@ class CloudClient(context: Context) {
             val r = withContext(Dispatchers.IO) { request("/api/notices") }
             if (r.code != 200 || !r.json.optBoolean("success")) throw IllegalStateException()
             val a = r.json.getJSONArray("items")
-            val rows = buildList {
-                for (i in 0 until minOf(a.length(), 45)) {
-                    val item = a.optJSONObject(i) ?: continue
-                    val url = item.optString("url")
-                    val u = try { URL(url) } catch (_: Exception) { null }
-                    if (u?.protocol != "https" || u.host != "www2.ncwu.edu.cn" ||
-                        !u.path.startsWith("/jiaowu/info/")) continue
-                    add(AcademicNotice(item.optString("id"), item.optString("title").take(220),
-                        item.optString("category"), item.optString("dateLabel"), url))
+            val rows = withContext(Dispatchers.Default) {
+                buildList {
+                    for (i in 0 until minOf(a.length(), 45)) {
+                        val item = a.optJSONObject(i) ?: continue
+                        val url = item.optString("url")
+                        val u = try { URL(url) } catch (_: Exception) { null }
+                        if (u?.protocol != "https" || u.host != "www2.ncwu.edu.cn" ||
+                            !u.path.startsWith("/jiaowu/info/")) continue
+                        add(AcademicNotice(item.optString("id"), item.optString("title").take(220),
+                            item.optString("category"), item.optString("dateLabel"), url))
+                    }
                 }
             }
             state = state.copy(notices = rows,
@@ -419,30 +421,32 @@ class CloudClient(context: Context) {
                 if (r.code != 200) throw IllegalStateException("assignments_page_failed")
                 val array = r.json.getJSONArray("items")
                 if (array.length() > 100) throw IllegalStateException("oversized_page")
-                val rows = buildList {
-                    for (i in 0 until array.length()) {
-                        val o = array.getJSONObject(i)
-                        val provider = o.optString("source_provider")
-                            .takeIf { it.isNotBlank() && it != "null" }
-                        val due = o.optString("due_at_utc")
-                            .takeIf { it.isNotBlank() && it != "null" }
-                            ?: o.optString("due_local_date")
+                val rows = withContext(Dispatchers.Default) {
+                    buildList {
+                        for (i in 0 until array.length()) {
+                            val o = array.getJSONObject(i)
+                            val provider = o.optString("source_provider")
                                 .takeIf { it.isNotBlank() && it != "null" }
-                        val revision = o.optLong("revision", -1L)
-                            .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
-                        val sourceId = o.optString("source_external_id")
-                            .takeIf { provider == "chaoxing" &&
-                                ChaoxingWorkSourceId.matches(it) }
-                        val official = trustedChaoxingPlatformStatus(
-                            provider, sourceId, o.optString("platform_status")
-                        )
-                        val sourceCourse = (o.opt("source_course") as? String)
-                            ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
-                            ?.take(80)
-                        add(CloudTask(o.getString("id"), o.optString("title").take(120),
-                            o.optString("local_status"), o.optString("kind"), provider, due,
-                            revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
-                            sourceId, official, sourceCourse))
+                            val due = o.optString("due_at_utc")
+                                .takeIf { it.isNotBlank() && it != "null" }
+                                ?: o.optString("due_local_date")
+                                    .takeIf { it.isNotBlank() && it != "null" }
+                            val revision = o.optLong("revision", -1L)
+                                .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
+                            val sourceId = o.optString("source_external_id")
+                                .takeIf { provider == "chaoxing" &&
+                                    ChaoxingWorkSourceId.matches(it) }
+                            val official = trustedChaoxingPlatformStatus(
+                                provider, sourceId, o.optString("platform_status")
+                            )
+                            val sourceCourse = (o.opt("source_course") as? String)
+                                ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
+                                ?.take(80)
+                            add(CloudTask(o.getString("id"), o.optString("title").take(120),
+                                o.optString("local_status"), o.optString("kind"), provider, due,
+                                revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
+                                sourceId, official, sourceCourse))
+                        }
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))

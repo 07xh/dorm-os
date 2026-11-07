@@ -1,0 +1,5 @@
+User request: 全面提高校序各方面流畅度
+Base: #351 4eff7b5b (instant main tab switching already restored)
+Verify stable lifecycle-scoped Room subscriptions, task/home/second-class derived data,
+background row parsing, optimized isolated release QA APK and runtime regression.
+No merge to main or production publishing. Ace 6 frame and visual acceptance pending.

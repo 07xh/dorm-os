@@ -27,16 +27,13 @@ SleepDown 课程表 — 署名非商业、源码可见许可 1.1
 Copyright (c) 2026 SleepDown 课程表项目作者 (xiaomanjun233)
 https://github.com/xiaomanjun233/SleepDown-Schedule
 
-本 App 的悬浮底部导航复用两个文件，并移植页面切换时长、曲线与二级页阻尼动效。
+本 App 的悬浮底部导航复用两个文件。2026-11-07 已移除整页切换动效及其旧容器。
 2026-11-07 删除 DampedDragAnimation 无调用的 animateToValueAndThen 完成回调 API；
 现用拖动与回弹逻辑保持不变：
   ui/nav/DampedDragAnimation.kt
     <- app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt
   ui/nav/DragGestureInspector.kt
     <- app/src/main/java/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt
-  ui/PrimaryPageMotion.kt
-    <- feature/home/HomeSwitchMotion.kt (360ms page motion)
-    <- feature/settings/SettingsNavigationMotion.kt (500ms Miuix easing)
 
 前两项手势上游文件自身派生自 Kyant0/AndroidLiquidGlass 的 Apache-2.0 代码，
 并经 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；本 App 按
