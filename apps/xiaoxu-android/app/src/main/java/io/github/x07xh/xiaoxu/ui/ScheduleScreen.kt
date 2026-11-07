@@ -1014,9 +1014,10 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(XiaoxuRadius.card))
             .clickable(
                 interactionSource = interaction,
-                indication = ripple(),
+                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
                 onClickLabel = "查看课程详情",
                 role = Role.Button,
                 onClick = {
@@ -1132,7 +1133,8 @@ private fun CourseDetailBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
-        containerColor = Color(0xFFF6F7FC),
+        containerColor = XiaoxuPalette.SheetSurface,
+        scrimColor = XiaoxuPalette.ModalScrim,
         dragHandle = {
             Box(
                 Modifier.padding(top = 12.dp, bottom = 12.dp)
@@ -1176,7 +1178,7 @@ private fun CourseDetailBottomSheet(
                             .semantics { heading() }
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                XiaoxuSoftIconButton(onClick = onDismiss) {
                     Icon(Icons.Outlined.Close, contentDescription = "关闭课程详情",
                         modifier = Modifier.size(29.dp), tint = XiaoxuPalette.Ink2)
                 }
@@ -1200,16 +1202,16 @@ private fun CourseDetailBottomSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(Modifier.height(18.dp))
-            CourseDetailInfoRow(Icons.Outlined.PersonOutline, "教师", lesson.teacher)
             Spacer(Modifier.height(14.dp))
+            CourseDetailInfoRow(Icons.Outlined.PersonOutline, "教师", lesson.teacher)
+            Spacer(Modifier.height(12.dp))
             CourseDetailInfoRow(Icons.Outlined.DateRange, "周次", lesson.weeksLabel.removePrefix("第").replace("–", "-"))
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(21.dp))
-                    .background(Color(0xFFF7F1FA))
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    .background(Color(0xFFF2F5FC))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Outlined.NotificationsNone, contentDescription = null,
@@ -1270,10 +1272,10 @@ private fun CourseDetailInfoCard(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFF8F3FC))
-            .padding(horizontal = 15.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier.clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFF2F5FC))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null,
@@ -1298,7 +1300,9 @@ private fun CourseDetailInfoRow(icon: ImageVector, label: String, value: String)
         Spacer(Modifier.width(14.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink2)
         Spacer(Modifier.width(12.dp))
-        Text(value, style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
+        Text(value, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

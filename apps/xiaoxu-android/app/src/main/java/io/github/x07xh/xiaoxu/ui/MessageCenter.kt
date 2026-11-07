@@ -671,7 +671,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, CardShape)
             .clickable(
                 interactionSource = interaction,
-                indication = ripple(),
+                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
                 onClickLabel = "查看这条公告的详情与官网链接",
                 role = Role.Button,
                 onClick = {

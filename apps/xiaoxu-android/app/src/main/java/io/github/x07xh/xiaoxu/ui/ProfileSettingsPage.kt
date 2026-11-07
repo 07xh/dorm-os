@@ -102,7 +102,7 @@ fun ProfileSettingsPage(
         Row(Modifier.xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             if (animatedRoute != "home") {
-                IconButton(onClick = goBack) {
+                XiaoxuSoftIconButton(onClick = goBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
                 }
             }
@@ -110,10 +110,10 @@ fun ProfileSettingsPage(
                 style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink)
             if (animatedRoute == "home") {
-                IconButton(onClick = onRefresh, enabled = !client.state.busy) {
+                XiaoxuSoftIconButton(onClick = onRefresh, enabled = !client.state.busy) {
                     Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                 }
-                IconButton(onClick = onMessages) {
+                XiaoxuSoftIconButton(onClick = onMessages) {
                     Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
                 }
             }

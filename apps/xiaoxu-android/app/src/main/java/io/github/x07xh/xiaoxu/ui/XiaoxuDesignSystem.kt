@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +45,11 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,9 +60,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import android.view.WindowManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -108,6 +117,11 @@ object XiaoxuPalette {
     val GlassTrack = Color.White.copy(alpha = 0.42f)
     val GlassIndicator = Color.White.copy(alpha = 0.52f)
     val SheetSurface = Color(0xFFF9FAFF)
+
+    /** Touch feedback is pale blue, never a default dark rectangular ripple. */
+    val PressTint = Color(0xFF4D86D9).copy(alpha = 0.12f)
+    /** One low-contrast dim strength for modal surfaces, including system-bar regions. */
+    val ModalScrim = Color.Black.copy(alpha = 0.12f)
 
     /** 不改变课程颜色，统一其他页面的基础材质。 */
     val Surface = Color(0xFFFFFFFF)
@@ -278,8 +292,48 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
         colorScheme = XiaoxuColorScheme,
         typography = XiaoxuTypography,
         shapes = XiaoxuShapes,
-        content = content
+        content = {
+            // Default Compose clickable/selectable rows receive the same bounded
+            // low-contrast ripple; individually clipped shapes retain their outline.
+            CompositionLocalProvider(
+                LocalIndication provides ripple(bounded = true, color = XiaoxuPalette.PressTint)
+            ) { content() }
+        }
     )
+}
+
+/** Keep dialog dimming uniform across content and system-bar regions. */
+@Composable
+internal fun XiaoxuDialogDim() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        val oldDim = window?.attributes?.dimAmount
+        window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window?.setDimAmount(0.12f)
+        onDispose { if (oldDim != null) window?.setDimAmount(oldDim) }
+    }
+}
+
+/** Reusable clipped press surface for toolbar icons (no dark Material ripple). */
+@Composable
+internal fun XiaoxuSoftIconButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = Color.Transparent,
+    content: @Composable () -> Unit
+) {
+    val source = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier.size(48.dp).clip(CircleShape).background(backgroundColor)
+            .clickable(
+                enabled = enabled, role = Role.Button, interactionSource = source,
+                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
 
 // ---------------------------------------------------------------------------
@@ -703,6 +757,7 @@ fun XiaoxuGlassDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        XiaoxuDialogDim()
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
@@ -866,10 +921,9 @@ internal fun XiaoxuToolbarAction(
     enabled: Boolean = true,
     emphasized: Boolean = false
 ) {
-    IconButton(
-        modifier = Modifier.size(42.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .then(if (emphasized) Modifier.background(XiaoxuPalette.BrandSoft) else Modifier),
+    XiaoxuSoftIconButton(
+        modifier = Modifier.size(42.dp),
+        backgroundColor = if (emphasized) XiaoxuPalette.BrandSoft else Color.Transparent,
         enabled = enabled,
         onClick = onClick
     ) {
@@ -924,7 +978,7 @@ fun XiaoxuTopBar(
             }
         }
         if (onMessages != null) {
-            IconButton(onClick = onMessages) {
+            XiaoxuSoftIconButton(onClick = onMessages) {
                 Icon(
                     imageVector = Icons.Outlined.NotificationsNone,
                     contentDescription = "打开消息中心",
@@ -933,7 +987,7 @@ fun XiaoxuTopBar(
             }
         }
         if (onRefresh != null) {
-            IconButton(onClick = onRefresh, enabled = !refreshing) {
+            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 if (refreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
