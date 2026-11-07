@@ -410,7 +410,11 @@ fun XiaoxuGroupedSection(
             Text(title, style = MaterialTheme.typography.labelMedium,
                 color = XiaoxuPalette.Ink2, modifier = Modifier.padding(start = 14.dp))
         }
-        XiaoxuGrou/**
+        XiaoxuGroupSurface(verticalPadding = 4.dp, content = content)
+    }
+}
+
+/**
  * 北化式玻璃详情行：点击只打开独立 Dialog，不在列表中插入任何扩展内容。
  * 保持原签名，课程与第二课堂现有真实数据及 saveable 展开状态无需重写。
  */
@@ -462,12 +466,6 @@ fun XiaoxuExpandableGlassRow(
     }
     if (expanded) {
         XiaoxuGlassDialog(title = title, onDismiss = onToggle, content = content)
-    }
-}
-
-          content = content
-            )
-        }
     }
 }
 
