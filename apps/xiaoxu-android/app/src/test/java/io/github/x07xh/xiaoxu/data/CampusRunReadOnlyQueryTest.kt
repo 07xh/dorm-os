@@ -190,4 +190,34 @@ class CampusRunReadOnlyQueryTest {
         assertEquals(CampusRunFailure.NETWORK,
             (state as CampusRunViewState.Unavailable).reason)
     }
+
+    @Test fun summaryOnlyDoesNotRequestHistoryOrClaimFullPagination() = runBlocking {
+        val src = source()
+        src.pages = emptyList() // Must not be accessed.
+        val query = CampusRunReadOnlyQuery(src)
+        val state = query.refreshSummary(alice, now)
+        assertTrue(state is CampusRunViewState.Current)
+        val snapshot = (state as CampusRunViewState.Current).snapshot
+        assertEquals(12_000L, snapshot.effectiveMeters)
+        assertEquals(48_000L, snapshot.remainingMeters())
+        assertFalse(snapshot.historyComplete)
+        assertTrue(snapshot.records.isEmpty())
+        assertEquals(0, src.nextPage)
+    }
+
+    @Test fun authorizationChangedAfterHistoryReadRejectsSnapshot() = runBlocking {
+        val src = object : CampusRunReadOnlySource {
+            var subject = alice
+            override suspend fun authorizedSubjectFingerprint(): String = subject
+            override suspend fun readSemester(): CampusRunReadSummary = summary()
+            override suspend fun readHistoryPage(cursor: String?): CampusRunReadPage {
+                subject = bob
+                return page()
+            }
+        }
+        val state = CampusRunReadOnlyQuery(src).refresh(alice, now)
+        assertEquals(CampusRunFailure.NOT_AUTHORIZED,
+            (state as CampusRunViewState.Unavailable).reason)
+    }
+
 }
