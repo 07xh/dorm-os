@@ -94,9 +94,12 @@ fun ProfileSettingsPage(
     val goBack = { onRouteChange(if (animatedRoute == "licenses") "about" else "home") }
     // Each animated route paints an opaque page, so the outgoing settings
     // labels/cards cannot bleed through the incoming full-screen page.
-    Column(modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
-        verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+    Column(
+        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        Row(Modifier.xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             if (animatedRoute != "home") {
                 IconButton(onClick = goBack) {
@@ -116,7 +119,7 @@ fun ProfileSettingsPage(
             }
         }
         androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.weight(1f).xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = 18.dp, end = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -124,14 +127,7 @@ fun ProfileSettingsPage(
             when (animatedRoute) {
                 "home" -> {
                     item {
-                        XiaoxuGroupedSection {
-                            SettingsEntry("校序 Academic OS", Icons.Outlined.School) {
-                                onRouteChange("about")
-                            }
-                        }
-                    }
-                    item {
-                        XiaoxuGroupedSection(title = "学习") {
+                        XiaoxuGroupedSection(title = "学习与课程") {
                             SettingsEntry("课表设置", Icons.Outlined.DateRange,
                                 onClick = onScheduleSettings)
                             SettingsDivider()
@@ -148,6 +144,13 @@ fun ProfileSettingsPage(
                             SettingsDivider()
                             SettingsEntry("备份与恢复", Icons.Outlined.CheckCircle) {
                                 onRouteChange("backup")
+                            }
+                        }
+                    }
+                    item {
+                        XiaoxuGroupedSection(title = "其他") {
+                            SettingsEntry("关于校序", Icons.Outlined.Info) {
+                                onRouteChange("about")
                             }
                         }
                     }
