@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {normalizeReadOnlySnapshot,applyReadOnlySnapshot,AcademicSyncError}
   from '../lib/academic-readonly-sync.mjs';
+import {listAssignments} from '../lib/academic-assignments.mjs';
 
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
@@ -158,6 +159,18 @@ const replay=await applyReadOnlySnapshot(db,'a','conn',snapshot([
 assert.equal(replay.inserted,0,'verified source ID reuses one canonical assignment');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,6);
 
+const ownerRows=await listAssignments(db,'a',{limit:100});
+const officialRow=ownerRows.find(row=>row.id===canonical.id);
+assert.equal(officialRow.source_external_id,'work:4',
+  'official status and source ID must refer to the same canonical source row');
+assert.equal(officialRow.source_provider,'chaoxing');
+assert.equal(officialRow.platform_status,'submitted');
+const importedRows=ownerRows.filter(row=>['legacy-two','legacy-three'].includes(row.id));
+assert.equal(importedRows.length,2);
+assert.ok(importedRows.every(row=>row.platform_status===null),
+  'old imported source records cannot claim official verification');
+assert.ok(importedRows.every(row=>row.source_external_id==='work:4'),
+  'legacy identity is preserved for safe client display reconciliation');
 const allRuns=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_sync_runs').get().n;
 assert.equal(allRuns,7);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignment_events').get().n,9);
