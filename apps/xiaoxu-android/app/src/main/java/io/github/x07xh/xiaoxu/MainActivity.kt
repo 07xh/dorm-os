@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu
 
 import android.app.Activity
+import android.os.Build
 import android.provider.OpenableColumns
 import android.widget.Toast
 import java.io.ByteArrayOutputStream
@@ -46,6 +47,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -61,17 +64,12 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import io.github.x07xh.xiaoxu.ui.FloatingBarItem
-import io.github.x07xh.xiaoxu.ui.FloatingBottomBar
 import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -117,6 +115,9 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
+import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
+import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
+import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -462,27 +463,6 @@ class MainActivity : ComponentActivity() {
  * 透出 Scaffold 背景色，观感就是"闪白"。
  */
 
-/** The one source of truth for five permanent destinations; messages are not a bottom tab. */
-private val PrimaryTabs = listOf(MainDestination.HOME, MainDestination.SCHEDULE,
-    MainDestination.ACADEMIC, MainDestination.TASKS, MainDestination.PROFILE)
-
-private val MainDestination.label: String get() = when (this) {
-    MainDestination.HOME -> "今日"
-    MainDestination.SCHEDULE -> "课表"
-    MainDestination.ACADEMIC -> "教务"
-    MainDestination.TASKS -> "任务"
-    MainDestination.PROFILE -> "我的"
-}
-private val MainDestination.symbol: ImageVector get() = when (this) {
-    MainDestination.HOME -> Icons.Outlined.Home
-    MainDestination.SCHEDULE -> Icons.Outlined.DateRange
-    MainDestination.ACADEMIC -> Icons.Outlined.School
-    MainDestination.TASKS -> Icons.Outlined.CheckCircle
-    MainDestination.PROFILE -> Icons.Outlined.PersonOutline
-}
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NativeShell(
@@ -582,7 +562,16 @@ private fun NativeShell(
 
     BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
         val tabletLayout = maxWidth >= 700.dp
+        // Glass samples the actual current page, not the navigation chrome itself.
+        // Phone and tablet still share the one NativeShell and route state.
+        val navBackdrop = if (!tabletLayout && !messagesOpen && Build.VERSION.SDK_INT >= 33) {
+            rememberLayerBackdrop()
+        } else null
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier.fillMaxSize().then(
+                if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
+            ),
             containerColor = Color.Transparent,
             topBar = {
                 // Every main destination, including the locally imported timetable, opens the inbox.
@@ -597,53 +586,23 @@ private fun NativeShell(
             },
             bottomBar = {
                 if (!tabletLayout && !messagesOpen) {
-                    // 悬浮胶囊导航（PR #328 验收通过的组件）。
-                    // items 用 remember 固定：PrimaryTabs.map 每次组合都会新建 List，
-                    // 不 remember 会让 FloatingBottomBar 每帧重建 items 参数。
-                    val barItems = remember {
-                        PrimaryTabs.map { FloatingBarItem(it.label, it.symbol) }
-                    }
-                    FloatingBottomBar(
-                        items = barItems,
-                        selectedIndex = PrimaryTabs.indexOf(current).coerceAtLeast(0),
-                        onSelect = { current = PrimaryTabs[it]; messagesOpen = false }
-                    )
+                    // Layout-only reserve. Actual dock sits outside the sampled subtree.
+                    PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
                 if (tabletLayout && !messagesOpen) {
-                    // 横屏手机宽度会越过 700dp 阈值进入 Rail 布局，5 项超出可视高度，
-                    // 不加滚动时「我的」被裁在屏幕外且无法到达。
-                    NavigationRail(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                        containerColor = XiaoxuPalette.Surface,
-                        contentColor = XiaoxuPalette.Ink2
-                    ) {
-                        Spacer(Modifier.height(12.dp))
-                        PrimaryTabs.forEach { page ->
-                            NavigationRailItem(
-                                selected = current == page,
-                                onClick = { current = page; messagesOpen = false },
-                                icon = { Icon(page.symbol, contentDescription = null) },
-                                label = { Text(page.label) },
-                                alwaysShowLabel = true,
-                                colors = NavigationRailItemDefaults.colors(
-                                    selectedIconColor = XiaoxuPalette.BrandDeep,
-                                    selectedTextColor = XiaoxuPalette.BrandDeep,
-                                    indicatorColor = XiaoxuPalette.BrandSoft,
-                                    unselectedIconColor = XiaoxuPalette.Ink3,
-                                    unselectedTextColor = XiaoxuPalette.Ink3
-                                )
-                            )
-                        }
+                    PrimarySideNavigation(selected = current) { selected ->
+                        current = selected
+                        messagesOpen = false
                     }
                 }
                 Surface(color = Color.Transparent, modifier = Modifier.fillMaxSize()) {
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = true, onBack = { messagesOpen = false })
+                                useStatusBarInset = false, onBack = { messagesOpen = false })
                         }
                     } else {
                     // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
@@ -715,6 +674,15 @@ private fun NativeShell(
                     }
                 }
             }
+        }
+        if (!tabletLayout && !messagesOpen) {
+            Box(Modifier.align(Alignment.BottomCenter)) {
+                PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
+                    current = selected
+                    messagesOpen = false
+                }
+            }
+        }
         }
     }
 }
