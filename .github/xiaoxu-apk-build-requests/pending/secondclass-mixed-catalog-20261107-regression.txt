@@ -1,0 +1,3 @@
+Opt-in isolated QA build for PR #382 mixed empty/nonempty catalog persistence fix.
+Includes Kotlin JVM contract tests; compare with official account's activity list before approval.
+Do not merge this QA trigger PR.
