@@ -228,7 +228,7 @@ assert.match(panels, /fun ConnectionsPanel\(/);
 // or first navigating to Xiaoxu's website. Cloud authorization remains optional.
 assert.match(panels, /var cloudAdvanced by rememberSaveable \{ mutableStateOf\(false\) \}/);
 assert.ok(
-    panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') <
+    panels.indexOf('LocalSchoolConnectionPanel(') <
         panels.indexOf('if (cloudAdvanced)'),
     '本机官方页面读取必须先于云端可选授权展示'
 );
@@ -1188,8 +1188,8 @@ assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得�
 assert.match(workspace, /采集时间/);
 assert.match(schedulePanel, /本机导入 · 待本人核对/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
-assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
-assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
+assert.match(panels, /LocalSchoolConnectionPanel\(/);
+assert.ok(panels.indexOf('LocalSchoolConnectionPanel(') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
 assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
 assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
@@ -1946,9 +1946,9 @@ assert.match(messageCenter, /NoticeDetailSheet\(/,
   '保留公告真实详情及官方链接');
 assert.ok(panels.includes('XiaoxuCard {'),
   '个人中心和学校连接卡采用共享样式');
-assert.ok(panels.includes('SectionHeader(title = "数据连接")'),
-  '个人中心保留直接可见的本机学校官方读取入口');
-assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImport)'),
+assert.doesNotMatch(panels, /SchoolReaderSection\(|SectionHeader\(title = "数据连接"\)/,
+  '二级数据连接已有页面标题，不得再叠加无效包装层及同名标题');
+assert.ok(panels.includes('LocalSchoolConnectionPanel('),
   '不得移除原生学校读取入口');
 assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
@@ -1996,17 +1996,18 @@ assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
 
-assert.match(panels, /fun ProfileHeroCard\(/, '我的页需头像视觉区');
+assert.match(panels, /fun ProfileHeroCard\(/,
+  '真实账户概览保留在数据连接二级页，不在我的首页复制卡片');
 assert.match(panels, /XiaoxuCard\(contentPadding = 14\.dp\)/,
   '我的页面账户信息应为紧凑白色状态卡');
 assert.doesNotMatch(panels, /我的学习空间|学校账号各自授权；本机读取不依赖校序云端登录/,
   '账户区不得恢复大面积旧版宣传卡及解释文字');
-assert.match(panels, /SectionHeader\(title = "数据连接"\)/,
-  '我的页真实学校读取入口必须直接显示');
+assert.match(profileSettings, /"connections" -> item \{/,
+  '真实学校读取入口归属我的 → 数据连接二级页面，不回退独立首页容器');
 assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
 assert.match(main, /private fun CompactPageHeading\(/,
-  '教务和我的须使用页面内真实紧凑标题，不叠加旧顶栏');
+  '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
 assert.match(main, /if \(!messagesOpen && current == MainDestination\.HOME\) XiaoxuTopBar\(/,
   '全局顶栏只在首页出现，课表和其他分栏由内容页自行提供紧凑标题');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/,
