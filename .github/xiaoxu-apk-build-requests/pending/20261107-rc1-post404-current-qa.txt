@@ -1,0 +1,4 @@
+Xiaoxu 0.8.11 RC1 post-#404 current unified UI QA.
+Production source 8a0c2439f587499a5244e7b549c291da4eb28582.
+Verify settings grouping, clip-limited touch feedback, timetable modal scrim, no retired page motion, second class and actual data readers.
+Compile Android JVM, E2E, native APK and distinct unifiedqa identity. No main merge without Ace6 real-device acceptance.
