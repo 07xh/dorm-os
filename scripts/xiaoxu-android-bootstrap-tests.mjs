@@ -319,8 +319,16 @@ assert.match(cloud, /ChaoxingCourseCoverage\.NOT_CHECKED, emptyList\(\)/,
   '未检查课程必须显式列出，不能冒充零作业');
 assert.match(cloud, /if \(epoch != sessionEpoch \|\| !state\.authenticated\) return/,
   '学校授权失效后不得恢复旧会话里的审核账本');
-assert.match(workspace, /title = "学习通 · 官方作业核验"/,
-  '官方逐门验收清单必须进入真实任务页，不可只在隐藏设置里');
+assert.match(workspace, /title = "学习通作业"/,
+  '官方作业读取入口必须直接出现在真实任务页');
+assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
+  '学习通部分读取不得冒充全部课程已核验');
+assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "全部课程条数已核验"/,
+  '只有证据完整且刷新成功才显示完整核验');
+assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
+  '本机页面记录需保留入口及真实数量');
+assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
+  '正式任务首页不得继续显示面向开发的旧卡片标题');
 assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
   '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
 assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
