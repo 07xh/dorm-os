@@ -174,7 +174,18 @@ internal fun CourseEditorDialog(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        EditorField(weekday, { weekday = it }, "星期（1=周一，7=周日）", numeric = true)
+                        Text("星期", style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink2)
+                        XiaoxuSegmentedControl(
+                            options = listOf(
+                                XiaoxuSegmentOption("1", "一"), XiaoxuSegmentOption("2", "二"),
+                                XiaoxuSegmentOption("3", "三"), XiaoxuSegmentOption("4", "四"),
+                                XiaoxuSegmentOption("5", "五"), XiaoxuSegmentOption("6", "六"),
+                                XiaoxuSegmentOption("7", "日")
+                            ),
+                            selectedKey = weekday,
+                            onSelected = { weekday = it }
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             EditorField(start, { start = it }, "开始节", numeric = true,
                                 modifier = Modifier.weight(1f))
