@@ -863,7 +863,7 @@ private fun SecondaryAction(
         modifier = modifier
             .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(14.dp))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(14.dp))
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
