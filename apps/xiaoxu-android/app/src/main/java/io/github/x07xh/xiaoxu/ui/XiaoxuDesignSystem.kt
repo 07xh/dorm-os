@@ -880,14 +880,16 @@ fun XiaoxuTopBar(
     subtitle: String? = null,
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
-    onMessages: (() -> Unit)? = null
+    onMessages: (() -> Unit)? = null,
+    applyStatusBarInset: Boolean = true
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Transparent)
-            // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
-            .statusBarsPadding()
+            // A topBar-hosted header owns status inset; a page-hosted header is
+            // already positioned below Scaffold's contentWindowInsets.
+            .then(if (applyStatusBarInset) Modifier.statusBarsPadding() else Modifier)
             .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
