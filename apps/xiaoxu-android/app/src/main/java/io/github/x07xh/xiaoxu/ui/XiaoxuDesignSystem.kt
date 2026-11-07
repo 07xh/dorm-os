@@ -321,11 +321,12 @@ internal fun XiaoxuSoftIconButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
+    backgroundColor: Color = Color.Transparent,
     content: @Composable () -> Unit
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(44.dp).clip(CircleShape)
+        modifier = modifier.size(44.dp).clip(CircleShape).background(backgroundColor)
             .clickable(
                 enabled = enabled, role = Role.Button, interactionSource = source,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
@@ -921,8 +922,8 @@ internal fun XiaoxuToolbarAction(
     emphasized: Boolean = false
 ) {
     XiaoxuSoftIconButton(
-        modifier = Modifier.size(42.dp)
-            .then(if (emphasized) Modifier.background(XiaoxuPalette.BrandSoft) else Modifier),
+        modifier = Modifier.size(42.dp),
+        backgroundColor = if (emphasized) XiaoxuPalette.BrandSoft else Color.Transparent,
         enabled = enabled,
         onClick = onClick
     ) {
