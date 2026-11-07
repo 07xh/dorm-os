@@ -84,7 +84,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             "i.chaoxing.com", "passport2.chaoxing.com",
             "mooc2-ans.chaoxing.com", "mooc1.chaoxing.com",
             "mooc1-api.chaoxing.com", "mooc2.chaoxing.com",
-            "passport2-app.chaoxing.com", "kb.chaoxing.com"
+            "passport2-app.chaoxing.com", "kb.chaoxing.com",
+            "task.chaoxing.com", "mobilelearn.chaoxing.com"
         )
         fun navigationAllowed(provider: String, raw: String?): Boolean {
             val uri = runCatching { Uri.parse(raw ?: "") }.getOrNull() ?: return false
@@ -123,7 +124,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     (host == "mooc2-ans.chaoxing.com" &&
                         path.startsWith("/mooc2-ans/visit/")) ||
                     (host == "kb.chaoxing.com" &&
-                        path.startsWith("/res/pc/curriculum/"))
+                        path.startsWith("/res/pc/curriculum/")) ||
+                    (host == "task.chaoxing.com" &&
+                        path == "/userStudyPlan/studyPlanSubPage")
                 else -> false
             }
         }
@@ -530,7 +533,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 val kind = payload.optString("kind")
                 val kinds = when (provider) {
-                    "chaoxing" -> setOf("course", "homework")
+                    "chaoxing" -> setOf("course", "homework", "study_task")
                     "second_class" -> setOf("activity")
                     else -> emptySet()
                 }
@@ -832,7 +835,9 @@ private const val READ_VISIBLE_PAGE = """
     // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
     // Never read the li "data" attribute: it may contain an auth token.
     for (const doc of docs) {
-      const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
+      // Completed work may lack goTask entirely. Only visible official
+      // rows carrying the title selector are kept; never inspect li.data.
+      const tasks = doc.querySelectorAll('li[data]');
       for (const li of Array.from(tasks)) {
         if (!onScreen(li)) continue;
         const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
@@ -846,6 +851,25 @@ private const val READ_VISIBLE_PAGE = """
       }
     }
     if (rows.length) kind = 'homework';
+  }
+  if (!rows.length && provider === 'chaoxing' &&
+      host === 'task.chaoxing.com' &&
+      location.pathname === '/userStudyPlan/studyPlanSubPage') {
+    // Owner-visible learning plans: no hidden API replay, auto-clicking,
+    // credential extraction, inferred completed flag, or background reading.
+    // Display separately from the normal course-homework provider.
+    for (const doc of docs) {
+      for (const card of Array.from(doc.querySelectorAll('.xtask_item'))) {
+        if (!onScreen(card)) continue;
+        const title = clean(card.querySelector('.xname')?.innerText).slice(0,100);
+        const status = clean(Array.from(card.querySelectorAll('.xtip_info_card'))
+          .map(node => node.innerText).join(' ')).slice(0,60);
+        if (!title || !status) continue;
+        rows.push({title,details:'学习计划状态：' + status});
+        if (rows.length > MAX_RECORDS) break;
+      }
+    }
+    if (rows.length) kind = 'study_task';
   }
   if (!rows.length && provider === 'chaoxing' &&
       host === 'mooc2-ans.chaoxing.com' &&
