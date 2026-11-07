@@ -1,0 +1,9 @@
+Manual QA build request — 2026-11-07
+Ref: PR #369; initial real-device screen recording 11959.mp4 exposed ghosting when opening 我的 → 课表设置.
+Changed behavior:
+- Keep MainDestination.PROFILE unchanged while opening its timetable-settings child.
+- Do not trigger AnimatedContent main-tab transition or show timetable week view during opening.
+- Hide glass bottom navigation while any secondary Settings page is shown.
+- Save/close returns to Settings; add-course keeps editor alive; import/export returns to Settings with existing file picker.
+- Preserve all real imported timetable data and existing first-angle UI/navigation of other tabs.
+Gate: node bootstrap and ICS tests, Gradle compile/JVM, isolated QA APK; on-device video validation still required. No release or main merge.

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
@@ -21,22 +22,24 @@ fun SecondClassAutoReadControls() {
     }
     val enabled = remember(revision) { SecondClassAutoRefresh.enabled(c) }
     val background = remember(revision) { SecondClassAutoRefresh.background(c) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Column(Modifier.weight(1f)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text("自动读取", style = MaterialTheme.typography.bodyMedium)
             Text("回到 App 时检查，10分钟内复用已保存数据",
                 style = MaterialTheme.typography.labelSmall)
         }
-        Switch(checked = enabled, onCheckedChange = {
+        XiaoxuSettingsSwitch(checked = enabled, onCheckedChange = {
             SecondClassAutoRefresh.configure(c, it, background)
         })
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Column(Modifier.weight(1f)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text("后台定期检查", style = MaterialTheme.typography.bodyMedium)
             Text("约30分钟，系统可能延迟", style = MaterialTheme.typography.labelSmall)
         }
-        Switch(checked = background, enabled = enabled, onCheckedChange = {
+        XiaoxuSettingsSwitch(checked = background, enabled = enabled, onCheckedChange = {
             SecondClassAutoRefresh.configure(c, enabled, it)
         })
     }

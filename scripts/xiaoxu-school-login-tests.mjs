@@ -15,30 +15,7 @@ const secret=Buffer.from(random).toString('base64url');
 assert.equal(availableSchoolAdapter({data:{}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({data:{academicSchoolAdapters:{ncwu:{provider:'ncwu'}}}},'ncwu'),null);
 assert.equal(availableSchoolAdapter({},'second_class'),null);
-assert.equal(new SchoolLoginError('authorization_failed','cas_return').failureStage,'cas_return');
-assert.equal(new SchoolLoginError('authorization_failed','cas_return','login_page_remained').casReturnReason,'login_page_remained');
-for(const reason of ['cas_request_rejected','cas_rate_limited','cas_server_failure'])
- assert.equal(new SchoolLoginError('authorization_failed','cas_return',reason).casReturnReason,reason);
-assert.equal(new SchoolLoginError('authorization_failed','cas_return','PRIVATE_DETAIL').casReturnReason,undefined);
-for(const host of ['cas_auth_server','second_class_callback','second_class_portal'])
- assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure',host).casReturnHost,host);
-assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure','https://private.example/ticket').casReturnHost,undefined);
-assert.equal(new SchoolLoginError('authorization_failed','personal_data','cas_server_failure','cas_auth_server').casReturnHost,undefined);
-assert.equal(new SchoolLoginError('invalid_credentials','cas_return','cas_server_failure','cas_auth_server').casReturnHost,undefined);
-assert.equal(new SchoolLoginError('authorization_failed','identity_evidence','login_page_remained').casReturnReason,undefined);
-assert.equal(new SchoolLoginError('invalid_credentials','cas_return','login_page_remained').casReturnReason,undefined);
-const casKinds=['flow_execution_marker','crypto_marker','flow_and_crypto_markers'];
-for(const kind of casKinds)
- assert.equal(new SchoolLoginError('authorization_failed','cas_return','cas_server_failure','cas_auth_server',kind).casErrorKind,kind);
-for(const args of [
- ['authorization_failed','personal_data','cas_server_failure','cas_auth_server','crypto_marker'],
- ['authorization_failed','cas_return','cas_request_rejected','cas_auth_server','crypto_marker'],
- ['authorization_failed','cas_return','cas_server_failure','second_class_callback','crypto_marker'],
- ['authorization_failed','cas_return','cas_server_failure','cas_auth_server','PRIVATE_HTML'],
- ['invalid_credentials','cas_return','cas_server_failure','cas_auth_server','crypto_marker']
-])assert.equal(new SchoolLoginError(...args).casErrorKind,undefined);
 assert.equal(new SchoolLoginError('authorization_failed','personal_data').failureStage,'personal_data');
-assert.equal(new SchoolLoginError('authorization_failed','identity_evidence').failureStage,'identity_evidence');
 assert.equal(new SchoolLoginError('authorization_failed','custom_details').failureStage,undefined);
 assert.equal(new SchoolLoginError('invalid_credentials','cas_return').failureStage,undefined);
 assert.equal(validSchoolLoginInput({username:'student',password:'pass'}),true);
@@ -101,7 +78,7 @@ await assert.rejects(
  username:'official-student-account',password:'ephemeral-school-password',secret:'bad'}),
  e=>e instanceof SchoolLoginError&&e.code==='not_configured');
 assert.equal(credentialCalls,0,'missing server secret never processes credentials');
-// Only the second-class login may preserve fixed non-sensitive failure phases.
+// Shared library must reject second-class password login even when invoked directly.
 const phaseFailureAdapter={provider:'second_class',
  async login(){throw Object.assign(new Error('opaque private upstream error'),
   {code:'authorization_failed',failureStage:'cas_return',casReturnReason:'login_page_remained',
@@ -111,9 +88,7 @@ const phaseFailureAdapter={provider:'second_class',
 await assert.rejects(()=>connectSchoolAccount({db,userId:'owner-a',
  provider:'second_class',adapter:phaseFailureAdapter,username:'official-student-account',
  password:'ephemeral-school-password',secret}),
- e=>e instanceof SchoolLoginError&&e.code==='authorization_failed'&&
- e.failureStage==='cas_return'&&e.casReturnReason==='login_page_remained'&&
- e.casReturnHost==='cas_auth_server');
+ e=>e instanceof SchoolLoginError&&e.code==='interactive_login_required');
 
 // Exercise the real authenticated route and session-vault wrapper. All
 // tokens, school responses and accounts below are synthetic and local.

@@ -98,14 +98,34 @@ test('switching the visible owner while catalog is read rejects entire snapshot'
 });
 
 
-test('native second-class tabs retain independent scroll and prevent duplicate refresh',()=>{
+test('single-page second-class keeps verified data and no duplicate refresh',()=>{
   const page=readFileSync(
     'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt','utf8');
-  for(const name of ['catalogScroll','activitiesScroll','scoresScroll'])
-    assert.match(page,new RegExp('val '+name+' = rememberScrollState\\(\\)'));
-  assert.match(page,/0 -> catalogScroll[\s\S]*1 -> activitiesScroll[\s\S]*else -> scoresScroll/);
-  assert.match(page,/verticalScroll\(currentScroll\)/);
-  assert.doesNotMatch(page,/verticalScroll\(rememberScrollState\(\)\)/);
+  assert.match(page,/LazyColumn\(/, 'one lazy scroll list instead of three stacked scroll views');
+  assert.doesNotMatch(page,/catalogScroll|activitiesScroll|scoresScroll|sectionOptions/);
+  for(const heading of ['积分概览','我的活动','活动广场','积分明细'])
+    assert.ok(page.includes('"'+heading+'"'),'missing section '+heading);
+  assert.match(page,/secondClassPoints\(schoolTotal\) \?: "—"/,
+    'missing official total is unknown, not fabricated zero');
+  assert.match(page,/if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
+    'do not show personal activity count without a complete batch');
+  assert.match(page,/catalogRows\.size == 3/);
+  assert.match(page,/if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/);
+  assert.doesNotMatch(page,/catalogActivities|row\.reviewStatus == "approved"/);
+  assert.match(page,/XiaoxuGlassDialog\(/, 'details use existing glass dialog, not inline expansion');
+  const header = page.slice(page.indexOf('item(key = "points_header")'),
+    page.indexOf('item(key = "metrics")'));
+  assert.match(header,/Text\("积分概览"/);
+  assert.match(header,/DropdownMenu\(/,'term selector stays in the overview title row');
+  assert.doesNotMatch(page,/item\(key = "term_selector"\)/,
+    'no separate term card beneath the summary');
+  const breakdown = page.slice(page.indexOf('item(key = "term_breakdown")'),
+    page.indexOf('item(key = "activities_header")'));
+  assert.match(breakdown,/Text\("积分明细"/);
+  assert.doesNotMatch(breakdown,/secondClassCategories\(/,
+    'six categories must not be expanded in the default scroll list');
+  assert.match(page,/if \(detailRecord\.kind == "credits"\)/,
+    'points are only expanded inside the glass dialog');
   assert.match(page,/if \(refreshing\) return/);
   assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
   assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);

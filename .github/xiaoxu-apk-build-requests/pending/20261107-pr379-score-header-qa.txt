@@ -1,0 +1,6 @@
+Explicit user request to build and QA the amended SecondClass native single-page score layout.
+Feature PR #379 commit: 7d28d6d3de190a5fbc00e17d91678214294ab7cf.
+QA source must remain the same code as PR #379 plus this marker only.
+Build Kotlin/JVM, Android APK and side-by-side isolated -PxiaoxuIsolatedQa=true; run all tests and produce SHA-256.
+Do not merge or deploy. Keep production app and user's school records intact.
+Visual acceptance on Ace 6 Android 16: "积分概览" with the term picker on the SAME heading row before the metrics; no separate term card below; "积分明细" collapsed by default as one tappable row opening a centered shared glass dialog with six verified categories. Personal activities and plaza stay below. Do not fabricate school scores or activity data.
