@@ -65,6 +65,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,6 +99,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigation
 import io.github.x07xh.xiaoxu.ui.PrimaryBottomNavigationReserve
 import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
+import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -515,9 +517,17 @@ private fun NativeShell(
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
-    // Room emits after create / complete / delete / import; WorkManager refreshes only local opt-in jobs.
+    // A Room checkbox update should reschedule only affected local deadlines,
+    // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
+    val reminderSnapshot = remember { mutableStateOf<List<LocalTask>?>(null) }
     LaunchedEffect(localTasks) {
-        LocalDeadlineReminders.reconcile(reminderContext, localTasks)
+        val previous = reminderSnapshot.value
+        withContext(Dispatchers.IO) {
+            LocalDeadlineReminders.reconcile(
+                reminderContext, localTasks, previousTasks = previous
+            )
+        }
+        reminderSnapshot.value = localTasks
     }
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {

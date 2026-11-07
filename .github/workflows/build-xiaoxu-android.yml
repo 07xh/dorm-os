@@ -48,6 +48,8 @@ jobs:
           gradle-version: '8.13'
       - name: Compile APK and run existing Android JVM unit tests
         run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest --no-daemon
+      - name: Compile navigation frame benchmark instrumentation
+        run: gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon
       - name: Validate APK archive and produce verifiable SHA-256
         run: |
           set -euo pipefail

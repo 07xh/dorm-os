@@ -1,5 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -100,6 +101,7 @@ import java.time.ZoneId
 import java.text.DateFormat
 import java.util.Date
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
@@ -774,8 +776,8 @@ fun RealAcademicTaskHub(
     val context = LocalContext.current
     val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
-    val capturedHomework = schoolRows.filter {
-        it.provider == "chaoxing" && it.kind == "homework"
+    val capturedHomework = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
@@ -794,6 +796,17 @@ fun RealAcademicTaskHub(
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
     val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
+    // Local Room updates also need a visual preview: the actual task and
+    // counters only change once Room emits the committed record.
+    val pendingLocalTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(localTasks) {
+        val saved = localTasks.associate { "local:${it.id}" to it.completed }
+        pendingLocalTaskUpdates.entries.toList().forEach { (key, expected) ->
+            if (saved[key] == expected || key !in saved) {
+                pendingLocalTaskUpdates.remove(key)
+            }
+        }
+    }
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     // Reading or refreshing official data never expands this group on its own.
     // Preserve a deliberate user toggle across ordinary UI recomposition.
@@ -837,15 +850,18 @@ fun RealAcademicTaskHub(
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
-    val visible = facetWorkspaceTasks(
-        searchWorkspaceTasks(all, filter, searchQuery, today),
-        sourceFilter, onlyThisWeek, today
-    )
-    // LazyColumn composes visible rows on demand; every matching record stays reachable.
-    val shown = visible
-    val localRows = shown.filter { it.category == "local" }
-    val cloudRows = shown.filter { it.category == "cloud" }
-    val wechatRows = shown.filter { it.category == "wechat" }
+    // Checkbox previews, expansion toggles and sheet navigation do not need
+    // another search + date-facet pass over every stored task.
+    val shown = remember(all, filter, searchQuery, sourceFilter, onlyThisWeek, today) {
+        facetWorkspaceTasks(
+            searchWorkspaceTasks(all, filter, searchQuery, today),
+            sourceFilter, onlyThisWeek, today
+        )
+    }
+    // Keep each source as a stable lazy section across unrelated UI updates.
+    val localRows = remember(shown) { shown.filter { it.category == "local" } }
+    val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
+    val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
     LazyColumn(
         state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
@@ -1076,7 +1092,7 @@ fun RealAcademicTaskHub(
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
         }
-        if (visible.isEmpty()) {
+        if (shown.isEmpty()) {
             item {
                 XiaoxuEmpty(
                     modifier = Modifier.padding(top = 12.dp),
@@ -1212,14 +1228,30 @@ fun RealAcademicTaskHub(
                 }
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
+                        val row = localRows[i]
                         ConnectedTaskShell(index = i, total = localRows.size) {
-                            TaskRow(localRows[i], today,
-                                onOpen = { openedTaskKey = localRows[i].key },
+                            TaskRow(row, today,
+                                onOpen = { openedTaskKey = row.key },
                                 onToggleLocal = { checked ->
-                                    // 仅编辑 Room 中本人待办，不写学校提交状态或云端任务。
-                                    val id = localRows[i].key.removePrefix("local:").toLongOrNull()
-                                    if (id != null) taskScope.launch { dao.setCompleted(id, checked) }
-                                }
+                                    // Local-only preview; Room remains the source of truth.
+                                    val id = row.key.removePrefix("local:").toLongOrNull()
+                                    if (id != null && !pendingLocalTaskUpdates.containsKey(row.key)) {
+                                        pendingLocalTaskUpdates[row.key] = checked
+                                        taskScope.launch {
+                                            try {
+                                                dao.setCompleted(id, checked)
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                                pendingLocalTaskUpdates.remove(row.key)
+                                                Toast.makeText(context, "本机任务保存失败，请重试",
+                                                    Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                },
+                                pendingChecked = pendingLocalTaskUpdates[row.key],
+                                actionEnabled = !pendingLocalTaskUpdates.containsKey(row.key)
                             )
                         }
                     }
@@ -1588,7 +1620,9 @@ private fun TaskStatusTab(
         )
         Text(
             text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = "tnum"
+            ),
             fontWeight = FontWeight.SemiBold,
             color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
             maxLines = 1
@@ -1756,8 +1790,8 @@ private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
 
-/** Consecutive rows share one visual surface and light separators.
- * They remain separate keyed LazyColumn items, even with 80 saved tasks.
+/** Individually lazy rows share one surface. The heading keeps its outline,
+ * while the rows use hairline separators instead of stacked gray borders.
  */
 @Composable
 private fun ConnectedTaskShell(
@@ -1777,7 +1811,6 @@ private fun ConnectedTaskShell(
         modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, corners)
     ) {
         if (index > 0) {
             HorizontalDivider(
@@ -1812,6 +1845,7 @@ private fun TaskRow(
         officialTaskStatusLabel(task.officialStatus) else null
     // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
     val isPending = pendingChecked != null
+    val displayDone = pendingChecked ?: task.done
     val statusText = if (isPending) "保存中…" else
         officialLabel ?: if (task.done) "个人已完成" else due.label
     val statusInk = when {
@@ -1844,7 +1878,8 @@ private fun TaskRow(
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
-                    "；" + (if (task.done) "个人标记已完成" else "待办") +
+                    "；" + (if (isPending) "个人状态保存中" else
+                        if (task.done) "个人标记已完成" else "待办") +
                     "；" + due.spoken +
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击查看任务详情"
@@ -1857,10 +1892,12 @@ private fun TaskRow(
         // 校序云端记录仅展示保存的状态，不提供会被误认成学校提交的写操作。
         if (task.storage == "local" && onToggleLocal != null) {
             TaskCompletionCheckbox(
-                checked = task.done,
+                checked = displayDone,
+                enabled = actionEnabled,
                 onCheckedChange = onToggleLocal,
                 modifier = Modifier.size(48.dp),
-                description = if (task.done) "将本机任务“" + task.title + "”改为待完成"
+                description = if (isPending) "正在保存本机任务“" + task.title + "”"
+                    else if (task.done) "将本机任务“" + task.title + "”改为待完成"
                     else "将本机任务“" + task.title + "”标记为个人已完成"
             )
         } else if (task.category == "wechat" && onToggleWechat != null) {
@@ -1894,8 +1931,8 @@ private fun TaskRow(
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
+                textDecoration = if (displayDone) TextDecoration.LineThrough else null,
+                color = if (displayDone) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
