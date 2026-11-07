@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +86,7 @@ fun CampusRunPanel(client: CloudClient) {
         ownerSessionBinding = client.ownerSessionBinding()
     )
     if (scope == null) {
-        Card(Modifier.fillMaxWidth()) {
+        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("校园跑 · 本机记录已锁定",
                     style = MaterialTheme.typography.titleMedium)
@@ -130,10 +128,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
         loading = false
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("校园跑 · 运动世界校园", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)

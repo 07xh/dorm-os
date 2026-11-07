@@ -1,5 +1,7 @@
 # 校序 M8｜华水二课真实查询结构适配
 
+> 历史研究记录，已停止执行。2026-11-07 清理了仅被合成测试调用的通用映射实现及测试；当前华水字段契约使用 `lib/academic-ncwu-second-class.mjs`，App 本人读取使用 `ncwu_secondclass_local.js`。下文仅用于追溯，不再要求用户重新提供接口或运行旧映射流程。
+
 ## 本轮实现
 - 新增 lib/academic-second-class-source-map.mjs：字段映射、分页校验和受信任适配器包装。
 - 仅转换在本人授权页面证实的活动 ID、名称、日期、学时、积分、学分、审核/活动状态。

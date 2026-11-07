@@ -1,6 +1,6 @@
 // Based on Kyant0/AndroidLiquidGlass catalog components, Apache-2.0.
 // Modified for SleepDown-Schedule.
-// Ported unmodified to Xiaoxu (校序) for Issue #287 — logic unchanged, package/attribution only.
+// Ported to Xiaoxu (校序) for Issue #287. Removed the unused completion-callback API; active drag/release logic is unchanged.
 // Upstream: https://github.com/xiaomanjun233/SleepDown-Schedule
 //           app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt
 // License: Apache-2.0 (original) + SleepDown source-visible license 1.1 (modifications).
@@ -17,7 +17,6 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.android.awaitFrame
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -129,38 +128,6 @@ class DampedDragAnimation(
                     launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
                 }
                 release()
-            }
-        }
-    }
-
-    fun animateToValueAndThen(value: Float, onFinished: () -> Unit) {
-        animationScope.launch {
-            mutatorMutex.mutate {
-                press()
-                val targetValue = value.coerceIn(valueRange)
-                coroutineScope {
-                    launch {
-                        valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() }
-                    }
-                    if (velocity != 0f) {
-                        launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
-                    }
-                    launch {
-                        awaitFrame()
-                        val threshold = (valueRange.endInclusive - valueRange.start) * 0.025f
-                        if (abs(valueAnimation.value - targetValue) >= threshold) {
-                            snapshotFlow { valueAnimation.value }
-                                .filter { abs(it - targetValue) < threshold }
-                                .first()
-                        }
-                        coroutineScope {
-                            launch { pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec) }
-                            launch { scaleXAnimation.animateTo(initialScale, scaleXAnimationSpec) }
-                            launch { scaleYAnimation.animateTo(initialScale, scaleYAnimationSpec) }
-                        }
-                    }
-                }
-                onFinished()
             }
         }
     }
