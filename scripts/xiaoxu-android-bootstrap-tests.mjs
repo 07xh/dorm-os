@@ -1679,23 +1679,29 @@ assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
 assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从设计系统读取');
 assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
-assert.match(pageMotion, /private fun stationaryFadeThrough\(durationMillis: Int\)/,
-  '主导航与二级页使用唯一静态淡出淡入转场');
-assert.match(pageMotion, /fadeIn\([\s\S]*?delayMillis = exitMillis/,
-  '新页面必须在旧页面退出后淡入，避免旧文字和新文字叠影');
-assert.match(pageMotion, /togetherWith fadeOut\(/,
-  '旧内容应柔和淡出而不是横向移动');
-assert.doesNotMatch(pageMotion, /sizeTransform =|\.using\(/,
-  '当前 Compose 版本不允许直接重写 ContentTransform 尺寸变换；容器由页面全尺寸宿主保持稳定');
+assert.match(pageMotion, /private fun stablePageReveal\(durationMillis: Int\)/,
+  '所有原生路由共用不露底的静态内容进入动画');
+assert.match(pageMotion, /initialAlpha = 0\.94f/,
+  '目标页面须从接近全不透明状态呈现，不可从0透明度闪入');
+assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
+  '旧页面不得在新页面绘制前淡出造成空白频闪');
+assert.match(pageMotion, /targetContentZIndex = 1f/,
+  '新页面必须绘制在旧页面上方，避免快速切页残影');
+assert.match(pageMotion, /sizeTransform = null/,
+  '通过ContentTransform构造器停用布局尺寸变化动画');
+assert.match(pageMotion, /durationMillis = durationMillis\.coerceAtMost\(140\)/,
+  '轻量透明度过渡不应长时间影响重型内容页');
+assert.doesNotMatch(pageMotion, /delayMillis|fadeOut\(|stationaryFadeThrough|\.using\(/,
+  '禁止恢复先消失再出现的空白相位或不支持的尺寸API');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
   '主页面动画宿主维持固定大小且裁剪边界');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
   '设置详情维持全尺寸固定容器');
 assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
   '页面转场不得移动或缩放整屏，也不得弹簧回弹');
-assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.PageSwitchMs\)/,
+assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.PageSwitchMs\)/,
   '五个主标签保留220ms轻量动感');
-assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.SettingsDetailMs\)/,
+assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.SettingsDetailMs\)/,
   '设置、教务及课表二级页复用200ms轻量动感');
 assert.match(design, /const val PageSwitchMs = 220/, '一级页面仍按220ms短时过渡');
 assert.match(design, /const val SettingsDetailMs = 200/, '二级页面仍按200ms短时过渡');
