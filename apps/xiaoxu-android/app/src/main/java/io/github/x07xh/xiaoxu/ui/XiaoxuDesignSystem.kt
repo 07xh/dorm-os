@@ -390,8 +390,8 @@ fun XiaoxuSegmentedControl(
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     .clip(itemShape).background(itemColor)
-                    // The track already has an outline. A second non-compact
-                    // outline around the selected chip looks like a gray halo.
+                    // The track already owns the glass outline; non-compact
+                    // pills should not draw another gray halo inside it.
                     .then(if (selected && compact) Modifier.border(
                         XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
                     ) else Modifier)

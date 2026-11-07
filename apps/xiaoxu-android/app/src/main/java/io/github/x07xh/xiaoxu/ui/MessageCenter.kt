@@ -195,7 +195,6 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 // ---------------------------------------------------------------------------
 
 private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
-private val TileShape = RoundedCornerShape(XiaoxuRadius.tile)
 
 private val ExamTile = XiaoxuPalette.WarningSoft
 private val ExamInk = XiaoxuPalette.Warning
