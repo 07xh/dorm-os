@@ -42,7 +42,7 @@ data class CampusRunReadPage(
 class CampusRunSourceException(val failure: CampusRunFailure) : Exception()
 
 /**
- * Atomic read-only refresh: identity -> semester -> bounded history -> verify.
+ * Read-only refresh: identity -> semester -> optional bounded history -> verify.
  * A partial or failed read must not overwrite the last accepted snapshot.
  *
  * A newly bound account always clears the old cache first. Page/record limits
@@ -68,9 +68,27 @@ class CampusRunReadOnlyQuery(
         gate.clear()
     }
 
+    /**
+     * Fast summary refresh for the main campus-service panel: does not query
+     * the history endpoint and never treats missing history as complete.
+     */
+    suspend fun refreshSummary(
+        expectedSubjectFingerprint: String,
+        nowEpochMillis: Long
+    ): CampusRunViewState =
+        refreshInternal(expectedSubjectFingerprint, nowEpochMillis, withHistory = false)
+
+    /** Expensive history query, invoked on demand from a detail screen. */
     suspend fun refresh(
         expectedSubjectFingerprint: String,
         nowEpochMillis: Long
+    ): CampusRunViewState =
+        refreshInternal(expectedSubjectFingerprint, nowEpochMillis, withHistory = true)
+
+    private suspend fun refreshInternal(
+        expectedSubjectFingerprint: String,
+        nowEpochMillis: Long,
+        withHistory: Boolean
     ): CampusRunViewState {
         require(nowEpochMillis > 0)
         if (!SUBJECT_FINGERPRINT.matches(expectedSubjectFingerprint)) {
@@ -93,7 +111,7 @@ class CampusRunReadOnlyQuery(
                     val visitedCursors = mutableSetOf<String>()
                     var cursor: String? = null
                     var complete = false
-                    for (index in 0 until maxPages) {
+                    if (withHistory) for (index in 0 until maxPages) {
                         val page = source.readHistoryPage(cursor)
                         if (page.subjectFingerprint != expectedSubjectFingerprint) {
                             return gate.refreshFailed(CampusRunFailure.NOT_AUTHORIZED,
@@ -118,6 +136,13 @@ class CampusRunReadOnlyQuery(
                             visitedCursors.add(next)) { "invalid_or_repeated_cursor" }
                         cursor = next
                         if (records.size == maxRecords) break
+                    }
+                    // An account may be switched or revoked while pages load.
+                    // Never publish a mixed-account snapshot.
+                    if (source.authorizedSubjectFingerprint() !=
+                        expectedSubjectFingerprint) {
+                        return gate.refreshFailed(CampusRunFailure.NOT_AUTHORIZED,
+                            nowEpochMillis)
                     }
                     gate.accept(CampusRunSnapshot(
                         provenance = CampusRunProvenance.TRUSTED_READONLY,
