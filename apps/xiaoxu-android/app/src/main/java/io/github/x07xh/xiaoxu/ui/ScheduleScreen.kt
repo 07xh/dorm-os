@@ -1359,16 +1359,6 @@ private fun SectionBadge(label: String) {
     }
 }
 
-@Composable
-private fun ScheduleFooterNote() {
-    Text(
-        text = "课程来自本机导入；日期和节次时间仅依据本人设置，未进行教务实时核验。",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp)
-    )
-}
-
 // ---------------------------------------------------------------------------
 // 未连接 / 加载 / 错误 / 无来源 / 未验证 / 可信空结果
 // ---------------------------------------------------------------------------
