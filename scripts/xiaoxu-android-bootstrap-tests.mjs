@@ -1322,7 +1322,7 @@ assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
 // Never let CAS pages or network failures become an extractable work list.
 assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
 assert.match(localNative, /override fun onReceivedError\(/);
-assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pageFailed = true/);
+assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pendingOfficialCatalogRead = false\s*pageFailed = true/);
 assert.match(localNative, /private fun invalidateCapture\(\) \{\s*captureEpoch\+\+\s*scoreSaveJob\?\.cancel\(\)/);
 assert.match(localNative, /scoreSaveJob = lifecycleScope\.launch/);
 assert.match(localNative, /currentCoroutineContext\(\)\.ensureActive\(\)/);
@@ -1655,7 +1655,7 @@ assert.match(pageMotion, /slideInHorizontally\(SettingsPageSlide\) \{ width -> w
   '新设置页仅小幅推入，旧页不再跟随横移');
 assert.match(pageMotion, /togetherWith ExitTransition.None/,
   '进入设置子页时旧页不再反向晃动');
-assert.match(pageMotion, /EnterTransition.None togetherWith slideOutHorizontally/,
+assert.match(pageMotion, /EnterTransition.None togetherWith\s*slideOutHorizontally/,
   '返回设置时背景页保持静止，详情页小幅退出');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
   '五个主页面的动画容器必须裁剪边界');
