@@ -215,6 +215,14 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(db, /suspend fun updateDetails\(id: Long, title: String, source: String\?, due: String\?\): Int/,
+  '仅增加个人本机任务字段更新，不新增数据库');
+assert.match(localTaskUi, /internal fun LocalTaskEditSheet\(/,
+  '本机任务须允许通过共享原生浮层编辑');
+assert.match(localTaskUi, /dao\.updateDetails\(task\.id, cleanTitle, source, due\)/,
+  '已有本机任务编辑必须回写 Room');
+assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
+  '任务详情中的编辑操作应打开当前任务而非新增页');
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -1949,7 +1957,7 @@ assert.match(taskHubRegion,
   /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
   '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
 assert.match(taskHubRegion,
-  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i,\s*total = localRows\.size,/,
   '本机任务维持逐条 lazy item 与稳定 key');
 assert.match(workspace, /private fun ConnectedTaskShell\(/,
   '任务行使用共享首尾圆角与连接线容器');
@@ -1999,8 +2007,14 @@ assert.match(taskHubRegion,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
   '审核通过微信任务保持独立缓存分组');
-assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '云端任务保持独立缓存分组');
+assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "course" \} \}/,
+  '学习通课程任务保留独立缓存分组');
+assert.match(workspace, /val otherCloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
+  '普通云端待办不可混入课程任务');
+assert.match(workspace, /title = "云端待办"/,
+  '普通云端个人待办有独立默认折叠组');
+assert.match(workspace, /source == "cloud"[\s\S]*?task\.storage == "cloud"/,
+  '云端来源筛选保留课程与普通云端记录');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
