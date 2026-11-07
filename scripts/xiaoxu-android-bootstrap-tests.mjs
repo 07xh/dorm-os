@@ -1681,6 +1681,14 @@ assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从�
 assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
 assert.match(pageMotion, /private fun stablePageReveal\(durationMillis: Int\)/,
   '所有原生路由共用不露底的静态内容进入动画');
+const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotionTest.kt');
+assert.match(pageMotionJvmTest, /fun primaryTabsKeepOldPageUntilNewPageIsVisible\(/,
+  '五个主标签切换必须由可执行JVM测试检查旧页退出与新页层级');
+assert.match(pageMotionJvmTest, /fun settingAndAcademicChildRoutesNeverFadeOutTheOldScreen\(/,
+  '设置和教务二级页不能遗漏运行时无空白转场检查');
+assert.match(pageMotionJvmTest, /fun unchangedRouteDoesNotReplayThePageTransition\(/,
+  '同路由重复触发不得重新播放动效');
+
 assert.match(pageMotion, /initialAlpha = 0\.94f/,
   '目标页面须从接近全不透明状态呈现，不可从0透明度闪入');
 assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
