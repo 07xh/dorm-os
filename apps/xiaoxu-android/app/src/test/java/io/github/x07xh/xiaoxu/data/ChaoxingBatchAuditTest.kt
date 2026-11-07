@@ -88,6 +88,8 @@ class ChaoxingBatchAuditTest {
             classifyChaoxingReadIssue("upstream_unavailable", 502))
         assertEquals(ChaoxingReadIssue.INVALID_RESPONSE,
             classifyChaoxingReadIssue("unrecognized-private-detail", 422))
+        assertEquals(ChaoxingReadIssue.INVALID_RESPONSE,
+            classifyChaoxingReadIssue("invalid_response", 422))
         val failed = ChaoxingCourseAudit("102:1:2", "工程制图",
             ChaoxingCourseCoverage.FAILED, emptyList(),
             ChaoxingReadIssue.LIST_INCOMPLETE)
