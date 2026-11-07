@@ -20,11 +20,6 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -96,7 +91,7 @@ import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
-import io.github.x07xh.xiaoxu.ui.XiaoxuMotion
+import io.github.x07xh.xiaoxu.ui.xiaoxuPrimaryPageTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
@@ -442,11 +437,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * 主页面切换动效时长（毫秒）。enter 与 exit 必须同长：
- * 旧实现 fadeOut(120) 比 fadeIn(180) 早 60ms 结束，中间 60ms 只有半透明新页，
- * 透出 Scaffold 背景色，观感就是"闪白"。
- */
+/** Tab animation is a single opaque 360ms translated page; no two-layer fading. */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -611,17 +602,11 @@ private fun NativeShell(
                     AnimatedContent(
                         targetState = current,
                         transitionSpec = {
-                            // enter / exit 同长（XiaoxuMotion.PageSwitchMs），消除旧页先消失的半透明空档。
-                            // 位移收到 width/32（约 33px）：只作方向提示，不做整页平移，
-                            // 缩小课表这类重页在新旧共存期的重绘面积。
-                            val forward = targetState.ordinal >= initialState.ordinal
-                            val direction = if (forward) 1 else -1
-                            (
-                                fadeIn(animationSpec = tween(XiaoxuMotion.PageSwitchMs)) +
-                                    slideInHorizontally(animationSpec = tween(XiaoxuMotion.PageSwitchMs)) { width ->
-                                        direction * (width / 32)
-                                    }
-                                ) togetherWith fadeOut(animationSpec = tween(XiaoxuMotion.PageSwitchMs))
+                            // SleepDown-style single-page motion; no crossfade ghosting.
+                            // The current navigation and per-page saved state remain untouched.
+                            xiaoxuPrimaryPageTransition(
+                                forward = targetState.ordinal >= initialState.ordinal
+                            )
                         },
                         label = "page"
                     ) { page ->
