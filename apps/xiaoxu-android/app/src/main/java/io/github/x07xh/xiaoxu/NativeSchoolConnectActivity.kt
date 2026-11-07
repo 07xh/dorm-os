@@ -66,6 +66,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         // Official personal homework overview; still requires the owner's normal login.
         private const val CHAOXING_HOMEWORK =
             "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
+        // Existing official learning-plan page; only the visible task text is read.
+        private const val CHAOXING_STUDY_TASKS =
+            "https://task.chaoxing.com/userStudyPlan/studyPlanSubPage"
         // NCWU's independently published CAS -> Chaoxing SSO service.
         // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
         private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
@@ -218,6 +221,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             text = "学习通 · 打开我的作业"
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
         } else null
+        val studyTaskShortcut = if (provider == "chaoxing") Button(this).apply {
+            text = "学习通 · 打开学习计划"
+            setOnClickListener { browser.loadUrl(CHAOXING_STUDY_TASKS) }
+        } else null
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
             setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
@@ -360,6 +367,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         appendVisible?.let { root.addView(it) }
         if (courseShortcut != null) root.addView(courseShortcut)
         if (homeworkShortcut != null) root.addView(homeworkShortcut)
+        if (studyTaskShortcut != null) root.addView(studyTaskShortcut)
         if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
         if (scoreShortcut != null) root.addView(scoreShortcut)
         if (provider == "second_class") root.addView(catalogProbe)
