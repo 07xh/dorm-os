@@ -1587,10 +1587,17 @@ assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '云端任
 assert.match(workspace, /含上次云端快照 /, '云端旧记录必须保留快照标签');
 assert.match(workspace, /云端日期仅供参考/,
   '首页只保留一次云端日期来源提示，不伪称学校正式截止日');
-assert.match(workspace, /it.storage == "local" &&/,
-  '近期截止只统计本人填写的日期，不混算云端未核验期限');
-assert.match(workspace, /!it.date.isBefore\(today\)/,
-  '历史逾期记录不能混入未来三天的近期截止统计');
+assert.match(workspace, /countUpcomingLocalDeadlines\(all, today\)/,
+  '首页近期截止使用单一已测试的来源安全统计函数');
+assert.match(workspace, /task.storage == "local" && !task.done/,
+  '近期截止仅统计本人填写的未完成任务');
+assert.match(workspace, /!it.isBefore\(today\) && !it.isAfter\(today.plusDays\(3\)\)/,
+  '历史逾期记录不得混入未来三天的近期截止统计');
+const dueTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/WorkspaceDueProvenanceTest.kt');
+assert.match(dueTest, /upcomingCountRequiresLocalNotOverdueAndNotDone/,
+  '真实JVM用例须覆盖本人逾期及云端未核验日期');
+assert.match(dueTest, /weeklyFiltersDoNotTreatCloudRecordsAsVerifiedSchoolDueDates/,
+  '真实JVM用例须拒绝把云端未核实日期标为本周学校作业');
 assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
 // 课表主页面继续保留本机导入及来源分离门禁。
