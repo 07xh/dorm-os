@@ -196,25 +196,24 @@ fun CloudTimetablePanel(
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    settingsOpen: Boolean = false,
+    onSettingsOpenChanged: (Boolean) -> Unit = {}
 ) {
-    // The same settings host is reachable with or without imported lessons.
+    // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            ScheduleVerifiedContent(
-                data = localImportedScheduleView(localLessons),
-                expanded = expanded,
-                openFileImport = openFileImport,
-                openFileExport = openFileExport,
-                localScheduleRevision = localScheduleRevision,
-                onLocalLessonsChanged = onLocalLessonsChanged,
-                onMessages = onMessages
-            )
-        }
+        ScheduleVerifiedContent(
+            data = localImportedScheduleView(localLessons),
+            expanded = expanded,
+            openFileImport = openFileImport,
+            openFileExport = openFileExport,
+            localScheduleRevision = localScheduleRevision,
+            onLocalLessonsChanged = onLocalLessonsChanged,
+            onMessages = onMessages,
+            settingsOpen = settingsOpen,
+            onSettingsOpenChanged = onSettingsOpenChanged
+        )
     }
 }
 
@@ -308,11 +307,12 @@ private fun ScheduleVerifiedContent(
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    settingsOpen: Boolean,
+    onSettingsOpenChanged: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
-    var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
 
     val editorScope = rememberCoroutineScope()
     val reminderPermissionLauncher = rememberLauncherForActivityResult(
@@ -385,9 +385,16 @@ private fun ScheduleVerifiedContent(
         filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
     }
 
+    // Keep the timetable's scroll offset while switching to its real settings route.
+    val timetableScroll = rememberScrollState()
+    if (!settingsOpen) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(timetableScroll),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
     if (data.lessons.isEmpty()) {
         LocalTimetableEmptyState(
-            onSettings = { showSemesterSettings = true },
+            onSettings = { onSettingsOpenChanged(true) },
             onAdd = {
                 editOriginal = null
                 editingError = null
@@ -410,7 +417,7 @@ private fun ScheduleVerifiedContent(
                 editingError = null
                 showingCourseEditor = true
             },
-            onSettings = { showSemesterSettings = true }
+            onSettings = { onSettingsOpenChanged(true) }
         )
         if (weekNumbers.size > 1 && showWeekPicker) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek,
@@ -654,27 +661,29 @@ private fun ScheduleVerifiedContent(
             }
         )
     }
-    if (showSemesterSettings) {
-        SemesterSettingsDialog(
+        }
+    }
+    if (settingsOpen) {
+        SemesterSettingsPage(
             current = calendar,
             reminderEnabled = LocalCourseReminders.enabled(context),
             initialViewMode = viewMode,
             initialSections = visibleSections,
             onAddCourse = {
-                showSemesterSettings = false
+                onSettingsOpenChanged(false)
                 editOriginal = null
                 editingError = null
                 showingCourseEditor = true
             },
             onImport = {
-                showSemesterSettings = false
+                onSettingsOpenChanged(false)
                 openFileImport()
             },
             onExport = {
-                showSemesterSettings = false
+                onSettingsOpenChanged(false)
                 openFileExport()
             },
-            onDismiss = { showSemesterSettings = false },
+            onDismiss = { onSettingsOpenChanged(false) },
             onSave = { config, wantReminders, newViewMode, newSections ->
                 LocalSemesterConfigStore.saveViewMode(context, newViewMode)
                 LocalSemesterConfigStore.saveSections(context, newSections)
@@ -687,7 +696,7 @@ private fun ScheduleVerifiedContent(
                         selectedWeek = it
                     }
                 }
-                showSemesterSettings = false
+                onSettingsOpenChanged(false)
                 if (!wantReminders) {
                     editorScope.launch {
                         val disabled = withContext(Dispatchers.IO) {
