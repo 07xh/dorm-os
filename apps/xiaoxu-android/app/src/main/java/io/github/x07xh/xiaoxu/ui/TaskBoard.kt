@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -62,15 +63,19 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTask
+import io.github.x07xh.xiaoxu.data.CloudTask
+import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.TASK_SOURCE_LOCAL
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.ZoneId
 import java.time.format.DateTimeParseException
 import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /*
  * 校序任务页（本机待办看板）。
@@ -182,7 +187,10 @@ private val DueLaterInk = Color(0xFF6B7B93)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
+fun LocalTaskEditor(
+    tasks: List<LocalTask>, dao: LocalTaskDao,
+    onEditTask: (LocalTask) -> Unit
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val today = LocalDate.now()
@@ -309,6 +317,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
                             task = task,
                             today = today,
                             onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
+                            onEdit = { onEditTask(task) },
                             onDelete = { pendingDelete = task }
                         )
                     }
@@ -368,6 +377,137 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
                 TextButton(onClick = { pendingDelete = null }) { Text("取消") }
             }
         )
+    }
+}
+
+
+/**
+ * ONE shared editor for personal task fields.
+ * Local Room: title/source/due. Approved WeChat: personal target date only.
+ * No school deadline, provenance or source message is changed.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TaskPersonalEditSheet(
+    localTask: LocalTask?,
+    cloudTask: CloudTask?,
+    dao: LocalTaskDao,
+    client: CloudClient,
+    onDismiss: () -> Unit
+) {
+    if ((localTask == null) == (cloudTask == null)) return
+    if (cloudTask != null && cloudTask.provider != "wechat") return
+    val scope = rememberCoroutineScope()
+    val sourceId = localTask?.id?.toString() ?: cloudTask!!.id
+    val initialDate = if (localTask != null) localTask.due else {
+        cloudTask?.personalTargetAt?.let { raw ->
+            runCatching { Instant.parse(raw).atZone(ZoneId.of("Asia/Shanghai"))
+                .toLocalDate().toString() }.getOrNull()
+        }
+    }
+    var title by rememberSaveable(sourceId) { mutableStateOf(localTask?.title ?: cloudTask!!.title) }
+    var source by rememberSaveable(sourceId) { mutableStateOf(localTask?.source) }
+    var date by rememberSaveable(sourceId) { mutableStateOf(initialDate) }
+    var pickerOpen by remember(sourceId) { mutableStateOf(false) }
+    var saving by remember(sourceId) { mutableStateOf(false) }
+    var error by remember(sourceId) { mutableStateOf<String?>(null) }
+
+    XiaoxuGlassDialog(
+        title = "编辑个人任务",
+        onDismiss = { if (!saving) onDismiss() },
+        dismissLabel = "取消"
+    ) {
+        if (localTask != null) {
+            OutlinedTextField(
+                value = title, onValueChange = { title = it.take(120); error = null },
+                label = { Text("任务名称") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text("来源（本人标注）", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(count = TASK_SOURCES.size, key = { index -> TASK_SOURCES[index].code }) { index ->
+                    val option = TASK_SOURCES[index]
+                    SourcePill(
+                        label = option.label, isSelected = source == option.code,
+                        a11yLabel = "来源标注为" + option.label,
+                        onClick = { source = option.code }
+                    )
+                }
+            }
+        } else {
+            Text(cloudTask!!.title, style = MaterialTheme.typography.titleMedium)
+            Text("微信来源标题和原消息不可编辑，仅修改个人计划日期。",
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        Text(if (localTask != null) "本人截止日期" else "本人计划完成日期",
+            style = MaterialTheme.typography.labelMedium, color = XiaoxuPalette.Ink2)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { pickerOpen = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(Icons.Outlined.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(date ?: "选择日期")
+            }
+            if (date != null) {
+                TextButton(onClick = { date = null; error = null },
+                    modifier = Modifier.heightIn(min = 48.dp)) { Text("清除") }
+            }
+        }
+        if (error != null) {
+            Text(error!!, color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Button(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            enabled = !saving && (localTask == null || title.isNotBlank()),
+            onClick = {
+                if (date != null && parseDue(date) == null) {
+                    error = "日期无效，请重新选择或清除"
+                } else {
+                    saving = true
+                    scope.launch {
+                        try {
+                            val saved = if (localTask != null) {
+                                dao.updateDetails(localTask.id, title.trim(), source, date) > 0
+                            } else {
+                                client.setWechatPersonalPlanDate(
+                                    cloudTask!!.id, cloudTask.revision,
+                                    date?.let { LocalDate.parse(it) })
+                            }
+                            if (saved) onDismiss()
+                            else error = "保存未成功；请刷新后重试"
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            error = "保存失败，请重试"
+                        } finally {
+                            saving = false
+                        }
+                    }
+                }
+            }
+        ) { Text(if (saving) "保存中…" else "保存修改") }
+    }
+
+    if (pickerOpen) {
+        val millis = parseDue(date)?.atStartOfDay(ZoneOffset.UTC)
+            ?.toInstant()?.toEpochMilli()
+        val picker = rememberDatePickerState(initialSelectedDateMillis = millis)
+        DatePickerDialog(
+            onDismissRequest = { pickerOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    picker.selectedDateMillis?.let { chosen ->
+                        date = Instant.ofEpochMilli(chosen).atZone(ZoneOffset.UTC)
+                            .toLocalDate().toString()
+                    }
+                    pickerOpen = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickerOpen = false }) { Text("取消") }
+            }
+        ) { DatePicker(state = picker) }
     }
 }
 
@@ -440,6 +580,7 @@ private fun TaskRow(
     task: LocalTask,
     today: LocalDate,
     onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val state = dueStateOf(task, today)
@@ -475,6 +616,11 @@ private fun TaskRow(
                     }
                 }
             }
+        IconButton(onClick = onEdit, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Outlined.Edit,
+                contentDescription = "编辑“" + task.title + "”",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         IconButton(
             onClick = onDelete,
             modifier = Modifier.size(48.dp)
