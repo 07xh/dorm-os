@@ -582,6 +582,28 @@ assert.match(schedulePanel, /label = "新增课程"/);
 assert.match(schedulePanel, /label = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+assert.match(timetableSettings, /internal fun SemesterSettingsPage\(/,
+  '课表设置必须是同 Activity 内原生子页面');
+const timetablePageSource = timetableSettings.slice(
+  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
+  timetableSettings.indexOf('// Use Material3 date/time controls')
+);
+assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
+  '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
+assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
+  '课表设置需要填满当前主导航内容窗口');
+assert.match(schedulePanel, /if \(!settingsOpen\) \{/,
+  '默认课表内容和设置页必须互斥，不得浮层叠放');
+assert.match(schedulePanel, /if \(settingsOpen\) \{\s*SemesterSettingsPage\(/,
+  '设置页必须走同窗口渲染分支，不得用 Compose Dialog');
+assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '导航层应保存课表子页面状态');
+assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
+  '安卓系统返回键应从课表设置回到课表');
+assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{ scheduleSettingsOpen = it \}/,
+  '课表路由状态必须由唯一 NativeShell 维护');
+assert.match(main, /current != MainDestination\.SCHEDULE \|\| !scheduleSettingsOpen/,
+  '课表设置显示时底部导航与占位须同时隐藏');
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
 assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
@@ -661,7 +683,7 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
 const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (showSemesterSettings) {'),
+  schedulePanel.indexOf('if (settingsOpen) {'),
   schedulePanel.indexOf('private fun DayLessonList(')
 );
 assert.match(timetableSettingsCallback, /val permissionMissing = Build\.VERSION\.SDK_INT >= 33 &&/,
