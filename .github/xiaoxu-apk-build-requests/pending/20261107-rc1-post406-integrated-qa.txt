@@ -1,0 +1,3 @@
+校序 0.8.11 RC1 + #404 + #406 cumulative QA snapshot.
+PR351 4bcbe4130fba219d12f095f19174cee62aa96815; includes no-motion tab switch, current glass/touch masks, task expansion stability, timetable course title feedback, second-class/Chaoxing real adapters.
+Run Android compile + JVM, DORM OS E2E, isolated unifiedqa APK and SHA256; keep main release branch unchanged.
