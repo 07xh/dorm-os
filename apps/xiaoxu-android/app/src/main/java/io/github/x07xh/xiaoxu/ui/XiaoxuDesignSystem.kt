@@ -355,6 +355,26 @@ fun XiaoxuSegmentedControl(
     }
 }
 
+/**
+ * 设置列表与教务连续分组唯一共享的玻璃外壳。
+ * 不建立业务状态，不接管行高或点击行为；课表设置保持原来的弹出位置与文字。
+ */
+@Composable
+internal fun XiaoxuGroupSurface(
+    modifier: Modifier = Modifier,
+    verticalPadding: Dp = 0.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(XiaoxuRadius.card)
+    Column(
+        modifier = modifier.fillMaxWidth().clip(shape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(0.75.dp, XiaoxuPalette.GlassBorder, shape)
+            .padding(vertical = verticalPadding),
+        content = content
+    )
+}
+
 /** 连续分组设置：只管理展示与布局，业务回调仍属于对应页面。 */
 @Composable
 fun XiaoxuGroupedSection(
@@ -367,11 +387,7 @@ fun XiaoxuGroupedSection(
             Text(title, style = MaterialTheme.typography.labelMedium,
                 color = XiaoxuPalette.Ink2, modifier = Modifier.padding(start = 14.dp))
         }
-        val sectionShape = RoundedCornerShape(XiaoxuRadius.card)
-        Column(Modifier.fillMaxWidth().clip(sectionShape)
-            .background(XiaoxuPalette.GlassCard)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, sectionShape)
-            .padding(vertical = 4.dp), content = content)
+        XiaoxuGroupSurface(verticalPadding = 4.dp, content = content)
     }
 }
 
