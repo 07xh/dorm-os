@@ -128,6 +128,7 @@ const db={prepare(sql){return {
 const offlineAdapter={provider:'chaoxing',pollQrLogin:async()=>({}),
  forSession:async()=>({provider:'chaoxing',
   async verifySession(){return {authorized:true,school:'ncwu',
+   provider:'chaoxing',scope:'self',session:{uid:'1234567'},
    identityBound:true,principalBoundTo:'owner1'};},
   async readNoticePage(){throw Error('upstream inbox temporarily unavailable');}
  })};

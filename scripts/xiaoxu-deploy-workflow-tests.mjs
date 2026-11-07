@@ -62,7 +62,7 @@ const regularCI=readFileSync(new URL('../.github/workflows/check.yml',import.met
 assert.match(androidBuild,/on:\s*\n\s*workflow_dispatch:/);
 assert.doesNotMatch(androidBuild,/^\s{2}schedule:/m,
  'APK packaging must never run on a schedule');
-assert.match(androidBuild, /^\s{2}pull_request:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
+assert.match(androidBuild, /^\s{2}pull_request:\n\s{4}branches: \[main, 'feat\/xiaoxu-unified-native-mainline-20261106'\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'PR compilation must require an explicit pending request marker');
 assert.match(androidBuild, /^\s{2}push:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'Main APK build must also be triggered only by a reviewed request marker');
@@ -74,6 +74,13 @@ assert.doesNotMatch(androidBuild,/xiaoxu-apk-build-requests\/\*\*/,
  'Build requests must match pending files only, never the whole archive directory');
 assert.match(androidBuild,/xiaoxu-apk-build-requests\/pending\/\*\.txt/,
  'Reviewed pending markers must remain an allowed APK build trigger');
+// Nested changes to the sole UI integration branch must receive the same
+// read-only validation without opening a duplicate QA PR against main.
+for(const name of ['check.yml','xiaoxu-campus-run-jvm.yml','xiaoxu-secondclass-webview.yml']){
+ const workflow=readFileSync(new URL('../.github/workflows/'+name,import.meta.url),'utf8');
+ assert.match(workflow,/pull_request:\n\s{4}branches: \[main, 'feat\/xiaoxu-unified-native-mainline-20261106'\]/,
+  name+' must validate PRs targeting the integration branch');
+}
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');
