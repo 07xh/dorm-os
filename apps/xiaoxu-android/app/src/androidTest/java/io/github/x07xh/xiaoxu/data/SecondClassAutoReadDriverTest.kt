@@ -15,6 +15,8 @@ import org.junit.Test
 import org.junit.Before
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.io.ByteArrayInputStream
 
 /** Executes the production driver. Only page transport is synthetic, never school traffic. */
 @RunWith(AndroidJUnit4::class)
@@ -30,8 +32,40 @@ class SecondClassAutoReadDriverTest {
             headers:{get:function(){return 'application/json';}},
             text:function(){return Promise.resolve(JSON.stringify({data:data,totalSize:data.length,totalPage:0,startIndex:0}));}});
         };</script></body></html>"""
+    // Serve fixture documents through HTTPS request interception. WebView's
+    // loadDataWithBaseURL internally requests data:, which production correctly
+    // rejects as an unapproved top-level navigation. No network is permitted.
+    private open class OfflinePage(c: Context) : WebView(c) {
+        private val documents = ConcurrentHashMap<String, String>()
+        override fun loadDataWithBaseURL(baseUrl: String?, data: String, mimeType: String?, encoding: String?, historyUrl: String?) {
+            requireNotNull(baseUrl)
+            documents[baseUrl] = data
+            super.loadUrl(baseUrl)
+        }
+        override fun setWebViewClient(client: WebViewClient) {
+            super.setWebViewClient(object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    val guarded = client.shouldInterceptRequest(view, request)
+                    if (guarded != null) return guarded
+                    val html = if (request.method == "GET") documents[request.url.toString()] else null
+                    return WebResourceResponse("text/html", "UTF-8", if (html == null) 503 else 200,
+                        if (html == null) "Unavailable fixture" else "OK", emptyMap(),
+                        ByteArrayInputStream(html.orEmpty().toByteArray(Charsets.UTF_8)))
+                }
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+                    client.shouldOverrideUrlLoading(view, request)
+                override fun onPageStarted(view: WebView, url: String?, icon: android.graphics.Bitmap?) =
+                    client.onPageStarted(view, url, icon)
+                override fun onPageFinished(view: WebView, url: String?) = client.onPageFinished(view, url)
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) =
+                    client.onReceivedError(view, request, error)
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) =
+                    client.onReceivedHttpError(view, request, response)
+            })
+        }
+    }
     private class Page(c: Context, val html: String, val destroyed: AtomicInteger,
-        val loaded: CompletableDeferred<Unit> = CompletableDeferred()) : WebView(c) {
+        val loaded: CompletableDeferred<Unit> = CompletableDeferred()) : OfflinePage(c) {
         override fun loadUrl(url: String) {
             assertEquals("https://dekt.ncwu.edu.cn/sys/stu/score", url)
             assertNull(parent)
@@ -80,7 +114,7 @@ class SecondClassAutoReadDriverTest {
         val destroyed = AtomicInteger()
         val result = withTimeout(30_000) {
             readSecondClassAutomatically(c, "a".repeat(32)) {
-                object : WebView(it) {
+                object : OfflinePage(it) {
                     override fun loadUrl(url: String) {
                         // Simulate only observed first-party redirect callbacks;
                         // the runtime APK cannot contact the school network.
@@ -106,7 +140,7 @@ class SecondClassAutoReadDriverTest {
         val destroyed = AtomicInteger()
         val error = try {
             readSecondClassAutomatically(c, "a".repeat(32)) {
-                object : WebView(it) {
+                object : OfflinePage(it) {
                     override fun loadUrl(url: String) {
                         val request = object : WebResourceRequest {
                             override fun getUrl() = Uri.parse(url)
@@ -134,7 +168,7 @@ class SecondClassAutoReadDriverTest {
         val cas = "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F"
         val result = withTimeout(30_000) {
             readSecondClassAutomatically(c, "a".repeat(32)) {
-                object : WebView(it) {
+                object : OfflinePage(it) {
                     override fun loadUrl(url: String) {
                         loads.add(url)
                         when (url) {
@@ -158,7 +192,7 @@ class SecondClassAutoReadDriverTest {
         val error = try {
             withTimeout(15_000) {
                 readSecondClassAutomatically(c, "a".repeat(32)) {
-                    object : WebView(it) {
+                    object : OfflinePage(it) {
                         override fun loadUrl(url: String) {
                             loadDataWithBaseURL(
                                 "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
@@ -184,7 +218,7 @@ class SecondClassAutoReadDriverTest {
         val error = try {
             withTimeout(20_000) {
                 readSecondClassAutomatically(c, "a".repeat(32)) {
-                    object : WebView(it) {
+                    object : OfflinePage(it) {
                         override fun setWebViewClient(client: WebViewClient) {
                             super.setWebViewClient(object : WebViewClient() {
                                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -226,7 +260,7 @@ class SecondClassAutoReadDriverTest {
         val destroyed = AtomicInteger()
         val error = try {
             readSecondClassAutomatically(c, "a".repeat(32)) {
-                object : WebView(it) {
+                object : OfflinePage(it) {
                     override fun loadUrl(url: String) {
                         repeat(11) {
                             if (destroyed.get() == 0) webViewClient.onPageStarted(this, url, null)
@@ -245,7 +279,7 @@ class SecondClassAutoReadDriverTest {
         val casLoads = AtomicInteger()
         val error = try {
             readSecondClassAutomatically(c, "a".repeat(32)) {
-                object : WebView(it) {
+                object : OfflinePage(it) {
                     override fun loadUrl(url: String) {
                         if (url.startsWith("https://authserver.ncwu.edu.cn/")) casLoads.incrementAndGet()
                         val gateway = "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore"
