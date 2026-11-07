@@ -11,7 +11,9 @@ for(const file of [
   '0001_academic_core.sql',
   '0002_academic_legacy_links.sql',
   '0003_academic_verified_snapshots.sql',
-  '0004_academic_source_course.sql'
+  '0004_academic_source_course.sql',
+  '0017_academic_wechat_candidates.sql',
+  '0018_academic_wechat_candidate_links.sql'
 ]) sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
 const db={
   prepare(sql){
