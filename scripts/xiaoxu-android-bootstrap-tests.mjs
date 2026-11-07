@@ -658,8 +658,8 @@ assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE 
   '安卓系统返回键应从课表设置回到课表');
 assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{/,
   '课表路由状态必须由唯一 NativeShell 维护');
-assert.match(main, /MainDestination\.PROFILE -> \{\s*if \(profileSettingsRoute == "timetable-settings"/,
-  '课表设置须作为我的原生二级路由，不切换主标签页');
+assert.match(main, /MainDestination\.PROFILE -> \{[\s\S]*?AnimatedContent\([\s\S]*?label = "profileTimetableChild"[\s\S]*?if \(timetableChild\)/,
+  '课表设置须作为我的原生二级路由，使用统一二级页转场，不切换主标签页');
 assert.match(main, /settingsOpen = profileSettingsRoute == "timetable-settings"/,
   '课表设置应直接渲染同一课表设置组件，不能先露出周视图');
 assert.match(main, /onScheduleSettings = \{\s*profileSettingsRoute = "timetable-settings"\s*\}/,
