@@ -1382,7 +1382,7 @@ fun RealAcademicTaskHub(
                 count = capturedHomework.size,
                 badge = "",
                 note = "",
-                icon = Icons.Outlined.FolderOpen,
+                icon = Icons.Outlined.School,
                 expanded = showSchoolRecords,
                 onClick = { showSchoolRecords = !showSchoolRecords },
                 showCount = capturedHomework.isNotEmpty()
