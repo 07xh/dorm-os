@@ -2207,10 +2207,12 @@ assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
-  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
-assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
-  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
+assert.match(workspace, /editingTaskKey = selectedTask.key/,
+  '任务详情直接进入唯一个人编辑浮层，不开启额外管理页面');
+assert.match(workspace, /editingLocal = localTasks.firstOrNull/,
+  '编辑本机任务时用 Room 中当前记录，不能用历史快照');
+assert.match(workspace, /editingCloud = state.tasks.firstOrNull/,
+  '微信个人计划从云端当前版本读取并限制来源');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
