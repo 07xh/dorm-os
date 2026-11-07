@@ -2054,7 +2054,7 @@ assert.match(main, /SecondClassPage\(\)/,
 assert.match(panels, /fun ProfileMetric\(/, '我的页真实指标格');
 
 const profileMetricSource = panels.slice(panels.indexOf('private fun ProfileMetric('),
-  panels.indexOf('/** 本机优先',panels.indexOf('private fun ProfileMetric(')));
+  panels.indexOf('private fun CloudAuthorizationSection(', panels.indexOf('private fun ProfileMetric(')));
 assert.doesNotMatch(profileMetricSource, /background\(XiaoxuPalette\.SurfaceAlt\)/,
   '我的账户统计不能再各自嵌套灰色背景小卡，保持单层玻璃信息结构');
 assert.match(profileMetricSource, /MaterialTheme\.typography\.titleMedium/,
