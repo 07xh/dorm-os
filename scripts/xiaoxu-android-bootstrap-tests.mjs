@@ -289,6 +289,14 @@ assert.doesNotMatch(coursePanel, /其他记录请在校序任务列表查看/,
 
 assert.match(workspace, /ChaoxingHomeworkPanel\(client, openSchoolReader = \{ openLocalSchool\("chaoxing"\) \}\)/);
 assert.match(coursePanel, /fun ChaoxingHomeworkPanel\(client: CloudClient, openSchoolReader: \(\) -> Unit\)/);
+assert.match(coursePanel, /XiaoxuCard\(modifier = Modifier\.fillMaxWidth\(\), contentPadding = 0\.dp\)/,
+  '学习通课业页面必须复用统一玻璃卡片');
+assert.match(coursePanel, /state\.chaoxingPreview\?\.let \{ preview ->\s*XiaoxuSheet\(/,
+  '只读作业详情必须走共享浮层，不可在列表内嵌旧方形 Card');
+assert.match(coursePanel, /onDismiss = \{ client\.clearChaoxingDetail\(\) \}/,
+  '学习通详情可返回关闭并清理只读预览状态');
+assert.doesNotMatch(coursePanel, /\bCardDefaults\b|\bCard\s*\(/,
+  '不得恢复第二套独立 Material3 作业卡片');
 assert.match(coursePanel, /OutlinedButton\(onClick = openSchoolReader\)/);
 assert.match(coursePanel, /在 App 内读取学习通作业/);
 assert.doesNotMatch(coursePanel, /前往现有数据连接中心/);
