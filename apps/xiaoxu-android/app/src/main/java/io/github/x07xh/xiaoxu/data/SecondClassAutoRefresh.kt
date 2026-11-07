@@ -62,6 +62,13 @@ object SecondClassAutoRefresh {
         val settings = prefs(c)
         fun state(value: String) { settings.edit().putString("status", value).apply() }
         try {
+            if (settings.getInt("session_policy_version", 0) < 1) {
+                // Old builds permanently paused even on a temporary 403 or
+                // normal school redirect. Permit one fresh, owner-checked read;
+                // never reset account changes, opt-outs or saved identity.
+                settings.edit().putInt("session_policy_version", 1).apply()
+                if (status(c) == "needs_reconnect") state("failed")
+            }
             // Written only when a background invocation actually acquires the
             // coordinator, never when a periodic request is merely registered.
             if (backgroundRun && enabled(c) && background(c))
@@ -91,7 +98,8 @@ object SecondClassAutoRefresh {
             state("reading")
             val payload = reader(c, salt!!)
             if (!payload.optBoolean("ok")) {
-                state(if (payload.optInt("httpStatus") in setOf(401, 403)) "needs_reconnect"
+                state(if (payload.optInt("httpStatus") == 401 &&
+                    payload.optString("stage") != "activity_http") "needs_reconnect"
                     else if (payload.optString("stage") == "identity" &&
                         payload.optString("reason") != "visible_account_required") "needs_confirmation" else "failed")
                 return
@@ -102,6 +110,7 @@ object SecondClassAutoRefresh {
             val scores = parseLocalSecondClassScores(payload, startedAt)
             val activities = parseLocalSecondClassActivities(payload, startedAt)
             val catalog = parseLocalSecondClassCatalogEmpty(payload, startedAt)
+            val catalogActivities = parseLocalSecondClassCatalogActivities(payload, startedAt)
             currentCoroutineContext().ensureActive()
             if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
                 identity.getString("salt", null) != salt) return
@@ -109,7 +118,7 @@ object SecondClassAutoRefresh {
             if (bindings.isEmpty() && identity.getString("account", null) != expected) return
             withContext(Dispatchers.IO) {
                 currentCoroutineContext().ensureActive()
-                dao.replaceSecondClassSnapshot(scores, activities, catalog,
+                dao.replaceSecondClassSnapshot(scores, activities, catalog, catalogActivities,
                     accountHash = expected, expectedBinding = expected)
             }
             settings.edit().putLong("success_at", System.currentTimeMillis())

@@ -2,6 +2,11 @@ package io.github.x07xh.xiaoxu.data
 
 import android.content.Context
 import android.webkit.WebView
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebViewClient
+import android.webkit.WebResourceError
+import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.*
@@ -10,6 +15,8 @@ import org.junit.Test
 import org.junit.Before
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.io.ByteArrayInputStream
 
 /** Executes the production driver. Only page transport is synthetic, never school traffic. */
 @RunWith(AndroidJUnit4::class)
@@ -25,8 +32,40 @@ class SecondClassAutoReadDriverTest {
             headers:{get:function(){return 'application/json';}},
             text:function(){return Promise.resolve(JSON.stringify({data:data,totalSize:data.length,totalPage:0,startIndex:0}));}});
         };</script></body></html>"""
+    // Serve fixture documents through HTTPS request interception. WebView's
+    // loadDataWithBaseURL internally requests data:, which production correctly
+    // rejects as an unapproved top-level navigation. No network is permitted.
+    private open class OfflinePage(c: Context) : WebView(c) {
+        private val documents = ConcurrentHashMap<String, String>()
+        override fun loadDataWithBaseURL(baseUrl: String?, data: String, mimeType: String?, encoding: String?, historyUrl: String?) {
+            requireNotNull(baseUrl)
+            documents[baseUrl] = data
+            super.loadUrl(baseUrl)
+        }
+        override fun setWebViewClient(client: WebViewClient) {
+            super.setWebViewClient(object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    val guarded = client.shouldInterceptRequest(view, request)
+                    if (guarded != null) return guarded
+                    val html = if (request.method == "GET") documents[request.url.toString()] else null
+                    return WebResourceResponse("text/html", "UTF-8", if (html == null) 503 else 200,
+                        if (html == null) "Unavailable fixture" else "OK", emptyMap(),
+                        ByteArrayInputStream(html.orEmpty().toByteArray(Charsets.UTF_8)))
+                }
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+                    client.shouldOverrideUrlLoading(view, request)
+                override fun onPageStarted(view: WebView, url: String?, icon: android.graphics.Bitmap?) =
+                    client.onPageStarted(view, url, icon)
+                override fun onPageFinished(view: WebView, url: String?) = client.onPageFinished(view, url)
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) =
+                    client.onReceivedError(view, request, error)
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) =
+                    client.onReceivedHttpError(view, request, response)
+            })
+        }
+    }
     private class Page(c: Context, val html: String, val destroyed: AtomicInteger,
-        val loaded: CompletableDeferred<Unit> = CompletableDeferred()) : WebView(c) {
+        val loaded: CompletableDeferred<Unit> = CompletableDeferred()) : OfflinePage(c) {
         override fun loadUrl(url: String) {
             assertEquals("https://dekt.ncwu.edu.cn/sys/stu/score", url)
             assertNull(parent)
@@ -68,7 +107,192 @@ class SecondClassAutoReadDriverTest {
             }
             null
         } catch (failure: AutoReadFailure) { failure.status }
-        assertEquals("needs_reconnect", error)
+        assertEquals("failed", error)
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun existingOfficialSsoMayReturnToTheOwnerScorePage() = runBlocking {
+        val destroyed = AtomicInteger()
+        val result = withTimeout(30_000) {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : OfflinePage(it) {
+                    override fun loadUrl(url: String) {
+                        // Simulate only observed first-party redirect callbacks;
+                        // the runtime APK cannot contact the school network.
+                        for (hop in listOf(
+                            "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore",
+                            "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
+                            "https://sec.ncwu.edu.cn/rump_frontend/loginFromCas/?ticket=SYNTHETIC"
+                        )) {
+                            webViewClient.onPageStarted(this, hop, null)
+                            if (destroyed.get() != 0) return
+                        }
+                        loadDataWithBaseURL(url, html, "text/html", "UTF-8", null)
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+        }
+        assertTrue(result.toString(), result.getBoolean("ok"))
+        assertTrue(result.getBoolean("identityMatched"))
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun forbiddenResponseIsRetryableWithoutClaimingTheOwnerLoggedOut() = runBlocking {
+        val destroyed = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : OfflinePage(it) {
+                    override fun loadUrl(url: String) {
+                        val request = object : WebResourceRequest {
+                            override fun getUrl() = Uri.parse(url)
+                            override fun isForMainFrame() = true
+                            override fun isRedirect() = false
+                            override fun hasGesture() = false
+                            override fun getMethod() = "GET"
+                            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+                        }
+                        webViewClient.onReceivedHttpError(this, request,
+                            WebResourceResponse("text/html", "UTF-8", 403, "Forbidden", emptyMap(), null))
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun schoolHoldingPageUsesOnlyTheFixedExistingCasService() = runBlocking {
+        val destroyed = AtomicInteger()
+        val loads = mutableListOf<String>()
+        val score = "https://dekt.ncwu.edu.cn/sys/stu/score"
+        val cas = "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F"
+        val result = withTimeout(30_000) {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : OfflinePage(it) {
+                    override fun loadUrl(url: String) {
+                        loads.add(url)
+                        when (url) {
+                            score -> loadDataWithBaseURL(
+                                "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore",
+                                "<html>Official login gateway</html>", "text/html", "UTF-8", null)
+                            cas -> loadDataWithBaseURL(score, html, "text/html", "UTF-8", null)
+                            else -> error("unapproved navigation")
+                        }
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+        }
+        assertTrue(result.toString(), result.getBoolean("ok"))
+        assertEquals(listOf(score, cas), loads)
+        assertEquals(1, destroyed.get())
+    }
+    private suspend fun terminalCasPage(page: String): String? {
+        val destroyed = AtomicInteger()
+        val error = try {
+            withTimeout(15_000) {
+                readSecondClassAutomatically(c, "a".repeat(32)) {
+                    object : OfflinePage(it) {
+                        override fun loadUrl(url: String) {
+                            loadDataWithBaseURL(
+                                "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
+                                page, "text/html", "UTF-8", null)
+                        }
+                        override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                    }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals(1, destroyed.get())
+        return error
+    }
+    @Test fun terminalCasNeedsVisibleLoginEvidenceAndMaintenanceRemainsRetryable() = runBlocking {
+        assertEquals("needs_reconnect", terminalCasPage("<form><input type='password'></form>"))
+        assertEquals("needs_reconnect", terminalCasPage("<html>请使用微信扫码登录</html>"))
+        assertEquals("failed", terminalCasPage("<html>School temporarily unavailable</html>"))
+    }
+    @Test fun aRealMainFrameFormPostIsBlockedBeforeTransport() = runBlocking {
+        val destroyed = AtomicInteger()
+        val interceptedStatus = AtomicInteger(-1)
+        val error = try {
+            withTimeout(20_000) {
+                readSecondClassAutomatically(c, "a".repeat(32)) {
+                    object : OfflinePage(it) {
+                        override fun setWebViewClient(client: WebViewClient) {
+                            super.setWebViewClient(object : WebViewClient() {
+                                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                                    val result = client.shouldInterceptRequest(view, request)
+                                    if (request.isForMainFrame && request.method == "POST")
+                                        interceptedStatus.set(result?.statusCode ?: 0)
+                                    return result
+                                }
+                                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+                                    client.shouldOverrideUrlLoading(view, request)
+                                override fun onPageStarted(view: WebView, url: String?, icon: android.graphics.Bitmap?) =
+                                    client.onPageStarted(view, url, icon)
+                                override fun onPageFinished(view: WebView, url: String?) = client.onPageFinished(view, url)
+                                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) =
+                                    client.onReceivedError(view, request, error)
+                                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) =
+                                    client.onReceivedHttpError(view, request, response)
+                            })
+                        }
+                        override fun loadUrl(url: String) {
+                            loadDataWithBaseURL(url, """<html><form method='POST'
+                                action='https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F'>
+                                <input name='synthetic' value='fixture'></form>
+                                <script>document.querySelector('form').submit();</script></html>""",
+                                "text/html", "UTF-8", null)
+                        }
+                        override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                    }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        withTimeout(5_000) { while (interceptedStatus.get() == -1) delay(10) }
+        assertEquals("the actual POST must receive a local blocking response", 403, interceptedStatus.get())
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun repeatedApprovedPagesStillHaveAFiniteHopLimit() = runBlocking {
+        val destroyed = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : OfflinePage(it) {
+                    override fun loadUrl(url: String) {
+                        repeat(11) {
+                            if (destroyed.get() == 0) webViewClient.onPageStarted(this, url, null)
+                        }
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun returningToTheGatewayDoesNotProveLogoutOrLoopCasRequests() = runBlocking {
+        val destroyed = AtomicInteger()
+        val casLoads = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : OfflinePage(it) {
+                    override fun loadUrl(url: String) {
+                        if (url.startsWith("https://authserver.ncwu.edu.cn/")) casLoads.incrementAndGet()
+                        val gateway = "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore"
+                        webViewClient.onPageStarted(this, gateway, null)
+                        webViewClient.onPageFinished(this, gateway)
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        assertEquals(1, casLoads.get())
         assertEquals(1, destroyed.get())
     }
 }
