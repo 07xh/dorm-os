@@ -345,11 +345,17 @@ private fun CloudAuthorizationSection(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(
             title = "云端同步",
-            actionLabel = if (cloudAdvanced) "收起" else "展开",
+            actionLabel = "查看",
             onAction = onToggleAdvanced
         )
-        if (cloudAdvanced) {
-            XiaoxuCard {
+        if (cloudAdvanced) XiaoxuGlassDialog(
+            title = "云端同步",
+            onDismiss = onToggleAdvanced
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier

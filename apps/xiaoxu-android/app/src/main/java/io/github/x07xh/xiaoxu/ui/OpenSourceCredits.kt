@@ -1,7 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,8 +41,9 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
             }.getOrElse { "" }
         }
     }
-    XiaoxuCard(modifier = modifier) {
-        Text("开源组件与致谢", style = MaterialTheme.typography.titleSmall)
+    // 标题与背景统一由 Dialog 提供，去掉造成灰色内框的二层玻璃卡片。
+    Column(modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             "本 App 包含两处第三方代码：拾光课程表的青果教务适配（MIT）与 SleepDown 课程表" +
                 "的导航动画驱动（署名非商业、源码可见许可 1.1，非 OSI 开源许可）。后者为修改版，" +

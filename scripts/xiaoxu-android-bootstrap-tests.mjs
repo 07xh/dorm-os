@@ -1306,6 +1306,21 @@ assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
 assert.match(design, /val card: Dp = 24\.dp/, '基础玻璃卡圆角须统一为24dp');
 assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
+assert.match(design, /fun XiaoxuGlassDialog\(/,
+  '必须存在同一居中玻璃详情容器');
+const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
+  design.indexOf('/**\n * 蓝色渐变主卡'));
+assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
+  '平台与二课的详情应使用浮层，不再在卡片内向下展开');
+assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
+  '禁止在详情卡片内重新引入向下展开');
+assert.match(main, /XiaoxuGlassDialog\(/,
+  '我的页面工具详情必须使用居中浮层');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+  '云端同步详情不得顶开本机连接列表');
+assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.90f\)/,
+  '统一玻璃卡透明度，避免彩色底透出硬灰边');
+
 assert.match(design, /label = "glass-row-chevron"/,
   '展开箭头动画与其他页面共用时序');
 assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
@@ -1335,7 +1350,7 @@ assert.ok(workspace.includes('XiaoxuToolbarAction('), '任务页复用统一工�
 assert.ok(workspace.includes('taskScope.launch { client.refreshPrivate() }'),
   '统一工具图标不能移除真实刷新动作');
 assert.match(design, /fun StatusChip\(/, '须有状态标签');
-assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
+assert.match(design, /fun XiaoxuSheet\(/, '任务和消息必须共用详情容器');
 assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');
 assert.match(design, /fun XiaoxuStatePanel\(/, '复用统一空态容器');
 assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
