@@ -1415,8 +1415,14 @@ assert.match(workspace, /private fun ConnectedTaskShell\(/,
   '任务行使用共享首尾圆角与连接线容器');
 assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
   '相邻任务之间必须只有轻分割线');
-assert.match(workspace, /total <= 1 -> RoundedCornerShape\(radius\)/,
-  '单条任务仍须有完整圆角');
+assert.match(workspace, /index == total - 1 -> RoundedCornerShape\(/,
+  '任务分组最后一条保留与玻璃外壳一致的底部圆角');
+assert.match(workspace, /joinedRows = true,/,
+  '课程、微信和本机任务分组须与所属任务行衔接为单层玻璃列表');
+assert.match(workspace, /label = "task-group-chevron"/,
+  '任务分组折叠箭头须使用共享动画时序');
+assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRotation\)/,
+  '分组状态改变时只旋转箭头，不重新绘制业务数据');
 
 assert.match(designSystem, /val listRowMin: Dp = 76\.dp/,
   '任务与消息共用同一紧凑最小行高');
@@ -1436,6 +1442,8 @@ assert.doesNotMatch(compactTaskHeader, /XiaoxuCard\(/,
   '任务列表分组不应再套独立大卡造成页面拼接感');
 assert.match(compactTaskHeader, /heightIn\(min = 64\.dp\)/,
   '精简分组后仍须保留可触控的最小高度');
+assert.match(compactTaskHeader, /background\(XiaoxuPalette\.GlassCard\)/,
+  '展开分组必须使用与正文连续的玻璃材质');
 assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\)\) append\("，"\)\.append\(badge\)/,
   '有实际来源状态时保留无障碍描述，普通任务不追加无用小字');
 assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)/,
