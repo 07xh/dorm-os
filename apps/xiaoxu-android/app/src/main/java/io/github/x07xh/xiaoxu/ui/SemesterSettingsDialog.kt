@@ -1,7 +1,5 @@
 package io.github.x07xh.xiaoxu.ui
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +27,12 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +40,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +68,7 @@ import java.time.format.DateTimeFormatter
  * The lesson grid, weekday selector and course colors are deliberately untouched.
  * Unknown school dates/times remain unset: never insert demo timetable data.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SemesterSettingsDialog(
     current: SemesterCalendar?,
@@ -84,18 +91,17 @@ internal fun SemesterSettingsDialog(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var sectionsMenu by remember { mutableStateOf(false) }
     var weeksMenu by remember { mutableStateOf(false) }
+    var dateOpen by remember { mutableStateOf(false) }
+    var editingSection by remember { mutableIntStateOf(0) }
+    var editingEnd by remember { mutableStateOf(false) }
+    var stagedStart by remember { mutableStateOf(LocalTime.of(8, 0)) }
+    var timeError by remember { mutableStateOf<String?>(null) }
 
     fun editSectionTime(index: Int) {
-        val existing = findSectionTime(times, index)
-        val start = existing?.first ?: LocalTime.of(8, 0)
-        TimePickerDialog(context, { _, sh, sm ->
-            val pickedStart = LocalTime.of(sh, sm)
-            val end = existing?.second ?: pickedStart.plusMinutes(45)
-            TimePickerDialog(context, { _, eh, em ->
-                times = replaceSectionTime(times, index, pickedStart, LocalTime.of(eh, em))
-                error = null
-            }, end.hour, end.minute, true).show()
-        }, start.hour, start.minute, true).show()
+        editingSection = index
+        editingEnd = false
+        stagedStart = findSectionTime(times, index)?.first ?: LocalTime.of(8, 0)
+        timeError = null
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -175,16 +181,7 @@ internal fun SemesterSettingsDialog(
                     value = runCatching { LocalDate.parse(monday).format(DateTimeFormatter.ofPattern("yyyy年M月d日")) }
                         .getOrNull() ?: "选择日期",
                     icon = "date",
-                    onClick = {
-                        val date = runCatching { LocalDate.parse(monday) }.getOrNull()
-                            ?: LocalDate.now()
-                        DatePickerDialog(context, { _, y, m, d ->
-                            monday = LocalDate.of(y, m + 1, d)
-                                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                                .toString()
-                            error = null
-                        }, date.year, date.monthValue - 1, date.dayOfMonth).show()
-                    }
+                    onClick = { dateOpen = true }
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
@@ -270,6 +267,96 @@ internal fun SemesterSettingsDialog(
                     color = MaterialTheme.colorScheme.error)
             }
 
+        }
+    }
+
+    // Use Material3 date/time controls instead of Android framework teal dialogs.
+    // The editor writes only to local draft state; the top-right 完成 persists settings.
+    if (dateOpen) {
+        val initialDay = runCatching { LocalDate.parse(monday) }.getOrNull() ?: LocalDate.now()
+        val dateState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDay.toEpochDay() * 86_400_000L
+        )
+        DatePickerDialog(
+            onDismissRequest = { dateOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dateState.selectedDateMillis?.let { epoch ->
+                        monday = LocalDate.ofEpochDay(epoch / 86_400_000L)
+                            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                            .toString()
+                        error = null
+                    }
+                    dateOpen = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dateOpen = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = dateState, showModeToggle = false)
+        }
+    }
+
+    if (editingSection > 0) {
+        // Re-create the state between start/end steps, otherwise the previous
+        // wheel selection would also be used as the end time.
+        androidx.compose.runtime.key(editingSection, editingEnd) {
+            val existing = findSectionTime(times, editingSection)
+            val initial = if (editingEnd) existing?.second ?: stagedStart.plusMinutes(45)
+                else stagedStart
+            val pickerState = rememberTimePickerState(
+                initialHour = initial.hour,
+                initialMinute = initial.minute,
+                is24Hour = true
+            )
+            val shape = RoundedCornerShape(28.dp)
+            Dialog(
+                onDismissRequest = { editingSection = 0 },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 440.dp)
+                        .clip(shape).background(XiaoxuPalette.PageGradient)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
+                        .padding(horizontal = 12.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "第 " + editingSection + " 节" +
+                            if (editingEnd) " · 结束时间" else " · 开始时间",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink
+                    )
+                    TimePicker(state = pickerState)
+                    if (timeError != null) {
+                        Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { editingSection = 0 }) { Text("取消") }
+                        TextButton(onClick = {
+                            val chosen = LocalTime.of(pickerState.hour, pickerState.minute)
+                            if (!editingEnd) {
+                                stagedStart = chosen
+                                editingEnd = true
+                                timeError = null
+                            } else if (!chosen.isAfter(stagedStart)) {
+                                timeError = "结束时间应晚于开始时间"
+                            } else {
+                                times = replaceSectionTime(times, editingSection, stagedStart, chosen)
+                                error = null
+                                timeError = null
+                                editingSection = 0
+                            }
+                        }) { Text(if (editingEnd) "保存时间" else "下一步") }
+                    }
+                }
+            }
         }
     }
 
