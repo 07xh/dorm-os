@@ -5,3 +5,5 @@
 产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版。
 验证：静态边界测试、Android 编译、JVM 回归、APK SHA256；真机流畅度、灰边及原版对照仍单独验收。
 不得自动合并 main；不得替换正式包或声称真机验收完成。
+
+2026-11-07 smooth-motion QA: source head 8ff942183ef0efb9d3053d880f426113883d6154. Settings motion 320ms, tabs 280ms, opaque/clipped tab layers, stable home header. Test 12004.mp4 rapid changes/12002.mp4 settings back. Require exact SHA CI+isolated APK verification; no main merge.
