@@ -5,3 +5,4 @@
 产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版。
 验证：静态边界测试、Android 编译、JVM 回归、APK SHA256；真机流畅度、灰边及原版对照仍单独验收。
 不得自动合并 main；不得替换正式包或声称真机验收完成。
+QA branch: trigger build with exactly the PR #351 code SHA d30a2ad858347e191f0d2fd66b4213760fe2d6f9; test-only marker change, no additional UI logic.
