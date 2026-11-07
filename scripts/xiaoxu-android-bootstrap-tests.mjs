@@ -646,8 +646,20 @@ assert.doesNotMatch(main, /scheduleSettingsFromProfile/,
   '删去旧跨主标签路由的额外状态');
 assert.match(main, /profileSettingsRoute != "home"/,
   '设置二级页应处理系统返回并收起主导航');
-assert.match(main, /current != MainDestination\.SCHEDULE \|\| !scheduleSettingsOpen/,
-  '课表设置显示时底部导航与占位须同时隐藏');
+assert.match(main, /val showPrimaryNavigation = !messagesOpen &&[\s\S]*?!\(current == MainDestination\.SCHEDULE && scheduleSettingsOpen\) &&[\s\S]*?!\(current == MainDestination\.PROFILE && profileSettingsRoute != "home"\)/,
+  '主导航需共用唯一显隐判断，所有二级页都不能露出底栏或背景采样');
+assert.equal((main.match(/if \(!tabletLayout && showPrimaryNavigation\)/g) || []).length, 2,
+  '底栏本体与 Scaffold 占位必须同时使用统一显隐标记');
+assert.match(main, /if \(tabletLayout && showPrimaryNavigation\)/,
+  '平板侧栏也遵守相同子页面规则');
+assert.match(main, /navBackdrop = if \(!tabletLayout && showPrimaryNavigation/,
+  '没有底栏时不得额外保留全屏玻璃采样层');
+assert.match(main, /profileSettingsRoute == "timetable-editor"/,
+  '新增课程编辑页应保留独立二级路由，不能回退到跨标签状态');
+assert.match(main, /onSettingsFileAction = \{ profileSettingsRoute = "home" \}/,
+  '导入导出只需要退出到设置，不必分派旧字符串动作');
+assert.doesNotMatch(main, /onSettingsAction|timetable-action/,
+  '旧字符串动作分发和泛化二级页状态应彻底退场');
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
 assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
