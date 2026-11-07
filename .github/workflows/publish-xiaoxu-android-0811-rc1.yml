@@ -1,0 +1,94 @@
+
+name: Publish Xiaoxu Android v0.8.11 RC1
+on:
+  push:
+    branches:
+      - 'release/xiaoxu-android-v0.8.11-rc1'
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: xiaoxu-v0811-rc1-publish
+  cancel-in-progress: false
+jobs:
+  publish-rc:
+    if: github.repository == '07xh/dorm-os'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      QA_SOURCE_SHA: 0a0eab3a996c8c0d7aa9531495e736990669aba3
+      RELEASE_TAG: xiaoxu-android-v0.8.11-rc1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove release app code equals four-green-check QA commit
+        run: |
+          set -euo pipefail
+          git cat-file -e "$QA_SOURCE_SHA^{commit}"
+          git diff --exit-code "$QA_SOURCE_SHA" HEAD --             apps/xiaoxu-android             scripts/xiaoxu-android-bootstrap-tests.mjs             docs/releases/xiaoxu-android-v0.8.11-rc1.md
+          responses=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$QA_SOURCE_SHA&per_page=100")
+          RUNS_JSON="$responses" node <<'NODE'
+          const runs=JSON.parse(process.env.RUNS_JSON).workflow_runs;
+          for(const name of [
+            'Build Xiaoxu Android Alpha',
+            'Xiaoxu Android JVM Regression',
+            'DORM OS CI',
+            'Xiaoxu Second-class WebView Runtime'
+          ]) {
+            if(!runs.some(r=>r.name===name && r.conclusion==='success')) {
+              console.error('QA check not green: '+name);
+              process.exitCode=1;
+            }
+          }
+          NODE
+      - name: Verify Android source and no fake data
+        run: node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android compile SDK
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build signed debug candidate and run JVM tests
+        run: |
+          set -euo pipefail
+          gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest --no-daemon
+          out=apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$out"
+          unzip -t "$out" >/dev/null
+          badging=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$out")
+          [[ "$badging" == *"name='io.github.x07xh.xiaoxu' versionCode='32' versionName='0.8.11-rc.1'"* ]]
+          mkdir -p "$RUNNER_TEMP/xiaoxu-rc"
+          cp "$out" "$RUNNER_TEMP/xiaoxu-rc/xiaoxu-android-v0.8.11-rc1-debug.apk"
+      - name: Build independent side-by-side QA candidate
+        run: |
+          set -euo pipefail
+          gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon
+          out=apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$out"
+          unzip -t "$out" >/dev/null
+          badging=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$out")
+          [[ "$badging" == *"name='io.github.x07xh.xiaoxu.unifiedqa' versionCode='32' versionName='0.8.11-rc.1'"* ]]
+          cp "$out" "$RUNNER_TEMP/xiaoxu-rc/xiaoxu-android-v0.8.11-rc1-qa.apk"
+          (
+            cd "$RUNNER_TEMP/xiaoxu-rc"
+            sha256sum ./*.apk > SHA256SUMS.txt
+            cat SHA256SUMS.txt
+          )
+      - name: Publish immutable GitHub prerelease with both APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release exists; no overwrite of published artifacts."
+            exit 0
+          fi
+          out="$RUNNER_TEMP/xiaoxu-rc"
+          gh release create "$RELEASE_TAG"             "$out/xiaoxu-android-v0.8.11-rc1-debug.apk"             "$out/xiaoxu-android-v0.8.11-rc1-qa.apk"             "$out/SHA256SUMS.txt"             --target "$GITHUB_SHA"             --title '校序 Android v0.8.11 RC1 · 原生 UI 整合测试版'             --notes-file docs/releases/xiaoxu-android-v0.8.11-rc1.md             --prerelease
