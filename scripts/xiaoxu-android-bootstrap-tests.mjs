@@ -519,6 +519,34 @@ assert.match(schedulePanel, /label = "新增课程"/);
 assert.match(schedulePanel, /label = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
 const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
+assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
+  '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
+assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
+  '课程编辑背景必须沿用现有课表设置背景');
+assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
+  '课程信息必须复用同一玻璃分组组件');
+assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
+  '编辑节次不能再出现孤立弹框');
+assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
+assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
+  '保留已确认的仅删除选中周次行为');
+assert.match(courseEditor, /onSave\(it, weekOnly\)/,
+  '表单仍须连接已有本机课程编辑回调');
+assert.doesNotMatch(courseEditor, /\n    AlertDialog\(\s*onDismissRequest = \{ if \(!busy\) onDismiss\(\) \}/,
+  '主编辑页不能再使用 AlertDialog');
+const dayCardSource = schedulePanel.slice(
+  schedulePanel.indexOf('private fun LessonCard('),
+  schedulePanel.indexOf('/** 首页与完整课表共用')
+);
+assert.match(dayCardSource, /onClickLabel = "查看课程详情"/,
+  '点击日视图课程应打开与周视图共用的详情抽屉');
+assert.match(dayCardSource, /Icons\.Outlined\.ChevronRight/,
+  '日视图不要用向下箭头暗示不存在的卡内展开');
+assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ExpandMore/,
+  '不要误导用户课程卡向下展开');
+assert.match(schedulePanel, /color = XiaoxuPalette\.Ink2[\s\S]*?val openCourse:/,
+  '顶部日期信息需使用统一的次级文字颜色');
 assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
 assert.match(schedulePanel, /initialViewMode = viewMode/);
 assert.match(schedulePanel, /initialSections = visibleSections/);
