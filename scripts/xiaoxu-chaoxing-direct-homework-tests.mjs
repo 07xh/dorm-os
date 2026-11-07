@@ -151,4 +151,74 @@ const captchaTitle=workHtml.replace('循环练习','验证码识别实验');
 assert.equal(parseChaoxingWorkList(captchaTitle,{courseId:'123',classId:'456'}).items.length,1);
 assert.throws(()=>parseChaoxingWorkList('<body>请输入验证码</body>',{courseId:'123',classId:'456'}),
  e=>e.code==='interactive_login_required');
+
+// Regression: completed assignments can be li[data] rows without goTask,
+// and the upstream list is paginated. Do not mistake page one for full coverage.
+const courseKeys={courseId:'123',classId:'456',cpi:'789'};
+const row=(id,title,status)=>
+ '<li data="https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task'+
+ '?courseId=123&amp;classId=456&amp;workId='+id+'&amp;enc=signedTask">'+
+ '<div class="tag icon-zy-g"></div><p class="overHidden2 fl">'+title+'</p>'+
+ '<p class="status fl">'+status+'</p></li>';
+const paginated=(number,html,total='2')=>
+ '<div><div><span>1/'+total+'</span></div></div>'+
+ '<div id="page"><li'+(number===1?' class="xl-active"':'')+'>1</li>'+
+ '<li'+(number===2?' class="xl-active"':'')+'>2</li></div>'+
+ '<ul>'+html+'</ul>';
+const firstPage=paginated(1,row('910','第一次作业','未提交'));
+const secondPage=paginated(2,row('911','第二次作业','已完成'));
+const parsedFirst=parseChaoxingWorkList(firstPage,courseKeys);
+assert.equal(parsedFirst.totalPages,2);
+assert.equal(parsedFirst.progress.total,2);
+assert.equal(parsedFirst.items.length,1,'first page is not the entire course');
+assert.equal(parseChaoxingWorkList(secondPage,courseKeys,{pageNumber:2}).items[0].workId,'911');
+const pagesFetched=[];
+const pagedAdapter=createChaoxingSchoolAdapter({fetchImpl:async (raw)=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list'){
+  const pageNum=u.searchParams.get('pageNum');
+  pagesFetched.push(pageNum);
+  return response(pageNum==='1'?firstPage:secondPage);
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const pagedReader=await pagedAdapter.forSession({session,userId:'owner1'});
+await pagedReader.verifySession();
+const paged=await pagedReader.readHomeworkList(courseKeys);
+assert.deepEqual(pagesFetched,['1','2']);
+assert.deepEqual(paged.items.map(x=>[x.workId,x.statusCode]),[
+ ['910','todo'],['911','submitted']
+]);
+assert.deepEqual(paged.progress,{completed:1,total:2});
+assert.equal(paged.items.every(x=>x.platformVerified),true);
+assert.ok(!JSON.stringify(paged).includes('signedTask'));
+// Mutating/duplicated pagination must not emit a partial trusted list.
+const duplicatedAdapter=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list')
+  return response(u.searchParams.get('pageNum')==='1'?firstPage:
+   paginated(2,row('910','重复作业','已完成')));
+ throw Error('unexpected route '+u.pathname);
+}});
+const duplicatedReader=await duplicatedAdapter.forSession({session,userId:'owner1'});
+await duplicatedReader.verifySession();
+await assert.rejects(()=>duplicatedReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_list_incomplete');
+assert.throws(()=>parseChaoxingWorkList(
+ paginated(1,row('910','作业','已完成'),'3'),courseKeys,
+ {pageNumber:1}),e=>e.code==='work_list_incomplete' || e.code==='invalid_response');
+// The official status text, never the icon-zy-g CSS label, controls completion.
+assert.equal(classifyChaoxingWorkStatus('已批改'),'graded');
+assert.equal(classifyChaoxingWorkStatus('已互評'),'submitted');
+assert.equal(classifyChaoxingWorkStatus('待批改'),'submitted');
+assert.equal(classifyChaoxingWorkStatus('待互评'),'unknown');
+assert.equal(classifyChaoxingWorkStatus('未交'),'todo');
+console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
+
 console.log('Chaoxing review: login-redirect and challenge-title regressions passed');
