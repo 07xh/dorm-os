@@ -424,10 +424,20 @@ private fun HomeCourseList(
         actionLabel = if (hasTimetable) "查看课表" else null,
         onAction = if (hasTimetable) openSchedule else null
     ) {
-        XiaoxuCard(contentPadding = 12.dp) {
-            when {
-                lessons.isNotEmpty() -> {
-                    homeCoursePreview(lessons).forEachIndexed { index, lesson ->
+        if (hasTimetable && lessons.isEmpty()) {
+            // Empty Saturday should not occupy an entire thick glass card.
+            // This is only a source-aware day-empty label, not a claim about school attendance.
+            Text(
+                "这一天没有已保存的课程记录",
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink2
+            )
+        } else {
+            XiaoxuCard(contentPadding = 12.dp) {
+                when {
+                    lessons.isNotEmpty() -> {
+                        homeCoursePreview(lessons).forEachIndexed { index, lesson ->
                         if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
                         HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })
                     }
@@ -437,14 +447,11 @@ private fun HomeCourseList(
                         }
                     }
                 }
-                hasTimetable -> {
-                    Text("这一天没有已保存的课程记录",
-                        style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
-                }
-                else -> {
-                    Text("还没有导入课表", style = MaterialTheme.typography.bodyMedium,
-                        color = XiaoxuPalette.Ink2)
-                    TextButton(onClick = openFileImport) { Text("导入课表") }
+                    else -> {
+                        Text("还没有导入课表", style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink2)
+                        TextButton(onClick = openFileImport) { Text("导入课表") }
+                    }
                 }
             }
         }
