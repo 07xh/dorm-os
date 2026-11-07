@@ -162,6 +162,14 @@ internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: Loca
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
+/** Personal upcoming window shared with countUpcomingLocalDeadlines: only
+ * self-entered, not-yet-passed dates within the next 3 days count as real
+ * personal deadlines. Calendar-week filtering would both miss day 4+ and
+ * wrongly include earlier dates in the same Monday-Sunday span.
+ */
+internal fun upcomingPersonalDeadline(date: LocalDate?, today: LocalDate): Boolean =
+    date != null && !date.isBefore(today) && !date.isAfter(today.plusDays(3))
+
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -173,7 +181,8 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         when (filter) {
             "pending" -> !task.done
             "done" -> task.done
-            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
+            "week" -> task.storage == "local" && !task.done &&
+                upcomingPersonalDeadline(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -186,7 +195,7 @@ internal fun facetWorkspaceTasks(
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
         (!thisWeekOnly || (task.storage == "local" && !task.done &&
-            thisWeek(task.date, today)))
+            upcomingPersonalDeadline(task.date, today)))
 }
 
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
