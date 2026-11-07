@@ -1178,7 +1178,7 @@ private fun CourseDetailBottomSheet(
                             .semantics { heading() }
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                XiaoxuSoftIconButton(onClick = onDismiss) {
                     Icon(Icons.Outlined.Close, contentDescription = "关闭课程详情",
                         modifier = Modifier.size(29.dp), tint = XiaoxuPalette.Ink2)
                 }
