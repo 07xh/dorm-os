@@ -108,6 +108,27 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun trustedOfficialStatusNeverChangesPersonalCompletion() {
+        val records = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("school-verified", "电路作业", "done", "homework",
+                "chaoxing", null, sourceExternalId = "work:123:456:789",
+                officialStatus = "todo"),
+            CloudTask("legacy", "标题看起来一样", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "legacy:789",
+                officialStatus = "submitted"),
+            CloudTask("not-chaoxing", "普通云端记录", "todo", "manual",
+                null, null, sourceExternalId = "work:123:456:789",
+                officialStatus = "graded")
+        ))
+        val verified = records.single { it.key == "cloud:school-verified" }
+        assertTrue(verified.done)
+        assertEquals("todo", verified.officialStatus)
+        assertEquals("官方未提交", officialTaskStatusLabel(verified.officialStatus))
+        assertEquals(null, records.single { it.key == "cloud:legacy" }.officialStatus)
+        assertEquals(null, records.single { it.key == "cloud:not-chaoxing" }.officialStatus)
+    }
+
+    @Test
     fun editorScrollIndexMatchesActualOptionalRows() {
         // Always present: header, status strip, combined source/filter controls.
         assertEquals(3, taskEditorStartIndex(false, false, false, false))
