@@ -1547,7 +1547,11 @@ assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
 assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
-assert.match(main, /tween\(XiaoxuMotion\.PageSwitchMs\)/, '主导航切页引用统一动画参数');
+assert.match(main, /xiaoxuPrimaryPageTransition\(/,
+  '主导航切页复用已整合的单层页面动效，不回退旧交叉淡入动画');
+const primaryPageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt');
+assert.match(primaryPageMotion, /durationMillis = 360/,
+  '主导航切页保持现有 360ms 原生滑动动效');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
