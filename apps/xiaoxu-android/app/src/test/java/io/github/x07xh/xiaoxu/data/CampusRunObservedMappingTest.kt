@@ -210,4 +210,29 @@ class CampusRunObservedMappingTest {
         assertEquals(CampusRunFailure.NOT_AUTHORIZED,
             (state as CampusRunViewState.Unavailable).reason)
     }
+    @Test fun historicalReferenceSemesterFieldsAreOnlyCandidatesNotVerifiedTargets() {
+        // Candidate labels from an older external read-only score display;
+        // this synthetic fixture is NOT a decoded user response.
+        val historical = mapOf<String, Any?>(
+            "sname" to "Synthetic old term",
+            "semesterDis" to 23_800,
+            "semesterValidDis" to 20_000,
+            "semesterCount" to 11,
+            "semesterValidCount" to 9
+        )
+        val bindings = CampusRunSemesterBindings(
+            termKey = "sname",
+            total = CampusRunDistanceBinding("semesterDis", meters),
+            credited = CampusRunDistanceBinding("semesterValidDis", meters),
+            totalCountKey = "semesterCount",
+            creditedCountKey = "semesterValidCount"
+        )
+        val result = mapCampusRunDecodedSemester(historical, fingerprint, bindings)
+        assertEquals(23_800L, result.rawMeters)
+        assertEquals(20_000L, result.effectiveMeters)
+        assertEquals(11, result.totalRunCount)
+        assertEquals(9, result.effectiveRunCount)
+        assertNull(result.targetMeters) // No authorized target field was observed.
+    }
+
 }
