@@ -190,7 +190,10 @@ const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/
 assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
 assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
-assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.match(main, /var selectedTool by rememberSaveable \{ mutableStateOf<String\?>\(null\) \}/,
+  '我的工具只保存选中的浮层，不保留旧版内联展开状态');
+assert.match(main, /if \(tool != null\) \{\s*XiaoxuGlassDialog\(/,
+  '三个工具通过独立 Dialog 打开，不向 LazyColumn 注入内容');
 
 assert.match(panels, /openLocalSchool\(id\)/);
 assert.match(panels, /只有一台手机？打开学习通官网/);
@@ -806,10 +809,10 @@ assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJava
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
 assert.match(main, /LocalTaskBackupPanel\(\)/);
-assert.match(main, /showLocalBackup by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '本机备份为低频设置，不能默认占据我的页面首屏');
-assert.match(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
-  '按需展开真实本机导入与导出，不能误删原功能');
+assert.match(main, /"backup" -> LocalTaskBackupPanel\(\)/,
+  '本机备份通过独立玻璃浮层按需加载，不默认占据我的首屏');
+assert.doesNotMatch(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
+  '不允许恢复旧的向下展开式任务备份入口');
 assert.match(main, /CompactActionRow\("第二课堂记录", Icons\.Outlined\.School/,
   '第二课堂记录必须留在我的页面紧凑工具区，并复用原内容面板');
 assert.match(main, /CompactActionRow\("任务备份与恢复", Icons\.Outlined\.CheckCircle/,
