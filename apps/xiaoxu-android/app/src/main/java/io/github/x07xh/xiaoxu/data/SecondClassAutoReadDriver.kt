@@ -20,8 +20,8 @@ import kotlin.coroutines.resumeWithException
 
 internal class AutoReadFailure(val status: String) : Exception(status)
 
-/** Supplies only the existing fixed reader's official same-origin context.
- * No Activity, login automation, credential extraction or session transport. */
+/** Reuses this App's official WebView session and approved school GET redirects.
+ * No Activity, credential entry/extraction or session transport. */
 @SuppressLint("SetJavaScriptEnabled")
 internal suspend fun readSecondClassAutomatically(
     context: Context, salt: String,
@@ -34,7 +34,6 @@ internal suspend fun readSecondClassAutomatically(
                 val handler = Handler(Looper.getMainLooper())
                 val browser = createBrowser(context.applicationContext)
                 var cleaned = false
-                var started = false
                 var navigations = 0
                 var pageEpoch = 0
                 var finishedEpoch = -1
@@ -70,9 +69,6 @@ internal suspend fun readSecondClassAutomatically(
                             val payload = runCatching { JSONObject(text) }.getOrNull()
                             if (payload == null) fail("failed")
                             else {
-                                // Preserve normal WebView session rotation for
-                                // the next cold start; never read/export cookies.
-                                runCatching { CookieManager.getInstance().flush() }
                                 cleanup(); continuation.resume(payload)
                             }
                         }
@@ -126,7 +122,6 @@ internal suspend fun readSecondClassAutomatically(
                             if (cleaned || !continuation.isActive) return
                             pageEpoch++
                             currentPageUrl = url
-                            started = false
                             if (++navigations > 10 || SecondClassAutoSessionNavigation.page(url) == null) fail("failed")
                         }
                         override fun onPageFinished(view: WebView, url: String?) {
@@ -135,7 +130,7 @@ internal suspend fun readSecondClassAutomatically(
                             finishedEpoch = pageEpoch
                             when (SecondClassAutoSessionNavigation.page(url)) {
                                 SecondClassAutoSessionNavigation.Page.SCORE ->
-                                    if (!started) { started = true; begin(12, pageEpoch) }
+                                    begin(12, pageEpoch)
                                 SecondClassAutoSessionNavigation.Page.GATEWAY -> {
                                     if (ssoAttempted) { fail("failed"); return }
                                     ssoAttempted = true
@@ -174,7 +169,7 @@ internal suspend fun readSecondClassAutomatically(
                             if (request.isForMainFrame) fail("failed")
                         }
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
-                            if (request.isForMainFrame) fail(if (response.statusCode == 401) "needs_reconnect" else "failed")
+                            if (request.isForMainFrame) fail(if (SecondClassAutoReadPolicy.requiresReconnect(response.statusCode)) "needs_reconnect" else "failed")
                         }
                         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                             handler.cancel(); fail("failed")

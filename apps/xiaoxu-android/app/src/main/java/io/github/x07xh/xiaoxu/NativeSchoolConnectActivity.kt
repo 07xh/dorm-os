@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import io.github.x07xh.xiaoxu.data.SecondClassAutoReadPolicy
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassActivities
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassCatalogEmpty
@@ -630,7 +631,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val stage = payload.optString("stage").takeIf {
                     it in setOf("context", "identity", "score_http", "score_request", "score_response", "score_record", "activity_http", "activity_request", "activity_response", "activity_record", "catalog_request", "catalog_response")
                 } ?: "score_response"
-                tell((if (code == 401 && stage != "activity_http") "登录已失效，请在官网重新登录。"
+                tell((if (SecondClassAutoReadPolicy.requiresReconnect(code, stage)) "登录已失效，请在官网重新登录。"
                       else "积分读取失败，请检查官网或稍后重试。") +
                     " 阶段：$stage" + (if (code in 100..599) "，HTTP $code。" else "。") +
                     "已保存的旧积分保持不变。")

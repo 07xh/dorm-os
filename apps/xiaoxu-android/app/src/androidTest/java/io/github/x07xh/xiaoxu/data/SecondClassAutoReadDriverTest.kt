@@ -98,7 +98,7 @@ class SecondClassAutoReadDriverTest {
         withContext(Dispatchers.Main) { /* drain cancellation cleanup posted to main */ }
         assertEquals(1, destroyed.get())
     }
-    @Test fun aLoginRedirectStopsBeforeOpeningAnotherPage() = runBlocking {
+    @Test fun anUnapprovedRedirectStopsBeforeOpeningAnotherPage() = runBlocking {
         val destroyed = AtomicInteger()
         val redirect = "<html><script>location.replace('https://login.invalid/synthetic');</script></html>"
         val error = try {
