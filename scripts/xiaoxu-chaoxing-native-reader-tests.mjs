@@ -137,11 +137,11 @@ const largeCourseList = runReader({ host: courseHost, path: coursePath,
 assert.equal(largeCourseList.truncated, true);
 assert.equal(largeCourseList.records.length, 0);
 
-const taskNode = title => ({
+const taskNode = (title, statusText = '未提交') => ({
   ...element(title),
   querySelector: selector => {
     if (selector.startsWith('p.overHidden2')) return element(title);
-    if (selector.startsWith('p.status')) return element('未提交');
+    if (selector.startsWith('p.status')) return element(statusText);
     return null;
   }
 });
@@ -149,5 +149,13 @@ const workList = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list
   tasks: Array.from({length:201},(_,i)=>taskNode('实验报告 '+i)) });
 assert.equal(workList.truncated, true);
 assert.equal(workList.records.length, 0);
+
+// The authorized official list may omit onclick for already-completed rows.
+// Import only visible status text; never expose the signed li[data] URL.
+const completedWork = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list',
+  tasks: [taskNode('期末实验报告', '已完成')] });
+assert.equal(completedWork.kind, 'homework');
+assert.equal(completedWork.records.length, 1);
+assert.match(completedWork.records[0].details, /已完成/);
 
 console.log('xiaoxu chaoxing native visible-reader tests passed');
