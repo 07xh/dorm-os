@@ -25,6 +25,30 @@ data class NativeSchoolRecord(
     val capturedAt: Long
 )
 
+/**
+ * Official text visible in the owner's on-device Chaoxing page.
+ * This is a UI completion hint, not a cloud submission acknowledgement:
+ * never match a separate historical row by title, and never write this state
+ * back to the owner's personal checkbox or an official submission endpoint.
+ */
+fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" ||
+        record.kind !in setOf("homework", "study_task") ||
+        record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com",
+            "task.chaoxing.com")) return null
+    val raw = Regex(
+        """(?:^|[·\\n])\\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\\s*[：:]\\s*([^·\\n]{1,60})"""
+    ).find(record.details)?.groupValues?.get(1)?.trim() ?: return null
+    return when {
+        Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
+        Regex("""退回|重做|重新提交|驳回""").containsMatchIn(raw) -> "returned"
+        Regex("""已批阅|已批閱|已评分|已評分|已评阅|已評閱|已批改""").containsMatchIn(raw) -> "graded"
+        Regex("""已完成|已提交|已交|待批阅|待批閱|待评阅|待評閱|待批改|已达标|已作答|已互评|已互評|提交成功""").containsMatchIn(raw) ->
+            "submitted"
+        else -> "unknown"
+    }
+}
+
 @Dao
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */
@@ -126,7 +150,7 @@ interface NativeSchoolRecordDao {
      */
     @Transaction
     suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
-        require(provider == "chaoxing" && kind in setOf("course", "homework"))
+        require(provider == "chaoxing" && kind in setOf("course", "homework", "study_task"))
         require(rows.isNotEmpty() && rows.size <= 120)
         require(rows.all { it.provider == provider && it.kind == kind })
         val keys = (snapshotKind(provider, kind).map { it.fingerprint } +
@@ -139,7 +163,7 @@ interface NativeSchoolRecordDao {
     @Transaction
     suspend fun replaceKind(provider: String, kind: String, rows: List<NativeSchoolRecord>) {
         require(provider in setOf("ncwu", "chaoxing", "second_class"))
-        require(kind in setOf("schedule", "course", "homework", "activity", "credits"))
+        require(kind in setOf("schedule", "course", "homework", "study_task", "activity", "credits"))
         require(rows.isNotEmpty() && rows.size <= 120)
         require(rows.all { it.provider == provider && it.kind == kind })
         deleteKind(provider, kind)
