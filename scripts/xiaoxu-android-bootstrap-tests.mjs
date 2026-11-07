@@ -2189,7 +2189,7 @@ assert.match(workspace, /selectedTask.provider == "chaoxing"/,
   '只有学习通相关任务显示学习通核对入口');
 assert.match(workspace, /本条记录尚无可关联的官方作业 ID/,
   '没有可信来源 ID 的旧记录必须提供人工核对入口');
-assert.match(workspace, /已关联学习通来源作业 ID/,
+assert.match(workspace, /已关联学习通官方作业 ID/,
   '具有可信来源 ID 的任务必须明确显示已关联状态');
 assert.match(workspace, /trustedChaoxingPlatformStatus\(/,
   '学习通状态必须通过后端受信任来源元数据校验，不按标题猜测');
