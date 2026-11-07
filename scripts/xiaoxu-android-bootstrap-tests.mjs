@@ -1639,8 +1639,8 @@ assert.ok(panels.includes('SectionHeader(title = "数据连接")'),
   '个人中心保留直接可见的本机学校官方读取入口');
 assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImport)'),
   '不得移除原生学校读取入口');
-assert.ok(panels.includes('if (cloudAdvanced) {'),
-  '云端授权仍是可展开的独立可选入口');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+  '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
