@@ -1801,7 +1801,7 @@ private fun TaskRow(
     val statusInk = when {
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
-        officialLabel != null && task.officialStatus in listOf("submitted", "graded") ->
+        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
             XiaoxuPalette.Success
         officialLabel != null -> XiaoxuPalette.Ink2
         task.done -> XiaoxuPalette.Success
@@ -1810,7 +1810,7 @@ private fun TaskRow(
     val statusBackground = when {
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
-        officialLabel != null && task.officialStatus in listOf("submitted", "graded") ->
+        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
             XiaoxuPalette.SuccessSoft
         officialLabel != null -> XiaoxuPalette.GlassTrack
         task.done -> XiaoxuPalette.SuccessSoft
