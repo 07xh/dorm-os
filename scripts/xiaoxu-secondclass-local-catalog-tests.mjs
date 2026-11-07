@@ -13,7 +13,7 @@ const semester={student_code:account,school_term_index:1,score_value:0,score_plu
   ...Object.fromEntries(Array.from({length:6},(_,i)=>['activity_type'+(i+1)+'_score',0]))};
 const envelope=(data=[])=>({data,totalSize:data.length,
   totalPage:data.length?1:0,startIndex:0});
-async function read({nonemptyAt=null,failedAt=null,changingAccountAt=null}={}){
+async function read({nonemptyAt=null,failedAt=null,changingAccountAt=null,invalidAt=null,partialAt=null}={}){
   const requests=[];
   const location={origin:host,pathname:'/sys/stu/score'};
   let current=account;
@@ -40,8 +40,13 @@ async function read({nonemptyAt=null,failedAt=null,changingAccountAt=null}={}){
       assert.deepEqual([...new URLSearchParams(opts.body).keys()],['title']);
       if(changingAccountAt===title)current='ANOTHER_ACCOUNT';
       result=title===nonemptyAt?
-        envelope([{activity_id:'SYNTHETIC_ACTIVITY',activity_name:'SYNTHETIC_PRIVATE'}]):
+        envelope([{activity_id:'SYNTHETIC_ACTIVITY',activity_name:'最强演说家决赛',
+          student_code:'SYNTHETIC_PRIVATE'}]):
         envelope([]);
+      if(title===invalidAt)
+        result=envelope([{activity_id:'SYNTHETIC_ACTIVITY',person_name:'SYNTHETIC_PRIVATE'}]);
+      if(title===partialAt)
+        result={data:[{activity_name:'最强演说家决赛'}],totalSize:2,totalPage:2,startIndex:0};
       if(title===failedAt)
         return {status:503,url,redirected:false,headers:{get:()=> 'text/html'},
           text:async()=>'<html>SYNTHETIC_SECRET</html>'};
@@ -72,13 +77,31 @@ test('one score identity + personal page + three real empty catalog filters',asy
   assert.ok(requests.every(x=>!x.url.includes('/sys/stu/sys/stu/activity')));
 });
 
-test('unknown nonempty activities NEVER become invented verified directory',async()=>{
-  const {result,requests}=await read({nonemptyAt:'待验证'});
-  assert.equal(result.ok,true,'personal score can still be saved');
+test('verified nonempty activity titles are saved without owner or raw response',async()=>{
+  const {result,requests}=await read({nonemptyAt:'报名中'});
+  assert.equal(result.ok,true);
+  assert.equal(result.catalogStatus,'verified_nonempty');
+  assert.equal(result.catalogActivities.length,1);
+  assert.equal(result.catalogActivities[0].title,'最强演说家决赛');
+  assert.equal(result.catalogActivities[0].filter,'报名中');
+  assert.deepEqual(Array.from(result.catalogEmptyFilters),filters.slice(1));
+  assert.equal(result.catalogActivities[0].student_code,undefined);
+  assert.equal(result.catalogActivities[0].activity_id,undefined);
+  assert.equal(requests.length,5);
+});
+
+test('unknown nonempty fields are never treated as verified',async()=>{
+  const {result}=await read({invalidAt:'待验证'});
+  assert.equal(result.ok,true,'verified scores must remain independently readable');
   assert.equal(result.catalogStatus,'nonempty_unverified');
-  assert.deepEqual(Array.from(result.catalogEmptyFilters),[]);
-  assert.equal(result.catalogActivities,undefined);
-  assert.equal(requests.length,4,'stop on first nonempty filter');
+  assert.equal(result.catalogActivities.length,0);
+  assert.equal(result.catalogEmptyFilters.length,0);
+});
+test('incomplete catalog pages are rejected instead of silently truncating',async()=>{
+  const {result}=await read({partialAt:'报名中'});
+  assert.equal(result.ok,true);
+  assert.equal(result.catalogStatus,'nonempty_unverified');
+  assert.equal(result.catalogActivities.length,0);
 });
 
 test('server failures do not lie that all three filters are empty',async()=>{
