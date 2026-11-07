@@ -97,7 +97,8 @@ interface NativeSchoolRecordDao {
         deleteKind("second_class", "activity")
         deleteKind("second_class", "activity_summary")
         deleteKind("second_class", "account_binding")
-        insertAll(scores + activities + if (catalogVerified) catalogEmpty + catalogActivities else emptyList())
+        val catalogSnapshot = if (catalogVerified) catalogEmpty + catalogActivities else emptyList()
+        insertAll(scores + activities + catalogSnapshot)
         if (accountHash != null) insertAll(listOf(NativeSchoolRecord(
             "second_class", "account_binding", "current", "", accountHash,
             "dekt.ncwu.edu.cn", capturedAt)))
