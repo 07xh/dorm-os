@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -189,6 +191,7 @@ fun FloatingBottomBar(
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val haptics = LocalHapticFeedback.current
 
     BoxWithConstraints(
         modifier = modifier
@@ -245,6 +248,7 @@ fun FloatingBottomBar(
         val currentRtl by rememberUpdatedState(isRtl)
         val currentSlop by rememberUpdatedState(touchSlop)
         val currentCellWidth by rememberUpdatedState(cellWidthPx)
+        val currentHaptics by rememberUpdatedState(haptics)
 
         // ⚠️ 手势必须挂在胶囊本身，不能挂在同级覆盖层：
         // Compose 的 hitTest 在 z-order 上遇到第一个命中的兄弟就停止，
@@ -264,7 +268,10 @@ fun FloatingBottomBar(
                                 .fastRoundToInt()
                                 .fastCoerceIn(0, count - 1)
                             drag.updateValue(target.toFloat())
-                            if (target != currentIndex) currentOnSelect(target)
+                            if (target != currentIndex) {
+                                currentHaptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                currentOnSelect(target)
+                            }
                         } else {
                             // 未越过 slop：只是手指抖动，指示器回弹即可。
                             drag.updateValue(currentIndex.toFloat())
@@ -339,8 +346,14 @@ fun FloatingBottomBar(
                         unselectedContentColor = unselectedContentColor,
                         modifier = Modifier.width(cellWidthDp),
                         onClick = {
-                            if (index == safeIndex) iconPlayback?.replay(index)
-                            onSelect(index)
+                            if (index != safeIndex) {
+                                haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                onSelect(index)
+                            } else {
+                                // Original BUCT behavior: tapping the current tab replays
+                                // its glyph but must not restart routing or page animations.
+                                iconPlayback?.replay(index)
+                            }
                         }
                     )
                 }
