@@ -11,8 +11,7 @@ on:
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
   push:
-    # Temporary exact-branch opt-in QA trigger for #365; remove before merge.
-    branches: [main, feat/xiaoxu-wechat-links-ui-pr351-20261107]
+    branches: [main]
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 
@@ -72,10 +71,8 @@ jobs:
           retention-days: 14
       # The normal debug APK above remains unchanged. The second, opt-in QA
       # package uses distinct Android app identity and private app storage.
-      # Explicit workflow_dispatch on an integration branch also builds the
-      # isolated QA APK; it must not overwrite the installed regular app.
       - name: Compile isolated unified native UI QA APK for side-by-side testing
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/xiaoxu-wechat-links-ui-pr351-20261107'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon
@@ -88,7 +85,7 @@ jobs:
           (cd "$RUNNER_TEMP" && sha256sum xiaoxu-unified-native-qa.apk > xiaoxu-unified-native-qa.apk.sha256)
           unzip -t "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk" >/dev/null
       - name: Upload separately installable unified native UI QA APK
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/xiaoxu-wechat-links-ui-pr351-20261107'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: xiaoxu-unified-native-qa-isolated
