@@ -1,5 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -68,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
@@ -1084,6 +1087,7 @@ fun RealAcademicTaskHub(
                         note = "",
                         icon = Icons.Outlined.MenuBook,
                         expanded = showCourseTasks,
+                        joinedRows = true,
                         onClick = { showCourseTasks = !showCourseTasks }
                     )
                 }
@@ -1104,6 +1108,7 @@ fun RealAcademicTaskHub(
                         note = "",
                         icon = Icons.Outlined.ChatBubbleOutline,
                         expanded = showWechatTasks,
+                        joinedRows = true,
                         onClick = { showWechatTasks = !showWechatTasks }
                     )
                 }
@@ -1146,6 +1151,7 @@ fun RealAcademicTaskHub(
                         note = "",
                         icon = Icons.Outlined.CheckBox,
                         expanded = showPersonalTasks,
+                        joinedRows = true,
                         onClick = { showPersonalTasks = !showPersonalTasks }
                     )
                 }
@@ -1525,12 +1531,24 @@ private fun TaskGroupHeader(
     icon: ImageVector,
     expanded: Boolean,
     onClick: () -> Unit,
-    showCount: Boolean = true
+    showCount: Boolean = true,
+    joinedRows: Boolean = false
 ) {
+    val shape = if (joinedRows && expanded) RoundedCornerShape(
+        topStart = XiaoxuRadius.card, topEnd = XiaoxuRadius.card,
+        bottomStart = 0.dp, bottomEnd = 0.dp
+    ) else RoundedCornerShape(XiaoxuRadius.card)
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        label = "task-group-chevron"
+    )
     Row(
         modifier = Modifier.fillMaxWidth()
-            .padding(top = 12.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(top = 8.dp)
+            .clip(shape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -1569,10 +1587,10 @@ private fun TaskGroupHeader(
             }
         }
         Icon(
-            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+            Icons.Outlined.ExpandMore,
             contentDescription = null,
             tint = XiaoxuPalette.Ink2,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp).rotate(chevronRotation)
         )
     }
 }
@@ -1670,17 +1688,14 @@ private fun ConnectedTaskShell(
     content: @Composable () -> Unit
 ) {
     val radius = XiaoxuRadius.card
+    // LazyColumn items remain individually keyed; group header forms the shared top edge.
     val corners = when {
-        total <= 1 -> RoundedCornerShape(radius)
-        index == 0 -> RoundedCornerShape(
-            topStart = radius, topEnd = radius, bottomStart = 0.dp, bottomEnd = 0.dp)
         index == total - 1 -> RoundedCornerShape(
             topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
         else -> RoundedCornerShape(0.dp)
     }
     Column(
         modifier = Modifier.fillMaxWidth()
-            .padding(top = if (index == 0) 8.dp else 0.dp)
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, corners)
