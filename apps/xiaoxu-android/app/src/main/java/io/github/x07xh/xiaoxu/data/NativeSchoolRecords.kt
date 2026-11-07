@@ -49,6 +49,14 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
     }
 }
 
+/** Stable, non-secret official work tuple validated by the fixed on-device reader. */
+fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "homework" ||
+        record.sourceHost != "mooc1.chaoxing.com") return null
+    return Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
+        .find(record.details)?.groupValues?.get(1)
+}
+
 @Dao
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */
