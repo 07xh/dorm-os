@@ -1665,30 +1665,30 @@ assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
 assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从设计系统读取');
 assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
-assert.match(pageMotion, /direction \* minOf\(width \/ 18, 84\)/,
-  '一级页只能小幅移动，不能再整屏滑动');
-const primaryMotionSource = pageMotion.slice(
-  pageMotion.indexOf('internal fun xiaoxuPrimaryPageTransition('),
-  pageMotion.indexOf('private val SettingsPageSlide')
-);
-assert.match(primaryMotionSource, /togetherWith ExitTransition.None/,
-  '一级页退出方保持静止，避免两页同时移动');
-assert.doesNotMatch(primaryMotionSource, /slideOutHorizontally\(/,
-  '一级页不能让前后两张页面对向滑动产生晃动');
-assert.match(design, /const val PageSwitchMs = 220/, '一级页切换应以220ms小位移动画呈现');
-assert.match(design, /const val SettingsDetailMs = 200/, '设置二级页使用200ms不回弹过渡');
-assert.doesNotMatch(pageMotion, /MiuixSettingsNavigationEasing|kotlin\.math\.cos/,
-  '不能恢复500ms阻尼公式导致长时间拖尾');
-assert.match(pageMotion, /CubicBezierEasing\(0\.22f, 0\.74f, 0\.20f, 1f\)/,
-  '二级转场采用不反弹的单调缓动');
-assert.match(pageMotion, /minOf\(width \/ 20, 72\)/,
-  '设置页限定微小位移，不再从侧边滑入大半屏');
-assert.doesNotMatch(pageMotion, /width \/ 6/,
-  '禁止恢复导致页面晃动的大幅位移');
-assert.match(pageMotion, /togetherWith ExitTransition.None/,
-  '进入设置子页时旧页不再反向晃动');
-assert.match(pageMotion, /EnterTransition.None togetherWith\s*slideOutHorizontally/,
-  '返回设置时背景页保持静止，详情页小幅退出');
+assert.match(pageMotion, /private fun stationaryFadeThrough\(durationMillis: Int\)/,
+  '主导航与二级页使用唯一静态淡出淡入转场');
+assert.match(pageMotion, /fadeIn\([\s\S]*?delayMillis = exitMillis/,
+  '新页面必须在旧页面退出后淡入，避免旧文字和新文字叠影');
+assert.match(pageMotion, /togetherWith fadeOut\(/,
+  '旧内容应柔和淡出而不是横向移动');
+assert.match(pageMotion, /sizeTransform = null/,
+  '不同页面的容器几何必须固定，避免尺寸动画造成晃动');
+assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
+  '页面转场不得移动或缩放整屏，也不得弹簧回弹');
+assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.PageSwitchMs\)/,
+  '五个主标签保留220ms轻量动感');
+assert.match(pageMotion, /stationaryFadeThrough\(XiaoxuMotion.SettingsDetailMs\)/,
+  '设置、教务及课表二级页复用200ms轻量动感');
+assert.match(design, /const val PageSwitchMs = 220/, '一级页面仍按220ms短时过渡');
+assert.match(design, /const val SettingsDetailMs = 200/, '二级页面仍按200ms短时过渡');
+assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
+  '设置页不得直接替换内容丢失过渡');
+assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
+  '课表设置也必须使用同一无位移动效');
+assert.match(main, /label = "academicChild"/,
+  '教务多个二级页保留其单独的内容转场宿主');
+assert.match(main, /label = "profileTimetableChild"/,
+  '我的到课表设置继续使用原生子页面宿主');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
   '五个主页面的动画容器必须裁剪边界');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
