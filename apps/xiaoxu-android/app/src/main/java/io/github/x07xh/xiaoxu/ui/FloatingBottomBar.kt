@@ -1,9 +1,17 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.os.Build
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import io.github.x07xh.xiaoxu.ui.northglass.NorthAppSymbolSpec
+import io.github.x07xh.xiaoxu.ui.northglass.NorthPhosphorNavigationIcon
+import io.github.x07xh.xiaoxu.ui.northglass.rememberNorthNavigationIconPlayback
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +48,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -50,6 +59,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -71,10 +81,10 @@ import kotlin.math.roundToInt
  * `inspectDragGestures`（见 `ui/nav/`，Apache-2.0 原件 + SleepDown 1.1 修改，
  * 署名见 `THIRD_PARTY_NOTICES.md`）。这两个文件零项目内部依赖，可独立抽取。
  *
- * **未**复用其 `LiquidBottomTabs`：该实现依赖 `glass` 模块 41 个文件 / 6559 行
- * 与 `com.kyant.backdrop` 液态玻璃库，无法独立抽取，强行移植等于把整套玻璃
- * 基础设施搬进校序，与「避免新一轮架构重构」直接冲突。本组件只用 Compose
- * 原生绘制复刻同样的**交互**（悬浮、滑动、压感），不复制其**渲染**。
+ * 2026-11-07：仍不引入 SleepDown 整套 `LiquidBottomTabs` 或玻璃模块。
+ * Android 13+ 的轨道、选中透镜、Phosphor 图标和组合采样来自北化课表
+ * v1.0.83（见 `NorthGlassNavChrome.kt` / `ui/northglass/`）；
+ * 较低 API 的 Compose 回退在本组件中保留，不构建第二套导航状态。
  *
  * ## 手势语义（PR #328 修复，不可回退）
  *
@@ -106,16 +116,16 @@ data class FloatingBarItem(
     val label: String,
     val icon: ImageVector,
     /** 角标数字，null 或 ≤0 表示不显示。 */
-    val badge: Int? = null
+    val badge: Int? = null,
+    val northSymbol: NorthAppSymbolSpec? = null
 )
 
-private val BarHeight: Dp = 70.dp
-private val BarHorizontalInset: Dp = 20.dp
-private val BarBottomInset: Dp = 10.dp
 private val IndicatorInset: Dp = 6.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val IndicatorShape = RoundedCornerShape(percent = 50)
 private const val PressedScale = 1.06f
+// CourseSelector 1.0.83 GlassRecipe.SelectionIndicatorPressedScale.
+private const val NorthGlassPressedScale = 78f / 56f
 private const val ColorAnimMs = 180
 
 /**
@@ -156,11 +166,26 @@ fun FloatingBottomBar(
     selectedContentColor: Color = XiaoxuPalette.BrandDeep,
     showLabels: Boolean = true,
     applyNavigationBarInset: Boolean = true,
-    draggable: Boolean = true
+    draggable: Boolean = true,
+    backdrop: Backdrop? = null
 ) {
     if (items.isEmpty()) return
     val count = items.size
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
+    // Original v1.0.83 glass geometry only on supported real lens platforms.
+    val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    // 北化课表 1.0.83: the indicator refracts a SECOND, sharply tinted icon/label
+    // source combined with the page, not the page backdrop alone. Recording the
+    // tint source once here keeps it in the same dock; it owns no click/route state.
+    val tintLayer = if (useNorthGlass) rememberLayerBackdrop() else null
+    val indicatorBackdrop = if (backdrop != null && tintLayer != null) {
+        rememberCombinedBackdrop(backdrop, tintLayer)
+    } else backdrop
+    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
+    val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
+    val visualHeight = geometry.trackHeight
+    val horizontalInset = geometry.horizontalPadding
+    val bottomInset = geometry.bottomPadding
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val touchSlop = LocalViewConfiguration.current.touchSlop
@@ -176,10 +201,10 @@ fun FloatingBottomBar(
                 } else Modifier
             )
             .padding(
-                start = BarHorizontalInset,
-                end = BarHorizontalInset,
-                top = 4.dp,
-                bottom = BarBottomInset
+                start = horizontalInset,
+                end = horizontalInset,
+                top = geometry.topPadding,
+                bottom = bottomInset
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -188,21 +213,30 @@ fun FloatingBottomBar(
         val cellWidthDp = with(LocalDensity.current) { cellWidthPx.toDp() }
 
         val scope = rememberCoroutineScope()
-        val dragState = remember(count) { DragGestureState() }
+        val dragState = remember(count, useNorthGlass) { DragGestureState() }
 
         // 驱动只负责「索引浮点值 + 压感」，手势事件由下方 pointerInput 精确分发。
-        val drag = remember(count) {
+        val drag = remember(count, useNorthGlass) {
             DampedDragAnimation(
                 animationScope = scope,
                 initialValue = safeIndex.toFloat(),
                 valueRange = 0f..(count - 1).toFloat(),
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
-                pressedScale = PressedScale,
+                pressedScale = if (useNorthGlass) NorthGlassPressedScale else PressedScale,
                 onDragStarted = {},
                 onDragStopped = {},
                 onDrag = { _, _ -> }
             )
+        }
+
+        // Source CapsuleNavigationBar.indicatorScale: same velocity transform for
+        // the lens and the highlight (no separately scaling the rim).
+        fun physicalScale(): Pair<Float, Float> {
+            val v = drag.velocity / 6f
+            val sx = drag.scaleX / (1f - (v * 0.75f).coerceIn(-0.22f, 0.22f))
+            val sy = drag.scaleY * (1f - (v * 0.25f).coerceIn(-0.22f, 0.22f))
+            return sx to sy
         }
 
         // 手势回调只捕获一次，用 rememberUpdatedState 保证始终读到最新值。
@@ -230,7 +264,7 @@ fun FloatingBottomBar(
                                 .fastRoundToInt()
                                 .fastCoerceIn(0, count - 1)
                             drag.updateValue(target.toFloat())
-                            currentOnSelect(target)
+                            if (target != currentIndex) currentOnSelect(target)
                         } else {
                             // 未越过 slop：只是手指抖动，指示器回弹即可。
                             drag.updateValue(currentIndex.toFloat())
@@ -274,13 +308,97 @@ fun FloatingBottomBar(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(BarHeight)
-                .shadow(elevation = 3.dp, shape = BarShape, clip = false)
-                .clip(BarShape)
-                .background(containerColor)
-                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, BarShape)
+                .height(visualHeight)
+                .then(
+                    if (useNorthGlass && backdrop != null) {
+                        Modifier.northGlassTrack(
+                            backdrop = backdrop,
+                            pressProgress = { drag.pressProgress },
+                            indicatorExpansion = { (drag.scaleX + drag.scaleY) / 2f - 1f }
+                        )
+                    }
+                    else Modifier.shadow(elevation = 3.dp, shape = BarShape, clip = false)
+                        .clip(BarShape).background(containerColor)
+                )
                 .then(gestureModifier)
         ) {
+            Row(
+                Modifier
+                    .fillMaxSize()
+                    .selectableGroup(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEachIndexed { index, item ->
+                    FloatingBarCell(
+                        item = item,
+                        selected = index == safeIndex,
+                        showLabel = showLabels,
+                        useNorthGlass = useNorthGlass,
+                        iconPhase = { iconPlayback?.phase(index) ?: 1f },
+                        selectedContentColor = selectedContentColor,
+                        unselectedContentColor = unselectedContentColor,
+                        modifier = Modifier.width(cellWidthDp),
+                        onClick = {
+                            if (index == safeIndex) iconPlayback?.replay(index)
+                            onSelect(index)
+                        }
+                    )
+                }
+            }
+
+
+            // Exact original optical principle: a fully transparent, noninteractive
+            // duplicate glyph/label layer is still recorded as backdrop content.
+            // The indicator above it samples the COMBINED page + sharp-tint layer.
+            if (useNorthGlass && tintLayer != null) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .clearAndSetSemantics {}
+                        .alpha(0f)
+                        .layerBackdrop(tintLayer),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEachIndexed { index, item ->
+                        Column(
+                            modifier = Modifier
+                                .width(cellWidthDp)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (item.northSymbol != null) {
+                                NorthPhosphorNavigationIcon(
+                                    spec = item.northSymbol,
+                                    selection = if (index == safeIndex) 1f else 0f,
+                                    phase = { iconPlayback?.phase(index) ?: 1f },
+                                    tint = selectedContentColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = item.icon,
+                                    tint = selectedContentColor,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            if (showLabels) {
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = item.label,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    color = selectedContentColor,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
             Box(
                 Modifier
@@ -294,36 +412,25 @@ fun FloatingBottomBar(
                     }
                     .width(cellWidthDp)
                     .fillMaxHeight()
-                    .padding(IndicatorInset)
-                    .clip(IndicatorShape)
-                    .background(indicatorColor)
-                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, IndicatorShape)
-                    .graphicsLayer {
-                        // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
-                        val p = drag.pressProgress
-                        scaleX = 1f + 0.04f * p
-                        scaleY = 1f + 0.02f * p
-                    }
-            )
-
-            Row(
-                Modifier
-                    .fillMaxSize()
-                    .selectableGroup(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items.forEachIndexed { index, item ->
-                    FloatingBarCell(
-                        item = item,
-                        selected = index == safeIndex,
-                        showLabel = showLabels,
-                        selectedContentColor = selectedContentColor,
-                        unselectedContentColor = unselectedContentColor,
-                        modifier = Modifier.width(cellWidthDp),
-                        onClick = { onSelect(index) }
+                    .padding(horizontal = IndicatorInset, vertical = geometry.indicatorVerticalPadding)
+                    .then(
+                        if (useNorthGlass && indicatorBackdrop != null) {
+                            Modifier.northGlassIndicator(
+                                backdrop = indicatorBackdrop,
+                                pressProgress = { drag.pressProgress },
+                                velocityPx = { drag.velocity * cellWidthPx },
+                                indicatorScale = { physicalScale() }
+                            )
+                        } else Modifier.clip(IndicatorShape).background(indicatorColor)
                     )
-                }
-            }
+                    .then(
+                        if (useNorthGlass) Modifier else Modifier.graphicsLayer {
+                            val p = drag.pressProgress
+                            scaleX = 1f + 0.04f * p
+                            scaleY = 1f + 0.02f * p
+                        }
+                    )
+            )
         }
     }
 }
@@ -333,6 +440,8 @@ private fun FloatingBarCell(
     item: FloatingBarItem,
     selected: Boolean,
     showLabel: Boolean,
+    useNorthGlass: Boolean,
+    iconPhase: () -> Float,
     selectedContentColor: Color,
     unselectedContentColor: Color,
     modifier: Modifier = Modifier,
@@ -368,19 +477,29 @@ private fun FloatingBarCell(
         verticalArrangement = Arrangement.Center
     ) {
         Box(contentAlignment = Alignment.TopEnd) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null, // 文字已承担语义，避免 TalkBack 重复朗读。
-                tint = contentColor,
-                modifier = Modifier
-                    .size(24.dp)
-                    .graphicsLayer {
-                        // draw 阶段读 animation，跳过重组。
-                        val s = if (selected) PressedScale else 1f
-                        scaleX = s
-                        scaleY = s
-                    }
-            )
+            if (useNorthGlass && item.northSymbol != null) {
+                // Original BUCT vector paths and replay motion, not approximate Material icons.
+                NorthPhosphorNavigationIcon(
+                    spec = item.northSymbol,
+                    selection = if (selected) 1f else 0f,
+                    phase = iconPhase,
+                    tint = contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .graphicsLayer {
+                            val scale = if (selected) PressedScale else 1f
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                )
+            }
             if (item.badge != null && item.badge > 0) {
                 BadgeDot(count = item.badge)
             }
@@ -393,7 +512,7 @@ private fun FloatingBarCell(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
             )
         }
     }
