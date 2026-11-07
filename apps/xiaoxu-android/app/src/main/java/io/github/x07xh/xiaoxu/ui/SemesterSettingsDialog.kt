@@ -90,6 +90,7 @@ internal fun SemesterSettingsPage(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val errorField = semesterSettingsErrorField(error)
     var sectionsMenu by remember { mutableStateOf(false) }
+    var sectionTimesExpanded by rememberSaveable { mutableStateOf(false) }
     var weeksMenu by remember { mutableStateOf(false) }
     var dateOpen by remember { mutableStateOf(false) }
     var editingSection by remember { mutableIntStateOf(0) }
@@ -234,7 +235,26 @@ internal fun SemesterSettingsPage(
 
             SettingsGroupTitle("本课表作息")
             XiaoxuGroupSurface {
-                repeat(sections) { zeroBased ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                        .clickable { sectionTimesExpanded = !sectionTimesExpanded }
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("节次时间", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
+                    Text(if (sectionTimesExpanded) "收起" else "$sections 节 · 查看与编辑",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Ink2)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                        tint = XiaoxuPalette.Ink3,
+                        modifier = Modifier.size(20.dp).rotate(if (sectionTimesExpanded) 90f else 0f))
+                }
+                if (sectionTimesExpanded) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp),
+                        color = XiaoxuPalette.Line, thickness = 0.6.dp)
+                    repeat(sections) { zeroBased ->
                     val index = zeroBased + 1
                     val pair = findSectionTime(times, index)
                     Row(
@@ -261,6 +281,7 @@ internal fun SemesterSettingsPage(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         color = XiaoxuPalette.Line, thickness = 0.6.dp
                     )
+                    }
                 }
             }
         }
@@ -449,7 +470,7 @@ private fun semesterSettingsErrorField(message: String?): String = when {
 
 @Composable
 private fun SettingsGroupTitle(title: String) {
-    Text(title, modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 10.dp),
+    Text(title, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 7.dp),
         style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
 }
 
@@ -473,11 +494,12 @@ private fun SettingsActionRow(
         if (icon != null) {
             Box(
                 modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
-                    .background(if (icon == "date") Color(0xFF1688F4) else Color(0xFFFFA317)),
+                    .background(XiaoxuPalette.BrandSoft),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(if (icon == "date") Icons.Outlined.DateRange else Icons.Outlined.Schedule,
-                    contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
+                    contentDescription = null, modifier = Modifier.size(22.dp),
+                    tint = XiaoxuPalette.BrandDeep)
             }
             Spacer(Modifier.width(12.dp))
         }
