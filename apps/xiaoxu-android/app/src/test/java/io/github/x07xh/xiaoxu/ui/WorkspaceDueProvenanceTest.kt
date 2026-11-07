@@ -71,10 +71,11 @@ class WorkspaceDueProvenanceTest {
         assertEquals(LocalDate.of(2026, 11, 12), item.sourceDueDate)
         assertEquals("本人计划", item.dateSource)
         assertEquals(1, countUpcomingLocalDeadlines(listOf(item), today))
+        val monday = LocalDate.of(2026, 11, 9)
         assertEquals(listOf("提交实验报告"),
-            searchWorkspaceTasks(listOf(item), "week", "", today).map { it.title })
+            searchWorkspaceTasks(listOf(item), "week", "", monday).map { it.title })
         assertEquals(listOf("提交实验报告"),
-            facetWorkspaceTasks(listOf(item), "all", true, today).map { it.title })
+            facetWorkspaceTasks(listOf(item), "all", true, monday).map { it.title })
     }
 
     @Test
