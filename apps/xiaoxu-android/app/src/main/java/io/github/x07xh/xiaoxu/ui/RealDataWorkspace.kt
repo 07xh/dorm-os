@@ -887,6 +887,15 @@ fun RealAcademicTaskHub(
     // All optional rows must be counted. Fixed indexes shifted when old helper lines
     // were removed, so local/cloud buttons could land on the wrong section.
     val taskListState = rememberLazyListState()
+    // LazyColumn normally anchors by item key. Expanding a large group while
+    // the header is partially on screen can otherwise move the viewport.
+    // Pin the current visible index/offset for the next measurement only.
+    val pinTaskListViewport = {
+        taskListState.requestScrollToItem(
+            taskListState.firstVisibleItemIndex,
+            taskListState.firstVisibleItemScrollOffset
+        )
+    }
     var jumpTo by remember { mutableStateOf<String?>(null) }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
@@ -1226,7 +1235,10 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.MenuBook,
                         expanded = showCourseTasks,
                         joinedRows = true,
-                        onClick = { showCourseTasks = !showCourseTasks }
+                        onClick = {
+                            pinTaskListViewport()
+                            showCourseTasks = !showCourseTasks
+                        }
                     )
                 }
                 if (showCourseTasks) {
@@ -1250,7 +1262,10 @@ fun RealAcademicTaskHub(
                         // No placement animation: when course tasks above this
                         // group expand/collapse, its header must not visibly chase
                         // a stale LazyColumn position.
-                        onClick = { showWechatTasks = !showWechatTasks }
+                        onClick = {
+                            pinTaskListViewport()
+                            showWechatTasks = !showWechatTasks
+                        }
                     )
                 }
                 if (showWechatTasks) {
@@ -1298,7 +1313,10 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.CheckBox,
                         expanded = showPersonalTasks,
                         joinedRows = true,
-                        onClick = { showPersonalTasks = !showPersonalTasks }
+                        onClick = {
+                            pinTaskListViewport()
+                            showPersonalTasks = !showPersonalTasks
+                        }
                     )
                 }
                 if (showPersonalTasks) {
@@ -1827,7 +1845,7 @@ private fun TaskGroupHeader(
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
             .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
