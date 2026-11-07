@@ -20,6 +20,8 @@ from sport_world_readonly_bridge import (
 
 class FakeUpstream:
     def __init__(self, results=None):
+        self.uid = "12345"
+        self.token = "FAKE_AUTHORIZED_SESSION_FOR_OFFLINE_TESTS"
         self.results = results or {}
         self.called = []
 
@@ -224,6 +226,21 @@ class SportWorldReadOnlyBridgeTests(unittest.TestCase):
             SportWorldReadOnlyBridge(
                 self.profile, self.profile, self.history, self.subject
             )
+
+    def test_all_source_clients_must_share_a_legitimate_session(self):
+        wrong_history = FakeUpstream()
+        wrong_history.uid = "999"
+        with self.assertRaises(ReadOnlyAccessError):
+            SportWorldReadOnlyBridge(
+                FakeUpstream(), FakeUpstream(), wrong_history, self.subject
+            )
+        wrong_token = FakeUpstream()
+        wrong_token.token = "DIFFERENT_SYNTHETIC_SESSION"
+        with self.assertRaises(ReadOnlyAccessError):
+            SportWorldReadOnlyBridge(
+                FakeUpstream(), FakeUpstream(), wrong_token, self.subject
+            )
+
 
 
 if __name__ == "__main__":
