@@ -503,9 +503,12 @@ private fun ScheduleVerifiedContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("$monday 至 $sunday",
+                    Text(
+                        "${monday.monthValue}月${monday.dayOfMonth}日 — " +
+                            "${sunday.monthValue}月${sunday.dayOfMonth}日",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = XiaoxuPalette.Ink2
+                    )
                     if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
                         selectedWeek != actualCurrentWeek) {
                         TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
@@ -785,13 +788,13 @@ private fun DayLessonList(
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         DaySummary(weekday, dayLessons.size, weekday == todayWeekday)
         if (dayLessons.isEmpty()) NoLessonCard(selectedWeek)
         dayLessons.forEach { lesson ->
             LessonCard(lesson = lesson, onOpen = { onOpen(lesson.key) })
         }
-        ScheduleFooterNote()
+        // 来源说明已在页头显示，日视图不重复铺长段说明文字。
     }
 }
 
@@ -1007,6 +1010,7 @@ private fun DaySummary(weekday: Int, count: Int, isToday: Boolean) {
             text = weekdayLong(weekday),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = XiaoxuPalette.Ink,
             modifier = Modifier.semantics { heading() }
         )
         if (isToday) {
@@ -1021,7 +1025,7 @@ private fun DaySummary(weekday: Int, count: Int, isToday: Boolean) {
         Text(
             text = if (count == 0) "无课" else "$count 个课块",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = XiaoxuPalette.Ink2
         )
     }
 }
@@ -1073,7 +1077,7 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = lesson.title,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         color = courseColor.foreground,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -1082,10 +1086,10 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
                     )
                     SectionBadge(lesson.sectionLabel)
                     Icon(
-                        imageVector = Icons.Outlined.ExpandMore,
+                        imageVector = Icons.Outlined.ChevronRight,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = XiaoxuPalette.Ink2
                     )
                 }
                 Spacer(Modifier.height(6.dp))
@@ -1182,7 +1186,7 @@ private fun CourseDetailBottomSheet(
         Column(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 34.dp),
+                .padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Row(verticalAlignment = Alignment.Top) {
@@ -1193,7 +1197,7 @@ private fun CourseDetailBottomSheet(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(width = 34.dp, height = 4.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF66BD72)))
+                            .background(Color(0xFF4FAAF0)))
                         Spacer(Modifier.width(10.dp))
                         Text("课程详情", style = MaterialTheme.typography.bodyLarge,
                             color = XiaoxuPalette.Ink)
@@ -1218,7 +1222,7 @@ private fun CourseDetailBottomSheet(
                         modifier = Modifier.size(29.dp), tint = XiaoxuPalette.Ink2)
                 }
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1237,16 +1241,16 @@ private fun CourseDetailBottomSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(18.dp))
             CourseDetailInfoRow(Icons.Outlined.PersonOutline, "教师", lesson.teacher)
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(14.dp))
             CourseDetailInfoRow(Icons.Outlined.DateRange, "周次", lesson.weeksLabel.removePrefix("第").replace("–", "-"))
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(18.dp))
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(21.dp))
                     .background(Color(0xFFF7F1FA))
-                    .padding(horizontal = 18.dp, vertical = 17.dp),
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Outlined.NotificationsNone, contentDescription = null,
@@ -1309,7 +1313,7 @@ private fun CourseDetailInfoCard(
     Column(
         modifier = modifier.clip(RoundedCornerShape(20.dp))
             .background(Color(0xFFF8F3FC))
-            .padding(horizontal = 15.dp, vertical = 17.dp),
+            .padding(horizontal = 15.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
