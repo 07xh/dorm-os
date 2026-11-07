@@ -1,0 +1,29 @@
+name: Xiaoxu Campus Run OSS Read-Only Boundary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/**'
+      - '.github/workflows/xiaoxu-campus-run-oss-readonly.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/**'
+      - '.github/workflows/xiaoxu-campus-run-oss-readonly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-readonly-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run fully offline personal-read boundary regressions
+        run: python -m unittest discover -s integrations/campus-run-readonly -p 'test_*.py' -v
