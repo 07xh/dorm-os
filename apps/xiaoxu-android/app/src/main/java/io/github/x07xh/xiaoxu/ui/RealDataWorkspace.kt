@@ -423,22 +423,26 @@ private fun HomeCourseList(
     openFileImport: () -> Unit,
     onOpenLesson: (VerifiedLesson) -> Unit
 ) {
-    HomeSection(
-        title = "课程记录",
-        caption = "$weekdayLabel · 本机导入，周次待核对",
-        actionLabel = if (hasTimetable) "查看课表" else null,
-        onAction = if (hasTimetable) openSchedule else null
-    ) {
-        if (hasTimetable && lessons.isEmpty()) {
-            // Empty Saturday should not occupy an entire thick glass card.
-            // This is only a source-aware day-empty label, not a claim about school attendance.
+    if (hasTimetable && lessons.isEmpty()) {
+        // One compact, aligned row; verification caveat stays on timetable page.
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                "这一天没有已保存的课程记录",
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                "暂无本机课程记录",
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = XiaoxuPalette.Ink2
             )
-        } else {
+            TextButton(onClick = openSchedule) { Text("课表") }
+        }
+    } else {
+        HomeSection(
+            title = "课程记录",
+            actionLabel = if (hasTimetable) "查看课表" else null,
+            onAction = if (hasTimetable) openSchedule else null
+        ) {
             XiaoxuCard(contentPadding = 12.dp) {
                 when {
                     lessons.isNotEmpty() -> {
