@@ -192,6 +192,8 @@ const wrongPage = runReader({host:'task.chaoxing.com',
  path:'/untrusted',plans:[planCard('假状态','已完成')]});
 assert.equal(wrongPage.records.length,0);
 
+assert.match(native,/CHAOXING_STUDY_TASKS/);
+assert.match(native,/browser\.loadUrl\(CHAOXING_STUDY_TASKS\)/);
 assert.match(native,/path == "\/userStudyPlan\/studyPlanSubPage"/);
 assert.match(native,/if \(kind !in kinds\)/);
 assert.match(records,/nativeChaoxingVisibleStatus/);
