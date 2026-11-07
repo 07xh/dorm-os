@@ -871,7 +871,7 @@ fun RealAcademicTaskHub(
                     .padding(top = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.card))
                     .background(XiaoxuPalette.GlassTrack)
-                    .border(0.75.dp, XiaoxuPalette.GlassBorder,
+                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
                         RoundedCornerShape(XiaoxuRadius.card))
                     .padding(5.dp)
                     .selectableGroup(),
@@ -1683,7 +1683,7 @@ private fun ConnectedTaskShell(
             .padding(top = if (index == 0) 8.dp else 0.dp)
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
-            .border(0.5.dp, XiaoxuPalette.GlassBorder, corners)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, corners)
     ) {
         if (index > 0) {
             HorizontalDivider(
