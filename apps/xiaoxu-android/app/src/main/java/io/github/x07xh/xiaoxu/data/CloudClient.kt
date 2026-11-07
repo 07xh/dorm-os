@@ -30,8 +30,25 @@ data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?,
     val revision: Int = -1,
-    val links: List<String> = emptyList()
+    val links: List<String> = emptyList(),
+    /** Stable source tuple from the trusted school assignment ledger. */
+    val sourceExternalId: String? = null,
+    /** Last trusted platform state, independent of the user's local done flag. */
+    val officialStatus: String? = null
 )
+
+private val ChaoxingWorkSourceId = Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""")
+private val ChaoxingPlatformStatuses =
+    setOf("todo", "submitted", "graded", "returned", "unknown")
+
+/** Only trusted source-table status + exact school work tuple can be displayed. */
+internal fun trustedChaoxingPlatformStatus(
+    provider: String?, externalId: String?, status: String?
+): String? = status?.takeIf {
+    provider == "chaoxing" &&
+        externalId != null && ChaoxingWorkSourceId.matches(externalId) &&
+        it in ChaoxingPlatformStatuses
+}
 
 /** Parse the optional V1 link contract without making unrelated tasks fail. */
 private fun readCloudLinks(row: JSONObject): List<String> {
@@ -406,9 +423,16 @@ class CloudClient(context: Context) {
                                 .takeIf { it.isNotBlank() && it != "null" }
                         val revision = o.optLong("revision", -1L)
                             .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
+                        val sourceId = o.optString("source_external_id")
+                            .takeIf { provider == "chaoxing" &&
+                                ChaoxingWorkSourceId.matches(it) }
+                        val official = trustedChaoxingPlatformStatus(
+                            provider, sourceId, o.optString("platform_status")
+                        )
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
                             o.optString("local_status"), o.optString("kind"), provider, due,
-                            revision, if (provider == "wechat") readCloudLinks(o) else emptyList()))
+                            revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
+                            sourceId, official))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
