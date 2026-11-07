@@ -98,6 +98,21 @@ assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
 const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
+  'Two reminder toggles must share one Android permission gateway');
+assert.equal(profileSettings.split('ContextCompat.checkSelfPermission(').length - 1, 1,
+  'Notification runtime permission must be checked at one call site');
+assert.equal(profileSettings.split('requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)').length - 1, 1,
+  'Notification permission launcher must have one call site');
+assert.match(profileSettings, /requestNotificationAccess\("course"\)/,
+  'Course reminder uses the shared permission gateway');
+assert.match(profileSettings, /requestNotificationAccess\("deadline"\)/,
+  'Deadline reminder uses the shared permission gateway');
+assert.equal(localTaskUi.split('animationSpec = tween(XiaoxuMotion.SelectionMs)').length - 1, 2,
+  'Local task editor selection pills use the global motion setting');
+assert.doesNotMatch(localTaskUi, /tween\(180\)/,
+  'Do not restore an independent hard-coded task pill animation duration');
+
 assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/,
   'Notification permission must be explicitly declared for Android 13+');
 assert.match(appGradle, /androidx\.work:work-runtime-ktx:2\.11\.0/,

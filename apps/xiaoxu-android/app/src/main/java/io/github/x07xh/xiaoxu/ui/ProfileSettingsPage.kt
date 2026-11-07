@@ -203,9 +203,7 @@ private fun SettingsEntry(title: String, icon: ImageVector, onClick: () -> Unit)
     }
 }
 
-/** Move the global reminder control out of the timetable screen; do not create a second switch.
- * Uses the same opt-in WorkManager scheduling and notification check as the timetable editor. */
-/** Identical reminder-row layout; the caller retains permission and scheduling rules. */
+/** Shared reminder row; each caller owns its schedule and Android notification permission checks. */
 @Composable
 private fun ReminderToggleRow(
     title: String,
@@ -283,6 +281,19 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
         }
     }
 
+    // One Android 13+ permission flow; course/deadline scheduling stays independent.
+    fun requestNotificationAccess(target: String) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+            permissionTarget = target
+            requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            openPermissionSettings()
+        }
+    }
+
     XiaoxuGroupedSection(title = "课程提醒") {
         ReminderToggleRow(
             title = "上课提醒",
@@ -292,14 +303,7 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
                 when {
                     !value -> toggle(false)
                     LocalCourseReminders.canNotify(context) -> toggle(true)
-                    Build.VERSION.SDK_INT >= 33 &&
-                        ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED -> {
-                                permissionTarget = "course"
-                                requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                    else -> openPermissionSettings()
+                    else -> requestNotificationAccess("course")
                 }
             }
         )
@@ -314,14 +318,7 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
                 when {
                     !value -> toggleDeadline(false)
                     LocalDeadlineReminders.canNotify(context) -> toggleDeadline(true)
-                    Build.VERSION.SDK_INT >= 33 &&
-                        ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED -> {
-                                permissionTarget = "deadline"
-                                requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                    else -> openPermissionSettings()
+                    else -> requestNotificationAccess("deadline")
                 }
             }
         )
