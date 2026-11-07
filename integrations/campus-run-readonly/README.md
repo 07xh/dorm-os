@@ -59,3 +59,17 @@ python -m unittest discover -s integrations/campus-run-readonly -p 'test_*.py' -
 该命令不会访问运动世界校园、不需要登录或网络。可选的上游兼容测试仅导入 MIT 仓库中三个真实只读类，并以离线桩替代所有 HTTP 请求；用于判断开源源码的读方法签名是否改变。
 
 验收门禁保持不变：①本人正常登录态；②当前版本真实业务结果；③学期总里程与计入成绩里程分别比对；④历史状态和完整分页；⑤ Android 16 本机同步、断网与账号切换。任何一项未完成都不得在 App 显示“官方成绩已同步”。
+
+## 第四阶段：Android 解析同一份只读结果（当前为离线端到端测试）
+
+本地 Python `SportWorldReadOnlyBridge` 新增 `read_subject()`；已有 `read_semester()` 和 `read_history_page()` 输出增加 `bridgeSchemaVersion=1` 和 `bridgeKind=subject/semester/history`。不会修改用户的上游账号或请求协议，不会传出原始 token。
+
+Android 新增 `CampusRunBridgeJsonReader`，仅用于读取由可信、已授权传输取得的 JSON，**无独立登录系统、网络客户端或 Compose 新页面**。它复用原有 `CampusRunAuthorizedDecodedReader` → `CampusRunObservedMappingSource` → `CampusRunReadOnlyQuery`。
+
+Python 桥接的候选字段始终明确标注 `verifiedFieldSemantics=false`；Android 在正式数据映射前**必须核验为 true**，否则返回 `INVALID_DATA`，绝不会显示为官方可信成绩。历史 `paginationVerified=false` 或 `isLastPage=null` 也会拒绝；不能用短列表猜测已读取完全部历史。
+
+这里的 `verifiedFieldSemantics` 是可信数据源适配器在**本人官方 App 逐项比对后**设置的内部条件，而不是用户可以编辑的导入 JSON 自证。仅凭一个 JSON 布尔值不具备身份认证或数据来源证明。未来只能从经身份和完整性验收的实际传输渠道注入该 Reader。
+
+**尚未实现/不可冒称完成**：本人已有登录态传给 Python 运行环境、Android 与 Python 的受保护传输渠道、实际个人账号成绩、目标与计入成绩口径核对、一加 Ace 6 真机验证。本轮只验证跨语言格式与错误门禁，**不是**真实账号自动同步。
+
+与此前“必须等待官方开放 API”不同，真实上游仍优先复用 MIT 开源客户端的合法只读功能，不重新抓三份 HAR，不新建成绩数据库、同步 Worker 或登录界面。
