@@ -385,13 +385,13 @@ private fun SourcePill(
     val background by animateColorAsState(
         targetValue = if (isSelected) XiaoxuPalette.Brand
         else XiaoxuPalette.GlassCard,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "task-pill-bg"
     )
     val foreground by animateColorAsState(
         targetValue = if (isSelected) Color.White
         else XiaoxuPalette.Ink2,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "task-pill-fg"
     )
     Box(

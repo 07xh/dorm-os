@@ -98,6 +98,21 @@ assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
 const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
+  'Two reminder toggles must share one Android permission gateway');
+assert.equal(profileSettings.split('ContextCompat.checkSelfPermission(').length - 1, 1,
+  'Notification runtime permission must be checked at one call site');
+assert.equal(profileSettings.split('requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)').length - 1, 1,
+  'Notification permission launcher must have one call site');
+assert.match(profileSettings, /requestNotificationAccess\("course"\)/,
+  'Course reminder uses the shared permission gateway');
+assert.match(profileSettings, /requestNotificationAccess\("deadline"\)/,
+  'Deadline reminder uses the shared permission gateway');
+assert.equal(localTaskUi.split('animationSpec = tween(XiaoxuMotion.SelectionMs)').length - 1, 2,
+  'Local task editor selection pills use the global motion setting');
+assert.doesNotMatch(localTaskUi, /tween\(180\)/,
+  'Do not restore an independent hard-coded task pill animation duration');
+
 assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/,
   'Notification permission must be explicitly declared for Android 13+');
 assert.match(appGradle, /androidx\.work:work-runtime-ktx:2\.11\.0/,
@@ -134,7 +149,7 @@ assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, valu
   '本机截止通知的已有授权状态仅在通知设置中切换');
 assert.doesNotMatch(localTaskUi, /LocalDeadlineReminders\.setEnabled|rememberLauncherForActivityResult/,
   '任务编辑页不再保留第二套截止通知总开关');
-assert.match(main, /LocalDeadlineReminders\.reconcile\(reminderContext, localTasks\)/,
+assert.match(main, /LocalDeadlineReminders\.reconcile\([\s\S]*?reminderContext, localTasks, previousTasks = previous/,
   'Room edits must re-plan notifications even when the task manager is collapsed');
 
 assert.match(ci, /assembleDebug/);
@@ -627,10 +642,16 @@ assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
   '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
 assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
   '课表设置需要填满当前主导航内容窗口');
-assert.match(schedulePanel, /if \(!settingsOpen\) \{/,
-  '默认课表内容和设置页必须互斥，不得浮层叠放');
-assert.match(schedulePanel, /if \(settingsOpen\) \{\s*SemesterSettingsPage\(/,
-  '设置页必须走同窗口渲染分支，不得用 Compose Dialog');
+assert.match(schedulePanel, /targetState = settingsOpen/,
+  '课表和设置应复用一个动画内容宿主');
+assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
+  '课表设置推进和返回应具有明确的动画入口');
+assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
+  '课表设置应复用统一阻尼推进与返回动画');
+assert.match(schedulePanel, /if \(!animatedSettingsOpen\) \{/,
+  '默认课表与设置按动画目标状态互斥，不得额外叠加 Dialog');
+assert.match(schedulePanel, /if \(animatedSettingsOpen\) \{\s*SemesterSettingsPage\(/,
+  '课表设置应在同窗口中绘制，不得再建独立 Window');
 assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '导航层应保存课表子页面状态');
 assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
@@ -744,7 +765,7 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
 const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (settingsOpen) {'),
+  schedulePanel.indexOf('if (animatedSettingsOpen) {'),
   schedulePanel.indexOf('private fun DayLessonList(')
 );
 assert.match(timetableSettingsCallback, /LocalCourseReminders\.anyEnabled\(context\)/,
@@ -1157,7 +1178,7 @@ assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有�
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
 assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek, today\)[\s\S]*?facetWorkspaceTasks\(/,
-  '真实任务筛选应根据条件缓存，不因无关重组重新搜索');
+  '任务中心按真实任务与当前筛选条件计算可见记录');
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
@@ -1857,9 +1878,9 @@ assert.match(taskHubRegion,
   /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size,/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
-  '微信任务保持独立来源与缓存分组');
+  '审核通过微信任务保持独立缓存分组');
 assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '云端任务保持独立来源与缓存分组');
+  '云端任务保持独立缓存分组');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
@@ -1883,17 +1904,21 @@ assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTas
 assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
   '顶部新增按钮再次点击应完整收起编辑区');
 assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
-  '本机任务从稳定的真实任务 key 打开详情');
+  '本机任务仍从稳定来源 key 打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
   '首页任务中心勾选必须真实更新本机 Room 状态');
 assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
-  '本机任务即时视觉预览不能代替 Room 真正持久化');
+  '本机任务仅即时预览状态，Room 仍是事实来源');
 assert.match(workspace, /LaunchedEffect\(localTasks\) \{[\s\S]*?pendingLocalTaskUpdates\.remove\(key\)/,
-  'Room 成功保存或删除任务后必须清除暂存状态');
+  'Room 确认或删除后清理待保存预览');
 assert.match(workspace, /pendingLocalTaskUpdates\.remove\(row\.key\)[\s\S]*?本机任务保存失败，请重试/,
-  '本机任务写入失败必须撤销暂存状态');
+  '本机任务写入失败后必须回滚');
 assert.match(workspace, /checked = displayDone,[\s\S]*?enabled = actionEnabled/,
-  '本机任务预览即时更新且避免同一行重复提交');
+  '本机任务预览应立即反馈且防止重复提交');
+assert.match(reminder, /internal fun changedLocalReminderIds\(/,
+  '只协调截止日期或完成状态真正变化的提醒任务');
+assert.match(reminder, /affectedIds\.forEach \{ taskId ->/,
+  '删除任务或变更截止时间必须逐个处理受影响的 WorkManager ID');
 assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
   '云端任务不可复用本机完成操作或假装已提交到学校');
 assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,

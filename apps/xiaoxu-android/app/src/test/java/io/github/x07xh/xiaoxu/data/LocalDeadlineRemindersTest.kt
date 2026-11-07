@@ -11,6 +11,50 @@ class LocalDeadlineRemindersTest {
     private val zone = ZoneId.of("Asia/Shanghai")
     private val now = LocalDate.of(2026, 11, 6).atTime(8, 30).atZone(zone)
 
+    @Test fun firstReadIncludesEveryPersistedTaskForStaleWorkCleanup() {
+        val current = listOf(
+            LocalTask(id = 1, title = "未完成", due = "2026-11-08"),
+            LocalTask(id = 2, title = "已完成", completed = true),
+            LocalTask(id = 3, title = "无日期"),
+            LocalTask(id = 0, title = "尚未写入")
+        )
+        assertEquals(setOf(1L, 2L, 3L), changedLocalReminderIds(null, current))
+    }
+
+    @Test fun titleAndSourceEditsDoNotRescheduleExistingJobs() {
+        val initial = LocalTask(id = 21, title = "学习", due = "2026-11-08")
+        val renamed = initial.copy(title = "复习", source = "course")
+        assertTrue(changedLocalReminderIds(listOf(initial), listOf(renamed)).isEmpty())
+    }
+
+    @Test fun onlyChangedReminderOrCompletionIsReconciled() {
+        val left = LocalTask(id = 11, title = "不变", due = "2026-11-09")
+        val right = LocalTask(id = 12, title = "变化", due = "2026-11-10")
+        assertEquals(setOf(12L), changedLocalReminderIds(
+            listOf(left, right),
+            listOf(left.copy(title = "标题变化"), right.copy(completed = true))
+        ))
+        assertEquals(setOf(12L), changedLocalReminderIds(
+            listOf(left, right), listOf(left, right.copy(due = "2026-11-11"))
+        ))
+    }
+
+    @Test fun deletingDueTaskCancelsWorkButDeletingUndatedTaskDoesNot() {
+        val scheduled = LocalTask(id = 31, title = "提醒", due = "2026-11-08")
+        val undated = LocalTask(id = 32, title = "无日期")
+        assertEquals(setOf(31L), changedLocalReminderIds(
+            listOf(scheduled, undated), emptyList()
+        ))
+    }
+
+    @Test fun addingUndatedTaskDoesNotRequeueJobsUntilDateIsSet() {
+        val task = LocalTask(id = 41, title = "暂未填写日期")
+        assertTrue(changedLocalReminderIds(emptyList(), listOf(task)).isEmpty())
+        assertEquals(setOf(41L), changedLocalReminderIds(
+            listOf(task), listOf(task.copy(due = "2026-11-09"))
+        ))
+    }
+
     @Test fun futureTaskGetsOneDayAndDueDayAtLocalNine() {
         val task = LocalTask(id = 11, title = "复习课堂例题", due = "2026-11-08")
         val plans = planLocalReminders(listOf(task), now)

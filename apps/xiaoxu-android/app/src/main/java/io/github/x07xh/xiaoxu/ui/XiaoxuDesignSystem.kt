@@ -391,8 +391,8 @@ fun XiaoxuSegmentedControl(
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     .clip(itemShape).background(itemColor)
-                    // The track owns the outline; avoid a second gray border
-                    // inside ordinary segmented buttons.
+                    // The track owns the outline: avoid a second dark rim
+                    // around ordinary selected tabs while retaining compact styling.
                     .then(if (selected && compact) Modifier.border(
                         XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
                     ) else Modifier)
