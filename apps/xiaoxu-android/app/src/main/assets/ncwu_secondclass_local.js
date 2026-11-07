@@ -183,7 +183,6 @@
            data.totalPage!==1||data.data.length>50){
           catalogStatus='nonempty_unverified';break;
         }
-        const names=new Set();
         const projected=[];
         for(const raw of data.data){
           if(!raw||typeof raw!=='object'||Array.isArray(raw)){
@@ -195,13 +194,12 @@
           if(typeof name!=='string'){
             catalogStatus='nonempty_unverified';break;
           }
-          const clean=name.replace(/\\s+/g,' ').trim();
-          if(clean.length<2||clean.length>120||/[<>\\u0000-\\u001f]/.test(clean)){
+          const clean=name.replace(/\s+/g,' ').trim();
+          if(clean.length<2||clean.length>120||/[<>\u0000-\u001f]/.test(clean)){
             catalogStatus='nonempty_unverified';break;
           }
           // Equal titles can legitimately represent different events.
           projected.push({filter:title,title:clean,ordinal:projected.length});
-          names.add(clean);
         }
         if(catalogStatus!=='verified_empty')break;
         catalogActivities.push(...projected);
