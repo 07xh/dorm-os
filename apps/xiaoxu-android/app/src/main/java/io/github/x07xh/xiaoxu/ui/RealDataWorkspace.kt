@@ -113,7 +113,8 @@ internal data class WorkspaceTask(
     val dateSource: String,
     val storage: String,
     val category: String = storage,
-    val revision: Int = -1
+    val revision: Int = -1,
+    val provider: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -137,16 +138,16 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
         cloud.forEach { task ->
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
-                "chaoxing" -> "学习通相关云端记录"
-                "ncwu" -> "青果相关云端记录"
-                "second_class" -> "第二课堂相关云端记录"
+                "chaoxing" -> "学习通记录"
+                "ncwu" -> "青果记录"
+                "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
             }
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
                 task.status == "done", parseWorkspaceDue(task.due),
                 "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
-                task.revision))
+                task.revision, task.provider))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -234,17 +235,21 @@ fun RealAcademicHome(
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
     val pending = all.count { !it.done }
-    val attention = all.count { !it.done && it.date != null && !it.date.isAfter(today.plusDays(3)) }
+    // Only personally entered, future dates can be counted as upcoming.
+    // Unverified cloud dates and overdue dates must not inflate "近期截止".
+    val attention = all.count { !it.done && it.storage == "local" &&
+        it.date != null && !it.date.isBefore(today) &&
+        !it.date.isAfter(today.plusDays(3)) }
     val upcoming = all.filter { !it.done }.take(3)
     val cloudSnapshotRows = state.tasks.size
     // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
-    val metricCaption: String? = when {
-        !state.tasksFresh && cloudSnapshotRows > 0 -> "含上次云端快照 $cloudSnapshotRows 条"
-        !state.authenticated -> "仅本机记录"
-        else -> null
+    // One provenance hint in the task section; do not repeat the same technical
+    // disclaimer under every task and statistic.
+    val todoCaption: String? = when {
+        cloudSnapshotRows == 0 -> null
+        !state.tasksFresh -> "云端快照 · 日期仅供参考"
+        else -> "云端日期仅供参考"
     }
-    val todoCaption: String? = if (!state.tasksFresh && cloudSnapshotRows > 0)
-        "含上次云端快照 · 期限待核对" else null
 
     // Sheets look up the current records by stable keys, not saved copies of
     // possibly stale local/cloud data. Reuse Schedule/Message details directly.
@@ -269,7 +274,7 @@ fun RealAcademicHome(
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
     }
     val metrics: @Composable () -> Unit = {
-        HomeMetricsBlock(pending, attention, metricCaption, openTasks)
+        HomeMetricsBlock(pending, attention, openTasks)
     }
     val academic: @Composable () -> Unit = {
         HomeQuickBlock(openAcademic, openGrades, openExams, openSecondClass,
@@ -498,13 +503,12 @@ private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
 private fun HomeMetricsBlock(
     pending: Int,
     attention: Int,
-    caption: String?,
     openTasks: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MetricCard(label = "待完成", value = pending.toString(), caption = caption,
+        MetricCard(label = "待完成", value = pending.toString(),
             modifier = Modifier.weight(1f), onClick = openTasks)
-        MetricCard(label = "临近截止", value = attention.toString(),
+        MetricCard(label = "近期截止", value = attention.toString(),
             tone = XiaoxuTone.Warning,
             modifier = Modifier.weight(1f), onClick = openTasks)
     }
