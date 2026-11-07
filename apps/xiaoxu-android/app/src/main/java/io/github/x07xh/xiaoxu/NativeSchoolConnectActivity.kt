@@ -525,7 +525,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val payload = JSONObject(decoded)
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
-                    tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
+                    tell("当前页面超过 200 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
                     return@evaluateJavascript
                 }
                 val kind = payload.optString("kind")
@@ -536,7 +536,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 if (kind !in kinds) throw IllegalArgumentException("unknown kind")
                 val items = payload.getJSONArray("records")
-                if (items.length() !in 1..120) throw IllegalArgumentException("no trusted rows")
+                if (items.length() !in 1..200) throw IllegalArgumentException("no trusted rows")
                 val now = System.currentTimeMillis()
                 val accepted = mutableListOf<NativeSchoolRecord>()
                 val keys = mutableSetOf<String>()
@@ -764,7 +764,7 @@ private const val READ_VISIBLE_PAGE = """
   const onScreen = node => !!(node && node.getClientRects().length);
   const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
   // A partial snapshot must never replace previously saved personal records.
-  const MAX_RECORDS = 120;
+  const MAX_RECORDS = 200;
   // Bound DOM traversal, but never silently drop tables beyond an arbitrary prefix.
   const MAX_TABLES = 200;
   let visibleTables = 0;

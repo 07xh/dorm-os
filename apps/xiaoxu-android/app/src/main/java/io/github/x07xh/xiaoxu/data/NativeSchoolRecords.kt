@@ -127,7 +127,7 @@ interface NativeSchoolRecordDao {
     @Transaction
     suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
         require(provider == "chaoxing" && kind in setOf("course", "homework"))
-        require(rows.isNotEmpty() && rows.size <= 120)
+        require(rows.isNotEmpty() && rows.size <= 200)
         require(rows.all { it.provider == provider && it.kind == kind })
         val keys = (snapshotKind(provider, kind).map { it.fingerprint } +
             rows.map { it.fingerprint }).toSet()
@@ -140,7 +140,9 @@ interface NativeSchoolRecordDao {
     suspend fun replaceKind(provider: String, kind: String, rows: List<NativeSchoolRecord>) {
         require(provider in setOf("ncwu", "chaoxing", "second_class"))
         require(kind in setOf("schedule", "course", "homework", "activity", "credits"))
-        require(rows.isNotEmpty() && rows.size <= 120)
+        // Only Chaoxing visible lists receive the larger page budget.
+        val pageLimit = if (provider == "chaoxing") 200 else 120
+        require(rows.isNotEmpty() && rows.size <= pageLimit)
         require(rows.all { it.provider == provider && it.kind == kind })
         deleteKind(provider, kind)
         insertAll(rows)
