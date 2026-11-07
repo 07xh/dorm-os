@@ -1358,6 +1358,15 @@ assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
 assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
+const homeCourseBlock = workspace.slice(workspace.indexOf('private fun HomeCourseList('),
+  workspace.indexOf('private fun HomeCourseRecordRow('));
+assert.match(homeCourseBlock, /if \(hasTimetable && lessons\.isEmpty\(\)\) \{/,
+  '首页有课表但当天无课时，应显示紧凑提示而非多余的厚玻璃空卡');
+assert.match(homeCourseBlock, /这一天没有已保存的课程记录/,
+  '未知当前教学周时不得宣称学校官方确认当天无课');
+assert.match(homeCourseBlock, /else \{\s*XiaoxuCard\(contentPadding = 12\.dp\)/,
+  '仅有课程记录或未导入课表时渲染实际列表或导入入口');
+
 const homeRowSource = workspace.slice(workspace.indexOf('private fun HomeCourseRecordRow('),
     workspace.indexOf('/** 两张统计卡', workspace.indexOf('private fun HomeCourseRecordRow(')));
 assert.match(homeRowSource, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
