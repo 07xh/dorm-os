@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
@@ -11,12 +12,14 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -430,11 +433,14 @@ private fun ScheduleVerifiedContent(
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.tile))
                     .background(XiaoxuPalette.GlassCard)
+                    .background(XiaoxuPalette.GlassControlSurface)
+                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim,
+                        RoundedCornerShape(XiaoxuRadius.tile))
                     .padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
+                XiaoxuSoftIconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex - 1] },
                     enabled = currentIndex > 0
                 ) {
@@ -450,7 +456,7 @@ private fun ScheduleVerifiedContent(
                         fontWeight = FontWeight.SemiBold,
                         color = XiaoxuPalette.Ink)
                 }
-                IconButton(
+                XiaoxuSoftIconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
                     enabled = currentIndex < weekNumbers.lastIndex
                 ) {
@@ -1192,8 +1198,10 @@ private fun CourseDetailBottomSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            // Equal-height cards avoid the jagged lower edge when a location
+            // or imported title wraps to a second line.
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 CourseDetailInfoCard(
@@ -1201,13 +1209,13 @@ private fun CourseDetailBottomSheet(
                     label = "上课时间",
                     value = "周" + WEEKDAY_SHORT.getOrElse(lesson.weekday - 1) { "?" } +
                         " · " + lesson.sectionLabel.replaceFirst("第", "第 ").replace('–', '-'),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 CourseDetailInfoCard(
                     icon = Icons.Outlined.Room,
                     label = "上课地点",
                     value = lesson.location,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
             Spacer(Modifier.height(14.dp))
@@ -1218,7 +1226,8 @@ private fun CourseDetailBottomSheet(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(21.dp))
-                    .background(Color(0xFFF2F5FC))
+                    .background(XiaoxuPalette.SheetInfoSurface)
+                    .border(0.5.dp, XiaoxuPalette.GlassRim, RoundedCornerShape(21.dp))
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1281,7 +1290,8 @@ private fun CourseDetailInfoCard(
 ) {
     Column(
         modifier = modifier.clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF2F5FC))
+            .background(XiaoxuPalette.SheetInfoSurface)
+            .border(0.5.dp, XiaoxuPalette.GlassRim, RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
