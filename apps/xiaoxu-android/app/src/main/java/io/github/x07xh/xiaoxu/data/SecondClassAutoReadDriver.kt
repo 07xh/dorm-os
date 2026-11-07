@@ -14,6 +14,7 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
+import java.io.ByteArrayInputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -36,6 +37,7 @@ internal suspend fun readSecondClassAutomatically(
                 var started = false
                 var navigations = 0
                 var pageEpoch = 0
+                var finishedEpoch = -1
                 var currentPageUrl: String? = null
                 var ssoAttempted = false
                 var returnedToScore = false
@@ -105,6 +107,16 @@ internal suspend fun readSecondClassAutomatically(
                     }
                     CookieManager.getInstance().setAcceptThirdPartyCookies(browser, false)
                     browser.webViewClient = object : WebViewClient() {
+                        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                            if (!request.isForMainFrame ||
+                                SecondClassAutoSessionNavigation.page(request.url.toString(), request.method) != null) return null
+                            // WebView does not call shouldOverrideUrlLoading for
+                            // form POSTs. Block before transport, then clean up
+                            // on main; this callback runs on the IO thread.
+                            handler.post { fail("failed") }
+                            return WebResourceResponse("text/plain", "UTF-8", 403, "Blocked",
+                                emptyMap(), ByteArrayInputStream(byteArrayOf()))
+                        }
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                             if (!request.isForMainFrame) return false
                             if (SecondClassAutoSessionNavigation.page(request.url.toString(), request.method) != null) return false
@@ -119,6 +131,8 @@ internal suspend fun readSecondClassAutomatically(
                         }
                         override fun onPageFinished(view: WebView, url: String?) {
                             if (cleaned || !continuation.isActive || url != currentPageUrl) return
+                            if (finishedEpoch == pageEpoch) return
+                            finishedEpoch = pageEpoch
                             when (SecondClassAutoSessionNavigation.page(url)) {
                                 SecondClassAutoSessionNavigation.Page.SCORE ->
                                     if (!started) { started = true; begin(12, pageEpoch) }
@@ -127,7 +141,7 @@ internal suspend fun readSecondClassAutomatically(
                                     ssoAttempted = true
                                     // The known school holding page requires a
                                     // GET to its registered CAS service. Never
-                                    // inspect fields or submit a login form.
+                                    // read field values or submit a login form.
                                     view.loadUrl(SecondClassAutoSessionNavigation.CAS)
                                 }
                                 SecondClassAutoSessionNavigation.Page.CALLBACK,
@@ -142,7 +156,15 @@ internal suspend fun readSecondClassAutomatically(
                                     // that stays here requires the owner.
                                     val epoch = pageEpoch
                                     handler.postDelayed({
-                                        if (!cleaned && continuation.isActive && epoch == pageEpoch) fail("needs_reconnect")
+                                        if (!cleaned && continuation.isActive && epoch == pageEpoch) {
+                                            // Return only presence of a visible
+                                            // official login prompt, never any
+                                            // field value or page text.
+                                            view.evaluateJavascript("(function(){var p=document.querySelector('input[type=password]');return !!(p&&p.getClientRects().length)||/请使用微信扫码登录/.test(document.body?document.body.innerText:'');})()") { login ->
+                                                if (!cleaned && continuation.isActive && epoch == pageEpoch)
+                                                    fail(if (login == "true") "needs_reconnect" else "failed")
+                                            }
+                                        }
                                     }, 3_000)
                                 }
                                 null -> fail("failed")

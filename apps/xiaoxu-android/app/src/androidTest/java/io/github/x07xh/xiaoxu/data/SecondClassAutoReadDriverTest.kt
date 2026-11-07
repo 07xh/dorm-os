@@ -4,6 +4,8 @@ import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebViewClient
+import android.webkit.WebResourceError
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -151,7 +153,7 @@ class SecondClassAutoReadDriverTest {
         assertEquals(listOf(score, cas), loads)
         assertEquals(1, destroyed.get())
     }
-    @Test fun anActualCasLoginPageStillRequiresTheOwner() = runBlocking {
+    private suspend fun terminalCasPage(page: String): String? {
         val destroyed = AtomicInteger()
         val error = try {
             withTimeout(15_000) {
@@ -160,7 +162,7 @@ class SecondClassAutoReadDriverTest {
                         override fun loadUrl(url: String) {
                             loadDataWithBaseURL(
                                 "https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F",
-                                "<html>Official interactive login required</html>", "text/html", "UTF-8", null)
+                                page, "text/html", "UTF-8", null)
                         }
                         override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
                     }
@@ -168,7 +170,74 @@ class SecondClassAutoReadDriverTest {
             }
             null
         } catch (failure: AutoReadFailure) { failure.status }
-        assertEquals("needs_reconnect", error)
+        assertEquals(1, destroyed.get())
+        return error
+    }
+    @Test fun terminalCasNeedsVisibleLoginEvidenceAndMaintenanceRemainsRetryable() = runBlocking {
+        assertEquals("needs_reconnect", terminalCasPage("<form><input type='password'></form>"))
+        assertEquals("needs_reconnect", terminalCasPage("<html>请使用微信扫码登录</html>"))
+        assertEquals("failed", terminalCasPage("<html>School temporarily unavailable</html>"))
+    }
+    @Test fun aRealMainFrameFormPostIsBlockedBeforeTransport() = runBlocking {
+        val destroyed = AtomicInteger()
+        val interceptedStatus = AtomicInteger(-1)
+        val error = try {
+            withTimeout(20_000) {
+                readSecondClassAutomatically(c, "a".repeat(32)) {
+                    object : WebView(it) {
+                        override fun setWebViewClient(client: WebViewClient) {
+                            super.setWebViewClient(object : WebViewClient() {
+                                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                                    val result = client.shouldInterceptRequest(view, request)
+                                    if (request.isForMainFrame && request.method == "POST")
+                                        interceptedStatus.set(result?.statusCode ?: 0)
+                                    return result
+                                }
+                                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+                                    client.shouldOverrideUrlLoading(view, request)
+                                override fun onPageStarted(view: WebView, url: String?, icon: android.graphics.Bitmap?) =
+                                    client.onPageStarted(view, url, icon)
+                                override fun onPageFinished(view: WebView, url: String?) = client.onPageFinished(view, url)
+                                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) =
+                                    client.onReceivedError(view, request, error)
+                                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) =
+                                    client.onReceivedHttpError(view, request, response)
+                            })
+                        }
+                        override fun loadUrl(url: String) {
+                            loadDataWithBaseURL(url, """<html><form method='POST'
+                                action='https://authserver.ncwu.edu.cn/authserver/login?service=https%3A%2F%2Fsec.ncwu.edu.cn%2Frump_frontend%2FloginFromCas%2F'>
+                                <input name='synthetic' value='fixture'></form>
+                                <script>document.querySelector('form').submit();</script></html>""",
+                                "text/html", "UTF-8", null)
+                        }
+                        override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                    }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        withTimeout(5_000) { while (interceptedStatus.get() == -1) delay(10) }
+        assertEquals("the actual POST must receive a local blocking response", 403, interceptedStatus.get())
+        assertEquals(1, destroyed.get())
+    }
+    @Test fun repeatedApprovedPagesStillHaveAFiniteHopLimit() = runBlocking {
+        val destroyed = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : WebView(it) {
+                    override fun loadUrl(url: String) {
+                        repeat(11) {
+                            if (destroyed.get() == 0) webViewClient.onPageStarted(this, url, null)
+                        }
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
         assertEquals(1, destroyed.get())
     }
 }
