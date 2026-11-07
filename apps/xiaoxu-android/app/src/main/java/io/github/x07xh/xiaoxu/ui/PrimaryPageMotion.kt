@@ -4,26 +4,20 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.unit.IntOffset
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
  * Native page motion, without a new navigation owner or a second screen shell.
  *
  * Source reference: SleepDown-Schedule by xiaomanjun233 (2026), subject to
  * SleepDown Attribution Noncommercial Source-Available License 1.1.
- * HomeSwitchMotion.kt: 360ms, monotone cubic page motion.
- * SettingsNavigationMotion.kt: 500ms Miuix-style damped navigation curve.
- * Port adapts the above motions to Xiaoxu's existing AnimatedContent hosts.
+ * Uses SleepDown's single-page navigation approach, adapted to Xiaoxu's
+ * lighter 280/320ms, non-overshooting timings. Not a byte-for-byte motion port.
+ * The same AnimatedContent hosts are retained.
  * https://github.com/xiaomanjun233/SleepDown-Schedule
  *
  * The dock, page business state, and backdrop ownership are unchanged.
@@ -46,33 +40,13 @@ internal fun xiaoxuPrimaryPageTransition(forward: Boolean): ContentTransform {
         slideOutHorizontally(PrimaryPageSlide) { width -> -direction * width }
 }
 
-/** Ported from SleepDown's SettingsNavigationMotion.kt (adapted to route depth). */
-private class MiuixSettingsNavigationEasing(
-    response: Float = 0.8f,
-    damping: Float = 0.95f
-) : Easing {
-    private val decay: Float
-    private val frequency: Float
-    private val phase: Float
-
-    init {
-        val omega = 2.0 * PI / response
-        val stiffness = omega * omega
-        val friction = damping * 4.0 * PI / response
-        frequency = (sqrt(4.0 * stiffness - friction * friction) / 2.0).toFloat()
-        decay = (-friction / 2.0).toFloat()
-        phase = decay / frequency
-    }
-
-    override fun transform(fraction: Float): Float {
-        val time = fraction.toDouble()
-        val attenuation = exp(decay * time)
-        return (attenuation * (-cos(frequency * time) + phase * sin(frequency * time)) + 1.0).toFloat()
-    }
-}
-
+/**
+ * Monotonic easing avoids perceptible spring tails when returning rapidly.
+ * Unlike a damped overshoot, the screen lands exactly at its final position.
+ */
 private val SettingsPageSlide = tween<IntOffset>(
-    durationMillis = XiaoxuMotion.SettingsDetailMs, easing = MiuixSettingsNavigationEasing()
+    durationMillis = XiaoxuMotion.SettingsDetailMs,
+    easing = CubicBezierEasing(0.22f, 0.74f, 0.20f, 1f)
 )
 
 private fun settingsDepth(route: String): Int = when (route) {
@@ -89,8 +63,8 @@ internal fun xiaoxuSettingsRouteTransition(
     val direction = settingsDepth(toRoute).compareTo(settingsDepth(fromRoute))
     return when {
         direction > 0 -> slideInHorizontally(SettingsPageSlide) { width -> width } togetherWith
-            slideOutHorizontally(SettingsPageSlide) { width -> -width / 4 }
-        direction < 0 -> slideInHorizontally(SettingsPageSlide) { width -> -width / 4 } togetherWith
+            slideOutHorizontally(SettingsPageSlide) { width -> -width / 8 }
+        direction < 0 -> slideInHorizontally(SettingsPageSlide) { width -> -width / 8 } togetherWith
             slideOutHorizontally(SettingsPageSlide) { width -> width }
         else -> EnterTransition.None togetherWith ExitTransition.None
     }
