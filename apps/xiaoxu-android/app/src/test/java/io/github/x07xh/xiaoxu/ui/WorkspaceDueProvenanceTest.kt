@@ -14,7 +14,7 @@ class WorkspaceDueProvenanceTest {
         date: LocalDate?,
         done: Boolean = false
     ) = WorkspaceTask(
-        key = "$" + "{storage}:" + "$" + "{id}",
+        key = "$storage:$id",
         title = id,
         origin = if (storage == "cloud") "学习通记录" else "本机任务",
         done = done,
