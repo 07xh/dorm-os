@@ -828,18 +828,19 @@ private const val READ_VISIBLE_PAGE = """
   }
   if (!rows.length && provider === 'chaoxing' &&
       host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
-    // Mirror the already-tested FIRST-PARTY backend list evidence: each
-    // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
-    // Never read the li "data" attribute: it may contain an auth token.
+    // A completed work row may omit goTask entirely. Inspect visible
+    // title/status nodes only; never access li[data]'s signed URL.
     for (const doc of docs) {
-      const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
+      const tasks = doc.querySelectorAll('li[data]');
       for (const li of Array.from(tasks)) {
         if (!onScreen(li)) continue;
         const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
-          li.querySelector('p.overHidden2')?.innerText).slice(0,100);
+          li.querySelector('p.overHidden2')?.innerText ||
+          li.querySelector('.overHidden2')?.innerText).slice(0,100);
         if (!title) continue;
         const status = clean(li.querySelector('p.status.fl')?.innerText ||
-          li.querySelector('p.status')?.innerText).slice(0,60);
+          li.querySelector('p.status')?.innerText ||
+          li.querySelector('.status')?.innerText).slice(0,60);
         rows.push({title,details: status ?
           '当前网页显示的状态：' + status : '网页未展示提交状态'});
         if (rows.length > MAX_RECORDS) break;
