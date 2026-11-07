@@ -2,19 +2,19 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-06T17:31:45.960Z",
+  "lastSuccessAt": "2026-11-07T08:50:20.821Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-06T17:31:45.960Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-06T17:31:45.960Z",
       "count": 8
     },
@@ -24,6 +24,13 @@
       "status": "error",
       "lastSuccessAt": "2026-11-02T17:20:09.934Z",
       "count": 20
+    },
+    {
+      "id": "jwc-api",
+      "name": "教务处公开公告（代理兜底）",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-07T08:50:20.821Z",
+      "count": 29
     }
   ],
   "items": [
