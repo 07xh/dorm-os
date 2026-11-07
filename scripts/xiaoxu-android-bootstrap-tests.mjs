@@ -9,6 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
@@ -173,6 +174,20 @@ assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
 const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+assert.match(localTaskUi, /internal fun TaskCompletionCheckbox\(/,
+  'Local editor and task hub must share one completion-checkbox renderer');
+assert.equal((localTaskUi.match(/\bCheckbox\(/g) || []).length, 1,
+  'Only the reusable task control may instantiate a Material checkbox');
+assert.equal((workspace.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
+  'Local and approved WeChat task rows must reuse the shared checkbox');
+assert.doesNotMatch(workspace, /\bCheckbox\(/,
+  'Unified task list must not maintain duplicate Material checkbox chrome');
+assert.match(profileSettings, /private fun ReminderToggleRow\(/,
+  'Course and deadline reminders must share one settings row');
+assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 3,
+  'Two reminder settings must reuse one row implementation');
+assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
+  'Both reminders must use a shared switch layout');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
 assert.match(main, /openLocalSchool = openLocalSchool/);
@@ -1141,9 +1156,8 @@ assert.match(workspace, /不纳入待完成\/已完成数量/);
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace,
-  /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek, today\) \{[\s\S]*?facetWorkspaceTasks\(/,
-  '真实任务搜索按条件缓存，避免每次 UI 状态变化全量筛选');
+assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek, today\)[\s\S]*?facetWorkspaceTasks\(/,
+  '真实任务筛选应根据条件缓存，不因无关重组重新搜索');
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
@@ -1542,7 +1556,14 @@ assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
 assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
-assert.match(main, /xiaoxuPrimaryPageTransition\(/, '主导航切页使用统一的 SleepDown 方向动画');
+assert.match(main, /xiaoxuPrimaryPageTransition\(/, '主导航切换须走统一动效入口');
+assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 360ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 500ms 动效从设计系统读取');
+assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
+assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
+  '设置二级页须保持方向明确的推进与返回');
+assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwitchMs\)/,
+  '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
 assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
@@ -1836,9 +1857,9 @@ assert.match(taskHubRegion,
   /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size,/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
-  '微信来源维持独立缓存分组');
+  '微信任务保持独立来源与缓存分组');
 assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '普通云端来源维持独立缓存分组');
+  '云端任务保持独立来源与缓存分组');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
@@ -1861,19 +1882,18 @@ assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTas
   '关闭任务管理也必须隐藏云端新建表单');
 assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
   '顶部新增按钮再次点击应完整收起编辑区');
-assert.match(workspace,
-  /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
-  '本机任务继续以稳定的真实任务 key 打开详情');
+assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
+  '本机任务从稳定的真实任务 key 打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
   '首页任务中心勾选必须真实更新本机 Room 状态');
 assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
-  '本机任务视觉预览不应代替 Room 真实状态');
+  '本机任务即时视觉预览不能代替 Room 真正持久化');
 assert.match(workspace, /LaunchedEffect\(localTasks\) \{[\s\S]*?pendingLocalTaskUpdates\.remove\(key\)/,
-  'Room 成功保存或删除后清除旧预览');
+  'Room 成功保存或删除任务后必须清除暂存状态');
 assert.match(workspace, /pendingLocalTaskUpdates\.remove\(row\.key\)[\s\S]*?本机任务保存失败，请重试/,
-  '本机任务保存失败必须回滚预览');
+  '本机任务写入失败必须撤销暂存状态');
 assert.match(workspace, /checked = displayDone,[\s\S]*?enabled = actionEnabled/,
-  '本机任务点击即时反馈且防止重复提交');
+  '本机任务预览即时更新且避免同一行重复提交');
 assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
   '云端任务不可复用本机完成操作或假装已提交到学校');
 assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,

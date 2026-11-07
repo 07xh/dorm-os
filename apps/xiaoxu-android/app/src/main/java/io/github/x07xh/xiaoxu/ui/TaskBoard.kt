@@ -418,6 +418,23 @@ private fun SourcePill(
     }
 }
 
+/** Shared UI for personal task completion only; school submission is not writable. */
+@Composable
+internal fun TaskCompletionCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    description: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Checkbox(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        enabled = enabled,
+        modifier = modifier.semantics { contentDescription = description }
+    )
+}
+
 @Composable
 private fun TaskRow(
     task: LocalTask,
@@ -430,14 +447,12 @@ private fun TaskRow(
         modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(
-                checked = task.completed,
-                onCheckedChange = onToggle,
-                modifier = Modifier.semantics {
-                    contentDescription = if (task.completed) "把“" + task.title + "”改为待完成"
-                    else "把“" + task.title + "”标记为已完成"
-                }
-            )
+        TaskCompletionCheckbox(
+            checked = task.completed,
+            onCheckedChange = onToggle,
+            description = if (task.completed) "把“" + task.title + "”改为待完成"
+                else "把“" + task.title + "”标记为已完成"
+        )
             Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
                 Text(
                     text = task.title,

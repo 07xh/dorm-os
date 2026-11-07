@@ -158,7 +158,8 @@ object XiaoxuSpacing {
 
 /** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
 internal object XiaoxuMotion {
-    const val PageSwitchMs = 180
+    const val PageSwitchMs = 360
+    const val SettingsDetailMs = 500
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
@@ -390,8 +391,8 @@ fun XiaoxuSegmentedControl(
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     .clip(itemShape).background(itemColor)
-                    // The track already owns the glass outline; non-compact
-                    // pills should not draw another gray halo inside it.
+                    // The track owns the outline; avoid a second gray border
+                    // inside ordinary segmented buttons.
                     .then(if (selected && compact) Modifier.border(
                         XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
                     ) else Modifier)

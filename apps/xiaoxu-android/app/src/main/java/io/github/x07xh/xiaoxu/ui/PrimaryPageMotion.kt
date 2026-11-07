@@ -30,7 +30,7 @@ import kotlin.math.sqrt
  */
 
 private val PrimaryPageSlide = tween<IntOffset>(
-    durationMillis = 360,
+    durationMillis = XiaoxuMotion.PageSwitchMs,
     easing = CubicBezierEasing(0.22f, 0.72f, 0.20f, 1f)
 )
 
@@ -72,7 +72,7 @@ private class MiuixSettingsNavigationEasing(
 }
 
 private val SettingsPageSlide = tween<IntOffset>(
-    durationMillis = 500, easing = MiuixSettingsNavigationEasing()
+    durationMillis = XiaoxuMotion.SettingsDetailMs, easing = MiuixSettingsNavigationEasing()
 )
 
 private fun settingsDepth(route: String): Int = when (route) {
