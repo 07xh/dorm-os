@@ -797,8 +797,22 @@ assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
   '不得回退到与参考图不一致的圆形时钟选择');
 assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
   '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
-assert.match(timetableTimeWheel, /maxValue = 23/);
-assert.match(timetableTimeWheel, /maxValue = 59/);
+assert.match(timetableTimeWheel, /HOUR_OPTIONS = \(0\.\.23\)\.toList\(\)/,
+  '小时数字范围必须保持 00–23');
+assert.match(timetableTimeWheel, /MINUTE_OPTIONS = \(0\.\.59\)\.toList\(\)/,
+  '分钟数字范围必须保持 00–59');
+assert.match(timetableTimeWheel, /internal fun XiaoxuNumberWheel\(/,
+  '时间、学期周数和每天节数必须复用唯一原生数字滚轮');
+assert.match(timetableSettings, /XiaoxuNumberWheel\(/,
+  '学期周数和每天节数已使用同一丝滑数字滚轮');
+assert.match(timetableSettings, /selectedNumber = it/,
+  '滚动时只更新临时选择值');
+assert.match(timetableSettings, /if \(choosingSections\) sections = selectedNumber/,
+  '确认才持久更新每天节数草稿');
+assert.match(timetableSettings, /else weeks = selectedNumber\.toString\(\)/,
+  '确认才更新学期周数草稿');
+assert.doesNotMatch(timetableSettings, /options\.forEach \{ number ->/,
+  '旧学期/节数 35 行列表滚动实现应清理');
 assert.match(timetableTimeWheel, /setOnValueChangedListener/,
   '滚动数字必须更新对应的小时或分钟草稿');
 assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
