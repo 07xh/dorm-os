@@ -1,0 +1,89 @@
+name: Publish Xiaoxu Android RC from integrated SHA
+
+# This is a separate Android prerelease stream, not the Cloudflare/web deployment.
+# Release only on an explicit request committed to the integration branch.
+on:
+  push:
+    branches:
+      - feat/xiaoxu-unified-native-mainline-20261106
+    paths:
+      - '.github/xiaoxu-release-requests/pending/*.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-xiaoxu-android-rc
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == '07xh/dorm-os' && github.ref == 'refs/heads/feat/xiaoxu-unified-native-mainline-20261106'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify release version, branch, and no superseded tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "07xh/dorm-os"
+          test "$GITHUB_REF" = "refs/heads/feat/xiaoxu-unified-native-mainline-20261106"
+          grep -q "versionCode 33" apps/xiaoxu-android/app/build.gradle
+          grep -q "versionName '0.8.12-rc.1'" apps/xiaoxu-android/app/build.gradle
+          test -s docs/releases/xiaoxu-android-v0.8.12-rc1.md
+          if gh release view xiaoxu-android-v0.8.12-rc1 --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo 'This release tag already exists; refuse to overwrite its APK or provenance.' >&2
+            exit 1
+          fi
+      - name: Verify no fake data or additional credential collector
+        run: node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK 36
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build and test the exact commit being published
+        run: |
+          set -euo pipefail
+          gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest --no-daemon
+          gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon
+      - name: Verify package identity and write SHA-256 manifest
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          src=apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$src"
+          unzip -t "$src" >/dev/null
+          aapt_bin="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          "$aapt_bin" dump badging "$src" > "$RUNNER_TEMP/badging.txt"
+          grep -q "name='io.github.x07xh.xiaoxu'" "$RUNNER_TEMP/badging.txt"
+          grep -q "versionCode='33'" "$RUNNER_TEMP/badging.txt"
+          grep -q "versionName='0.8.12-rc.1'" "$RUNNER_TEMP/badging.txt"
+          cp "$src" dist/xiaoxu-android-v0.8.12-rc1-debug.apk
+          (cd dist && sha256sum xiaoxu-android-v0.8.12-rc1-debug.apk > SHA256SUMS.txt)
+          printf 'Git commit: %s\n' "$GITHUB_SHA" > dist/BUILD-COMMIT.txt
+          cat dist/SHA256SUMS.txt
+          cat dist/BUILD-COMMIT.txt
+      - name: Publish immutable GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create xiaoxu-android-v0.8.12-rc1 \
+            dist/xiaoxu-android-v0.8.12-rc1-debug.apk \
+            dist/SHA256SUMS.txt \
+            dist/BUILD-COMMIT.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title '校序 Android v0.8.12 RC1 · 统一架构最新测试版' \
+            --notes-file docs/releases/xiaoxu-android-v0.8.12-rc1.md \
+            --prerelease --latest=false
+          gh release view xiaoxu-android-v0.8.12-rc1 --repo "$GITHUB_REPOSITORY" --json tagName,url,assets,isPrerelease,targetCommitish
