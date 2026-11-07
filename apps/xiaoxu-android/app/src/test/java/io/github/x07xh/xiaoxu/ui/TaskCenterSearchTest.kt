@@ -215,6 +215,22 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun courseLabelDistinguishesSameTitleButDoesNotDeduplicateIdentity() {
+        val rows = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("a", "实验报告一", "todo", "homework", "chaoxing", null,
+                sourceExternalId = "work:10:20:30", officialStatus = "todo",
+                sourceCourse = "简单的Python程序"),
+            CloudTask("b", "实验报告一", "todo", "homework", "chaoxing", null,
+                sourceExternalId = "work:11:22:33", officialStatus = "todo",
+                sourceCourse = "Python实践")
+        ))
+        assertEquals(2, rows.size)
+        assertEquals(setOf("学习通 · 简单的Python程序", "学习通 · Python实践"),
+            rows.map { it.origin }.toSet())
+        assertEquals(2, searchWorkspaceTasks(rows, "pending", "Python", today).size)
+    }
+
+    @Test
     fun editorScrollIndexMatchesActualOptionalRows() {
         // Always present: header, status strip, combined source/filter controls.
         assertEquals(3, taskEditorStartIndex(false, false, false, false))
