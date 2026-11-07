@@ -48,12 +48,13 @@ function tableOf(headers, records) {
   ];
   return { ...element('table'), querySelectorAll: () => trs };
 }
-function runReader({ host, path, tables = [], tasks = [], courses = [] }) {
+function runReader({ host, path, tables = [], tasks = [], courses = [], plans = [] }) {
   const doc = {
     querySelectorAll(selector) {
       if (selector === 'iframe') return [];
       if (selector === 'table') return tables;
-      if (selector === 'li[onclick*="goTask"]') return tasks;
+      if (selector === 'li[data]') return tasks;
+      if (selector === '.xtask_item') return plans;
       if (selector.startsWith('.course-name[title]')) return courses;
       return [];
     }
@@ -146,5 +147,41 @@ const workList = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list
   tasks: Array.from({length:121},(_,i)=>taskNode('实验报告 '+i)) });
 assert.equal(workList.truncated, true);
 assert.equal(workList.records.length, 0);
+
+// A completed official work row need not contain onclick/goTask.
+const finishedNode = {
+  ...element('作业已完成'),
+  querySelector: selector => selector.startsWith('p.overHidden2')
+    ? element('Python 实验报告一')
+    : selector.startsWith('p.status') ? element('待批阅') : null
+};
+const finished = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list',
+  tasks: [finishedNode] });
+assert.equal(finished.kind, 'homework');
+assert.deepEqual(Array.from(finished.records, x => [x.title, x.details]),
+  [['Python 实验报告一', '当前网页显示的状态：待批阅']]);
+
+// Only the owner-visible plan page yields local learning-plan records.
+// These are display evidence, never a request to click or finish anything.
+const planCard = (title, state) => ({
+  ...element(title),
+  querySelector: selector => selector === '.xname' ? element(title) : null,
+  querySelectorAll: selector => selector === '.xtip_info_card' ? [element(state)] : []
+});
+const plans = runReader({host:'task.chaoxing.com',
+  path:'/userStudyPlan/studyPlanSubPage',
+  plans: [planCard('工程制图 第四次作业','待批阅'), planCard('课程阅读','未完成')]});
+assert.equal(plans.kind, 'study_task');
+assert.deepEqual(Array.from(plans.records, x=>x.details),
+ ['学习计划状态：待批阅','学习计划状态：未完成']);
+const wrongPage = runReader({host:'task.chaoxing.com',
+ path:'/untrusted',plans:[planCard('假状态','已完成')]});
+assert.equal(wrongPage.records.length,0);
+
+assert.match(native,/path == "\/userStudyPlan\/studyPlanSubPage"/);
+assert.match(native,/kind in kinds/);
+assert.match(records,/nativeChaoxingVisibleStatus/);
+assert.match(records,/kind in setOf\("course", "homework", "study_task"\)/);
+assert.match(records,/sourceHost !in setOf/);
 
 console.log('xiaoxu chaoxing native visible-reader tests passed');
