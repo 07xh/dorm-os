@@ -338,6 +338,7 @@ fun RealAcademicHome(
         WorkspaceTaskDetailSheet(
             selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
+            onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = { openedTaskKey = null; openTasks() }
         )
     }
@@ -1438,6 +1439,7 @@ fun RealAcademicTaskHub(
     if (selectedTask != null) {
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
+            onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
                 showManager = true
                 if (selectedTask.storage == "local") {
@@ -1461,7 +1463,8 @@ internal fun WorkspaceTaskDetailSheet(
     today: LocalDate,
     tasksFresh: Boolean,
     onDismiss: () -> Unit,
-    onManage: () -> Unit
+    onManage: () -> Unit,
+    onVerifyChaoxing: (() -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
@@ -1482,10 +1485,22 @@ internal fun WorkspaceTaskDetailSheet(
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
         Text("截止：" + selectedDue.label, style = MaterialTheme.typography.bodyMedium)
         Text(if (selectedTask.storage == "cloud") {
-            if (tasksFresh) "本次云端读取 · 截止日期待核对"
-            else "上次云端快照 · 待核对"
+            if (tasksFresh) "云端任务记录；不代表学习通官方截止或提交状态"
+            else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
+            OutlinedButton(
+                onClick = onVerifyChaoxing,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
+            ) { Text("打开学习通核对") }
+            Text(
+                "官方核验结果在任务中心的「学习通 · 官方作业核验」查看；" +
+                    "本条云端记录尚无对应的官方作业 ID，不能自动标记为已核实。",
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2
+            )
+        }
         OutlinedButton(onClick = onManage,
             modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
             Text(if (selectedTask.storage == "local")
@@ -1661,24 +1676,26 @@ private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
     val date = task.date
     if (date == null) {
         return if (task.storage == "cloud") {
-            DueUi("截止未核验", "截止日期未核验", DUE_MISSING)
+            DueUi("日期未记录", "云端任务没有已核实的截止日期", DUE_MISSING)
         } else {
             DueUi("截止未记录", "没有记录截止日期", DUE_MISSING)
         }
     }
-    // 不做 locale 相关格式化，避免某些区域把数字换成非 ASCII 字形。
+    // CloudTask has no source work ID or verified official deadline. Show its
+    // recorded date, but never color it as an officially overdue school work.
     val text = date.monthValue.toString().padStart(2, '0') + "-" +
         date.dayOfMonth.toString().padStart(2, '0')
-    val prefix = if (task.storage == "cloud") "待核对 · " else ""
-    val spokenPrefix = if (task.storage == "cloud") "云端待核对，" else ""
+    if (task.storage == "cloud") {
+        return DueUi("记录 $text", "云端记录日期 $text，非学校核实的截止时间", DUE_NORMAL)
+    }
     return when {
         !task.done && date.isBefore(today) ->
-            DueUi(prefix + "已逾期 · $text", spokenPrefix + "已逾期，截止 $text", DUE_OVERDUE)
+            DueUi("已逾期 · $text", "个人记录已逾期，截止 $text", DUE_OVERDUE)
         !task.done && date.isEqual(today) ->
-            DueUi(prefix + "今天截止", spokenPrefix + "今天截止", DUE_TODAY)
+            DueUi("今天截止", "个人记录今天截止", DUE_TODAY)
         !task.done && thisWeek(date, today) ->
-            DueUi(prefix + "本周 · $text", spokenPrefix + "本周截止 $text", DUE_WEEK)
-        else -> DueUi(prefix + text, spokenPrefix + "截止 $text", DUE_NORMAL)
+            DueUi("本周 · $text", "个人记录本周截止 $text", DUE_WEEK)
+        else -> DueUi(text, "个人记录日期 $text", DUE_NORMAL)
     }
 }
 
