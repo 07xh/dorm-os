@@ -27,8 +27,9 @@ SleepDown 课程表 — 署名非商业、源码可见许可 1.1
 Copyright (c) 2026 SleepDown 课程表项目作者 (xiaomanjun233)
 https://github.com/xiaomanjun233/SleepDown-Schedule
 
-本 App 的悬浮底部导航复用该项目两个文件，逻辑未改动，仅替换 package
-并补充文件头注释：
+本 App 的悬浮底部导航复用该项目两个文件，初始移植替换 package 并补充来源。
+2026-11-07 删除 DampedDragAnimation 无调用的 animateToValueAndThen 完成回调 API；
+现用拖动与回弹逻辑保持不变：
   ui/nav/DampedDragAnimation.kt
     <- app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt
   ui/nav/DragGestureInspector.kt
@@ -43,6 +44,28 @@ https://github.com/xiaomanjun233/SleepDown-Schedule
   - 修改版源码可见：https://github.com/07xh/dorm-os 含全部源码与构建脚本。
   - 已明确标注为修改版并列出修改内容（见上）。
   - 未使用与上游近似的应用名、包名或图标。
-  - 未复用上游的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
-    悬浮胶囊渲染层 ui/FloatingBottomBar.kt 为本项目自行编写。
+  - 未复用 SleepDown 的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
+    悬浮胶囊沿用本项目手势及旧系统渲染，Android 13+ 玻璃轨道与选中透镜
+    另行适配自下方所列北化课表 GPL-3.0 代码，不能称为完全独立实现。
   - 若未来改为商业分发，必须先移除上述两个文件并换用自研动画驱动。
+
+------------------------------------------------------------------
+北化课表 / CourseSelector v1.0.83 — GNU GPL version 3 (GPL-3.0)
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83
+Copyright: original authors and contributors (see upstream Git history).
+License text included in this APK: assets/LICENSE-GPL-3.0.txt
+
+The Android 13+ navigation material, lens rendering recipe, Phosphor icon
+paths, animation playback and responsive layout were adapted from the upstream
+GPL-3.0 source into this project's existing one-shell Compose navigation.
+Adapted paths: ui/NorthGlassNavChrome.kt, ui/PrimaryBottomGeometry.kt,
+ui/northglass/*, ui/PrimaryNavigation.kt and ui/FloatingBottomBar.kt.
+Uses io.github.kyant0:backdrop:2.0.0-alpha03 and shapes:1.2.0.
+Phosphor Icons (MIT; Copyright (c) 2023 Phosphor Icons)
+https://github.com/phosphor-icons/core
+Full icon license is bundled in assets/licenses/phosphor-icons.txt.
+
+Distribution warning: combining the GPLv3 UI adaptation with the existing
+non-commercial SleepDown-derived animation code has NOT been cleared for
+public redistribution. This is a development/QA integration; publicly
+distributing APKs requires a separate license compatibility/source review.

@@ -106,6 +106,16 @@ object LocalScheduleStore {
         return parsed.size
     }
 
+    /** Explicit editing may delete the final class; import still requires a nonempty file. */
+    fun saveEdited(context: Context, lessons: List<VerifiedLesson>): Int {
+        if (lessons.isEmpty()) {
+            require(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().remove(KEY).commit()) { "本机课表删除失败" }
+            return 0
+        }
+        return saveParsed(context, lessons)
+    }
+
     fun load(context: Context): List<VerifiedLesson> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY, null) ?: return emptyList()

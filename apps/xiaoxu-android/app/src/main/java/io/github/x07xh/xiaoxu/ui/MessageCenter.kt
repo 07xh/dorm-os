@@ -22,14 +22,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,17 +42,11 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,7 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -81,7 +71,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.AcademicNotice
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
@@ -98,7 +87,7 @@ import kotlinx.coroutines.launch
  *   只展示完整标题与来源信息，并提供跳转学校官网原文的入口。
  * - 微信候选经现有本人会话读取，App 原生审核只显示已接收的候选摘要，
  *   不伪造完整微信聊天记录；确认后由服务端创建普通云端任务。
- * - 视觉参考七张海报与四屏 HTML：蓝白底、双来源信息卡、搜索、四枚 pill、
+ * - 使用统一原生蓝白视觉：紧凑标题、来源 Tab、搜索、四枚 pill、
  *   图标 + 短句 + 右侧箭头；海报里的演示消息、角标与智能总结一律不落地。
  */
 
@@ -205,17 +194,12 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 // 视觉常量
 // ---------------------------------------------------------------------------
 
-private val ContentMaxWidth = 860.dp
 private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
-private val TileShape = RoundedCornerShape(XiaoxuRadius.tile)
 
 private val ExamTile = XiaoxuPalette.WarningSoft
 private val ExamInk = XiaoxuPalette.Warning
 private val NoticeTile = XiaoxuPalette.BrandSoft
 private val NoticeInk = XiaoxuPalette.Brand
-
-private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
-    this.widthIn(max = max).fillMaxWidth()
 
 // ---------------------------------------------------------------------------
 // 入口：MainActivity 消息页直接调用
@@ -281,7 +265,7 @@ fun MessageCenterPanel(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 state = if (showWechat) wechatListState else officialListState,
-                modifier = Modifier.fillMaxHeight().pageWidth(ContentMaxWidth),
+                modifier = Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth),
                 contentPadding = PaddingValues(
                     start = sidePadding,
                     end = sidePadding,
@@ -291,30 +275,25 @@ fun MessageCenterPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item {
-                    MessageHeader(
-                        noticeTotal = state.notices.size,
-                        matched = filtered.size,
-                        filterKey = filterKey,
-                        pendingCount = state.pendingWechatCount,
-                        authenticated = state.authenticated,
-                        wechatError = state.wechatError,
-                        onRefresh = refresh,
-                        onBack = onBack
-                    )
+                    MessageHeader(onRefresh = refresh, onBack = onBack)
                 }
                 item {
-                    TabRow(selectedTabIndex = if (showWechat) 1 else 0) {
-                        Tab(
-                            selected = !showWechat,
-                            onClick = { sourceTab = MSG_FILTER_NOTICE },
-                            text = { Text("官方通知") }
-                        )
-                        Tab(
-                            selected = showWechat,
-                            onClick = { sourceTab = MSG_FILTER_WECHAT },
-                            text = { Text("微信审核") }
-                        )
-                    }
+                    // One shared glass selector for real message sources, not a
+                    // Material TabRow with another visual system inside the page.
+                    val noticeTitle = "官方通知" +
+                        if (state.notices.isNotEmpty()) " (${state.notices.size})" else ""
+                    val wechatTitle = "微信审核" +
+                        if (state.authenticated && state.wechatError == null &&
+                            state.pendingWechatCount != null)
+                            " (${state.pendingWechatCount})" else ""
+                    XiaoxuSegmentedControl(
+                        options = listOf(
+                            XiaoxuSegmentOption(MSG_FILTER_NOTICE, noticeTitle),
+                            XiaoxuSegmentOption(MSG_FILTER_WECHAT, wechatTitle)
+                        ),
+                        selectedKey = sourceTab,
+                        onSelected = { sourceTab = it }
+                    )
                 }
                 if (!showWechat) {
                     item {
@@ -324,7 +303,8 @@ fun MessageCenterPanel(
                         )
                     }
                     item { FilterRow(selected = filterKey, onSelect = { filterKey = it }) }
-                    item {
+                    // 默认数量已经在来源选择器显示；仅筛选/搜索时补充命中数。
+                    if (query.isNotBlank() || filterKey != MSG_FILTER_ALL) item {
                         MessageCountLine(
                             filterKey = filterKey,
                             matched = filtered.size,
@@ -361,7 +341,7 @@ fun MessageCenterPanel(
                             MessageBanner(
                                 icon = Icons.Outlined.Info,
                                 text = "尚未成功读取官方公告。可以点击右上角“刷新”；学校公开公告无需登录校序云端。",
-                                container = XiaoxuPalette.Surface,
+                                container = XiaoxuPalette.GlassCard,
                                 ink = XiaoxuPalette.Ink2
                             )
                         }
@@ -373,15 +353,8 @@ fun MessageCenterPanel(
                 }
 
                 if (showOfficialSection) {
-                    item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.MailOutline,
-                            title = "华水官方公告",
-                            badge = "官方网站",
-                            detail = if (query.isBlank()) "共 ${filtered.size} 条"
-                            else "匹配 ${filtered.size} 条"
-                        )
-                    }
+                    // Source tab shows the total; each notice retains its official-source
+                    // identity. Avoid a second full-width header before the first row.
                     items(count = filtered.size, key = { index -> noticeKeys[index] }) { index ->
                         val notice = filtered[index]
                         NoticeCard(
@@ -416,7 +389,6 @@ fun MessageCenterPanel(
                     }
                 }
 
-                item { MessageFooterNote() }
             }
         }
     }
@@ -432,175 +404,36 @@ fun MessageCenterPanel(
 }
 
 // ---------------------------------------------------------------------------
-// 头部：英文小标 + 大标题 + 双来源信息卡（对齐海报 MESSAGE CENTER 区）
+// 头部：统一紧凑标题；来源计数由 Tab 呈现，不再堆叠摘要卡
 // ---------------------------------------------------------------------------
 
+/** 紧凑统一页头；来源计数归入来源标签，不重复堆叠摘要卡片。 */
 @Composable
-private fun MessageHeader(
-    noticeTotal: Int,
-    matched: Int,
-    filterKey: String,
-    pendingCount: Int?,
-    authenticated: Boolean,
-    wechatError: String?,
-    onRefresh: () -> Unit,
-    onBack: (() -> Unit)?
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = onBack, role = Role.Button)
-                        .semantics { contentDescription = "返回原页面" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = null,
-                        tint = XiaoxuPalette.Ink2
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "MESSAGE CENTER",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.4.sp,
-                    maxLines = 1
-                )
-                Text(
-                    text = "消息中心",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                    .background(XiaoxuPalette.Surface)
-                    .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.pill))
-                    .clickable(onClick = onRefresh, role = Role.Button)
-                    .padding(horizontal = 14.dp)
-                    .semantics { contentDescription = "刷新官方公告与待审核数量" },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = XiaoxuPalette.BrandDeep
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "刷新",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = XiaoxuPalette.BrandDeep
-                    )
-                }
-            }
-        }
-        Text(
-            text = "来源清楚 · 分类查看 · 微信候选人工确认",
-            style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
-        )
-        Spacer(Modifier.height(2.dp))
-        // 两张来源信息卡并排：窄屏靠 maxLines + 省略号收敛，不换行挤压。
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SourceChip(
-                label = "华水官方公告",
-                detail = when {
-                    noticeTotal == 0 -> "暂无已保存公告"
-                    filterKey == MSG_FILTER_NOTICE || filterKey == MSG_FILTER_EXAM ->
-                        "其中 $matched 条"
-                    else -> "共 $noticeTotal 条"
-                },
-                icon = Icons.Outlined.MailOutline,
-                container = XiaoxuPalette.BrandSoft,
-                ink = XiaoxuPalette.BrandDeep,
-                modifier = Modifier.weight(1f)
-            )
-            SourceChip(
-                label = "微信候选",
-                detail = pendingWechatShortLabel(pendingCount, authenticated, wechatError),
-                icon = Icons.Outlined.PersonOutline,
-                container = XiaoxuPalette.WarningSoft,
-                ink = XiaoxuPalette.Warning,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/**
- * 来源信息卡：图标块 + 来源名 + 真实计数。
- * 只陈述"从哪来、多少条"，不表达任何核验结论，也不放角标。
- */
-@Composable
-private fun SourceChip(
-    label: String,
-    detail: String,
-    icon: ImageVector,
-    container: Color,
-    ink: Color,
-    modifier: Modifier = Modifier
-) {
+private fun MessageHeader(onRefresh: () -> Unit, onBack: (() -> Unit)?) {
     Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(container)
-            .padding(horizontal = 10.dp, vertical = 9.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$label：$detail" },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .padding(top = 4.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(Color.White.copy(alpha = 0.72f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = ink
+        if (onBack != null) {
+            XiaoxuToolbarAction(
+                icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                label = "返回原页面",
+                onClick = onBack
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = ink,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall,
-                color = ink.copy(alpha = 0.8f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Text(
+            text = "消息中心",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = XiaoxuPalette.Ink,
+            modifier = Modifier.weight(1f).semantics { heading() }
+        )
+        XiaoxuToolbarAction(
+            icon = Icons.Outlined.Refresh,
+            label = "刷新官方公告与待审核数量",
+            onClick = onRefresh
+        )
     }
 }
 
@@ -614,35 +447,37 @@ private fun SourceSectionHeader(
     badge: String,
     detail: String
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f).semantics { heading() },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 1
-            )
-        }
-        Spacer(Modifier.height(4.dp))
+    // 只用一行呈现来源、数量和身份：不在分段控件下重复堆标题+徽标两层。
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f).semantics { heading() },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         SourceBadge(
             text = badge,
             tone = if (title == "微信候选") XiaoxuTone.Warning else XiaoxuTone.Brand
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.labelSmall,
+            color = XiaoxuPalette.Ink3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -660,7 +495,9 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
+                RoundedCornerShape(XiaoxuRadius.tile))
             .semantics { contentDescription = "搜索官方公告：标题或日期" },
         singleLine = true,
         placeholder = {
@@ -698,11 +535,11 @@ private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
             }
         },
         textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(XiaoxuRadius.tile),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = XiaoxuPalette.Surface,
-            unfocusedContainerColor = XiaoxuPalette.Surface,
-            disabledContainerColor = XiaoxuPalette.Surface,
+            focusedContainerColor = XiaoxuPalette.GlassCard,
+            unfocusedContainerColor = XiaoxuPalette.GlassCard,
+            disabledContainerColor = XiaoxuPalette.GlassCard,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             disabledIndicatorColor = Color.Transparent,
@@ -746,15 +583,15 @@ private fun MessagePill(
     onClick: () -> Unit
 ) {
     val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else XiaoxuPalette.Surface,
-        animationSpec = tween(180),
+        targetValue = if (isSelected) XiaoxuPalette.GlassIndicator
+        else XiaoxuPalette.GlassTrack,
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-bg"
     )
     val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        targetValue = if (isSelected) XiaoxuPalette.BrandDeep
         else XiaoxuPalette.Ink2,
-        animationSpec = tween(180),
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-fg"
     )
     Row(
@@ -763,8 +600,8 @@ private fun MessagePill(
             .clip(RoundedCornerShape(50))
             .background(background)
             .border(
-                width = 1.dp,
-                color = if (isSelected) background else XiaoxuPalette.Line,
+                width = XiaoxuSpacing.glassStroke,
+                color = XiaoxuPalette.GlassBorder,
                 shape = RoundedCornerShape(50)
             )
             // selected 由 selectable 提供，与 selectableGroup 一起被读屏当作单选组播报。
@@ -829,10 +666,9 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.dp, CardShape, clip = false)
             .clip(CardShape)
-            .background(XiaoxuPalette.Surface)
-            .border(1.dp, XiaoxuPalette.Line, CardShape)
+            .background(XiaoxuPalette.GlassCard)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, CardShape)
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(),
@@ -843,7 +679,8 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
                     onClick()
                 }
             )
-            .padding(13.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
+            .padding(14.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = buildString {
                     append(noticeCategoryLabel(notice.category))
@@ -860,7 +697,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(46.dp)
                 .clip(RoundedCornerShape(11.dp))
                 .background(if (isExam) ExamTile else NoticeTile),
             contentAlignment = Alignment.Center
@@ -868,7 +705,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
             Icon(
                 imageVector = if (isExam) Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
                 tint = if (isExam) ExamInk else NoticeInk
             )
         }
@@ -879,7 +716,7 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
         ) {
             Text(
                 text = notice.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = XiaoxuPalette.Ink,
                 maxLines = 3,
@@ -921,64 +758,33 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
 // 详情 sheet：只有官方标题、分类、日期标签与链接；不伪造正文 / 附件
 // ---------------------------------------------------------------------------
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NoticeDetailSheet(
     notice: AcademicNotice,
     openArticle: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = XiaoxuPalette.Surface
-    ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "公告详情",
-            style = MaterialTheme.typography.titleLarge,
-            color = XiaoxuPalette.Ink,
-            modifier = Modifier.semantics { heading() }
-        )
+    XiaoxuSheet(onDismiss = onDismiss, title = "公告详情") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             SourceBadge(
                 text = noticeCategoryLabel(notice.category),
                 tone = if (notice.category == "exam") XiaoxuTone.Warning else XiaoxuTone.Brand
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(XiaoxuPalette.BrandSoft)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = notice.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        SheetMetaRow(label = "来源", value = "华水教务官网（www2.ncwu.edu.cn）")
+        // The sheet already owns the glass material; don't nest a solid title tile.
+        Text(
+            text = notice.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = XiaoxuPalette.Ink,
+            fontWeight = FontWeight.SemiBold
+        )
+        SheetMetaRow(label = "来源", value = "华水教务官网")
         SheetMetaRow(
             label = "发布",
-            value = if (notice.dateLabel.isBlank()) "官方页面未提供日期标签"
-            else notice.dateLabel + "（原文站点给出，年份未二次核验）"
+            value = notice.dateLabel.ifBlank { "未标注" }
         )
-        SheetMetaRow(label = "分类", value = noticeCategoryLabel(notice.category))
-        SheetMetaRow(label = "正文", value = "App 内不保存正文与附件，需通过学校官网查看")
-        HorizontalDivider(color = XiaoxuPalette.Line)
         Text(
-            text = "校序只保存官方标题、分类、日期标签与原文链接；这里不复制网页正文、" +
-                "不生成摘要，也没有附件下载入口。",
+            text = "正文请在学校官网查看",
             style = MaterialTheme.typography.bodySmall,
             color = XiaoxuPalette.Ink2
         )
@@ -1008,21 +814,6 @@ internal fun NoticeDetailSheet(
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onDismiss, role = Role.Button),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "关闭",
-                style = MaterialTheme.typography.labelLarge,
-                color = XiaoxuPalette.Ink2
-            )
-        }
-    }
     }
 }
 
@@ -1054,7 +845,7 @@ private fun MessageEmptyHint(query: String?) {
         icon = Icons.Outlined.Search,
         text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信审核”查看。"
         else "没有匹配“" + query.trim() + "”的官方公告；搜索只覆盖官方公告，不搜索微信候选。",
-        container = XiaoxuPalette.Surface,
+        container = XiaoxuPalette.GlassCard,
         ink = XiaoxuPalette.Ink2
     )
 }
@@ -1071,7 +862,7 @@ private fun MessageBanner(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(container)
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(14.dp))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.Top
@@ -1138,21 +929,10 @@ private fun MessageSkeleton() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .height(76.dp)
             .clip(CardShape)
-            .background(XiaoxuPalette.SurfaceAlt)
+            .background(XiaoxuPalette.GlassTrack)
             .semantics { contentDescription = "正在读取官方公告" }
     )
 }
 
-@Composable
-private fun MessageFooterNote() {
-    Text(
-        text = "官方公告来自学校官网，只有标题、分类、日期标签与原文链接；" +
-            "微信候选来自本人已绑定的电脑，未经学校核验，需逐条确认。" +
-            "未连接、读取失败或来源未验证时，不填充任何演示消息。",
-        style = MaterialTheme.typography.labelSmall,
-        color = XiaoxuPalette.Ink3,
-        modifier = Modifier.padding(top = 6.dp)
-    )
-}

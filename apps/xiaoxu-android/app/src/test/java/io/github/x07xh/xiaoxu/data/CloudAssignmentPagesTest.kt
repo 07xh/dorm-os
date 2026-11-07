@@ -58,6 +58,32 @@ class CloudAssignmentPagesTest {
         assertFalse(pages.complete)
     }
 
+    @Test fun confirmedWechatWriteWinsOverOlderInFlightSnapshot() {
+        val confirmed = CloudTask("w-1", "微信任务", "done", "homework",
+            "wechat", null, revision = 4)
+        val oldNetwork = confirmed.copy(status = "todo", revision = 3)
+        val merged = preferConfirmedWechatRevisions(listOf(oldNetwork), listOf(confirmed))
+        assertEquals(1, merged.size)
+        assertEquals("done", merged.single().status)
+        assertEquals(4, merged.single().revision)
+    }
+
+    @Test fun newerServerRevisionStillWinsAndNoRecordsAreFabricated() {
+        val locallyConfirmed = CloudTask("w-1", "微信任务", "done", "homework",
+            "wechat", null, revision = 4)
+        val newerNetwork = locallyConfirmed.copy(status = "todo", revision = 5)
+        val course = CloudTask("c-1", "课程任务", "todo", "homework",
+            "chaoxing", null, revision = 2)
+        val merged = preferConfirmedWechatRevisions(
+            listOf(newerNetwork, course), listOf(locallyConfirmed, course.copy(status = "done",
+                revision = 9), locallyConfirmed.copy(id = "not-fetched"))
+        )
+        assertEquals(listOf("w-1", "c-1"), merged.map { it.id })
+        assertEquals("todo", merged.first().status)
+        assertEquals(5, merged.first().revision)
+        assertEquals("todo", merged.last().status)
+    }
+
     private fun assertFails(block: () -> Unit) {
         var failed = false
         try { block() } catch (_: IllegalArgumentException) { failed = true }
