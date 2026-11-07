@@ -1587,9 +1587,21 @@ assert.match(main, /if \(timetableChild\)/,
   '课表设置应作为我的页面子路由渲染');
 assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 360ms 动效从设计系统读取');
-assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 500ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 280ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 320ms 动效从设计系统读取');
 assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
+assert.match(design, /const val PageSwitchMs = 280/, '一级页切换应控制在280ms');
+assert.match(design, /const val SettingsDetailMs = 320/, '二级设置收敛到320ms，避免长时间拖尾');
+assert.doesNotMatch(pageMotion, /MiuixSettingsNavigationEasing|kotlin\.math\.cos/,
+  '不能恢复500ms阻尼公式导致长时间拖尾');
+assert.match(pageMotion, /CubicBezierEasing\(0\.22f, 0\.74f, 0\.20f, 1f\)/,
+  '二级转场采用不反弹的单调缓动');
+assert.match(pageMotion, /slideOutHorizontally\(SettingsPageSlide\) \{ width -> -width \/ 8 \}/,
+  '旧设置页应减少视差位移，避免与新页同时大幅运动');
+assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
+  '五个主页面的动画容器必须裁剪边界');
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{\s*Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\)/,
+  '主标签切换时旧内容不得从透明背景穿透新页面');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
@@ -1689,7 +1701,7 @@ assert.match(appGradle, /xiaoxuRuntimeTest/,
 assert.match(primaryNavigation, /NavigationRailItemDefaults\.colors/,
   '侧栏选中态须统一配色，不在 MainActivity 重复维护');
 assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
-assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
+assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\) \{[\s\S]*?XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
 const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
     workspace.indexOf('/** 分区外壳', workspace.indexOf('private fun HomeGreeting(')));
@@ -2094,8 +2106,10 @@ assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
 assert.match(main, /private fun CompactPageHeading\(/,
   '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
-assert.match(main, /if \(!messagesOpen && current == MainDestination\.HOME\) XiaoxuTopBar\(/,
-  '全局顶栏只在首页出现，课表和其他分栏由内容页自行提供紧凑标题');
+assert.match(main, /topBar = \{\},/,
+  'Scaffold 顶栏不随五个标签跳动，避免切页时整体内容高度变化');
+assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/,
+  '首页顶栏必须成为唯一一级页面内容，不影响其他页面的 Scaffold 几何');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/,
   '页面消息中心入口应继续可达');
 assert.doesNotMatch(main, /Content\(withTopInset = true\)|\.fillMaxSize\(\)\.statusBarsPadding\(\)/,
@@ -2235,7 +2249,7 @@ assert.match(workspace, /清除本周截止筛选/,
 console.log('校序 Android V0.6.1：本人课程/作业、只读题目预览、会话与来源边界静态检查通过');
 
 // The shell must not stack a global banner above the local timetable heading.
-assert.match(main, /current == MainDestination\.HOME\) XiaoxuTopBar\(/);
+assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/);
 assert.doesNotMatch(main, /private fun MessagesPage\(/, '消息使用唯一原生页面');
 const unifiedSchedule = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 assert.match(unifiedSchedule, /private fun SchedulePageHeading\(/);
