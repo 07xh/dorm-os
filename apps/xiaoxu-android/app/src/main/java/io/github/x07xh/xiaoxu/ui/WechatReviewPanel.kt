@@ -231,7 +231,8 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
         ModalBottomSheet(
             onDismissRequest = { if (!reviewing) selectedId = null },
             sheetState = sheet,
-            containerColor = XiaoxuPalette.Surface
+            containerColor = XiaoxuPalette.Surface,
+            scrimColor = XiaoxuPalette.ModalScrim
         ) {
             Column(
                 modifier = Modifier
