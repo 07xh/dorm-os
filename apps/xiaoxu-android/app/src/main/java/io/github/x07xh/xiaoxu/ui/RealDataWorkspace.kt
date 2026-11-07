@@ -1357,9 +1357,6 @@ fun RealAcademicTaskHub(
                                 color = if (work.statusCode == "todo")
                                     XiaoxuPalette.Warning else XiaoxuPalette.Brand)
                         }
-                        Text("官方核验状态；不代表已经核对所有课程或取得完整截止时间。",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink3)
                     }
                 }
                 if (officialRows.size > 30) {
