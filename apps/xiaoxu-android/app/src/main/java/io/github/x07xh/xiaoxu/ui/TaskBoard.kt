@@ -554,18 +554,18 @@ private fun EmptyTaskHint(filterKey: String, hasAny: Boolean) {
                 .semantics { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.Top
         ) {
-        Icon(
-            Icons.Outlined.DateRange,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Icon(
+                Icons.Outlined.DateRange,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
