@@ -450,7 +450,12 @@ for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积�
 }
 assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
-assert.match(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "读取学校活动"\)/, '读取入口可用');
+assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
+  '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
+assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
+  '汇总标题不可显示为个人活动卡片');
+assert.doesNotMatch(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "刷新"\)/,
+  '禁止回退为内容列表上方的重复刷新文字');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
 assert.match(secondClassMain, /\.putExtra\(NativeSchoolConnectActivity\.EXTRA_PROVIDER, "second_class"\)/);
 
@@ -630,6 +635,14 @@ assert.match(timetableSettings, /onSelected = \{ viewMode = it \}/,
  '点击分段项应更新设置草稿，保存动作仍由完成按钮触发');
 assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/,
  '周日偏好与学期数据必须通过原保存回调提交');
+assert.match(timetableSettings, /DatePicker\(state = dateState/,
+  '日期选择须使用统一 Compose 控件');
+assert.match(timetableSettings, /TimePicker\(state = pickerState\)/,
+  '节次时间选择须使用统一 Compose 控件');
+assert.match(timetableSettings, /if \(sectionsMenu \|\| weeksMenu\)/,
+  '节数与周数弹层需统一为可滚动玻璃选择器');
+assert.doesNotMatch(timetableSettings, /android\.app\.(DatePickerDialog|TimePickerDialog)|DropdownMenu\(/,
+  '课表设置不可重新混用系统旧弹窗或漂浮长菜单');
 assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
   '未设置学期时仍应允许保存视图偏好');
 assert.match(timetableSettings, /onSave\(config, wantReminders, viewMode, sections\)/);
@@ -838,8 +851,14 @@ assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告
   '公告详情必须复用唯一玻璃弹层');
 assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
   '消息页不能再创建第二套底部弹层容器');
-assert.match(messageCenter, /App 内不保存正文与附件，需通过学校官网查看/);
-assert.match(messageCenter, /不生成摘要/);
+assert.match(messageCenter, /正文请在学校官网查看/,
+  '仅有官方元数据时不编造公告正文');
+const officialNoticeDetail = messageCenter.slice(
+  messageCenter.indexOf('internal fun NoticeDetailSheet('),
+  messageCenter.indexOf('private fun SheetMetaRow(')
+);
+assert.doesNotMatch(officialNoticeDetail, /text = "关闭"/,
+  '公告详情仅使用共享弹层的完成按钮，不能重复关闭');
 assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
 
 // 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
