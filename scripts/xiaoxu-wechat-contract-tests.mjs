@@ -97,7 +97,7 @@ rejected({...batch,records:[{...baseRecord,kind:'verified_platform'}]},'kind_inv
 rejected({...batch,records:[{...baseRecord,status:'completed'}]},'record_invalid');
 rejected({...batch,records:[{...baseRecord,candidateKey:'wxid_abc'}]},'candidate_key_invalid');
 rejected({...batch,records:[{...baseRecord,title:'x'.repeat(121)}]},'title_invalid');
-const longBody='第1行说明\\n'+'详细要求'.repeat(500);
+const longBody='第1行说明\n'+'详细要求'.repeat(500);
 assert.equal(normalizeWechatCandidateBatch({...batch,records:[
  {...baseRecord,excerpt:longBody}
 ]}).records[0].excerpt,longBody,'long task text must not be clipped at 240');
