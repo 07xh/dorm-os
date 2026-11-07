@@ -27,14 +27,27 @@ export function classifyWechatSchema(tableNames,columnNames={}){
  }
  return 'ready';
 }
+const LINK_TABLE='academic_wechat_candidate_links';
+const LINK_COLUMNS=['candidate_id','user_id','position','url'];
+export function classifyWechatLinksSchema(tableNames,columnNames={}){
+ if(!Array.isArray(tableNames))throw Error('invalid_schema');
+ const existing=new Set(tableNames.map(t=>typeof t==='string'?t:t?.name));
+ if(existing.has(undefined))throw Error('invalid_schema');
+ if(!existing.has(LINK_TABLE))return 'missing';
+ const columns=columnNames[LINK_TABLE];
+ if(!Array.isArray(columns))return 'partial';
+ const found=new Set(columns.map(x=>typeof x==='string'?x:x?.name));
+ return LINK_COLUMNS.every(c=>found.has(c))?'ready':'partial';
+}
 function audit(db){
  const names=remoteRows(db,
   "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'academic_%'");
  const columns={};
- for(const name of TABLES){
+ for(const name of [...TABLES,LINK_TABLE]){
   if(names.some(x=>x.name===name))columns[name]=remoteRows(db,'PRAGMA table_info('+name+')');
  }
  return {state:classifyWechatSchema(names,columns),
+  linksState:classifyWechatLinksSchema(names,columns),
   hasUsers:names.some(x=>x.name==='academic_users'),
   hasAssignments:names.some(x=>x.name==='academic_assignments')};
 }
@@ -64,8 +77,15 @@ export async function ensureWechatSchema(){
   localWrangler(['d1','execute',db,'--remote','--yes','--json',
    '--file=./migrations/0017_academic_wechat_candidates.sql']);
  }
+ // Incremental V1 upgrade: existing candidates keep working while the links
+ // table is created. Only new namespaced objects; nothing is rewritten.
+ if(before.linksState!=='ready'){
+  localWrangler(['d1','execute',db,'--remote','--yes','--json',
+   '--file=./migrations/0018_academic_wechat_candidate_links.sql']);
+ }
  const after=audit(db);
  if(after.state!=='ready')throw Error('wechat_schema_not_ready');
+ if(after.linksState!=='ready')throw Error('wechat_links_schema_not_ready');
  integrity(db);
  console.log('✅ 校序生产 D1 微信设备和候选任务表就绪（无聊天内容、密钥或账号数据读取）');
  return {ready:true,migrated:before.state==='missing'};
