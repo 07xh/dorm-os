@@ -30,6 +30,7 @@ import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassActivities
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassCatalogEmpty
+import io.github.x07xh.xiaoxu.data.parseLocalSecondClassCatalogActivities
 import java.util.UUID
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
@@ -617,10 +618,21 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             val activities = try { parseLocalSecondClassActivities(payload, rows.first().capturedAt) }
                 catch (_: Exception) { tell("活动分页或字段校验失败，积分与活动旧记录均保持不变。"); unlock(); return }
             val catalog = try { parseLocalSecondClassCatalogEmpty(payload, rows.first().capturedAt) }
-                catch (_: Exception) { tell("活动广场响应校验失败，未更改旧记录。"); unlock(); return }
-            val catalogMessage = if (catalog.size == 3)
-                "活动广场三个筛选本次均返回0条" else
-                "活动广场未核验（非空数据或读取失败），不显示空目录"
+                catch (_: Exception) { tell("活动广场空结果校验失败，未更改旧记录。"); unlock(); return }
+            val catalogActivities = try {
+                parseLocalSecondClassCatalogActivities(payload, rows.first().capturedAt)
+            } catch (_: Exception) {
+                tell("活动广场名称字段校验失败，旧记录保持不变。"); unlock(); return
+            }
+            val catalogMessage = when {
+                catalogActivities.isNotEmpty() ->
+                    "活动广场已读取 ${catalogActivities.size} 条已验证的活动名称（其他字段未核对）"
+                catalog.size == 3 ->
+                    "活动广场三个筛选本次均返回0条"
+                payload.optString("catalogStatus") == "nonempty_unverified" ->
+                    "活动广场有非空结果，但字段或分页尚未核验；不保存猜测记录"
+                else -> "活动广场暂无可用的已验证快照"
+            }
             val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
             val accountHash = payload.optString("accountHash")
             if (!accountHash.matches(Regex("^[a-f0-9]{64}$"))) {
@@ -635,7 +647,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) {
                                 currentCoroutineContext().ensureActive()
                                 LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
-                                    .replaceSecondClassSnapshot(rows, activities, catalog, accountHash = accountHash)
+                                    .replaceSecondClassSnapshot(rows, activities, catalog, catalogActivities, accountHash = accountHash)
                             }
                             if (!valid()) return@launch
                             scoreIdentity.edit().putString("account", accountHash).commit()
