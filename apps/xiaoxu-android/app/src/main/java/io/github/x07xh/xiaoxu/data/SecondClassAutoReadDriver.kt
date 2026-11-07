@@ -22,13 +22,16 @@ internal class AutoReadFailure(val status: String) : Exception(status)
 /** Supplies only the existing fixed reader's official same-origin context.
  * No Activity, login automation, credential extraction or session transport. */
 @SuppressLint("SetJavaScriptEnabled")
-internal suspend fun readSecondClassAutomatically(context: Context, salt: String): JSONObject =
+internal suspend fun readSecondClassAutomatically(
+    context: Context, salt: String,
+    createBrowser: (Context) -> WebView = { WebView(it) }
+): JSONObject =
     withContext(Dispatchers.Main.immediate) {
         withTimeout(90_000) {
             val script = context.assets.open("ncwu_secondclass_local.js").bufferedReader().use { it.readText() }
             suspendCancellableCoroutine { continuation ->
                 val handler = Handler(Looper.getMainLooper())
-                val browser = WebView(context.applicationContext)
+                val browser = createBrowser(context.applicationContext)
                 var cleaned = false
                 var started = false
                 val scoreUrl = "https://dekt.ncwu.edu.cn/sys/stu/score"

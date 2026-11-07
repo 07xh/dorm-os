@@ -49,4 +49,14 @@ fun SecondClassAutoReadControls() {
         else -> null
     }
     if (message != null) Text(message, style = MaterialTheme.typography.labelSmall)
+    val success = remember(revision) { SecondClassAutoRefresh.lastSuccess(c) }
+    val checked = remember(revision) { SecondClassAutoRefresh.lastBackgroundCheck(c) }
+    val backgroundSuccess = remember(revision) { SecondClassAutoRefresh.lastSuccessWasBackground(c) }
+    val recent = when {
+        success > 0 -> "上次自动更新：" + android.text.format.DateFormat.format("MM-dd HH:mm", success) +
+            if (backgroundSuccess) "（后台）" else ""
+        checked > 0 -> "最近后台检查：" + android.text.format.DateFormat.format("MM-dd HH:mm", checked)
+        else -> null
+    }
+    if (recent != null) Text(recent, style = MaterialTheme.typography.labelSmall)
 }
