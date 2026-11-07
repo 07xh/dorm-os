@@ -95,6 +95,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatusText
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
@@ -124,7 +125,9 @@ internal data class WorkspaceTask(
     val provider: String? = null,
     val links: List<String> = emptyList(),
     val sourceExternalId: String? = null,
-    val officialStatus: String? = null
+    val officialStatus: String? = null,
+    /** Exact status text on the signed-in local official page, if available. */
+    val officialStatusRaw: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -208,7 +211,10 @@ internal fun combineWorkspaceTasks(
                 if (fromLocal) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
                 task.revision, task.provider, task.links,
-                task.sourceExternalId, visibleStatus))
+                task.sourceExternalId, visibleStatus,
+                if (fromLocal) task.sourceExternalId
+                    ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatusText)
+                else null))
         }
         localEvidence.filterKeys { it !in cloudIds }.forEach { (id, record) ->
             val status = nativeChaoxingVisibleStatus(record)
@@ -216,7 +222,8 @@ internal fun combineWorkspaceTasks(
                 "native:" + record.fingerprint, record.title,
                 "学习通 · 本机官网", false, null, "本机官方页面观察",
                 "native", "cloud", provider = "chaoxing",
-                sourceExternalId = id, officialStatus = status
+                sourceExternalId = id, officialStatus = status,
+                officialStatusRaw = nativeChaoxingVisibleStatusText(record)
             ))
         }
     }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
@@ -1785,7 +1792,8 @@ internal fun WorkspaceTaskDetailSheet(
             (if (selectedTask.storage == "native" ||
                     selectedTask.dateSource == "本机官方页面观察")
                 "本机官方页面：" else "上次官方同步：") +
-                officialTaskStatusLabel(selectedTask.officialStatus) +
+                (selectedTask.officialStatusRaw
+                    ?: officialTaskStatusLabel(selectedTask.officialStatus)) +
                 " · 与个人完成标记分开"
         } else if (selectedTask.storage == "cloud") {
             if (tasksFresh) "云端任务记录；尚无可核对的学校提交状态"
@@ -2075,7 +2083,8 @@ private fun TaskRow(
         else -> XiaoxuPalette.Ink2
     }
     val officialLabel = if (task.provider == "chaoxing")
-        officialTaskStatusLabel(task.officialStatus) else null
+        task.officialStatusRaw?.let { "平台显示：" + it }
+            ?: officialTaskStatusLabel(task.officialStatus) else null
     // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
