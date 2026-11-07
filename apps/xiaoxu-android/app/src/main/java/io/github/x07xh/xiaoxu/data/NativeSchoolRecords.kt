@@ -37,7 +37,7 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
         record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com",
             "task.chaoxing.com")) return null
     val raw = Regex(
-        """(?:^|[·\\n])\\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\\s*[：:]\\s*([^·\\n]{1,60})"""
+        """(?:^|[·\n])\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\s*[：:]\s*([^·\n]{1,60})"""
     ).find(record.details)?.groupValues?.get(1)?.trim() ?: return null
     return when {
         Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
