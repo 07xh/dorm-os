@@ -8,6 +8,7 @@ import androidx.work.WorkInfo
 import androidx.work.NetworkType
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.After
@@ -28,7 +29,11 @@ class SecondClassBackgroundReadTest {
     private fun payload() = JSONObject("""{"schema":"xiaoxu/local-secondclass-scores-v1","ok":true,
         "identityMatched":true,"httpStatus":200,"accountHash":"$hash",
         "rows":[{"termIndex":1,"qualityScore":0,"volunteerHours":0,"categories":[0,0,0,0,0,0]}],
-        "activitiesComplete":true,"activities":[],"catalogStatus":"unavailable","catalogEmptyFilters":[]}""")
+        "activitiesComplete":true,"activities":[],"catalogStatus":"unavailable","catalogEmptyFilters":[],"catalogActivities":[]}""")
+
+    private fun mixedCatalog() = payload().put("catalogStatus", "verified_nonempty")
+        .put("catalogEmptyFilters", JSONArray("""["待验证","即将开始报名"]"""))
+        .put("catalogActivities", JSONArray("""[{"filter":"报名中","title":"合成活动甲","ordinal":0}]"""))
 
     @Before fun prepare() = runBlocking {
         assertRuntimeIsolation(c)
@@ -47,7 +52,7 @@ class SecondClassBackgroundReadTest {
         awaitCancellationOfScheduledWork()
         settings.edit().clear().commit()
         identity.edit().clear().commit()
-        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "account_binding"))
+        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "catalog_activity", "account_binding"))
             dao.deleteKind("second_class", kind)
     }
     @Test fun disablingBackgroundCancelsTheActualReadAndPreservesRoom() = runBlocking {
@@ -159,6 +164,24 @@ class SecondClassBackgroundReadTest {
         assertEquals(before, dao.snapshot())
         assertEquals(hash, identity.getString("account", null))
         assertTrue(SecondClassAutoRefresh.background(c))
+    }
+    @Test fun mixedCatalogMarksOnlyTheActuallyEmptyFilters() {
+        val mixed = mixedCatalog()
+        assertEquals(listOf("待验证", "即将开始报名"),
+            parseLocalSecondClassCatalogEmpty(mixed, savedAt).map { it.title })
+        mixed.put("catalogEmptyFilters", JSONArray())
+        assertTrue(parseLocalSecondClassCatalogEmpty(mixed, savedAt).isEmpty())
+    }
+    @Test fun automaticReadReplacesCatalogActivitiesWithoutInventingZeroRows() = runBlocking {
+        dao.insertAll(listOf(NativeSchoolRecord("second_class", "catalog_activity", "old",
+            "旧的合成活动", "筛选：报名中\n来源：合成测试", "dekt.ncwu.edu.cn", savedAt)))
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> mixedCatalog() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        val saved = dao.snapshot()
+        assertEquals(listOf("合成活动甲"), saved.filter { it.kind == "catalog_activity" }.map { it.title })
+        assertEquals(setOf("待验证", "即将开始报名"), saved.filter { it.kind == "catalog_empty" }.map { it.title }.toSet())
+        assertEquals(saved.filter { it.kind == "credits" }.single().capturedAt,
+            saved.filter { it.kind == "catalog_activity" }.single().capturedAt)
     }
     @Test fun roomRejectsAChangedBindingWithoutAdvancingSuccessEvidence() = runBlocking {
         settings.edit().putLong("success_at", 123_456L).commit()
