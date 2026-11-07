@@ -7,6 +7,15 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +25,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,11 +45,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
-import io.github.x07xh.xiaoxu.ui.XiaoxuExpandableGlassRow
+import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -71,17 +87,12 @@ fun SecondClassPage(
             setOf("报名中", "待验证", "即将开始报名") &&
         catalogRows.map { it.capturedAt }.distinct().size == 1
 
-    var section by rememberSaveable { mutableIntStateOf(if (connectOnOpen) 2 else 0) }
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
     // Configuration changes must not open a second official reader.
 
     var refreshing by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
-    // Each section owns its scroll position; switching never jumps to a stale offset.
-    val catalogScroll = rememberScrollState()
-    val activitiesScroll = rememberScrollState()
-    val scoresScroll = rememberScrollState()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result ->
         refreshing = false
@@ -129,125 +140,279 @@ fun SecondClassPage(
 
     }
 
-    Column(modifier.fillMaxSize()) {
-        // Shared soft-glass segmented control; no nested website-style tabs.
-        val sectionOptions = remember {
-            listOf(
-                XiaoxuSegmentOption("0", "活动"),
-                XiaoxuSegmentOption("1", "我的活动"),
-                XiaoxuSegmentOption("2", "积分")
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .padding(start = 18.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            XiaoxuSegmentedControl(
-                options = sectionOptions,
-                selectedKey = section.toString(),
-                onSelected = { section = it.toInt() },
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
-                Icon(Icons.Outlined.Refresh, contentDescription = "从学校重新读取第二课堂")
+// The official parser is the only source of truth: never infer today's term,
+    // approval status, score totals or catalog entries from a missing snapshot.
+    val termRows = scores.filter {
+        Regex("^第[1-9][0-9]*学期积分$").matches(it.title)
+    }.sortedByDescending {
+        it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
+    }
+    var selectedTermTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    var termMenuOpen by rememberSaveable { mutableStateOf(false) }
+    val selectedTerm = termRows.firstOrNull { it.title == selectedTermTitle }
+        ?: termRows.firstOrNull()
+    val schoolTotal = scores.firstOrNull { it.title == "学校积分合计" }
+    val myActivities = activities.filter { it.kind == "activity" }
+    val countConfirmed = batch != null &&
+        candidates.all { it.capturedAt == batch.capturedAt }
+    var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val detailRecord = (scores + myActivities).firstOrNull {
+        it.kind + ":" + it.fingerprint == detailKey
+    }
+    val catalogOptions = remember {
+        listOf(
+            XiaoxuSegmentOption("0", "报名中"),
+            XiaoxuSegmentOption("1", "待验证"),
+            XiaoxuSegmentOption("2", "即将报名")
+        )
+    }
+    val catalogKeys = listOf("报名中", "待验证", "即将开始报名")
+    val catalogRecord = if (catalogComplete)
+        catalogRows.singleOrNull { it.title == catalogKeys[catalogFilter.coerceIn(0, 2)] }
+    else null
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item(key = "points_header") {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("积分概览", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = XiaoxuPalette.Ink)
+                if (refreshing) {
+                    Text("读取中…", style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2)
+                }
+                IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "从学校重新读取第二课堂")
+                }
             }
         }
-        val currentScroll = when (section) {
-            0 -> catalogScroll
-            1 -> activitiesScroll
-            else -> scoresScroll
-        }
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(currentScroll)
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (section == 0) {
-                // Equal-width source filters; their display names do not change
-                // the three official result keys used by the validated parser.
-                val filters = listOf(
-                    "报名中" to "报名中",
-                    "待验证" to "待验证",
-                    "即将报名" to "即将开始报名"
-                )
-                XiaoxuSegmentedControl(
-                    options = remember {
-                        listOf(
-                            XiaoxuSegmentOption("0", "报名中"),
-                            XiaoxuSegmentOption("1", "待验证"),
-                            XiaoxuSegmentOption("2", "即将报名")
-                        )
-                    },
-                    selectedKey = catalogFilter.toString(),
-                    onSelected = { catalogFilter = it.toInt() }
-                )
-                val record = if (catalogComplete)
-                    catalogRows.singleOrNull { it.title == filters[catalogFilter].second }
-                    else null
-                XiaoxuCard {
-                    Text(
-                        if (record != null) "上次读取：暂无活动" else "活动暂未获取",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink
+        item(key = "metrics") {
+            XiaoxuCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SecondClassMetric(
+                        "学校累计",
+                        secondClassPoints(schoolTotal) ?: "—",
+                        Modifier.weight(1f)
                     )
-                    if (record != null) {
-                        Text(
-                            "更新于 " + DateFormat.getDateTimeInstance()
-                                .format(Date(record.capturedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2
-                        )
-                    }
-                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
+                    SecondClassMetric(
+                        "所选学期",
+                        secondClassPoints(selectedTerm) ?: "—",
+                        Modifier.weight(1f)
+                    )
+                    SecondClassMetric(
+                        "我的活动",
+                        if (countConfirmed) myActivities.size.toString() else "—",
+                        Modifier.weight(1f)
+                    )
                 }
-            } else {
-                val rows = if (section == 2) {
-                    scores.sortedBy { if (it.title == "学校积分合计") 0 else 1 }
-                } else {
-                    // Summary headings (e.g. "本人报名活动") are navigation labels,
-                    // not individual registrations; never render them as activity cards.
-                    activities.filter { it.kind == "activity" }
-                }
-                if (rows.isEmpty()) {
-                    XiaoxuCard {
-                        Text(
-                            if (section == 2) "积分暂未获取" else "我的活动暂未获取",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = XiaoxuPalette.Ink
-                        )
-                    }
-                } else {
-                    rows.forEach { row ->
-                        // Only real, stored school details expand. Empty details remain static.
-                        androidx.compose.runtime.key(row.provider, row.kind, row.fingerprint) {
-                            if (row.details.isNotBlank()) {
-                                var expanded by rememberSaveable { mutableStateOf(false) }
-                                XiaoxuExpandableGlassRow(
-                                    title = row.title,
-                                    expanded = expanded,
-                                    onToggle = { expanded = !expanded }
-                                ) {
-                                    Text(
-                                        row.details,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = XiaoxuPalette.Ink2
-                                    )
-                                }
-                            } else {
-                                XiaoxuCard {
-                                    Text(row.title, style = MaterialTheme.typography.titleSmall,
-                                        color = XiaoxuPalette.Ink)
-                                }
-                            }
+            }
+        }
+        item(key = "term_selector") {
+            Box {
+                XiaoxuCard(onClick = { if (termRows.isNotEmpty()) termMenuOpen = true }) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 34.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("学期", style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
+                        Text(selectedTerm?.title?.removeSuffix("积分") ?: "尚未读取",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink)
+                        if (termRows.isNotEmpty()) {
+                            Icon(Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = "选择已读取的学期")
                         }
                     }
                 }
+                DropdownMenu(
+                    expanded = termMenuOpen && termRows.isNotEmpty(),
+                    onDismissRequest = { termMenuOpen = false }
+                ) {
+                    termRows.forEach { term ->
+                        DropdownMenuItem(
+                            text = { Text(term.title.removeSuffix("积分")) },
+                            onClick = {
+                                selectedTermTitle = term.title
+                                termMenuOpen = false
+                            }
+                        )
+                    }
+                }
             }
-            if (error != null) {
-                Text(error!!, style = MaterialTheme.typography.bodySmall,
+        }
+        item(key = "term_breakdown") {
+            if (selectedTerm == null) {
+                XiaoxuCard {
+                    Text("积分暂未获取", style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink2)
+                }
+            } else {
+                XiaoxuCard(onClick = {
+                    detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
+                }) {
+                    val entries = secondClassCategories(selectedTerm)
+                    Text("积分明细", style = MaterialTheme.typography.titleMedium,
+                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                    entries.forEach { (label, points) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(label, modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink2)
+                            Text(points, style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink)
+                        }
+                    }
+                    Text("查看完整学期记录",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Brand)
+                }
+            }
+        }
+        item(key = "activities_header") {
+            Row(modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("我的活动", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                if (countConfirmed) {
+                    Text(myActivities.size.toString() + " 条",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = XiaoxuPalette.Ink2)
+                }
+            }
+        }
+        if (!countConfirmed || myActivities.isEmpty()) {
+            item(key = "activities_empty") {
+                XiaoxuCard {
+                    Text(
+                        if (countConfirmed) "上次读取：暂无报名活动" else "我的活动暂未获取",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink2
+                    )
+                }
+            }
+        } else {
+            items(
+                items = myActivities,
+                key = { "secondclass-activity-" + it.fingerprint }
+            ) { record ->
+                val lines = record.details.lines()
+                val time = lines.firstOrNull { it.startsWith("开始时间：") }
+                val status = lines.firstOrNull { it.startsWith("报名：") }
+                XiaoxuCard(
+                    onClick = {
+                        detailKey = record.kind + ":" + record.fingerprint
+                    },
+                    contentPadding = 16.dp
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(record.title, modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Outlined.ChevronRight,
+                            contentDescription = "查看活动详情",
+                            tint = XiaoxuPalette.Ink2)
+                    }
+                    if (time != null) {
+                        Text(time, style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.Ink2)
+                    }
+                    if (status != null) {
+                        Text(status, style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.BrandDeep)
+                    }
+                }
+            }
+        }
+        item(key = "catalog_header") {
+            Text("活动广场", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink)
+        }
+        item(key = "catalog_filter") {
+            XiaoxuSegmentedControl(
+                options = catalogOptions,
+                selectedKey = catalogFilter.toString(),
+                onSelected = { catalogFilter = it.toInt() }
+            )
+        }
+        item(key = "catalog_status") {
+            // The current reader only validates zero-result envelopes. Non-empty
+            // official catalog data is NOT persisted, so never fabricate cards.
+            XiaoxuCard {
+                Text(
+                    if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink
+                )
+                if (catalogRecord != null) {
+                    Text("更新于 " + DateFormat.getDateTimeInstance()
+                        .format(Date(catalogRecord.capturedAt)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2)
+                }
+                TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
+            }
+        }
+        if (error != null) {
+            item(key = "reader_error") {
+                Text(error ?: "", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    if (detailRecord != null) {
+        XiaoxuGlassDialog(
+            title = detailRecord.title,
+            onDismiss = { detailKey = null }
+        ) {
+            Text(detailRecord.details, style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink2)
+            Text("本机读取时间：" + DateFormat.getDateTimeInstance()
+                .format(Date(detailRecord.capturedAt)),
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3)
+        }
+    }
+}
+
+private fun secondClassPoints(record: io.github.x07xh.xiaoxu.data.NativeSchoolRecord?): String? {
+    val raw = record?.details?.substringAfter("素质分：", "")
+        ?.substringBefore(" · ")?.trim() ?: return null
+    return raw.takeIf { it.matches(Regex("[0-9]+(?:\\.[0-9]+)?")) }
+}
+
+private fun secondClassCategories(
+    record: io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+): List<Pair<String, String>> {
+    return record.details.substringAfter("\n", "").split(" · ").mapNotNull { item ->
+        val index = item.indexOf('：')
+        if (index < 1 || index >= item.lastIndex) null
+        else item.substring(0, index) to item.substring(index + 1)
+    }
+}
+
+@Composable
+private fun SecondClassMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(value, style = MaterialTheme.typography.headlineSmall,
+            color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold,
+            maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall,
+            color = XiaoxuPalette.Ink2, maxLines = 1)
     }
 }
