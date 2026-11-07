@@ -275,6 +275,16 @@ assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, valu
   '本机截止提醒应由统一通知页面控制');
 assert.match(profileSettings, /LocalDeadlineReminders\.reconcile\(context, tasks\)/,
   '新通知设置必须沿用真实 Room 任务的既有提醒计划');
+assert.match(profileSettings, /WechatPersonalReminders\.reconcile\(/,
+  '同一通知开关应调度本人微信个人计划，不增加第二个开关');
+assert.match(reminder, /WechatPersonalReminders\.clear\(context\)/,
+  '关闭任务提醒时须清除微信个人计划调度');
+assert.match(reminder, /class WechatPersonalReminderWorker[\s\S]*?canDeliver\(/,
+  '通知送达前必须复核本人会话、日期和调度状态');
+assert.match(reminder, /CloudClient\(context\.applicationContext\)\.ownerSessionBinding\(\)/,
+  '退出或更换本人登录态后不得继续送出旧微信计划通知');
+assert.doesNotMatch(reminder, /putString\("raw_message"|putString\("excerpt"|putString\("title"/,
+  '提醒存储不得含微信原文或题目');
 assert.match(workspace, /CloudTaskEditor\(client\)/);
 assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
 assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
@@ -320,7 +330,7 @@ assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun Conn
   '旧版工具弹窗和混合式连接入口应彻底退役');
 assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
   '设置按分类索引；业务内容应进入独立二级路由');
-assert.match(profileSettings, /"notifications" -> item \{ NotificationSettingsContent\(localTasks\) \}/);
+assert.match(profileSettings, /"notifications" -> item \{ NotificationSettingsContent\(localTasks, client\) \}/);
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
 assert.match(profileSettings, /"licenses" -> item \{ OpenSourceCreditsPanel\(\) \}/);
 assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
