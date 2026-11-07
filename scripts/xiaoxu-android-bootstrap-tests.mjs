@@ -215,6 +215,14 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
 assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(db, /suspend fun updateDetails\(id: Long, title: String, source: String\?, due: String\?\): Int/,
+  'Room must support editing only personal task metadata');
+assert.match(localTaskUi, /internal fun LocalTaskEditSheet\(/,
+  'Local task detail must open shared native editor');
+assert.match(localTaskUi, /dao\.updateDetails\(task\.id, cleanTitle, source, due\)/,
+  'Local task editor persists actual Room record');
+assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
+  'Task details edit the selected local row rather than create a duplicate');
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -1977,7 +1985,7 @@ assert.match(taskHubRegion,
   /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
   '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
 assert.match(taskHubRegion,
-  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = localRows\.size,/,
   '本机任务维持逐条 lazy item 与稳定 key');
 assert.match(workspace, /private fun ConnectedTaskShell\(/,
   '任务行使用共享首尾圆角与连接线容器');
@@ -2027,12 +2035,18 @@ assert.match(taskHubRegion,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
   '审核通过微信任务保持独立缓存分组');
-assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
-  '云端任务保持独立缓存分组');
+assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "course" \} \}/,
+  '可信学习通任务作为课程任务单独分组');
+assert.match(workspace, /val otherCloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
+  '普通云端待办不得混入课程任务');
+assert.match(workspace, /title = "云端待办"/,
+  '普通云端任务有独立折叠分组');
+assert.match(workspace, /source == "cloud"[\s\S]*?task\.storage == "cloud"/,
+  '云端筛选仍覆盖课程和普通云端记录');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
-assert.match(workspace, /task\.provider == "wechat"/,
-  '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
+assert.match(workspace, /when \(task\.provider\) \{[\s\S]*?"wechat" -> "wechat"/,
+  '微信来源仅由后端 provider 字段判断，不从群聊标题推测');
 assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
   '微信审核标签仍由真实候选计数生成');
 assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
@@ -2089,6 +2103,8 @@ assert.match(workspace, /pendingWechatTaskUpdates\[row\.key\] = checked/,
   '点击立即反馈，不等待网络返回才能勾选');
 assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
   '成功确认与失败回滚均清理临时状态');
+assert.match(workspace, /if \(!confirmed\) \{[\s\S]*?Toast\.makeText\([\s\S]*?client\.state\.privateError/,
+  '微信任务状态写入未确认时须立即提示，不得仅把错误显示在列表末尾');
 assert.match(workspace, /val statusText = if \(isPending\) "保存中…"/,
   '尚未收到云端回执时必须明确显示保存中');
 assert.match(workspace, /modifier = Modifier\.animateItem\(/,
@@ -2145,10 +2161,12 @@ assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
-  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
-assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
-  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
+assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
+  '本机任务详情必须指向已有记录的编辑浮层');
+assert.match(workspace, /if \(editingLocal != null\) \{\s*LocalTaskEditSheet\(/,
+  '编辑浮层绑定原 Room 记录');
+assert.match(workspace, /if \(selectedTask\.storage == "local"\) \{\s*OutlinedButton\(onClick = onManage/,
+  '云端和学校任务详情不显示虚假编辑按钮');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),

@@ -153,7 +153,11 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
                 task.status == "done", parseWorkspaceDue(task.due),
                 "云端记录，需核对来源", "cloud",
-                if (task.provider == "wechat") "wechat" else "cloud",
+                when (task.provider) {
+                    "wechat" -> "wechat"
+                    "chaoxing" -> "course"
+                    else -> "cloud"
+                },
                 task.revision, task.provider, task.links,
                 task.sourceExternalId,
                 trustedChaoxingPlatformStatus(
@@ -217,7 +221,9 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
 internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
-    (source == "all" || task.category == source) &&
+    (source == "all" || (source == "cloud" &&
+        task.storage == "cloud" && task.category != "wechat") ||
+        task.category == source) &&
         (!thisWeekOnly || (task.storage == "local" && !considerCompleteInTaskList(task) &&
             thisWeek(task.date, today)))
 }
@@ -385,7 +391,8 @@ fun RealAcademicHome(
             selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
-            onManage = { openedTaskKey = null; openTasks() }
+            onManage = { openedTaskKey = null; openTasks() },
+            manageLabel = "前往任务中心编辑"
         )
     }
     val selectedNotice = state.notices.firstOrNull {
@@ -819,6 +826,8 @@ fun RealAcademicTaskHub(
     var showCourseTasks by rememberSaveable { mutableStateOf(false) }
     var showWechatTasks by rememberSaveable { mutableStateOf(false) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
+    var showOtherCloudTasks by rememberSaveable { mutableStateOf(false) }
+    var editingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
     val taskScope = rememberCoroutineScope()
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
@@ -887,7 +896,8 @@ fun RealAcademicTaskHub(
     }
     // Keep each source as a stable lazy section across unrelated UI updates.
     val localRows = remember(shown) { shown.filter { it.category == "local" } }
-    val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
+    val cloudRows = remember(shown) { shown.filter { it.category == "course" } }
+    val otherCloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
     LazyColumn(
         state = taskListState,
@@ -1206,6 +1216,28 @@ fun RealAcademicTaskHub(
                     }
                 }
             }
+            if (otherCloudRows.isNotEmpty()) {
+                item(key = "group:other-cloud") {
+                    TaskGroupHeader(
+                        title = "云端待办",
+                        count = otherCloudRows.size,
+                        badge = "",
+                        note = "",
+                        icon = Icons.Outlined.CheckBox,
+                        expanded = showOtherCloudTasks,
+                        joinedRows = true,
+                        onClick = { showOtherCloudTasks = !showOtherCloudTasks }
+                    )
+                }
+                if (showOtherCloudTasks) {
+                    items(count = otherCloudRows.size, key = { i -> otherCloudRows[i].key }) { i ->
+                        ConnectedTaskShell(index = i, total = otherCloudRows.size) {
+                            TaskRow(otherCloudRows[i], today,
+                                onOpen = { openedTaskKey = otherCloudRows[i].key })
+                        }
+                    }
+                }
+            }
             if (wechatRows.isNotEmpty()) {
                 item(key = "group:wechat") {
                     TaskGroupHeader(
@@ -1246,10 +1278,18 @@ fun RealAcademicTaskHub(
                                             pendingWechatTaskUpdates[row.key] = checked
                                             taskScope.launch {
                                                 try {
-                                                    client.setWechatTaskCompleted(
+                                                    val confirmed = client.setWechatTaskCompleted(
                                                         row.key.removePrefix("cloud:"),
                                                         row.revision, checked
                                                     )
+                                                    if (!confirmed) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            client.state.privateError
+                                                                ?: "微信任务保存未确认，请刷新后重试",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
                                                 } finally {
                                                     pendingWechatTaskUpdates.remove(row.key)
                                                 }
@@ -1280,7 +1320,14 @@ fun RealAcademicTaskHub(
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
                         val row = localRows[i]
-                        ConnectedTaskShell(index = i, total = localRows.size) {
+                        ConnectedTaskShell(
+                            index = i, total = localRows.size,
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = tween(140),
+                                placementSpec = tween(180),
+                                fadeOutSpec = tween(140)
+                            )
+                        ) {
                             TaskRow(row, today,
                                 onOpen = { openedTaskKey = row.key },
                                 onToggleLocal = { checked ->
@@ -1573,18 +1620,19 @@ fun RealAcademicTaskHub(
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
-                showManager = true
                 if (selectedTask.storage == "local") {
-                    showLocal = true
-                    showCloud = false
-                    jumpTo = "local"
-                } else {
-                    showCloud = true
-                    showLocal = false
-                    jumpTo = "cloud"
+                    editingLocalId = selectedTask.key.removePrefix("local:").toLongOrNull()
                 }
                 openedTaskKey = null
             })
+    }
+    val editingLocal = localTasks.firstOrNull { it.id == editingLocalId }
+    if (editingLocal != null) {
+        LocalTaskEditSheet(
+            task = editingLocal,
+            dao = dao,
+            onDismiss = { editingLocalId = null }
+        )
     }
     if (showArchiveSheet) {
         XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {
@@ -1622,6 +1670,7 @@ internal fun WorkspaceTaskDetailSheet(
     tasksFresh: Boolean,
     onDismiss: () -> Unit,
     onManage: () -> Unit,
+    manageLabel: String = "编辑本机任务",
     onVerifyChaoxing: (() -> Unit)? = null,
     onArchive: (() -> Unit)? = null
 ) {
@@ -1634,6 +1683,8 @@ internal fun WorkspaceTaskDetailSheet(
                 when (selectedTask.category) {
                     "wechat" -> "微信任务"
                     "local" -> "本机任务"
+                    "course" -> "课程任务"
+                    "cloud" -> "云端待办"
                     else -> "云端任务"
                 },
                 if (selectedTask.category == "local") XiaoxuTone.Brand else XiaoxuTone.Neutral
@@ -1681,10 +1732,11 @@ internal fun WorkspaceTaskDetailSheet(
                 Text("从本机任务列表移出")
             }
         }
-        OutlinedButton(onClick = onManage,
-            modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-            Text(if (selectedTask.storage == "local")
-                "打开本机任务管理" else "新增云端任务")
+        if (selectedTask.storage == "local") {
+            OutlinedButton(onClick = onManage,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                Text(manageLabel)
+            }
         }
     }
 }

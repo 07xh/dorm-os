@@ -83,6 +83,25 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun onlySchoolHomeworkProviderEntersCourseGroupAndCloudFacetStillShowsPersonalCloud() {
+        val cloud = listOf(
+            CloudTask("school", "学习通作业", "todo", "homework", "chaoxing", null),
+            CloudTask("personal", "自建云端计划", "todo", "manual", null, null),
+            CloudTask("activity", "活动记录", "todo", "activity", "second_class", null),
+            CloudTask("wechat", "已审核微信任务", "todo", "manual", "wechat", null)
+        )
+        val result = combineWorkspaceTasks(emptyList(), cloud)
+        assertEquals(listOf("cloud:school"),
+            result.filter { it.category == "course" }.map { it.key })
+        assertEquals(setOf("cloud:personal", "cloud:activity"),
+            result.filter { it.category == "cloud" }.map { it.key }.toSet())
+        assertEquals(setOf("cloud:school", "cloud:personal", "cloud:activity"),
+            facetWorkspaceTasks(result, "cloud", false, today).map { it.key }.toSet())
+        assertEquals(listOf("cloud:wechat"),
+            facetWorkspaceTasks(result, "wechat", false, today).map { it.key })
+    }
+
+    @Test
     fun upcomingDeadlineCountUsesOnlyPersonalEnteredFutureDates() {
         val rows = listOf(
             WorkspaceTask("local:today", "今天截止", "本机待办", false,
