@@ -108,7 +108,7 @@ assert.match(screen, /LocalTimetableEmptyState\(/);
 assert.match(currentTimetableEntry, /onMessages = onMessages/, '空课表也必须保留消息入口');
 assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/,
   '本机课表不依赖云端课程或云端新鲜度');
-assert.match(screen, /onImport = \{\s*showSemesterSettings = false\s*openFileImport\(\)/,
+assert.match(screen, /onImport = \{\s*onSettingsOpenChanged\(false\)\s*openFileImport\(\)/,
   '导入仅从课表设置连接原有文件选择器');
 assert.match(settings, /title = "导入课表"/);
 assert.doesNotMatch(screen, /label = "重新导入课表"/,
