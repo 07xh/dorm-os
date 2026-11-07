@@ -1715,8 +1715,16 @@ assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targ
   '设置二级页须保持方向明确的推进与返回');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
   '设置转场必须裁剪页边界，防止滑动时文字越界');
-assert.match(profileSettings, /Column\(modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
+assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
   '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
+assert.match(profileSettings, /horizontalAlignment = Alignment\.CenterHorizontally/,
+  '设置内容在平板居中对齐，不应再出现整页偏左的宽屏布局');
+assert.match(profileSettings, /modifier = Modifier\.weight\(1f\)\.xiaoxuPageWidth\(\)/,
+  '设置二级页面复用统一内容宽度');
+assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
+  '设置首页不应保留重复品牌入口');
+assert.match(profileSettings, /XiaoxuGroupedSection\(title = "其他"\)/,
+  '关于校序必须分类到其他，而非占据设置首页第一卡');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
 assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{/,
