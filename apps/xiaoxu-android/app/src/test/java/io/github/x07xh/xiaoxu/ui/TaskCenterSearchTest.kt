@@ -99,8 +99,11 @@ class TaskCenterSearchTest {
                 today.plusDays(1), "云端记录，需核对来源", "cloud",
                 provider = "chaoxing")
         )
+        // "近期截止" uses today through +3 days, excluding overdue dates.
         assertEquals(2, countUpcomingLocalDeadlines(rows, today))
-        assertEquals(listOf("local:today", "local:three"),
+        // "本周截止" uses the calendar week (Mon–Sun): an overdue task from
+        // Thursday still belongs to this week; the Monday +3-day task does not.
+        assertEquals(listOf("local:today", "local:past"),
             facetWorkspaceTasks(rows, "all", true, today).map { it.key })
     }
 
