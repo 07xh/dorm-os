@@ -206,7 +206,8 @@ assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(workspace, /本机(?:导入|记录)[，·（\s]*周次待核对/, '未知教学周须明确标注为未核对的本机记录');
+assert.match(schedulePanel, /本机导入 · 待本人核对/,
+  '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ConnectionsPanel/);
@@ -1046,16 +1047,20 @@ assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有�
 assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
 assert.match(workspace, /含上次云端快照/,
   '上次云端任务必须明确标注快照，不可冒充新读取');
-assert.match(workspace, /截止未核验/, '云端缺日期须显示未核验，不得猜测');
+assert.match(workspace, /DueUi\("日期未记录", "云端任务没有已核实的截止日期"/,
+  '云端无截止来源时只显示日期未记录，不虚构学校核验结果');
 assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
-assert.match(workspace, /DueUi\(prefix \+ "已逾期/, '云端过期日期必须保留待核对前缀');
+assert.match(workspace, /if \(task.storage == "cloud"\) \{\s*return DueUi\("记录 \$text",/,
+  '未经来源核实的云端日期只能称记录日期，不得直接标为学校逾期作业');
+assert.match(workspace, /!task.done && date.isBefore\(today\)/,
+  '本人填写的实际逾期任务仍须保留过期提醒');
 assert.match(workspace, /shown\.size \+ " \/ " \+ visible\.size/, '80 条展示上限必须告知实际筛选总数');
 assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
 assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
 assert.match(workspace, /采集时间/);
-assert.match(workspace, /本机(?:导入|记录)[，·（\s]*周次待核对/);
+assert.match(schedulePanel, /本机导入 · 待本人核对/);
 assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
 assert.match(panels, /LocalSchoolConnectionPanel\(openLocalSchool, recentImport\)/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(openLocalSchool, recentImport)') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
@@ -1523,10 +1528,14 @@ const homeCourseBlock = workspace.slice(workspace.indexOf('private fun HomeCours
   workspace.indexOf('private fun HomeCourseRecordRow('));
 assert.match(homeCourseBlock, /if \(hasTimetable && lessons\.isEmpty\(\)\) \{/,
   '首页有课表但当天无课时，应显示紧凑提示而非多余的厚玻璃空卡');
-assert.match(homeCourseBlock, /这一天没有已保存的课程记录/,
-  '未知当前教学周时不得宣称学校官方确认当天无课');
-assert.match(homeCourseBlock, /else \{\s*XiaoxuCard\(contentPadding = 12\.dp\)/,
+assert.match(homeCourseBlock, /暂无本机课程记录/,
+  '未知当前教学周时仅描述本机记录，不推定学校官方无课');
+assert.match(homeCourseBlock, /else \{\s*HomeSection\([\s\S]*?XiaoxuCard\(contentPadding = 12\.dp\)/,
   '仅有课程记录或未导入课表时渲染实际列表或导入入口');
+assert.match(homeCourseBlock, /if \(hasTimetable && lessons.isEmpty\(\)\) \{\s*[\s\S]*?Row\(/,
+  '本机当日无课时用单行对齐提示替代独立厚卡');
+assert.doesNotMatch(homeCourseBlock, /caption = "\$weekdayLabel/,
+  '首页课程不重复铺设周次来源诊断文案');
 
 const homeRowSource = workspace.slice(workspace.indexOf('private fun HomeCourseRecordRow('),
     workspace.indexOf('/** 两张统计卡', workspace.indexOf('private fun HomeCourseRecordRow(')));
@@ -1575,7 +1584,12 @@ assert.doesNotMatch(workspace, /下一节课|倒计时为/, '缺少作息时间�
 assert.doesNotMatch(workspace, /else state\.lessons/, '本机课表不能回退旧云端数据');
 assert.match(workspace, /val cloudSnapshotRows = state\.tasks\.size/, '云端任务快照须披露数量');
 assert.match(workspace, /含上次云端快照 /, '云端旧记录必须保留快照标签');
-assert.match(workspace, /期限待核对/, '云端任务不能冒充已核验作业期限');
+assert.match(workspace, /云端日期仅供参考/,
+  '首页只保留一次云端日期来源提示，不伪称学校正式截止日');
+assert.match(workspace, /it.storage == "local" &&/,
+  '近期截止只统计本人填写的日期，不混算云端未核验期限');
+assert.match(workspace, /!it.date.isBefore\(today\)/,
+  '历史逾期记录不能混入未来三天的近期截止统计');
 assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
 // 课表主页面继续保留本机导入及来源分离门禁。
@@ -1747,8 +1761,14 @@ assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详�
 assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
   '任务卡片必须可以真实点击');
 assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
-assert.match(workspace, /上次云端快照 · 待核对/,
-  '旧云端任务不得伪装成刚同步');
+assert.match(workspace, /云端历史快照；日期与完成情况可能已变化/,
+  '任务详情必须区分历史快照与当前同步成功');
+assert.match(workspace, /onVerifyChaoxing = \{ openLocalSchool\("chaoxing"\) \}/,
+  '学习通相关云端任务详情必须可以打开官方页面进行人工核对');
+assert.match(workspace, /selectedTask.provider == "chaoxing"/,
+  '只有学习通相关任务显示学习通核对入口');
+assert.match(workspace, /本条云端记录尚无对应的官方作业 ID/,
+  '未建立稳定官方作业映射前不得虚称完成了逐条校验');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
 assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
