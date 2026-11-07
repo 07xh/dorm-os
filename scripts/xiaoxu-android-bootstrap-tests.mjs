@@ -980,6 +980,15 @@ assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
 assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
 assert.match(localSchoolUi, /已从本机数据库重新读取/);
+
+assert.match(localSchoolUi, /fun LocalSchoolRecordSection\(/,
+  '本机历史读取仍有独立只读组件，不丢真实记录');
+assert.match(localSchoolUi, /title = "手机本机读取"/,
+  '本机保存记录列表使用原生展开标题');
+assert.match(localSchoolUi, /subtitle = "已保存 \$\{rows\.size\} 条本机记录"/,
+  '历史记录折叠态仍显示真实数量');
+assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/,
+  '本机读取不得混入旧 Material 实心卡片体系');
 assert.match(localSchoolUi, /查看本机全部/);
 assert.match(localSchoolUi, /val prioritized = if \(justImported == null\) list else/);
 assert.match(localSchoolUi, /item\.capturedAt/);
