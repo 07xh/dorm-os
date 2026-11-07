@@ -11,3 +11,5 @@
 - 第二课堂：复用 #379 单页积分概览/学期选择/我的活动/活动广场与 #382 本人授权状态下严格非空活动读取；不混入旧三 Tab。
 - 设置：220ms 无弹跳、仅 1/6 页宽移动，进入不再推动上一页，返回不再推动背景页。
 - 必须检查原生 APK、JVM、node 契约测试、CI、隔离 QA APK SHA256；一加 Ace 6 复测前保持 Draft，不合 main。
+
+2026-11-07 QA stationary fade-through: exact source e685f0d1e8b2d236a459cb2e2d88b78836219b1e. No entire page translation or scale; sequential fade through on main tabs, settings, academic and timetable settings; preserve glass bar, SecondClass and task data. Test Android Kotlin/JVM, CI, isolated QA APK, artifacts; PR #351 stays draft pending Ace 6 visual comparison.
