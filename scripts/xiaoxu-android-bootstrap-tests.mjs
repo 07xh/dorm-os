@@ -786,8 +786,25 @@ assert.match(timetableSettings, /onSave\(config, viewMode, sections\)/,
  '周日偏好与学期数据必须通过原保存回调提交');
 assert.match(timetableSettings, /DatePicker\(state = dateState/,
   '日期选择须使用统一 Compose 控件');
-assert.match(timetableSettings, /TimePicker\(state = pickerState\)/,
-  '节次时间选择须使用统一 Compose 控件');
+const timetableTimeWheel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuTimeWheel.kt');
+assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
+  '节次时间使用滚动数字选择器而非圆形时钟盘');
+assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
+  '不得回退到与参考图不一致的圆形时钟选择');
+assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
+  '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
+assert.match(timetableTimeWheel, /maxValue = 23/);
+assert.match(timetableTimeWheel, /maxValue = 59/);
+assert.match(timetableTimeWheel, /setOnValueChangedListener/,
+  '滚动数字必须更新对应的小时或分钟草稿');
+assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
+  '确认时间必须使用用户真实选取的数值');
+assert.match(timetableSettings, /!chosen\.isAfter\(stagedStart\)/,
+  '结束时间不可早于或等于开始时间');
+assert.match(timetableSettings, /replaceSectionTime\(/,
+  '保存时仅更新当前节次时间草稿');
+assert.match(timetableSettings, /Icons\.Outlined\.ChevronRight/,
+  '作息列表行使用进入箭头，不显示突兀的蓝色时间胶囊');
 assert.match(timetableSettings, /if \(sectionsMenu \|\| weeksMenu\)/,
   '节数与周数弹层需统一为可滚动玻璃选择器');
 assert.doesNotMatch(timetableSettings, /android\.app\.(DatePickerDialog|TimePickerDialog)|DropdownMenu\(/,
