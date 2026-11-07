@@ -471,21 +471,27 @@ assert.doesNotMatch(main, /SecondClassPanel\(cloud, openWebsite\)/,
   '第二课堂个人记录不应返回我的设置入口');
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
 assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
-assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = sectionOptions/, '二课必须使用唯一共享分段组件');
-assert.match(secondClassMain, /XiaoxuExpandableGlassRow\(/,
-  '真实二课积分与活动支持统一玻璃式展开');
-assert.match(secondClassMain, /row\.details\.isNotBlank\(\)/,
-  '真实详情不存在时不创建假展开内容');
-for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积分']]) {
-  assert.ok(secondClassMain.includes(`XiaoxuSegmentOption("${key}", "${label}")`),
-    '二课三个真实业务分区必须保留：' + label);
+assert.match(secondClassMain, /LazyColumn\(/, '第二课堂必须使用同一原生惰性滚动页');
+for (const title of ['学习数据', '我的活动', '积分明细', '活动广场']) {
+  assert.ok(secondClassMain.includes(`title = "${title}"`), '单页必须保留真实区块：' + title);
 }
-assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
-assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
+assert.doesNotMatch(secondClassMain, /sectionOptions|catalogScroll|activitiesScroll|scoresScroll|ScrollableTabRow|TabRow\(/,
+  '已退役的三个顶部分栏与重复滚动状态不得回流');
+assert.match(secondClassMain, /XiaoxuGlassDialog\(/,
+  '第二课堂活动详情应打开共享居中玻璃弹窗，不再向下展开');
+assert.match(secondClassMain, /actionLabel = "学校官网"/, '学校官网只保留活动广场标题入口');
 assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
-  '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
-assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
-  '汇总标题不可显示为个人活动卡片');
+  '学校读取只有一个显式刷新入口');
+assert.match(secondClassMain, /candidateActivities\.filter \{ it\.kind == "activity" \}/,
+  '汇总标题不能冒充个人活动');
+assert.match(secondClassMain, /if \(activitiesReady\) activities\.size\.toString\(\) else "—"/,
+  '未取得完整本人活动时不把未知数量显示为0');
+assert.match(secondClassMain, /semesterIndex\(it\.title\) != null/,
+  '只能使用学校真实返回的学期编号，不能自行推断当前学期');
+assert.match(secondClassMain, /scoreCategories\(selectedSemester\)/,
+  '积分六类明细必须直显，减少卡片内的二次展开');
+assert.doesNotMatch(secondClassMain, /HttpURLConnection|CookieManager|schoolPassword/,
+  '第二课堂新 UI 不得建立额外数据连接器或存储学校凭据');
 assert.doesNotMatch(secondClassMain, /Text\(if \(refreshing\) "读取中…" else "刷新"\)/,
   '禁止回退为内容列表上方的重复刷新文字');
 assert.match(secondClassMain, /Intent\(context, NativeSchoolConnectActivity::class\.java\)/);
@@ -560,7 +566,8 @@ assert.match(secondClassMain, /SecondClassSaveReceipt\.validate/);
 assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
     'second-class local entry must reuse the main page, not maintain duplicate UI');
 
-assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.match(secondClassMain, /candidateActivities\.all \{ it\.capturedAt == activityBatch\.capturedAt \}/,
+  '只有同批完整的本人活动快照才能显示报名活动数量与明细');
 assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
 
 assert.match(cloud, /\/api\/v1\/second-class/);
