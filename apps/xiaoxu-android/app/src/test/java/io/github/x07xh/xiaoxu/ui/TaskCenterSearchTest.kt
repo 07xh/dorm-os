@@ -174,6 +174,47 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun oldDuplicateWorkIdsRequireCanonicalVerifiedRowBeforeCoalescing() {
+        val records = listOf(
+            CloudTask("old-a", "实验报告一", "done", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33"),
+            CloudTask("old-b", "实验报告一", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33"),
+            CloudTask("official", "实验报告一", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = "submitted"),
+            CloudTask("other-work", "实验报告一", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:34", officialStatus = "todo"),
+            CloudTask("other-course", "实验报告一", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:12:22:33", officialStatus = "todo"),
+            CloudTask("other-provider", "实验报告一", "todo", "platform", "ncwu",
+                null, sourceExternalId = "work:11:22:33")
+        )
+        assertEquals(5, distinctVerifiedChaoxingHomeworkRows(records.take(2) + records.drop(3)).size)
+        val combined = combineWorkspaceTasks(emptyList(), records)
+        assertEquals(4, combined.size)
+        assertEquals(
+            setOf("cloud:official", "cloud:other-work", "cloud:other-course", "cloud:other-provider"),
+            combined.map { it.key }.toSet()
+        )
+        assertEquals(3, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
+    }
+
+    @Test
+    fun conflictingTrustedOfficialRowsAreNotSilentlyCollapsed() {
+        val rows = listOf(
+            CloudTask("official-todo", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = "todo"),
+            CloudTask("official-submitted", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = "submitted"),
+            CloudTask("legacy", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = null)
+        )
+        assertEquals(rows, distinctVerifiedChaoxingHomeworkRows(rows))
+        assertEquals(3, combineWorkspaceTasks(emptyList(), rows).size)
+    }
+
+    @Test
     fun editorScrollIndexMatchesActualOptionalRows() {
         // Always present: header, status strip, combined source/filter controls.
         assertEquals(3, taskEditorStartIndex(false, false, false, false))

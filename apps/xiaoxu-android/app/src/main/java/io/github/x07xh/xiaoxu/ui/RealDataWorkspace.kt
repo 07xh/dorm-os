@@ -130,6 +130,30 @@ internal fun parseWorkspaceDue(value: String?): LocalDate? {
         ?: runCatching { Instant.parse(value).atZone(SchoolZone).toLocalDate() }.getOrNull()
 }
 
+/**
+ * Render a canonical official homework record only once if historical imports
+ * have the exact same Chaoxing course/class/work ID. Never deduplicate by
+ * title or date, and never delete imported records from the cloud database.
+ *
+ * Without a trusted official row the historical entries stay visible:
+ * unverified IDs cannot decide which personal task record is canonical.
+ */
+internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<CloudTask> {
+    // Only one independently verified source row is a safe canonical record.
+    // If two trusted rows disagree or duplicate, keep ALL evidence visible
+    // instead of guessing which row to hide.
+    val verified = cloud.filter {
+        trustedChaoxingPlatformStatus(it.provider, it.sourceExternalId, it.officialStatus) != null
+    }.groupBy { it.sourceExternalId }
+    val canonical = verified.filterValues { it.size == 1 }
+        .mapNotNull { (key, rows) -> key?.let { it to rows.single().id } }.toMap()
+    return cloud.filter { row ->
+        val sourceId = row.sourceExternalId
+        row.provider != "chaoxing" || sourceId == null ||
+            canonical[sourceId] == null || canonical[sourceId] == row.id
+    }
+}
+
 internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask>): List<WorkspaceTask> =
     buildList {
         local.forEach { task ->
@@ -142,7 +166,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             add(WorkspaceTask("local:" + task.id, task.title, source, task.completed,
                 parseWorkspaceDue(task.due), "本人填写", "local"))
         }
-        cloud.forEach { task ->
+        distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
                 "chaoxing" -> "学习通记录"
