@@ -40,6 +40,16 @@ assert.match(visualQa, /performanceEvidenceComplete = metadata.performanceSample
   '必须逐场景记录快速切页、拖拽与真实课程背景的性能样本');
 assert.match(visualQa, /requires_manual_frame_and_visual_review/,
   '不能仅凭 gfxinfo 帧数把玻璃复刻标记为验收完成');
+assert.match(visualQa, /--reference-package/, '真机采集须允许指定北化课表原版包名');
+assert.match(visualQa, /referenceSceneSet\.has\(name\)/,
+  '只在对应原版有参考意义的场景采集同机对照，避免重复全量取证');
+assert.match(visualQa, /isTargetInForeground\(referencePackage\)/,
+  '必须确认原版的截图确实在原版应用前台');
+assert.match(visualQa, /buct-original-/, '原版与校序截图必须分别保存，不能覆盖');
+assert.match(visualQa, /referenceComparisonComplete/,
+  '缺少真实原版画面时不得称为复刻完成');
+assert.match(visualQa, /requires_manual_side_by_side_review/,
+  '即使原版图片齐全也不能把脚本当成像素级对照验收');
 assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
   '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
