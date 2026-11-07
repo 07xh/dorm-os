@@ -36,7 +36,7 @@ export async function onRequestGet(context){
   if(code==='interactive_login_required')return json({error:code},409);
   if(code==='not_found')return json({error:'not_found'},404);
   if(code==='work_not_available'||code==='courses_unverified'||
-     code==='work_list_incomplete')
+     code==='work_list_incomplete'||code==='invalid_response')
    return json({error:code},422);
   if(code==='not_configured'||code==='database_unavailable')
    return json({error:code},503);

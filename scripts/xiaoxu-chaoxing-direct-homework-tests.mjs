@@ -233,6 +233,69 @@ assert.equal(classifyChaoxingWorkStatus('已互評'),'submitted');
 assert.equal(classifyChaoxingWorkStatus('待批改'),'submitted');
 assert.equal(classifyChaoxingWorkStatus('待互评'),'unknown');
 assert.equal(classifyChaoxingWorkStatus('未交'),'todo');
+
+// Regression: the official student-course page varies by course. Its HTML can
+// expose workEnc without the unrelated #enc/#openc fields, or only an official
+// redirected enc token. Do not confuse this with an expired owner session.
+const workOnly='<input id="workEnc" value="signedWork"/>';
+assert.deepEqual(parseChaoxingWorkCredentials(workOnly),
+ {workEnc:'signedWork',openc:'',pageEnc:''});
+const urlToken='a'.repeat(32);
+const officialRedirect='https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/stu?enc='+urlToken;
+assert.deepEqual(parseChaoxingWorkCredentials('<html>student course</html>',
+ {finalUrl:officialRedirect}),{workEnc:urlToken,openc:'',pageEnc:''});
+for(const untrusted of [
+ 'https://other.example/mooc2-ans/mycourse/stu?enc='+urlToken,
+ 'http://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/stu?enc='+urlToken,
+ 'https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/stu?enc='+urlToken+'&enc='+urlToken,
+ 'https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/other?enc='+urlToken
+])assert.throws(()=>parseChaoxingWorkCredentials('<html>course</html>',
+ {finalUrl:untrusted}),e=>e.code==='work_not_available');
+assert.throws(()=>parseChaoxingWorkCredentials('<html>course</html>'),
+ e=>e.code==='work_not_available');
+// The normal verified owner read must still validate course ownership and
+// never send absent optional credentials as empty query parameters.
+const templates=[];
+const templated=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(workOnly);
+ if(u.pathname==='/mooc2/work/list'){
+  templates.push(u);
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  assert.equal(u.searchParams.has('openc'),false);
+  assert.equal(u.searchParams.has('stuenc'),false);
+  return response(workHtml);
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const templateReader=await templated.forSession({session,userId:'owner1'});
+await templateReader.verifySession();
+assert.equal((await templateReader.readHomeworkList(
+ {courseId:'123',classId:'456',cpi:'789'})).items.length,1);
+assert.equal(templates.length,1);
+const redirected=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return new Response('',{
+  status:302,headers:{location:officialRedirect}});
+ if(u.pathname==='/mooc2-ans/mycourse/stu')return response('<body>student course</body>');
+ if(u.pathname==='/mooc2/work/list'){
+  assert.equal(u.searchParams.get('enc'),urlToken);
+  assert.equal(u.searchParams.has('openc'),false);
+  assert.equal(u.searchParams.has('stuenc'),false);
+  return response(workHtml);
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const redirectReader=await redirected.forSession({session,userId:'owner1'});
+await redirectReader.verifySession();
+assert.equal((await redirectReader.readHomeworkList(
+ {courseId:'123',classId:'456',cpi:'789'})).items.length,1);
+console.log('Chaoxing legacy/modern owner-verified course token variants passed');
+
 console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
 
 console.log('Chaoxing review: login-redirect and challenge-title regressions passed');
