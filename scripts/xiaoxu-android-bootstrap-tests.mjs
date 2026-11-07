@@ -627,10 +627,16 @@ assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
   '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
 assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
   '课表设置需要填满当前主导航内容窗口');
-assert.match(schedulePanel, /if \(!settingsOpen\) \{/,
-  '默认课表内容和设置页必须互斥，不得浮层叠放');
-assert.match(schedulePanel, /if \(settingsOpen\) \{\s*SemesterSettingsPage\(/,
-  '设置页必须走同窗口渲染分支，不得用 Compose Dialog');
+assert.match(schedulePanel, /targetState = settingsOpen/,
+  '课表和设置应复用一个动画内容宿主');
+assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
+  '课表设置推进和返回应具有明确的动画入口');
+assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
+  '课表设置应复用统一阻尼推进与返回动画');
+assert.match(schedulePanel, /if \(!animatedSettingsOpen\) \{/,
+  '默认课表与设置按动画目标状态互斥，不得额外叠加 Dialog');
+assert.match(schedulePanel, /if \(animatedSettingsOpen\) \{\s*SemesterSettingsPage\(/,
+  '课表设置应在同窗口中绘制，不得再建独立 Window');
 assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '导航层应保存课表子页面状态');
 assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
