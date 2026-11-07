@@ -59,8 +59,9 @@ function runReader({ host, path, tables = [], tasks = [], courses = [], plans = 
       return [];
     }
   };
-  const location = { hostname: host, pathname: path, origin: 'https://' + host };
-  return JSON.parse(runInNewContext(matched[1], { document: doc, location }));
+  const location = { hostname: host, pathname: path,
+    origin: 'https://' + host, href: 'https://' + host + path };
+  return JSON.parse(runInNewContext(matched[1], { document: doc, location, URL }));
 }
 
 const homeworkHost = 'mooc1-api.chaoxing.com';
@@ -151,6 +152,9 @@ assert.equal(workList.records.length, 0);
 // A completed official work row need not contain onclick/goTask.
 const finishedNode = {
   ...element('作业已完成'),
+  getAttribute: name => name === 'data'
+    ? 'https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=987&enc=secret-token'
+    : null,
   querySelector: selector => selector.startsWith('p.overHidden2')
     ? element('Python 实验报告一')
     : selector.startsWith('p.status') ? element('待批阅') : null
@@ -159,7 +163,17 @@ const finished = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list
   tasks: [finishedNode] });
 assert.equal(finished.kind, 'homework');
 assert.deepEqual(Array.from(finished.records, x => [x.title, x.details]),
-  [['Python 实验报告一', '当前网页显示的状态：待批阅']]);
+  [['Python 实验报告一',
+    '当前网页显示的状态：待批阅 · 官方作业身份：work:123:456:987']]);
+assert.equal(finished.records[0].sourceKey,'work:123:456:987');
+assert.ok(!JSON.stringify(finished).includes('secret-token'));
+const unrelatedSignedNode = {...finishedNode,
+  getAttribute: () => 'https://attacker.example/work/task?courseId=123&classId=456&workId=987'};
+const untrusted = runReader({host:'mooc1.chaoxing.com',
+  path:'/mooc2/work/list',tasks:[unrelatedSignedNode]});
+assert.equal(untrusted.records.length,1);
+assert.equal(untrusted.records[0].sourceKey,'',
+  'untrusted URL cannot identify a saved cloud task by title');
 
 // Only the owner-visible plan page yields local learning-plan records.
 // These are display evidence, never a request to click or finish anything.
