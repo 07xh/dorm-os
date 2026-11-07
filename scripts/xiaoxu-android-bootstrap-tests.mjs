@@ -174,6 +174,20 @@ assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
 const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+assert.match(localTaskUi, /internal fun TaskCompletionCheckbox\(/,
+  'Local editor and task hub must share one completion-checkbox renderer');
+assert.equal((localTaskUi.match(/\bCheckbox\(/g) || []).length, 1,
+  'Only the reusable task control may instantiate a Material checkbox');
+assert.equal((workspace.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
+  'Local and approved WeChat task rows must reuse the shared checkbox');
+assert.doesNotMatch(workspace, /\bCheckbox\(/,
+  'Unified task list must not maintain duplicate Material checkbox chrome');
+assert.match(profileSettings, /private fun ReminderToggleRow\(/,
+  'Course and deadline reminders must share one settings row');
+assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 3,
+  'Two reminder settings must reuse one row implementation');
+assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
+  'Both reminders must use a shared switch layout');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
 assert.match(main, /openLocalSchool = openLocalSchool/);

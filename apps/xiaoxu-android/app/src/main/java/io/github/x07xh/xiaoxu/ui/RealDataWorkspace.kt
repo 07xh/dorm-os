@@ -45,7 +45,6 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -1857,26 +1856,24 @@ private fun TaskRow(
         // 同样的勾选视觉：本机 Room 任务可直接更改个人完成状态；
         // 校序云端记录仅展示保存的状态，不提供会被误认成学校提交的写操作。
         if (task.storage == "local" && onToggleLocal != null) {
-            Checkbox(
+            TaskCompletionCheckbox(
                 checked = task.done,
                 onCheckedChange = onToggleLocal,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = if (task.done) "将本机任务“" + task.title + "”改为待完成"
+                modifier = Modifier.size(48.dp),
+                description = if (task.done) "将本机任务“" + task.title + "”改为待完成"
                     else "将本机任务“" + task.title + "”标记为个人已完成"
-                }
             )
         } else if (task.category == "wechat" && onToggleWechat != null) {
-            Checkbox(
+            TaskCompletionCheckbox(
                 checked = pendingChecked ?: task.done,
                 enabled = actionEnabled,
                 onCheckedChange = onToggleWechat,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = if (isPending)
-                        "正在保存微信任务“" + task.title + "”的个人完成状态"
-                    else if (task.done)
-                        "将微信任务“" + task.title + "”改为待完成"
-                    else "将微信任务“" + task.title + "”标记为个人已完成"
-                }
+                modifier = Modifier.size(48.dp),
+                description = if (isPending)
+                    "正在保存微信任务“" + task.title + "”的个人完成状态"
+                else if (task.done)
+                    "将微信任务“" + task.title + "”改为待完成"
+                else "将微信任务“" + task.title + "”标记为个人已完成"
             )
         } else {
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {

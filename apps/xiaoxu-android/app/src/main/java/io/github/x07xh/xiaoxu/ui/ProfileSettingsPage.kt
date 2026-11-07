@@ -205,6 +205,25 @@ private fun SettingsEntry(title: String, icon: ImageVector, onClick: () -> Unit)
 
 /** Move the global reminder control out of the timetable screen; do not create a second switch.
  * Uses the same opt-in WorkManager scheduling and notification check as the timetable editor. */
+/** Identical reminder-row layout; the caller retains permission and scheduling rules. */
+@Composable
+private fun ReminderToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 70.dp)
+        .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        XiaoxuSettingsSwitch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
 @Composable
 private fun NotificationSettingsContent(tasks: List<LocalTask>) {
     val context = LocalContext.current
@@ -265,44 +284,33 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
     }
 
     XiaoxuGroupedSection(title = "课程提醒") {
-        Row(Modifier.fillMaxWidth().heightIn(min = 70.dp)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("上课提醒", style = MaterialTheme.typography.titleMedium,
-                    color = XiaoxuPalette.Ink)
-                Text("默认课前约 15 分钟，单门课程可单独设置",
-                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-            }
-            XiaoxuSettingsSwitch(checked = enabled, onCheckedChange = { value ->
+        ReminderToggleRow(
+            title = "上课提醒",
+            subtitle = "默认课前约 15 分钟，单门课程可单独设置",
+            checked = enabled,
+            onCheckedChange = { value ->
                 when {
                     !value -> toggle(false)
                     LocalCourseReminders.canNotify(context) -> toggle(true)
                     Build.VERSION.SDK_INT >= 33 &&
                         ContextCompat.checkSelfPermission(
                             context, Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED ->
-                                {
-                                    permissionTarget = "course"
-                                    requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
+                            PackageManager.PERMISSION_GRANTED -> {
+                                permissionTarget = "course"
+                                requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
                     else -> openPermissionSettings()
                 }
-            })
-        }
+            }
+        )
     }
     Spacer(Modifier.height(16.dp))
     XiaoxuGroupedSection(title = "任务提醒") {
-        Row(Modifier.fillMaxWidth().heightIn(min = 70.dp)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("本机截止提醒", style = MaterialTheme.typography.titleMedium,
-                    color = XiaoxuPalette.Ink)
-                Text("仅提醒手动填写的日期，提前一天及当天约 09:00",
-                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-            }
-            XiaoxuSettingsSwitch(checked = deadlineEnabled, onCheckedChange = { value ->
+        ReminderToggleRow(
+            title = "本机截止提醒",
+            subtitle = "仅提醒手动填写的日期，提前一天及当天约 09:00",
+            checked = deadlineEnabled,
+            onCheckedChange = { value ->
                 when {
                     !value -> toggleDeadline(false)
                     LocalDeadlineReminders.canNotify(context) -> toggleDeadline(true)
@@ -315,8 +323,8 @@ private fun NotificationSettingsContent(tasks: List<LocalTask>) {
                             }
                     else -> openPermissionSettings()
                 }
-            })
-        }
+            }
+        )
     }
     Spacer(Modifier.height(16.dp))
     XiaoxuGroupedSection(title = "系统") {
