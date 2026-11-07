@@ -27,8 +27,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -165,8 +163,7 @@ internal fun SemesterSettingsDialog(
             SettingsSurface {
                 SettingsActionRow(
                     title = "添加课程",
-                    subtitle = "课程只保存在当前账号",
-                    onClick = onAddCourse
+                                        onClick = onAddCourse
                 )
             }
 
@@ -174,7 +171,7 @@ internal fun SemesterSettingsDialog(
             SettingsSurface {
                 SettingsActionRow(
                     title = "第一周开始日期",
-                    subtitle = "按所选日期所在周的周一计算周次",
+                    subtitle = "按所在周的周一计算",
                     value = runCatching { LocalDate.parse(monday).format(DateTimeFormatter.ofPattern("yyyy年M月d日")) }
                         .getOrNull() ?: "选择日期",
                     icon = "date",
@@ -192,52 +189,29 @@ internal fun SemesterSettingsDialog(
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
                     title = "每天节数",
-                    subtitle = "课程纵向的节次总数",
-                    value = sections.toString() + " 节",
+                                        value = sections.toString() + " 节",
                     icon = "time",
                     onClick = { sectionsMenu = true }
                 )
-                Box {
-                    DropdownMenu(expanded = sectionsMenu, onDismissRequest = { sectionsMenu = false }) {
-                        listOf(8, 10, 12, 14, 16, 18, 20, 24).forEach { n ->
-                            DropdownMenuItem(text = { Text(n.toString() + " 节") }, onClick = {
-                                sections = n
-                                sectionsMenu = false
-                            })
-                        }
-                    }
-                }
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
                     title = "学期周数",
                     value = if (weeks.isBlank()) "设置周数" else weeks + " 周",
                     onClick = { weeksMenu = true }
                 )
-                Box {
-                    DropdownMenu(expanded = weeksMenu, onDismissRequest = { weeksMenu = false }) {
-                        (1..35).forEach { n ->
-                            DropdownMenuItem(text = { Text(n.toString() + " 周") }, onClick = {
-                                weeks = n.toString()
-                                weeksMenu = false
-                                error = null
-                            })
-                        }
-                    }
-                }
             }
 
             SettingsGroupTitle("课表数据")
             SettingsSurface {
                 SettingsActionRow(
                     title = "导入课表",
-                    subtitle = "选择 .ics 或 .json 文件更新本机课表",
+                    subtitle = "从 .ics 或 .json 文件导入",
                     onClick = onImport
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
                     title = "导出备份",
-                    subtitle = "保存当前课表与学期作息",
-                    onClick = onExport
+                                        onClick = onExport
                 )
             }
 
@@ -291,11 +265,51 @@ internal fun SemesterSettingsDialog(
                     )
                 }
             }
-            Text("点任意一节可修改此时间", modifier = Modifier.padding(start = 16.dp, top = 12.dp),
-                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
             if (error != null) {
                 Text(error.orEmpty(), modifier = Modifier.padding(top = 14.dp),
                     color = MaterialTheme.colorScheme.error)
+            }
+
+        }
+    }
+
+    // Both selectors use the same centered glass overlay as the app's detail views.
+    // The bounded inner scroll prevents 35 weeks from covering the entire settings page.
+    if (sectionsMenu || weeksMenu) {
+        val choosingSections = sectionsMenu
+        val dismissChooser = { sectionsMenu = false; weeksMenu = false }
+        val options = if (choosingSections) listOf(8, 10, 12, 14, 16, 18, 20, 24)
+            else (1..35).toList()
+        XiaoxuGlassDialog(
+            title = if (choosingSections) "每天节数" else "学期周数",
+            onDismiss = dismissChooser,
+            dismissLabel = "取消"
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 312.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                options.forEach { number ->
+                    val selected = if (choosingSections) number == sections
+                        else number.toString() == weeks
+                    SettingsActionRow(
+                        title = number.toString() + if (choosingSections) " 节" else " 周",
+                        value = if (selected) "已选择" else null,
+                        onClick = {
+                            if (choosingSections) sections = number
+                            else weeks = number.toString()
+                            error = null
+                            dismissChooser()
+                        }
+                    )
+                    if (number != options.last()) {
+                        HorizontalDivider(
+                            color = XiaoxuPalette.Line,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
             }
         }
     }
