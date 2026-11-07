@@ -387,6 +387,10 @@ assert.match(main, /SecondClassPanel\(cloud, openWebsite\)/);
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
 assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
 assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = sectionOptions/, '二课必须使用唯一共享分段组件');
+assert.match(secondClassMain, /XiaoxuExpandableGlassRow\(/,
+  '真实二课积分与活动支持统一玻璃式展开');
+assert.match(secondClassMain, /row\.details\.isNotBlank\(\)/,
+  '真实详情不存在时不创建假展开内容');
 for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积分']]) {
   assert.ok(secondClassMain.includes(`XiaoxuSegmentOption("${key}", "${label}")`),
     '二课三个真实业务分区必须保留：' + label);
@@ -907,7 +911,14 @@ assert.match(appReturn, /sessionStorage\.removeItem\(KEY\)/);
 assert.match(appReturn, /xiaoxu:\/\/school-auth-return/);
 assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
 assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
-assert.match(localSchoolUi, /专用课表导入/);
+assert.match(localSchoolUi, /课表在课表页查看/,
+  '青果本机课表入口保持可达，不重复堆技术说明');
+assert.match(localSchoolUi, /XiaoxuExpandableGlassRow\(/,
+  '三个本机平台入口须共用玻璃展开组件');
+assert.match(localSchoolUi, /mutableStateOf\(justImported != null\)/,
+  '读取成功自动显示真实本机回执');
+assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevation = 1\.dp\)/,
+  '删除本机连接中的旧 Material 灰色卡片阴影');
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/,
@@ -1277,6 +1288,10 @@ assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
 assert.match(design, /val card: Dp = 24\.dp/, '基础玻璃卡圆角须统一为24dp');
+assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
+  '保留唯一原生玻璃展开控件');
+assert.match(design, /label = "glass-row-chevron"/,
+  '展开箭头动画与其他页面共用时序');
 assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
   '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
 assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.55f\)/,
