@@ -1,0 +1,42 @@
+name: Xiaoxu Campus Run OSS Read-Only Boundary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/**'
+      - '.github/workflows/xiaoxu-campus-run-oss-readonly.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/**'
+      - '.github/workflows/xiaoxu-campus-run-oss-readonly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-readonly-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Checkout pinned upstream MIT read-only modules for signature tests
+        uses: actions/checkout@v4
+        with:
+          repository: Inverx/com.zjwh.android_wh_physicalfitness
+          ref: 412a2e28bed209201057bf8b943fcd0a0e2211c1
+          path: upstream-campus-run
+          sparse-checkout: |
+            协议/7.3.92/core
+            协议/7.3.92/profile
+            协议/7.3.92/policy
+            协议/7.3.92/history
+      - name: Run fully offline personal-read boundary and upstream signatures
+        env:
+          SPORT_WORLD_UPSTREAM_ROOT: upstream-campus-run/协议/7.3.92
+        run: python -m unittest discover -s integrations/campus-run-readonly -p 'test_*.py' -v
