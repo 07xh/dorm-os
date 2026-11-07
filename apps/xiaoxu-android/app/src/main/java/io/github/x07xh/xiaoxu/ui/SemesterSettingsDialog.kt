@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -70,7 +69,7 @@ import java.time.format.DateTimeFormatter
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SemesterSettingsDialog(
+internal fun SemesterSettingsPage(
     current: SemesterCalendar?,
     reminderEnabled: Boolean,
     initialViewMode: String,
@@ -104,11 +103,10 @@ internal fun SemesterSettingsDialog(
         timeError = null
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
+    // Routed content in the existing Activity window, not a full-screen Dialog.
+    Column(
             modifier = Modifier.fillMaxSize()
                 .background(XiaoxuPalette.PageGradient)
-                .systemBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 30.dp),
@@ -266,9 +264,7 @@ internal fun SemesterSettingsDialog(
                 Text(error.orEmpty(), modifier = Modifier.padding(top = 14.dp),
                     color = MaterialTheme.colorScheme.error)
             }
-
         }
-    }
 
     // Use Material3 date/time controls instead of Android framework teal dialogs.
     // The editor writes only to local draft state; the top-right 完成 persists settings.
