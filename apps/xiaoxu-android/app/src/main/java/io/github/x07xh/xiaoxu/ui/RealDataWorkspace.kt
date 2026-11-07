@@ -765,7 +765,9 @@ fun RealAcademicTaskHub(
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
-    var showCourseTasks by rememberSaveable { mutableStateOf(true) }
+    // Default collapsed on first entry. Saveable state still restores a user's
+    // subsequent expand/collapse choice when switching tabs or rotating.
+    var showCourseTasks by rememberSaveable { mutableStateOf(false) }
     var showWechatTasks by rememberSaveable { mutableStateOf(true) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
     val taskScope = rememberCoroutineScope()
