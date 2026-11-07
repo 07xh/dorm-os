@@ -519,7 +519,8 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /catalogRows\.size == 3/);
+assert.match(secondClassMain, /val catalogActivities = all\.filter/,
+  '第二课堂活动广场必须读取本机已验证的非空目录记录');
 assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
@@ -551,11 +552,22 @@ assert.match(localCatalogParser, /parseLocalSecondClassCatalogEmpty\(/);
 assert.match(localCatalogParser, /catalogStatus/);
 assert.match(localCatalogParser, /"verified_empty"/);
 assert.match(localCatalogParser, /catalogEmptyFilters/);
+const localCatalogActivitiesParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogActivities.kt');
+assert.match(localCatalogActivitiesParser, /parseLocalSecondClassCatalogActivities\(/,
+  '非空目录必须由独立严格字段解析器校验');
+assert.doesNotMatch(localCatalogActivitiesParser, /password|cookie|student_code|ticket/i,
+  '目录投影不得存储本人身份与登录凭据');
+assert.match(secondClassMain, /visibleCatalogActivities\.isNotEmpty\(\)/,
+  '真实活动广场记录需要显示成原生卡片');
 assert.match(localReader, /includeCatalog = false/);
 assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
 assert.match(localReader, /catalogStatus='nonempty_unverified'/);
+assert.match(localReader, /catalogStatus='verified_nonempty'/,
+  '完整可信非空活动列表必须区别于结构不明的非空结果');
+assert.match(localReader, /catalogActivities/,
+  '必须只返回经过字段白名单投影的活动目录');
 assert.match(localNativeCatalog, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
-assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, accountHash = accountHash\)/);
+assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, catalogActivities, accountHash = accountHash\)/);
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
