@@ -1642,17 +1642,28 @@ assert.match(main, /if \(timetableChild\)/,
   '课表设置应作为我的页面子路由渲染');
 assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 280ms 动效从设计系统读取');
-assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 220ms 动效从设计系统读取');
-assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
-assert.match(design, /const val PageSwitchMs = 280/, '一级页切换应控制在280ms');
-assert.match(design, /const val SettingsDetailMs = 220/, '设置二级页220ms，减少快速往返晃动');
+assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
+assert.match(pageMotion, /direction \* minOf\(width \/ 18, 84\)/,
+  '一级页只能小幅移动，不能再整屏滑动');
+const primaryMotionSource = pageMotion.slice(
+  pageMotion.indexOf('internal fun xiaoxuPrimaryPageTransition('),
+  pageMotion.indexOf('private val SettingsPageSlide')
+);
+assert.match(primaryMotionSource, /togetherWith ExitTransition.None/,
+  '一级页退出方保持静止，避免两页同时移动');
+assert.doesNotMatch(primaryMotionSource, /slideOutHorizontally\(/,
+  '一级页不能让前后两张页面对向滑动产生晃动');
+assert.match(design, /const val PageSwitchMs = 220/, '一级页切换应以220ms小位移动画呈现');
+assert.match(design, /const val SettingsDetailMs = 200/, '设置二级页使用200ms不回弹过渡');
 assert.doesNotMatch(pageMotion, /MiuixSettingsNavigationEasing|kotlin\.math\.cos/,
   '不能恢复500ms阻尼公式导致长时间拖尾');
 assert.match(pageMotion, /CubicBezierEasing\(0\.22f, 0\.74f, 0\.20f, 1f\)/,
   '二级转场采用不反弹的单调缓动');
-assert.match(pageMotion, /slideInHorizontally\(SettingsPageSlide\) \{ width -> width \/ 6 \}/,
-  '新设置页仅小幅推入，旧页不再跟随横移');
+assert.match(pageMotion, /minOf\(width \/ 20, 72\)/,
+  '设置页限定微小位移，不再从侧边滑入大半屏');
+assert.doesNotMatch(pageMotion, /width \/ 6/,
+  '禁止恢复导致页面晃动的大幅位移');
 assert.match(pageMotion, /togetherWith ExitTransition.None/,
   '进入设置子页时旧页不再反向晃动');
 assert.match(pageMotion, /EnterTransition.None togetherWith\s*slideOutHorizontally/,

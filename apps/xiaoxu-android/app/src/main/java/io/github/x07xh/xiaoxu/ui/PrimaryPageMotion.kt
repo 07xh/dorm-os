@@ -15,8 +15,9 @@ import androidx.compose.ui.unit.IntOffset
  *
  * Source reference: SleepDown-Schedule by xiaomanjun233 (2026), subject to
  * SleepDown Attribution Noncommercial Source-Available License 1.1.
- * Uses SleepDown's single-page navigation approach, adapted to Xiaoxu's
- * lighter 280/320ms, non-overshooting timings. Not a byte-for-byte motion port.
+ * Uses SleepDown's single-page navigation approach, adapted to a subtle
+ * 220/200ms foreground-only slide without spring rebound or crossfade.
+ * Not a byte-for-byte motion port.
  * The same AnimatedContent hosts are retained.
  * https://github.com/xiaomanjun233/SleepDown-Schedule
  *
@@ -29,15 +30,16 @@ private val PrimaryPageSlide = tween<IntOffset>(
 )
 
 /**
- * Full-width, opaque translations keep the outgoing and incoming pages from
- * producing the text ghosting of the old crossfade. The single page layer moves
- * as one group, avoiding per-card animation layers on heavy task/timetable pages.
- * Rapid reversals are handled by AnimatedContent's existing transition state.
+ * Move only the incoming opaque page by a small amount, never the whole screen.
+ * Outgoing content stays fixed and is covered by the new page. This preserves
+ * directionality and prevents two heavyweight pages from sliding in opposite
+ * directions, which looked like the whole UI was shaking.
  */
 internal fun xiaoxuPrimaryPageTransition(forward: Boolean): ContentTransform {
     val direction = if (forward) 1 else -1
-    return slideInHorizontally(PrimaryPageSlide) { width -> direction * width } togetherWith
-        slideOutHorizontally(PrimaryPageSlide) { width -> -direction * width }
+    return slideInHorizontally(PrimaryPageSlide) { width ->
+        direction * minOf(width / 18, 84)
+    } togetherWith ExitTransition.None
 }
 
 /**
@@ -56,8 +58,8 @@ private fun settingsDepth(route: String): Int = when (route) {
 }
 
 /**
- * Small, short, non-bouncing navigation. Only one page moves at a time.
- * Screen-width pushes caused excessive travel on phone and tablet.
+ * A tiny foreground-only transition: background page and navigation remain
+ * stationary on both push and back. Repeated taps should never wobble the UI.
  */
 internal fun xiaoxuSettingsRouteTransition(
     fromRoute: String,
@@ -65,10 +67,11 @@ internal fun xiaoxuSettingsRouteTransition(
 ): ContentTransform {
     val direction = settingsDepth(toRoute).compareTo(settingsDepth(fromRoute))
     return when {
-        direction > 0 -> slideInHorizontally(SettingsPageSlide) { width -> width / 6 } togetherWith
-            ExitTransition.None
+        direction > 0 -> slideInHorizontally(SettingsPageSlide) { width ->
+            minOf(width / 20, 72)
+        } togetherWith ExitTransition.None
         direction < 0 -> EnterTransition.None togetherWith
-            slideOutHorizontally(SettingsPageSlide) { width -> width / 6 }
+            slideOutHorizontally(SettingsPageSlide) { width -> minOf(width / 20, 72) }
         else -> EnterTransition.None togetherWith ExitTransition.None
     }
 }
