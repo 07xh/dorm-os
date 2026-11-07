@@ -1,0 +1,4 @@
+校序统一数字滚轮与旧 UI 清理测试
+PR #351 source f6bf60b6bdde96e9dc883c0d538351d1f9c897a6
+仅 QA：共用 NumberPicker 00-23/00-59 + 学期周数 1-35 + 每天节数既有选项；旧列表代码已清退。
+门禁：Android APK、JVM、静态测试与真实 SHA-256；不合入 main。
