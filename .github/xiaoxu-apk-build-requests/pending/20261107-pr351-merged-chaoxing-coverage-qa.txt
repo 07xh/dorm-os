@@ -1,0 +1,4 @@
+QA-only build request.
+Base #351 exact integrated SHA: 896d72e9c095dfd6760009dffb26665feaca6155
+Includes PR #398 Chaoxing course ledger and contemporary SecondClass changes.
+Build isolated QA APK and JVM tests; no production deployment; marker only.
