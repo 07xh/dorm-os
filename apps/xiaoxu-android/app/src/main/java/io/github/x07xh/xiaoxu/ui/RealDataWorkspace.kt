@@ -218,12 +218,15 @@ internal fun officialTaskStatusLabel(status: String?): String? = when (status) {
     else -> null
 }
 
-/** Only self-entered dates are reliable as personal task deadlines.
- * Some CloudTask records have source work IDs, but no verified due date.
+/** Personal dates: local Room due OR owner-confirmed plan on an approved WeChat task.
+ * Source-only cloud due dates are never treated as verified school deadlines.
  */
+private fun hasPersonalDue(task: WorkspaceTask): Boolean =
+    task.storage == "local" || (task.provider == "wechat" && task.personalTargetAt != null)
+
 internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: LocalDate): Int =
     tasks.count { task ->
-        task.storage == "local" && !task.done &&
+        hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
@@ -238,7 +241,8 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         when (filter) {
             "pending" -> !considerCompleteInTaskList(task)
             "done" -> considerCompleteInTaskList(task)
-            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
+            "week" -> hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
+                thisWeek(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -250,7 +254,7 @@ internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
-        (!thisWeekOnly || (task.storage == "local" && !considerCompleteInTaskList(task) &&
+        (!thisWeekOnly || (hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
             thisWeek(task.date, today)))
 }
 
@@ -1960,6 +1964,18 @@ private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
     // recorded date, but never color it as an officially overdue school work.
     val text = date.monthValue.toString().padStart(2, '0') + "-" +
         date.dayOfMonth.toString().padStart(2, '0')
+    if (task.storage == "cloud" && task.provider == "wechat" &&
+        task.personalTargetAt != null) {
+        return when {
+            !task.done && date.isBefore(today) ->
+                DueUi("计划已逾期 · $text", "本人计划日期已过 $text；不是消息原截止", DUE_OVERDUE)
+            !task.done && date.isEqual(today) ->
+                DueUi("计划今天完成", "本人计划今天完成；不是消息原截止", DUE_TODAY)
+            !task.done && thisWeek(date, today) ->
+                DueUi("计划本周 · $text", "本人计划本周 $text 完成；不是消息原截止", DUE_WEEK)
+            else -> DueUi("计划 $text", "本人计划日期 $text；不是消息原截止", DUE_NORMAL)
+        }
+    }
     if (task.storage == "cloud") {
         return DueUi("记录 $text", "云端记录日期 $text，非学校核实的截止时间", DUE_NORMAL)
     }
