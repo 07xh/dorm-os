@@ -758,6 +758,32 @@ assert.match(messageCenter, /未连接校序云端/);
 assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
 assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
 
+const messagePillSource = messageCenter.slice(
+  messageCenter.indexOf('private fun MessagePill('),
+  messageCenter.indexOf('private fun MessageCountLine('));
+assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
+  '官方消息筛选未选中态与导航共用轻玻璃材质');
+assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
+  '官方消息筛选不可恢复旧1dp灰色硬描边');
+const messageBannerSource = messageCenter.slice(
+  messageCenter.indexOf('private fun MessageBanner('),
+  messageCenter.indexOf('private fun MessageErrorCard('));
+assert.match(messageBannerSource, /XiaoxuPalette\.GlassBorder/,
+  '官方通知状态横幅采用统一柔和玻璃边界');
+assert.doesNotMatch(messageBannerSource, /border\(1\.dp, XiaoxuPalette\.Line/,
+  '状态横幅禁止恢复旧1dp灰色硬边');
+const noticeDetailSource = messageCenter.slice(
+  messageCenter.indexOf('internal fun NoticeDetailSheet('),
+  messageCenter.indexOf('private fun SheetMetaRow('));
+assert.match(noticeDetailSource, /text = notice\.title/,
+  '官方公告标题仍来自真实读取记录');
+assert.doesNotMatch(noticeDetailSource, /background\(XiaoxuPalette\.BrandSoft\)/,
+  '官方公告玻璃抽屉不再额外嵌套实心标题卡片');
+const secondaryActionSource = panels.slice(panels.indexOf('private fun SecondaryAction('));
+assert.match(secondaryActionSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
+  '我的连接次要操作统一玻璃描边而非旧1dp灰色硬边');
+
+
 // 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
 // 顶部不能再用单一「官方来源」徽标覆盖整页。
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
