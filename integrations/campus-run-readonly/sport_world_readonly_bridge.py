@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import secrets
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
@@ -190,6 +191,17 @@ class SportWorldReadOnlyBridge:
     ) -> None:
         if len({id(profile_client), id(policy_client), id(history_client)}) != 3:
             raise ReadOnlyAccessError("clients_must_be_separate")
+        clients = (profile_client, policy_client, history_client)
+        # The three separate upstream modules must share the *same* already
+        # authorized subject and session, not just a guessed owner identifier.
+        for client in clients:
+            if str(getattr(client, "uid", "")) != session.uid:
+                raise ReadOnlyAccessError("client_session_subject_mismatch")
+        tokens = [getattr(client, "token", None) for client in clients]
+        if (any(not isinstance(t, str) or not t for t in tokens)
+                or not secrets.compare_digest(tokens[0], tokens[1])
+                or not secrets.compare_digest(tokens[0], tokens[2])):
+            raise ReadOnlyAccessError("client_sessions_are_not_identical")
         self.profile = restrict_upstream_client(profile_client)
         self.policy = restrict_upstream_client(policy_client)
         self.history = restrict_upstream_client(history_client)
