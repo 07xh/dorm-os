@@ -59,6 +59,9 @@ GPL-3.0 source into this project's existing one-shell Compose navigation.
 Adapted paths: ui/NorthGlassNavChrome.kt, ui/PrimaryBottomGeometry.kt,
 ui/northglass/*, ui/PrimaryNavigation.kt and ui/FloatingBottomBar.kt.
 Uses io.github.kyant0:backdrop:2.0.0-alpha03 and shapes:1.2.0.
+Phosphor Icons (MIT; Copyright (c) 2023 Phosphor Icons)
+https://github.com/phosphor-icons/core
+Full icon license is bundled in assets/licenses/phosphor-icons.txt.
 
 Distribution warning: combining the GPLv3 UI adaptation with the existing
 non-commercial SleepDown-derived animation code has NOT been cleared for
