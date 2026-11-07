@@ -1013,7 +1013,7 @@ assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
   '课表设置分组圆角必须与所有设置页同源');
 assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
   '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
+assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
   '课表设置分组边界必须使用轻玻璃描边');
 assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
   '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
@@ -1695,7 +1695,13 @@ assert.match(design, /label = "glass-row-chevron"/,
 assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
   '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
 assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
-  '轻玻璃边界须接近北化的柔和白色描边而非旧灰色轮廓');
+  '保留全局轻色描边作为普通卡片后备');
+assert.match(design, /val GlassRim = Brush\.linearGradient\(/,
+  '悬浮控件使用同源光学高光而非深色外圈');
+assert.match(design, /val GlassModalFallback = Brush\.linearGradient\(/,
+  '独立窗口无法采样背景时保证可读的玻璃降级材质');
+assert.match(design, /glassChrome: Boolean = false/,
+  '不能对长列表内容卡默认叠加高成本玻璃');
 assert.match(design, /Brush\.linearGradient\(/,
   '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
 
@@ -1866,7 +1872,7 @@ assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
 assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
   '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
-assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
+assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
   '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
 
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
@@ -1996,8 +2002,10 @@ assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
-assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
-  '用户点击课程任务后必须仍能展开和收起');
+assert.match(workspace, /pinTaskListViewport\(\)\s*showCourseTasks = !showCourseTasks/,
+  '课程任务展开/收起时须保留用户当前浏览位置');
+assert.match(workspace, /taskListState\.requestScrollToItem\(/,
+  '只调整已有 LazyColumn 的测量锚点，不新增滚动容器');
 assert.match(workspace, /if \(showCourseTasks\) \{/,
   '课程列表显示必须只由当前展开状态控制');
 assert.match(workspace, /item\(key = "group:course"\)/,
