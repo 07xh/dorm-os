@@ -97,9 +97,10 @@ rejected({...batch,records:[{...baseRecord,kind:'verified_platform'}]},'kind_inv
 rejected({...batch,records:[{...baseRecord,status:'completed'}]},'record_invalid');
 rejected({...batch,records:[{...baseRecord,candidateKey:'wxid_abc'}]},'candidate_key_invalid');
 rejected({...batch,records:[{...baseRecord,title:'x'.repeat(121)}]},'title_invalid');
+const longBody='第1行说明\\n'+'详细要求'.repeat(500);
 assert.equal(normalizeWechatCandidateBatch({...batch,records:[
- {...baseRecord,excerpt:'第1行说明\\n'+'详细要求'.repeat(500)}
-]}).records[0].excerpt.length,3005,'long task text must not be clipped at 240');
+ {...baseRecord,excerpt:longBody}
+]}).records[0].excerpt,longBody,'long task text must not be clipped at 240');
 rejected({...batch,records:[{...baseRecord,excerpt:'y'.repeat(4001)}]},'excerpt_invalid');
 rejected({...batch,records:[{...baseRecord,sentAt:'2026-11-04T13:00:00+08:00'}]},'sent_at_future');
 rejected({...batch,records:[{...baseRecord,deadline:{
