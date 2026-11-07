@@ -63,6 +63,21 @@ assert.match(designSystem, /fun Modifier\.xiaoxuPageWidth\(/, '正文最大宽�
 assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
 assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
 assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
+
+// Interaction regressions: no dark, unbounded ripple; shared sheet dim.
+assert.match(designSystem, /LocalIndication provides ripple\(bounded = true/,
+  '默认按压反馈须使用共享受界浅色 ripple');
+assert.match(designSystem, /fun XiaoxuSoftIconButton\(/,
+  '顶栏和设置图标应使用唯一柔和按压组件');
+assert.match(designSystem, /fun XiaoxuDialogDim\(/,
+  '居中详情弹窗需共享低对比遮罩');
+assert.match(scheduleUi, /scrimColor = XiaoxuPalette\.ModalScrim/,
+  '课程详情背景遮罩必须与统一材质一致');
+assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
+  '课表课程卡按压反馈须受圆角裁切');
+assert.match(messageUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
+  '通知卡不可重新引入深色点击灰块');
+
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
 assert.doesNotMatch(manifest, /com\.google\.androidbrowserhelper\.trusted\.LauncherActivity/, '退役 TWA 页面不可回流');
