@@ -373,7 +373,18 @@ private fun ScheduleVerifiedContent(
 
     // Keep the timetable's scroll offset while switching to its real settings route.
     val timetableScroll = rememberScrollState()
-    if (!settingsOpen) {
+    androidx.compose.animation.AnimatedContent(
+        targetState = settingsOpen,
+        transitionSpec = {
+            xiaoxuSettingsRouteTransition(
+                fromRoute = if (initialState) "timetable-settings" else "home",
+                toRoute = if (targetState) "timetable-settings" else "home"
+            )
+        },
+        modifier = Modifier.fillMaxSize(),
+        label = "timetableSettingsRoute"
+    ) { animatedSettingsOpen ->
+    if (!animatedSettingsOpen) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(timetableScroll),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -655,7 +666,7 @@ private fun ScheduleVerifiedContent(
     }
         }
     }
-    if (settingsOpen) {
+    if (animatedSettingsOpen) {
         SemesterSettingsPage(
             current = calendar,
             initialViewMode = viewMode,
@@ -708,6 +719,7 @@ private fun ScheduleVerifiedContent(
                 }
             }
         )
+    }
     }
 }
 
