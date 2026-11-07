@@ -94,6 +94,7 @@ import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
+import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.Instant
@@ -831,6 +832,14 @@ fun RealAcademicTaskHub(
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
+    val capturedStudyTasks = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "study_task" }
+    }
+    val visibleCompleted = remember(capturedHomework, capturedStudyTasks) {
+        (capturedHomework + capturedStudyTasks).count {
+            nativeChaoxingVisibleStatus(it) in setOf("submitted", "graded")
+        }
+    }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
     var sourceMenuOpen by rememberSaveable { mutableStateOf(false) }
@@ -1565,13 +1574,13 @@ fun RealAcademicTaskHub(
         item {
             TaskGroupHeader(
                 title = "本机读取",
-                count = capturedHomework.size,
+                count = capturedHomework.size + capturedStudyTasks.size,
                 badge = "",
                 note = "",
                 icon = Icons.Outlined.School,
                 expanded = showSchoolRecords,
                 onClick = { showSchoolRecords = !showSchoolRecords },
-                showCount = capturedHomework.isNotEmpty()
+                showCount = capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty()
             )
         }
         if (showSchoolRecords) {
@@ -1580,7 +1589,7 @@ fun RealAcademicTaskHub(
                 title = "学习通 · 本机作业快照",
                 count = capturedHomework.size,
                 badge = "本机页面快照",
-                note = "本机读取到的作业名称单独展示，不纳入待完成/已完成数量，不推定截止日期或学校提交状态。"
+                note = "本机官方页面已显示完成 $visibleCompleted 条（含学习计划）；在此显示真实平台文字，不按标题改写云端历史任务或重复计入总数。"
             )
             OutlinedButton(
                 onClick = { openLocalSchool("chaoxing") },
@@ -1604,6 +1613,21 @@ fun RealAcademicTaskHub(
                 val work = capturedHomework[index]
                 XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
                     contentPadding = 8.dp) { SnapshotRow(work) }
+            }
+        }
+        if (capturedStudyTasks.isNotEmpty()) {
+            item {
+                TaskSectionHeader(
+                    title = "学习通 · 学习计划任务",
+                    count = capturedStudyTasks.size,
+                    badge = "官方页面状态",
+                    note = "只读展示本人已登录学习计划中显示的状态；不自动执行阅读、提交或批改操作。"
+                )
+            }
+            items(count = minOf(capturedStudyTasks.size, 500),
+                key = { i -> "study:" + capturedStudyTasks[i].fingerprint }) { index ->
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
+                    contentPadding = 8.dp) { SnapshotRow(capturedStudyTasks[index]) }
             }
         }
         item {
@@ -2142,9 +2166,17 @@ private fun TaskRow(
     }
 }
 
-/** 学习通本机页面快照：只有页面读到的标题、详情与采集时间，没有学校提交状态。 */
+/** Owner-visible official text is classified for display, never written into cloud task state. */
 @Composable
 private fun SnapshotRow(work: NativeSchoolRecord) {
+    val official = nativeChaoxingVisibleStatus(work)
+    val statusLabel = when (official) {
+        "submitted", "graded" -> "已完成 · 平台显示"
+        "todo" -> "未完成 · 平台显示"
+        "returned" -> "待处理 · 平台显示"
+        "unknown" -> "状态待核对"
+        else -> null
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2178,6 +2210,14 @@ private fun SnapshotRow(work: NativeSchoolRecord) {
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
+            if (statusLabel != null) {
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (official in setOf("submitted", "graded"))
+                        XiaoxuPalette.Success else XiaoxuPalette.Warning
+                )
+            }
             if (work.details.isNotBlank()) {
                 Text(
                     text = work.details,
