@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 
+private val HOUR_OPTIONS = (0..23).toList()
+private val MINUTE_OPTIONS = (0..59).toList()
+
 /**
  * Smooth, native number-wheel time selection, matching the numeric SleepDown
  * reference rather than Material3's circular clock face. NumberPicker supplies
@@ -36,53 +39,59 @@ internal fun XiaoxuTimeWheel(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NativeTimeNumberWheel(
-            value = hour,
-            maxValue = 23,
+        XiaoxuNumberWheel(
+            options = HOUR_OPTIONS,
+            selected = hour,
             label = "小时",
-            onValueChanged = onHourChanged
+            onSelected = onHourChanged
         )
         Text(":", style = MaterialTheme.typography.headlineLarge, color = XiaoxuPalette.Ink)
-        NativeTimeNumberWheel(
-            value = minute,
-            maxValue = 59,
+        XiaoxuNumberWheel(
+            options = MINUTE_OPTIONS,
+            selected = minute,
             label = "分钟",
-            onValueChanged = onMinuteChanged
+            onSelected = onMinuteChanged
         )
     }
 }
 
+/** One native wheel for time, semester weeks, and periods/day. No duplicate scroll physics. */
 @Composable
-private fun NativeTimeNumberWheel(
-    value: Int,
-    maxValue: Int,
+internal fun XiaoxuNumberWheel(
+    options: List<Int>,
+    selected: Int,
     label: String,
-    onValueChanged: (Int) -> Unit
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier.width(118.dp),
+    cyclic: Boolean = true
 ) {
-    val currentOnChange by rememberUpdatedState(onValueChanged)
+    require(options.isNotEmpty()) { "Number wheel requires at least one option" }
+    val currentOnChange by rememberUpdatedState(onSelected)
+    val currentOptions by rememberUpdatedState(options)
     AndroidView(
-        modifier = Modifier.width(118.dp).height(210.dp),
+        modifier = modifier.height(210.dp),
         factory = { context ->
             NumberPicker(context).apply {
                 minValue = 0
-                this.maxValue = maxValue
-                wrapSelectorWheel = true
-                setFormatter { number -> number.toString().padStart(2, '0') }
-                this.value = value.coerceIn(0, maxValue)
+                maxValue = options.lastIndex
+                wrapSelectorWheel = cyclic && options.size > 2
+                setFormatter { index -> options.getOrNull(index)
+                    ?.toString()?.padStart(2, '0').orEmpty() }
+                value = options.indexOf(selected).takeIf { it >= 0 } ?: 0
                 descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                 contentDescription = label
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     setTextColor(XiaoxuPalette.Ink.toArgb())
                     setTextSize(29.sp.value * context.resources.displayMetrics.scaledDensity)
                 }
-                setOnValueChangedListener { _, _, selected ->
-                    currentOnChange(selected)
+                setOnValueChangedListener { _, _, position ->
+                    currentOptions.getOrNull(position)?.let(currentOnChange)
                 }
             }
         },
         update = { picker ->
-            val expected = value.coerceIn(0, maxValue)
-            if (picker.value != expected) picker.value = expected
+            val position = options.indexOf(selected).takeIf { it >= 0 } ?: 0
+            if (picker.value != position) picker.value = position
         }
     )
 }
