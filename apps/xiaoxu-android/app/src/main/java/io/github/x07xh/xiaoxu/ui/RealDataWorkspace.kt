@@ -1571,7 +1571,9 @@ private fun TaskStatusTab(
         )
         Text(
             text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = "tnum"
+            ),
             fontWeight = FontWeight.SemiBold,
             color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
             maxLines = 1
@@ -1738,8 +1740,9 @@ private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
 
-/** Consecutive rows share one visual surface and light separators.
- * They remain separate keyed LazyColumn items, even with 80 saved tasks.
+/** Each row is individually lazy and shares a single visual surface.
+ * The header owns the outline; per-row outlines previously stacked into
+ * conspicuous gray seams. Keep only the lightweight inner separators.
  */
 @Composable
 private fun ConnectedTaskShell(
@@ -1758,7 +1761,6 @@ private fun ConnectedTaskShell(
         modifier = Modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, corners)
     ) {
         if (index > 0) {
             HorizontalDivider(

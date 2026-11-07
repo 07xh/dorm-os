@@ -524,9 +524,13 @@ private fun NativeShell(
     }
     val localTasks by dao.observe().collectAsState(initial = emptyList())
     val reminderContext = LocalContext.current
-    // Room emits after create / complete / delete / import; WorkManager refreshes only local opt-in jobs.
+    // Room emits after create / complete / delete / import. WorkManager's
+    // persistence and unique-work reconciliation must never occupy the UI
+    // dispatcher after a checkbox tap or during a page transition.
     LaunchedEffect(localTasks) {
-        LocalDeadlineReminders.reconcile(reminderContext, localTasks)
+        withContext(Dispatchers.IO) {
+            LocalDeadlineReminders.reconcile(reminderContext, localTasks)
+        }
     }
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {
