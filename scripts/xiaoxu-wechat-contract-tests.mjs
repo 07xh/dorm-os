@@ -59,6 +59,21 @@ rejectedLinks(['https://']);
 rejectedLinks(['javascript:alert(1)']);
 rejectedLinks(['https://course.example/'+'a'.repeat(520)]);
 rejectedLinks([42]);
+// Credential-style query/fragment parameters mirror the Python collector.
+rejectedLinks(['https://course.example/form?token=abc']);
+rejectedLinks(['https://course.example/a?id=1&api_key=x']);
+rejectedLinks(['https://course.example/b#access_token=xyz']);
+rejectedLinks(['https://course.example/d?invite_code=7']);
+rejectedLinks(['https://course.example/e?na%2me=%zz']);
+// WHATWG port semantics mirror the Python collector.
+rejectedLinks(['https://course.example:abc/report']);
+rejectedLinks(['https://course.example:99999/x']);
+assert.deepEqual(normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:['https://course.example/c?id=1&page=2',
+                        'https://course.example:8443/x?classcode=7']}
+]}).records[0].links,
+ ['https://course.example/c?id=1&page=2','https://course.example:8443/x?classcode=7'],
+ 'plain parameters and valid ports stay accepted');
 function rejected(payload,code) {
   assert.throws(()=>normalizeWechatCandidateBatch(payload),
     e=>e instanceof WechatCandidateError && e.code===code);

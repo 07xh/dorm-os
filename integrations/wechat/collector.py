@@ -48,8 +48,17 @@ TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|
 # chat links percent-encode non-ASCII, so raw CJK/full-width characters mark
 # the boundary between the URL and the surrounding sentence.
 LINK_URL = re.compile(
-    r"https://[^\s<>\"'`\x7f\u2e80-\u9fff\ufe30-\ufe4f\uff00-\uffef]+", re.I)
+    r"https://[^\s<>\"'`\x5c\x7f\u2e80-\u9fff\ufe30-\ufe4f\uff00-\uffef]+", re.I)
 LINK_TRAIL_PUNCT = ".,;:!?\u2026\u00b7\u2014\u201d\uff0c\u3002\uff1b\uff01\uff1f\u3001\uff09)]}\u3011\u300d\u300f\u3009"
+# Query/fragment parameter names that mark credential-bearing URLs. Matched on
+# name segments separated by word boundaries so "classcode" passes while
+# "invite_code", "api_key", "token" and OAuth fragments are rejected.
+SENSITIVE_PARAM = re.compile(
+    r"(?:^|[_-])(?:token|secret|password|passwd|pwd|pass|auth|authorization|"
+    r"credential|session|sessionid|sid|oauth|jwt|bearer|sig|signature|sas|"
+    r"apikey|api[_-]?key|api[_-]?secret|access[_-]?token|refresh[_-]?token|"
+    r"id[_-]?token|code|key)(?:$|[_-])", re.I)
+PERCENT_INVALID = re.compile(r"%(?![0-9A-Fa-f]{2})")
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
 CLEAN_LONG_ID = re.compile(r"(?<!\d)\d{8,}(?!\d)")
@@ -183,12 +192,30 @@ def due_date(text: str, sent_ts: int) -> dict:
     return {"precision": "unknown"}
 
 
+def _sensitive_params(raw: str) -> bool:
+    """True when a query/fragment carries a credential-style parameter name."""
+    for piece in re.split(r"[&;]", raw):
+        if not piece:
+            continue
+        raw_name = piece.split("=", 1)[0]
+        # Malformed percent-encoding is treated as unvalidatable and dropped,
+        # matching the JavaScript contract's decode failure behaviour.
+        if PERCENT_INVALID.search(raw_name):
+            return True
+        name = urllib.parse.unquote(raw_name).strip()
+        if name and SENSITIVE_PARAM.search(name):
+            return True
+    return False
+
+
 def extract_https_links(text: str) -> list[str]:
     """Extract at most MAX_LINKS validated HTTPS links from a message body.
 
-    Validation is structural only: https scheme, real hostname, no embedded
-    credentials, bounded length. Links are never opened, previewed or fetched;
-    only their literal text is kept for later human review.
+    Validation is structural only and mirrors the cloud contract's WHATWG
+    URL checks (scheme, hostname, no credentials, numeric port in range, no
+    credential-style query/fragment parameters such as ?token= or
+    #access_token=). Links are never opened, previewed or fetched; only
+    their literal text is kept for later human review.
     """
     seen: set[str] = set()
     links: list[str] = []
@@ -206,9 +233,14 @@ def extract_https_links(text: str) -> list[str]:
             continue
         try:
             parts = urllib.parse.urlsplit(url)
+            port = parts.port
         except ValueError:
             continue
         if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+            continue
+        if port is not None and not 0 <= port <= 65535:
+            continue
+        if _sensitive_params(parts.query) or _sensitive_params(parts.fragment):
             continue
         if any(ord(ch) < 0x20 or ch == "\x7f" for ch in url):
             continue

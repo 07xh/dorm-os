@@ -75,6 +75,25 @@ assert.deepEqual(legacyPending.links,[],'legacy records expose an empty link lis
 assert.equal(sqlite.prepare(
  'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n,3);
 
+// V1.1 safe historical backfill: the same message re-synced by an upgraded
+// collector backfills links ONLY while the candidate is still pending review.
+const backfilled=await ingestWechatCandidates(db,device,{...batch,batchId:str('b2'),
+ records:[{...record,candidateKey:str('o'),title:'纯文本任务',
+           links:['https://course.example/late-link']}]});
+assert.equal(backfilled.inserted,0,'backfill never duplicates the candidate');
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n,4);
+const backfilledRow=(await listWechatCandidates(db,owner,{status:'needs_review'}))
+ .find(x=>x.id===legacyPending.id);
+assert.deepEqual(backfilledRow.links,['https://course.example/late-link'],
+ 'a pending legacy candidate gains its links on re-sync');
+// Repeat backfill is idempotent.
+await ingestWechatCandidates(db,device,{...batch,batchId:str('b3'),
+ records:[{...record,candidateKey:str('o'),title:'纯文本任务',
+           links:['https://course.example/late-link']}]});
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n,4);
+
 // Accepting the candidate keeps its links bound to the created task.
 const accepted=await reviewWechatCandidate(db,owner,pending.id,'accept');
 assert.equal(accepted.status,'accepted');
@@ -87,6 +106,18 @@ assert.deepEqual((await listWechatCandidates(db,owner,{status:'accepted'}))[0].l
  record.links,'links stay consistent with the accepted review status');
 assert.equal((await listAssignments(db,'owner-b')).length,0,
  'another owner never sees the task or its links');
+
+// Already reviewed candidates never change: a re-sync cannot append links
+// after acceptance, keeping review status and link data consistent.
+const reingest=await ingestWechatCandidates(db,device,{...batch,batchId:str('b4'),
+ records:[{...record,candidateKey:str('c'),
+           links:['https://course.example/post-review-link']}]});
+assert.equal(reingest.inserted,0);
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n,4,
+ 'reviewed candidates never gain links after the fact');
+assert.deepEqual((await listWechatCandidates(db,owner,{status:'accepted'}))[0].links,
+ record.links);
 
 // Dismissed candidates never create tasks, and their links never leak into
 // any task query result.

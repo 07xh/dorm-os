@@ -309,6 +309,42 @@ class CollectorTests(TestCase):
                 self.assertNotIn("secret", str(caught.exception))
                 self.assertNotIn("wxu_", str(caught.exception))
 
+    def test_sensitive_link_params_rejected(self):
+        # Credential-style query/fragment parameters never reach the cloud.
+        self.assertEqual(
+            bridge.extract_https_links("填表 https://school.example/form?token=abc 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links(
+                "看 https://school.example/a?id=1&api_key=x "
+                "和 https://school.example/b#access_token=xyz 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links(
+                "看 https://school.example/a?id=1&next=2 提交"),
+            ["https://school.example/a?id=1&next=2"])
+        # Word-boundary matching: classcode is a plain value, invite_code is
+        # conservatively treated as sensitive.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/d?classcode=7 提交"),
+            ["https://school.example/d?classcode=7"])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/d?invite_code=7 提交"), [])
+        # Malformed percent-encoding is treated as unvalidatable.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/e?na%2me=1 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/e?na%2me=%zz 提交"), [])
+
+    def test_link_port_validation_matches_js(self):
+        # WHATWG new URL() rejects non-numeric and out-of-range ports; the
+        # collector must agree so one bad link cannot sink a whole batch.
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:abc/report 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:99999/x 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("看 https://school.example:8443/x 提交"),
+            ["https://school.example:8443/x"])
+
     def test_http_422_reports_safe_contract_code(self):
         import io
         from urllib.error import HTTPError
