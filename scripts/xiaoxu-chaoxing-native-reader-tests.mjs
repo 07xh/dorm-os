@@ -29,7 +29,7 @@ const main = readFileSync(
   'utf8'
 );
 assert.match(records, /@Transaction\s+suspend fun appendKind\(/);
-assert.match(records, /require\(provider == "chaoxing" && kind in setOf\("course", "homework"\)\)/);
+assert.match(records, /require\(provider == "chaoxing" && kind in setOf\("course", "homework", "study_task"\)\)/);
 assert.match(records, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.match(records, /require\(keys\.size <= 500\)/);
 assert.match(records, /insertAll\(rows\)\s+return keys\.size/);
