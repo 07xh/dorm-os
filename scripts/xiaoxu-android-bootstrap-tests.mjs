@@ -500,15 +500,42 @@ assert.doesNotMatch(main, /SecondClassPanel\(cloud, openWebsite\)/,
   '第二课堂个人记录不应返回我的设置入口');
 const secondClassMain = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
 assert.match(main, /AcademicDestination\.SECOND_CLASS\s*->\s*tabStateHolder\.SaveableStateProvider\("second_class"\)\s*\{\s*SecondClassPage\(\)/, '第二课堂依然沿用保存页面状态的真实内容入口');
-assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = sectionOptions/, '二课必须使用唯一共享分段组件');
-assert.match(secondClassMain, /XiaoxuExpandableGlassRow\(/,
-  '真实二课积分与活动支持统一玻璃式展开');
-assert.match(secondClassMain, /row\.details\.isNotBlank\(\)/,
-  '真实详情不存在时不创建假展开内容');
-for (const [key, label] of [['0', '活动'], ['1', '我的活动'], ['2', '积分']]) {
-  assert.ok(secondClassMain.includes(`XiaoxuSegmentOption("${key}", "${label}")`),
-    '二课三个真实业务分区必须保留：' + label);
+assert.match(secondClassMain, /XiaoxuSegmentedControl\(\s*options = catalogOptions/,
+  '单页二课只保留活动广场的共享筛选控件');
+assert.match(secondClassMain, /XiaoxuGlassDialog\(/,
+  '真实二课积分和活动详情复用居中浮层');
+assert.match(secondClassMain, /detailRecord != null/,
+  '只有真实保存记录才创建详情浮层');
+for (const label of ['积分概览', '我的活动', '活动广场', '积分明细']) {
+  assert.ok(secondClassMain.includes('"' + label + '"'), '单页必须直接呈现：' + label);
 }
+assert.doesNotMatch(secondClassMain, /sectionOptions|val currentScroll|section == [012]/,
+  '不允许回退旧的三顶栏和三个独立滚动容器');
+assert.match(secondClassMain, /LazyColumn\(/, '二课单列表惰性加载，避免逐页向下展开');
+assert.match(secondClassMain, /selectedTermTitle by rememberSaveable/,
+  '积分支持已读取的真实学期选择');
+const secondClassPointsHeader = secondClassMain.slice(
+  secondClassMain.indexOf('item(key = "points_header")'),
+  secondClassMain.indexOf('item(key = "metrics")'));
+assert.match(secondClassPointsHeader, /Text\("积分概览"/,
+  '积分概览标题直接在第一行');
+assert.match(secondClassPointsHeader, /DropdownMenu\(/,
+  '学期下拉必须位于积分概览标题同行');
+assert.doesNotMatch(secondClassMain, /item\(key = "term_selector"\)/,
+  '学期选择不再单独占据积分卡下方的一张大卡片');
+const secondClassBreakdown = secondClassMain.slice(
+  secondClassMain.indexOf('item(key = "term_breakdown")'),
+  secondClassMain.indexOf('item(key = "activities_header")'));
+assert.match(secondClassBreakdown, /Text\("积分明细"/,
+  '积分明细默认只显示可点击的摘要行');
+assert.doesNotMatch(secondClassBreakdown, /secondClassCategories\(|entries\.forEach|selectedTerm\.details/,
+  '六类积分默认不能在主页面向下展开');
+assert.match(secondClassMain, /if \(detailRecord\.kind == "credits"\)/,
+  '六类积分在共享居中玻璃弹窗中展示');
+assert.match(secondClassMain, /secondClassPoints\(schoolTotal\) \?: "—"/,
+  '学校总积分不能凭空变成零');
+assert.match(secondClassMain, /if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
+  '未验证活动快照不能推导数量');
 assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
 assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
@@ -530,7 +557,8 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /catalogRows\.size == 3/);
+assert.match(secondClassMain, /val catalogActivities = all\.filter/,
+  '第二课堂活动广场必须读取本机已验证的非空目录记录');
 assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
@@ -554,19 +582,36 @@ assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
 assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 4,
  '任务中心顶部恰好使用四个统一工具按钮');
 assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
-assert.match(secondClassMain, /if \(record != null\) "上次读取：暂无活动" else "活动暂未获取"/,
- '只有已核验空结果可标暂无活动，并注明上次读取');
-assert.match(secondClassMain, /record\.capturedAt/, '空结果必须关联真实读取时间');
+assert.match(secondClassMain, /if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
+ '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
+assert.match(secondClassMain, /catalogRecord\.capturedAt/, '空结果必须关联真实读取时间');
 
 assert.match(localCatalogParser, /parseLocalSecondClassCatalogEmpty\(/);
 assert.match(localCatalogParser, /catalogStatus/);
 assert.match(localCatalogParser, /"verified_empty"/);
 assert.match(localCatalogParser, /catalogEmptyFilters/);
+const localCatalogActivitiesParser = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSecondClassCatalogActivities.kt');
+assert.match(localCatalogActivitiesParser, /parseLocalSecondClassCatalogActivities\(/,
+  '非空目录必须由独立严格字段解析器校验');
+assert.doesNotMatch(localCatalogActivitiesParser, /password|cookie|student_code|ticket/i,
+  '目录投影不得存储本人身份与登录凭据');
+assert.match(secondClassMain, /visibleCatalogActivities\.isNotEmpty\(\)/,
+  '真实活动广场记录需要显示成原生卡片');
 assert.match(localReader, /includeCatalog = false/);
 assert.match(localReader, /catalogPath='\/sys\/stu\/activity'/);
 assert.match(localReader, /catalogStatus='nonempty_unverified'/);
+assert.match(localReader, /catalogStatus='verified_nonempty'/,
+  '完整可信非空活动列表必须区别于结构不明的非空结果');
+assert.match(localReader, /catalogActivities/,
+  '必须只返回经过字段白名单投影的活动目录');
 assert.match(localNativeCatalog, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
-assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, accountHash = accountHash\)/);
+assert.match(localNativeCatalog, /pendingOfficialCatalogRead = true/,
+  '学校活动卡不能再交给仅识别 table 的旧页面读取器');
+assert.match(localNativeCatalog, /browser\.loadUrl\(entries\.getValue\("second_class"\)\)/,
+  '人工点击当前活动页必须回用已授权的本人积分与活动联合读取链路');
+assert.match(localNativeCatalog, /parseLocalSecondClassCatalogActivities\(payload, rows\.first\(\)\.capturedAt\)/,
+  '非空目录进入严格 Kotlin 字段校验后才写入本机');
+assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, catalogActivities, accountHash = accountHash\)/);
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
@@ -1598,16 +1643,20 @@ assert.match(main, /if \(timetableChild\)/,
 assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
 assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 280ms 动效从设计系统读取');
-assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 320ms 动效从设计系统读取');
+assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 220ms 动效从设计系统读取');
 assert.match(pageMotion, /slideOutHorizontally\(PrimaryPageSlide\)/, '旧页必须退出而不是交叉淡出造成重影');
 assert.match(design, /const val PageSwitchMs = 280/, '一级页切换应控制在280ms');
-assert.match(design, /const val SettingsDetailMs = 320/, '二级设置收敛到320ms，避免长时间拖尾');
+assert.match(design, /const val SettingsDetailMs = 220/, '设置二级页220ms，减少快速往返晃动');
 assert.doesNotMatch(pageMotion, /MiuixSettingsNavigationEasing|kotlin\.math\.cos/,
   '不能恢复500ms阻尼公式导致长时间拖尾');
 assert.match(pageMotion, /CubicBezierEasing\(0\.22f, 0\.74f, 0\.20f, 1f\)/,
   '二级转场采用不反弹的单调缓动');
-assert.match(pageMotion, /slideOutHorizontally\(SettingsPageSlide\) \{ width -> -width \/ 8 \}/,
-  '旧设置页应减少视差位移，避免与新页同时大幅运动');
+assert.match(pageMotion, /slideInHorizontally\(SettingsPageSlide\) \{ width -> width \/ 6 \}/,
+  '新设置页仅小幅推入，旧页不再跟随横移');
+assert.match(pageMotion, /togetherWith ExitTransition.None/,
+  '进入设置子页时旧页不再反向晃动');
+assert.match(pageMotion, /EnterTransition.None togetherWith slideOutHorizontally/,
+  '返回设置时背景页保持静止，详情页小幅退出');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
   '五个主页面的动画容器必须裁剪边界');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,

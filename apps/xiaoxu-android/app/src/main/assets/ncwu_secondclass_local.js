@@ -132,20 +132,19 @@
         if(page===pageCount){if(activities.length!==total)return fail('activity_response','incomplete_total');break;}
       }
     }
-    // Reuse the same owner-bound official page + verified score identity.
-    // The owner's 2026-11-06 HAR confirms POST /sys/stu/activity with
-    // title=报名中/待验证/即将开始报名 and a strict zero-row envelope.
-    // NO nonempty catalog row has been witnessed; never claim it parsed.
+    // Use the same identity-checked official session as the verified score read.
+    // Prior observations only proved empty envelopes; nonempty rows are now
+    // projected strictly from a complete single-page official JSON response.
+    // No raw response, session, student identity, HTML, or external ID crosses to Android.
     let catalogStatus='not_requested';
     let catalogEmptyFilters=[];
+    let catalogActivities=[];
     if(includeCatalog){
       catalogStatus='verified_empty';
       const catalogPath='/sys/stu/activity';
-      for(const title of ['报名中','待验证','即将开始报名']){
+      const filters=['报名中','待验证','即将开始报名'];
+      for(const title of filters){
         requestStage='catalog_request';
-        // Keep the personal-score/activities HTTP result unchanged:
-        // parseLocalSecondClassScores requires its verified 200 status.
-        // Catalog diagnostics must not overwrite that independent contract.
         let res;
         try{
           res=await fetch(host+catalogPath,{
@@ -169,18 +168,49 @@
         if(!context()||current.length!==1||current[0]!==expected)
           return fail('identity','visible_account_changed');
         if(!data||!Array.isArray(data.data)||
-           !Number.isSafeInteger(data.totalSize)||
-           !Number.isSafeInteger(data.totalPage)||
-           !Number.isSafeInteger(data.startIndex)){
+           !Number.isSafeInteger(data.totalSize)||data.totalSize<0||
+           !Number.isSafeInteger(data.totalPage)||data.totalPage<0||
+           !Number.isSafeInteger(data.startIndex)||data.startIndex!==0){
           catalogStatus='unavailable';break;
         }
-        if(data.data.length!==0||data.totalSize!==0||
-           data.totalPage!==0||data.startIndex!==0){
+        if(data.data.length===0&&data.totalSize===0&&data.totalPage===0){
+          catalogEmptyFilters.push(title);
+          continue;
+        }
+        // We have no confirmed pagination request contract for this endpoint.
+        // Never misrepresent a partial catalog as the complete activity list.
+        if(data.totalSize<1||data.totalSize!==data.data.length||
+           data.totalPage!==1||data.data.length>50){
           catalogStatus='nonempty_unverified';break;
         }
-        catalogEmptyFilters.push(title);
+        const projected=[];
+        for(const raw of data.data){
+          if(!raw||typeof raw!=='object'||Array.isArray(raw)){
+            catalogStatus='nonempty_unverified';break;
+          }
+          // activity_name is the existing first-party second-class business field.
+          // No arbitrary object text, ID, owner, cookie or HTML is returned.
+          const name=raw.activity_name;
+          if(typeof name!=='string'){
+            catalogStatus='nonempty_unverified';break;
+          }
+          const clean=name.replace(/\s+/g,' ').trim();
+          if(clean.length<2||clean.length>120||/[<>\u0000-\u001f]/.test(clean)){
+            catalogStatus='nonempty_unverified';break;
+          }
+          // Equal titles can legitimately represent different events.
+          projected.push({filter:title,title:clean,ordinal:projected.length});
+        }
+        if(catalogStatus!=='verified_empty')break;
+        catalogActivities.push(...projected);
+        if(catalogActivities.length>120){catalogStatus='nonempty_unverified';break;}
       }
-      if(catalogStatus!=='verified_empty')catalogEmptyFilters=[];
+      if(catalogStatus==='verified_empty'&&catalogActivities.length)
+        catalogStatus='verified_nonempty';
+      if(catalogStatus!=='verified_empty'&&catalogStatus!=='verified_nonempty'){
+        catalogEmptyFilters=[];
+        catalogActivities=[];
+      }
     }
     let accountHash;
     if (/^[a-f0-9]{32}$/.test(accountSalt)) {
@@ -192,7 +222,7 @@
     }
     return {...base,...diagnostic,ok:true,identityMatched:true,rows,...(accountHash?{accountHash}:{}),
       ...(includeActivities?{activitiesComplete:true,activities}: {}),
-      ...(includeCatalog?{catalogStatus,catalogEmptyFilters}: {})};
+      ...(includeCatalog?{catalogStatus,catalogEmptyFilters,catalogActivities}: {})};
   } catch { return fail(requestStage,'network_redirect_or_timeout'); }
   finally { clearTimeout(timer); }
 })

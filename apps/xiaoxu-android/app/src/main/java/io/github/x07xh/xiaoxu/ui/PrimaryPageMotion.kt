@@ -55,17 +55,20 @@ private fun settingsDepth(route: String): Int = when (route) {
     else -> 1
 }
 
-/** Root -> detail pushes from right; back returns to the actual original side. */
+/**
+ * Small, short, non-bouncing navigation. Only one page moves at a time.
+ * Screen-width pushes caused excessive travel on phone and tablet.
+ */
 internal fun xiaoxuSettingsRouteTransition(
     fromRoute: String,
     toRoute: String
 ): ContentTransform {
     val direction = settingsDepth(toRoute).compareTo(settingsDepth(fromRoute))
     return when {
-        direction > 0 -> slideInHorizontally(SettingsPageSlide) { width -> width } togetherWith
-            slideOutHorizontally(SettingsPageSlide) { width -> -width / 8 }
-        direction < 0 -> slideInHorizontally(SettingsPageSlide) { width -> -width / 8 } togetherWith
-            slideOutHorizontally(SettingsPageSlide) { width -> width }
+        direction > 0 -> slideInHorizontally(SettingsPageSlide) { width -> width / 6 } togetherWith
+            ExitTransition.None
+        direction < 0 -> EnterTransition.None togetherWith
+            slideOutHorizontally(SettingsPageSlide) { width -> width / 6 }
         else -> EnterTransition.None togetherWith ExitTransition.None
     }
 }

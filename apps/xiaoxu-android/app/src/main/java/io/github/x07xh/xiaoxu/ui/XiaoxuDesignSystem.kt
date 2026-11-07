@@ -160,7 +160,7 @@ object XiaoxuSpacing {
 /** Full-page transitions are intentionally short; expensive screens move as one layer. */
 internal object XiaoxuMotion {
     const val PageSwitchMs = 280
-    const val SettingsDetailMs = 320
+    const val SettingsDetailMs = 220
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
