@@ -81,9 +81,17 @@ class PinnedUpstreamReadMethodTests(unittest.TestCase):
         self.assertFalse(summary["verifiedFieldSemantics"])
         self.assertTrue(page["isLastPage"])
         self.assertEqual(page["recordsPayload"][0]["rrid"], 9)
-        self.assertTrue(all((method, host, path) for method, path in routes
-            for host in ("run.gxapp.iydsj.com",)))
         self.assertGreaterEqual(len(routes), 6)
+        self.assertEqual(
+            sorted(set(path for _, path in routes)),
+            sorted([
+                "/api/v70390/user/info",
+                "/api/v41/running/getPersonalSemesterInfo",
+                "/api/v55/runnings/recordssummary/semester",
+                "/api/v70230/runnings/records",
+            ]),
+        )
+        self.assertFalse(any("save/record" in path for _, path in routes))
 
 
 if __name__ == "__main__":
