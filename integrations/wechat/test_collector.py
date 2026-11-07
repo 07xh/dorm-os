@@ -333,6 +333,22 @@ class CollectorTests(TestCase):
             bridge.extract_https_links("提交 https://school.example/e?na%2me=1 提交"), [])
         self.assertEqual(
             bridge.extract_https_links("提交 https://school.example/e?na%2me=%zz 提交"), [])
+        # camelCase composites hit the substring tier (regression for V1.1
+        # review: authToken / clientSecret slipped past boundary matching).
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?authToken=x 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?clientSecret=y 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/f?secretKey=z 提交"), [])
+        # Percent-encoded bytes that are not valid UTF-8 must be rejected the
+        # same way JavaScript decodeURIComponent throws (V1.1 review P0):
+        # unquote(errors="replace") used to silently accept ?%FF=1.
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/g?%FFx=1 提交"), [])
+        self.assertEqual(
+            bridge.extract_https_links("提交 https://school.example/g?%C3%A9d=1 提交"),
+            ["https://school.example/g?%C3%A9d=1"])
 
     def test_link_port_validation_matches_js(self):
         # WHATWG new URL() rejects non-numeric and out-of-range ports; the

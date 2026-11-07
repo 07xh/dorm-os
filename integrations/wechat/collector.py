@@ -50,14 +50,17 @@ TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|
 LINK_URL = re.compile(
     r"https://[^\s<>\"'`\x5c\x7f\u2e80-\u9fff\ufe30-\ufe4f\uff00-\uffef]+", re.I)
 LINK_TRAIL_PUNCT = ".,;:!?\u2026\u00b7\u2014\u201d\uff0c\u3002\uff1b\uff01\uff1f\u3001\uff09)]}\u3011\u300d\u300f\u3009"
-# Query/fragment parameter names that mark credential-bearing URLs. Matched on
-# name segments separated by word boundaries so "classcode" passes while
-# "invite_code", "api_key", "token" and OAuth fragments are rejected.
+# Query/fragment parameter names that mark credential-bearing URLs. Two tiers
+# keep camelCase composites covered without over-matching:
+# - SUBSTR: high-specificity credential words match anywhere in the name
+#   (authToken, clientSecret, secretKey, refreshToken, ... all hit).
+# - PARAM: generic words (code, key, auth, session, ...) only match as whole
+#   tokens separated by _ or -, so "classcode" and "keyboard" stay safe.
+SENSITIVE_SUBSTR = re.compile(
+    r"token|secret|password|passwd|credential|jwt|bearer|oauth", re.I)
 SENSITIVE_PARAM = re.compile(
-    r"(?:^|[_-])(?:token|secret|password|passwd|pwd|pass|auth|authorization|"
-    r"credential|session|sessionid|sid|oauth|jwt|bearer|sig|signature|sas|"
-    r"apikey|api[_-]?key|api[_-]?secret|access[_-]?token|refresh[_-]?token|"
-    r"id[_-]?token|code|key)(?:$|[_-])", re.I)
+    r"(?:^|[_-])(?:auth|authorization|session|sessionid|sid|sig|signature|sas|"
+    r"apikey|api[_-]?key|api[_-]?secret|code|key|pass|pwd)(?:$|[_-])", re.I)
 PERCENT_INVALID = re.compile(r"%(?![0-9A-Fa-f]{2})")
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
@@ -202,8 +205,14 @@ def _sensitive_params(raw: str) -> bool:
         # matching the JavaScript contract's decode failure behaviour.
         if PERCENT_INVALID.search(raw_name):
             return True
-        name = urllib.parse.unquote(raw_name).strip()
-        if name and SENSITIVE_PARAM.search(name):
+        try:
+            # errors="strict" mirrors JavaScript decodeURIComponent: byte
+            # sequences that are not valid UTF-8 (e.g. %FF) raise instead of
+            # being replaced, so both ends reject the same URLs.
+            name = urllib.parse.unquote(raw_name, errors="strict").strip()
+        except UnicodeDecodeError:
+            return True
+        if name and (SENSITIVE_SUBSTR.search(name) or SENSITIVE_PARAM.search(name)):
             return True
     return False
 

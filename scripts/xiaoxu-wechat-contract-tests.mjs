@@ -65,6 +65,12 @@ rejectedLinks(['https://course.example/a?id=1&api_key=x']);
 rejectedLinks(['https://course.example/b#access_token=xyz']);
 rejectedLinks(['https://course.example/d?invite_code=7']);
 rejectedLinks(['https://course.example/e?na%2me=%zz']);
+// camelCase composites hit the substring tier; invalid-UTF-8 percent escapes
+// throw in decodeURIComponent and are rejected like the Python collector.
+rejectedLinks(['https://course.example/f?authToken=x']);
+rejectedLinks(['https://course.example/f?clientSecret=y']);
+rejectedLinks(['https://course.example/f?secretKey=z']);
+rejectedLinks(['https://course.example/g?%FFx=1']);
 // WHATWG port semantics mirror the Python collector.
 rejectedLinks(['https://course.example:abc/report']);
 rejectedLinks(['https://course.example:99999/x']);

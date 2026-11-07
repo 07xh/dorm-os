@@ -6,7 +6,7 @@ import {webcrypto} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {
  createWechatDevice,authenticateWechatDevice,ingestWechatCandidates,
- listWechatCandidates,reviewWechatCandidate,WechatDeviceError
+ listWechatCandidates,revokeWechatDevice,reviewWechatCandidate,WechatDeviceError
 } from '../lib/academic-wechat-device-sync.mjs';
 import {WECHAT_CANDIDATE_SCHEMA} from '../lib/academic-wechat-candidate-contract.mjs';
 import {listAssignments} from '../lib/academic-assignments.mjs';
@@ -126,6 +126,28 @@ const dismissedPending=(await listWechatCandidates(db,owner,{status:'needs_revie
 await reviewWechatCandidate(db,owner,dismissedPending.id,'dismiss');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1);
 assert.deepEqual((await listAssignments(db,owner)).map(t=>t.links),[record.links]);
+
+// Revoked-device write protection (V1.1 review P0): a device whose
+// credentials were revoked between authentication and the batch write must
+// not persist anything — including a pending-candidate link backfill. The
+// API call fails and the database is left untouched.
+const beforeRevoke=await ingestWechatCandidates(db,device,{...batch,batchId:str('u'),
+ records:[{...record,candidateKey:str('p'),title:'撤销前旧采集任务',links:undefined}]});
+assert.equal(beforeRevoke.inserted,1,
+ 'a fresh pending candidate exists before the device is revoked');
+const linksBeforeRevoke=sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n;
+await revokeWechatDevice(db,owner,paired.device.id);
+await refused(ingestWechatCandidates(db,device,{...batch,batchId:str('v'),
+ records:[{...record,candidateKey:str('p'),title:'撤销前旧采集任务',
+           links:['https://course.example/revoked-leak']}]}),
+ 'device_unauthorized');
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links').get().n,
+ linksBeforeRevoke,'a revoked device can never persist links, not even backfills');
+assert.equal(sqlite.prepare(
+ 'SELECT COUNT(*) AS n FROM academic_wechat_candidate_links '+
+ 'WHERE url LIKE \'%revoked-leak%\'').get().n,0);
 
 // Restart resilience: the same data read again after "closing the app"
 // (a fresh query) still returns the same links.
