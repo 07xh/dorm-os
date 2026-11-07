@@ -1,0 +1,7 @@
+Explicit user-approved isolated QA build for Second Class single-page UI PR #377 (2026-11-07).
+Source UI head: 934dd299dc79a7e947ee820f6807239a29559cfb.
+Build standard debug and independent io.github.x07xh.xiaoxu.unifiedqa using existing GitHub CI workflow.
+Run node scripts/xiaoxu-android-bootstrap-tests.mjs, Android Kotlin compile, JVM unit tests, APK integrity checks and publish SHA-256.
+Do not merge this wrapper PR or deploy production. Do not erase user data, alter backend connectors, or add mock school scores.
+Visually review on real OnePlus Ace 6: one LazyColumn with personal activities, actual semester score and six category rows, activity catalog filters, official read status and centered glass detail modal.
+An SDK build is NOT physical-device validation; retain Draft status until device screenshots and interaction checks.
