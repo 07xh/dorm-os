@@ -1247,23 +1247,16 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.ChatBubbleOutline,
                         expanded = showWechatTasks,
                         joinedRows = true,
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = tween(140),
-                            placementSpec = tween(180),
-                            fadeOutSpec = tween(140)
-                        ),
+                        // No placement animation: when course tasks above this
+                        // group expand/collapse, its header must not visibly chase
+                        // a stale LazyColumn position.
                         onClick = { showWechatTasks = !showWechatTasks }
                     )
                 }
                 if (showWechatTasks) {
                     items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
                         ConnectedTaskShell(
-                            index = i, total = wechatRows.size,
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = tween(140),
-                                placementSpec = tween(180),
-                                fadeOutSpec = tween(140)
-                            )
+                            index = i, total = wechatRows.size
                         ) {
                             val row = wechatRows[i]
                             TaskRow(
@@ -1833,6 +1826,7 @@ private fun TaskGroupHeader(
             .padding(top = 8.dp)
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
+            .background(XiaoxuPalette.GlassSheen)
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
@@ -1986,6 +1980,7 @@ private fun ConnectedTaskShell(
         modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
+            .background(XiaoxuPalette.GlassSheen)
     ) {
         if (index > 0) {
             HorizontalDivider(
