@@ -1155,7 +1155,14 @@ fun RealAcademicTaskHub(
                 }
                 if (showWechatTasks) {
                     items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
-                        ConnectedTaskShell(index = i, total = wechatRows.size) {
+                        ConnectedTaskShell(
+                            index = i, total = wechatRows.size,
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = tween(140),
+                                placementSpec = tween(180),
+                                fadeOutSpec = tween(140)
+                            )
+                        ) {
                             val row = wechatRows[i]
                             TaskRow(
                                 row, today,
@@ -1751,6 +1758,7 @@ private const val DUE_OVERDUE = 4
 private fun ConnectedTaskShell(
     index: Int,
     total: Int,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val radius = XiaoxuRadius.card
@@ -1761,7 +1769,7 @@ private fun ConnectedTaskShell(
         else -> RoundedCornerShape(0.dp)
     }
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, corners)
