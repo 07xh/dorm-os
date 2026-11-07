@@ -102,6 +102,13 @@ object SecondClassAutoRefresh {
             val scores = parseLocalSecondClassScores(payload, startedAt)
             val activities = parseLocalSecondClassActivities(payload, startedAt)
             val catalog = parseLocalSecondClassCatalogEmpty(payload, startedAt)
+            val catalogActivities = parseLocalSecondClassCatalogActivities(payload, startedAt)
+            // A failed or unverified catalog must not silently erase the last
+            // valid activity cards during an unattended automatic refresh.
+            if (payload.optString("catalogStatus") !in setOf("verified_empty", "verified_nonempty")) {
+                state("failed")
+                return
+            }
             currentCoroutineContext().ensureActive()
             if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
                 identity.getString("salt", null) != salt) return
@@ -109,7 +116,7 @@ object SecondClassAutoRefresh {
             if (bindings.isEmpty() && identity.getString("account", null) != expected) return
             withContext(Dispatchers.IO) {
                 currentCoroutineContext().ensureActive()
-                dao.replaceSecondClassSnapshot(scores, activities, catalog,
+                dao.replaceSecondClassSnapshot(scores, activities, catalog, catalogActivities,
                     accountHash = expected, expectedBinding = expected)
             }
             settings.edit().putLong("success_at", System.currentTimeMillis())
