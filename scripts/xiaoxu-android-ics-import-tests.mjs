@@ -36,7 +36,10 @@ assert.match(screen, /Text\("本机导入 · " \+ data.lessons.size \+ " 个课�
   '当前课表必须直接提示本人核对导入课程');
 assert.match(screen, /text = "本机导入 · 待核对"/,
   '课程详情必须明确标记本机导入，不能暗示学校官方核验');
-assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened,\s*onDismiss =/);
+assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened,/);
+assert.match(screen, /onDismiss = \{ selectedCourseKey = null \}/);
+assert.match(screen, /onEdit = \{/,
+  '课程编辑入口在同一个详情抽屉，不引入新课表页');
 assert.match(screen, /CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
   '首页与课表复用本机来源的同一课程详情');
 assert.doesNotMatch(screen, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
@@ -50,7 +53,8 @@ const currentTimetableEntry = screen.slice(
   screen.indexOf('fun CloudTimetablePanel('),
   screen.indexOf('private fun ScheduleVerifiedContent(')
 );
-assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(\s*localLessons = localLessons,\s*openFileImport = openFileImport\)/,
+assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(\s*localLessons = localLessons,\s*openFileImport = openFileImport,/,
+
   '真实课表入口只传递本机课程与文件选择器');
 assert.match(currentTimetableEntry, /localLessons\.isEmpty\(\)/);
 assert.match(currentTimetableEntry, /localImportedScheduleView\(localLessons\)/);

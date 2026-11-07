@@ -473,7 +473,12 @@ assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseK
 assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层写死课程');
 assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
-assert.match(nativeWeekGrid, /section in it\.startSection\.\.it\.endSection/);
+// Indexed occupancy is equivalent to the former per-cell lesson filter, while
+// avoiding a full list scan for every slot during Compose recompositions.
+assert.match(nativeWeekGrid, /for \(section in lesson\.startSection\.coerceAtLeast\(1\)\.\.lesson\.endSection\.coerceAtMost\(maxSection\)\)/);
+assert.match(nativeWeekGrid, /buckets\[lesson\.weekday\]\[section\]\.add\(lesson\)/);
+assert.match(nativeWeekGrid, /val available = occupancy\[day\]\[section\]/);
+assert.match(nativeWeekGrid, /val next = occupancy\[day\]\[probe\]/);
 assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
 assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
 assert.match(nativeWeekGrid, /val dayWidth = if \(compact\) \(maxWidth - labelWidth - 8\.dp\) \/ 7/,
@@ -766,8 +771,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.10'/, '0.8.10 整合测试版须准确标注');
-assert.match(appGradle, /versionCode 31\b/, '0.8.10 版本码须递增，便于区分整合包');
+assert.match(appGradle, /versionName '0\.8\.9'/, '0.8.9 首页交互版本须准确标注');
+assert.match(appGradle, /versionCode 30\b/, '0.8.9 版本码须递增，避免重装旧包');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */

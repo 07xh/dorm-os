@@ -74,6 +74,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
+import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
+import io.github.x07xh.xiaoxu.data.LocalScheduleStore
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 
 /*
@@ -142,7 +152,8 @@ private data class LessonUi(
     val weeksLabel: String,
     val term: String,
     val weekday: Int,
-    val startSection: Int
+    val startSection: Int,
+    val endSection: Int
 )
 
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
@@ -156,7 +167,8 @@ private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
     weeksLabel = formatWeeks(weeks),
     term = term.ifBlank { "学期未标注" },
     weekday = weekday,
-    startSection = startSection
+    startSection = startSection,
+    endSection = endSection
 )
 
 /** 窄屏占满、宽屏居中并限宽，避免平板上正文被拉到全屏宽。 */
@@ -170,9 +182,15 @@ private fun Modifier.pageWidth(max: androidx.compose.ui.unit.Dp): Modifier =
 @Composable
 fun CloudTimetablePanel(
     localLessons: List<VerifiedLesson>,
-    openFileImport: () -> Unit
+    openFileImport: () -> Unit,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
     // Local import is the only timetable source of truth; no cloud/session dependency.
+    val context = LocalContext.current
+    val editorScope = rememberCoroutineScope()
+    var addingFirstCourse by remember { mutableStateOf(false) }
+    var addBusy by remember { mutableStateOf(false) }
+    var addError by remember { mutableStateOf<String?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
         Column(
@@ -180,20 +198,52 @@ fun CloudTimetablePanel(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (localLessons.isEmpty()) {
-                LocalTimetableEmptyState(openFileImport)
+                LocalTimetableEmptyState(openFileImport) {
+                    addError = null
+                    addingFirstCourse = true
+                }
             } else {
                 ScheduleVerifiedContent(
                     data = localImportedScheduleView(localLessons),
                     expanded = expanded,
-                    openFileImport = openFileImport
+                    openFileImport = openFileImport,
+                    onLocalLessonsChanged = onLocalLessonsChanged
                 )
             }
         }
     }
+    if (addingFirstCourse) {
+        CourseEditorDialog(
+            original = null, selectedWeek = null, busy = addBusy,
+            externalError = addError,
+            onDismiss = { if (!addBusy) addingFirstCourse = false },
+            onSave = { replacement, _ ->
+                if (!addBusy) {
+                    addBusy = true
+                    editorScope.launch {
+                        try {
+                            val updated = withContext(Dispatchers.IO) {
+                                val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
+                                LocalScheduleStore.saveEdited(context, edited)
+                                LocalScheduleStore.load(context)
+                            }
+                            onLocalLessonsChanged(updated)
+                            addingFirstCourse = false
+                        } catch (failure: Exception) {
+                            addError = failure.message ?: "添加课程失败"
+                        } finally {
+                            addBusy = false
+                        }
+                    }
+                }
+            },
+            onDelete = { }
+        )
+    }
 }
 
 @Composable
-private fun LocalTimetableEmptyState(onImport: () -> Unit) {
+private fun LocalTimetableEmptyState(onImport: () -> Unit, onAdd: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().pageWidth(StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
@@ -217,6 +267,9 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text("从文件导入课表")
         }
+        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("手动添加第一门课程")
+        }
         Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
@@ -230,16 +283,27 @@ private fun LocalTimetableEmptyState(onImport: () -> Unit) {
 private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
     expanded: Boolean,
-    openFileImport: () -> Unit
+    openFileImport: () -> Unit,
+    onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit
 ) {
+    val context = LocalContext.current
+    var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
+    var showSemesterSettings by rememberSaveable { mutableStateOf(false) }
+    val editorScope = rememberCoroutineScope()
+    var showingCourseEditor by remember { mutableStateOf(false) }
+    var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
+    var editingBusy by remember { mutableStateOf(false) }
+    var editingError by remember { mutableStateOf<String?>(null) }
+    val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
     val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
-    val weekNumbers = remember(data.lessons) {
-        data.lessons.flatMap { it.weeks }.filter { it > 0 }.distinct().sorted()
+    val weekNumbers = remember(data.lessons, calendar) {
+        selectableTeachingWeeks(data.lessons, calendar)
     }
-    // The first available teaching week is a safe, deterministic preview.
-    // Without an official semester start it must NOT be labeled current week.
+    // Current-week selection requires the user's explicit semester start date.
+    // Without it, fall back to the first imported week, never a guessed "today".
     var selectedWeek by rememberSaveable {
-        mutableStateOf(weekNumbers.firstOrNull() ?: ALL_WEEKS)
+        mutableStateOf(actualCurrentWeek?.takeIf { it in weekNumbers }
+            ?: weekNumbers.firstOrNull() ?: ALL_WEEKS)
     }
     var viewMode by rememberSaveable { mutableStateOf("week") }
     var showWeekPicker by rememberSaveable { mutableStateOf(false) }
@@ -287,8 +351,16 @@ private fun ScheduleVerifiedContent(
                 Text("本机导入 · " + data.lessons.size + " 个课块 · 请核对课程信息",
                     style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
             }
-            OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
-                Text("重新导入")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = {
+                    editOriginal = null
+                    editingError = null
+                    showingCourseEditor = true
+                }) { Text("新增") }
+                TextButton(onClick = { showSemesterSettings = true }) { Text("设置") }
+                OutlinedButton(onClick = openFileImport, modifier = Modifier.heightIn(min = 44.dp)) {
+                    Text("重新导入")
+                }
             }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
@@ -296,8 +368,8 @@ private fun ScheduleVerifiedContent(
                 onSelect = { selectedWeek = it; showWeekPicker = false })
         }
         if (weekNumbers.isNotEmpty()) {
-            // Move only through weeks present in the owner's actual timetable.
-            // No synthetic "current week" or hardcoded 1..20 semester range.
+            // Without term settings, only imported weeks are selectable.
+            // Explicitly configured semesters also expose empty teaching weeks.
             val currentIndex = weekNumbers.indexOf(selectedWeek)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -323,6 +395,27 @@ private fun ScheduleVerifiedContent(
                     enabled = currentIndex < weekNumbers.lastIndex,
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text("下一周") }
+            }
+        }
+        if (calendar != null && selectedWeek != ALL_WEEKS) {
+            val monday = calendar?.dateFor(selectedWeek, 1)
+            val sunday = calendar?.dateFor(selectedWeek, 7)
+            if (monday != null && sunday != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("$monday 至 $sunday",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                        selectedWeek != actualCurrentWeek) {
+                        TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
+                            Text("返回本周")
+                        }
+                    }
+                }
             }
         }
         if (selectedWeek == ALL_WEEKS && weekNumbers.size > 1) {
@@ -427,7 +520,80 @@ private fun ScheduleVerifiedContent(
     if (opened != null) {
         CourseDetailBottomSheet(
             lesson = opened,
+            timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
+            onEdit = {
+                editOriginal = data.lessons.firstOrNull { it.toUi().key == opened.key }
+                editingError = null
+                selectedCourseKey = null
+                showingCourseEditor = editOriginal != null
+            },
             onDismiss = { selectedCourseKey = null }
+        )
+    }
+    if (showingCourseEditor) {
+        fun commitEdited(changed: List<VerifiedLesson>) {
+            if (editingBusy) return
+            editingBusy = true
+            editingError = null
+            editorScope.launch {
+                try {
+                    val saved = withContext(Dispatchers.IO) {
+                        LocalScheduleStore.saveEdited(context, changed)
+                        LocalScheduleStore.load(context)
+                    }
+                    onLocalLessonsChanged(saved)
+                    showingCourseEditor = false
+                    editOriginal = null
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "本机课表修改失败"
+                } finally {
+                    editingBusy = false
+                }
+            }
+        }
+        CourseEditorDialog(
+            original = editOriginal,
+            selectedWeek = selectedWeek.takeIf { it != ALL_WEEKS },
+            busy = editingBusy,
+            externalError = editingError,
+            onDismiss = { if (!editingBusy) showingCourseEditor = false },
+            onSave = { replacement, onlyThisWeek ->
+                try {
+                    val modified = LocalScheduleEditor.upsert(
+                        data.lessons, editOriginal?.id, replacement,
+                        selectedWeek.takeIf { onlyThisWeek && it != ALL_WEEKS }
+                    )
+                    commitEdited(modified)
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "课程冲突，未保存"
+                }
+            },
+            onDelete = { onlyThisWeek ->
+                try {
+                    val target = editOriginal ?: error("没有选中课程")
+                    val modified = LocalScheduleEditor.delete(
+                        data.lessons, target.id,
+                        selectedWeek.takeIf { onlyThisWeek && it != ALL_WEEKS }
+                    )
+                    commitEdited(modified)
+                } catch (failure: Exception) {
+                    editingError = failure.message ?: "删除失败"
+                }
+            }
+        )
+    }
+    if (showSemesterSettings) {
+        SemesterSettingsDialog(
+            current = calendar,
+            onDismiss = { showSemesterSettings = false },
+            onSave = { config ->
+                LocalSemesterConfigStore.save(context, config)
+                calendar = config
+                showSemesterSettings = false
+                config.currentWeek(LocalDate.now())?.let {
+                    selectedWeek = it
+                }
+            }
         )
     }
 }
@@ -867,7 +1033,8 @@ internal fun HomeCourseDetailSheet(lesson: VerifiedLesson, onDismiss: () -> Unit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseDetailBottomSheet(
-    lesson: LessonUi, onDismiss: () -> Unit
+    lesson: LessonUi, onDismiss: () -> Unit, timeLabel: String? = null,
+    onEdit: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -898,7 +1065,13 @@ private fun CourseDetailBottomSheet(
             CourseSheetRow("任课教师", lesson.teacher)
             CourseSheetRow("上课周次", lesson.weeksLabel)
             CourseSheetRow("节次", lesson.sectionLabel)
+            if (timeLabel != null) CourseSheetRow("上课时间", timeLabel)
             CourseSheetRow("学期", lesson.term)
+            if (onEdit != null) {
+                TextButton(onClick = onEdit, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text("编辑课程")
+                }
+            }
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("关闭详情")
             }
@@ -945,7 +1118,7 @@ private fun SectionBadge(label: String) {
 @Composable
 private fun ScheduleFooterNote() {
     Text(
-        text = "按完整学期展示；未接入开学日期与节次作息时间，因此不推断当前周、不计算上课倒计时。",
+        text = "课程来自本机导入；日期和节次时间仅依据本人设置，未进行教务实时核验。",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
