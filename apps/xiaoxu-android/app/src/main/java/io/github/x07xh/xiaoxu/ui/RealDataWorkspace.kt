@@ -170,7 +170,8 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
         distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
-                "chaoxing" -> "学习通记录"
+                "chaoxing" -> task.sourceCourse?.takeIf { it.isNotBlank() }
+                    ?.let { "学习通 · $it" } ?: "学习通"
                 "ncwu" -> "青果记录"
                 "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
