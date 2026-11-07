@@ -1133,7 +1133,9 @@ assert.match(workspace, /不纳入待完成\/已完成数量/);
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val visible = facetWorkspaceTasks\(/, '页面对真实任务独立筛选');
+assert.match(workspace,
+  /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek, today\) \{[\s\S]*?facetWorkspaceTasks\(/,
+  '任务中心应从真实记录筛选，并缓存未变化的筛选条件');
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
@@ -1825,10 +1827,10 @@ assert.match(workspace, /var showWechatTasks by rememberSaveable/,
 assert.match(taskHubRegion,
   /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size,/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
-assert.match(workspace, /val wechatRows = shown\.filter \{ it\.category == "wechat" \}/,
-  '微信任务不能混入普通云端任务的列表');
-assert.match(workspace, /val cloudRows = shown\.filter \{ it\.category == "cloud" \}/,
-  '普通云端任务不应包含微信审核通过的任务');
+assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
+  '微信任务保持单独的缓存筛选分组');
+assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ it\.category == "cloud" \} \}/,
+  '普通云端分组与微信任务独立且不重复遍历无变化记录');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
 assert.match(workspace, /task\.provider == "wechat"/,
@@ -1851,10 +1853,19 @@ assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTas
   '关闭任务管理也必须隐藏云端新建表单');
 assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
   '顶部新增按钮再次点击应完整收起编辑区');
-assert.match(workspace, /TaskRow\(localRows\[i\], today,[\s\S]*?onOpen = \{ openedTaskKey = localRows\[i\]\.key \}/,
-  '本机任务仍从真实 Row 数据打开详情');
+assert.match(workspace,
+  /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
+  '本机任务继续使用当前稳定 Row key 打开真实详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
   '首页任务中心勾选必须真实更新本机 Room 状态');
+assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
+  '本机任务勾选应只暂存视觉反馈，不能代替 Room 的持久化状态');
+assert.match(workspace, /LaunchedEffect\(localTasks\) \{[\s\S]*?pendingLocalTaskUpdates\.remove\(key\)/,
+  'Room 已确认或删除的本机任务必须清理视觉暂存状态');
+assert.match(workspace, /pendingLocalTaskUpdates\.remove\(row\.key\)[\s\S]*?本机任务保存失败，请重试/,
+  '本机写入失败时应撤销勾选预览并提示用户');
+assert.match(workspace, /checked = displayDone,[\s\S]*?enabled = actionEnabled/,
+  '本机勾选框应即时反馈并在写入中避免重复提交');
 assert.match(workspace, /task\.storage == "local" && onToggleLocal != null/,
   '云端任务不可复用本机完成操作或假装已提交到学校');
 assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
