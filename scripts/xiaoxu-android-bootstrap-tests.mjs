@@ -1886,8 +1886,26 @@ assert.match(workspace, /onToggleWechat = if \(state\.tasksFresh && row\.revisio
   '只有本次新鲜读取并携带版本号的微信任务才能勾选');
 assert.match(workspace, /task\.category == "wechat" && onToggleWechat != null/,
   '微信任务复用可点击 Checkbox，普通云端任务继续保持只读');
-assert.match(workspace, /actionEnabled = updatingWechatKey == null/,
-  '微信任务写入期间必须禁止重复触发');
+assert.match(workspace, /actionEnabled = !pendingWechatTaskUpdates\.containsKey\(row\.key\)/,
+  '仅锁定正在提交的单条微信任务，其它任务仍可交互');
+assert.match(workspace, /val pendingWechatTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
+  '微信任务勾选应立即显示临时状态而不提前更改真实统计');
+assert.match(workspace, /pendingWechatTaskUpdates\[row\.key\] = checked/,
+  '点击立即反馈，不等待网络返回才能勾选');
+assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
+  '成功确认与失败回滚均清理临时状态');
+assert.match(workspace, /val statusText = if \(isPending\) "保存中…"/,
+  '尚未收到云端回执时必须明确显示保存中');
+assert.match(workspace, /modifier = Modifier\.animateItem\(/,
+  '云端已确认后移除任务行应做短时退场动画而不是突跳');
+assert.match(cloud, /preferConfirmedWechatRevisions\(it, state\.tasks\)/,
+  '旧的并发读取不得覆盖已确认的微信任务状态');
+const wechatMutation = cloud.slice(cloud.indexOf('suspend fun setWechatTaskCompleted('),
+  cloud.indexOf('suspend fun addCloudTask(', cloud.indexOf('suspend fun setWechatTaskCompleted(')));
+assert.doesNotMatch(wechatMutation, /refreshPrivate\(\)\s*val updated/,
+  '成功写入个人状态不应再等待整套云端多页面刷新');
+assert.match(wechatMutation, /committedRevision != revision\.toLong\(\) \+ 1L/,
+  '不验证后端已提交版本就不能标记为完成');
 
 assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })'),
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
