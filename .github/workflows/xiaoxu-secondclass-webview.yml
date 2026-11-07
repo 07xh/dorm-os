@@ -1,7 +1,7 @@
 name: Xiaoxu Second-class WebView Runtime
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
     paths:
       - 'apps/xiaoxu-android/app/src/androidTest/**'
       - 'apps/xiaoxu-android/app/src/runtimeVerification/**'

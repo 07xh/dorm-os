@@ -1,6 +1,9 @@
 package io.github.x07xh.xiaoxu.data
 
 object SecondClassAutoReadPolicy {
+    fun requiresReconnect(httpStatus: Int, stage: String = ""): Boolean =
+        httpStatus == 401 && stage != "activity_http"
+
     fun shouldRead(enabled: Boolean, backgroundAllowed: Boolean, background: Boolean,
         bound: Boolean, interactive: Boolean, now: Long, savedAt: Long, attemptedAt: Long): Boolean =
         enabled && (!background || backgroundAllowed) && bound && !interactive &&

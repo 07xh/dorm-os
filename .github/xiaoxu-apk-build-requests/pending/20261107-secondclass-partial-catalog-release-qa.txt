@@ -1,0 +1,1 @@
+Build opt-in QA APK for secondclass catalog partial refresh fix on #351 unified UI. Keep draft until Android and webview CI are green. No confirmed production school-activity mapping.

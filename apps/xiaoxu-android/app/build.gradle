@@ -17,8 +17,16 @@ android {
         applicationId 'io.github.x07xh.xiaoxu'
         minSdk 26
         targetSdk 35
-        versionCode 31
-        versionName '0.8.10'
+        versionCode 32
+        versionName '0.8.11-rc.1'
+        // Normal application identity remains unchanged. Only explicit QA builds
+        // use their own app data and authorization-return host.
+        manifestPlaceholders = [
+            qaAppLabel: '@string/app_name',
+            schoolAuthHost: 'school-auth-return'
+        ]
+        // This same host is validated by SchoolAuthReturn.consume().
+        resValue 'string', 'school_auth_return_host', 'school-auth-return'
     }
 
     compileOptions {
@@ -31,8 +39,7 @@ android {
     buildFeatures {
         compose true
     }
-    // Runtime tests get their own storage/WorkManager namespace and cannot
-    // contact the school. Never install this package as a user QA build.
+    // Offline runtime fixtures have independent storage and no INTERNET permission.
     if (project.hasProperty('xiaoxuRuntimeTest')) {
         sourceSets.debug.manifest.srcFile 'src/runtimeVerification/AndroidManifest.xml'
     }
@@ -40,6 +47,13 @@ android {
         debug {
             if (project.hasProperty('xiaoxuRuntimeTest')) {
                 applicationIdSuffix '.secondclassruntime'
+                manifestPlaceholders.qaAppLabel = '校序 · 离线测试'
+            } else if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
+                applicationIdSuffix '.unifiedqa'
+                manifestPlaceholders.qaAppLabel = '校序 · 整合验证'
+                // Distinct from both the official app and previous second-class QA install.
+                manifestPlaceholders.schoolAuthHost = 'school-auth-return-unified-qa'
+                resValue 'string', 'school_auth_return_host', 'school-auth-return-unified-qa'
             }
         }
         // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
@@ -75,6 +89,9 @@ dependencies {
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-extended'
+    // 北化课表玻璃材质：仅在 Android 13+ 启用，旧设备保留原 Compose 导航。
+    implementation 'io.github.kyant0:shapes:1.2.0'
+    implementation 'io.github.kyant0:backdrop:2.0.0-alpha03'
     implementation 'androidx.activity:activity-compose:1.13.0'
     implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.room:room-runtime:2.8.5'
@@ -86,11 +103,8 @@ dependencies {
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
     baselineProfile(project(':benchmark'))
     testImplementation 'junit:junit:4.13.2'
-    // Android bundles org.json at runtime; use its JVM implementation in local tests.
+    // JVM tests exercise JSONObject with a real implementation, not Android stubs.
     testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.7.0'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
-
-    // Preserve the reviewed TWA launcher only as an explicitly named legacy fallback.
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
 }

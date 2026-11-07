@@ -584,49 +584,6 @@
    body:JSON.stringify(payload)});
   const result=await response.json().catch(()=>null);
   if(!response.ok){
-   // An authorization_failed response alone is NOT evidence of a wrong
-   // password or an unlinked school account. Distinguish trusted phases.
-   const secondClassStageText={
-    cas_return:'学校 CAS 提交后未进入第二课堂。可能是账号验证未完成或学校跳转发生变化，请先在官网确认登录是否正常。',
-    personal_data:'学校活动或积分接口未返回可核验的本人数据，不能判定账号未关联；本次没有保存会话。',
-    identity_evidence:'学校接口未提供唯一、可信的本人身份标识；本次没有保存会话。'
-   };
-   if(provider==='second_class'&&result?.error==='authorization_failed'){
-    const casReturnReasonText={
-     unexpected_response:'学校 CAS 提交后返回了非预期状态；本次没有保存会话。',
-     cas_request_rejected:'学校 CAS 返回请求拒绝（4xx），可能需要在官网完成额外验证；本次没有保存会话。',
-     cas_rate_limited:'学校 CAS 暂时限制了登录请求（429），请停止重复提交；本次没有保存会话。',
-     cas_server_failure:'学校 CAS 返回服务异常（5xx），无法确认账号状态；本次没有保存会话。',
-     login_page_remained:'CAS 提交后仍停留在学校认证页面；可能需要在学校官网完成验证，本次没有保存会话。',
-     service_callback_incomplete:'已到达学校 CAS 服务回调，但尚未确认第二课堂会话；本次没有保存会话。',
-     unexpected_school_landing:'学校 CAS 回跳落点与已验证流程不同；本次没有保存会话。'
-    };
-    if(result?.failureStage==='cas_return'&&
-       Object.hasOwn(casReturnReasonText,result?.casReturnReason)){
-     // Only preapproved fixed categories; never render school URLs or response text.
-     const casOriginText={
-      cas_auth_server:'学校统一身份认证站',
-      second_class_callback:'学校第二课堂登录回调',
-      second_class_portal:'学校第二课堂服务入口'
-     };
-     if(result.casReturnReason==='cas_server_failure'&&
-        Object.hasOwn(casOriginText,result?.casReturnHost)){
-      const markerText={
-       flow_execution_marker:'认证错误页含流程状态异常标记。',
-       crypto_marker:'认证错误页含编码处理异常标记。',
-       flow_and_crypto_markers:'认证错误页含流程状态及编码处理异常标记。'
-      };
-      const evidence=result.casReturnHost==='cas_auth_server'&&
-       Object.hasOwn(markerText,result?.casErrorKind)?markerText[result.casErrorKind]:'';
-      throw Error(casOriginText[result.casReturnHost]+
-       '返回服务异常（5xx）；'+evidence+'本次没有保存会话。请勿反复提交密码。');
-     }
-     throw Error(casReturnReasonText[result.casReturnReason]);
-    }
-    throw Error(Object.hasOwn(secondClassStageText,result?.failureStage)?
-     secondClassStageText[result.failureStage]:
-     '学校认证或本人数据校验未完成，暂无法确认具体阶段；本次没有保存会话。');
-   }
    throw Error(schoolMessage[result?.error]||'连接操作失败');
   }
   return result;

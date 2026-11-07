@@ -1,8 +1,13 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.widget.Toast
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,10 +41,13 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -55,14 +63,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
@@ -74,12 +85,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
 import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
+import io.github.x07xh.xiaoxu.data.reconcileChaoxingLedger
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
+import io.github.x07xh.xiaoxu.data.trustedChaoxingPlatformStatus
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.Instant
@@ -89,6 +103,7 @@ import java.time.ZoneId
 import java.text.DateFormat
 import java.util.Date
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
@@ -101,13 +116,43 @@ internal data class WorkspaceTask(
     val done: Boolean,
     val date: LocalDate?,
     val dateSource: String,
-    val storage: String
+    val storage: String,
+    val category: String = storage,
+    val revision: Int = -1,
+    val provider: String? = null,
+    val links: List<String> = emptyList(),
+    val sourceExternalId: String? = null,
+    val officialStatus: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
     if (value.isNullOrBlank()) return null
     return runCatching { LocalDate.parse(value) }.getOrNull()
         ?: runCatching { Instant.parse(value).atZone(SchoolZone).toLocalDate() }.getOrNull()
+}
+
+/**
+ * Render a canonical official homework record only once if historical imports
+ * have the exact same Chaoxing course/class/work ID. Never deduplicate by
+ * title or date, and never delete imported records from the cloud database.
+ *
+ * Without a trusted official row the historical entries stay visible:
+ * unverified IDs cannot decide which personal task record is canonical.
+ */
+internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<CloudTask> {
+    // Only one independently verified source row is a safe canonical record.
+    // If two trusted rows disagree or duplicate, keep ALL evidence visible
+    // instead of guessing which row to hide.
+    val verified = cloud.filter {
+        trustedChaoxingPlatformStatus(it.provider, it.sourceExternalId, it.officialStatus) != null
+    }.groupBy { it.sourceExternalId }
+    val canonical = verified.filterValues { it.size == 1 }
+        .mapNotNull { (key, rows) -> key?.let { it to rows.single().id } }.toMap()
+    return cloud.filter { row ->
+        val sourceId = row.sourceExternalId
+        row.provider != "chaoxing" || sourceId == null ||
+            canonical[sourceId] == null || canonical[sourceId] == row.id
+    }
 }
 
 internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask>): List<WorkspaceTask> =
@@ -122,19 +167,59 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             add(WorkspaceTask("local:" + task.id, task.title, source, task.completed,
                 parseWorkspaceDue(task.due), "本人填写", "local"))
         }
-        cloud.forEach { task ->
+        distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
             val source = when (task.provider) {
-                "chaoxing" -> "学习通相关云端记录"
-                "ncwu" -> "青果相关云端记录"
-                "second_class" -> "第二课堂相关云端记录"
+                "wechat" -> "微信任务"
+                "chaoxing" -> task.sourceCourse?.takeIf { it.isNotBlank() }
+                    ?.let { "学习通 · $it" } ?: "学习通"
+                "ncwu" -> "青果记录"
+                "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
             }
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
                 task.status == "done", parseWorkspaceDue(task.due),
-                "云端记录，需核对来源", "cloud"))
+                "云端记录，需核对来源", "cloud",
+                if (task.provider == "wechat") "wechat" else "cloud",
+                task.revision, task.provider, task.links,
+                task.sourceExternalId,
+                trustedChaoxingPlatformStatus(
+                    task.provider, task.sourceExternalId, task.officialStatus
+                )))
         }
-    }.sortedWith(compareBy<WorkspaceTask> { it.done }
+    }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
+
+/** Verified source-ID-linked submissions are complete in the task LIST only.
+ * Never write that inferred state back as a personal checkbox or school action.
+ */
+internal fun considerCompleteInTaskList(task: WorkspaceTask): Boolean =
+    task.done || (task.provider == "chaoxing" &&
+        task.officialStatus in setOf("submitted", "graded"))
+
+internal fun visibleWorkspaceTasks(
+    tasks: List<WorkspaceTask>, archivedKeys: Set<String>
+): List<WorkspaceTask> = tasks.filterNot { it.key in archivedKeys }
+
+/** Official status never overrides a user's personal checked state or
+ * becomes a verified due date. It is only a last-synced source status.
+ */
+internal fun officialTaskStatusLabel(status: String?): String? = when (status) {
+    "todo" -> "官方未提交"
+    "submitted" -> "官方已提交"
+    "graded" -> "官方已批阅"
+    "returned" -> "官方已退回"
+    "unknown" -> "官方状态未知"
+    else -> null
+}
+
+/** Only self-entered dates are reliable as personal task deadlines.
+ * Some CloudTask records have source work IDs, but no verified due date.
+ */
+internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: LocalDate): Int =
+    tasks.count { task ->
+        task.storage == "local" && !task.done &&
+            task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
+    }
 
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
@@ -145,9 +230,9 @@ private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
 private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalDate) =
     list.filter { task ->
         when (filter) {
-            "pending" -> !task.done
-            "done" -> task.done
-            "week" -> !task.done && thisWeek(task.date, today)
+            "pending" -> !considerCompleteInTaskList(task)
+            "done" -> considerCompleteInTaskList(task)
+            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -158,8 +243,9 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
 internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
-    (source == "all" || task.storage == source) &&
-        (!thisWeekOnly || (!task.done && thisWeek(task.date, today)))
+    (source == "all" || task.category == source) &&
+        (!thisWeekOnly || (task.storage == "local" && !considerCompleteInTaskList(task) &&
+            thisWeek(task.date, today)))
 }
 
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
@@ -172,6 +258,16 @@ internal fun searchWorkspaceTasks(
             task.origin.contains(needle, ignoreCase = true)
     }
 }
+
+/** LazyColumn index of the first open editor, before local/cloud rows.
+ * Always update this when adding/removing items before the editor.
+ */
+internal fun taskEditorStartIndex(
+    staleSnapshot: Boolean,
+    searchOpen: Boolean,
+    advancedFiltersOpen: Boolean,
+    managementOpen: Boolean
+): Int = 3 + listOf(staleSnapshot, searchOpen, advancedFiltersOpen, managementOpen).count { it }
 
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
@@ -197,8 +293,12 @@ fun RealAcademicHome(
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
-    val all = remember(localTasks, state.tasks) { combineWorkspaceTasks(localTasks, state.tasks) }
     val context = LocalContext.current
+    val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
+    val archivedKeys = archiveStore.archivedKeys
+    val all = remember(localTasks, state.tasks, archivedKeys) {
+        visibleWorkspaceTasks(combineWorkspaceTasks(localTasks, state.tasks), archivedKeys)
+    }
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
     val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
@@ -208,23 +308,24 @@ fun RealAcademicHome(
     val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = all.count { !it.done }
-    val attention = all.count { !it.done && it.date != null && !it.date.isAfter(today.plusDays(3)) }
-    val upcoming = all.filter { !it.done }.take(3)
+    val pending = all.count { !considerCompleteInTaskList(it) }
+    // Only personally entered, future dates can be counted as upcoming.
+    // Unverified cloud dates and overdue dates must not inflate "近期截止".
+    val attention = countUpcomingLocalDeadlines(all, today)
+    val upcoming = all.filter { !considerCompleteInTaskList(it) }.take(3)
     val cloudSnapshotRows = state.tasks.size
-    val metricCaption = when {
-        state.tasksFresh -> "本机 + 云端本次读取"
-        cloudSnapshotRows > 0 -> "含上次云端快照 $cloudSnapshotRows 条"
-        else -> "仅本机记录"
+    // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
+    // One provenance hint in the task section; do not repeat the same technical
+    // disclaimer under every task and statistic.
+    val todoCaption: String? = when {
+        cloudSnapshotRows == 0 -> null
+        !state.tasksFresh -> "云端快照 · 日期仅供参考"
+        else -> "云端日期仅供参考"
     }
-    val todoCaption = if (!state.tasksFresh && cloudSnapshotRows > 0)
-        "含上次云端快照 · 期限待核对"
-    else "按已记录截止日排序 · 未注明日期的排后"
 
     // Sheets look up the current records by stable keys, not saved copies of
     // possibly stale local/cloud data. Reuse Schedule/Message details directly.
     var openedLessonKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedHomeCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     var openedNoticeKey by rememberSaveable { mutableStateOf<String?>(null) }
     val onLessonOpen: (VerifiedLesson) -> Unit = { openedLessonKey = homeLessonKey(it) }
@@ -232,12 +333,10 @@ fun RealAcademicHome(
     val onNoticeOpen: (String) -> Unit = { openedNoticeKey = it }
 
     val hero: @Composable () -> Unit = {
-        HomeHero(
+        HomeCourseList(
             lessons = sameWeekday,
             hasTimetable = localLessons.isNotEmpty(),
             weekdayLabel = weekdayLabel,
-            selectedCourseKey = selectedHomeCourseKey,
-            onSelectCourse = { selectedHomeCourseKey = it },
             openSchedule = openSchedule,
             openFileImport = openFileImport,
             onOpenLesson = onLessonOpen
@@ -247,7 +346,7 @@ fun RealAcademicHome(
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
     }
     val metrics: @Composable () -> Unit = {
-        HomeMetricsBlock(pending, attention, metricCaption, openTasks)
+        HomeMetricsBlock(pending, attention, openTasks)
     }
     val academic: @Composable () -> Unit = {
         HomeQuickBlock(openAcademic, openGrades, openExams, openSecondClass,
@@ -311,6 +410,7 @@ fun RealAcademicHome(
         WorkspaceTaskDetailSheet(
             selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
+            onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = { openedTaskKey = null; openTasks() }
         )
     }
@@ -327,11 +427,8 @@ private fun homeLessonKey(lesson: VerifiedLesson): String =
     "${lesson.id}:${lesson.term}:${lesson.weekday}:${lesson.startSection}:" +
         "${lesson.endSection}:${lesson.title}:${lesson.weeks.sorted().joinToString(",")}"
 
-internal fun resolveHomeCourseIndex(courseKeys: List<String>, selectedKey: String?): Int {
-    if (selectedKey == null) return 0
-    val index = courseKeys.indexOf(selectedKey)
-    return if (index >= 0) index else 0
-}
+/** 按原始顺序截取首页最多四条真实课程记录。 */
+internal fun <T> homeCoursePreview(records: List<T>): List<T> = records.take(4)
 
 /** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
 @Composable
@@ -344,19 +441,22 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
         in 18..22 -> "晚上好"
         else -> "夜深了"
     }
-    Column(
+    // 首页主标题由唯一顶栏显示；这里仅给日期与问候，不再堆第二个大标题。
+    Row(
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-            style = MaterialTheme.typography.labelLarge,
-            color = XiaoxuPalette.Ink2
+            style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink2,
+            modifier = Modifier.weight(1f)
         )
         Text(
             text = greeting,
-            style = MaterialTheme.typography.headlineMedium,
-            color = XiaoxuPalette.Ink
+            style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink3
         )
     }
 }
@@ -382,83 +482,96 @@ private fun HomeSection(
     }
 }
 
-/** 本机导入课表按星期展示课程记录；周次未知时不得暗示今日真实开课。 */
+/**
+ * 首屏只展示本人本机导入的同星期课块。周次未知时仅称“课程记录”，避免冒充今日实际开课。
+ * 课程行复用原课程详情抽屉，不再保留旧单卡轮播。
+ */
 @Composable
-private fun HomeHero(
+private fun HomeCourseList(
     lessons: List<VerifiedLesson>,
     hasTimetable: Boolean,
     weekdayLabel: String,
-    selectedCourseKey: String?,
-    onSelectCourse: (String) -> Unit,
     openSchedule: () -> Unit,
     openFileImport: () -> Unit,
     onOpenLesson: (VerifiedLesson) -> Unit
 ) {
-    // The same weekday may contain many week-specific course blocks. Preserve
-    // one main card, but make every imported block reachable without leaving Home.
-    val selectedIndex = resolveHomeCourseIndex(lessons.map(::homeLessonKey), selectedCourseKey)
-    val lesson = lessons.getOrNull(selectedIndex)
-    when {
-        lesson != null -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            XiaoxuHero(
-                kicker = "${weekdayLabel}课程记录 · 本机课表",
-                title = lesson.title,
-                supporting = "第${lesson.startSection}–${lesson.endSection}节 · " +
-                    lesson.location.ifBlank { "教室未提供" } + " · " +
-                    lesson.teacher.ifBlank { "教师未提供" },
-                badge = if (lessons.size > 1)
-                    "${selectedIndex + 1}/${lessons.size} · 待核对" else "待核对",
-                meta = "适用${formatWeeks(lesson.weeks)} · 未核定当前教学周",
-                modifier = Modifier.clickable(onClickLabel = "查看课程详情") {
-                    onOpenLesson(lesson)
-                },
-                actionLabel = "全部课表",
-                onAction = openSchedule
+    if (hasTimetable && lessons.isEmpty()) {
+        // One compact, aligned row; verification caveat stays on timetable page.
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "暂无本机课程记录",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink2
             )
-            if (lessons.size > 1) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "${weekdayLabel}共 ${lessons.size} 条课块记录",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2,
-                        maxLines = 2
-                    )
-                    OutlinedButton(
-                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex - 1])) },
-                        enabled = selectedIndex > 0,
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("上一条") }
-                    OutlinedButton(
-                        onClick = { onSelectCourse(homeLessonKey(lessons[selectedIndex + 1])) },
-                        enabled = selectedIndex < lessons.lastIndex,
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("下一条") }
+            TextButton(onClick = openSchedule) { Text("课表") }
+        }
+    } else {
+        HomeSection(
+            title = "课程记录",
+            actionLabel = if (hasTimetable) "查看课表" else null,
+            onAction = if (hasTimetable) openSchedule else null
+        ) {
+            XiaoxuCard(contentPadding = 12.dp) {
+                when {
+                    lessons.isNotEmpty() -> {
+                        homeCoursePreview(lessons).forEachIndexed { index, lesson ->
+                        if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                        HomeCourseRecordRow(lesson, onOpen = { onOpenLesson(lesson) })
+                    }
+                    if (lessons.size > 4) {
+                        TextButton(onClick = openSchedule) {
+                            Text("查看其余 ${lessons.size - 4} 条课程记录")
+                        }
+                    }
+                }
+                    else -> {
+                        Text("还没有导入课表", style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink2)
+                        TextButton(onClick = openFileImport) { Text("导入课表") }
+                    }
                 }
             }
         }
-        hasTimetable -> XiaoxuHero(
-            kicker = "${weekdayLabel}课程记录",
-            title = "没有对应星期的课程记录",
-            supporting = "不等于今天停课，请以实际教学周和学校通知为准。",
-            badge = "本机导入",
-            tone = XiaoxuTone.Neutral,
-            actionLabel = "查看课表",
-            onAction = openSchedule
+    }
+}
+
+@Composable
+private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
+    val courseColor = xiaoxuCourseColor(lesson.id.ifBlank { lesson.title })
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = XiaoxuSpacing.listRowMin)
+            .clickable(onClickLabel = "查看课程详情", onClick = onOpen)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.width(4.dp).height(44.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(courseColor.accent)
         )
-        else -> XiaoxuHero(
-            kicker = "我的课表",
-            title = "还没有导入课表",
-            supporting = "导入 ICS / JSON 文件，课程将保存在本机并可离线查看。",
-            tone = XiaoxuTone.Neutral,
-            badge = "未导入",
-            actionLabel = "从文件导入课表",
-            onAction = openFileImport
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(lesson.title.ifBlank { "未命名课程" },
+                style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
+            Text(
+                "第${lesson.startSection}–${lesson.endSection}节 · " +
+                    lesson.location.ifBlank { "教室未提供" } + " · " + formatWeeks(lesson.weeks),
+                style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 2, overflow = TextOverflow.Ellipsis
+            )
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -467,14 +580,12 @@ private fun HomeHero(
 private fun HomeMetricsBlock(
     pending: Int,
     attention: Int,
-    caption: String,
     openTasks: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MetricCard(label = "待完成", value = pending.toString(), caption = caption,
+        MetricCard(label = "待完成", value = pending.toString(),
             modifier = Modifier.weight(1f), onClick = openTasks)
-        MetricCard(label = "临近截止", value = attention.toString(),
-            caption = "含逾期与未来三天 · 仅已记录期限",
+        MetricCard(label = "近期截止", value = attention.toString(),
             tone = XiaoxuTone.Warning,
             modifier = Modifier.weight(1f), onClick = openTasks)
     }
@@ -534,7 +645,7 @@ private fun HomeQuickBlock(
 private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
     today: LocalDate,
-    caption: String,
+    caption: String?,
     openTasks: () -> Unit,
     onTaskOpen: (WorkspaceTask) -> Unit
 ) {
@@ -562,7 +673,6 @@ private fun HomeNoticesBlock(
     onNoticeOpen: (String) -> Unit
 ) {
     HomeSection(title = "校园动态",
-        caption = "来自已读取的学校官网公告",
         actionLabel = "消息中心", onAction = openMessages) {
         XiaoxuCard {
             if (state.notices.isEmpty()) {
@@ -603,10 +713,7 @@ private fun HomeHomeworkBlock(
     localHomework: List<NativeSchoolRecord>,
     openLocalSchool: (String) -> Unit
 ) {
-    HomeSection(
-        title = "学习通 · 本机作业",
-        caption = "本机读取"
-    ) {
+    HomeSection(title = "学习通 · 本机作业") {
         XiaoxuCard {
             if (localHomework.isEmpty()) {
                 Text(
@@ -702,39 +809,72 @@ private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Uni
 fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
     openWebsite: () -> Unit,
-    openLocalSchool: (String) -> Unit = {}
+    openLocalSchool: (String) -> Unit = {},
+    onMessages: () -> Unit
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
-    val all = remember(localTasks, state.tasks) { combineWorkspaceTasks(localTasks, state.tasks) }
     val context = LocalContext.current
+    val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
+    val archivedKeys = archiveStore.archivedKeys
+    val allRecords = remember(localTasks, state.tasks) {
+        combineWorkspaceTasks(localTasks, state.tasks)
+    }
+    val all = remember(allRecords, archivedKeys) {
+        visibleWorkspaceTasks(allRecords, archivedKeys)
+    }
+    val archivedRows = remember(allRecords, archivedKeys) {
+        allRecords.filter { it.key in archivedKeys }
+    }
     val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
-    val capturedHomework = schoolRows.filter {
-        it.provider == "chaoxing" && it.kind == "homework"
+    val capturedHomework = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var sourceFilter by rememberSaveable { mutableStateOf("all") }
+    var sourceMenuOpen by rememberSaveable { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
+    var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
-    var showCourseTasks by rememberSaveable { mutableStateOf(true) }
-    var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
-    var showCandidates by rememberSaveable { mutableStateOf(true) }
+    // Default collapsed on first entry. Saveable state still restores a user's
+    // subsequent expand/collapse choice when switching tabs or rotating.
+    var showCourseTasks by rememberSaveable { mutableStateOf(false) }
+    var showWechatTasks by rememberSaveable { mutableStateOf(false) }
+    var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
-    var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
-    // This report is for the CURRENT owner session, not Room or the task count.
-    var showOfficialAudit by rememberSaveable(state.chaoxingBatchCheckedAt) {
-        mutableStateOf(state.chaoxingBatchCheckedAt != null)
+    // Per-row state delivers immediate feedback while the owner-only POST runs.
+    // Other checkboxes remain interactive; only a pending row is locked.
+    val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
+    // Local Room updates also need a visual preview: the actual task and
+    // counters only change once Room emits the committed record.
+    val pendingLocalTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(localTasks) {
+        val saved = localTasks.associate { "local:${it.id}" to it.completed }
+        pendingLocalTaskUpdates.entries.toList().forEach { (key, expected) ->
+            if (saved[key] == expected || key !in saved) {
+                pendingLocalTaskUpdates.remove(key)
+            }
+        }
     }
+    var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
+    // Reading or refreshing official data never expands this group on its own.
+    // Preserve a deliberate user toggle across ordinary UI recomposition.
+    var showOfficialAudit by rememberSaveable { mutableStateOf(false) }
     var showAllOfficialHomework by rememberSaveable(state.chaoxingBatchCheckedAt) {
         mutableStateOf(false)
     }
     val auditSummary = remember(state.chaoxingBatchAudit, state.chaoxingCourses,
         state.chaoxingBatchTaskLedgerFresh) {
         summarizeChaoxingAudit(state.chaoxingBatchAudit, state.chaoxingCourses.size,
+            state.chaoxingBatchTaskLedgerFresh)
+    }
+    val auditLedger = remember(state.chaoxingBatchAudit, state.tasks,
+        state.chaoxingBatchTaskLedgerFresh) {
+        reconcileChaoxingLedger(state.chaoxingBatchAudit, state.tasks,
             state.chaoxingBatchTaskLedgerFresh)
     }
     val officialRows = remember(state.chaoxingBatchAudit) {
@@ -744,12 +884,16 @@ fun RealAcademicTaskHub(
     }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
-    // Source and filters share the same LazyColumn, including all management forms.
+    // All optional rows must be counted. Fixed indexes shifted when old helper lines
+    // were removed, so local/cloud buttons could land on the wrong section.
     val taskListState = rememberLazyListState()
     var jumpTo by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch, showAdvancedFilters) {
-        val managerStart = 5 + (if (showSearch) 1 else 0) +
-            (if (showAdvancedFilters) 1 else 0) + (if (showManager) 1 else 0)
+    val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
+    LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
+        showAdvancedFilters, staleTasksShown) {
+        val managerStart = taskEditorStartIndex(
+            staleTasksShown, showSearch, showAdvancedFilters, showManager
+        )
         val targetIndex = when (jumpTo) {
             "local" -> if (showLocal) managerStart else null
             "cloud" -> if (showCloud) managerStart + (if (showLocal) 1 else 0) else null
@@ -764,74 +908,100 @@ fun RealAcademicTaskHub(
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
-    val visible = facetWorkspaceTasks(
-        searchWorkspaceTasks(all, filter, searchQuery, today),
-        sourceFilter, onlyThisWeek, today
-    )
-    // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
-    val shown = visible.take(80)
-    val localRows = shown.filter { it.storage == "local" }
-    val cloudRows = shown.filter { it.storage == "cloud" }
+    // Checkbox previews, expansion toggles and sheet navigation do not need
+    // another search + date-facet pass over every stored task.
+    val shown = remember(all, filter, searchQuery, sourceFilter, onlyThisWeek, today) {
+        facetWorkspaceTasks(
+            searchWorkspaceTasks(all, filter, searchQuery, today),
+            sourceFilter, onlyThisWeek, today
+        )
+    }
+    // Keep each source as a stable lazy section across unrelated UI updates.
+    val localRows = remember(shown) { shown.filter { it.category == "local" } }
+    val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
+    val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
     LazyColumn(
         state = taskListState,
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        // Keep connected task rows as separate lazy items with zero gaps.
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("任务中心",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink,
+                        maxLines = 1,
+                        modifier = Modifier.semantics { heading() })
                     Text(
-                        today.format(DateTimeFormatter.ofPattern("yyyy年M月d日 · EEEE",
+                        today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE",
                             java.util.Locale.CHINA)),
                         style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2
+                        color = XiaoxuPalette.Ink2,
+                        maxLines = 1
                     )
-                    Text("任务中心", style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold, color = XiaoxuPalette.Ink,
-                        modifier = Modifier.semantics { heading() })
-                    Text("课程任务 · 群消息审核 · 个人待办",
-                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
                 }
-                IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Surface),
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.NotificationsNone,
+                    label = "消息中心",
+                    onClick = onMessages
+                )
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.Search,
+                    label = "搜索任务",
                     onClick = { showSearch = !showSearch }
-                ) {
-                    Icon(Icons.Outlined.Search, contentDescription = "搜索任务",
-                        tint = XiaoxuPalette.Brand)
-                }
-                Spacer(Modifier.width(7.dp))
-                IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Surface),
+                )
+                XiaoxuToolbarAction(
+                    icon = Icons.Outlined.Refresh,
+                    label = "刷新校序云端任务",
                     onClick = { taskScope.launch { client.refreshPrivate() } },
                     enabled = state.authenticated && !state.busy
-                ) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新校序云端任务",
-                        tint = if (state.authenticated) XiaoxuPalette.Brand else XiaoxuPalette.Ink3)
-                }
-                Spacer(Modifier.width(7.dp))
-                IconButton(
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                        .background(XiaoxuPalette.Brand),
-                    onClick = { showManager = true; showLocal = true; jumpTo = "local" }
-                ) {
-                    Icon(Icons.Outlined.Add, contentDescription = "新增本机任务",
-                        tint = Color.White)
-                }
+                )
+                XiaoxuToolbarAction(
+                    icon = if (showManager && showLocal) Icons.Outlined.Close else Icons.Outlined.Add,
+                    label = if (showManager && showLocal)
+                        "收起新建本机任务" else "新增本机任务",
+                    emphasized = true,
+                    onClick = {
+                        if (showManager && showLocal) {
+                            showManager = false
+                            showLocal = false
+                            showCloud = false
+                            jumpTo = null
+                        } else {
+                            showManager = true
+                            showLocal = true
+                            showCloud = false
+                            jumpTo = "local"
+                        }
+                    }
+                )
             }
         }
         item {
+            // One continuous status strip; values come from real saved tasks.
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                modifier = Modifier.fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(XiaoxuRadius.card))
+                    .background(XiaoxuPalette.GlassTrack)
+                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
+                        RoundedCornerShape(XiaoxuRadius.card))
+                    .padding(5.dp)
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
-                    label = "待完成", count = all.count { !it.done },
+                    label = "待完成", count = all.count { !considerCompleteInTaskList(it) },
                     active = filter == "pending", modifier = Modifier.weight(1f),
                     onClick = { filter = "pending"; jumpTo = "filters" }
                 )
@@ -841,26 +1011,23 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "all"; jumpTo = "filters" }
                 )
                 TaskStatusTab(
-                    label = "已完成", count = all.count { it.done },
+                    label = "已完成", count = all.count { considerCompleteInTaskList(it) },
                     active = filter == "done", modifier = Modifier.weight(1f),
                     onClick = { filter = "done"; jumpTo = "filters" }
                 )
             }
         }
-        item {
-            Text(
-                if (!state.tasksFresh && state.tasks.isNotEmpty())
-                    "含上次云端快照 " + state.tasks.size + " 条"
-                else "仅统计已保存的任务",
+        if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
+            Text("含上次云端快照 " + state.tasks.size + " 条",
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2
-            )
+                color = XiaoxuPalette.Ink2)
         }
         if (showSearch) item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it.take(100) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 singleLine = true,
                 label = { Text("搜索任务标题或来源") },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
@@ -874,38 +1041,78 @@ fun RealAcademicTaskHub(
             )
         }
         item {
+            // Source and management controls stay compact; full filters are on demand.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("任务来源分开保存，学校提交状态需另行核验",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showAdvancedFilters = !showAdvancedFilters }) {
-                    Icon(Icons.Outlined.Tune, contentDescription = null,
-                        modifier = Modifier.size(16.dp))
-                    Text("筛选")
+                Box(modifier = Modifier.weight(1f)) {
+                    TextButton(
+                        onClick = { sourceMenuOpen = true },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(
+                            when (sourceFilter) {
+                                "local" -> "本机来源"
+                                "cloud" -> "云端来源"
+                                "wechat" -> "微信任务"
+                                else -> "全部来源"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink
+                        )
+                        Icon(Icons.Outlined.ExpandMore, contentDescription = "选择任务来源",
+                            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(20.dp))
+                    }
+                    DropdownMenu(
+                        expanded = sourceMenuOpen,
+                        onDismissRequest = { sourceMenuOpen = false }
+                    ) {
+                        val sources = listOf("all" to "全部来源",
+                            "cloud" to "云端来源", "wechat" to "微信任务",
+                            "local" to "本机来源")
+                        sources.forEach { (source, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    sourceFilter = source
+                                    sourceMenuOpen = false
+                                }
+                            )
+                        }
+                    }
                 }
-                TextButton(onClick = { showManager = !showManager }) {
-                    Text(if (showManager) "收起管理" else "任务管理")
+                TextButton(
+                    onClick = {
+                        if (showManager) {
+                            showManager = false
+                            showLocal = false
+                            showCloud = false
+                            jumpTo = null
+                        } else {
+                            showManager = true
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
+                    Text(if (showManager) "收起管理" else "管理",
+                        style = MaterialTheme.typography.labelLarge)
                 }
-            }
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                val sources = listOf("all" to "全部来源", "local" to "本机", "cloud" to "云端")
-                items(count = sources.size) { i ->
-                    val (source, label) = sources[i]
-                    FilterChip(
-                        selected = sourceFilter == source,
-                        onClick = { sourceFilter = source },
-                        label = { Text(label) }
-                    )
+                IconButton(
+                    onClick = { showAdvancedFilters = !showAdvancedFilters },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Outlined.Tune,
+                        contentDescription = if (showAdvancedFilters) "收起日期筛选" else "筛选截止日期",
+                        tint = XiaoxuPalette.Ink2, modifier = Modifier.size(21.dp))
                 }
             }
         }
         if (showAdvancedFilters) item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 item {
                     FilterChip(
                         selected = !onlyThisWeek,
@@ -923,7 +1130,10 @@ fun RealAcademicTaskHub(
             }
         }
         if (showManager) item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = { showLocal = !showLocal; if (showLocal) jumpTo = "local" },
                     modifier = Modifier.weight(1f)
@@ -934,16 +1144,40 @@ fun RealAcademicTaskHub(
                 ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
             }
         }
-        if (showLocal) item { LocalTaskEditor(localTasks, dao) }
-        if (showCloud) item { CloudTaskEditor(client) }
-        item {
-            Text("当前显示 " + shown.size + " / " + visible.size + " 条（最多80条） · 同屏查看不等于合并数据库",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (showManager) item {
+            val submitted = all.filter { it.storage == "cloud" &&
+                it.provider == "chaoxing" &&
+                it.officialStatus in setOf("submitted", "graded") }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    enabled = submitted.isNotEmpty(),
+                    onClick = {
+                        archiveStore.archiveAll(submitted.map { it.key })
+                        Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条",
+                            Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("清理已提交 (${submitted.size})") }
+                OutlinedButton(
+                    enabled = archivedRows.isNotEmpty(),
+                    onClick = { showArchiveSheet = true },
+                    modifier = Modifier.weight(1f)
+                ) { Text("恢复已清理 (${archivedRows.size})") }
+            }
         }
-        if (visible.isEmpty()) {
+        if (showManager && showLocal) item {
+            Column(Modifier.padding(top = 12.dp)) { LocalTaskEditor(localTasks, dao) }
+        }
+        if (showManager && showCloud) item {
+            Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
+        }
+        if (shown.isEmpty()) {
             item {
                 XiaoxuEmpty(
+                    modifier = Modifier.padding(top = 12.dp),
                     title = if (filter == "done" && onlyThisWeek) "当前筛选条件互相冲突"
                         else "没有匹配的已保存任务",
                     message = when {
@@ -973,6 +1207,7 @@ fun RealAcademicTaskHub(
                             sourceFilter != "all" -> sourceFilter = "all"
                             onlyThisWeek -> onlyThisWeek = false
                             else -> {
+                                showManager = true
                                 showLocal = true
                                 jumpTo = "local"
                             }
@@ -982,41 +1217,117 @@ fun RealAcademicTaskHub(
             }
         } else {
             if (cloudRows.isNotEmpty()) {
-                item {
+                item(key = "group:course") {
                     TaskGroupHeader(
-                        title = "课程相关与云端任务",
+                        title = "课程任务",
                         count = cloudRows.size,
-                        badge = "校序云端",
-                        note = "来自已保存云端任务 · 官方提交状态待核验",
+                        badge = "",
+                        note = "",
                         icon = Icons.Outlined.MenuBook,
                         expanded = showCourseTasks,
+                        joinedRows = true,
                         onClick = { showCourseTasks = !showCourseTasks }
                     )
                 }
                 if (showCourseTasks) {
                     items(count = cloudRows.size, key = { i -> cloudRows[i].key }) { i ->
-                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
+                        ConnectedTaskShell(index = i, total = cloudRows.size) {
                             TaskRow(cloudRows[i], today, onOpen = { openedTaskKey = cloudRows[i].key })
                         }
                     }
                 }
             }
-            if (localRows.isNotEmpty()) {
-                item {
+            if (wechatRows.isNotEmpty()) {
+                item(key = "group:wechat") {
                     TaskGroupHeader(
-                        title = "我的本机待办",
+                        title = "微信任务",
+                        count = wechatRows.size,
+                        badge = "",
+                        note = "",
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                        expanded = showWechatTasks,
+                        joinedRows = true,
+                        // No placement animation: when course tasks above this
+                        // group expand/collapse, its header must not visibly chase
+                        // a stale LazyColumn position.
+                        onClick = { showWechatTasks = !showWechatTasks }
+                    )
+                }
+                if (showWechatTasks) {
+                    items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
+                        ConnectedTaskShell(
+                            index = i, total = wechatRows.size
+                        ) {
+                            val row = wechatRows[i]
+                            TaskRow(
+                                row, today,
+                                onOpen = { openedTaskKey = row.key },
+                                onToggleWechat = if (state.tasksFresh && row.revision >= 0) {
+                                    { checked ->
+                                        if (!pendingWechatTaskUpdates.containsKey(row.key)) {
+                                            // Provisional, presentation-only state: the real
+                                            // task and counters change after confirmed POST.
+                                            pendingWechatTaskUpdates[row.key] = checked
+                                            taskScope.launch {
+                                                try {
+                                                    client.setWechatTaskCompleted(
+                                                        row.key.removePrefix("cloud:"),
+                                                        row.revision, checked
+                                                    )
+                                                } finally {
+                                                    pendingWechatTaskUpdates.remove(row.key)
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else null,
+                                pendingChecked = pendingWechatTaskUpdates[row.key],
+                                actionEnabled = !pendingWechatTaskUpdates.containsKey(row.key)
+                            )
+                        }
+                    }
+                }
+            }
+            if (localRows.isNotEmpty()) {
+                item(key = "group:local") {
+                    TaskGroupHeader(
+                        title = "本机任务",
                         count = localRows.size,
-                        badge = "本机 Room",
-                        note = "离线可用 · 来源与截止时间由本人填写",
+                        badge = "",
+                        note = "",
                         icon = Icons.Outlined.CheckBox,
                         expanded = showPersonalTasks,
+                        joinedRows = true,
                         onClick = { showPersonalTasks = !showPersonalTasks }
                     )
                 }
                 if (showPersonalTasks) {
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
-                        XiaoxuCard(contentPadding = 0.dp, shape = RoundedCornerShape(14.dp)) {
-                            TaskRow(localRows[i], today, onOpen = { openedTaskKey = localRows[i].key })
+                        val row = localRows[i]
+                        ConnectedTaskShell(index = i, total = localRows.size) {
+                            TaskRow(row, today,
+                                onOpen = { openedTaskKey = row.key },
+                                onToggleLocal = { checked ->
+                                    // Local-only preview; Room remains the source of truth.
+                                    val id = row.key.removePrefix("local:").toLongOrNull()
+                                    if (id != null && !pendingLocalTaskUpdates.containsKey(row.key)) {
+                                        pendingLocalTaskUpdates[row.key] = checked
+                                        taskScope.launch {
+                                            try {
+                                                dao.setCompleted(id, checked)
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                                pendingLocalTaskUpdates.remove(row.key)
+                                                Toast.makeText(context, "本机任务保存失败，请重试",
+                                                    Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                },
+                                pendingChecked = pendingLocalTaskUpdates[row.key],
+                                actionEnabled = !pendingLocalTaskUpdates.containsKey(row.key)
+                            )
                         }
                     }
                 }
@@ -1025,6 +1336,7 @@ fun RealAcademicTaskHub(
         if (state.privateError != null) {
             item {
                 Text("云端部分数据刷新失败，已有记录可能过期",
+                    modifier = Modifier.padding(top = 12.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error)
             }
@@ -1033,16 +1345,18 @@ fun RealAcademicTaskHub(
         // never enters owner-completed task counters or guesses missing dates.
         item {
             TaskGroupHeader(
-                title = "学习通 · 官方作业核验",
+                title = "学习通作业",
                 count = auditSummary.verifiedWorkRows,
-                badge = if (auditSummary.fullyCoveredAndRefreshed)
-                    "全部课程条数已核验" else "覆盖未全部证实",
-                note = when {
-                    state.chaoxingBatchBusy -> "正在逐门读取本人课程的官方状态"
-                    state.chaoxingBatchCheckedAt != null ->
-                        "本次 ${auditSummary.checkedCourses}/${auditSummary.totalCourses} 门课程有结果"
-                    else -> "尚无本次逐门核验结果，不能据此判断作业总数"
+                badge = when {
+                    state.chaoxingBatchBusy -> "读取中"
+                    auditSummary.fullyCoveredAndRefreshed -> "已核对当前课程列表"
+                    state.chaoxingBatchCheckedAt != null -> "部分已读取"
+                    else -> "未读取"
                 },
+                note = if (state.chaoxingBatchCheckedAt != null &&
+                    auditSummary.totalCourses > 0)
+                    "课程 ${auditSummary.checkedCourses}/${auditSummary.totalCourses}"
+                else "",
                 icon = Icons.Outlined.MenuBook,
                 expanded = showOfficialAudit,
                 onClick = { showOfficialAudit = !showOfficialAudit },
@@ -1052,7 +1366,7 @@ fun RealAcademicTaskHub(
         }
         if (showOfficialAudit) {
             item {
-                XiaoxuCard {
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp)) {
                     Text(
                         "仅展示本人授权会话中实际核实的课程和作业状态；不会自动提交或标记本机任务完成。",
                         style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2
@@ -1107,12 +1421,28 @@ fun RealAcademicTaskHub(
                         )
                         Text(
                             if (auditSummary.fullyCoveredAndRefreshed)
-                                "已核验全部课程的返回条数，云端任务列表也已刷新；仍需本人官网对照。"
+                                "已核对所列课程的当前作业列表；仍需与学习通官网核对是否遗漏其他类别。"
                             else "本次尚不能确认全部作业覆盖；不以缺失、失败或未检查记录推定已完成。",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (auditSummary.fullyCoveredAndRefreshed)
                                 XiaoxuPalette.Success else XiaoxuPalette.Warning
                         )
+                        if (auditLedger.ledgerFresh) {
+                            Text(
+                                "与云端任务未对齐 ${auditLedger.missingFromLedger ?: 0} 条" +
+                                    " · 旧记录待核对 ${auditLedger.possibleLegacyTotal ?: 0} 条" +
+                                    (if ((auditLedger.unmatchedLegacy ?: 0) > 0)
+                                        "（其中 ${auditLedger.unmatchedLegacy} 条无法归属课程）"
+                                    else ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if ((auditLedger.missingFromLedger ?: 0) > 0)
+                                    XiaoxuPalette.Warning else XiaoxuPalette.Ink2
+                            )
+                        } else {
+                            Text("云端任务列表未能核验，本次不判断作业是否已入库。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning)
+                        }
                         Text(
                             "本次核验时间：${state.chaoxingBatchCheckedAt} · 仅当前会话有效",
                             style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3
@@ -1124,13 +1454,14 @@ fun RealAcademicTaskHub(
                 items(count = state.chaoxingBatchAudit.size,
                     key = { i -> "cx-audit:" + state.chaoxingBatchAudit[i].courseKey }) { i ->
                     val course = state.chaoxingBatchAudit[i]
+                    val ledger = auditLedger.courses[course.courseKey]
                     val coverage = when (course.coverage) {
                         ChaoxingCourseCoverage.COUNT_VERIFIED -> "条数已核验"
                         ChaoxingCourseCoverage.LIST_ONLY -> "列表有效 · 总量未核验"
                         ChaoxingCourseCoverage.FAILED -> "本次读取失败"
                         ChaoxingCourseCoverage.NOT_CHECKED -> "本次未检查"
                     }
-                    XiaoxuCard(contentPadding = 10.dp) {
+                    XiaoxuCard(modifier = Modifier.padding(top = 12.dp), contentPadding = 10.dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(course.courseTitle, modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1141,10 +1472,39 @@ fun RealAcademicTaskHub(
                                 color = if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
                                     XiaoxuPalette.Success else XiaoxuPalette.Warning)
                         }
-                        if (course.homework.isNotEmpty()) {
-                            Text("已核实 ${course.homework.size} 项官方状态",
+                        if (course.coverage in setOf(ChaoxingCourseCoverage.COUNT_VERIFIED,
+                                ChaoxingCourseCoverage.LIST_ONLY)) {
+                            val statuses = ledger?.statuses ?: emptyMap()
+                            Text("读取 ${course.homework.size} 条" +
+                                (if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
+                                    "／当前列表总数 ${course.homework.size}" else "／总量未核验"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XiaoxuPalette.Ink2)
+                            Text("未提交 ${statuses["todo"] ?: 0} · 已提交 ${statuses["submitted"] ?: 0}" +
+                                " · 已批阅 ${statuses["graded"] ?: 0}" +
+                                " · 已退回 ${statuses["returned"] ?: 0}" +
+                                (if ((statuses["unknown"] ?: 0) > 0)
+                                    " · 未知 ${statuses["unknown"]}" else ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2)
+                            if (state.chaoxingBatchCheckedAt != null) {
+                                Text(
+                                    if (ledger?.stored != null)
+                                        "云端对应 ${ledger.stored}/${ledger.listed}" +
+                                            (if ((ledger.missing ?: 0) > 0)
+                                                " · ${ledger.missing} 条需重新核对" else "")
+                                    else "云端任务未核验，无法确认入库状态",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if ((ledger?.missing ?: 0) > 0)
+                                        XiaoxuPalette.Warning else XiaoxuPalette.Ink2
+                                )
+                            }
+                        }
+                        if (state.chaoxingBatchCheckedAt != null &&
+                            (ledger?.possibleLegacy ?: 0) > 0) {
+                            Text("同课程名旧记录 ${ledger?.possibleLegacy} 条待人工关联",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning)
                         }
                     }
                 }
@@ -1154,6 +1514,7 @@ fun RealAcademicTaskHub(
                     Text("逐项官方状态（本次本人会话读取） · 显示 " +
                         (if (showAllOfficialHomework) officialRows.size else
                             minOf(30, officialRows.size)) + " / " + officialRows.size,
+                        modifier = Modifier.padding(top = 12.dp),
                         style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
                 }
                 items(
@@ -1172,7 +1533,7 @@ fun RealAcademicTaskHub(
                         "returned" -> "官方：已退回"
                         else -> "官方：状态未知"
                     }
-                    XiaoxuCard(contentPadding = 12.dp) {
+                    XiaoxuCard(modifier = Modifier.padding(top = 12.dp), contentPadding = 12.dp) {
                         Text(work.title, fontWeight = FontWeight.SemiBold,
                             color = XiaoxuPalette.Ink)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1183,16 +1544,14 @@ fun RealAcademicTaskHub(
                                 color = if (work.statusCode == "todo")
                                     XiaoxuPalette.Warning else XiaoxuPalette.Brand)
                         }
-                        Text("官方核验状态；不代表已经核对所有课程或取得完整截止时间。",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink3)
                     }
                 }
                 if (officialRows.size > 30) {
                     item {
-                        TextButton(onClick = {
-                            showAllOfficialHomework = !showAllOfficialHomework
-                        }) {
+                        TextButton(
+                            modifier = Modifier.padding(top = 12.dp),
+                            onClick = { showAllOfficialHomework = !showAllOfficialHomework }
+                        ) {
                             Text(if (showAllOfficialHomework) "收起至前 30 条"
                                 else "展开其余 ${officialRows.size - 30} 条官方作业")
                         }
@@ -1200,46 +1559,19 @@ fun RealAcademicTaskHub(
                 }
             }
         }
-        // 同一 WechatReviewPanel 同时可从任务页和消息页进入，不复制审核状态机。
-        // 候选在本人确认前不是课程作业，也不进入三项统计。
-        if (state.authenticated || state.pendingWechatCount != null) {
-            item {
-                TaskGroupHeader(
-                    title = "群消息任务候选",
-                    count = state.pendingWechatCount ?: 0,
-                    badge = if (state.wechatError != null)
-                        "候选快照 · 待刷新" else "本人云端 · 待审核",
-                    note = "需要人工确认，加入后才进入个人任务列表",
-                    icon = Icons.Outlined.ChatBubbleOutline,
-                    expanded = showCandidates,
-                    onClick = { showCandidates = !showCandidates },
-                    showCount = state.pendingWechatCount != null
-                )
-            }
-            if (showCandidates) item {
-                XiaoxuCard {
-                    WechatReviewPanel(
-                        client = client,
-                        pendingCount = state.pendingWechatCount,
-                        openWebsite = openWebsite
-                    )
-                }
-            }
-        }
         item {
-            XiaoxuCard {
-                SectionHeader(
-                    title = "学习通与本机页面快照",
-                    caption = "本机作业 ${capturedHomework.size} 条 · 不计入正式任务统计",
-                    actionLabel = if (showSchoolRecords) "收起" else "展开查看与同步",
-                    onAction = { showSchoolRecords = !showSchoolRecords }
-                )
-            }
+            TaskGroupHeader(
+                title = "本机读取",
+                count = capturedHomework.size,
+                badge = "",
+                note = "",
+                icon = Icons.Outlined.School,
+                expanded = showSchoolRecords,
+                onClick = { showSchoolRecords = !showSchoolRecords },
+                showCount = capturedHomework.isNotEmpty()
+            )
         }
         if (showSchoolRecords) {
-        item {
-            HorizontalDivider(Modifier.padding(top = 6.dp))
-        }
         item {
             TaskSectionHeader(
                 title = "学习通 · 本机作业快照",
@@ -1258,6 +1590,7 @@ fun RealAcademicTaskHub(
         if (capturedHomework.isEmpty()) {
             item {
                 Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
+                    modifier = Modifier.padding(top = 12.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
@@ -1266,7 +1599,8 @@ fun RealAcademicTaskHub(
             items(count = minOf(capturedHomework.size, 500),
                 key = { i -> "school:" + capturedHomework[i].fingerprint }) { index ->
                 val work = capturedHomework[index]
-                XiaoxuCard(contentPadding = 8.dp) { SnapshotRow(work) }
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
+                    contentPadding = 8.dp) { SnapshotRow(work) }
             }
         }
         item {
@@ -1278,10 +1612,19 @@ fun RealAcademicTaskHub(
                 showCount = false
             )
         }
-        item { LocalSchoolRecordSection(setOf("course")) }
-        item { ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") }) }
+        item {
+            Box(Modifier.padding(top = 12.dp)) {
+                LocalSchoolRecordSection(setOf("course"))
+            }
+        }
+        item {
+            Box(Modifier.padding(top = 12.dp)) {
+                ChaoxingHomeworkPanel(client, openSchoolReader = { openLocalSchool("chaoxing") })
+            }
+        }
          item {
             Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1291,16 +1634,53 @@ fun RealAcademicTaskHub(
     if (selectedTask != null) {
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
+            onArchive = if (selectedTask.storage == "cloud" &&
+                selectedTask.provider == "chaoxing") {
+                {
+                    archiveStore.archive(selectedTask.key)
+                    openedTaskKey = null
+                }
+            } else null,
+            onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
+                showManager = true
                 if (selectedTask.storage == "local") {
                     showLocal = true
+                    showCloud = false
                     jumpTo = "local"
                 } else {
                     showCloud = true
+                    showLocal = false
                     jumpTo = "cloud"
                 }
                 openedTaskKey = null
             })
+    }
+    if (showArchiveSheet) {
+        XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {
+            Text("仅隐藏本机列表，不会删除学习通作业或云端记录。",
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+            if (archivedRows.isEmpty()) {
+                Text("没有可恢复的任务")
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(count = archivedRows.size, key = { i -> archivedRows[i].key }) { index ->
+                        val task = archivedRows[index]
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(task.title, modifier = Modifier.weight(1f),
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { archiveStore.restore(task.key) }) {
+                                Text("恢复")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1311,25 +1691,66 @@ internal fun WorkspaceTaskDetailSheet(
     today: LocalDate,
     tasksFresh: Boolean,
     onDismiss: () -> Unit,
-    onManage: () -> Unit
+    onManage: () -> Unit,
+    onVerifyChaoxing: (() -> Unit)? = null,
+    onArchive: (() -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SourceBadge(if (selectedTask.storage == "local") "本机本人待办" else "校序云端任务",
-                if (selectedTask.storage == "local") XiaoxuTone.Brand else XiaoxuTone.Warning)
-            StatusChip(if (selectedTask.done) "已完成（个人记录）" else "待完成",
-                if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral)
+            SourceBadge(
+                when (selectedTask.category) {
+                    "wechat" -> "微信任务"
+                    "local" -> "本机任务"
+                    else -> "云端任务"
+                },
+                if (selectedTask.category == "local") XiaoxuTone.Brand else XiaoxuTone.Neutral
+            )
+            StatusChip(
+                when {
+                    selectedTask.done -> "个人已完成"
+                    considerCompleteInTaskList(selectedTask) -> "官方已提交"
+                    else -> "待完成"
+                },
+                if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
+                else XiaoxuTone.Neutral
+            )
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
-        Text("截止：" + selectedDue.label, style = MaterialTheme.typography.bodyMedium)
-        Text(if (selectedTask.storage == "cloud") {
-            if (tasksFresh) "本次云端读取 · 截止日期待核对"
-            else "上次云端快照 · 待核对"
+        Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
+            selectedDue.label, style = MaterialTheme.typography.bodyMedium)
+        Text(if (selectedTask.officialStatus != null) {
+            "上次官方同步：" + officialTaskStatusLabel(selectedTask.officialStatus) +
+                " · 与个人完成标记分开"
+        } else if (selectedTask.storage == "cloud") {
+            if (tasksFresh) "云端任务记录；尚无可核对的学校提交状态"
+            else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (selectedTask.category == "wechat") {
+            WechatTaskLinkActions(selectedTask.links)
+        }
+        if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
+            OutlinedButton(
+                onClick = onVerifyChaoxing,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
+            ) { Text("打开学习通核对") }
+            Text(
+                if (selectedTask.officialStatus != null)
+                    "已关联学习通来源作业 ID。状态以最近一次可信同步为准，刷新后再核对。"
+                else "本条记录尚无可关联的官方作业 ID，请在学习通读取本人作业。",
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2
+            )
+        }
+        if (onArchive != null) {
+            OutlinedButton(onClick = onArchive,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                Text("从本机任务列表移出")
+            }
+        }
         OutlinedButton(onClick = onManage,
             modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
             Text(if (selectedTask.storage == "local")
@@ -1341,34 +1762,43 @@ internal fun WorkspaceTaskDetailSheet(
 
 
 
-/** Main three blue-and-white pills, populated only from saved tasks. */
+/** Three real-data statuses in a single container, sized through the shared typography. */
 @Composable
 private fun TaskStatusTab(
     label: String, count: Int, active: Boolean, modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    Row(
+    Column(
         modifier = modifier
-            .clip(shape)
-            .background(if (active) XiaoxuPalette.Brand else XiaoxuPalette.Surface)
-            .border(1.dp, if (active) XiaoxuPalette.Brand else XiaoxuPalette.Line, shape)
-            .clickable(onClick = onClick)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 7.dp, vertical = 11.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
+            .selectable(selected = active, role = Role.Tab, onClick = onClick)
+            .semantics { contentDescription = "$label，$count 条" }
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 4.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
     ) {
-        Text(label, fontSize = 12.sp,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-            color = if (active) Color.White else XiaoxuPalette.Ink2, maxLines = 1)
-        Spacer(Modifier.width(5.dp))
-        Text(count.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-            color = if (active) Color.White else XiaoxuPalette.Ink)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
+            maxLines = 1
+        )
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = "tnum"
+            ),
+            fontWeight = FontWeight.SemiBold,
+            color = if (active) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink,
+            maxLines = 1
+        )
     }
 }
 
-/** Shared white group header, with a blue icon tile and reliable source caption. */
+/** 轻量分组标题：一层布局保留真实来源及核验信息，不再套图标大卡与独立徽标。 */
 @Composable
 private fun TaskGroupHeader(
     title: String,
@@ -1378,43 +1808,69 @@ private fun TaskGroupHeader(
     icon: ImageVector,
     expanded: Boolean,
     onClick: () -> Unit,
-    showCount: Boolean = true
+    showCount: Boolean = true,
+    joinedRows: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
-    XiaoxuCard(contentPadding = 14.dp, onClick = onClick) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(XiaoxuPalette.BrandSoft),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = XiaoxuPalette.Brand,
-                    modifier = Modifier.size(22.dp))
-            }
-            Column(modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    title + if (showCount) " ($count)" else "",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Text(note, style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis)
-            }
-            Icon(
-                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                contentDescription = if (expanded) "折叠分区" else "展开分区",
-                tint = XiaoxuPalette.Ink2
+    val shape = if (joinedRows && expanded) RoundedCornerShape(
+        topStart = XiaoxuRadius.card, topEnd = XiaoxuRadius.card,
+        bottomStart = 0.dp, bottomEnd = 0.dp
+    ) else RoundedCornerShape(XiaoxuRadius.card)
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        label = "task-group-chevron"
+    )
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(shape)
+            .background(XiaoxuPalette.GlassCard)
+            .background(XiaoxuPalette.GlassSheen)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
+            .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(title)
+                    if (showCount) append("，$count 条")
+                    if (badge.isNotBlank()) append("，").append(badge)
+                    if (note.isNotBlank()) append("，").append(note)
+                    append(if (expanded) "，点击收起" else "，点击展开")
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = XiaoxuPalette.Ink2,
+            modifier = Modifier.size(20.dp))
+        Column(modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                title + if (showCount) " ($count)" else "",
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
+                color = XiaoxuPalette.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() }
             )
+            if (badge.isNotBlank() || note.isNotBlank()) {
+                Text(
+                    listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-        TaskSourceBadge(badge, emphasized = true)
+        Icon(
+            Icons.Outlined.ExpandMore,
+            contentDescription = null,
+            tint = XiaoxuPalette.Ink2,
+            modifier = Modifier.size(20.dp).rotate(chevronRotation)
+        )
     }
 }
 
@@ -1431,7 +1887,7 @@ private fun TaskSectionHeader(
     showCount: Boolean = true
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1474,24 +1930,26 @@ private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
     val date = task.date
     if (date == null) {
         return if (task.storage == "cloud") {
-            DueUi("截止未核验", "截止日期未核验", DUE_MISSING)
+            DueUi("日期未记录", "云端任务没有已核实的截止日期", DUE_MISSING)
         } else {
             DueUi("截止未记录", "没有记录截止日期", DUE_MISSING)
         }
     }
-    // 不做 locale 相关格式化，避免某些区域把数字换成非 ASCII 字形。
+    // CloudTask has no source work ID or verified official deadline. Show its
+    // recorded date, but never color it as an officially overdue school work.
     val text = date.monthValue.toString().padStart(2, '0') + "-" +
         date.dayOfMonth.toString().padStart(2, '0')
-    val prefix = if (task.storage == "cloud") "待核对 · " else ""
-    val spokenPrefix = if (task.storage == "cloud") "云端待核对，" else ""
+    if (task.storage == "cloud") {
+        return DueUi("记录 $text", "云端记录日期 $text，非学校核实的截止时间", DUE_NORMAL)
+    }
     return when {
         !task.done && date.isBefore(today) ->
-            DueUi(prefix + "已逾期 · $text", spokenPrefix + "已逾期，截止 $text", DUE_OVERDUE)
+            DueUi("已逾期 · $text", "个人记录已逾期，截止 $text", DUE_OVERDUE)
         !task.done && date.isEqual(today) ->
-            DueUi(prefix + "今天截止", spokenPrefix + "今天截止", DUE_TODAY)
+            DueUi("今天截止", "个人记录今天截止", DUE_TODAY)
         !task.done && thisWeek(date, today) ->
-            DueUi(prefix + "本周 · $text", spokenPrefix + "本周截止 $text", DUE_WEEK)
-        else -> DueUi(prefix + text, spokenPrefix + "截止 $text", DUE_NORMAL)
+            DueUi("本周 · $text", "个人记录本周截止 $text", DUE_WEEK)
+        else -> DueUi(text, "个人记录日期 $text", DUE_NORMAL)
     }
 }
 
@@ -1501,9 +1959,51 @@ private const val DUE_WEEK = 2
 private const val DUE_TODAY = 3
 private const val DUE_OVERDUE = 4
 
+/** Individually lazy rows share one surface. The heading keeps its outline,
+ * while the rows use hairline separators instead of stacked gray borders.
+ */
+@Composable
+private fun ConnectedTaskShell(
+    index: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val radius = XiaoxuRadius.card
+    // LazyColumn items remain individually keyed; group header forms the shared top edge.
+    val corners = when {
+        index == total - 1 -> RoundedCornerShape(
+            topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
+        else -> RoundedCornerShape(0.dp)
+    }
+    Column(
+        modifier = modifier.fillMaxWidth()
+            .clip(corners)
+            .background(XiaoxuPalette.GlassCard)
+            .background(XiaoxuPalette.GlassSheen)
+    ) {
+        if (index > 0) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                thickness = 0.5.dp,
+                color = XiaoxuPalette.Line
+            )
+        }
+        content()
+    }
+}
+
 /** Compact row based on the reference image; click still opens the original real-data sheet. */
 @Composable
-private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
+private fun TaskRow(
+    task: WorkspaceTask,
+    today: LocalDate,
+    onOpen: () -> Unit,
+    onToggleLocal: ((Boolean) -> Unit)? = null,
+    onToggleWechat: ((Boolean) -> Unit)? = null,
+    pendingChecked: Boolean? = null,
+    actionEnabled: Boolean = true
+) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
         DUE_OVERDUE -> XiaoxuPalette.Danger
@@ -1511,77 +2011,131 @@ private fun TaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
         DUE_WEEK -> XiaoxuPalette.Brand
         else -> XiaoxuPalette.Ink2
     }
-    val cloud = task.storage == "cloud"
-    val statusText = if (task.done) "个人已完成" else due.label
-    val statusInk = if (task.done) XiaoxuPalette.Success else dueTone
+    val officialLabel = if (task.provider == "chaoxing")
+        officialTaskStatusLabel(task.officialStatus) else null
+    // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
+    val isPending = pendingChecked != null
+    val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
+    val statusText = if (isPending) "保存中…" else
+        officialLabel ?: if (task.done) "个人已完成" else due.label
+    val statusInk = when {
+        isPending -> XiaoxuPalette.Brand
+        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
+        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
+        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
+            XiaoxuPalette.Success
+        officialLabel != null -> XiaoxuPalette.Ink2
+        task.done -> XiaoxuPalette.Success
+        else -> dueTone
+    }
     val statusBackground = when {
+        isPending -> XiaoxuPalette.BrandSoft
+        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
+        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
+        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
+            XiaoxuPalette.SuccessSoft
+        officialLabel != null -> XiaoxuPalette.GlassTrack
         task.done -> XiaoxuPalette.SuccessSoft
         due.emphasis == DUE_OVERDUE -> XiaoxuPalette.DangerSoft
         due.emphasis == DUE_TODAY -> XiaoxuPalette.WarningSoft
         due.emphasis == DUE_WEEK -> XiaoxuPalette.BrandSoft
-        else -> XiaoxuPalette.SurfaceAlt
+        else -> XiaoxuPalette.GlassTrack
     }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
-                    "；" + (if (task.done) "个人标记已完成" else "待办") +
-                    "；" + due.spoken + "；点击查看任务详情"
+                    "；" + (if (isPending) "个人状态保存中" else
+                        if (task.done) "个人标记已完成"
+                        else if (considerCompleteInTaskList(task)) "官方已提交，已移出待办"
+                        else "待办") +
+                    "；" + due.spoken +
+                    (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
+                    "；点击查看任务详情"
             }
             .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(42.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(if (cloud) XiaoxuPalette.BrandSoft else XiaoxuPalette.SuccessSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                if (cloud) Icons.Outlined.MenuBook else Icons.Outlined.CheckBox,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (cloud) XiaoxuPalette.Brand else XiaoxuPalette.Success
+        // 同样的勾选视觉：本机 Room 任务可直接更改个人完成状态；
+        // 校序云端记录仅展示保存的状态，不提供会被误认成学校提交的写操作。
+        if (task.storage == "local" && onToggleLocal != null) {
+            TaskCompletionCheckbox(
+                checked = displayDone,
+                enabled = actionEnabled,
+                onCheckedChange = onToggleLocal,
+                modifier = Modifier.size(48.dp),
+                description = if (isPending) "正在保存本机任务“" + task.title + "”"
+                    else if (task.done) "将本机任务“" + task.title + "”改为待完成"
+                    else "将本机任务“" + task.title + "”标记为个人已完成"
             )
+        } else if (task.category == "wechat" && onToggleWechat != null) {
+            TaskCompletionCheckbox(
+                checked = pendingChecked ?: task.done,
+                enabled = actionEnabled,
+                onCheckedChange = onToggleWechat,
+                modifier = Modifier.size(48.dp),
+                description = if (isPending)
+                    "正在保存微信任务“" + task.title + "”的个人完成状态"
+                else if (task.done)
+                    "将微信任务“" + task.title + "”改为待完成"
+                else "将微信任务“" + task.title + "”标记为个人已完成"
+            )
+        } else {
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = XiaoxuPalette.Ink3
+                )
+            }
         }
+        // 任务标题占满内容列；状态放第二行，不再挤在右侧 108dp 窄框中截断。
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 task.title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
+                textDecoration = if (displayDone) TextDecoration.LineThrough else null,
+                color = if (displayDone) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
-            Text(
-                task.origin,
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Column(horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(
-                modifier = Modifier.widthIn(max = 108.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(statusBackground)
-                    .padding(horizontal = 7.dp, vertical = 5.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(statusText, color = statusInk, fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
+                Box(
+                    modifier = Modifier.widthIn(max = 162.dp)
+                        .clip(RoundedCornerShape(XiaoxuRadius.tile))
+                        .background(statusBackground)
+                        .padding(horizontal = 7.dp, vertical = 4.dp)
+                ) {
+                    Text(statusText, color = statusInk,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2)
+                }
+                // 微信任务已在独立分组，列表行不重复显示来源。
+                if (task.category != "wechat") {
+                    Text(
+                        task.origin,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
         }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
     }
 }
 

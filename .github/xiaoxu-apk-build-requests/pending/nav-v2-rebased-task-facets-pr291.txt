@@ -1,4 +1,0 @@
-2026-11-06 校序 V2 PR #291 on latest main.
-Build assembleDebug and testDebugUnitTest with updated navigation, task status/source/deadline facets and global message center.
-Preserve real Room tasks, saved school data, local task reminder and existing academic home shortcuts.
-This is a debug verification request, not a release approval.
