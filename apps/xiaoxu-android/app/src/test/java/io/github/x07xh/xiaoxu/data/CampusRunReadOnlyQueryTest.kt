@@ -43,7 +43,10 @@ class CampusRunReadOnlyQueryTest {
         var nextPage = 0
         var failing: CampusRunFailure? = null
         override suspend fun authorizedSubjectFingerprint(): String = subject
-        override suspend fun readSemester(): CampusRunReadSummary = semester
+        override suspend fun readSemester(): CampusRunReadSummary {
+            nextPage = 0
+            return semester
+        }
         override suspend fun readHistoryPage(cursor: String?): CampusRunReadPage {
             failing?.let { throw CampusRunSourceException(it) }
             return pages[nextPage++]
@@ -73,7 +76,7 @@ class CampusRunReadOnlyQueryTest {
         assertEquals(12_000L, snapshot.effectiveMeters)
         assertEquals(15_000L, snapshot.rawMeters)
         assertEquals(30_000L, snapshot.dashboardAccumulatedMeters)
-        assertEquals(80.0, snapshot.remainingMeters()!!.toDouble() / 600.0, 0.001)
+        assertEquals(48_000L, snapshot.remainingMeters())
         assertNull(snapshot.weeklyMeters)
         assertNull(snapshot.totalRunCount)
     }
