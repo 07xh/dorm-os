@@ -91,7 +91,7 @@ await assert.rejects(()=>patchPersonalTask(db,'me','remote-1',{
 },options),e=>e instanceof WorkspaceError&&e.status===403);
 const personalPlan=await patchPersonalTask(db,'me','remote-1',{
  revision:1,personalTargetAt:'2026-11-25T23:59:00+08:00'
-},options);
+},{...options,now:()=> '2026-11-03T11:10:00.000Z'});
 assert.equal(personalPlan.revision,2);
 assert.equal(sqlite.prepare("SELECT personal_target_at FROM academic_assignments WHERE id='remote-1'").get().personal_target_at,
  '2026-11-25T15:59:00.000Z');
@@ -102,7 +102,7 @@ await assert.rejects(()=>patchPersonalTask(db,'me','remote-1',{
 },options),e=>e instanceof WorkspaceError&&e.code==='revision_conflict');
 const cleared=await patchPersonalTask(db,'me','remote-1',{
  revision:2,personalTargetAt:null
-},options);
+},{...options,now:()=> '2026-11-03T11:11:00.000Z'});
 assert.equal(cleared.revision,3);
 assert.equal(sqlite.prepare("SELECT personal_target_at FROM academic_assignments WHERE id='remote-1'").get().personal_target_at,null);
 await assert.rejects(()=>patchPersonalTask(db,'me','manual-1',{
