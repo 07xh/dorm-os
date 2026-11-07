@@ -235,6 +235,14 @@ class SportWorldReadOnlyBridge:
             raise ReadOnlyAccessError("authorized_subject_mismatch")
         return self.session.fingerprint()
 
+    def read_subject(self) -> dict[str, Any]:
+        """Small identity proof payload, no token or source user identifier."""
+        return {
+            "bridgeSchemaVersion": 1,
+            "bridgeKind": "subject",
+            "subjectFingerprint": self.current_subject_fingerprint(),
+        }
+
     def read_semester(self) -> dict[str, Any]:
         subject = self.current_subject_fingerprint()
         summary = _business_result(self.policy.get_semester_summary())
@@ -263,6 +271,8 @@ class SportWorldReadOnlyBridge:
         if self.current_subject_fingerprint() != subject:
             raise ReadOnlyAccessError("authorized_subject_changed")
         return {
+            "bridgeSchemaVersion": 1,
+            "bridgeKind": "semester",
             "subjectFingerprint": subject,
             "fields": fields,
             "verifiedFieldSemantics": False,
@@ -289,6 +299,8 @@ class SportWorldReadOnlyBridge:
         if self.current_subject_fingerprint() != subject:
             raise ReadOnlyAccessError("authorized_subject_changed")
         return {
+            "bridgeSchemaVersion": 1,
+            "bridgeKind": "history",
             "subjectFingerprint": subject,
             "recordsPayload": records,
             "nextCursor": next_cursor,
