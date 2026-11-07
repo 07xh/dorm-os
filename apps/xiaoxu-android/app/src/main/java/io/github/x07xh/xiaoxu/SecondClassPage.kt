@@ -8,20 +8,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,19 +27,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import io.github.x07xh.xiaoxu.ui.XiaoxuCard
+import io.github.x07xh.xiaoxu.ui.XiaoxuExpandableGlassRow
+import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
+import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
 import java.text.DateFormat
 import java.util.Date
 
 /**
- * Main navigation second-class page. Only the existing local official-page
- * reader + Room records are used for "My activities" and "Scores".
- * The school's all-activities discovery feed has not been verified; do NOT
- * mix "my signups" into the catalog or fabricate upcoming activities.
+ * One native Compose section inside AcademicPage. School login opens only
+ * on demand; its WebView is NOT a content view embedded in this page.
+ * We never turn "not fetched" into "no activities".
  */
 @Composable
 fun SecondClassPage(
@@ -64,20 +64,23 @@ fun SecondClassPage(
         candidates.all { it.capturedAt == batch.capturedAt }) candidates else emptyList()
     val catalogRows = all.filter { it.provider == "second_class" && it.kind == "catalog_empty" }
     val catalogComplete = catalogRows.size == 3 &&
-        catalogRows.map { it.title }.toSet() == setOf("报名中", "待验证", "即将开始报名") &&
+        catalogRows.map { it.title }.toSet() ==
+            setOf("报名中", "待验证", "即将开始报名") &&
         catalogRows.map { it.capturedAt }.distinct().size == 1
+
+    var section by rememberSaveable { mutableIntStateOf(if (connectOnOpen) 2 else 0) }
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
-    var tab by rememberSaveable { mutableIntStateOf(if (connectOnOpen) 2 else 0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
-    // In-flight state is not persisted: a restored Activity must allow retry.
+    // Configuration changes must not open a second official reader.
+
     var refreshing by remember { mutableStateOf(false) }
-    var message by rememberSaveable { mutableStateOf("显示本机上次保存结果") }
-    // A single scroll state shared by three tabs incorrectly carries the position
-    // of a long activity list into a short score or catalog list.
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    // Each section owns its scroll position; switching never jumps to a stale offset.
     val catalogScroll = rememberScrollState()
     val activitiesScroll = rememberScrollState()
     val scoresScroll = rememberScrollState()
-    val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        result ->
         refreshing = false
         val receipt = if (result.resultCode == Activity.RESULT_OK) SecondClassSaveReceipt.validate(
             result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER),
@@ -85,155 +88,170 @@ fun SecondClassPage(
             result.data?.getIntExtra(NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
         ) else null
         val succeeded = receipt != null
-        message = if (succeeded) "本次刷新已保存"
-            else "本次未更新，保留上次数据；可重试或在官网重新登录"
+        error = if (succeeded) null else "本次未更新，可重新读取"
+
         onRefreshResult?.invoke(succeeded)
         if (receipt != null) onSavedReceipt?.invoke(receipt)
     }
+
     fun refreshPersonalRecords() {
         if (refreshing) return
         refreshing = true
-        message = "正在打开官方会话核验并刷新个人记录…"
+        error = null
         try {
             reader.launch(Intent(context, NativeSchoolConnectActivity::class.java)
                 .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
                 .putExtra(NativeSchoolConnectActivity.EXTRA_AUTO_SCORE, true))
         } catch (_: android.content.ActivityNotFoundException) {
             refreshing = false
-            message = "无法打开学校读取页面，已保留上次数据"
+            error = "学校读取页面无法打开"
             onRefreshResult?.invoke(false)
         }
     }
 
-    // A tap on the existing connection entry goes directly to the official
-    // reader once. A configuration change must not launch a second reader.
+    fun openOfficialSite() {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://dekt.ncwu.edu.cn/")))
+        }.onFailure { error = "无法打开学校官网" }
+    }
+
+    // Only the explicit connection entry opens authorization automatically.
+    // Browsing native sections alone never launches the school reader.
     LaunchedEffect(connectOnOpen) {
         if (connectOnOpen && !attempted) {
             attempted = true
             refreshPersonalRecords()
         }
-    }
 
-    // Only refresh verified personal data when the user opens those sections.
-    // Opening Activity Discovery alone must NOT be described as an event sync.
-    LaunchedEffect(scores.isNotEmpty(), tab) {
-        if (tab != 0 && scores.isNotEmpty() && !attempted) {
-            attempted = true
-            refreshPersonalRecords()
-        }
     }
 
     Column(modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            listOf("活动广场", "我的活动", "素质积分").forEachIndexed { index, label ->
-                Tab(selected = tab == index, onClick = { tab = index },
-                    text = { Text(label) })
-            }
+        // Shared soft-glass segmented control; no nested website-style tabs.
+        val sectionOptions = remember {
+            listOf(
+                XiaoxuSegmentOption("0", "活动"),
+                XiaoxuSegmentOption("1", "我的活动"),
+                XiaoxuSegmentOption("2", "积分")
+            )
         }
-        val currentScroll = when (tab) {
+        XiaoxuSegmentedControl(
+            options = sectionOptions,
+            selectedKey = section.toString(),
+            onSelected = { section = it.toInt() },
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        )
+        val currentScroll = when (section) {
             0 -> catalogScroll
             1 -> activitiesScroll
             else -> scoresScroll
         }
-        Column(Modifier.fillMaxSize().verticalScroll(currentScroll).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (tab == 0) {
-                val labels = listOf("报名中", "待验证", "即将开始报名")
-                Text("发现活动", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    labels.forEachIndexed { index, label ->
-                        FilterChip(selected = catalogFilter == index,
-                            onClick = { catalogFilter = index },
-                            label = { Text(label) })
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(currentScroll)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (section == 0) {
+                // Equal-width source filters; their display names do not change
+                // the three official result keys used by the validated parser.
+                val filters = listOf(
+                    "报名中" to "报名中",
+                    "待验证" to "待验证",
+                    "即将报名" to "即将开始报名"
+                )
+                XiaoxuSegmentedControl(
+                    options = remember {
+                        listOf(
+                            XiaoxuSegmentOption("0", "报名中"),
+                            XiaoxuSegmentOption("1", "待验证"),
+                            XiaoxuSegmentOption("2", "即将报名")
+                        )
+                    },
+                    selectedKey = catalogFilter.toString(),
+                    onSelected = { catalogFilter = it.toInt() }
+                )
+                val record = if (catalogComplete)
+                    catalogRows.singleOrNull { it.title == filters[catalogFilter].second }
+                    else null
+                XiaoxuCard {
+                    Text(
+                        if (record != null) "上次读取：暂无活动" else "活动暂未获取",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = XiaoxuPalette.Ink
+                    )
+                    if (record != null) {
+                        Text(
+                            "更新于 " + DateFormat.getDateTimeInstance()
+                                .format(Date(record.capturedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink2
+                        )
                     }
-                }
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val selected = labels[catalogFilter]
-                        val record = if (catalogComplete)
-                            catalogRows.singleOrNull { it.title == selected } else null
-                        if (record != null) {
-                            Text("当前筛选暂无活动",
-                                fontWeight = FontWeight.SemiBold)
-                            Text(record.details,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("上次官方读取：" +
-                                DateFormat.getDateTimeInstance().format(Date(record.capturedAt)),
-                                style = MaterialTheme.typography.labelSmall)
-                            Text("以上仅为上次读取的“$selected”筛选结果；不是全校所有活动，" +
-                                "也不代表此刻仍然没有活动。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else {
-                            Text("学校活动广场尚未完成本机读取",
-                                fontWeight = FontWeight.SemiBold)
-                            Text("尚未验证所有正在报名的活动目录。学校可能暂无活动，" +
-                                "也可能有非空记录暂未通过字段验收；不能据此显示“暂无活动”。",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("个人已报名活动不是活动广场，不会在此冒充可报名记录。",
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        Button(onClick = { attempted = true; refreshPersonalRecords() },
-                            enabled = !refreshing, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (refreshing) "正在读取…" else "刷新活动广场（学校官方读取）")
-                        }
-                        OutlinedButton(onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(context, NativeSchoolConnectActivity::class.java)
-                                        .putExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER, "second_class")
-                                )
-                            }.onFailure { message = "无法打开校序内学校页面" }
-                        }) { Text("在校序内检查活动列表来源") }
-                        OutlinedButton(onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW,
-                                        Uri.parse("https://dekt.ncwu.edu.cn/"))
-                                )
-                            }.onFailure { message = "无法打开学校官网，请检查浏览器" }
-                        }) { Text("前往第二课堂官方平台") }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = ::refreshPersonalRecords,
+                            enabled = !refreshing,
+                            modifier = Modifier.weight(1f)
+                        ) { Text(if (refreshing) "读取中…" else "读取学校活动") }
+                        TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                     }
-                }
-                if (message.isNotBlank()) {
-                    Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Button(onClick = { attempted = true; refreshPersonalRecords() },
-                    enabled = !refreshing, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (refreshing) "正在读取…"
-                        else if (scores.isEmpty() && activities.isEmpty())
-                            "连接并读取本人积分与活动" else "刷新积分与报名活动")
-                }
-                val rows = if (tab == 2) {
+                val rows = if (section == 2) {
                     scores.sortedBy { if (it.title == "学校积分合计") 0 else 1 }
                 } else {
                     activities.sortedBy { if (it.kind == "activity_summary") 0 else 1 }
                 }
                 if (rows.isEmpty()) {
-                    Text(if (tab == 2) "尚无本机积分，请先完成学校官方登录和本人读取。"
-                         else "尚未完成本人报名活动的完整分页读取，请刷新。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                rows.forEach { row ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(row.title, fontWeight = FontWeight.SemiBold)
-                            Text(row.details)
-                            Text("上次更新：" +
-                                DateFormat.getDateTimeInstance().format(Date(row.capturedAt)),
-                                style = MaterialTheme.typography.labelSmall)
+                    XiaoxuCard {
+                        Text(
+                            if (section == 2) "积分暂未获取" else "我的活动暂未获取",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink
+                        )
+                        Button(onClick = ::refreshPersonalRecords,
+                            enabled = !refreshing,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text(if (refreshing) "读取中…" else "读取本人数据")
+                        }
+                    }
+                } else {
+                    TextButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                        Text(if (refreshing) "读取中…" else "刷新")
+                    }
+                    rows.forEach { row ->
+                        // Only real, stored school details expand. Empty details remain static.
+                        androidx.compose.runtime.key(row.provider, row.kind, row.fingerprint) {
+                            if (row.details.isNotBlank()) {
+                                var expanded by rememberSaveable { mutableStateOf(false) }
+                                XiaoxuExpandableGlassRow(
+                                    title = row.title,
+                                    expanded = expanded,
+                                    onToggle = { expanded = !expanded }
+                                ) {
+                                    Text(
+                                        row.details,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = XiaoxuPalette.Ink2
+                                    )
+                                }
+                            } else {
+                                XiaoxuCard {
+                                    Text(row.title, style = MaterialTheme.typography.titleSmall,
+                                        color = XiaoxuPalette.Ink)
+                                }
+                            }
                         }
                     }
                 }
-                Text("来源：学校官网 · 手机本机快照。离线可查看旧记录；" +
-                    "保存时间不证明学校当前会话仍有效。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (error != null) {
+                Text(error!!, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
             }
         }
     }

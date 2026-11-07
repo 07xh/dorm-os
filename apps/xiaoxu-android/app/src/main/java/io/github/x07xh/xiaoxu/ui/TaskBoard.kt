@@ -24,8 +24,6 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -159,27 +157,6 @@ fun filterLocalTasks(tasks: List<LocalTask>, filterKey: String, today: LocalDate
         else -> tasks
     }
 
-data class TaskStats(val pending: Int, val dueThisWeek: Int, val overdue: Int, val done: Int)
-
-fun taskStats(tasks: List<LocalTask>, today: LocalDate): TaskStats {
-    val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val sunday = monday.plusDays(6)
-    var pending = 0
-    var week = 0
-    var overdue = 0
-    var done = 0
-    tasks.forEach { task ->
-        if (task.completed) {
-            done++
-            return@forEach
-        }
-        pending++
-        val date = parseDue(task.due) ?: return@forEach
-        if (date.isBefore(today)) overdue++
-        if (!date.isBefore(monday) && !date.isAfter(sunday)) week++
-    }
-    return TaskStats(pending, week, overdue, done)
-}
 
 fun dueLabel(task: LocalTask, today: LocalDate): String {
     val date = parseDue(task.due) ?: return "未填截止"
@@ -196,7 +173,6 @@ fun dueLabel(task: LocalTask, today: LocalDate): String {
 // 视觉常量
 // ---------------------------------------------------------------------------
 
-private val CardShape = RoundedCornerShape(15.dp)
 private val ChipShape = RoundedCornerShape(8.dp)
 
 private val SourceChipBg = Color(0xFFEAF2FF)
@@ -264,11 +240,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ---------- 新建 ----------
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(18.dp)
-        ) {
+        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "新建本机待办",
@@ -456,14 +428,14 @@ private fun SourcePill(
     onClick: () -> Unit
 ) {
     val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surface,
+        targetValue = if (isSelected) XiaoxuPalette.Brand
+        else XiaoxuPalette.GlassCard,
         animationSpec = tween(180),
         label = "task-pill-bg"
     )
     val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (isSelected) Color.White
+        else XiaoxuPalette.Ink2,
         animationSpec = tween(180),
         label = "task-pill-fg"
     )
@@ -499,11 +471,7 @@ private fun TaskRow(
     onDelete: () -> Unit
 ) {
     val state = dueStateOf(task, today)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardShape
-    ) {
+    XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -579,26 +547,25 @@ private fun EmptyTaskHint(filterKey: String, hasAny: Boolean) {
         filterKey == TASK_FILTER_DONE -> "还没有标记完成的任务。"
         else -> "这个筛选下没有任务。"
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            Icons.Outlined.DateRange,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    XiaoxuCard(contentPadding = 0.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .padding(16.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Outlined.DateRange,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

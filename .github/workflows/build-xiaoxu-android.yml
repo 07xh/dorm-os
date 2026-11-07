@@ -15,6 +15,11 @@ on:
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 
+# New commits supersede older PR jobs; published main builds never cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -27,6 +32,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify no fake data or extra Android credential collector
         run: node scripts/xiaoxu-android-bootstrap-tests.mjs
+      - name: Verify optional Ace 6 local visual evidence collector
+        run: |
+          node --check scripts/xiaoxu-ace6-visual-qa.mjs
+          node scripts/xiaoxu-ace6-visual-qa.mjs --help > /dev/null
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,6 +67,31 @@ jobs:
           path: |
             apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
             apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+      # The normal debug APK above remains unchanged. The second, opt-in QA
+      # package uses distinct Android app identity and private app storage.
+      - name: Compile isolated unified native UI QA APK for side-by-side testing
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon
+          out=apps/xiaoxu-android/app/build/outputs/apk/debug
+          test -s "$out/app-debug.apk"
+          aapt_bin="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          actual_package=$("$aapt_bin" dump badging "$out/app-debug.apk" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")
+          test "$actual_package" = "io.github.x07xh.xiaoxu.unifiedqa"
+          cp "$out/app-debug.apk" "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk"
+          (cd "$RUNNER_TEMP" && sha256sum xiaoxu-unified-native-qa.apk > xiaoxu-unified-native-qa.apk.sha256)
+          unzip -t "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk" >/dev/null
+      - name: Upload separately installable unified native UI QA APK
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-unified-native-qa-isolated
+          path: |
+            ${{ runner.temp }}/xiaoxu-unified-native-qa.apk
+            ${{ runner.temp }}/xiaoxu-unified-native-qa.apk.sha256
           if-no-files-found: error
           retention-days: 14
 

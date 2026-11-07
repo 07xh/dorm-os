@@ -1,0 +1,15 @@
+Explicit user-requested BUILD and physical-device visual QA for Xiaoxu UI repair PR #361 on 2026-11-07.
+
+Source: fix/xiaoxu-glass-surface-dialog-20261107
+Expected repair commit: dfb9ce03acfa25ba91ed34774809489f0c1e5198
+QA wrapper branch: qa/xiaoxu-pr361-ace6-build-20261107 (same source plus this build marker)
+
+Build the complete native Android app using the existing single source of truth, not a new UI design.
+Run Node source safety / regression tests, Kotlin compile, Android JVM tests, generate debug APK and separately installable xiaoxu-unified-native-qa-isolated package, and provide exact artifact SHA-256.
+Keep production app ID and all current school/session data intact; do not sign, deploy, or merge.
+Do not report Android 16 Ace 6 visual acceptance from CI. This build only enables later device comparison for:
+1. Grey rims in profile header, school data cards, tasks, messages, timetable, second class, modal corners and selected bottom bar.
+2. Centered glass overlay opens/closes without pushing page content for platform records, tasks, school connection and open-source credits.
+3. Live source cards, navigation fluidity, scrolling and back behavior.
+4. Screen dimensions, typography, modal placement and color against the supplied North China University schedule references.
+Only use genuine account data on the user's phone; do not seed fake school records.

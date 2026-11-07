@@ -115,14 +115,8 @@ fun SecondClassPanel(client: CloudClient, openWebsite: () -> Unit) {
 
 @Composable
 private fun SectionCard(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            content()
-        }
+    XiaoxuCard(contentPadding = 16.dp) {
+        content()
     }
 }
 

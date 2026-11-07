@@ -3,6 +3,7 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,7 +109,7 @@ data class FloatingBarItem(
     val badge: Int? = null
 )
 
-private val BarHeight: Dp = 64.dp
+private val BarHeight: Dp = 70.dp
 private val BarHorizontalInset: Dp = 20.dp
 private val BarBottomInset: Dp = 10.dp
 private val IndicatorInset: Dp = 6.dp
@@ -149,8 +150,8 @@ fun FloatingBottomBar(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = XiaoxuPalette.Surface,
-    indicatorColor: Color = XiaoxuPalette.BrandSoft,
+    containerColor: Color = XiaoxuPalette.GlassTrack,
+    indicatorColor: Color = XiaoxuPalette.GlassIndicator,
     unselectedContentColor: Color = XiaoxuPalette.Ink3,
     selectedContentColor: Color = XiaoxuPalette.BrandDeep,
     showLabels: Boolean = true,
@@ -274,9 +275,10 @@ fun FloatingBottomBar(
             Modifier
                 .fillMaxWidth()
                 .height(BarHeight)
-                .shadow(elevation = 12.dp, shape = BarShape, clip = false)
+                .shadow(elevation = 3.dp, shape = BarShape, clip = false)
                 .clip(BarShape)
                 .background(containerColor)
+                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, BarShape)
                 .then(gestureModifier)
         ) {
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
@@ -295,6 +297,7 @@ fun FloatingBottomBar(
                     .padding(IndicatorInset)
                     .clip(IndicatorShape)
                     .background(indicatorColor)
+                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, IndicatorShape)
                     .graphicsLayer {
                         // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
                         val p = drag.pressProgress
@@ -370,7 +373,7 @@ private fun FloatingBarCell(
                 contentDescription = null, // 文字已承担语义，避免 TalkBack 重复朗读。
                 tint = contentColor,
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(24.dp)
                     .graphicsLayer {
                         // draw 阶段读 animation，跳过重组。
                         val s = if (selected) PressedScale else 1f
@@ -386,7 +389,7 @@ private fun FloatingBarCell(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = item.label,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = contentColor,
