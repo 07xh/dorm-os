@@ -11,7 +11,8 @@ on:
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
   push:
-    branches: [main]
+    # Exact stable QA snapshot. This rule is not merged to #351 or main.
+    branches: [main, qa/xiaoxu-unified-wechat-a629f1d1-20261107]
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 
@@ -72,7 +73,7 @@ jobs:
       # The normal debug APK above remains unchanged. The second, opt-in QA
       # package uses distinct Android app identity and private app storage.
       - name: Compile isolated unified native UI QA APK for side-by-side testing
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/qa/xiaoxu-unified-wechat-a629f1d1-20261107'
         run: |
           set -euo pipefail
           gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon
@@ -85,7 +86,7 @@ jobs:
           (cd "$RUNNER_TEMP" && sha256sum xiaoxu-unified-native-qa.apk > xiaoxu-unified-native-qa.apk.sha256)
           unzip -t "$RUNNER_TEMP/xiaoxu-unified-native-qa.apk" >/dev/null
       - name: Upload separately installable unified native UI QA APK
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/qa/xiaoxu-unified-wechat-a629f1d1-20261107'
         uses: actions/upload-artifact@v4
         with:
           name: xiaoxu-unified-native-qa-isolated
