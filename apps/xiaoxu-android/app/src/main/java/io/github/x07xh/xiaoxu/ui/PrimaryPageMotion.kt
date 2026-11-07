@@ -8,17 +8,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 
 /**
- * Stationary fade-through for all native page hosts:
- * - five main tabs
- * - My -> /**
- * No-blank page reveal: unlike sequential fade-through, the outgoing screen
- * never disappears before the next is visible. The incoming full-screen page
- * starts almost opaque, renders ABOVE the old one, and finishes at full alpha.
+ * Keep the outgoing screen fully visible until the incoming screen covers it.
+ * A nearly opaque foreground fade avoids the blank frames caused by the old
+ * delayed fade-through. No full-screen movement, fade-out, scale, or spring.
  *
- * A single static layer is always present: no lateral translation, scaling,
- * delayed fade, bounce, or a transparent gap exposing the shell background.
- * Existing AnimatedContent hosts retain all page state, business data and
- * bottom navigation.
+ * This is the only shared transition implementation: main tabs, settings,
+ * academic child pages and timetable settings retain their existing hosts.
  */
 private fun stablePageReveal(durationMillis: Int): ContentTransform = ContentTransform(
     targetContentEnter = fadeIn(
@@ -33,15 +28,22 @@ private fun stablePageReveal(durationMillis: Int): ContentTransform = ContentTra
     sizeTransform = null
 )
 
-nternal fun xiaoxuPrimaryPageTransition(
+/** Preserve existing navigation call sites without moving full-page content. */
+internal fun xiaoxuPrimaryPageTransition(
     @Suppress("UNUSED_PARAMETER") forward: Boolean
 ): ContentTransform = stablePageReveal(XiaoxuMotion.PageSwitchMs)
 
-/** All settings and academic child routes use the same stable animation. */
+/** Settings and academic child routes reuse exactly the same no-blank reveal. */
 internal fun xiaoxuSettingsRouteTransition(
     fromRoute: String,
     toRoute: String
 ): ContentTransform {
-    if (fromRoute == toRoute) return ContentTransform(EnterTransition.None, ExitTransition.None, sizeTransform = null)
+    if (fromRoute == toRoute) {
+        return ContentTransform(
+            targetContentEnter = EnterTransition.None,
+            initialContentExit = ExitTransition.None,
+            sizeTransform = null
+        )
+    }
     return stablePageReveal(XiaoxuMotion.SettingsDetailMs)
 }
