@@ -184,7 +184,10 @@ private val DueLaterInk = Color(0xFF6B7B93)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
+fun LocalTaskEditor(
+    tasks: List<LocalTask>, dao: LocalTaskDao,
+    onEditTask: (LocalTask) -> Unit
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val today = LocalDate.now()
@@ -197,7 +200,6 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
     var visibleLimit by rememberSaveable(filterKey) { mutableStateOf(30) }
     var pickerOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<LocalTask?>(null) }
-    var editingTask by remember { mutableStateOf<LocalTask?>(null) }
 
     val visible = remember(tasks, filterKey, today) { filterLocalTasks(tasks, filterKey, today) }
 
@@ -312,7 +314,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
                             task = task,
                             today = today,
                             onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
-                            onEdit = { editingTask = task },
+                            onEdit = { onEditTask(task) },
                             onDelete = { pendingDelete = task }
                         )
                     }
@@ -355,10 +357,6 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
         ) {
             DatePicker(state = dateState)
         }
-    }
-
-    editingTask?.let { task ->
-        LocalTaskEditSheet(task = task, dao = dao, onDismiss = { editingTask = null })
     }
 
     pendingDelete?.let { task ->

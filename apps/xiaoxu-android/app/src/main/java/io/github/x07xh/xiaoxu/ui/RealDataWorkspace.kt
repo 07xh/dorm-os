@@ -1633,7 +1633,10 @@ fun RealAcademicTaskHub(
     }
     if (showLocalEditor) {
         XiaoxuSheet(onDismiss = { showLocalEditor = false }, title = "本机任务管理") {
-            LocalTaskEditor(localTasks, dao)
+            LocalTaskEditor(localTasks, dao, onEditTask = { task ->
+                showLocalEditor = false
+                editingLocalId = task.id
+            })
         }
     }
     if (showCloudEditor) {

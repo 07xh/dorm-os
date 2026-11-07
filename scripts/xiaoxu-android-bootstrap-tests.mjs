@@ -247,11 +247,14 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao, onEditTask = \{ task ->/,
+  '本机任务管理打开已有任务时关闭上层弹窗，避免双重玻璃遮罩');
 assert.match(db, /suspend fun updateDetails\(id: Long, title: String, source: String\?, due: String\?\): Int/,
   '本机任务编辑只更新本人 Room 记录');
 assert.match(localTaskUi, /internal fun LocalTaskEditSheet\(/,
   '本机任务应通过共享浮层编辑');
+assert.doesNotMatch(localTaskUi, /editingTask\?\.let/,
+  '禁止在管理玻璃弹层内部再叠加一套编辑弹层');
 assert.match(localTaskUi, /dao\.updateDetails\(task\.id, cleanTitle, source, due\)/,
   '本机任务编辑应将结果持久化');
 assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)\.toLongOrNull\(\)/,
@@ -2102,8 +2105,8 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showLocalEditor\) \{\s*XiaoxuSheet\([\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
-  '本机编辑器只在独立玻璃弹层显示，不能把列表推下去');
+assert.match(workspace, /if \(showLocalEditor\) \{\s*XiaoxuSheet\([\s\S]*?LocalTaskEditor\(localTasks, dao, onEditTask/,
+  '本机任务管理使用玻璃浮层，并复用已存在任务的编辑弹层');
 assert.match(workspace, /if \(showCloudEditor\) \{\s*XiaoxuSheet\([\s\S]*?CloudTaskEditor\(client\)/,
   '云端新建只出现在独立玻璃弹层');
 assert.doesNotMatch(workspace, /taskEditorStartIndex|jumpTo|showManager && showLocal|showManager && showCloud/,
