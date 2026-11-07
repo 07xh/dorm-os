@@ -520,7 +520,9 @@ class CloudClient(context: Context) {
                         throw IllegalStateException("invalid_candidate")
                     Instant.parse(at)
                     val excerpt = row.optString("excerpt")
-                        .takeIf { it.isNotBlank() && it != "null" }?.take(240)
+                        .takeIf { it.isNotBlank() && it != "null" }
+                    if (excerpt != null && excerpt.length > 4000)
+                        throw IllegalStateException("invalid_candidate_excerpt")
                     val chat = row.optString("chatLabel")
                         .takeIf { it.isNotBlank() && it != "null" }?.take(80)
                     add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due,
