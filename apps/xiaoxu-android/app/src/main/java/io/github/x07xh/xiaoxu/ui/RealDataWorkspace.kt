@@ -150,7 +150,7 @@ internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<
     return cloud.filter { row ->
         val sourceId = row.sourceExternalId
         row.provider != "chaoxing" || sourceId == null ||
-            canonical[sourceId]?.let { it == row.id } != false
+            canonical[sourceId] == null || canonical[sourceId] == row.id
     }
 }
 
