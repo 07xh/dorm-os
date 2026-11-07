@@ -479,9 +479,14 @@ private fun NativeShell(
     }
     var academic by rememberSaveable { mutableStateOf(AcademicDestination.OVERVIEW) }
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
-    // Native timetable settings is a child route of Schedule, not a Dialog window.
+    // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
+    // One visibility rule for the bottom reserve, tablet rail and glass dock.
+    // Child settings must not leave behind navigation chrome during page transitions.
+    val showPrimaryNavigation = !messagesOpen &&
+        !(current == MainDestination.SCHEDULE && scheduleSettingsOpen) &&
+        !(current == MainDestination.PROFILE && profileSettingsRoute != "home")
     val pageStateHolder = rememberSaveableStateHolder()
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
@@ -560,7 +565,7 @@ private fun NativeShell(
         val tabletLayout = maxWidth >= 700.dp
         // Glass samples the actual current page, not the navigation chrome itself.
         // Phone and tablet still share the one NativeShell and route state.
-        val navBackdrop = if (!tabletLayout && !messagesOpen && Build.VERSION.SDK_INT >= 33) {
+        val navBackdrop = if (!tabletLayout && showPrimaryNavigation && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
         Box(Modifier.fillMaxSize()) {
@@ -581,18 +586,14 @@ private fun NativeShell(
                 )
             },
             bottomBar = {
-                if (!tabletLayout && !messagesOpen &&
-                    ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
-                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
+                if (!tabletLayout && showPrimaryNavigation) {
                     // Layout-only reserve. Actual dock sits outside the sampled subtree.
                     PrimaryBottomNavigationReserve(glass = navBackdrop != null)
                 }
             }
         ) { contentPadding ->
             Row(Modifier.fillMaxSize().padding(contentPadding)) {
-                if (tabletLayout && !messagesOpen &&
-                    ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
-                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
+                if (tabletLayout && showPrimaryNavigation) {
                     PrimarySideNavigation(selected = current) { selected ->
                         current = selected
                         profileSettingsRoute = "home"
@@ -664,7 +665,7 @@ private fun NativeShell(
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
                                 if (profileSettingsRoute == "timetable-settings" ||
-                                    profileSettingsRoute == "timetable-action") {
+                                    profileSettingsRoute == "timetable-editor") {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
                                     // second full timetable page and glass dock during entry.
@@ -678,14 +679,12 @@ private fun NativeShell(
                                         settingsOpen = profileSettingsRoute == "timetable-settings",
                                         onSettingsOpenChanged = { open ->
                                             profileSettingsRoute =
-                                                if (open) "timetable-settings" else "timetable-action"
+                                                if (open) "timetable-settings" else "timetable-editor"
                                         },
                                         onSettingsClosed = { profileSettingsRoute = "home" },
-                                        onSettingsAction = { action ->
-                                            // Keep the same composition while adding a course.
-                                            // Import/export opens the system picker and returns to 设置.
-                                            if (action != "add") profileSettingsRoute = "home"
-                                        },
+                                        // Adding a course keeps the editor composed; only file
+                                        // actions leave this route for the Activity picker.
+                                        onSettingsFileAction = { profileSettingsRoute = "home" },
                                         onEditorClosed = { profileSettingsRoute = "home" }
                                     )
                                 } else {
@@ -716,9 +715,7 @@ private fun NativeShell(
                 }
             }
         }
-        if (!tabletLayout && !messagesOpen &&
-            ((current != MainDestination.SCHEDULE || !scheduleSettingsOpen) &&
-                    (current != MainDestination.PROFILE || profileSettingsRoute == "home"))) {
+        if (!tabletLayout && showPrimaryNavigation) {
             Box(Modifier.align(Alignment.BottomCenter)) {
                 PrimaryBottomNavigation(selected = current, backdrop = navBackdrop) { selected ->
                     current = selected
