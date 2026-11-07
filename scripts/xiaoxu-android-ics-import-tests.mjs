@@ -75,7 +75,12 @@ assert.match(screen, /CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onD
   '首页与课表复用本机来源的同一课程详情');
 assert.doesNotMatch(screen, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
   '禁止已退役的云端可信详情分支回流');
-assert.match(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/);
+assert.doesNotMatch(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/,
+  '课表不得混合多周课程来伪装成具体教学周');
+assert.doesNotMatch(screen, /a11yLabel = "显示全部周次"/,
+  '周次选择器不再提供无效的整学期入口');
+assert.match(screen, /weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers/,
+  '导入数据变化时必须恢复有效的具体教学周');
 assert.match(screen, /个课块/);
 
 assert.match(main, /再次确认替换/);
