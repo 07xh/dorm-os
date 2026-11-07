@@ -8,6 +8,7 @@ import android.provider.Settings as AndroidSettings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -78,7 +80,7 @@ fun ProfileSettingsPage(
         transitionSpec = {
             xiaoxuSettingsRouteTransition(initialState, targetState)
         },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "settingsDetail"
     ) { animatedRoute ->
     val title = when (animatedRoute) {
@@ -90,7 +92,10 @@ fun ProfileSettingsPage(
         else -> "设置"
     }
     val goBack = { onRouteChange(if (animatedRoute == "licenses") "about" else "home") }
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+    // Each animated route paints an opaque page, so the outgoing settings
+    // labels/cards cannot bleed through the incoming full-screen page.
+    Column(modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
+        verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             if (animatedRoute != "home") {
