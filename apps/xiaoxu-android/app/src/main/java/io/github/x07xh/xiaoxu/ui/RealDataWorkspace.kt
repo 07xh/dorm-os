@@ -1768,43 +1768,48 @@ private fun TaskRow(
                 )
             }
         }
+        // 任务标题占满内容列；状态放第二行，不再挤在右侧 108dp 窄框中截断。
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 task.title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textDecoration = if (task.done) TextDecoration.LineThrough else null,
                 color = if (task.done) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
-            // 微信任务已在独立分组，列表行不重复显示来源小字。
-            if (task.category != "wechat") {
-                Text(
-                    task.origin,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(
-                modifier = Modifier.widthIn(max = 108.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(statusBackground)
-                    .padding(horizontal = 7.dp, vertical = 5.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(statusText, color = statusInk, fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
+                Box(
+                    modifier = Modifier.widthIn(max = 162.dp)
+                        .clip(RoundedCornerShape(XiaoxuRadius.tile))
+                        .background(statusBackground)
+                        .padding(horizontal = 7.dp, vertical = 4.dp)
+                ) {
+                    Text(statusText, color = statusInk,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2)
+                }
+                // 微信任务已在独立分组，列表行不重复显示来源。
+                if (task.category != "wechat") {
+                    Text(
+                        task.origin,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
         }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
     }
 }
 
