@@ -1,0 +1,4 @@
+PR #419 Android isolated QA build request
+Code SHA before marker: 2cab2172d822530724d36ed39c2cf00b3ddf7eec
+Scope: Verify locally logged-in official Chaoxing homework and learning-plan visible statuses in the existing Xiaoxu task hub. Completed statuses (submitted, pending review, graded, completed) count as done only when exact source work ID is validated; no source ID means display-only study plan snapshot. No auto-reading actions, homework submission, cookie extraction, or historical deletion.
+Target package io.github.x07xh.xiaoxu.unifiedqa, side-by-side install on OnePlus Ace 6 Android 16. Keep PR draft until Android build, QA and genuine 3-course comparison succeed.
