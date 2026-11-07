@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +56,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSpacing
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
 import java.text.DateFormat
@@ -177,19 +181,65 @@ fun SecondClassPage(
     ) {
         item(key = "points_header") {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("积分概览", modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = XiaoxuPalette.Ink)
-                if (refreshing) {
-                    Text("读取中…", style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2)
+                // 学期筛选紧贴概览标题；只选择已有的真实学期快照。
+                Box {
+                    val pillShape = RoundedCornerShape(999.dp)
+                    Row(
+                        modifier = Modifier
+                            .clip(pillShape)
+                            .background(XiaoxuPalette.GlassCard)
+                            .border(XiaoxuSpacing.glassStroke,
+                                XiaoxuPalette.GlassBorder, pillShape)
+                            .clickable(enabled = termRows.isNotEmpty()) {
+                                termMenuOpen = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            selectedTerm?.title?.removeSuffix("积分") ?: "未获取",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 1
+                        )
+                        Icon(
+                            Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "选择学期",
+                            tint = XiaoxuPalette.Ink2
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = termMenuOpen && termRows.isNotEmpty(),
+                        onDismissRequest = { termMenuOpen = false }
+                    ) {
+                        termRows.forEach { term ->
+                            DropdownMenuItem(
+                                text = { Text(term.title.removeSuffix("积分")) },
+                                onClick = {
+                                    selectedTermTitle = term.title
+                                    termMenuOpen = false
+                                }
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "从学校重新读取第二课堂")
+                    Icon(Icons.Outlined.Refresh,
+                        contentDescription = "从学校重新读取第二课堂")
                 }
+            }
+            if (refreshing) {
+                Text("读取中…", style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2)
             }
         }
         item(key = "metrics") {
@@ -216,68 +266,30 @@ fun SecondClassPage(
                 }
             }
         }
-        item(key = "term_selector") {
-            Box {
-                XiaoxuCard(onClick = { if (termRows.isNotEmpty()) termMenuOpen = true }) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 34.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("学期", style = MaterialTheme.typography.bodyMedium,
-                            color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
-                        Text(selectedTerm?.title?.removeSuffix("积分") ?: "尚未读取",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink)
-                        if (termRows.isNotEmpty()) {
-                            Icon(Icons.Outlined.KeyboardArrowDown,
-                                contentDescription = "选择已读取的学期")
-                        }
-                    }
-                }
-                DropdownMenu(
-                    expanded = termMenuOpen && termRows.isNotEmpty(),
-                    onDismissRequest = { termMenuOpen = false }
-                ) {
-                    termRows.forEach { term ->
-                        DropdownMenuItem(
-                            text = { Text(term.title.removeSuffix("积分")) },
-                            onClick = {
-                                selectedTermTitle = term.title
-                                termMenuOpen = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
         item(key = "term_breakdown") {
-            if (selectedTerm == null) {
-                XiaoxuCard {
-                    Text("积分暂未获取", style = MaterialTheme.typography.bodyMedium,
-                        color = XiaoxuPalette.Ink2)
-                }
-            } else {
-                XiaoxuCard(onClick = {
+            // 默认折叠为单行，明细只在居中玻璃弹窗内展示；
+            // 不插入六条内容把页面和底栏向下推。
+            XiaoxuCard(
+                onClick = if (selectedTerm != null) ({
                     detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
-                }) {
-                    val entries = secondClassCategories(selectedTerm)
-                    Text("积分明细", style = MaterialTheme.typography.titleMedium,
+                }) else null,
+                contentPadding = 16.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("积分明细", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
                         color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
-                    entries.forEach { (label, points) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(label, modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = XiaoxuPalette.Ink2)
-                            Text(points, style = MaterialTheme.typography.bodyMedium,
-                                color = XiaoxuPalette.Ink)
-                        }
+                    if (selectedTerm == null) {
+                        Text("暂未获取", style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink2)
+                    } else {
+                        Icon(Icons.Outlined.ChevronRight,
+                            contentDescription = "查看六类积分明细",
+                            tint = XiaoxuPalette.Ink2)
                     }
-                    Text("查看完整学期记录",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Brand)
                 }
             }
         }
@@ -376,11 +388,34 @@ fun SecondClassPage(
 
     if (detailRecord != null) {
         XiaoxuGlassDialog(
-            title = detailRecord.title,
+            title = if (detailRecord.kind == "credits") "积分明细 · " +
+                detailRecord.title.removeSuffix("积分") else detailRecord.title,
             onDismiss = { detailKey = null }
         ) {
-            Text(detailRecord.details, style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2)
+            if (detailRecord.kind == "credits") {
+                Text("素质分：" + (secondClassPoints(detailRecord) ?: "—"),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = XiaoxuPalette.Ink)
+                secondClassCategories(detailRecord).forEach { (name, points) ->
+                    Row(modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(name, modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink2)
+                        Text(points, style = MaterialTheme.typography.bodyMedium,
+                            color = XiaoxuPalette.Ink)
+                    }
+                }
+                detailRecord.details.substringAfter("志愿服务时长：", "")
+                    .substringBefore("\n").takeIf { it.isNotBlank() }?.let { hours ->
+                        Text("志愿服务时长：$hours",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.Ink2)
+                    }
+            } else {
+                Text(detailRecord.details, style = MaterialTheme.typography.bodyMedium,
+                    color = XiaoxuPalette.Ink2)
+            }
             Text("本机读取时间：" + DateFormat.getDateTimeInstance()
                 .format(Date(detailRecord.capturedAt)),
                 style = MaterialTheme.typography.labelSmall,
