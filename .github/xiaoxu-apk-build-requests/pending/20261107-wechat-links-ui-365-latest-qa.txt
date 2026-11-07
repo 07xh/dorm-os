@@ -1,0 +1,6 @@
+# 校序 #365 单次 QA 构建申请
+# 仅在独立功能分支触发 Android 编译、单测及隔离包，不合并 main。
+# 2026-11-07 用户要求继续构建与验收。
+PR: https://github.com/07xh/dorm-os/pull/365
+Requested source SHA: b9796baaa3e78963f158a09eeebf863023717bfb
+Output: xiaoxu-unified-native-qa-isolated
