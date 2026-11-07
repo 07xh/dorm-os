@@ -240,4 +240,25 @@ class SecondClassAutoReadDriverTest {
         assertEquals("failed", error)
         assertEquals(1, destroyed.get())
     }
+    @Test fun returningToTheGatewayDoesNotProveLogoutOrLoopCasRequests() = runBlocking {
+        val destroyed = AtomicInteger()
+        val casLoads = AtomicInteger()
+        val error = try {
+            readSecondClassAutomatically(c, "a".repeat(32)) {
+                object : WebView(it) {
+                    override fun loadUrl(url: String) {
+                        if (url.startsWith("https://authserver.ncwu.edu.cn/")) casLoads.incrementAndGet()
+                        val gateway = "https://dekt.ncwu.edu.cn/rump_frontend/login/?next=%2Fsys%2Fstu%2Fscore"
+                        webViewClient.onPageStarted(this, gateway, null)
+                        webViewClient.onPageFinished(this, gateway)
+                    }
+                    override fun destroy() { destroyed.incrementAndGet(); super.destroy() }
+                }
+            }
+            null
+        } catch (failure: AutoReadFailure) { failure.status }
+        assertEquals("failed", error)
+        assertEquals(1, casLoads.get())
+        assertEquals(1, destroyed.get())
+    }
 }

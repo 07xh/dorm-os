@@ -137,7 +137,7 @@ internal suspend fun readSecondClassAutomatically(
                                 SecondClassAutoSessionNavigation.Page.SCORE ->
                                     if (!started) { started = true; begin(12, pageEpoch) }
                                 SecondClassAutoSessionNavigation.Page.GATEWAY -> {
-                                    if (ssoAttempted) { fail("needs_reconnect"); return }
+                                    if (ssoAttempted) { fail("failed"); return }
                                     ssoAttempted = true
                                     // The known school holding page requires a
                                     // GET to its registered CAS service. Never
