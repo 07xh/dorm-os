@@ -3,25 +3,21 @@ package io.github.x07xh.xiaoxu.ui
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Home courses are saved local timetable blocks, not a verified current-week schedule. */
+/** 保留本机课程原始顺序；首页预览不推断教学周或补造课块。 */
 class HomeCourseSequenceTest {
     @Test
-    fun emptyAndUnselectedWeekdayStartAtFirstPosition() {
-        assertEquals(0, resolveHomeCourseIndex(emptyList(), null))
-        assertEquals(0, resolveHomeCourseIndex(emptyList(), "old"))
-        assertEquals(0, resolveHomeCourseIndex(listOf("a", "b"), null))
+    fun emptySourceStaysEmpty() {
+        assertEquals(emptyList<String>(), homeCoursePreview(emptyList<String>()))
     }
 
     @Test
-    fun selectingLaterCourseKeepsExactBlock() {
-        assertEquals(2, resolveHomeCourseIndex(listOf("math", "english", "physics"), "physics"))
-        assertEquals(1, resolveHomeCourseIndex(listOf("physics", "math", "english"), "math"))
+    fun allRecordsVisibleWhenAtMostFour() {
+        assertEquals(listOf("A", "B", "A"), homeCoursePreview(listOf("A", "B", "A")))
     }
 
     @Test
-    fun removedOrReimportedCourseFallsBackWithoutIndexCrash() {
-        assertEquals(0, resolveHomeCourseIndex(listOf("physics"), "deleted-course"))
-        assertEquals(0, resolveHomeCourseIndex(emptyList(), "deleted-course"))
-        assertEquals(0, resolveHomeCourseIndex(listOf("single"), "single"))
+    fun firstFourPreserveSequenceFromLongList() {
+        assertEquals(listOf("A", "B", "C", "D"),
+            homeCoursePreview(listOf("A", "B", "C", "D", "E")))
     }
 }

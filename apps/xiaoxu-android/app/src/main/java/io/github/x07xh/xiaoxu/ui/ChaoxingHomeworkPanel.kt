@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -41,10 +39,7 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
         state.chaoxingCheckedAt) { mutableStateOf(false) }
     val chosen = state.chaoxingCourses.firstOrNull { it.key == state.chaoxingSelectedKey }
     val connection = state.platforms.firstOrNull { it.id == "chaoxing" }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("学习通 · 本人课程与作业", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
@@ -246,18 +241,14 @@ fun ChaoxingHomeworkPanel(client: CloudClient, openSchoolReader: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall)
                 }
                 state.chaoxingPreview?.let { preview ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    XiaoxuSheet(
+                        onDismiss = { client.clearChaoxingDetail() },
+                        title = "只读题目 · " + preview.title
                     ) {
                         Column(
                             Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("只读题目 · " + preview.title,
-                                fontWeight = FontWeight.SemiBold)
                             Text("来源：" + preview.course + " · 仅只读预览，不可填写或提交",
                                 style = MaterialTheme.typography.labelSmall)
                             if (preview.startTimeRaw != null && preview.deadlineRaw != null) {

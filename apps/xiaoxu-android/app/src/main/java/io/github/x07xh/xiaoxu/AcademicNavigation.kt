@@ -4,18 +4,13 @@ package io.github.x07xh.xiaoxu
 enum class MainDestination { HOME, SCHEDULE, ACADEMIC, TASKS, PROFILE }
 enum class AcademicDestination { OVERVIEW, GRADES, EXAMS, SECOND_CLASS, SERVICES }
 
-/** Pure navigation transitions, independent of Compose or school credentials. */
+/** Academic route transition used by NativeShell. The shell owns message visibility. */
 data class AcademicNavigation(
     val destination: MainDestination = MainDestination.HOME,
-    val academic: AcademicDestination = AcademicDestination.OVERVIEW,
-    val messagesOpen: Boolean = false
+    val academic: AcademicDestination = AcademicDestination.OVERVIEW
 ) {
-    fun selectMain(value: MainDestination) = copy(destination = value, messagesOpen = false)
     fun selectAcademic(value: AcademicDestination) = copy(
-        destination = MainDestination.ACADEMIC, academic = value, messagesOpen = false
+        destination = MainDestination.ACADEMIC, academic = value
     )
     fun openSecondClass() = selectAcademic(AcademicDestination.SECOND_CLASS)
-    fun openMessages() = copy(messagesOpen = true)
-    /** Closing messages restores the exact originating main page and academic subsection. */
-    fun closeMessages() = copy(messagesOpen = false)
 }
