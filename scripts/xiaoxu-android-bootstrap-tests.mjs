@@ -1666,6 +1666,12 @@ assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选�
 assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
+assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '首次进入任务中心的课程任务必须默认折叠');
+assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
+  '用户点击课程任务后必须仍能展开和收起');
+assert.match(workspace, /if \(showCourseTasks\) \{/,
+  '课程列表显示必须只由当前展开状态控制');
 const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
   workspace.indexOf('/** 首页与任务中心共用任务详情'));
 assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
