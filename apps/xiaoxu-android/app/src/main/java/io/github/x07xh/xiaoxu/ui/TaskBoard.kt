@@ -398,7 +398,7 @@ internal fun TaskPersonalEditSheet(
     if ((localTask == null) == (cloudTask == null)) return
     if (cloudTask != null && cloudTask.provider != "wechat") return
     val scope = rememberCoroutineScope()
-    val sourceId = localTask?.id?.toString() ?: cloudTask!!.id
+    val sourceId = if (localTask != null) "local:${localTask.id}" else "cloud:${cloudTask!!.id}"
     val initialDate = if (localTask != null) localTask.due else {
         cloudTask?.personalTargetAt?.let { raw ->
             runCatching { Instant.parse(raw).atZone(ZoneId.of("Asia/Shanghai"))
@@ -439,6 +439,11 @@ internal fun TaskPersonalEditSheet(
             Text(cloudTask!!.title, style = MaterialTheme.typography.titleMedium)
             Text("微信来源标题和原消息不可编辑，仅修改个人计划日期。",
                 style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            if (!client.state.authenticated || !client.state.tasksFresh) {
+                Text("云端数据尚未刷新，请返回任务中心刷新后编辑。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
+            }
         }
         Text(if (localTask != null) "本人截止日期" else "本人计划完成日期",
             style = MaterialTheme.typography.labelMedium, color = XiaoxuPalette.Ink2)
@@ -459,7 +464,8 @@ internal fun TaskPersonalEditSheet(
         }
         Button(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            enabled = !saving && (localTask == null || title.isNotBlank()),
+            enabled = !saving && (if (localTask != null) title.isNotBlank()
+                else client.state.authenticated && client.state.tasksFresh),
             onClick = {
                 if (date != null && parseDue(date) == null) {
                     error = "日期无效，请重新选择或清除"
