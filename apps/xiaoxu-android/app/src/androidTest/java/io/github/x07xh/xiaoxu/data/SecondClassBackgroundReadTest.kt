@@ -226,4 +226,20 @@ class SecondClassBackgroundReadTest {
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
         assertTrue(cancelled.all { it.state == WorkInfo.State.CANCELLED || it.state.isFinished })
     }
+
+
+    @Test fun unavailableCatalogUpdatesPersonalScoresButRetainsLastGoodActivityCards() = runBlocking {
+        val oldCard = NativeSchoolRecord("second_class", "catalog_activity",
+            "previous-good-card", "之前核验的活动",
+            "筛选：报名中\n来源：学校活动广场",
+            "dekt.ncwu.edu.cn", savedAt)
+        dao.insertAll(listOf(oldCard))
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > savedAt)
+        assertEquals(listOf(oldCard),
+            dao.snapshot().filter { it.kind == "catalog_activity" })
+        assertEquals("unavailable",
+            settings.getString("catalog_status", ""))
+    }
 }
