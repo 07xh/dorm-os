@@ -1423,14 +1423,18 @@ assert.match(localNative, /CHAOXING_HOMEWORK/);
 assert.match(localNative, /"学习通 · 打开我的作业"/);
 assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
 assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
-assert.match(localNative, /li\[onclick\*="goTask"\]/);
+assert.match(localNative, /li\[data\]/);
 assert.match(localNative, /p\.overHidden2\.fl/);
 assert.match(localNative, /p\.status\.fl/);
 assert.match(localNative, /foundKind === 'homework'/);
 assert.match(localNative, /homeworkOverview && foundKind !== 'homework'/);
 assert.match(localNative, /foundKind === 'homework' \? titleIndex/);
 assert.match(localNative, /if \(appended\) kind = foundKind/);
-assert.doesNotMatch(localNative, /getAttribute\(['"]data['"]\)/);
+// Only a fixed official URL's numeric tuple is exported; signed URL content never leaves WebView.
+assert.match(localNative, /const raw = li\.getAttribute\('data'\)/);
+assert.match(localNative, /sourceKey = 'work:' \+ courseId/);
+assert.match(localNative, /link\.hostname === 'mooc1\.chaoxing\.com'/);
+assert.match(localNative, /qp\.getAll\('courseId'\)\.length === 1/);
 const inlineMatch = localNative.match(/private const val READ_VISIBLE_PAGE = """([\s\S]*?)"""/);
 assert.ok(inlineMatch, 'on-device readonly DOM script must be testable');
 const inlineScript = inlineMatch[1];
@@ -1439,7 +1443,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
       querySelectorAll(selector) {
         if(selector==='iframe')return [];
         if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
-        if(selector==='li[onclick*="goTask"]')return li;
+        if(selector==='li[data]')return li;
         if(selector.includes('.course-name'))return courses;
         return [];
       }
@@ -1448,7 +1452,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
 const visible = node => ({...node,getClientRects:()=>[{}]});
 function parseNativePage(doc, host, pathname) {
   const returned=runInNewContext(inlineScript,{document:doc,
-    location:{hostname:host,pathname,origin:'https://'+host}});
+    location:{hostname:host,pathname,origin:'https://'+host,href:'https://'+host+pathname},URL});
   return JSON.parse(returned);
 }
 const workLi=visible({
