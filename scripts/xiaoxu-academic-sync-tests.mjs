@@ -162,6 +162,9 @@ const replay=await applyReadOnlySnapshot(db,'a','conn',snapshot([
 assert.equal(replay.inserted,0,'verified source ID reuses one canonical assignment');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,6);
 
+// Migrated notice/import course labels are diagnostic hints, not school IDs.
+sqlite.prepare("UPDATE academic_legacy_links SET legacy_course_text=? WHERE user_id=? AND legacy_id=?")
+  .run('Python 程序设计','a','old-work-4');
 const ownerRows=await listAssignments(db,'a',{limit:100});
 const officialRow=ownerRows.find(row=>row.id===canonical.id);
 assert.equal(officialRow.source_external_id,'work:4',
@@ -170,6 +173,10 @@ assert.equal(officialRow.source_provider,'chaoxing');
 assert.equal(officialRow.platform_status,'submitted');
 const importedRows=ownerRows.filter(row=>['legacy-two','legacy-three'].includes(row.id));
 assert.equal(importedRows.length,2);
+assert.equal(importedRows.find(row=>row.id==='legacy-two').source_course,
+  'Python 程序设计','legacy course text can be displayed for review');
+assert.equal(importedRows.find(row=>row.id==='legacy-three').source_course,
+  null,'missing legacy course label is not inferred from title');
 assert.ok(importedRows.every(row=>row.platform_status===null),
   'old imported source records cannot claim official verification');
 assert.ok(importedRows.every(row=>row.source_external_id==='work:4'),

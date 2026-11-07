@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
 import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
+import io.github.x07xh.xiaoxu.data.reconcileChaoxingLedger
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
@@ -169,7 +170,8 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
         distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
-                "chaoxing" -> "学习通记录"
+                "chaoxing" -> task.sourceCourse?.takeIf { it.isNotBlank() }
+                    ?.let { "学习通 · $it" } ?: "学习通"
                 "ncwu" -> "青果记录"
                 "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
@@ -870,6 +872,11 @@ fun RealAcademicTaskHub(
         summarizeChaoxingAudit(state.chaoxingBatchAudit, state.chaoxingCourses.size,
             state.chaoxingBatchTaskLedgerFresh)
     }
+    val auditLedger = remember(state.chaoxingBatchAudit, state.tasks,
+        state.chaoxingBatchTaskLedgerFresh) {
+        reconcileChaoxingLedger(state.chaoxingBatchAudit, state.tasks,
+            state.chaoxingBatchTaskLedgerFresh)
+    }
     val officialRows = remember(state.chaoxingBatchAudit) {
         state.chaoxingBatchAudit.flatMap { course ->
             course.homework.map { work -> course to work }
@@ -1349,7 +1356,7 @@ fun RealAcademicTaskHub(
                 count = auditSummary.verifiedWorkRows,
                 badge = when {
                     state.chaoxingBatchBusy -> "读取中"
-                    auditSummary.fullyCoveredAndRefreshed -> "全部课程条数已核验"
+                    auditSummary.fullyCoveredAndRefreshed -> "已核对当前课程列表"
                     state.chaoxingBatchCheckedAt != null -> "部分已读取"
                     else -> "未读取"
                 },
@@ -1421,12 +1428,28 @@ fun RealAcademicTaskHub(
                         )
                         Text(
                             if (auditSummary.fullyCoveredAndRefreshed)
-                                "已核验全部课程的返回条数，云端任务列表也已刷新；仍需本人官网对照。"
+                                "已核对所列课程的当前作业列表；仍需与学习通官网核对是否遗漏其他类别。"
                             else "本次尚不能确认全部作业覆盖；不以缺失、失败或未检查记录推定已完成。",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (auditSummary.fullyCoveredAndRefreshed)
                                 XiaoxuPalette.Success else XiaoxuPalette.Warning
                         )
+                        if (auditLedger.ledgerFresh) {
+                            Text(
+                                "与云端任务未对齐 ${auditLedger.missingFromLedger ?: 0} 条" +
+                                    " · 旧记录待核对 ${auditLedger.possibleLegacyTotal ?: 0} 条" +
+                                    (if ((auditLedger.unmatchedLegacy ?: 0) > 0)
+                                        "（其中 ${auditLedger.unmatchedLegacy} 条无法归属课程）"
+                                    else ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if ((auditLedger.missingFromLedger ?: 0) > 0)
+                                    XiaoxuPalette.Warning else XiaoxuPalette.Ink2
+                            )
+                        } else {
+                            Text("云端任务列表未能核验，本次不判断作业是否已入库。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning)
+                        }
                         Text(
                             "本次核验时间：${state.chaoxingBatchCheckedAt} · 仅当前会话有效",
                             style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3
@@ -1438,6 +1461,7 @@ fun RealAcademicTaskHub(
                 items(count = state.chaoxingBatchAudit.size,
                     key = { i -> "cx-audit:" + state.chaoxingBatchAudit[i].courseKey }) { i ->
                     val course = state.chaoxingBatchAudit[i]
+                    val ledger = auditLedger.courses[course.courseKey]
                     val coverage = when (course.coverage) {
                         ChaoxingCourseCoverage.COUNT_VERIFIED -> "条数已核验"
                         ChaoxingCourseCoverage.LIST_ONLY -> "列表有效 · 总量未核验"
@@ -1455,10 +1479,39 @@ fun RealAcademicTaskHub(
                                 color = if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
                                     XiaoxuPalette.Success else XiaoxuPalette.Warning)
                         }
-                        if (course.homework.isNotEmpty()) {
-                            Text("已核实 ${course.homework.size} 项官方状态",
+                        if (course.coverage in setOf(ChaoxingCourseCoverage.COUNT_VERIFIED,
+                                ChaoxingCourseCoverage.LIST_ONLY)) {
+                            val statuses = ledger?.statuses ?: emptyMap()
+                            Text("读取 ${course.homework.size} 条" +
+                                (if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
+                                    "／当前列表总数 ${course.homework.size}" else "／总量未核验"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XiaoxuPalette.Ink2)
+                            Text("未提交 ${statuses["todo"] ?: 0} · 已提交 ${statuses["submitted"] ?: 0}" +
+                                " · 已批阅 ${statuses["graded"] ?: 0}" +
+                                " · 已退回 ${statuses["returned"] ?: 0}" +
+                                (if ((statuses["unknown"] ?: 0) > 0)
+                                    " · 未知 ${statuses["unknown"]}" else ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2)
+                            if (state.chaoxingBatchCheckedAt != null) {
+                                Text(
+                                    if (ledger?.stored != null)
+                                        "云端对应 ${ledger.stored}/${ledger.listed}" +
+                                            (if ((ledger.missing ?: 0) > 0)
+                                                " · ${ledger.missing} 条需重新核对" else "")
+                                    else "云端任务未核验，无法确认入库状态",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if ((ledger?.missing ?: 0) > 0)
+                                        XiaoxuPalette.Warning else XiaoxuPalette.Ink2
+                                )
+                            }
+                        }
+                        if (state.chaoxingBatchCheckedAt != null &&
+                            (ledger?.possibleLegacy ?: 0) > 0) {
+                            Text("同课程名旧记录 ${ledger?.possibleLegacy} 条待人工关联",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning)
                         }
                     }
                 }

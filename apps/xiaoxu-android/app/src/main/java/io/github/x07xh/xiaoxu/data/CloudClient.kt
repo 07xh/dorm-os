@@ -34,7 +34,9 @@ data class CloudTask(
     /** Stable source tuple from the trusted school assignment ledger. */
     val sourceExternalId: String? = null,
     /** Last trusted platform state, independent of the user's local done flag. */
-    val officialStatus: String? = null
+    val officialStatus: String? = null,
+    /** Course label from the imported/verified source; NOT identity proof. */
+    val sourceCourse: String? = null
 )
 
 /** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
@@ -434,10 +436,13 @@ class CloudClient(context: Context) {
                         val official = trustedChaoxingPlatformStatus(
                             provider, sourceId, o.optString("platform_status")
                         )
+                        val sourceCourse = (o.opt("source_course") as? String)
+                            ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
+                            ?.take(80)
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
                             o.optString("local_status"), o.optString("kind"), provider, due,
                             revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
-                            sourceId, official))
+                            sourceId, official, sourceCourse))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
