@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +36,6 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -186,22 +186,32 @@ internal fun SemesterSettingsPage(
                     onClick = { dateOpen = true }
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("默认课表视图",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = XiaoxuPalette.Ink)
-                    XiaoxuSegmentedControl(
-                        options = listOf(
-                            XiaoxuSegmentOption("week", "周视图"),
-                            XiaoxuSegmentOption("day", "日视图")
-                        ),
-                        selectedKey = viewMode,
-                        onSelected = { viewMode = it }
-                    )
+                // Keep the label and its choice aligned with other settings rows.
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val controlWidth = ((maxWidth - 32.dp) * 0.56f).coerceAtMost(210.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("默认课表视图",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 1)
+                        Spacer(Modifier.width(8.dp))
+                        XiaoxuSegmentedControl(
+                            options = listOf(
+                                XiaoxuSegmentOption("week", "周视图"),
+                                XiaoxuSegmentOption("day", "日视图")
+                            ),
+                            selectedKey = viewMode,
+                            onSelected = { viewMode = it },
+                            modifier = Modifier.width(controlWidth),
+                            fillWidth = false,
+                            compact = true
+                        )
+                    }
                 }
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
@@ -239,7 +249,7 @@ internal fun SemesterSettingsPage(
                         Text("上课前约 15 分钟 · 系统可能延后",
                             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
                     }
-                    Switch(checked = wantReminders, onCheckedChange = { wantReminders = it })
+                    XiaoxuSettingsSwitch(checked = wantReminders, onCheckedChange = { wantReminders = it })
                 }
             }
 

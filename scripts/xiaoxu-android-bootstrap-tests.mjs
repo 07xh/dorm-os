@@ -2118,3 +2118,24 @@ assert.match(localNative,/accountHash = accountHash/);
 const autoControls=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt');
 assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foreground automatic reads must be owned by the Activity lifecycle, not a retained composition');
 assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);
+
+
+// Settings switches use a single high-contrast component, even when disabled.
+const switchFiles = [
+  'ui/SemesterSettingsDialog.kt',
+  'ui/SecondClassAutoReadControls.kt',
+  'ui/ScheduleScreen.kt',
+  'ui/TaskBoard.kt'
+];
+for (const name of switchFiles) {
+  const source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/' + name);
+  assert.match(source, /XiaoxuSettingsSwitch\s*\(/, name + ': shared switch');
+  assert.doesNotMatch(source, /\bSwitch\s*\(/, name + ': no unstyled switch');
+}
+assert.match(designSystem, /fun XiaoxuSettingsSwitch\(/);
+assert.match(designSystem, /uncheckedThumbColor\s*=/);
+assert.match(designSystem, /disabledUncheckedTrackColor\s*=/);
+const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
+assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
+assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
+  'default timetable view must use the compact inline choice, not a full-row segmented bar');

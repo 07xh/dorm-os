@@ -45,6 +45,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
@@ -331,6 +333,36 @@ fun XiaoxuCard(
     )
 }
 
+/** High-contrast Material3 switch for light translucent settings surfaces. */
+@Composable
+fun XiaoxuSettingsSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        enabled = enabled,
+        modifier = modifier,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = Color.White,
+            checkedTrackColor = XiaoxuPalette.Brand,
+            checkedBorderColor = XiaoxuPalette.Brand,
+            uncheckedThumbColor = Color(0xFF526781),
+            uncheckedTrackColor = Color(0xFFE8EEF7),
+            uncheckedBorderColor = Color(0xFFA6B6CD),
+            disabledCheckedThumbColor = Color.White,
+            disabledCheckedTrackColor = Color(0xFF8BAEF2),
+            disabledCheckedBorderColor = Color(0xFF8BAEF2),
+            disabledUncheckedThumbColor = Color(0xFF8492A7),
+            disabledUncheckedTrackColor = Color(0xFFE3E9F2),
+            disabledUncheckedBorderColor = Color(0xFFB2BFD1)
+        )
+    )
+}
+
 /** 同一个分段选择器供课表设置、二课、成绩与任务筛选使用；不持有业务状态。 */
 data class XiaoxuSegmentOption(val key: String, val label: String)
 
@@ -339,15 +371,18 @@ fun XiaoxuSegmentedControl(
     options: List<XiaoxuSegmentOption>,
     selectedKey: String,
     onSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fillWidth: Boolean = true,
+    compact: Boolean = false
 ) {
     if (options.isEmpty()) return
     val track = RoundedCornerShape(999.dp)
     Row(
-        modifier = modifier.fillMaxWidth().clip(track)
-            .background(XiaoxuPalette.GlassTrack)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, track)
-            .padding(4.dp).selectableGroup(),
+        modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).clip(track)
+            .background(if (compact) XiaoxuPalette.SurfaceAlt else XiaoxuPalette.GlassTrack)
+            .border(XiaoxuSpacing.glassStroke,
+                if (compact) Color(0xFFD6E0F0) else XiaoxuPalette.GlassBorder, track)
+            .padding(if (compact) 3.dp else 4.dp).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -355,7 +390,9 @@ fun XiaoxuSegmentedControl(
             val selected = selectedKey == option.key
             val itemShape = RoundedCornerShape(999.dp)
             val itemColor = animateColorAsState(
-                targetValue = if (selected) XiaoxuPalette.GlassIndicator else Color.Transparent,
+                targetValue = if (selected) {
+                    if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
+                } else Color.Transparent,
                 animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
             ).value
             val inkColor = animateColorAsState(
@@ -363,9 +400,10 @@ fun XiaoxuSegmentedControl(
                 animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
             ).value
             Box(
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                modifier = Modifier.weight(1f).heightIn(min = if (compact) 38.dp else 44.dp)
                     .clip(itemShape).background(itemColor)
-                    .then(if (selected) Modifier.border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, itemShape)
+                    .then(if (selected) Modifier.border(XiaoxuSpacing.glassStroke,
+                        if (compact) Color(0xFFB8CFF9) else XiaoxuPalette.GlassBorder, itemShape)
                         else Modifier)
                     .selectable(selected = selected, role = Role.Tab,
                         onClick = { if (!selected) onSelected(option.key) }),
