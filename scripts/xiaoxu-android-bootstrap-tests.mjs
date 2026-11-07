@@ -568,6 +568,13 @@ assert.match(timetableSettingsCallback, /AndroidSettings\.ACTION_APP_NOTIFICATIO
   '课表设置中通知总开关关闭时必须进入系统设置');
 
 assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
+assert.doesNotMatch(schedulePanel, /"全部周次 ▾"|"显示全部周次"|label = "全部",\s*isSelected = selected == ALL_WEEKS/,
+  '课表不得暴露无用途的整学期混合周次入口');
+assert.match(schedulePanel, /if \(weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers\)/,
+  '导入课程或变更教学周后必须回到有效的具体周次');
+assert.match(schedulePanel, /Text\(if \(currentIndex >= 0\) "第 \$selectedWeek 周 ▾" else "选择周次 ▾"/,
+  '周次栏必须以具体教学周为主要状态');
+
 assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
 assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
 assert.match(schedulePanel, /Icons\.Outlined\.ChevronLeft/);
@@ -654,7 +661,7 @@ assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
   '课表设置分组圆角必须与所有设置页同源');
 assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
   '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
+assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
   '课表设置分组边界必须使用轻玻璃描边');
 assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
   '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
@@ -1235,6 +1242,13 @@ assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
 assert.match(design, /val card: Dp = 24\.dp/, '基础玻璃卡圆角须统一为24dp');
+assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
+  '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
+assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.55f\)/,
+  '轻玻璃边界须接近北化的柔和白色描边而非旧灰色轮廓');
+assert.match(design, /Brush\.linearGradient\(/,
+  '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
+
 assert.match(design, /val hero: Dp = 28\.dp/, '重要卡与底部弹层圆角须统一为28dp');
 assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
@@ -1285,7 +1299,7 @@ assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
 assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
   '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
-assert.match(homeQuickEntry, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
+assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
   '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
 
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
