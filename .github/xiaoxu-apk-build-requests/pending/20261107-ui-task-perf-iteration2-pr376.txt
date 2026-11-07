@@ -1,0 +1,5 @@
+校序 Android UI 优化第二批 QA 构建请求
+PR: #376
+整合提交: 1e73d986c3cdd32217055e52eb5cd5ba56b34cf8
+验证: Compose 本机任务即时反馈/失败撤销、列表筛选 memoization、既有北化风格玻璃边框、benchmark 模块 Kotlin 编译。
+说明: 通过既有 GitHub Actions 编译并生成独立 QA APK；尚未证明一加 Ace 6 真机帧率、真实学校数据或 UI 像素级保真度。
