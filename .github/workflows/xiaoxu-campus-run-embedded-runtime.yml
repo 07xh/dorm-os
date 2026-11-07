@@ -61,6 +61,13 @@ jobs:
           echo "Embedded Python smoke APK size (bytes): $(stat -c %s "$f")"
           mkdir -p integrations/campus-run-readonly/android-runtime-smoke/metrics
           printf 'arm64_apk_bytes=%s\n' "$(stat -c %s "$f")" > integrations/campus-run-readonly/android-runtime-smoke/metrics/build.txt
+      - name: Retain installable ARM64 offline CPU smoke APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-run-cpu-smoke-arm64-NOT-XIAOXU
+          path: integrations/campus-run-readonly/android-runtime-smoke/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
       - name: Import pinned OSS read modules inside Android emulator (offline)
         uses: reactivecircus/android-emulator-runner@v2
         with:
