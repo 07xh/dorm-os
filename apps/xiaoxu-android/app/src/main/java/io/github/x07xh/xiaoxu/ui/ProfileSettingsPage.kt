@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -72,7 +73,15 @@ fun ProfileSettingsPage(
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
-    val title = when (route) {
+    androidx.compose.animation.AnimatedContent(
+        targetState = route,
+        transitionSpec = {
+            xiaoxuSettingsRouteTransition(initialState, targetState)
+        },
+        modifier = Modifier.fillMaxSize(),
+        label = "settingsDetail"
+    ) { animatedRoute ->
+    val title = when (animatedRoute) {
         "connections" -> "数据连接"
         "notifications" -> "通知与提醒"
         "backup" -> "备份与恢复"
@@ -80,11 +89,11 @@ fun ProfileSettingsPage(
         "licenses" -> "开源许可"
         else -> "设置"
     }
-    val goBack = { onRouteChange(if (route == "licenses") "about" else "home") }
-    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+    val goBack = { onRouteChange(if (animatedRoute == "licenses") "about" else "home") }
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            if (route != "home") {
+            if (animatedRoute != "home") {
                 IconButton(onClick = goBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
                 }
@@ -92,7 +101,7 @@ fun ProfileSettingsPage(
             Text(title, modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink)
-            if (route == "home") {
+            if (animatedRoute == "home") {
                 IconButton(onClick = onRefresh, enabled = !client.state.busy) {
                     Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                 }
@@ -107,7 +116,7 @@ fun ProfileSettingsPage(
                 start = 18.dp, end = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when (route) {
+            when (animatedRoute) {
                 "home" -> {
                     item {
                         XiaoxuGroupedSection {
@@ -167,7 +176,7 @@ fun ProfileSettingsPage(
                 "licenses" -> item { OpenSourceCreditsPanel() }
             }
         }
-    }
+        }
 }
 
 @Composable
