@@ -229,8 +229,8 @@ internal fun SemesterSettingsDialog(
             SettingsGroupTitle("课表数据")
             SettingsSurface {
                 SettingsActionRow(
-                    title = "同步课表",
-                    subtitle = "从本机文件更新正在查看的学期",
+                    title = "导入课表",
+                    subtitle = "选择 .ics 或 .json 文件更新本机课表",
                     onClick = onImport
                 )
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
