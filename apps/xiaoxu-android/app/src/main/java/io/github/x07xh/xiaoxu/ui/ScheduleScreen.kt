@@ -199,67 +199,23 @@ fun CloudTimetablePanel(
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     onMessages: () -> Unit
 ) {
-    // Local import is the only timetable source of truth; no cloud/session dependency.
-    val context = LocalContext.current
-    val editorScope = rememberCoroutineScope()
-    var addingFirstCourse by remember { mutableStateOf(false) }
-    var addBusy by remember { mutableStateOf(false) }
-    var addError by remember { mutableStateOf<String?>(null) }
+    // The same settings host is reachable with or without imported lessons.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded = maxWidth >= 840.dp
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (localLessons.isEmpty()) {
-                LocalTimetableEmptyState(
-                    onImport = openFileImport, onMessages = onMessages,
-                    onAdd = { addError = null; addingFirstCourse = true }
-                )
-            } else {
-                ScheduleVerifiedContent(
-                    data = localImportedScheduleView(localLessons),
-                    expanded = expanded,
-                    openFileImport = openFileImport,
-                    openFileExport = openFileExport,
-                    localScheduleRevision = localScheduleRevision,
-                    onLocalLessonsChanged = onLocalLessonsChanged,
-                    onMessages = onMessages
-                )
-            }
+            ScheduleVerifiedContent(
+                data = localImportedScheduleView(localLessons),
+                expanded = expanded,
+                openFileImport = openFileImport,
+                openFileExport = openFileExport,
+                localScheduleRevision = localScheduleRevision,
+                onLocalLessonsChanged = onLocalLessonsChanged,
+                onMessages = onMessages
+            )
         }
-    }
-    if (addingFirstCourse) {
-        CourseEditorDialog(
-            original = null, selectedWeek = null, busy = addBusy,
-            externalError = addError,
-            onDismiss = { if (!addBusy) addingFirstCourse = false },
-            onSave = { replacement, _ ->
-                if (!addBusy) {
-                    addBusy = true
-                    editorScope.launch {
-                        try {
-                            val (updated, reminderOk) = withContext(Dispatchers.IO) {
-                                val edited = LocalScheduleEditor.upsert(localLessons, null, replacement)
-                                LocalScheduleStore.saveEdited(context, edited)
-                                val fresh = LocalScheduleStore.load(context)
-                                fresh to LocalCourseReminders.reconcileAfterSave(
-                                    context, fresh, LocalSemesterConfigStore.load(context))
-                            }
-                            onLocalLessonsChanged(updated)
-                            addingFirstCourse = false
-                            if (!reminderOk) Toast.makeText(
-                                context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
-                        } catch (failure: Exception) {
-                            addError = failure.message ?: "添加课程失败"
-                        } finally {
-                            addBusy = false
-                        }
-                    }
-                }
-            },
-            onDelete = { }
-        )
     }
 }
 
@@ -269,8 +225,7 @@ private fun SchedulePageHeading(
     onMessages: () -> Unit,
     sourceLabel: String? = null,
     onAdd: (() -> Unit)? = null,
-    onSettings: (() -> Unit)? = null,
-    onImport: (() -> Unit)? = null
+    onSettings: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
@@ -297,11 +252,6 @@ private fun SchedulePageHeading(
             label = "新增课程",
             onClick = onAdd
         )
-        if (onImport != null) XiaoxuToolbarAction(
-            icon = Icons.Outlined.FileUpload,
-            label = "重新导入课表",
-            onClick = onImport
-        )
         if (onSettings != null) XiaoxuToolbarAction(
             icon = Icons.Outlined.Settings,
             label = "课表设置",
@@ -317,14 +267,15 @@ private fun SchedulePageHeading(
 
 @Composable
 private fun LocalTimetableEmptyState(
-    onImport: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
+    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看")
+        SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看",
+            onSettings = onSettings, onAdd = onAdd)
         XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
             Icon(Icons.Outlined.DateRange, contentDescription = null,
                 modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
@@ -335,8 +286,8 @@ private fun LocalTimetableEmptyState(
             Text("选择手机中的课表文件，预览课程、教室、节次及周次后保存。",
                 style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
         }
-        Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text("从文件导入课表")
+        Button(onClick = onSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Text("打开课表设置")
         }
         OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             Text("手动添加第一门课程")
@@ -435,6 +386,17 @@ private fun ScheduleVerifiedContent(
         filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
     }
 
+    if (data.lessons.isEmpty()) {
+        LocalTimetableEmptyState(
+            onSettings = { showSemesterSettings = true },
+            onAdd = {
+                editOriginal = null
+                editingError = null
+                showingCourseEditor = true
+            },
+            onMessages = onMessages
+        )
+    } else {
     Column(
         Modifier
             .fillMaxWidth()
@@ -449,8 +411,7 @@ private fun ScheduleVerifiedContent(
                 editingError = null
                 showingCourseEditor = true
             },
-            onSettings = { showSemesterSettings = true },
-            onImport = openFileImport
+            onSettings = { showSemesterSettings = true }
         )
         if (weekNumbers.size > 1 && showWeekPicker) {
             WeekSelector(weeks = weekNumbers, selected = selectedWeek,
@@ -608,6 +569,7 @@ private fun ScheduleVerifiedContent(
                 )
             }
         }
+    }
     }
     // 详情从当前筛选的本机课程集合查找，避免回显已替换的旧课表。
     val opened = filtered.firstOrNull { it.key == selectedCourseKey }
