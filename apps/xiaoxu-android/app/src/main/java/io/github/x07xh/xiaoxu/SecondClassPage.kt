@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
+import io.github.x07xh.xiaoxu.ui.XiaoxuExpandableGlassRow
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -223,12 +224,26 @@ fun SecondClassPage(
                         Text(if (refreshing) "读取中…" else "刷新")
                     }
                     rows.forEach { row ->
-                        XiaoxuCard {
-                            Text(row.title, style = MaterialTheme.typography.titleSmall,
-                                color = XiaoxuPalette.Ink)
+                        // Only real, stored school details expand. Empty details remain static.
+                        androidx.compose.runtime.key(row.provider, row.kind, row.fingerprint) {
                             if (row.details.isNotBlank()) {
-                                Text(row.details, style = MaterialTheme.typography.bodyMedium,
-                                    color = XiaoxuPalette.Ink2)
+                                var expanded by rememberSaveable { mutableStateOf(false) }
+                                XiaoxuExpandableGlassRow(
+                                    title = row.title,
+                                    expanded = expanded,
+                                    onToggle = { expanded = !expanded }
+                                ) {
+                                    Text(
+                                        row.details,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = XiaoxuPalette.Ink2
+                                    )
+                                }
+                            } else {
+                                XiaoxuCard {
+                                    Text(row.title, style = MaterialTheme.typography.titleSmall,
+                                        color = XiaoxuPalette.Ink)
+                                }
                             }
                         }
                     }
