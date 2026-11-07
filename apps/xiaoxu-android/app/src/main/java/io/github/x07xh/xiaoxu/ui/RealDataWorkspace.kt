@@ -160,7 +160,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                     task.provider, task.sourceExternalId, task.officialStatus
                 )))
         }
-    }.sortedWith(compareBy<WorkspaceTask> { !considerCompleteInTaskList(it) }
+    }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
 
 /** Verified source-ID-linked submissions are complete in the task LIST only.
