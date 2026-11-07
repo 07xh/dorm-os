@@ -156,10 +156,10 @@ object XiaoxuSpacing {
     val glassStroke: Dp = 0.5.dp
 }
 
-/** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
+/** Full-page transitions are intentionally short; expensive screens move as one layer. */
 internal object XiaoxuMotion {
-    const val PageSwitchMs = 360
-    const val SettingsDetailMs = 500
+    const val PageSwitchMs = 280
+    const val SettingsDetailMs = 320
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
