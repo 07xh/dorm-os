@@ -330,7 +330,7 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
 
         // The canonical task center owns all counters and status tabs.
         // Keep only editing filters here so the user can still reach older local
-        // records beyond the main view's first 80 and toggle/delete them.
+        // records and toggle/delete them.
         // ---------- 本机编辑筛选 ----------
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = TASK_FILTERS.size, key = { index -> TASK_FILTERS[index].key }) { index ->

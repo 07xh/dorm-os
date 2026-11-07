@@ -275,7 +275,7 @@ assert.match(cloud, /schoolSyncBusyProvider/);
 // A failed unrelated WeChat/tasks read must not negate a fresh school sync,
 // while a failed connection/snapshot read must not reuse stale "connected" UI.
 assert.match(cloud, /connectionsFresh = platforms != null/);
-assert.match(cloud, /scheduleFresh = scheduleLoaded/);
+assert.doesNotMatch(cloud, /scheduleFresh|scheduleLoaded/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /secondClassBusy = true, secondClassFresh = false/);
 // An earlier owner/second-class HTTP response may arrive after a newer
@@ -291,7 +291,7 @@ assert.match(cloud, /snapshotRead != privateSnapshotReadId\) return/);
 assert.match(cloud, /snapshotRead == privateSnapshotReadId/);
 assert.match(cloud, /secondClass = snapshot, secondClassFresh = true/);
 assert.match(cloud, /state\.connectionsFresh &&/);
-assert.match(cloud, /state\.scheduleFresh && state\.scheduleStatus == "ready"/);
+assert.doesNotMatch(cloud, /state\.scheduleStatus/);
 assert.match(cloud, /state\.secondClassFresh &&/);
 assert.match(cloud, /state\.secondClass\?\.provenance == "trusted_readonly"/);
 assert.doesNotMatch(cloud, /val verified = state\.privateError == null/);
@@ -1130,7 +1130,7 @@ assert.match(workspace, /if \(task.storage == "cloud"\) \{\s*return DueUi\("记�
   '未经来源核实的云端日期只能称记录日期，不得直接标为学校逾期作业');
 assert.match(workspace, /!task.done && date.isBefore\(today\)/,
   '本人填写的实际逾期任务仍须保留过期提醒');
-assert.match(workspace, /shown\.size \+ " \/ " \+ visible\.size/, '80 条展示上限必须告知实际筛选总数');
+assert.doesNotMatch(workspace, /visible\.take\(|visible\.size > 80/, '任务中心使用懒列表展示全部筛选结果，不得静默截断任务');
 assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
 assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
   '任务行须有完整读屏描述');
@@ -1676,7 +1676,7 @@ assert.match(dueTest, /weeklyFiltersDoNotTreatCloudRecordsAsVerifiedSchoolDueDat
 assert.match(workspace, /未命名|已保存|待完成/, '首页显示本人真实任务数据');
 assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出调试日志');
 // 课表主页面继续保留本机导入及来源分离门禁。
-assert.match(cloud, /scheduleStatus = "local_only"/);
+assert.doesNotMatch(cloud, /scheduleStatus|scheduleFetchedAt|val lessons: List<VerifiedLesson> = emptyList/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
 assert.match(schedulePanel, /fun localImportedScheduleView\(/);
 assert.match(schedulePanel, /本机课表 · 离线查看/);

@@ -839,8 +839,8 @@ fun RealAcademicTaskHub(
         searchWorkspaceTasks(all, filter, searchQuery, today),
         sourceFilter, onlyThisWeek, today
     )
-    // 保持原有 80 条展示上限；超过上限时必须明确提示还有未显示的任务。
-    val shown = visible.take(80)
+    // LazyColumn composes visible rows on demand; every matching record stays reachable.
+    val shown = visible
     val localRows = shown.filter { it.category == "local" }
     val cloudRows = shown.filter { it.category == "cloud" }
     val wechatRows = shown.filter { it.category == "wechat" }
@@ -1073,12 +1073,6 @@ fun RealAcademicTaskHub(
         }
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
-        }
-        if (visible.size > 80) item {
-            Text("已显示 " + shown.size + " / " + visible.size + " 条，可调整筛选查看剩余任务",
-                modifier = Modifier.padding(top = 12.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (visible.isEmpty()) {
             item {

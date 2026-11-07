@@ -4,12 +4,13 @@ name: Xiaoxu Android JVM Regression
 # Compiles Compose and runs unit tests; does NOT assemble APKs or deploy.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
     paths:
       - 'apps/xiaoxu-android/app/src/**/*.kt'
       - 'apps/xiaoxu-android/app/build.gradle'
       - 'apps/xiaoxu-android/app/src/main/AndroidManifest.xml'
       - '.github/workflows/xiaoxu-campus-run-jvm.yml'
+      - '.github/xiaoxu-apk-build-requests/pending/*.txt'
   workflow_dispatch:
 
 # New commits supersede older PR jobs; published main builds never cancel.
