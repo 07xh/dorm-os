@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -156,10 +157,10 @@ object XiaoxuSpacing {
     val glassStroke: Dp = 0.5.dp
 }
 
-/** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
+/** Full-page transitions are intentionally short; expensive screens move as one layer. */
 internal object XiaoxuMotion {
-    const val PageSwitchMs = 360
-    const val SettingsDetailMs = 500
+    const val PageSwitchMs = 220
+    const val SettingsDetailMs = 200
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
@@ -738,15 +739,29 @@ fun XiaoxuGlassDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
             )
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                shape = RoundedCornerShape(999.dp)
-            ) {
+            XiaoxuDialogPrimaryButton(onClick = onDismiss) {
                 Text(dismissLabel)
             }
         }
     }
+}
+
+/**
+ * 唯一的弹窗主按钮外观：原文链接与完成操作共用 Material3
+ * 胶囊按钮的尺寸、圆角、配色和触控反馈。
+ */
+@Composable
+internal fun XiaoxuDialogPrimaryButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
+        shape = RoundedCornerShape(999.dp),
+        content = content
+    )
 }
 
 /**
@@ -880,14 +895,16 @@ fun XiaoxuTopBar(
     subtitle: String? = null,
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
-    onMessages: (() -> Unit)? = null
+    onMessages: (() -> Unit)? = null,
+    applyStatusBarInset: Boolean = true
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Transparent)
-            // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
-            .statusBarsPadding()
+            // A topBar-hosted header owns status inset; a page-hosted header is
+            // already positioned below Scaffold's contentWindowInsets.
+            .then(if (applyStatusBarInset) Modifier.statusBarsPadding() else Modifier)
             .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

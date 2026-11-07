@@ -1,0 +1,4 @@
+Build request: PR #393
+Scope: trusted Chaoxing submitted/graded task cleanup; manual device-only archive and restore.
+Required: assembleDebug, testDebugUnitTest, isolated QA APK.
+Do not merge until compile and one-device verification.

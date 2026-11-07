@@ -1,0 +1,4 @@
+PR #351 integrated QA after merging #393.
+Expected merge commit bff0d490f0bdca7d5aa45bfcf67c405bf2bd4ee4.
+Verify Chaoxing submitted/graded classification, manual cleanup and restore with current navigation UI.
+Keep #351 Draft and main unchanged until device visual verification.

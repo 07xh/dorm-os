@@ -73,6 +73,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -576,17 +577,9 @@ private fun NativeShell(
                 if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
             ),
             containerColor = Color.Transparent,
-            topBar = {
-                // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen && current == MainDestination.HOME) XiaoxuTopBar(
-                    title = "今日",
-                    subtitle = null,
-                    refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
-                    onRefresh = if (current == MainDestination.SCHEDULE) null
-                        else ({ scope.launch { cloud.refresh() } }),
-                    onMessages = { messagesOpen = true }
-                )
-            },
+            // Keep Scaffold measurements stable while switching tabs. HOME owns
+            // its own header within the animated page; other tabs already have headers.
+            topBar = {},
             bottomBar = {
                 if (!tabletLayout && showPrimaryNavigation) {
                     // Layout-only reserve. Actual dock sits outside the sampled subtree.
@@ -619,11 +612,25 @@ private fun NativeShell(
                                 forward = targetState.ordinal >= initialState.ordinal
                             )
                         },
+                        modifier = Modifier.fillMaxSize().clipToBounds(),
                         label = "page"
                     ) { page ->
                         pageStateHolder.SaveableStateProvider(page.name) {
+                        // Full-size opaque layers and bounds clipping prevent old
+                        // page labels from showing through while rapidly changing tabs.
+                        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
                         when (page) {
-                            MainDestination.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
+                                XiaoxuTopBar(
+                                    title = "今日",
+                                    subtitle = null,
+                                    refreshing = cloud.state.busy,
+                                    onRefresh = { scope.launch { cloud.refresh() } },
+                                    onMessages = { messagesOpen = true },
+                                    applyStatusBarInset = false
+                                )
+                                Box(Modifier.weight(1f)) {
+                                RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
                                 openSchedule = { current = MainDestination.SCHEDULE },
                                 openTasks = { current = MainDestination.TASKS },
@@ -645,6 +652,8 @@ private fun NativeShell(
                                 },
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
+                                }
+                            }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
@@ -671,9 +680,12 @@ private fun NativeShell(
                                             if (targetState) "detail" else "home"
                                         )
                                     },
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize().clipToBounds(),
                                     label = "profileTimetableChild"
                                 ) { timetableChild ->
+                                    // Each target child owns an opaque full-size layer. The
+                                    // timetable/editor must not show settings text behind it.
+                                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
                                     if (timetableChild) {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
@@ -718,8 +730,10 @@ private fun NativeShell(
                                         onRefresh = { scope.launch { cloud.refresh() } }
                                     )
                                 }
+                                    }
                                 }
                             }
+                        }
                         }
                         }
                     }
@@ -801,11 +815,11 @@ private fun AcademicPage(
                 if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
             )
         },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "academicChild"
     ) { academicRoute ->
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
