@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkManager
 import androidx.work.WorkInfo
+import androidx.work.NetworkType
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -23,20 +24,25 @@ class SecondClassBackgroundReadTest {
     private val dao get() = LocalTaskDatabase.open(c).nativeSchoolRecords()
     private val hash = "a".repeat(64)
     private val savedAt = System.currentTimeMillis() - 1_000_000
+    private var ownsStorage = false
     private fun payload() = JSONObject("""{"schema":"xiaoxu/local-secondclass-scores-v1","ok":true,
         "identityMatched":true,"httpStatus":200,"accountHash":"$hash",
         "rows":[{"termIndex":1,"qualityScore":0,"volunteerHours":0,"categories":[0,0,0,0,0,0]}],
         "activitiesComplete":true,"activities":[],"catalogStatus":"unavailable","catalogEmptyFilters":[]}""")
 
     @Before fun prepare() = runBlocking {
+        assertRuntimeIsolation(c)
+        assertTrue("refuse to clear existing settings", settings.all.isEmpty())
+        assertTrue("refuse to clear an existing identity", identity.all.isEmpty())
+        assertTrue("refuse to clear existing school data", dao.snapshot().none { it.provider == "second_class" })
+        ownsStorage = true
         settings.edit().clear().putBoolean("enabled", true).putBoolean("background", true).commit()
         identity.edit().clear().putString("salt", "b".repeat(32)).putString("account", hash).commit()
-        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "account_binding"))
-            dao.deleteKind("second_class", kind)
         dao.replaceSecondClassSnapshot(parseLocalSecondClassScores(payload(), savedAt),
             parseLocalSecondClassActivities(payload(), savedAt), accountHash = hash)
     }
     @After fun clean() = runBlocking {
+        if (!ownsStorage) return@runBlocking
         SecondClassAutoRefresh.configure(c, false, false)
         awaitCancellationOfScheduledWork()
         settings.edit().clear().commit()
@@ -112,19 +118,44 @@ class SecondClassBackgroundReadTest {
         assertEquals(before, dao.snapshot())
         assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
     }
+    @Test fun roomRejectsAChangedBindingWithoutAdvancingSuccessEvidence() = runBlocking {
+        settings.edit().putLong("success_at", 123_456L).commit()
+        var changed: List<NativeSchoolRecord> = emptyList()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            val binding = dao.snapshot().single { it.kind == "account_binding" }
+            dao.insertAll(listOf(binding.copy(details = "c".repeat(64))))
+            changed = dao.snapshot()
+            payload()
+        }
+        assertEquals("failed", SecondClassAutoRefresh.status(c))
+        assertEquals(changed, dao.snapshot())
+        assertEquals(123_456L, SecondClassAutoRefresh.lastSuccess(c))
+    }
+    @Test fun interruptedReadStateRecoversEvenWhenNoNewReadIsDue() = runBlocking {
+        settings.edit().putString("status", "reading").putLong("attempt", System.currentTimeMillis()).commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> error("a throttled read must not run") }
+        assertEquals("idle", SecondClassAutoRefresh.status(c))
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+    }
     private suspend fun awaitCancellationOfScheduledWork() = withTimeout(10_000) {
         val work = WorkManager.getInstance(c)
         while (work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
                 .any { !it.state.isFinished }) delay(50)
     }
     @Test fun scheduleIsUniqueAndOptOutCancelsIt() = runBlocking {
-        // A fresh snapshot ensures a real Worker cannot contact the school.
-        settings.edit().putLong("attempt", System.currentTimeMillis()).commit()
+        // The isolated target APK has no INTERNET permission. Fresh data also
+        // prevents the real Worker from starting an unnecessary read.
+        val now = System.currentTimeMillis()
+        dao.insertAll(dao.snapshot().map { it.copy(capturedAt = now) })
         SecondClassAutoRefresh.reconcile(c)
         SecondClassAutoRefresh.reconcile(c)
         val work = WorkManager.getInstance(c)
         val jobs = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
         assertEquals(1, jobs.count { !it.state.isFinished })
+        val scheduled = jobs.single { !it.state.isFinished }
+        assertEquals(NetworkType.CONNECTED, scheduled.constraints.requiredNetworkType)
+        assertTrue(scheduled.constraints.requiresBatteryNotLow())
+        assertEquals(1_800_000L, scheduled.periodicityInfo!!.repeatIntervalMillis)
         SecondClassAutoRefresh.configure(c, true, false)
         awaitCancellationOfScheduledWork()
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)

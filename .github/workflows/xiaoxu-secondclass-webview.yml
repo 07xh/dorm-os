@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'apps/xiaoxu-android/app/src/androidTest/**'
+      - 'apps/xiaoxu-android/app/src/runtimeVerification/**'
+      - 'apps/xiaoxu-android/app/build.gradle'
       - 'apps/xiaoxu-android/app/src/main/java/**/SecondClassAuto*.kt'
       - 'apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js'
       - '.github/workflows/xiaoxu-secondclass-webview.yml'
@@ -31,7 +33,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest --no-daemon --stacktrace
+          script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest -PxiaoxuRuntimeTest=true --no-daemon --stacktrace
       - name: Stage tested APK and SDK verification tool
         if: success()
         run: |

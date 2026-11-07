@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @RunWith(AndroidJUnit4::class)
 class SecondClassAutoReadDriverTest {
     private val c = InstrumentationRegistry.getInstrumentation().targetContext
+    @Before fun requireIsolatedRuntime() { assertRuntimeIsolation(c) }
     private val html = """<html><body><h3>本人[SYNTHETIC_SELF]</h3><script>
         window.fetch=function(url){
           var row={student_code:'SYNTHETIC_SELF',school_term_index:1,score_value:0,score_plus:0};
