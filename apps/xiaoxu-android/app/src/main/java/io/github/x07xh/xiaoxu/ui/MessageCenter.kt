@@ -343,7 +343,7 @@ fun MessageCenterPanel(
                             MessageBanner(
                                 icon = Icons.Outlined.Info,
                                 text = "尚未成功读取官方公告。可以点击右上角“刷新”；学校公开公告无需登录校序云端。",
-                                container = XiaoxuPalette.Surface,
+                                container = XiaoxuPalette.GlassCard,
                                 ink = XiaoxuPalette.Ink2
                             )
                         }
@@ -866,7 +866,7 @@ private fun MessageEmptyHint(query: String?) {
         icon = Icons.Outlined.Search,
         text = if (query == null) "该筛选下没有已成功读取的官方公告。微信候选不在官方公告里，请切到“微信审核”查看。"
         else "没有匹配“" + query.trim() + "”的官方公告；搜索只覆盖官方公告，不搜索微信候选。",
-        container = XiaoxuPalette.Surface,
+        container = XiaoxuPalette.GlassCard,
         ink = XiaoxuPalette.Ink2
     )
 }
@@ -950,9 +950,9 @@ private fun MessageSkeleton() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .height(76.dp)
             .clip(CardShape)
-            .background(XiaoxuPalette.SurfaceAlt)
+            .background(XiaoxuPalette.GlassTrack)
             .semantics { contentDescription = "正在读取官方公告" }
     )
 }
