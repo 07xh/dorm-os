@@ -34,7 +34,7 @@ fun parseLocalSecondClassCatalogActivities(
         val ordinal = raw.getInt("ordinal")
         require(filter in allowed)
         require(title.length in 2..120 && title == title.trim() &&
-            !Regex("[<>\\u0000-\\u001f]").containsMatchIn(title))
+            title.none { it == '<' || it == '>' || it.code < 32 })
         require(ordinal in 0..49)
         val key = "$filter|$ordinal|$title"
         require(keys.add(key))
