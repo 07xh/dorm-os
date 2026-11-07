@@ -78,6 +78,8 @@ for(const bad of [
 ])assert.throws(()=>validateChaoxingCookieExport(bad),
  e=>e.code==='invalid_cookie_format');
 const directlyImported=await adapter.importSession({cookies:officialCookies});
+assert.ok(Date.parse(directlyImported.expiresAt)>Date.now()+29*86_400_000,
+ 'verified imported sessions must also survive several days of inactivity');
 assert.equal(directlyImported.session.uid,'1234567');
 assert.equal(directlyImported.session.schema,'chaoxing-session-v1');
 assert.ok(!JSON.stringify(directlyImported).includes('test-password'));
@@ -233,10 +235,10 @@ await assert.rejects(
    sqlite.prepare(
     "UPDATE academic_provider_sessions SET ciphertext=?,nonce=? WHERE user_id='owner1' AND provider='chaoxing'"
    ).run(replacementRow.ciphertext,replacementRow.nonce);
-   throw Object.assign(new Error('old upstream session expired'),
+   throw Object.assign(new Error('downstream authorization ambiguous after owner proof'),
     {code:'authorization_failed'});
   }}),
- e=>e.code==='session_expired');
+ e=>e.code==='sync_failed','a downstream failure must not classify owner login as expired');
 assert.deepEqual(sqlite.prepare(
  "SELECT ciphertext,nonce FROM academic_provider_sessions WHERE user_id='owner1' AND provider='chaoxing'"
 ).get(),replacementRow,'stale sync must not delete a successful newer encrypted session');

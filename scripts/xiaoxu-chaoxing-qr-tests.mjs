@@ -97,6 +97,8 @@ const scanned=await adapter.pollQrLogin({challenge:waiting.challenge});
 assert.equal(scanned.status,'scanned');
 const approved=await adapter.pollQrLogin({challenge:scanned.challenge});
 assert.equal(approved.status,'approved');
+assert.ok(Date.parse(approved.expiresAt)>Date.now()+29*86_400_000,
+ 'QR approval must issue a reusable school session, independent of QR challenge expiry');
 assert.equal(approved.session.schema,'chaoxing-session-v1');
 assert.equal(approved.session.uid,'1234567');
 assert.ok(urls.some(x=>x.host==='i.chaoxing.com'&&x.path==='/'),'QR success must complete the official refer hop');
@@ -128,6 +130,7 @@ const db={prepare(sql){return {
 const offlineAdapter={provider:'chaoxing',pollQrLogin:async()=>({}),
  forSession:async()=>({provider:'chaoxing',
   async verifySession(){return {authorized:true,school:'ncwu',
+   provider:'chaoxing',scope:'self',session:{uid:'1234567'},
    identityBound:true,principalBoundTo:'owner1'};},
   async readNoticePage(){throw Error('upstream inbox temporarily unavailable');}
  })};
