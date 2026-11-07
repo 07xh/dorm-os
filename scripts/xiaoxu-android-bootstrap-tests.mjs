@@ -374,8 +374,8 @@ assert.match(workspace, /title = "学习通作业"/,
   '官方作业读取入口必须直接出现在真实任务页');
 assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
   '学习通部分读取不得冒充全部课程已核验');
-assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "全部课程条数已核验"/,
-  '只有证据完整且刷新成功才显示完整核验');
+assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "已核对当前课程列表"/,
+  '只有证据完整且刷新成功才显示当前课程列表核验状态');
 assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
   '本机页面记录需保留入口及真实数量');
 assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
