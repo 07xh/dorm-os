@@ -206,6 +206,30 @@ class CollectorTests(TestCase):
                 bridge.STATE = old_state
 
 
+    def test_backfill_uses_requested_window_without_resetting_sync_cursor(self):
+        with TemporaryDirectory() as temp:
+            original = bridge.STATE
+            bridge.STATE = Path(temp) / "sync-state.json"
+            bridge.STATE.write_text('{"课程群":1000}', encoding="utf-8")
+            config = {"chats": ["课程群"], "site": "https://dorm-os-dk9.pages.dev",
+                      "deviceId": "wxd_" + "a" * 24,
+                      "tokenDpapi": "secret-token", "hmacDpapi": "secret-hmac"}
+            calls = []
+            def extract(cfg, secret, cursors, **kwargs):
+                calls.append((cursors, kwargs.get("bootstrap_seconds")))
+                return [], {"课程群":999999}, ["synthetic"]
+            try:
+                with patch.object(bridge, "load_config", return_value=config), \
+                     patch.object(bridge, "opened",
+                                  side_effect=[b"hmac", ("wxu_" + "b"*43).encode()]), \
+                     patch.object(bridge, "extract_groups", side_effect=extract), \
+                     patch.object(bridge, "submit", return_value={"received":0}):
+                    bridge.main(["backfill", "--days", "3"])
+                self.assertEqual(calls, [({}, 3*86400)])
+                self.assertEqual(bridge.read_state(), {"课程群":1000})
+            finally:
+                bridge.STATE = original
+
     def test_empty_result_still_verifies_server_before_checkpoint(self):
         with TemporaryDirectory() as temp:
             original = bridge.STATE
