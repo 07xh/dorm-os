@@ -1356,7 +1356,7 @@ fun RealAcademicTaskHub(
                 count = auditSummary.verifiedWorkRows,
                 badge = when {
                     state.chaoxingBatchBusy -> "读取中"
-                    auditSummary.fullyCoveredAndRefreshed -> "全部课程条数已核验"
+                    auditSummary.fullyCoveredAndRefreshed -> "已核对当前课程列表"
                     state.chaoxingBatchCheckedAt != null -> "部分已读取"
                     else -> "未读取"
                 },
@@ -1428,7 +1428,7 @@ fun RealAcademicTaskHub(
                         )
                         Text(
                             if (auditSummary.fullyCoveredAndRefreshed)
-                                "已核验全部课程的返回条数，云端任务列表也已刷新；仍需本人官网对照。"
+                                "已核对所列课程的当前作业列表；仍需与学习通官网核对是否遗漏其他类别。"
                             else "本次尚不能确认全部作业覆盖；不以缺失、失败或未检查记录推定已完成。",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (auditSummary.fullyCoveredAndRefreshed)
