@@ -84,11 +84,12 @@ fun SecondClassPage(
     val batch = candidates.singleOrNull { it.kind == "activity_summary" }
     val activities = if (batch != null &&
         candidates.all { it.capturedAt == batch.capturedAt }) candidates else emptyList()
-    val catalogRows = all.filter { it.provider == "second_class" && it.kind == "catalog_empty" }
-    val catalogComplete = catalogRows.size == 3 &&
-        catalogRows.map { it.title }.toSet() ==
-            setOf("报名中", "待验证", "即将开始报名") &&
-        catalogRows.map { it.capturedAt }.distinct().size == 1
+    val catalogRows = all.filter {
+        it.provider == "second_class" && it.kind == "catalog_empty"
+    }
+    val catalogActivities = all.filter {
+        it.provider == "second_class" && it.kind == "catalog_activity"
+    }
 
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
     var attempted by rememberSaveable { mutableStateOf(false) }
@@ -159,7 +160,7 @@ fun SecondClassPage(
     val countConfirmed = batch != null &&
         candidates.all { it.capturedAt == batch.capturedAt }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val detailRecord = (scores + myActivities).firstOrNull {
+    val detailRecord = (scores + myActivities + catalogActivities).firstOrNull {
         it.kind + ":" + it.fingerprint == detailKey
     }
     val catalogOptions = remember {
@@ -170,9 +171,13 @@ fun SecondClassPage(
         )
     }
     val catalogKeys = listOf("报名中", "待验证", "即将开始报名")
-    val catalogRecord = if (catalogComplete)
-        catalogRows.singleOrNull { it.title == catalogKeys[catalogFilter.coerceIn(0, 2)] }
-    else null
+    val activeCatalogFilter = catalogKeys[catalogFilter.coerceIn(0, 2)]
+    val catalogRecord = catalogRows.singleOrNull {
+        it.title == activeCatalogFilter
+    }
+    val visibleCatalogActivities = catalogActivities.filter {
+        it.details.startsWith("筛选：$activeCatalogFilter\n")
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -361,21 +366,48 @@ fun SecondClassPage(
                 onSelected = { catalogFilter = it.toInt() }
             )
         }
-        item(key = "catalog_status") {
-            // The current reader only validates zero-result envelopes. Non-empty
-            // official catalog data is NOT persisted, so never fabricate cards.
-            XiaoxuCard {
-                Text(
-                    if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
-                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink
-                )
-                if (catalogRecord != null) {
-                    Text("更新于 " + DateFormat.getDateTimeInstance()
-                        .format(Date(catalogRecord.capturedAt)),
+        if (visibleCatalogActivities.isNotEmpty()) {
+            items(
+                items = visibleCatalogActivities,
+                key = { "secondclass-catalog-" + it.fingerprint }
+            ) { record ->
+                XiaoxuCard(
+                    onClick = {
+                        detailKey = record.kind + ":" + record.fingerprint
+                    },
+                    contentPadding = 16.dp
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(record.title, modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Outlined.ChevronRight,
+                            contentDescription = "查看学校活动",
+                            tint = XiaoxuPalette.Ink2)
+                    }
+                    Text("上次从学校活动广场读取 · $activeCatalogFilter",
                         style = MaterialTheme.typography.labelSmall,
                         color = XiaoxuPalette.Ink2)
                 }
-                TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
+            }
+        } else {
+            item(key = "catalog_status") {
+                XiaoxuCard {
+                    Text(
+                        if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XiaoxuPalette.Ink
+                    )
+                    if (catalogRecord != null) {
+                        Text("更新于 " + DateFormat.getDateTimeInstance()
+                            .format(Date(catalogRecord.capturedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink2)
+                    }
+                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
+                }
             }
         }
         if (error != null) {
