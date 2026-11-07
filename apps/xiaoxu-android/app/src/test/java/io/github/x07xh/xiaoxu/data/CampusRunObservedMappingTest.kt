@@ -200,7 +200,7 @@ class CampusRunObservedMappingTest {
                 other, semesterData()
             )
             override suspend fun historyPage(cursor: String?) = CampusRunAuthorizedDecodedPage(
-                fingerprint, emptyList(), nextCursor = null, isLastPage = true
+                fingerprint, emptyList<Map<String, Any?>>(), nextCursor = null, isLastPage = true
             )
         }
         val state = CampusRunReadOnlyQuery(
