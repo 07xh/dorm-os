@@ -152,9 +152,32 @@ fun ConnectionsPanel(
     var passphrase by remember { mutableStateOf("") }
     var cloudAdvanced by rememberSaveable { mutableStateOf(false) }
 
+    // Native and cloud content each have one implementation; only layout adapts.
+    val localConnections: @Composable () -> Unit = {
+        ProfileHeroCard(state = state)
+        LocalSchoolConnectionPanel(
+            openLocal = openLocalSchool,
+            recentImport = recentImport
+        )
+    }
+    val cloudConnections: @Composable () -> Unit = {
+        CloudAuthorizationSection(
+            client = client,
+            state = state,
+            scope = scope,
+            foreground = foreground,
+            passphrase = passphrase,
+            onPassphraseChange = { passphrase = it.take(256) },
+            openLocalSchool = openLocalSchool,
+            startSchoolAuthorization = startSchoolAuthorization,
+            openWebsite = openWebsite,
+            cloudAdvanced = cloudAdvanced,
+            onToggleAdvanced = { cloudAdvanced = !cloudAdvanced }
+        )
+    }
+
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val wide = maxWidth >= 600.dp
-        if (wide) {
+        if (maxWidth >= 600.dp) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -164,52 +187,20 @@ fun ConnectionsPanel(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)
                 ) {
-                    ProfileHeroCard(state = state)
-                    LocalSchoolConnectionPanel(
-                        openLocal = openLocalSchool,
-                        recentImport = recentImport
-                    )
+                    localConnections()
                 }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)
                 ) {
-                    CloudAuthorizationSection(
-                        client = client,
-                        state = state,
-                        scope = scope,
-                        foreground = foreground,
-                        passphrase = passphrase,
-                        onPassphraseChange = { passphrase = it.take(256) },
-                        openLocalSchool = openLocalSchool,
-                        startSchoolAuthorization = startSchoolAuthorization,
-                        openWebsite = openWebsite,
-                        cloudAdvanced = cloudAdvanced,
-                        onToggleAdvanced = { cloudAdvanced = !cloudAdvanced }
-                    )
+                    cloudConnections()
                 }
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)) {
-                ProfileHeroCard(state = state)
-                LocalSchoolConnectionPanel(
-                    openLocal = openLocalSchool,
-                    recentImport = recentImport
-                )
-                // 两个独立信息分区之间用统一间距，不再画贯穿整页的分割线。
-                CloudAuthorizationSection(
-                    client = client,
-                    state = state,
-                    scope = scope,
-                    foreground = foreground,
-                    passphrase = passphrase,
-                    onPassphraseChange = { passphrase = it.take(256) },
-                    openLocalSchool = openLocalSchool,
-                    startSchoolAuthorization = startSchoolAuthorization,
-                    openWebsite = openWebsite,
-                    cloudAdvanced = cloudAdvanced,
-                    onToggleAdvanced = { cloudAdvanced = !cloudAdvanced }
-                )
+                localConnections()
+                // One shared gap between the native and cloud connection regions.
+                cloudConnections()
             }
         }
     }

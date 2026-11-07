@@ -224,6 +224,14 @@ assert.match(profileSettings, /ConnectionsPanel\(client, openWebsite, openLocalS
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/);
 assert.match(panels, /PasswordVisualTransformation/);
 assert.match(panels, /fun ConnectionsPanel\(/);
+assert.equal((panels.match(/\bLocalSchoolConnectionPanel\s*\(/g) || []).length, 1,
+  'Native school connection content must not be duplicated for different screen widths');
+assert.equal((panels.match(/\bCloudAuthorizationSection\s*\(/g) || []).length, 2,
+  'Cloud authorization must have exactly one definition and one responsive invocation');
+assert.match(panels, /val localConnections: @Composable \(\) -> Unit = \{/,
+  'Responsive native connection content must be shared');
+assert.match(panels, /val cloudConnections: @Composable \(\) -> Unit = \{/,
+  'Responsive cloud authorization content must be shared');
 // The owner can begin each school's permitted local read without cloud login
 // or first navigating to Xiaoxu's website. Cloud authorization remains optional.
 assert.match(panels, /var cloudAdvanced by rememberSaveable \{ mutableStateOf\(false\) \}/);
