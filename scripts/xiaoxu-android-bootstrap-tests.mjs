@@ -1671,7 +1671,7 @@ assert.match(pageMotion, /fadeIn\([\s\S]*?delayMillis = exitMillis/,
   '新页面必须在旧页面退出后淡入，避免旧文字和新文字叠影');
 assert.match(pageMotion, /togetherWith fadeOut\(/,
   '旧内容应柔和淡出而不是横向移动');
-assert.match(pageMotion, /sizeTransform = null/,
+assert.match(pageMotion, /\.using\(null\)/,
   '不同页面的容器几何必须固定，避免尺寸动画造成晃动');
 assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
   '页面转场不得移动或缩放整屏，也不得弹簧回弹');
