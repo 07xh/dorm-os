@@ -1129,6 +1129,9 @@ private fun CourseDetailBottomSheet(
         else Toast.makeText(context, "未获得通知权限，课程提醒保持关闭", Toast.LENGTH_SHORT).show()
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // The title keeps its edit gesture but never draws a rectangular pressed
+    // overlay over long, wrapped course names.
+    val titleInteraction = remember { MutableInteractionSource() }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -1146,6 +1149,7 @@ private fun CourseDetailBottomSheet(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
+                .background(XiaoxuPalette.SheetSheen)
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -1167,11 +1171,15 @@ private fun CourseDetailBottomSheet(
                     // a new visible label or rearranging the reference layout.
                     Text(
                         lesson.title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = XiaoxuPalette.Ink,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .then(if (onEdit == null) Modifier else Modifier.combinedClickable(
+                                interactionSource = titleInteraction,
+                                indication = null,
                                 onClick = onEdit,
                                 onLongClick = onEdit
                             ))

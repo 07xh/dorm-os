@@ -85,6 +85,12 @@ assert.match(designSystem, /fun XiaoxuDialogDim\(/,
   '居中详情弹窗需共享低对比遮罩');
 assert.match(scheduleUi, /scrimColor = XiaoxuPalette\.ModalScrim/,
   '课程详情背景遮罩必须与统一材质一致');
+assert.match(scheduleUi, /indication = null,\s*onClick = onEdit/,
+  '课程详情长标题不允许绘制大面积矩形按压遮罩');
+assert.match(scheduleUi, /background\(XiaoxuPalette\.SheetSheen\)/,
+  '课程详情共享轻量表面渐变，不增加实时模糊');
+assert.match(designSystem, /val GlassSheen = Brush\.verticalGradient\(/,
+  '通用卡片复用同一轻量玻璃高光材质');
 assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
   '课表课程卡按压反馈须受圆角裁切');
 assert.match(messageUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
@@ -1677,14 +1683,14 @@ assert.match(profileSettings, /"connections" -> item \{/,
   '数据连接详情独立成二级页面，而非旧版工具浮层');
 assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端同步详情不得顶开本机连接列表');
-assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.90f\)/,
+assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.85f\)/,
   '统一玻璃卡透明度，避免彩色底透出硬灰边');
 
 assert.match(design, /label = "glass-row-chevron"/,
   '展开箭头动画与其他页面共用时序');
 assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
   '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
-assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.55f\)/,
+assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
   '轻玻璃边界须接近北化的柔和白色描边而非旧灰色轮廓');
 assert.match(design, /Brush\.linearGradient\(/,
   '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
@@ -1990,6 +1996,10 @@ assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
   '用户点击课程任务后必须仍能展开和收起');
 assert.match(workspace, /if \(showCourseTasks\) \{/,
   '课程列表显示必须只由当前展开状态控制');
+assert.match(workspace, /item\(key = "group:course"\)/,
+  '课程任务分组必须使用稳定 LazyColumn key 保留位置');
+assert.match(workspace, /item\(key = "group:wechat"\)/,
+  '微信分组必须使用稳定 key，而非依赖前面的项目索引');
 assert.match(workspace, /var showWechatTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的微信任务必须默认折叠');
 assert.match(workspace, /var showPersonalTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
@@ -2052,7 +2062,7 @@ assert.match(workspace, /title = "微信任务"/,
 assert.match(workspace, /var showWechatTasks by rememberSaveable/,
   '微信任务独立于课程/本机分组折叠');
 assert.match(taskHubRegion,
-  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size,/,
+  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size\s*[,\)]/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
   '审核通过微信任务保持独立缓存分组');
@@ -2120,8 +2130,8 @@ assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
   '成功确认与失败回滚均清理临时状态');
 assert.match(workspace, /val statusText = if \(isPending\) "保存中…"/,
   '尚未收到云端回执时必须明确显示保存中');
-assert.match(workspace, /modifier = Modifier\.animateItem\(/,
-  '云端已确认后移除任务行应做短时退场动画而不是突跳');
+assert.doesNotMatch(workspace, /modifier = Modifier\.animateItem\(/,
+  '展开课程任务时不能再让微信列表补间移动并产生跳跃');
 assert.match(cloud, /preferConfirmedWechatRevisions\(it, state\.tasks\)/,
   '旧的并发读取不得覆盖已确认的微信任务状态');
 const wechatMutation = cloud.slice(cloud.indexOf('suspend fun setWechatTaskCompleted('),
