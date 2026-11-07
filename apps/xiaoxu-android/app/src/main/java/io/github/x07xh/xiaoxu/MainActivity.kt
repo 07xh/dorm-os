@@ -73,6 +73,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -671,9 +672,12 @@ private fun NativeShell(
                                             if (targetState) "detail" else "home"
                                         )
                                     },
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize().clipToBounds(),
                                     label = "profileTimetableChild"
                                 ) { timetableChild ->
+                                    // Each target child owns an opaque full-size layer. The
+                                    // timetable/editor must not show settings text behind it.
+                                    Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
                                     if (timetableChild) {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
@@ -718,6 +722,7 @@ private fun NativeShell(
                                         onRefresh = { scope.launch { cloud.refresh() } }
                                     )
                                 }
+                                    }
                                 }
                             }
                         }
@@ -801,11 +806,11 @@ private fun AcademicPage(
                 if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
             )
         },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().clipToBounds(),
         label = "academicChild"
     ) { academicRoute ->
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
