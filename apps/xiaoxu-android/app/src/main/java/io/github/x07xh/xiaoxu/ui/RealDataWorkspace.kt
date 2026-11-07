@@ -165,7 +165,7 @@ internal fun combineWorkspaceTasks(
     native: List<NativeSchoolRecord> = emptyList()
 ): List<WorkspaceTask> =
     buildList {
-        // An official work tuple, not a title, allows local WebView evidence
+        // An official work tuple, not a title, allows local official-page evidence
         // to appear in the SAME task list without duplicating cloud records.
         val localEvidence = native.mapNotNull { record ->
             val id = nativeChaoxingWorkSourceId(record)
