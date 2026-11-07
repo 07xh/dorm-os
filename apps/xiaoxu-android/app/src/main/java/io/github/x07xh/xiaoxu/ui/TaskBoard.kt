@@ -222,6 +222,9 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
     var source by rememberSaveable { mutableStateOf(TASK_SOURCE_LOCAL) }
     var due by rememberSaveable { mutableStateOf<String?>(null) }
     var filterKey by rememberSaveable { mutableStateOf(TASK_FILTER_ALL) }
+    // The editor lives inside the parent task feed; compose only a bounded batch
+    // instead of eagerly creating 200 nested Material cards on every visit.
+    var visibleLimit by rememberSaveable(filterKey) { mutableStateOf(30) }
     var pickerOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<LocalTask?>(null) }
 
@@ -347,32 +350,37 @@ fun LocalTaskEditor(tasks: List<LocalTask>, dao: LocalTaskDao) {
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
         )
 
-        // ---------- 列表 ----------
+        // ---------- 连续玻璃编辑列表：分页渲染，不丢失任何 Room 记录 ----------
         if (visible.isEmpty()) {
             EmptyTaskHint(filterKey = filterKey, hasAny = tasks.isNotEmpty())
+        } else {
+            val shown = visible.take(visibleLimit)
+            XiaoxuGroupSurface {
+                shown.forEachIndexed { index, task ->
+                    androidx.compose.runtime.key(task.id) {
+                        TaskRow(
+                            task = task,
+                            today = today,
+                            onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
+                            onDelete = { pendingDelete = task }
+                        )
+                    }
+                    if (index < shown.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = XiaoxuPalette.Line.copy(alpha = 0.35f),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
+            }
+            if (visible.size > shown.size) {
+                TextButton(
+                    onClick = { visibleLimit = (visibleLimit + 30).coerceAtMost(visible.size) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                ) { Text("显示更多本机任务（剩余 ${visible.size - shown.size} 条）") }
+            }
         }
-        visible.take(200).forEach { task ->
-            TaskRow(
-                task = task,
-                today = today,
-                onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
-                onDelete = { pendingDelete = task }
-            )
-        }
-        if (visible.size > 200) {
-            Text(
-                text = "仅显示前 200 条，其余请先完成或删除。",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        HorizontalDivider()
-        Text(
-            text = "本机任务独立保存在手机上，断网可用；与云端任务、学习通作业分开显示，不自动合并。",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 
     if (pickerOpen) {
@@ -471,12 +479,11 @@ private fun TaskRow(
     onDelete: () -> Unit
 ) {
     val state = dueStateOf(task, today)
-    XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
                 checked = task.completed,
                 onCheckedChange = onToggle,
                 modifier = Modifier.semantics {
@@ -506,16 +513,15 @@ private fun TaskRow(
                     }
                 }
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "删除“" + task.title + "”",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                Icons.Outlined.DeleteOutline,
+                contentDescription = "删除“" + task.title + "”",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
