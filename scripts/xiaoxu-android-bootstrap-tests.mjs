@@ -130,6 +130,7 @@ assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
+const wechatReminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/WechatPersonalReminders.kt');
 const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
   'Two reminder toggles must share one Android permission gateway');
@@ -279,12 +280,14 @@ assert.match(profileSettings, /WechatPersonalReminders\.reconcile\(/,
   '同一通知开关应调度本人微信个人计划，不增加第二个开关');
 assert.match(reminder, /WechatPersonalReminders\.clear\(context\)/,
   '关闭任务提醒时须清除微信个人计划调度');
-assert.match(reminder, /class WechatPersonalReminderWorker[\s\S]*?canDeliver\(/,
+assert.match(wechatReminder, /class WechatPersonalReminderWorker[\s\S]*?canDeliver\(/,
   '通知送达前必须复核本人会话、日期和调度状态');
-assert.match(reminder, /CloudClient\(context\.applicationContext\)\.ownerSessionBinding\(\)/,
+assert.match(wechatReminder, /CloudClient\(context\.applicationContext\)\.ownerSessionBinding\(\)/,
   '退出或更换本人登录态后不得继续送出旧微信计划通知');
-assert.doesNotMatch(reminder, /putString\("raw_message"|putString\("excerpt"|putString\("title"/,
+assert.doesNotMatch(wechatReminder, /putString\("raw_message"|putString\("excerpt"|putString\("title"/,
   '提醒存储不得含微信原文或题目');
+assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
+  '已有 Room 本机通知仍不可依赖云端账户或学校记录');
 assert.match(workspace, /CloudTaskEditor\(client\)/);
 assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
 assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
