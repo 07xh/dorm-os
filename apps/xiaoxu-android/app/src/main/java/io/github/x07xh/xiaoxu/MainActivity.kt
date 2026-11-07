@@ -114,6 +114,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.XiaoxuMotion
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
+import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
@@ -739,9 +740,8 @@ private fun ConnectionsPage(
     localCaptureReturn: LocalSchoolImportReceipt?,
     onMessages: () -> Unit, onRefresh: () -> Unit
 ) {
-    var showCloudSecondClass by rememberSaveable { mutableStateOf(false) }
-    var showLocalBackup by rememberSaveable { mutableStateOf(false) }
-    var showCredits by rememberSaveable { mutableStateOf(false) }
+    // 工具详情由独立 Dialog 承载，不向 LazyColumn 中插入项目，避免页面跳动。
+    var selectedTool by rememberSaveable { mutableStateOf<String?>(null) }
     Content {
         item {
             CompactPageHeading(title = "我的", onMessages = onMessages,
@@ -755,32 +755,35 @@ private fun ConnectionsPage(
         item {
             XiaoxuGroupedSection(title = "工具") {
                 CompactActionRow("第二课堂记录", Icons.Outlined.School,
-                    expanded = showCloudSecondClass, onClick = {
-                        showCloudSecondClass = !showCloudSecondClass
-                        showLocalBackup = false
-                        showCredits = false
-                    })
+                    onClick = { selectedTool = "second_class" })
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                     modifier = Modifier.padding(horizontal = 16.dp))
                 CompactActionRow("任务备份与恢复", Icons.Outlined.CheckCircle,
-                    expanded = showLocalBackup, onClick = {
-                        showLocalBackup = !showLocalBackup
-                        showCloudSecondClass = false
-                        showCredits = false
-                    })
+                    onClick = { selectedTool = "backup" })
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
                     modifier = Modifier.padding(horizontal = 16.dp))
                 CompactActionRow("开源许可", Icons.Outlined.Info,
-                    expanded = showCredits, onClick = {
-                        showCredits = !showCredits
-                        showCloudSecondClass = false
-                        showLocalBackup = false
-                    })
+                    onClick = { selectedTool = "credits" })
             }
         }
-        if (showCloudSecondClass) item { SecondClassPanel(cloud, openWebsite) }
-        if (showLocalBackup) item { LocalTaskBackupPanel() }
-        if (showCredits) item { OpenSourceCreditsPanel() }
+    }
+    val tool = selectedTool
+    if (tool != null) {
+        XiaoxuGlassDialog(
+            title = when (tool) {
+                "second_class" -> "第二课堂记录"
+                "backup" -> "任务备份与恢复"
+                else -> "开源组件与致谢"
+            },
+            onDismiss = { selectedTool = null },
+            dismissLabel = if (tool == "credits") "我知道了" else "完成"
+        ) {
+            when (tool) {
+                "second_class" -> SecondClassPanel(cloud, openWebsite)
+                "backup" -> LocalTaskBackupPanel()
+                "credits" -> OpenSourceCreditsPanel()
+            }
+        }
     }
 }
 

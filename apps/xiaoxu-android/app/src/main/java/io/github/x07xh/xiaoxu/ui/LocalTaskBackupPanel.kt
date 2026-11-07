@@ -76,11 +76,8 @@ fun LocalTaskBackupPanel() {
         }
     }
 
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("本机任务备份与恢复", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold)
+    // 由上层玻璃 Dialog 提供唯一背景与标题，不再嵌套 Material Card。
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 "更换手机或重新安装前，请先导出本机手动任务。签名不一致的安装包通常无法直接覆盖升级；卸载旧版会丢失其本机数据，若旧版不支持导出，新版也无法替旧版取回。",
                 style = MaterialTheme.typography.bodyMedium,
@@ -105,6 +102,5 @@ fun LocalTaskBackupPanel() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        }
     }
 }

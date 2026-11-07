@@ -32,10 +32,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,6 +62,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -106,7 +112,7 @@ object XiaoxuPalette {
     )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.80f)
+    val GlassCard = Color.White.copy(alpha = 0.90f)
     val GlassBorder = Color.White.copy(alpha = 0.55f)
     val GlassTrack = Color.White.copy(alpha = 0.42f)
     val GlassIndicator = Color.White.copy(alpha = 0.52f)
@@ -409,8 +415,8 @@ fun XiaoxuGroupedSection(
 }
 
 /**
- * 北化式可展开玻璃行：一张玻璃卡 + 原地展开详情，没有内部白色矩形。
- * 只接收业务页已经读取的真实内容，不推断成绩、活动或任务状态。
+ * 北化式玻璃详情行：点击只打开独立 Dialog，不在列表中插入任何扩展内容。
+ * 保持原签名，课程与第二课堂现有真实数据及 saveable 展开状态无需重写。
  */
 @Composable
 fun XiaoxuExpandableGlassRow(
@@ -421,61 +427,45 @@ fun XiaoxuExpandableGlassRow(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val rotation = animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "glass-row-chevron"
-    ).value
+    )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .heightIn(min = XiaoxuSpacing.listRowMin)
-                .clickable(role = Role.Button, onClickLabel = if (expanded) "收起$title" else "展开$title",
+                .clickable(role = Role.Button, onClickLabel = "查看$title",
                     onClick = onToggle)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = title,
+                Text(title,
                     style = MaterialTheme.typography.titleMedium,
                     color = XiaoxuPalette.Ink,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    overflow = TextOverflow.Ellipsis)
                 if (!subtitle.isNullOrBlank()) {
-                    Text(
-                        subtitle,
+                    Text(subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = XiaoxuPalette.Ink2,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
             Icon(
-                Icons.Outlined.ExpandMore,
-                contentDescription = null,
+                Icons.Outlined.ChevronRight,
+                contentDescription = "查看详情",
                 tint = XiaoxuPalette.Ink2,
                 modifier = Modifier.size(20.dp).rotate(rotation)
             )
         }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
-                fadeIn(animationSpec = tween(XiaoxuMotion.SelectionMs)),
-            exit = shrinkVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
-                fadeOut(animationSpec = tween(XiaoxuMotion.SelectionMs))
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(
-                    start = 16.dp, end = 16.dp, bottom = 16.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.gap),
-                content = content
-            )
-        }
+    }
+    if (expanded) {
+        XiaoxuGlassDialog(title = title, onDismiss = onToggle, content = content)
     }
 }
 
@@ -780,40 +770,86 @@ fun StatusChip(text: String, tone: XiaoxuTone = XiaoxuTone.Neutral) {
     }
 }
 
-/** 统一底部抽屉：22dp 顶角，内容可滚动，标题与正文同一套字级。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 北化参考的独立玻璃浮层：详情不再参与页面 Column/LazyColumn 测量，
+ * 不会把其余设置、任务和课程卡片向下顶开。
+ *
+ * 保留原有数据 Composable，浮层只负责布局和返回/点击外部关闭。
+ * 内容在内部滚动，避免长许可文本溢出小屏；不在浮层套二层灰色 Card。
+ */
+@Composable
+fun XiaoxuGlassDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    dismissLabel: String = "完成",
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(32.dp)
+    val maxDialogHeight = LocalConfiguration.current.screenHeightDp.dp * 0.82f
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .widthIn(max = 560.dp)
+                .heightIn(max = maxDialogHeight)
+                .clip(shape)
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color(0xFFE5F3FF),
+                            Color(0xFFF5F0FF),
+                            Color(0xFFE7F8F6),
+                            Color(0xFFF9F2FC)
+                        )
+                    )
+                )
+                .border(0.5.dp, Color.White.copy(alpha = 0.82f), shape)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().semantics { heading() }
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content
+            )
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(dismissLabel)
+            }
+        }
+    }
+}
+
+/**
+ * 兼容原任务详情和公告详情调用：保留函数签名，
+ * 展现统一改为参考北化课表的居中玻璃浮层（非底部抽屉）。
+ */
 @Composable
 fun XiaoxuSheet(
     onDismiss: () -> Unit,
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = XiaoxuRadius.hero, topEnd = XiaoxuRadius.hero),
-        scrimColor = Color(0xFF23354F).copy(alpha = 0.22f),
-        containerColor = XiaoxuPalette.SheetSurface
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (title != null) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-            content()
-        }
-    }
+    XiaoxuGlassDialog(
+        title = title ?: "详情",
+        onDismiss = onDismiss,
+        content = content
+    )
 }
 
 /** 实际使用的统一空态；其他状态由真实数据页面按官方来源处理。 */

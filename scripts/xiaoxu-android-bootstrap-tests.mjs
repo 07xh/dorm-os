@@ -190,7 +190,10 @@ const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/
 assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
 assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
-assert.match(main, /showCloudSecondClass by rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.match(main, /var selectedTool by rememberSaveable \{ mutableStateOf<String\?>\(null\) \}/,
+  '我的工具只保存选中的浮层，不保留旧版内联展开状态');
+assert.match(main, /if \(tool != null\) \{\s*XiaoxuGlassDialog\(/,
+  '三个工具通过独立 Dialog 打开，不向 LazyColumn 注入内容');
 
 assert.match(panels, /openLocalSchool\(id\)/);
 assert.match(panels, /只有一台手机？打开学习通官网/);
@@ -814,10 +817,10 @@ assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJava
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
 assert.match(main, /LocalTaskBackupPanel\(\)/);
-assert.match(main, /showLocalBackup by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '本机备份为低频设置，不能默认占据我的页面首屏');
-assert.match(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
-  '按需展开真实本机导入与导出，不能误删原功能');
+assert.match(main, /"backup" -> LocalTaskBackupPanel\(\)/,
+  '本机备份通过独立玻璃浮层按需加载，不默认占据我的首屏');
+assert.doesNotMatch(main, /if \(showLocalBackup\) item \{ LocalTaskBackupPanel\(\) \}/,
+  '不允许恢复旧的向下展开式任务备份入口');
 assert.match(main, /CompactActionRow\("第二课堂记录", Icons\.Outlined\.School/,
   '第二课堂记录必须留在我的页面紧凑工具区，并复用原内容面板');
 assert.match(main, /CompactActionRow\("任务备份与恢复", Icons\.Outlined\.CheckCircle/,
@@ -1314,6 +1317,21 @@ assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
 assert.match(design, /val card: Dp = 24\.dp/, '基础玻璃卡圆角须统一为24dp');
 assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
+assert.match(design, /fun XiaoxuGlassDialog\(/,
+  '必须存在同一居中玻璃详情容器');
+const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
+  design.indexOf('/**\n * 蓝色渐变主卡'));
+assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
+  '平台与二课的详情应使用浮层，不再在卡片内向下展开');
+assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
+  '禁止在详情卡片内重新引入向下展开');
+assert.match(main, /XiaoxuGlassDialog\(/,
+  '我的页面工具详情必须使用居中浮层');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+  '云端同步详情不得顶开本机连接列表');
+assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.90f\)/,
+  '统一玻璃卡透明度，避免彩色底透出硬灰边');
+
 assert.match(design, /label = "glass-row-chevron"/,
   '展开箭头动画与其他页面共用时序');
 assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
@@ -1350,7 +1368,7 @@ assert.ok(workspace.includes('XiaoxuToolbarAction('), '任务页复用统一工�
 assert.ok(workspace.includes('taskScope.launch { client.refreshPrivate() }'),
   '统一工具图标不能移除真实刷新动作');
 assert.match(design, /fun StatusChip\(/, '须有状态标签');
-assert.match(design, /fun XiaoxuSheet\(/, '须有统一底部抽屉');
+assert.match(design, /fun XiaoxuSheet\(/, '任务和消息必须共用详情容器');
 assert.match(design, /fun XiaoxuEmpty\(/, '保留实际使用的统一空态');
 assert.match(design, /fun XiaoxuStatePanel\(/, '复用统一空态容器');
 assert.match(design, /fun XiaoxuTopBar\(/, '须有统一顶栏');
@@ -1636,8 +1654,8 @@ assert.ok(panels.includes('SectionHeader(title = "数据连接")'),
   '个人中心保留直接可见的本机学校官方读取入口');
 assert.ok(panels.includes('LocalSchoolConnectionPanel(openLocalSchool, recentImport)'),
   '不得移除原生学校读取入口');
-assert.ok(panels.includes('if (cloudAdvanced) {'),
-  '云端授权仍是可展开的独立可选入口');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+  '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
