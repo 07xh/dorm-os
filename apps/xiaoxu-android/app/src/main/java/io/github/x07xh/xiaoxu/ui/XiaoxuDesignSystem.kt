@@ -326,7 +326,7 @@ internal fun XiaoxuSoftIconButton(
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(44.dp).clip(CircleShape).background(backgroundColor)
+        modifier = modifier.size(48.dp).clip(CircleShape).background(backgroundColor)
             .clickable(
                 enabled = enabled, role = Role.Button, interactionSource = source,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
