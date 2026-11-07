@@ -278,7 +278,7 @@ fun FloatingBottomBar(
                 .shadow(elevation = 3.dp, shape = BarShape, clip = false)
                 .clip(BarShape)
                 .background(containerColor)
-                .border(0.85.dp, XiaoxuPalette.GlassBorder, BarShape)
+                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, BarShape)
                 .then(gestureModifier)
         ) {
             // 指示器：offset lambda 只在 layout 阶段读 drag.value，位移不触发重组。
@@ -297,7 +297,7 @@ fun FloatingBottomBar(
                     .padding(IndicatorInset)
                     .clip(IndicatorShape)
                     .background(indicatorColor)
-                    .border(0.75.dp, XiaoxuPalette.GlassBorder, IndicatorShape)
+                    .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, IndicatorShape)
                     .graphicsLayer {
                         // 压感时指示器轻微横向撑开，呼应 SleepDown 的 pressProgress 用法。
                         val p = drag.pressProgress
