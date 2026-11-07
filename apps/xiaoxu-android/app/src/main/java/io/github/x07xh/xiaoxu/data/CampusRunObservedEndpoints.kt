@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.data
 
 import org.json.JSONObject
+import java.util.Base64
 
 /**
  * Endpoint inventory extracted only from the owner's November 2026 HAR audit.
@@ -33,7 +34,10 @@ enum class CampusRunObservedEndpoint(
 data class CampusRunOpaqueEnvelopeShape(
     val responseVersion: Number,
     val rCharacters: Int,
-    val sCharacters: Int
+    val sCharacters: Int,
+    val rDecodedBytes: Int,
+    val sDecodedBytes: Int,
+    val rBlockAligned16: Boolean
 )
 
 /**
@@ -58,7 +62,14 @@ fun inspectCampusRunOpaqueEnvelope(body: String): CampusRunOpaqueEnvelopeShape {
     require(r.length <= 1_900_000 && s.length <= 1_900_000) {
         "oversized_envelope_fields"
     }
+    val rBytes = try { Base64.getDecoder().decode(r) }
+    catch (_: IllegalArgumentException) { throw IllegalArgumentException("invalid_r_base64") }
+    val sBytes = try { Base64.getDecoder().decode(s) }
+    catch (_: IllegalArgumentException) { throw IllegalArgumentException("invalid_s_base64") }
+    require(rBytes.isNotEmpty() && sBytes.isNotEmpty()) { "empty_encoded_field" }
     return CampusRunOpaqueEnvelopeShape(
-        responseVersion = v, rCharacters = r.length, sCharacters = s.length
+        responseVersion = v, rCharacters = r.length, sCharacters = s.length,
+        rDecodedBytes = rBytes.size, sDecodedBytes = sBytes.size,
+        rBlockAligned16 = rBytes.size % 16 == 0
     )
 }
