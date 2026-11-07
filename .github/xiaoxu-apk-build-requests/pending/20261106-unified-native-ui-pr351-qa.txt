@@ -1,9 +1,0 @@
-User-requested native UI integration verification for Draft PR #351 (2026-11-06).
-Build the existing Android app's standard debug and its separately installable -PxiaoxuIsolatedQa=true unified native UI QA variant.
-The isolated QA package is io.github.x07xh.xiaoxu.unifiedqa; it must not replace production io.github.x07xh.xiaoxu, previous timetableqa, or previous secondclassqa installs.
-Run native source safety checks, Android Kotlin compile/JVM, validate APK manifest/classes.dex/package and publish SHA-256 in GitHub Actions artifacts.
-Do not merge or release to production. No owner-device or official-school-account validation claim. Web owner-auth return is not yet validated for this QA Host; use the native official-device reader for second-class local verification. Debug signatures may differ between CI runs.
-
-2026-11-07 additional explicit Ace 6 QA build request: compile the latest PR #351 native UI after font unification, layout-density alignment, old UI cleanup, real school-data state regression, and local-only physical-device screenshot capture checks.
-Keep exactly the two existing artifact identities: xiaoxu-android-alpha-debug and xiaoxu-unified-native-qa-isolated. Do not deploy, merge, clear local data, or claim Ace 6 hardware validation from CI.
-Acceptance evidence: successful Android/JVM/CI on the SAME head SHA, APK package identity and SHA-256, manual Android 16 Ace 6 screenshots and interaction/frame inspection. School account records remain user-verification only.

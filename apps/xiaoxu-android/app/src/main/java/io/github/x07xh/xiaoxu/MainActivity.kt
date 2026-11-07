@@ -659,7 +659,7 @@ private fun NativeShell(
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
-                                // Reuse the existing settings-depth motion for the timetable
+                                // Reuse the settings child route for the timetable
                                 // child. It must not bypass the settings host on entry/back.
                                 AnimatedContent(
                                     targetState = profileSettingsRoute == "timetable-settings" ||
@@ -795,7 +795,7 @@ private fun AcademicPage(
     onMessages: () -> Unit
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
-    // Animate the whole academic child, including its header, as a single page.
+    // A single academic child host without page-level motion.
     // The second-class Room data and per-destination saveable state remain owned here.
     AnimatedContent(
         targetState = selected,

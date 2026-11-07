@@ -1,4 +1,0 @@
-PR #396 validation request.
-Run Android Kotlin/JVM tests, standard APK, isolated QA APK and DORM OS CI.
-Check SQL source tuple, duplicate legacy ID isolation, exact work-ID dedup.
-Base: latest #351 UI development branch; do not deploy main or treat test as owner-data verification.

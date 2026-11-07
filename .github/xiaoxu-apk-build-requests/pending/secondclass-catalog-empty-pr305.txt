@@ -1,1 +1,0 @@
-2026-11-06 用户要求第二课堂继续开发；本 PR #305 首次把 HAR 证实的 3 个零记录筛选接入本机官方已授权 WebView + Room 原生展示。要求 Actions 对真实 Kotlin :app:assembleDebug 和 :app:testDebugUnitTest 以及无伪造数据静态测试进行独立签收。不代表已经读取非空学校活动或自动通知。

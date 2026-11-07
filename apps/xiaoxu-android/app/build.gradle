@@ -17,8 +17,8 @@ android {
         applicationId 'io.github.x07xh.xiaoxu'
         minSdk 26
         targetSdk 35
-        versionCode 31
-        versionName '0.8.10'
+        versionCode 32
+        versionName '0.8.11-rc.1'
         // Normal application identity remains unchanged. Only explicit QA builds
         // use their own app data and authorization-return host.
         manifestPlaceholders = [

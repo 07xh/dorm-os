@@ -157,10 +157,8 @@ object XiaoxuSpacing {
     val glassStroke: Dp = 0.5.dp
 }
 
-/** Full-page transitions are intentionally short; expensive screens move as one layer. */
+/** Local selection and feedback only; full-screen route switches are immediate. */
 internal object XiaoxuMotion {
-    const val PageSwitchMs = 220
-    const val SettingsDetailMs = 200
     const val SelectionMs = 180
     const val FeedbackMs = 120
 }
