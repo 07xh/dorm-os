@@ -511,15 +511,15 @@ const localTimetableEntry = schedulePanel.slice(
     schedulePanel.indexOf('fun CloudTimetablePanel('),
     schedulePanel.indexOf('private fun ScheduleVerifiedContent(')
 );
-assert.match(localTimetableEntry, /if \(localLessons\.isEmpty\(\)\)/,
-  '无本机课程只显示本地导入空态');
-assert.match(localTimetableEntry, /LocalTimetableEmptyState\(/);
+assert.match(schedulePanel, /if \(data\.lessons\.isEmpty\(\)\)/,
+  '无本机课程走唯一课表设置宿主的空态');
+assert.match(schedulePanel, /LocalTimetableEmptyState\(/);
 assert.match(localTimetableEntry, /onMessages = onMessages/, '课表消息入口由唯一内容页处理');
 assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
-assert.match(schedulePanel, /Text\("从文件导入课表"\)/);
-assert.match(schedulePanel, /label = "重新导入课表"/);
+assert.match(schedulePanel, /Text\("打开课表设置"\)/);
+assert.doesNotMatch(schedulePanel, /label = "重新导入课表"/);
 assert.match(schedulePanel, /label = "新增课程"/);
 assert.match(schedulePanel, /label = "课表设置"/);
 const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
@@ -1430,7 +1430,8 @@ const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07
 assert.match(scheduleVisual, /XiaoxuCard\(/);
 assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
   '本机课表空态与有课程态须使用同一标题组件');
-assert.match(scheduleVisual, /label = "重新导入课表"/);
+assert.doesNotMatch(scheduleVisual, /label = "重新导入课表"/);
+assert.match(timetableSettings, /title = "导入课表"/);
 assert.match(scheduleVisual, /XiaoxuToolbarAction\(/, '课表工具操作和其他原生页面必须共用组件');
 assert.doesNotMatch(scheduleVisual, /SchedulePageHeading\(onMessages\)\s*Text\(/,
   "课表顶部不得恢复重复的操作文字栏");
