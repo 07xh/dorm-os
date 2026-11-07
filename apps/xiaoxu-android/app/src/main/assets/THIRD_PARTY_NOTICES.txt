@@ -43,8 +43,9 @@ https://github.com/xiaomanjun233/SleepDown-Schedule
   - 修改版源码可见：https://github.com/07xh/dorm-os 含全部源码与构建脚本。
   - 已明确标注为修改版并列出修改内容（见上）。
   - 未使用与上游近似的应用名、包名或图标。
-  - 未复用上游的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
-    悬浮胶囊渲染层 ui/FloatingBottomBar.kt 为本项目自行编写。
+  - 未复用 SleepDown 的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
+    悬浮胶囊沿用本项目手势及旧系统渲染，Android 13+ 玻璃轨道与选中透镜
+    另行适配自下方所列北化课表 GPL-3.0 代码，不能称为完全独立实现。
   - 若未来改为商业分发，必须先移除上述两个文件并换用自研动画驱动。
 
 ------------------------------------------------------------------
