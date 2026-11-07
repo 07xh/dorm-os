@@ -39,6 +39,16 @@ assert.throws(()=>parseChaoxingCourseList(
 assert.deepEqual(parseChaoxingWorkCredentials(middle),
  {workEnc:'signedWork',pageEnc:'signedPage',openc:'openKey'});
 assert.deepEqual(parseChaoxingWorkList(workHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
+// A signed official work URL may be percent-encoded in its entirety.
+const encodedWorkHtml=workHtml.replace(taskUrl.replaceAll('&','&amp;'),
+ encodeURIComponent(taskUrl));
+assert.deepEqual(parseChaoxingWorkList(encodedWorkHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
+for(const untrusted of [
+ encodeURIComponent('https://evil.example/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=987'),
+ encodeURIComponent('http://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=987'),
+ encodeURIComponent(taskUrl.replace('courseId=123','courseId=999')),
+ encodeURIComponent(taskUrl+'\n')
+])assert.throws(()=>safeChaoxingWorkUrl(untrusted,{courseId:'123',classId:'456'}));
 // Only the xuexitong-cli official work-page total, never an inferred total.
 const countHtml=workHtml.replace('<ul>', '<div><div><span>1/1</span></div></div><ul>');
 assert.deepEqual(parseChaoxingWorkList(countHtml,{courseId:'123',classId:'456'}).progress,
@@ -102,7 +112,7 @@ assert.equal(list.items[0].statusCode,'todo');
 assert.equal(list.items[0].platformVerified,true);
 for(const [label,code] of [
  ['未提交','todo'],['待评阅','submitted'],['已提交','submitted'],
- ['已评分','graded'],['退回重做','returned'],['','unknown'],['待开放','unknown']
+ ['已评分','graded'],['批阅完成','graded'],['退回重做','returned'],['','unknown'],['待开放','unknown']
 ])assert.equal(classifyChaoxingWorkStatus(label),code);
 assert.ok(!JSON.stringify(list).includes('signedTask'));
 const detail=await read.readHomeworkDetail({courseId:'123',classId:'456',cpi:'789',workId:'987'});
