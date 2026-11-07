@@ -176,7 +176,8 @@ fun ProfileSettingsPage(
                 "licenses" -> item { OpenSourceCreditsPanel() }
             }
         }
-        }
+    }
+    }
 }
 
 @Composable
