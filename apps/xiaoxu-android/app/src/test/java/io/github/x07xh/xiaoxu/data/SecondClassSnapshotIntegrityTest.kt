@@ -103,7 +103,7 @@ class SecondClassSnapshotIntegrityTest {
             record("catalog_empty").copy(fingerprint = "empty-$index", title = filter)
         }
         val card = record("catalog_activity").copy(fingerprint = "real-card",
-            title = "合成活动", details = "筛选：报名中\\n来源：学校活动广场")
+            title = "合成活动", details = "筛选：报名中\n来源：学校活动广场")
         val scores = listOf(record("credits"))
         val activities = listOf(record("activity_summary"))
         dao.replaceSecondClassSnapshot(scores, activities, empty, listOf(card))
@@ -117,10 +117,10 @@ class SecondClassSnapshotIntegrityTest {
     @Test fun conflictingEmptyFilterCannotEraseExistingActivityCards() {
         val old = listOf(record("credits", 100), record("activity_summary", 100),
             record("catalog_activity", 100).copy(fingerprint = "prior",
-                details = "筛选：报名中\\n来源：学校活动广场"))
+                details = "筛选：报名中\n来源：学校活动广场"))
         val dao = RecordingDao(old)
         val empty = listOf(record("catalog_empty").copy(title = "报名中"))
-        val card = record("catalog_activity").copy(details = "筛选：报名中\\n来源：学校活动广场")
+        val card = record("catalog_activity").copy(details = "筛选：报名中\n来源：学校活动广场")
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { dao.replaceSecondClassSnapshot(
                 listOf(record("credits")), listOf(record("activity_summary")),
