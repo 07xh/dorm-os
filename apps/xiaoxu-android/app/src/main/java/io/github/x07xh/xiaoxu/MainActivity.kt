@@ -103,6 +103,7 @@ import io.github.x07xh.xiaoxu.ui.PrimarySideNavigation
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
+import io.github.x07xh.xiaoxu.data.WechatPersonalReminders
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
@@ -529,6 +530,20 @@ private fun NativeShell(
             )
         }
         reminderSnapshot.value = localTasks
+    }
+    // The existing opt-in task reminder toggle also covers owner-approved
+    // WeChat personal dates. Do not clear persisted jobs for an intermediate
+    // network refresh: only a fresh authenticated task snapshot can replan them.
+    val wechatTasksFresh = cloud.state.tasksFresh
+    val wechatAuthenticated = cloud.state.authenticated
+    val ownerTasks = cloud.state.tasks
+    LaunchedEffect(wechatTasksFresh, wechatAuthenticated, ownerTasks) {
+        if (wechatAuthenticated && wechatTasksFresh) {
+            withContext(Dispatchers.IO) {
+                WechatPersonalReminders.reconcile(
+                    reminderContext, ownerTasks, cloud.ownerSessionBinding())
+            }
+        }
     }
     val scope = rememberCoroutineScope()
     LaunchedEffect(localCaptureReturn) {
