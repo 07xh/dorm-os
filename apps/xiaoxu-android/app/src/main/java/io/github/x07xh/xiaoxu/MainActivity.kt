@@ -1,7 +1,6 @@
 package io.github.x07xh.xiaoxu
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.provider.OpenableColumns
 import android.widget.Toast
 import java.io.ByteArrayOutputStream
@@ -73,6 +72,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import io.github.x07xh.xiaoxu.ui.FloatingBarItem
 import io.github.x07xh.xiaoxu.ui.FloatingBottomBar
+import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -128,6 +128,12 @@ import kotlinx.coroutines.launch
  * Android native entry: no WebView wrapper and no duplicate school credential collector.
  * Existing owner-auth and connector pages remain on the verified HTTPS website.
  */
+private data class PendingTimetableImport(
+    val fileName: String,
+    val imported: LocalTimetableBackup.Imported,
+    val oldCount: Int
+)
+
 class MainActivity : ComponentActivity() {
     private var secondClassAutoJob: Job? = null
     private val dao by lazy { LocalTaskDatabase.open(applicationContext).tasks() }
@@ -169,6 +175,8 @@ class MainActivity : ComponentActivity() {
     }
     private var shouldRefreshAfterWebsite = false
     private var localLessons by mutableStateOf<List<VerifiedLesson>>(emptyList())
+    private var pendingTimetableImport by mutableStateOf<PendingTimetableImport?>(null)
+    private var timetableImportSaving by mutableStateOf(false)
     // Only the latest committed import/resume read may update visible lessons.
     private var localScheduleReadSerial = 0L
     // Changes even when only semester settings are restored and course rows stay equal.
@@ -256,6 +264,17 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
                     }
                 })
+                pendingTimetableImport?.let { pending ->
+                    TimetableImportPreviewSheet(
+                        fileName = pending.fileName,
+                        lessons = pending.imported.lessons,
+                        oldCount = pending.oldCount,
+                        hasSemesterSettings = pending.imported.calendar != null,
+                        saving = timetableImportSaving,
+                        onDismiss = { if (!timetableImportSaving) pendingTimetableImport = null },
+                        onConfirm = { commitPendingTimetableImport() }
+                    )
+                }
             }
         }
     }
@@ -297,84 +316,62 @@ class MainActivity : ComponentActivity() {
                     }
                     fileName to imported
                 }
-                val oldCount = localLessons.size
-                val newCount = parsed.second.lessons.size
-                val less = oldCount > 0 && newCount < oldCount
-                // The earlier count-only popup concealed partial/incorrect
-                // course rows. Show actual imported fields before overwriting.
-                val preview = parsed.second.lessons
-                    .sortedWith(compareBy({ it.weekday }, { it.startSection }, { it.title }))
-                    .take(30)
-                    .mapIndexed { index, lesson ->
-                        val weekday = listOf("一", "二", "三", "四", "五", "六", "日")
-                            .getOrElse(lesson.weekday - 1) { "?" }
-                        "${index + 1}. ${lesson.title} · 周${weekday}第${lesson.startSection}–${lesson.endSection}节" +
-                            " · ${lesson.weeks.joinToString(",")}周" +
-                            " · ${lesson.location.ifBlank { "地点未提供" }}" +
-                            " · ${lesson.teacher.ifBlank { "教师未提供" }}"
-                    }.joinToString("\n")
-                val summary = "文件：" + parsed.first +
-                    "\n解析到 " + newCount + " 个课程课块" +
-                    (if (oldCount > 0) "，原有 " + oldCount + " 个" else "") +
-                    "。请逐项核对课程、星期、节次、周次、教师和教室。" +
-                    (if (less) "\n\n本次课块更少，可能识别不全；建议保留旧课表。" else "") +
-                    "\n\n本机解析详情（前 30 条）：\n" + preview +
-                    (if (newCount > 30) "\n…其余 ${newCount - 30} 条未显示，请勿在未核对时覆盖已有课表。" else "") +
-                    (if (parsed.second.calendar != null) "\n本次备份包含学期日期与节次作息，将一并恢复。"
-                     else "\n未提供学期设置，保留设备现有配置。") +
-                    "\n\n文件导入仅保存在本机，不代表青果官方实时同步."
-                val saveImported = {
-                    lifecycleScope.launch {
-                        try {
-                            val (count, savedLessons, reminderOk) = withContext(Dispatchers.IO) {
-                                val count = LocalScheduleStore.saveParsed(
-                                    applicationContext, parsed.second.lessons)
-                                parsed.second.calendar?.let {
-                                    LocalSemesterConfigStore.save(applicationContext, it)
-                                }
-                                val updated = LocalScheduleStore.load(applicationContext)
-                                // Saving and reminder scheduling are independent outcomes:
-                                // an alarm failure must never masquerade as an import rollback.
-                                val reminderOk = LocalCourseReminders.reconcileAfterSave(
-                                    applicationContext, updated,
-                                    LocalSemesterConfigStore.load(applicationContext))
-                                Triple(count, updated, reminderOk)
-                            }
-                            // Invalidate previously started resume reads after commit.
-                            localScheduleReadSerial++
-                            localLessons = savedLessons
-                            localScheduleRevision++
-                            Toast.makeText(this@MainActivity,
-                                if (reminderOk) "成功导入 $count 个课块"
-                                else "已保存 $count 个课块，但提醒维护失败；可重新打开课表重试",
-                                Toast.LENGTH_LONG).show()
-                        } catch (error: Exception) {
-                            Toast.makeText(this@MainActivity,
-                                error.message ?: "导入失败，旧课表未修改",
-                                Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(if (less) "课表数量减少，请核对" else "确认导入课表文件")
-                    .setMessage(summary)
-                    .setNegativeButton("保留旧课表", null)
-                    .setPositiveButton(if (less) "继续核对" else "确认保存") { _, _ ->
-                        if (less) {
-                            AlertDialog.Builder(this@MainActivity)
-                                .setTitle("再次确认替换")
-                                .setMessage("本次 " + newCount + " 个课块少于原有 " +
-                                    oldCount + " 个；确定已经核对所有课程吗？")
-                                .setNegativeButton("取消", null)
-                                .setPositiveButton("已核对，替换") { _, _ -> saveImported() }
-                                .show()
-                        } else saveImported()
-                    }
-                    .show()
+                val name = parsed.first
+                val decodedName = if (Regex("%[0-9a-fA-F]{2}").containsMatchIn(name))
+                    Uri.decode(name) else name
+                pendingTimetableImport = PendingTimetableImport(
+                    fileName = decodedName,
+                    imported = parsed.second,
+                    oldCount = localLessons.size
+                )
             } catch (error: Exception) {
                 Toast.makeText(this@MainActivity,
                     (error.message ?: "课表文件无法识别") + "；原有课表未修改",
                     Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /** The existing local store stays authoritative; only the confirmation surface changed. */
+    private fun commitPendingTimetableImport() {
+        val pending = pendingTimetableImport ?: return
+        if (timetableImportSaving) return
+        // A timetable edited while the picker was open must be re-reviewed, not silently replaced.
+        if (localLessons.size != pending.oldCount) {
+            pendingTimetableImport = null
+            Toast.makeText(this, "课表已发生变化，请重新选择文件核对", Toast.LENGTH_LONG).show()
+            return
+        }
+        timetableImportSaving = true
+        lifecycleScope.launch {
+            try {
+                val (count, savedLessons, reminderOk) = withContext(Dispatchers.IO) {
+                    val count = LocalScheduleStore.saveParsed(
+                        applicationContext, pending.imported.lessons)
+                    pending.imported.calendar?.let {
+                        LocalSemesterConfigStore.save(applicationContext, it)
+                    }
+                    val updated = LocalScheduleStore.load(applicationContext)
+                    val reminderOk = LocalCourseReminders.reconcileAfterSave(
+                        applicationContext, updated,
+                        LocalSemesterConfigStore.load(applicationContext))
+                    Triple(count, updated, reminderOk)
+                }
+                // Supersede earlier resume reads only after the commit has succeeded.
+                localScheduleReadSerial++
+                localLessons = savedLessons
+                localScheduleRevision++
+                pendingTimetableImport = null
+                Toast.makeText(this@MainActivity,
+                    if (reminderOk) "成功导入 " + count + " 个课块"
+                    else "已保存 " + count + " 个课块，但提醒维护失败；可重新打开课表重试",
+                    Toast.LENGTH_LONG).show()
+            } catch (error: Exception) {
+                Toast.makeText(this@MainActivity,
+                    error.message ?: "导入失败，请核对文件和旧课表",
+                    Toast.LENGTH_LONG).show()
+            } finally {
+                timetableImportSaving = false
             }
         }
     }
