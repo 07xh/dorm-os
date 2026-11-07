@@ -3,75 +3,54 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.ui.unit.IntOffset
 
 /**
- * Native page motion, without a new navigation owner or a second screen shell.
+ * Stationary fade-through for all native page hosts:
+ * - five main tabs
+ * - My -> settings -> timetable editor
+ * - Academic overview -> grades/exams/second class/services
+ * - timetable -> timetable settings
  *
- * Source reference: SleepDown-Schedule by xiaomanjun233 (2026), subject to
- * SleepDown Attribution Noncommercial Source-Available License 1.1.
- * Uses SleepDown's single-page navigation approach, adapted to a subtle
- * 220/200ms foreground-only slide without spring rebound or crossfade.
- * Not a byte-for-byte motion port.
- * The same AnimatedContent hosts are retained.
- * https://github.com/xiaomanjun233/SleepDown-Schedule
+ * Old/new screens MUST NEVER translate, spring or scale the entire layout.
+ * This is not a duplicate navigation stack: existing AnimatedContent owns
+ * the route state, while the bottom dock and parent geometry stay stationary.
  *
- * The dock, page business state, and backdrop ownership are unchanged.
+ * Reference: the restrained one-page navigation rhythm used by SleepDown.
+ * This is an independently adapted alpha-only transition, not a copied port.
  */
-
-private val PrimaryPageSlide = tween<IntOffset>(
-    durationMillis = XiaoxuMotion.PageSwitchMs,
-    easing = CubicBezierEasing(0.22f, 0.72f, 0.20f, 1f)
-)
-
-/**
- * Move only the incoming opaque page by a small amount, never the whole screen.
- * Outgoing content stays fixed and is covered by the new page. This preserves
- * directionality and prevents two heavyweight pages from sliding in opposite
- * directions, which looked like the whole UI was shaking.
- */
-internal fun xiaoxuPrimaryPageTransition(forward: Boolean): ContentTransform {
-    val direction = if (forward) 1 else -1
-    return slideInHorizontally(PrimaryPageSlide) { width ->
-        direction * minOf(width / 18, 84)
-    } togetherWith ExitTransition.None
+private fun stationaryFadeThrough(durationMillis: Int): ContentTransform {
+    // Sequential phases avoid translucent text ghosting from a crossfade.
+    val exitMillis = (durationMillis * 35 / 100).coerceAtLeast(1)
+    val enterMillis = (durationMillis - exitMillis).coerceAtLeast(1)
+    return (fadeIn(
+        animationSpec = tween(
+            durationMillis = enterMillis,
+            delayMillis = exitMillis,
+            easing = FastOutSlowInEasing
+        )
+    ) togetherWith fadeOut(
+        animationSpec = tween(durationMillis = exitMillis)
+    )).apply {
+        // Even when two pages have different content, no container size tween.
+        sizeTransform = null
+    }
 }
 
-/**
- * Monotonic easing avoids perceptible spring tails when returning rapidly.
- * Unlike a damped overshoot, the screen lands exactly at its final position.
- */
-private val SettingsPageSlide = tween<IntOffset>(
-    durationMillis = XiaoxuMotion.SettingsDetailMs,
-    easing = CubicBezierEasing(0.22f, 0.74f, 0.20f, 1f)
-)
+/** API preserves forward for existing nav callers; no directional slide is applied. */
+internal fun xiaoxuPrimaryPageTransition(
+    @Suppress("UNUSED_PARAMETER") forward: Boolean
+): ContentTransform = stationaryFadeThrough(XiaoxuMotion.PageSwitchMs)
 
-private fun settingsDepth(route: String): Int = when (route) {
-    "home" -> 0
-    "licenses" -> 2
-    else -> 1
-}
-
-/**
- * A tiny foreground-only transition: background page and navigation remain
- * stationary on both push and back. Repeated taps should never wobble the UI.
- */
+/** All settings and academic child routes use the same stable animation. */
 internal fun xiaoxuSettingsRouteTransition(
     fromRoute: String,
     toRoute: String
 ): ContentTransform {
-    val direction = settingsDepth(toRoute).compareTo(settingsDepth(fromRoute))
-    return when {
-        direction > 0 -> slideInHorizontally(SettingsPageSlide) { width ->
-            minOf(width / 20, 72)
-        } togetherWith ExitTransition.None
-        direction < 0 -> EnterTransition.None togetherWith
-            slideOutHorizontally(SettingsPageSlide) { width -> minOf(width / 20, 72) }
-        else -> EnterTransition.None togetherWith ExitTransition.None
-    }
+    if (fromRoute == toRoute) return EnterTransition.None togetherWith ExitTransition.None
+    return stationaryFadeThrough(XiaoxuMotion.SettingsDetailMs)
 }
