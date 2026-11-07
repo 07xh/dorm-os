@@ -126,7 +126,7 @@ const metadata = {
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
-  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor'],
+  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '16-glass-dialog-gray-edge'],
   scenes: []
 };
 const steps = [
@@ -139,7 +139,13 @@ const steps = [
   ['07-tasks', '任务中心：核对三态数量、来源切换、长列表、搜索及返回'],
   ['08-task-detail', '任务详情：打开已有一条任务核对原生详情；不要修改完成状态'],
   ['09-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
-  ['10-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过']
+  ['10-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过'],
+  ['11-glass-rest', '玻璃底栏静止态：与北化课表 v1.0.83 原版对比轨道轮廓、高光、透明选中透镜、五项图标与灰色描边；采集截图及 gfxinfo'],
+  ['12-glass-rapid-tabs', '快速连续切换五个页面并回到今日：查看滑块跳位、闪白、页面状态丢失与连点卡顿；采集帧统计'],
+  ['13-glass-drag-return', '从当前标签拖动到相邻标签再拖回并松手：检查回弹、轻触与拖动分离、没有重复切页或压感残留'],
+  ['14-glass-course-content', '在有真实课程颜色的周课表上查看玻璃折射和文字采样；确认星期栏、课程色块与课程详情仍保持原状'],
+  ['15-glass-gesture-inset', 'Android 16 系统手势、底部安全区、横竖屏短屏切换：检查可点击区域、底栏遮挡和五项侧栏可达性'],
+  ['16-glass-dialog-gray-edge', '从我的打开任务备份与恢复和云端同步，再打开一条任务或公告：检查居中玻璃弹窗、灰边、双重卡片、页面滚动及关闭返回；课程详情仍应由底部弹出']
 ];
 // Screenshot validation must check which application is actually in the
 // foreground, rather than accepting a PNG of Settings, launcher or another app.
