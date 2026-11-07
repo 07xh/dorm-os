@@ -20,6 +20,7 @@ if (help) {
     '  --serial <id>   多台 adb 设备时指定真实手机序列号',
     '  --apk <file>    验证本机 QA APK 与手机实际安装 APK 的 SHA256，不会自动安装',
     '  --commit <sha>  记录与截图对应的 GitHub 源码提交',
+    '  --reference-package <id>  可选：同一台 Ace 6 上北化课表原版包名，用于对照截图和帧数据',
     '  --out <folder>  输出目录（默认用户主目录 Xiaoxu-Visual-QA）',
     '说明：需已安装 Android Platform Tools，手机 USB 调试并授权电脑。',
     '本程序只在本机采集屏幕；无设备、非一加 Ace 6、非 Android 16 时不出具证据。'
@@ -39,8 +40,14 @@ const packageName = option('--package', 'io.github.x07xh.xiaoxu.unifiedqa');
 const serial = option('--serial');
 const gitCommit = option('--commit', 'UNVERIFIED');
 const apkPath = option('--apk');
+const referencePackage = option('--reference-package');
+const referenceSceneNames = ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor', '11-glass-rest', '12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content', '15-glass-gesture-inset', '16-glass-dialog-gray-edge'];
+const referenceSceneSet = new Set(referenceSceneNames);
 if (!/^io\.github\.x07xh\.xiaoxu(?:\.unifiedqa)?$/.test(packageName)) {
   throw new Error('只能采集校序正式包或统一 UI 隔离 QA 包');
+}
+if (referencePackage && (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(referencePackage) || referencePackage === packageName)) {
+  throw new Error('北化课表原版包名格式错误，或与当前校序 QA 包名相同');
 }
 const adbPrefix = serial ? ['-s', serial] : [];
 
@@ -81,6 +88,10 @@ if (!/oneplus/i.test(brand) || !/PLQ110|Ace[\s_-]*6/i.test(model + ' ' + deviceC
 }
 if (sdk !== 36 || release !== '16') {
   throw new Error('设备不是 Android 16：API=' + sdk + ', release=' + release);
+}
+const referenceInstalled = referencePackage ? adb(['shell', 'pm', 'path', referencePackage], false, true) : '';
+if (referencePackage && !referenceInstalled.includes('package:')) {
+  throw new Error('北化课表原版包名未安装：' + referencePackage + '；请在手机上安装原版并核对包名');
 }
 const installed = adb(['shell', 'pm', 'path', packageName], false, true);
 if (!installed.includes('package:')) {
@@ -123,6 +134,13 @@ const metadata = {
     declaredCommitLooksLikeSha,
     gitCommitVerifiedAgainstRepository: false
   },
+  referenceApp: referencePackage ? {
+    packageName: referencePackage,
+    installedPath: referenceInstalled.split('\n')[0],
+    originalVersionVerified: false,
+    note: '原版 APK 版本须人工核对为北化课表 v1.0.8.3，包名不能代替版本证据'
+  } : null,
+  referenceScenes: [],
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
@@ -149,15 +167,15 @@ const steps = [
 ];
 // Screenshot validation must check which application is actually in the
 // foreground, rather than accepting a PNG of Settings, launcher or another app.
-function isTargetInForeground() {
+function isTargetInForeground(targetPackage = packageName) {
   const windowDump = adb(['shell', 'dumpsys', 'window', 'windows'], false, true);
   const focus = windowDump.split(/\r?\n/).find(line => /\bmCurrentFocus\s*=/.test(line));
-  if (focus) return focus.includes(packageName + '/');
+  if (focus) return focus.includes(targetPackage + '/');
   const activityDump = adb(['shell', 'dumpsys', 'activity', 'activities'], false, true);
   const resumed = activityDump.split(/\r?\n/).find(
     line => /\b(?:topResumedActivity|mResumedActivity|ResumedActivity)\s*[:=]/.test(line)
   );
-  return Boolean(resumed?.includes(packageName + '/'));
+  return Boolean(resumed?.includes(targetPackage + '/'));
 }
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -207,6 +225,52 @@ try {
       (jankyPercent == null ? '系统未返回可解析帧数据' :
         '观测卡顿帧 ' + jankyFrames + '/' + totalFrames + '（' + jankyPercent + '%）') +
       '；仍须与原版进行真机视觉/交互对照。');
+    if (referencePackage && referenceSceneSet.has(name)) {
+      // Capture comparable original UI on this SAME physical device. Do not
+      // auto-control the original app or mix its counters with Xiaoxu's data.
+      adb(['shell', 'dumpsys', 'gfxinfo', referencePackage, 'reset'], false, true);
+      const referenceReady = await rl.question(
+        '\n请打开北化课表原版，停在与 ' + name +
+        ' 对应的页面并完成相同的交互；按 Enter 采集原版，输入 skip 跳过：');
+      if (referenceReady.trim().toLowerCase() === 'skip') {
+        metadata.referenceScenes.push({ name, captured: false, reason: 'manually_skipped' });
+      } else {
+        const referenceForegroundVerified = isTargetInForeground(referencePackage);
+        if (!referenceForegroundVerified) {
+          console.log('原版应用不在前台：保存原始截图，但不计入有效原版对照证据。');
+        }
+        const refPng = adb(['exec-out', 'screencap', '-p'], true);
+        if (refPng.length < 100 || !refPng.subarray(0, 8).equals(
+          Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+          throw new Error('北化原版截图不是有效 PNG：' + name);
+        }
+        const refImageName = 'buct-original-' + name + '.png';
+        const refGfxName = 'buct-original-' + name + '.gfxinfo.txt';
+        fs.writeFileSync(path.join(output, refImageName), refPng);
+        const refGfx = adb(['shell', 'dumpsys', 'gfxinfo', referencePackage], false, true);
+        fs.writeFileSync(path.join(output, refGfxName), refGfx, 'utf8');
+        const refTotal = refGfx.match(/Total frames rendered:\s*(\d+)/i);
+        const refJanky = refGfx.match(/Janky frames:\s*(\d+)/i);
+        const originalTotal = refTotal ? Number(refTotal[1]) : null;
+        const originalJanky = refJanky ? Number(refJanky[1]) : null;
+        const validOriginalFrames = Number.isInteger(originalTotal) && originalTotal > 0 &&
+          Number.isInteger(originalJanky) && originalJanky >= 0 && originalJanky <= originalTotal;
+        metadata.referenceScenes.push({
+          name,
+          captured: true,
+          foregroundVerified: referenceForegroundVerified,
+          png: refImageName,
+          frameDump: refGfxName,
+          totalFrames: originalTotal,
+          jankyFrames: originalJanky,
+          jankyPercent: validOriginalFrames ?
+            Math.round(10000 * originalJanky / originalTotal) / 100 : null,
+          frameSampleUsable: validOriginalFrames && originalTotal >= 30,
+          screenshotSha256: crypto.createHash('sha256').update(refPng).digest('hex')
+        });
+        console.log('已保存原版对照：' + refImageName + '；未自动判断视觉是否一致。');
+      }
+    }
   }
 } finally {
   rl.close();
@@ -230,11 +294,20 @@ try {
     };
   });
   metadata.performanceEvidenceComplete = metadata.performanceSamples.every(x => x.sampled);
+  const capturedOriginal = new Set(metadata.referenceScenes
+    .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
+  metadata.referenceMissingScenes = referencePackage
+    ? referenceSceneNames.filter(name => !capturedOriginal.has(name)) : [];
+  metadata.referenceComparisonComplete = referencePackage
+    ? metadata.referenceMissingScenes.length === 0 : false;
+  metadata.referenceComparisonVerdict = 'requires_manual_side_by_side_review';
   metadata.performanceVerdict = 'requires_manual_frame_and_visual_review';
   metadata.result = metadata.missingReferenceScenes.length > 0
     ? 'incomplete_reference_screenshots'
     : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
-      ? 'unverified_installed_build' : 'pending_manual_comparison';
+      ? 'unverified_installed_build'
+      : referencePackage && !metadata.referenceComparisonComplete
+        ? 'incomplete_reference_comparison' : 'pending_manual_comparison';
   fs.writeFileSync(path.join(output, 'manifest.json'),
     JSON.stringify(metadata, null, 2) + '\n', 'utf8');
 }
