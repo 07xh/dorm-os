@@ -1,0 +1,6 @@
+# 校序 · 固定 QA 快照构建（独立测试分支）
+# 源码基线：#351 已集成微信链接 #365 的 a629f1d1
+# 用途：排除连续更新导致的构建取消，不触碰 main / #351。
+Source revision: a629f1d111995f680da60cecab8a602d64e71610
+QA package: io.github.x07xh.xiaoxu.unifiedqa
+Expected artifact: xiaoxu-unified-native-qa-isolated
