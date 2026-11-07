@@ -148,6 +148,10 @@ assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
+assert.match(localEditorSource, /XiaoxuCard\(/,
+  '本机任务编辑与列表必须使用唯一设计系统玻璃卡片');
+assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
+  '禁止独立 Material3 Card 回流本机任务编辑器');
 assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
 assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
   '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
