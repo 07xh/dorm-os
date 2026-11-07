@@ -1,0 +1,70 @@
+name: Xiaoxu Campus Run Embedded Python Runtime Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/android-runtime-smoke/**'
+      - '.github/workflows/xiaoxu-campus-run-embedded-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chaquopy-readonly-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned MIT OSS read-only source only
+        uses: actions/checkout@v4
+        with:
+          repository: Inverx/com.zjwh.android_wh_physicalfitness
+          ref: 412a2e28bed209201057bf8b943fcd0a0e2211c1
+          path: upstream-campus-run
+          sparse-checkout: |
+            协议/7.3.92/core
+            协议/7.3.92/profile
+            协议/7.3.92/policy
+            协议/7.3.92/history
+      - name: Copy source into isolated test app
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_root='upstream-campus-run/协议/7.3.92'
+          target='integrations/campus-run-readonly/android-runtime-smoke/app/src/main/python'
+          for pkg in core profile policy history; do
+            test -f "$source_root/$pkg/client.py"
+            cp -R "$source_root/$pkg" "$target/"
+          done
+          test -f "$target/readonly_runtime_smoke.py"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK used by standalone runtime
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Package arm64 read-only Python modules without changing the main App
+        run: |
+          gradle -p integrations/campus-run-readonly/android-runtime-smoke \
+            :app:assembleDebug --no-daemon --stacktrace
+          f='integrations/campus-run-readonly/android-runtime-smoke/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$f"
+          echo "Embedded Python smoke APK size (bytes): $(stat -c %s "$f")"
+      - name: Import pinned OSS read modules inside Android emulator (offline)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: gradle -p integrations/campus-run-readonly/android-runtime-smoke :app:connectedDebugAndroidTest -PcampusRunSmokeEmulator --no-daemon --stacktrace
