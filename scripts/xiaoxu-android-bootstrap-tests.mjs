@@ -1417,6 +1417,14 @@ assert.match(floatingBar, /Modifier\.northGlassIndicator\(/);
 assert.match(floatingBar, /onDragCancel = \{/);
 assert.match(floatingBar, /drag\.updateValue\(currentIndex\.toFloat\(\)\)/,
   '中断拖拽不能误选新页面');
+assert.match(floatingBar, /currentHaptics\.performHapticFeedback\(HapticFeedbackType\.ContextClick\)/,
+  '导航拖拽选中后应仅反馈一次触感');
+assert.match(floatingBar, /if \(index != safeIndex\) \{\s*haptics\.performHapticFeedback/,
+  '点击当前标签不得重复导航，实际切换才触发原版触感');
+assert.match(floatingBar, /iconPlayback\?\.replay\(index\)/,
+  '重复点击当前标签仍可重播原版图标动画');
+assert.doesNotMatch(floatingBar, /if \(index == safeIndex\) iconPlayback\?\.replay\(index\)\s*onSelect\(index\)/,
+  '禁止同一标签重触发页面刷新和动画');
 assert.match(glassChrome, /fun Modifier\.northGlassTrack\(/);
 assert.match(glassChrome, /fun Modifier\.northGlassIndicator\(/);
 assert.match(northIcon, /NorthPhosphorNavigationIcon\(/);
