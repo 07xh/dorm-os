@@ -520,7 +520,7 @@ private fun PlatformStatusCard(
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                 .clickable(role = Role.Button,
-                    onClickLabel = if (expanded) "收起$title授权操作" else "展开$title授权操作",
+                    onClickLabel = if (expanded) "收起${title}授权操作" else "展开${title}授权操作",
                     onClick = { expanded = !expanded }),
             verticalAlignment = Alignment.CenterVertically
         ) {
