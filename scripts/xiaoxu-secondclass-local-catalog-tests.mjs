@@ -98,14 +98,15 @@ test('switching the visible owner while catalog is read rejects entire snapshot'
 });
 
 
-test('native second-class tabs retain independent scroll and prevent duplicate refresh',()=>{
+test('native second-class one page uses one lazy list and prevents duplicate refresh',()=>{
   const page=readFileSync(
     'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt','utf8');
-  for(const name of ['catalogScroll','activitiesScroll','scoresScroll'])
-    assert.match(page,new RegExp('val '+name+' = rememberScrollState\\(\\)'));
-  assert.match(page,/0 -> catalogScroll[\s\S]*1 -> activitiesScroll[\s\S]*else -> scoresScroll/);
-  assert.match(page,/verticalScroll\(currentScroll\)/);
-  assert.doesNotMatch(page,/verticalScroll\(rememberScrollState\(\)\)/);
+  assert.match(page,/LazyColumn\(/);
+  for(const name of ['my-activities-heading','semester-scores','catalog-result'])
+    assert.ok(page.includes('key = "'+name+'"'), 'required single-page section: '+name);
+  assert.doesNotMatch(page,/catalogScroll|activitiesScroll|scoresScroll|verticalScroll\(currentScroll\)/);
+  assert.match(page,/contentPadding = PaddingValues\(/);
+  assert.match(page,/if \(activitiesReady\) activities\.size\.toString\(\) else "—"/);
   assert.match(page,/if \(refreshing\) return/);
   assert.match(page,/refreshing = true[\s\S]*reader\.launch/);
   assert.match(page,/val receipt = if \(result\.resultCode == Activity\.RESULT_OK\) SecondClassSaveReceipt\.validate/);
