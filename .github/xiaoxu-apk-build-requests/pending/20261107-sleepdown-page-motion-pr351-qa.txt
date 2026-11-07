@@ -11,3 +11,5 @@
 - 第二课堂：复用 #379 单页积分概览/学期选择/我的活动/活动广场与 #382 本人授权状态下严格非空活动读取；不混入旧三 Tab。
 - 设置：220ms 无弹跳、仅 1/6 页宽移动，进入不再推动上一页，返回不再推动背景页。
 - 必须检查原生 APK、JVM、node 契约测试、CI、隔离 QA APK SHA256；一加 Ace 6 复测前保持 Draft，不合 main。
+
+QA 2026-11-07 no-blank flicker: exact production source SHA 925c25c75084e098c4dce5bf7412ccadbf4cd93e. User recording 12024.mp4 shows near-empty/washed-out frame in settings and tab switching. Target stays >=94% opaque from first frame, exiting content remains visible until covered; no fadeOut, delayed fade, slide or scale. Validate Android build, tests, side-by-side .unifiedqa APK, SHA256, PR #351 stays Draft.
