@@ -1483,7 +1483,7 @@ fun RealAcademicTaskHub(
                             val statuses = ledger?.statuses ?: emptyMap()
                             Text("读取 ${course.homework.size} 条" +
                                 (if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
-                                    "／官方总数 ${course.homework.size}" else "／总量未核验"),
+                                    "／当前列表总数 ${course.homework.size}" else "／总量未核验"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XiaoxuPalette.Ink2)
                             Text("未提交 ${statuses["todo"] ?: 0} · 已提交 ${statuses["submitted"] ?: 0}" +
