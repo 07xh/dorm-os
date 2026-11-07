@@ -22,15 +22,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TimePicker
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -244,18 +245,17 @@ internal fun SemesterSettingsPage(
                     ) {
                         Text("第 " + index + " 节", modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
-                        Box(
-                            Modifier.clip(RoundedCornerShape(18.dp))
-                                .background(Color(0xFFDCE9F8))
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                pair?.let { it.first.toString() + " - " + it.second.toString() }
-                                    ?: "设置时间",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = XiaoxuPalette.Brand
-                            )
-                        }
+                        Text(
+                            pair?.let { it.first.toString() + " - " + it.second.toString() }
+                                ?: "设置时间",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (pair == null) XiaoxuPalette.Brand else XiaoxuPalette.Ink2
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Outlined.ChevronRight, contentDescription = null,
+                            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp)
+                        )
                     }
                     if (index < sections) HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -265,8 +265,8 @@ internal fun SemesterSettingsPage(
             }
         }
 
-    // Use Material3 date/time controls instead of Android framework teal dialogs.
-    // The editor writes only to local draft state; the top-right 完成 persists settings.
+    // Keep the existing date chooser; use a numeric wheel for lesson times.
+    // Only the top-right 完成 persists the validated semester settings.
     if (dateOpen) {
         val initialDay = runCatching { LocalDate.parse(monday) }.getOrNull() ?: LocalDate.now()
         val dateState = rememberDatePickerState(
@@ -294,29 +294,26 @@ internal fun SemesterSettingsPage(
     }
 
     if (editingSection > 0) {
-        // Re-create the state between start/end steps, otherwise the previous
-        // wheel selection would also be used as the end time.
+        // The user's reference uses numeric scrolling wheels, not a clock dial.
+        // Keep the original two-step start/end workflow and local-only draft.
         androidx.compose.runtime.key(editingSection, editingEnd) {
             val existing = findSectionTime(times, editingSection)
             val initial = if (editingEnd) existing?.second ?: stagedStart.plusMinutes(45)
                 else stagedStart
-            val pickerState = rememberTimePickerState(
-                initialHour = initial.hour,
-                initialMinute = initial.minute,
-                is24Hour = true
-            )
-            val shape = RoundedCornerShape(28.dp)
+            var pickedHour by remember { mutableIntStateOf(initial.hour) }
+            var pickedMinute by remember { mutableIntStateOf(initial.minute) }
+            val shape = RoundedCornerShape(30.dp)
             Dialog(
                 onDismissRequest = { editingSection = 0 },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 440.dp)
+                    modifier = Modifier.fillMaxWidth(0.91f).widthIn(max = 440.dp)
                         .clip(shape).background(XiaoxuPalette.PageGradient)
                         .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
-                        .padding(horizontal = 12.dp, vertical = 22.dp),
+                        .padding(horizontal = 20.dp, vertical = 22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Text(
                         "第 " + editingSection + " 节" +
@@ -324,31 +321,52 @@ internal fun SemesterSettingsPage(
                         style = MaterialTheme.typography.titleLarge,
                         color = XiaoxuPalette.Ink
                     )
-                    TimePicker(state = pickerState)
+                    Text(
+                        pickedHour.toString().padStart(2, '0') + ":" +
+                            pickedMinute.toString().padStart(2, '0'),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontSize = 38.sp,
+                        color = XiaoxuPalette.BrandDeep
+                    )
+                    XiaoxuTimeWheel(
+                        hour = pickedHour,
+                        minute = pickedMinute,
+                        onHourChanged = { pickedHour = it; timeError = null },
+                        onMinuteChanged = { pickedMinute = it; timeError = null }
+                    )
                     if (timeError != null) {
                         Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        TextButton(onClick = { editingSection = 0 }) { Text("取消") }
-                        TextButton(onClick = {
-                            val chosen = LocalTime.of(pickerState.hour, pickerState.minute)
-                            if (!editingEnd) {
-                                stagedStart = chosen
-                                editingEnd = true
-                                timeError = null
-                            } else if (!chosen.isAfter(stagedStart)) {
-                                timeError = "结束时间应晚于开始时间"
-                            } else {
-                                times = replaceSectionTime(times, editingSection, stagedStart, chosen)
-                                error = null
-                                timeError = null
-                                editingSection = 0
-                            }
-                        }) { Text(if (editingEnd) "保存时间" else "下一步") }
+                        OutlinedButton(
+                            onClick = { editingSection = 0 },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text("取消", color = XiaoxuPalette.Ink) }
+                        Button(
+                            onClick = {
+                                val chosen = LocalTime.of(pickedHour, pickedMinute)
+                                if (!editingEnd) {
+                                    stagedStart = chosen
+                                    editingEnd = true
+                                    timeError = null
+                                } else if (!chosen.isAfter(stagedStart)) {
+                                    timeError = "结束时间应晚于开始时间"
+                                } else {
+                                    times = replaceSectionTime(
+                                        times, editingSection, stagedStart, chosen
+                                    )
+                                    error = null
+                                    timeError = null
+                                    editingSection = 0
+                                }
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) { Text(if (editingEnd) "保存时间" else "下一步") }
                     }
                 }
             }
