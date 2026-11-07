@@ -1,0 +1,7 @@
+Explicit user-requested Android QA build for native SecondClass single-page UI PR #379 (2026-11-07).
+Source branch: feat/xiaoxu-second-class-unified-page-20261107.
+Expected source commit: f443e3387500d85ee0b4f22828e8a3ec5ab0f5ee.
+Only run existing Android source safety tests, Kotlin+JVM regression, debug APK build and isolated -PxiaoxuIsolatedQa=true QA package.
+Do NOT merge/deploy, write fake school activity/catalog entries, open network auth, or modify existing user's local files.
+The QA variant has distinct package io.github.x07xh.xiaoxu.unifiedqa and does not overwrite production app.
+Screenshots/manual checks on Ace 6: one page shows points/term category/personal activities/plaza, correct genuine empty states; popup for real activity details, term picker and scrolling, unchanged main bottom bar and other screens. Preserve Room data source, official auth and per-platform state.
