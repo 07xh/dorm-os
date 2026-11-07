@@ -122,7 +122,9 @@ internal data class WorkspaceTask(
     val provider: String? = null,
     val links: List<String> = emptyList(),
     val sourceExternalId: String? = null,
-    val officialStatus: String? = null
+    val officialStatus: String? = null,
+    val personalTargetAt: String? = null,
+    val sourceDueDate: LocalDate? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -176,15 +178,19 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
             }
+            val personalDate = parseWorkspaceDue(task.personalTargetAt)
+            val sourceDate = parseWorkspaceDue(task.due)
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
-                task.status == "done", parseWorkspaceDue(task.due),
-                "云端记录，需核对来源", "cloud",
+                task.status == "done", personalDate ?: sourceDate,
+                if (personalDate != null) "本人计划" else "云端记录，需核对来源",
+                "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
                 task.revision, task.provider, task.links,
                 task.sourceExternalId,
                 trustedChaoxingPlatformStatus(
                     task.provider, task.sourceExternalId, task.officialStatus
-                )))
+                ),
+                task.personalTargetAt, sourceDate))
         }
     }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -910,6 +916,7 @@ fun RealAcademicTaskHub(
     }
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     // Checkbox previews, expansion toggles and sheet navigation do not need
     // another search + date-facet pass over every stored task.
@@ -1172,7 +1179,10 @@ fun RealAcademicTaskHub(
             }
         }
         if (showManager && showLocal) item {
-            Column(Modifier.padding(top = 12.dp)) { LocalTaskEditor(localTasks, dao) }
+            Column(Modifier.padding(top = 12.dp)) {
+                LocalTaskEditor(localTasks, dao,
+                    onEditTask = { editingTaskKey = "local:${it.id}" })
+            }
         }
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
@@ -1646,18 +1656,20 @@ fun RealAcademicTaskHub(
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
-                showManager = true
-                if (selectedTask.storage == "local") {
-                    showLocal = true
-                    showCloud = false
-                    jumpTo = "local"
-                } else {
-                    showCloud = true
-                    showLocal = false
-                    jumpTo = "cloud"
-                }
+                editingTaskKey = selectedTask.key
                 openedTaskKey = null
             })
+    }
+    val editingLocal = localTasks.firstOrNull { "local:${it.id}" == editingTaskKey }
+    val editingCloud = state.tasks.firstOrNull {
+        "cloud:${it.id}" == editingTaskKey && it.provider == "wechat"
+    }
+    if (editingLocal != null || editingCloud != null) {
+        TaskPersonalEditSheet(
+            localTask = editingLocal, cloudTask = editingCloud,
+            dao = dao, client = client,
+            onDismiss = { editingTaskKey = null }
+        )
     }
     if (showArchiveSheet) {
         XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {
@@ -1722,8 +1734,13 @@ internal fun WorkspaceTaskDetailSheet(
             )
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
-        Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
+        Text((if (selectedTask.personalTargetAt != null) "个人计划：" else
+                if (selectedTask.storage == "cloud") "来源日期：" else "本人截止：") +
             selectedDue.label, style = MaterialTheme.typography.bodyMedium)
+        if (selectedTask.personalTargetAt != null) {
+            Text("来源原截止：" + (selectedTask.sourceDueDate?.toString() ?: "未识别"),
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
         Text(if (selectedTask.officialStatus != null) {
             "上次官方同步：" + officialTaskStatusLabel(selectedTask.officialStatus) +
                 " · 与个人完成标记分开"
@@ -1754,10 +1771,11 @@ internal fun WorkspaceTaskDetailSheet(
                 Text("从本机任务列表移出")
             }
         }
-        OutlinedButton(onClick = onManage,
-            modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-            Text(if (selectedTask.storage == "local")
-                "打开本机任务管理" else "新增云端任务")
+        if (selectedTask.storage == "local" || selectedTask.provider == "wechat") {
+            OutlinedButton(onClick = onManage,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                Text("编辑个人任务")
+            }
         }
     }
 }
