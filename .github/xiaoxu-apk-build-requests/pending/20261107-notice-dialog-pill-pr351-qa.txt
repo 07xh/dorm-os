@@ -1,5 +1,0 @@
-校序公告详情按钮统一视觉 QA。
-本次 UI 提交: d2749c1cef7e86593f3bf5f7d1f72110ade9a8cf
-目标: 公告详情“在官网查看原文”按钮复用统一的 XiaoxuDialogPrimaryButton，外观与下方“完成”按钮一致；保留学校官网原文跳转及弹层关闭。
-门禁: Android APK 编译/JVM 测试/静态断言，生成独立 QA 包供一加 Ace 6 对照。
-不包含正式 main 发布，也不替代真机视觉验收。

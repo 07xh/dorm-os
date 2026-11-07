@@ -9,7 +9,7 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
-const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt');
+const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
@@ -1375,7 +1375,7 @@ assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
 assert.match(appGradle, /versionName '0\.8\.10'/, '联合验收保持主分支版本号');
-assert.match(appGradle, /versionCode 31\b/, '联合验收不得回退版本码');
+assert.match(appGradle, /versionCode 32\b/, '0.8.11 RC 的版本码应递增');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
@@ -1680,13 +1680,15 @@ assert.match(main, /if \(timetableChild\)/,
   '课表设置应作为我的页面子路由渲染');
 assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotionTest.kt');
-assert.match(pageMotionJvmTest, /fun mainTabsHaveNoEnterOrExitAnimation\(/,
-  'JVM 回归必须验证主标签无过渡动画');
+const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransitionTest.kt');
 assert.match(pageMotionJvmTest, /fun everySecondaryRouteUsesImmediateTransition\(/,
-  'JVM 回归必须验证设置、课表和教务即时切页');
-assert.match(pageMotion, /private fun immediatePageSwitch\(\): ContentTransform/,
-  '二级页共用唯一无动效切换');
+  'JVM 回归验证设置、课表和教务即时切页');
+assert.match(pageMotion, /internal fun xiaoxuSettingsRouteTransition\(/,
+  '仅保留业务仍调用的无动画二级路由函数');
+assert.doesNotMatch(pageMotion, /fun xiaoxuPrimaryPageTransition\(/,
+  '主标签已采用直接单页组合，不再保留过时动画接口');
+assert.doesNotMatch(design, /PageSwitchMs|SettingsDetailMs/,
+  '移除未使用的页面动画计时常量');
 assert.match(pageMotion, /targetContentEnter = EnterTransition\.None/,
   '新页面不能播放淡入/位移动效');
 assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,

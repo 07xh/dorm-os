@@ -1,6 +1,0 @@
-校序 #351 当前统一原生 UI 整合 QA 构建请求 — 2026-11-07
-用户反馈：先前交付 9c930661 QA 安装包过旧，和当前页面、交互和整合功能严重不一致。
-Requested source HEAD at request time: fc6f18e6ba8d7c06adbf259de8db2d9b730011a1
-Build a fresh isolated QA APK from this PR branch, never reuse the 9c930661 artifact.
-Scope: updated schedule week/day/course editor; primary glass navigation; task, messages, second-class and settings native UI; preserve real data and privacy.
-Gate: Android compile + JVM tests + build SHA256 + isolated QA artifact; no main merge and no claim of real-phone visual acceptance.

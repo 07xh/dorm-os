@@ -1,8 +1,0 @@
-校序 Android 0.8.10（versionCode 31）最新原生 UI + 清理 + 功能整合测试包｜2026-11-06 用户明确授权构建
-构建冻结基线：main@2022fb55e1fb9dc49616fe78702570e7ed8519c2（包含 #320、#321、#323、#324 等已合并改动）。
-版本更改仅 Android app/build.gradle、对应安全测试、README 和本条显式打包标记；不再覆盖五页 UI 或增设演示页。
-集成范围：首页真实课程/任务/通知与课程切换；任务中心本机/云端同屏、学习通核验、云端任务新增、本机编辑与提醒；消息中心官方通知/微信候选；本机课表导入；教务/第二课堂；我的原生连接与折叠辅助设置。
-数据边界：仅打包此 main 基线已合并功能；#324 可见作业表格截断拒绝覆盖修复已纳入，但学校本人账号授权、全部课程/作业与官网核验仍待真人验证；其他未合并 PR 不算交付。
-CI 门禁：PR 先执行 Node 静态安全检查、Gradle :app:assembleDebug 与 :app:testDebugUnitTest、ZIP/DEX/Manifest 完整性及 SHA256；所有必需 PR 检查通过后合并，main 基于准确合并 SHA 重新生成并验证最终 APK。
-安装安全：debug APK 不保证与既有 APK 相同签名；若提示不能覆盖升级，不要直接卸载含本机数据的旧版，先备份再处理；不得将编译成功表述为 Android 16 真机视觉/三平台真实数据验收成功。
-输出：GitHub Actions run 的 xiaoxu-android-alpha-debug Artifact（包含 app-debug.apk 和 app-debug.apk.sha256，保留14天），以最终 main run 作为下载来源。

@@ -1,4 +1,0 @@
-Explicit PR #398 Android QA build request.
-Compile Gradle assembleDebug, run app:testDebugUnitTest, build isolated QA APK, validate SHA-256.
-Check exact source IDs and status reconciliation; cloud stale records must not count as missing.
-Target UI branch #351; do not deploy production.

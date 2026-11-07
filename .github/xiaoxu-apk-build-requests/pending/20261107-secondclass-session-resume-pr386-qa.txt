@@ -1,6 +1,0 @@
-User request: fix the short/repeated authorization problem for NCWU second-class.
-Build the existing #351 unified QA variant for PR #386.
-Verify normal same-device official SSO GET resumption, retryable 403,
-one-time recovery from legacy ambiguous reconnect states and real login expiry.
-Keep existing owner binding, Room snapshots and explicit background opt-in.
-Do not merge the unverified UI branch to main or claim real-account acceptance.
