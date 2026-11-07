@@ -1830,8 +1830,22 @@ assert.match(workspace, /onVerifyChaoxing = \{ openLocalSchool\("chaoxing"\) \}/
   '学习通相关云端任务详情必须可以打开官方页面进行人工核对');
 assert.match(workspace, /selectedTask.provider == "chaoxing"/,
   '只有学习通相关任务显示学习通核对入口');
-assert.match(workspace, /本条云端记录尚无对应的官方作业 ID/,
-  '未建立稳定官方作业映射前不得虚称完成了逐条校验');
+assert.match(workspace, /本条记录尚无可关联的官方作业 ID/,
+  '没有可信来源 ID 的旧记录必须提供人工核对入口');
+assert.match(workspace, /已关联学习通来源作业 ID/,
+  '具有可信来源 ID 的任务必须明确显示已关联状态');
+assert.match(workspace, /trustedChaoxingPlatformStatus\(/,
+  '学习通状态必须通过后端受信任来源元数据校验，不按标题猜测');
+assert.match(workspace, /上次官方同步：/,
+  '学校提交状态须单独显示为历史同步结果，不混入个人完成状态');
+assert.match(cloud, /val sourceExternalId: String\? = null/,
+  '学籍任务需保留可信作业来源 ID');
+assert.match(cloud, /val officialStatus: String\? = null/,
+  '后端已返回的官方状态不得在客户端丢弃');
+assert.match(cloud, /source_external_id/,
+  '学校任务来源应读取已有 API 的稳定 external ID');
+assert.match(cloud, /platform_status/,
+  '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
 assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
