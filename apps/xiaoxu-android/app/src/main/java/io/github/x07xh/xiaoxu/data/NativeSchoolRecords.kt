@@ -32,6 +32,7 @@ interface NativeSchoolRecordDao {
     suspend fun replaceSecondClassSnapshot(
         scores: List<NativeSchoolRecord>, activities: List<NativeSchoolRecord>,
         catalogEmpty: List<NativeSchoolRecord> = emptyList(),
+        catalogActivities: List<NativeSchoolRecord> = emptyList(),
         accountHash: String? = null, expectedBinding: String? = null
     ) {
         require(scores.isNotEmpty() && scores.size <= 50)
@@ -59,20 +60,30 @@ interface NativeSchoolRecordDao {
         // The validated catalog is tied to this account's verified score read.
         // Clear an earlier owner's empty snapshot on successful account switch,
         // even when the current catalog is unavailable or nonempty/unverified.
-        require(catalogEmpty.size == 0 || catalogEmpty.size == 3)
+        require(catalogEmpty.size in 0..3 && catalogActivities.size <= 120)
         require(catalogEmpty.all {
             it.provider == "second_class" && it.kind == "catalog_empty" &&
                 it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == scores.first().capturedAt
         })
-        require(catalogEmpty.map { it.title }.toSet() ==
-            if (catalogEmpty.isEmpty()) emptySet() else
-                setOf("报名中", "待验证", "即将开始报名"))
+        val knownFilters = setOf("报名中", "待验证", "即将开始报名")
+        require(catalogEmpty.map { it.title }.distinct().size == catalogEmpty.size &&
+            catalogEmpty.all { it.title in knownFilters })
+        require(catalogActivities.all {
+            it.provider == "second_class" && it.kind == "catalog_activity" &&
+                it.sourceHost == "dekt.ncwu.edu.cn" && it.capturedAt == capturedAt &&
+                knownFilters.any { filter -> it.details.startsWith("筛选：$filter\\n") }
+        })
+        require(catalogActivities.map { it.fingerprint }.distinct().size == catalogActivities.size)
+        require(catalogActivities.none { row ->
+            catalogEmpty.any { zero -> row.details.startsWith("筛选：${zero.title}\\n") }
+        })
         deleteKind("second_class", "catalog_empty")
+        deleteKind("second_class", "catalog_activity")
         deleteKind("second_class", "credits")
         deleteKind("second_class", "activity")
         deleteKind("second_class", "activity_summary")
         deleteKind("second_class", "account_binding")
-        insertAll(scores + activities + catalogEmpty)
+        insertAll(scores + activities + catalogEmpty + catalogActivities)
         if (accountHash != null) insertAll(listOf(NativeSchoolRecord(
             "second_class", "account_binding", "current", "", accountHash,
             "dekt.ncwu.edu.cn", capturedAt)))
