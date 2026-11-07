@@ -34,6 +34,52 @@ const unknown = normalizeWechatCandidateBatch({...batch,records:[
 ]});
 assert.equal(unknown.records[0].deadline.date,null);
 assert.equal(unknown.records[0].excerpt,null);
+// Optional links (V1): absent stays valid for old collectors, present must be
+// 1-3 structurally validated HTTPS URLs without credentials or duplicates.
+const link='https://course.example/hw/template.zip';
+const withLinks=normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:[link,'https://backup.example/b（附件）'.replace('（附件）','')]}
+]});
+assert.deepEqual(withLinks.records[0].links,[link,'https://backup.example/b']);
+assert.deepEqual(normalizeWechatCandidateBatch(batch).records[0].links,[],
+ 'old batches without links keep syncing unchanged');
+function rejectedLinks(value){
+ rejected({...batch,records:[{...baseRecord,links:value}]},'links_invalid');
+}
+rejectedLinks('https://course.example/a');
+assert.deepEqual(normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:[]}
+]}).records[0].links,[],'an explicitly empty link list is valid');
+rejectedLinks([link,link]);
+rejectedLinks([link,link,link,link]);
+rejectedLinks(['http://course.example/insecure']);
+rejectedLinks(['https://user:pw@course.example/leak']);
+rejectedLinks(['ftp://course.example/file']);
+rejectedLinks(['https://']);
+rejectedLinks(['javascript:alert(1)']);
+rejectedLinks(['https://course.example/'+'a'.repeat(520)]);
+rejectedLinks([42]);
+// Credential-style query/fragment parameters mirror the Python collector.
+rejectedLinks(['https://course.example/form?token=abc']);
+rejectedLinks(['https://course.example/a?id=1&api_key=x']);
+rejectedLinks(['https://course.example/b#access_token=xyz']);
+rejectedLinks(['https://course.example/d?invite_code=7']);
+rejectedLinks(['https://course.example/e?na%2me=%zz']);
+// camelCase composites hit the substring tier; invalid-UTF-8 percent escapes
+// throw in decodeURIComponent and are rejected like the Python collector.
+rejectedLinks(['https://course.example/f?authToken=x']);
+rejectedLinks(['https://course.example/f?clientSecret=y']);
+rejectedLinks(['https://course.example/f?secretKey=z']);
+rejectedLinks(['https://course.example/g?%FFx=1']);
+// WHATWG port semantics mirror the Python collector.
+rejectedLinks(['https://course.example:abc/report']);
+rejectedLinks(['https://course.example:99999/x']);
+assert.deepEqual(normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:['https://course.example/c?id=1&page=2',
+                        'https://course.example:8443/x?classcode=7']}
+]}).records[0].links,
+ ['https://course.example/c?id=1&page=2','https://course.example:8443/x?classcode=7'],
+ 'plain parameters and valid ports stay accepted');
 function rejected(payload,code) {
   assert.throws(()=>normalizeWechatCandidateBatch(payload),
     e=>e instanceof WechatCandidateError && e.code===code);

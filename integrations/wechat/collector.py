@@ -41,7 +41,27 @@ MAX_ROWS_PER_CHAT = 1500
 PAGE = 250
 OVERLAP_SECONDS = 24 * 3600
 BOOTSTRAP_SECONDS = 72 * 3600
+MAX_LINKS = 3
+MAX_LINK_LEN = 512
 TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|ddl|考试|测验|互评|报名|签到|考核|作图|结课|打卡", re.I)
+# Link extraction keeps the URL body away from adjacent Chinese text: real
+# chat links percent-encode non-ASCII, so raw CJK/full-width characters mark
+# the boundary between the URL and the surrounding sentence.
+LINK_URL = re.compile(
+    r"https://[^\s<>\"'`\x5c\x7f\u2e80-\u9fff\ufe30-\ufe4f\uff00-\uffef]+", re.I)
+LINK_TRAIL_PUNCT = ".,;:!?\u2026\u00b7\u2014\u201d\uff0c\u3002\uff1b\uff01\uff1f\u3001\uff09)]}\u3011\u300d\u300f\u3009"
+# Query/fragment parameter names that mark credential-bearing URLs. Two tiers
+# keep camelCase composites covered without over-matching:
+# - SUBSTR: high-specificity credential words match anywhere in the name
+#   (authToken, clientSecret, secretKey, refreshToken, ... all hit).
+# - PARAM: generic words (code, key, auth, session, ...) only match as whole
+#   tokens separated by _ or -, so "classcode" and "keyboard" stay safe.
+SENSITIVE_SUBSTR = re.compile(
+    r"token|secret|password|passwd|credential|jwt|bearer|oauth", re.I)
+SENSITIVE_PARAM = re.compile(
+    r"(?:^|[_-])(?:auth|authorization|session|sessionid|sid|sig|signature|sas|"
+    r"apikey|api[_-]?key|api[_-]?secret|code|key|pass|pwd)(?:$|[_-])", re.I)
+PERCENT_INVALID = re.compile(r"%(?![0-9A-Fa-f]{2})")
 CLEAN_URL = re.compile(r"https?://\S+", re.I)
 CLEAN_PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
 CLEAN_LONG_ID = re.compile(r"(?<!\d)\d{8,}(?!\d)")
@@ -175,11 +195,77 @@ def due_date(text: str, sent_ts: int) -> dict:
     return {"precision": "unknown"}
 
 
+def _sensitive_params(raw: str) -> bool:
+    """True when a query/fragment carries a credential-style parameter name."""
+    for piece in re.split(r"[&;]", raw):
+        if not piece:
+            continue
+        raw_name = piece.split("=", 1)[0]
+        # Malformed percent-encoding is treated as unvalidatable and dropped,
+        # matching the JavaScript contract's decode failure behaviour.
+        if PERCENT_INVALID.search(raw_name):
+            return True
+        try:
+            # errors="strict" mirrors JavaScript decodeURIComponent: byte
+            # sequences that are not valid UTF-8 (e.g. %FF) raise instead of
+            # being replaced, so both ends reject the same URLs.
+            name = urllib.parse.unquote(raw_name, errors="strict").strip()
+        except UnicodeDecodeError:
+            return True
+        if name and (SENSITIVE_SUBSTR.search(name) or SENSITIVE_PARAM.search(name)):
+            return True
+    return False
+
+
+def extract_https_links(text: str) -> list[str]:
+    """Extract at most MAX_LINKS validated HTTPS links from a message body.
+
+    Validation is structural only and mirrors the cloud contract's WHATWG
+    URL checks (scheme, hostname, no credentials, numeric port in range, no
+    credential-style query/fragment parameters such as ?token= or
+    #access_token=). Links are never opened, previewed or fetched; only
+    their literal text is kept for later human review.
+    """
+    seen: set[str] = set()
+    links: list[str] = []
+    for match in LINK_URL.finditer(text):
+        url = match.group(0)
+        while url and url[-1] in LINK_TRAIL_PUNCT:
+            url = url[:-1]
+        # Markdown/wiki style "(see https://x/a)" keeps the closing bracket
+        # out; an unbalanced opening paren means it was never part of the URL.
+        while url.count("(") > url.count(")"):
+            url = url[:-1]
+            while url and url[-1] in LINK_TRAIL_PUNCT:
+                url = url[:-1]
+        if not 12 <= len(url) <= MAX_LINK_LEN or url in seen:
+            continue
+        try:
+            parts = urllib.parse.urlsplit(url)
+            port = parts.port
+        except ValueError:
+            continue
+        if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+            continue
+        if port is not None and not 0 <= port <= 65535:
+            continue
+        if _sensitive_params(parts.query) or _sensitive_params(parts.fragment):
+            continue
+        if any(ord(ch) < 0x20 or ch == "\x7f" for ch in url):
+            continue
+        seen.add(url)
+        links.append(url)
+        if len(links) >= MAX_LINKS:
+            break
+    return links
+
+
 def classify(text: str, sent_ts: int) -> dict | None:
     # Only task-like text messages are considered. Never upload full chat,
     # attachments, sender names, phone numbers, cookies or external URLs.
     if not TASK_WORDS.search(text):
         return None
+    links = extract_https_links(text)
     cleaned = CLEAN_URL.sub("[链接]", text)
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
@@ -195,7 +281,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
         kind = "activity"
     else:
         kind = "homework"
-    return {"kind": kind, "title": contract_text(cleaned, 120), "deadline": due_date(text, sent_ts)}
+    return {"kind": kind, "title": contract_text(cleaned, 120), "deadline": due_date(text, sent_ts), "links": links}
 
 
 def extract_groups(config: dict, secret: bytes, cursors: dict, *,
@@ -262,6 +348,7 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
                 "kind": task["kind"], "title": task["title"],
                 "sentAt": datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "deadline": task["deadline"],
+                "links": task.get("links", []),
             })
         next_cursors[chat] = max_ts or now_ts
         summary.append(f"已选群：扫描 {total} 条文本记录")
@@ -321,6 +408,7 @@ def submit(site: str, token: str, payload: dict) -> dict:
                 "chat_key_invalid", "duplicate_candidate", "kind_invalid",
                 "title_invalid", "chat_label_invalid", "excerpt_invalid",
                 "sent_at_invalid", "sent_at_future", "deadline_invalid",
+                "links_invalid",
             }
             detail = code if code in schema_errors else "unknown_schema_error"
             raise BridgeError(
