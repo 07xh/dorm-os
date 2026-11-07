@@ -400,7 +400,7 @@ fun XiaoxuSegmentedControl(
                 animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
             ).value
             Box(
-                modifier = Modifier.weight(1f).heightIn(min = if (compact) 38.dp else 44.dp)
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     .clip(itemShape).background(itemColor)
                     .then(if (selected) Modifier.border(XiaoxuSpacing.glassStroke,
                         if (compact) Color(0xFFB8CFF9) else XiaoxuPalette.GlassBorder, itemShape)
