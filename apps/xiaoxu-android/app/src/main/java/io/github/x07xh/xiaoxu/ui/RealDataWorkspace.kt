@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -122,7 +124,8 @@ internal data class WorkspaceTask(
     val provider: String? = null,
     val links: List<String> = emptyList(),
     val sourceExternalId: String? = null,
-    val officialStatus: String? = null
+    val officialStatus: String? = null,
+    val wechatExcerpt: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -184,7 +187,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 task.sourceExternalId,
                 trustedChaoxingPlatformStatus(
                     task.provider, task.sourceExternalId, task.officialStatus
-                )))
+                ), task.wechatExcerpt))
         }
     }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -1733,6 +1736,16 @@ internal fun WorkspaceTaskDetailSheet(
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         if (selectedTask.category == "wechat") {
+            Text("来源微信消息（已脱敏）",
+                style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+            Text(
+                selectedTask.wechatExcerpt ?: "旧版任务未保存原消息正文；请在微信查看。",
+                modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)
+                    .verticalScroll(rememberScrollState()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink
+            )
             WechatTaskLinkActions(selectedTask.links)
         }
         if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
