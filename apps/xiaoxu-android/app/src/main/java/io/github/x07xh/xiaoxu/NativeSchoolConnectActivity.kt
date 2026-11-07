@@ -145,6 +145,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var scoreBusy = false
     private var autoAttempted = false
     private var redirectedToScore = false
+    private var pendingOfficialCatalogRead = false
     private val scoreIdentity by lazy { getSharedPreferences("second_class_local_identity", MODE_PRIVATE) }
     private var scoreSaveJob: Job? = null
     private var manualReservation = false
@@ -296,12 +297,16 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     }
                     if (provider == "second_class") {
                         val isScore = Uri.parse(url ?: "").path == "/sys/stu/score"
-                        extract.text = if (isScore) "读取／刷新本人积分" else "读取当前活动页"
+                        extract.text = if (isScore) "读取／刷新本人积分" else "读取活动与积分"
                         if (extract.isEnabled && isScore) tell(
                             "已打开官方成绩单。点击「读取／刷新本人积分」核验当前账号并读取；登录态失效时需重新登录。")
-                        if (isScore && extract.isEnabled && intent.getBooleanExtra(EXTRA_AUTO_SCORE, false) && !autoAttempted) {
-                            autoAttempted = true
-                            scoreHandler.postDelayed({ if (loaded && !pageFailed) captureSecondClassScores() }, 600)
+                        val initialAuto = intent.getBooleanExtra(EXTRA_AUTO_SCORE, false) && !autoAttempted
+                        if (isScore && extract.isEnabled && (initialAuto || pendingOfficialCatalogRead)) {
+                            if (initialAuto) autoAttempted = true
+                            pendingOfficialCatalogRead = false
+                            scoreHandler.postDelayed({
+                                if (loaded && !pageFailed) captureSecondClassScores()
+                            }, 600)
                         }
                     }
                 }
@@ -467,8 +472,25 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     }
 
     private fun captureVisibleRecords(append: Boolean = false) {
-        if (provider == "second_class" && Uri.parse(browser.url ?: "").path == "/sys/stu/score") {
-            captureSecondClassScores()
+        if (provider == "second_class") {
+            val uri = Uri.parse(browser.url ?: "")
+            if (!loaded || pageFailed || uri.host != "dekt.ncwu.edu.cn") {
+                tell("请先在学校官网正常登录，再读取活动。")
+                return
+            }
+            if (uri.path == "/sys/stu/score") {
+                captureSecondClassScores()
+            } else if (uri.path.orEmpty().startsWith("/sys/")) {
+                // The official catalog uses card layout, not the generic HTML
+                // table parser. Reuse the already audited owner-bound score +
+                // same-origin catalog API, instead of overwriting personal
+                // signup records from a brittle visible-page scrape.
+                pendingOfficialCatalogRead = true
+                tell("正在核验本人学校会话，并读取积分与活动广场…")
+                browser.loadUrl(entries.getValue("second_class"))
+            } else {
+                tell("请先进入学校本人业务页面，登录后可刷新活动。")
+            }
             return
         }
         if (append && provider != "chaoxing") return
