@@ -88,15 +88,19 @@ object XiaoxuPalette {
     val Bg = Color(0xFFF4F7FD)
 
     /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
-    val PageGradient = Brush.verticalGradient(
-        listOf(Color(0xFFF0F6FF), Color(0xFFF4F2FC), Color(0xFFF7F3FD))
+    val PageGradient = Brush.linearGradient(
+        0.00f to Color(0xFFEDF5FF),
+        0.29f to Color(0xFFE9F1FF),
+        0.55f to Color(0xFFF2EBFB),
+        0.78f to Color(0xFFEAF5F3),
+        1.00f to Color(0xFFF8F2FC)
     )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.88f)
-    val GlassBorder = Color.White.copy(alpha = 0.78f)
-    val GlassTrack = Color.White.copy(alpha = 0.48f)
-    val GlassIndicator = Color.White.copy(alpha = 0.54f)
+    val GlassCard = Color.White.copy(alpha = 0.80f)
+    val GlassBorder = Color.White.copy(alpha = 0.55f)
+    val GlassTrack = Color.White.copy(alpha = 0.42f)
+    val GlassIndicator = Color.White.copy(alpha = 0.52f)
     val SheetSurface = Color(0xFFF9FAFF)
 
     /** 不改变课程颜色，统一其他页面的基础材质。 */
@@ -144,6 +148,7 @@ object XiaoxuSpacing {
 
     /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
     val listRowMin: Dp = 76.dp
+    val glassStroke: Dp = 0.5.dp
 }
 
 /** 全局动效参数：本轮仅统一时间来源，时长保持与上一构建一致。 */
@@ -277,7 +282,7 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
 // ---------------------------------------------------------------------------
 
 /**
- * 通用圆角卡：白底 + 1dp 描边 + 18dp 圆角。
+ * 通用柔和玻璃卡：与设置分组共享 24dp 圆角和 0.5dp 轻描边，不重复叠灰影。
  * 传 onClick 才可点，触控高度强制 ≥48dp；不传就是纯展示容器。
  */
 @Composable
@@ -292,7 +297,6 @@ fun XiaoxuCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(0.5.dp, shape, clip = false)
             .clip(shape)
             .background(container)
             .border(0.75.dp, if (container == XiaoxuPalette.GlassCard)
@@ -323,7 +327,7 @@ fun XiaoxuSegmentedControl(
     Row(
         modifier = modifier.fillMaxWidth().clip(track)
             .background(XiaoxuPalette.GlassTrack)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, track)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, track)
             .padding(4.dp).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -342,7 +346,7 @@ fun XiaoxuSegmentedControl(
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     .clip(itemShape).background(itemColor)
-                    .then(if (selected) Modifier.border(0.75.dp, XiaoxuPalette.GlassBorder, itemShape)
+                    .then(if (selected) Modifier.border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, itemShape)
                         else Modifier)
                     .selectable(selected = selected, role = Role.Tab,
                         onClick = { if (!selected) onSelected(option.key) }),
@@ -369,7 +373,7 @@ internal fun XiaoxuGroupSurface(
     Column(
         modifier = modifier.fillMaxWidth().clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
             .padding(vertical = verticalPadding),
         content = content
     )
@@ -913,7 +917,7 @@ fun QuickEntry(
             .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.card))
             .background(XiaoxuPalette.GlassCard)
-            .border(0.75.dp, XiaoxuPalette.GlassBorder, RoundedCornerShape(XiaoxuRadius.card))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(XiaoxuRadius.card))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },
