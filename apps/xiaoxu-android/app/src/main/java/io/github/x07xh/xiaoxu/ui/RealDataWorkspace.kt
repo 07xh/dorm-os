@@ -788,15 +788,14 @@ fun RealAcademicTaskHub(
     // Default collapsed on first entry. Saveable state still restores a user's
     // subsequent expand/collapse choice when switching tabs or rotating.
     var showCourseTasks by rememberSaveable { mutableStateOf(false) }
-    var showWechatTasks by rememberSaveable { mutableStateOf(true) }
-    var showPersonalTasks by rememberSaveable { mutableStateOf(true) }
+    var showWechatTasks by rememberSaveable { mutableStateOf(false) }
+    var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
     var updatingWechatKey by remember { mutableStateOf<String?>(null) }
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
-    // This report is for the CURRENT owner session, not Room or the task count.
-    var showOfficialAudit by rememberSaveable(state.chaoxingBatchCheckedAt) {
-        mutableStateOf(state.chaoxingBatchCheckedAt != null)
-    }
+    // Reading or refreshing official data never expands this group on its own.
+    // Preserve a deliberate user toggle across ordinary UI recomposition.
+    var showOfficialAudit by rememberSaveable { mutableStateOf(false) }
     var showAllOfficialHomework by rememberSaveable(state.chaoxingBatchCheckedAt) {
         mutableStateOf(false)
     }

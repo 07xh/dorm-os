@@ -1702,6 +1702,14 @@ assert.match(workspace, /onClick = \{ showCourseTasks = !showCourseTasks \}/,
   '用户点击课程任务后必须仍能展开和收起');
 assert.match(workspace, /if \(showCourseTasks\) \{/,
   '课程列表显示必须只由当前展开状态控制');
+assert.match(workspace, /var showWechatTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '首次进入任务中心的微信任务必须默认折叠');
+assert.match(workspace, /var showPersonalTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '首次进入任务中心的本机任务必须默认折叠');
+assert.match(workspace, /var showOfficialAudit by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '学习通数据读取完成后也不得自动展开作业分组');
+assert.match(workspace, /var showSchoolRecords by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '首次进入任务中心的本机读取必须默认折叠');
 const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
   workspace.indexOf('/** 首页与任务中心共用任务详情'));
 assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
