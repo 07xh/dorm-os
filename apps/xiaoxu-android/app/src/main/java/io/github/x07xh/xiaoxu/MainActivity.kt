@@ -626,7 +626,8 @@ private fun NativeShell(
                                     subtitle = null,
                                     refreshing = cloud.state.busy,
                                     onRefresh = { scope.launch { cloud.refresh() } },
-                                    onMessages = { messagesOpen = true }
+                                    onMessages = { messagesOpen = true },
+                                    applyStatusBarInset = false
                                 )
                                 Box(Modifier.weight(1f)) {
                                 RealAcademicHome(localTasks, client = cloud,
