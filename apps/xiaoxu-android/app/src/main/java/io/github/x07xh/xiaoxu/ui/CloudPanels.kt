@@ -165,9 +165,8 @@ fun ConnectionsPanel(
                     verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)
                 ) {
                     ProfileHeroCard(state = state)
-                    SchoolReaderSection(
-                        state = state,
-                        openLocalSchool = openLocalSchool,
+                    LocalSchoolConnectionPanel(
+                        openLocal = openLocalSchool,
                         recentImport = recentImport
                     )
                 }
@@ -193,9 +192,8 @@ fun ConnectionsPanel(
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.section)) {
                 ProfileHeroCard(state = state)
-                SchoolReaderSection(
-                    state = state,
-                    openLocalSchool = openLocalSchool,
+                LocalSchoolConnectionPanel(
+                    openLocal = openLocalSchool,
                     recentImport = recentImport
                 )
                 // 两个独立信息分区之间用统一间距，不再画贯穿整页的分割线。
@@ -299,21 +297,6 @@ private fun ProfileMetric(label: String, value: String, modifier: Modifier = Mod
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = XiaoxuPalette.Ink2, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
-    }
-}
-
-/** 本机优先：三个学校平台的本机官方读取入口，始终可见，不需要任何云端授权。 */
-@Composable
-private fun SchoolReaderSection(
-    state: CloudUiState,
-    openLocalSchool: (String) -> Unit,
-    recentImport: LocalSchoolImportReceipt?
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(title = "数据连接")
-        // Native-first path already implemented in the existing local school activities.
-        // This is deliberately separate from verified Cloudflare sessions.
-        LocalSchoolConnectionPanel(openLocalSchool, recentImport)
     }
 }
 
