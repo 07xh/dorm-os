@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.using
 
 /**
  * Stationary fade-through for all native page hosts:
@@ -35,10 +36,7 @@ private fun stationaryFadeThrough(durationMillis: Int): ContentTransform {
         )
     ) togetherWith fadeOut(
         animationSpec = tween(durationMillis = exitMillis)
-    )).apply {
-        // Even when two pages have different content, no container size tween.
-        sizeTransform = null
-    }
+    )).using(null) // Disable AnimatedContent size animation via the public API.
 }
 
 /** API preserves forward for existing nav callers; no directional slide is applied. */
