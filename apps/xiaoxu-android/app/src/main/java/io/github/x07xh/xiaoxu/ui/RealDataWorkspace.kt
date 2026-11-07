@@ -1776,9 +1776,10 @@ internal fun WorkspaceTaskDetailSheet(
             }
         }
         if (selectedTask.storage == "local" || selectedTask.provider == "wechat") {
-            OutlinedButton(onClick = onManage,
+            val canEdit = selectedTask.storage == "local" || tasksFresh
+            OutlinedButton(onClick = onManage, enabled = canEdit,
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-                Text("编辑个人任务")
+                Text(if (canEdit) "编辑个人任务" else "刷新云端后编辑个人计划")
             }
         }
     }
