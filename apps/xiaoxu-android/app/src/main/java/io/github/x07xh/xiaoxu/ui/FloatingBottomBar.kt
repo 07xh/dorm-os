@@ -386,7 +386,7 @@ fun FloatingBottomBar(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .height(visualHeight - 2 * geometry.indicatorVerticalPadding)
+                        .height(visualHeight - geometry.indicatorVerticalPadding * 2)
                         .align(Alignment.Center)
                         .alpha(0f)
                         .layerBackdrop(opticalTint)
