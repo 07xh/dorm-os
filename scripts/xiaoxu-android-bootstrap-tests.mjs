@@ -1667,7 +1667,10 @@ assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
 assert.match(design, /object XiaoxuMotion/, '动画时间参数只能在设计系统维护');
-assert.match(main, /xiaoxuPrimaryPageTransition\(/, '主导航切换须走统一动效入口');
+assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
+  '主导航只构建当前页面，不同时合成两个页面');
+assert.doesNotMatch(main, /targetState = current,/,
+  '主导航不能恢复 AnimatedContent 的双屏叠加');
 assert.match(main, /label = "academicChild"/, '教务总览和详情必须共用整页转场宿主');
 assert.match(main, /if \(initialState == AcademicDestination\.OVERVIEW\) "home" else "detail"/,
   '教务详情返回必须识别逆向滑动，不能直接替换页面');
@@ -1677,42 +1680,23 @@ assert.match(main, /if \(timetableChild\)/,
   '课表设置应作为我的页面子路由渲染');
 assert.match(main, /route = if \(profileSettingsRoute == "timetable-settings"/,
   '课表设置转场时原设置页面只能保留 home 路由，不可产生无效二级页');
-assert.match(pageMotion, /XiaoxuMotion\.PageSwitchMs/, '主页 220ms 动效从设计系统读取');
-assert.match(pageMotion, /XiaoxuMotion\.SettingsDetailMs/, '设置页 200ms 动效从设计系统读取');
-assert.match(pageMotion, /private fun stablePageReveal\(durationMillis: Int\)/,
-  '所有原生路由共用不露底的静态内容进入动画');
 const pageMotionJvmTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotionTest.kt');
-assert.match(pageMotionJvmTest, /fun primaryTabsKeepOldPageUntilNewPageIsVisible\(/,
-  '五个主标签切换必须由可执行JVM测试检查旧页退出与新页层级');
-assert.match(pageMotionJvmTest, /fun settingAndAcademicChildRoutesNeverFadeOutTheOldScreen\(/,
-  '设置和教务二级页不能遗漏运行时无空白转场检查');
-assert.match(pageMotionJvmTest, /fun unchangedRouteDoesNotReplayThePageTransition\(/,
-  '同路由重复触发不得重新播放动效');
-
-assert.match(pageMotion, /initialAlpha = 0\.94f/,
-  '目标页面须从接近全不透明状态呈现，不可从0透明度闪入');
+assert.match(pageMotionJvmTest, /fun mainTabsHaveNoEnterOrExitAnimation\(/,
+  'JVM 回归必须验证主标签无过渡动画');
+assert.match(pageMotionJvmTest, /fun everySecondaryRouteUsesImmediateTransition\(/,
+  'JVM 回归必须验证设置、课表和教务即时切页');
+assert.match(pageMotion, /private fun immediatePageSwitch\(\): ContentTransform/,
+  '二级页共用唯一无动效切换');
+assert.match(pageMotion, /targetContentEnter = EnterTransition\.None/,
+  '新页面不能播放淡入/位移动效');
 assert.match(pageMotion, /initialContentExit = ExitTransition\.None/,
-  '旧页面不得在新页面绘制前淡出造成空白频闪');
-assert.match(pageMotion, /targetContentZIndex = 1f/,
-  '新页面必须绘制在旧页面上方，避免快速切页残影');
+  '旧页面不能播放淡出/位移动效');
 assert.match(pageMotion, /sizeTransform = null/,
-  '通过ContentTransform构造器停用布局尺寸变化动画');
-assert.match(pageMotion, /durationMillis = durationMillis\.coerceAtMost\(140\)/,
-  '轻量透明度过渡不应长时间影响重型内容页');
-assert.doesNotMatch(pageMotion, /delayMillis|fadeOut\(|stationaryFadeThrough|\.using\(/,
-  '禁止恢复先消失再出现的空白相位或不支持的尺寸API');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
-  '主页面动画宿主维持固定大小且裁剪边界');
-assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
-  '设置详情维持全尺寸固定容器');
-assert.doesNotMatch(pageMotion, /slideInHorizontally|slideOutHorizontally|slideInVertically|slideOutVertically|scaleIn|scaleOut|MiuixSettingsNavigationEasing/,
-  '页面转场不得移动或缩放整屏，也不得弹簧回弹');
-assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.PageSwitchMs\)/,
-  '五个主标签保留220ms轻量动感');
-assert.match(pageMotion, /stablePageReveal\(XiaoxuMotion.SettingsDetailMs\)/,
-  '设置、教务及课表二级页复用200ms轻量动感');
-assert.match(design, /const val PageSwitchMs = 220/, '一级页面仍按220ms短时过渡');
-assert.match(design, /const val SettingsDetailMs = 200/, '二级页面仍按200ms短时过渡');
+  '禁用动画期间的容器尺寸调整');
+assert.doesNotMatch(pageMotion, /fadeIn|fadeOut|slideIn|slideOut|scaleIn|scaleOut|spring\(|tween\(/,
+  '禁用页面级动效以恢复即时切换性能');
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
+  '无动画切页须保留每栏滚动与筛选状态');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置页不得直接替换内容丢失过渡');
 assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
@@ -1721,8 +1705,8 @@ assert.match(main, /label = "academicChild"/,
   '教务多个二级页保留其单独的内容转场宿主');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的到课表设置继续使用原生子页面宿主');
-assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
-  '五个主页面的动画容器必须裁剪边界');
+assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
+  '五个主页面仅组合当前标签内容并保留边界裁剪');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
   '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,

@@ -93,7 +93,6 @@ import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
-import io.github.x07xh.xiaoxu.ui.xiaoxuPrimaryPageTransition
 import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
@@ -602,19 +601,10 @@ private fun NativeShell(
                                 useStatusBarInset = false, onBack = { messagesOpen = false })
                         }
                     } else {
-                    // Per-tab SaveableStateProvider keeps subfilters and scroll position after tab changes.
-                    AnimatedContent(
-                        targetState = current,
-                        transitionSpec = {
-                            // SleepDown-style single-page motion; no crossfade ghosting.
-                            // The current navigation and per-page saved state remain untouched.
-                            xiaoxuPrimaryPageTransition(
-                                forward = targetState.ordinal >= initialState.ordinal
-                            )
-                        },
-                        modifier = Modifier.fillMaxSize().clipToBounds(),
-                        label = "page"
-                    ) { page ->
+                    // Only one heavy tab is ever composed; no AnimatedContent overlap.
+                    // Keep per-tab SaveableStateProvider so filters/scroll survive.
+                    val page = current
+                    Box(Modifier.fillMaxSize().clipToBounds()) {
                         pageStateHolder.SaveableStateProvider(page.name) {
                         // Full-size opaque layers and bounds clipping prevent old
                         // page labels from showing through while rapidly changing tabs.
