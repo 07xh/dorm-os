@@ -227,6 +227,26 @@ class CampusRunObservedMappingTest {
         assertEquals(CampusRunFailure.NOT_AUTHORIZED,
             (state as CampusRunViewState.Unavailable).reason)
     }
+    @Test fun opaqueEnvelopeStopsAtQueryGateRatherThanBecomingVerifiedData() = runBlocking {
+        val protected = mapOf<String, Any?>(
+            "r" to "b3BhcXVl", "s" to "c2lnbmF0dXJl", "v" to 3
+        )
+        val reader = object : CampusRunAuthorizedDecodedReader {
+            override suspend fun currentSubjectFingerprint() = fingerprint
+            override suspend fun semester() =
+                CampusRunAuthorizedDecodedSemester(fingerprint, protected)
+            override suspend fun historyPage(cursor: String?): CampusRunAuthorizedDecodedPage {
+                throw AssertionError("history must not be requested after an opaque summary")
+            }
+        }
+        val result = CampusRunReadOnlyQuery(
+            CampusRunObservedMappingSource(reader, summaryBindings, historyBindings)
+        ).refreshSummary(fingerprint, now)
+        assertTrue(result is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.INVALID_DATA,
+            (result as CampusRunViewState.Unavailable).reason)
+    }
+
     @Test fun historicalReferenceSemesterFieldsAreOnlyCandidatesNotVerifiedTargets() {
         // Candidate labels from an older external read-only score display;
         // this synthetic fixture is NOT a decoded user response.
