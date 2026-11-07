@@ -206,9 +206,30 @@ class SportWorldReadOnlyBridge:
         self.policy = restrict_upstream_client(policy_client)
         self.history = restrict_upstream_client(history_client)
         self.session = session
+        # Bind the three adapters to the original session without retaining
+        # an additional plaintext copy of its bearer token.
+        self._token_proof = self._token_hmac(tokens[0])
+
+    def _token_hmac(self, token: str) -> bytes:
+        return hmac.new(
+            self.session.fingerprint_key,
+            ("session:" + token).encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+
+    def _assert_auth_clients(self) -> None:
+        for client in (self.profile, self.policy, self.history):
+            if str(getattr(client, "uid", "")) != self.session.uid:
+                raise ReadOnlyAccessError("client_session_subject_changed")
+            token = getattr(client, "token", None)
+            if (not isinstance(token, str) or not token or
+                    not secrets.compare_digest(self._token_hmac(token), self._token_proof)):
+                raise ReadOnlyAccessError("client_session_token_changed")
 
     def current_subject_fingerprint(self) -> str:
+        self._assert_auth_clients()
         profile = self.profile.get_user_info()
+        self._assert_auth_clients()
         actual = getattr(profile, "uid", None)
         if type(actual) not in (str, int) or str(actual) != self.session.uid:
             raise ReadOnlyAccessError("authorized_subject_mismatch")
@@ -217,6 +238,7 @@ class SportWorldReadOnlyBridge:
     def read_semester(self) -> dict[str, Any]:
         subject = self.current_subject_fingerprint()
         summary = _business_result(self.policy.get_semester_summary())
+        self._assert_auth_clients()
         if not isinstance(summary, dict):
             raise SchemaNotVerified("invalid_semester_summary")
         fields = {
@@ -227,6 +249,7 @@ class SportWorldReadOnlyBridge:
         # consume ONLY its raw fields: its display model defaults absent keys
         # to zero, which is not evidence of a zero official running distance.
         info = self.policy.get_semester_info()
+        self._assert_auth_clients()
         raw = getattr(info, "raw", None)
         if isinstance(raw, dict):
             fields.update({
@@ -260,6 +283,7 @@ class SportWorldReadOnlyBridge:
                 page_num=page, page_size=page_size, sid=0, sport_type=1
             )
         )
+        self._assert_auth_clients()
         records, metadata = _history_rows(data)
         is_last, next_cursor = _pagination(metadata, page, page_size)
         if self.current_subject_fingerprint() != subject:
