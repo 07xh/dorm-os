@@ -149,6 +149,22 @@ class SportWorldReadOnlyBridgeTests(unittest.TestCase):
                 sign_params={"other": "value"},
             )
 
+    def test_versioned_subject_and_candidate_outputs_match_android_contract(self):
+        identity = self.bridge.read_subject()
+        semester = self.bridge.read_semester()
+        page = self.bridge.read_history_page()
+        self.assertEqual(identity["bridgeSchemaVersion"], 1)
+        self.assertEqual(identity["bridgeKind"], "subject")
+        self.assertEqual(semester["bridgeSchemaVersion"], 1)
+        self.assertEqual(semester["bridgeKind"], "semester")
+        self.assertEqual(page["bridgeSchemaVersion"], 1)
+        self.assertEqual(page["bridgeKind"], "history")
+        self.assertEqual(identity["subjectFingerprint"], semester["subjectFingerprint"])
+        self.assertEqual(identity["subjectFingerprint"], page["subjectFingerprint"])
+        self.assertIs(semester["verifiedFieldSemantics"], False)
+        self.assertIs(page["verifiedFieldSemantics"], False)
+        self.assertIs(page["paginationVerified"], True)
+
     def test_subject_is_hmac_and_not_raw_identifier(self):
         expected = hmac.new(b"k" * 32, b"sport-world-campus:12345", hashlib.sha256).hexdigest()
         self.assertEqual(self.bridge.current_subject_fingerprint(), expected)
