@@ -1,0 +1,7 @@
+校序任务中心 P0 第一批原生 QA APK（2026-11-07）
+PR: #392 -> #351 (Draft, do not merge into main)
+功能：本机任务详情编辑标题/来源/日期；普通云端待办分类；已审核微信任务保留独立分组；个人勾选后列表位置动画。
+本次代码验证基线：8608ba9b578cd45dd5adec2271e0bbea16ab1313
+请求：显式触发 Android assembleDebug + JVM 测试 + 导航 benchmark 编译 + 独立 QA .unifiedqa APK，确认 artifact 和 SHA256。
+真机门禁：一加 Ace 6 Android16，既有任务编辑后重启、截止通知重排、任务连续勾选流畅度、学校/微信来源只读隔离、玻璃弹窗视觉。
+注意：QA APK 为独立包名，不代表正式 release，不接受未核验源数据或复制真实学校提交状态。
