@@ -1422,8 +1422,8 @@ assert.match(nativeRecords, /@Transaction/);
 assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
-assert.match(appGradle, /versionCode 32\b/, '0.8.11 RC 的版本码应递增');
+assert.match(appGradle, /versionName '0\.8\.12-rc\.1'/, '校序整合 RC 必须使用新的 0.8.12-rc.1 版本名');
+assert.match(appGradle, /versionCode 33\b/, '0.8.12 RC 的版本码必须高于已发布的 RC1');
 
 /* Official-page local readable content, tested only with synthetic DOM.
  * This never claims real account login or exercises hidden school APIs. */
