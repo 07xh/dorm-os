@@ -39,9 +39,16 @@ android {
     buildFeatures {
         compose true
     }
+    // Offline runtime fixtures have independent storage and no INTERNET permission.
+    if (project.hasProperty('xiaoxuRuntimeTest')) {
+        sourceSets.debug.manifest.srcFile 'src/runtimeVerification/AndroidManifest.xml'
+    }
     buildTypes {
         debug {
-            if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
+            if (project.hasProperty('xiaoxuRuntimeTest')) {
+                applicationIdSuffix '.secondclassruntime'
+                manifestPlaceholders.qaAppLabel = '校序 · 离线测试'
+            } else if (project.findProperty('xiaoxuIsolatedQa')?.toString() == 'true') {
                 applicationIdSuffix '.unifiedqa'
                 manifestPlaceholders.qaAppLabel = '校序 · 整合验证'
                 // Distinct from both the official app and previous second-class QA install.

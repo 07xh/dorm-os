@@ -5,6 +5,7 @@ import androidx.work.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 /** Scheduling and local-session orchestration only; school business parsing
  * remains in the existing fixed asset and native parsers. */
@@ -14,15 +15,21 @@ object SecondClassAutoRefresh {
     private val lock = Mutex()
     private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     @Volatile private var manualUsers = 0
-    @Volatile private var activeJob: Job? = null
+    private data class ActiveRead(val job: Job?, val background: Boolean)
+    @Volatile private var activeRead: ActiveRead? = null
     private fun prefs(c: Context) = c.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE)
     fun enabled(c: Context) = prefs(c).getBoolean("enabled", true)
     fun background(c: Context) = prefs(c).getBoolean("background", false)
     fun status(c: Context) = prefs(c).getString("status", "idle").orEmpty()
 
+    fun lastSuccess(c: Context) = prefs(c).getLong("success_at", 0)
+    fun lastSuccessWasBackground(c: Context) = prefs(c).getBoolean("success_background", false)
+    fun lastBackgroundCheck(c: Context) = prefs(c).getLong("background_check_at", 0)
+
     fun configure(c: Context, enabled: Boolean, background: Boolean) {
         prefs(c).edit().putBoolean("enabled", enabled).putBoolean("background", background).apply()
-        if (!enabled) activeJob?.cancel()
+        val active = activeRead
+        if (!enabled || !background && active?.background == true) active?.job?.cancel()
         reconcile(c)
     }
     fun reconcile(c: Context) {
@@ -36,7 +43,7 @@ object SecondClassAutoRefresh {
     }
     // Main-thread Activity callbacks reserve manual mode until pending Room
     // work has completed cancellation, even if the Activity is destroyed.
-    fun manualStarted() { manualUsers++; activeJob?.cancel() }
+    fun manualStarted() { manualUsers++; activeRead?.job?.cancel() }
     fun manualFinishedAfter(saving: Job?) {
         releaseScope.launch { saving?.join(); manualUsers = (manualUsers - 1).coerceAtLeast(0) }
     }
@@ -45,13 +52,20 @@ object SecondClassAutoRefresh {
         reconcile(c)
     }
 
-    suspend fun refreshIfDue(context: Context, backgroundRun: Boolean = false) {
+    internal suspend fun refreshIfDue(
+        context: Context, backgroundRun: Boolean = false,
+        reader: suspend (Context, String) -> JSONObject = { c, salt -> readSecondClassAutomatically(c, salt) }
+    ) {
         val c = context.applicationContext
         if (!lock.tryLock()) return
-        activeJob = currentCoroutineContext()[Job]
+        activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun)
         val settings = prefs(c)
         fun state(value: String) { settings.edit().putString("status", value).apply() }
         try {
+            // Written only when a background invocation actually acquires the
+            // coordinator, never when a periodic request is merely registered.
+            if (backgroundRun && enabled(c) && background(c))
+                settings.edit().putLong("background_check_at", System.currentTimeMillis()).apply()
             if (status(c) == "reading") state("idle") // A killed prior process cannot still be reading.
             val dao = LocalTaskDatabase.open(c).nativeSchoolRecords()
             val records = withContext(Dispatchers.IO) { dao.snapshot() }
@@ -75,7 +89,7 @@ object SecondClassAutoRefresh {
                 bound, manualUsers > 0, startedAt, saved, settings.getLong("attempt", 0))) return
             settings.edit().putLong("attempt", startedAt).apply()
             state("reading")
-            val payload = readSecondClassAutomatically(c, salt!!)
+            val payload = reader(c, salt!!)
             if (!payload.optBoolean("ok")) {
                 state(if (payload.optInt("httpStatus") in setOf(401, 403)) "needs_reconnect"
                     else if (payload.optString("stage") == "identity" &&
@@ -98,14 +112,21 @@ object SecondClassAutoRefresh {
                 dao.replaceSecondClassSnapshot(scores, activities, catalog,
                     accountHash = expected, expectedBinding = expected)
             }
-            state("updated")
+            settings.edit().putLong("success_at", System.currentTimeMillis())
+                .putBoolean("success_background", backgroundRun).putString("status", "updated").apply()
         } catch (_: TimeoutCancellationException) { state("failed") }
         catch (cancelled: CancellationException) {
             if (status(c) == "reading") state("idle")
             throw cancelled
         } catch (failure: AutoReadFailure) { state(failure.status) }
         catch (_: Exception) { state("failed") }
-        finally { activeJob = null; lock.unlock() }
+        finally {
+            // Invalidation can return before Room without throwing (for
+            // example a changed identity salt). Never leave a finished read busy.
+            if (status(c) == "reading") state("idle")
+            activeRead = null
+            lock.unlock()
+        }
     }
 }
 
