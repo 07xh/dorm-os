@@ -315,6 +315,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 ) {
                     if (request.isForMainFrame) {
                         invalidateCapture()
+                        pendingOfficialCatalogRead = false
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
@@ -328,6 +329,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 ) {
                     handler.cancel()
                     invalidateCapture()
+                    pendingOfficialCatalogRead = false
                     pageFailed = true
                     loaded = false
                     extract.isEnabled = false
