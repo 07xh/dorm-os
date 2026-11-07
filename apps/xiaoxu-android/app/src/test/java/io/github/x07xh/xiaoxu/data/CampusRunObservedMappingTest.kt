@@ -99,6 +99,23 @@ class CampusRunObservedMappingTest {
         rejects { inspectCampusRunOpaqueEnvelope("not-json") }
     }
 
+    @Test fun protectedResponseCannotBeMisreportedAsOfficialSemesterOrHistory() {
+        val protectedFields = mapOf<String, Any?>(
+            "r" to "b3BhcXVl", "s" to "c2lnbmF0dXJl", "v" to 3
+        )
+        rejects {
+            mapCampusRunDecodedSemester(protectedFields, fingerprint, summaryBindings)
+        }
+        rejects {
+            mapCampusRunDecodedHistoryRecord(protectedFields, historyBindings)
+        }
+        rejects {
+            mapCampusRunDecodedHistoryRows(
+                mapOf("recordList" to listOf(protectedFields)), historyBindings
+            )
+        }
+    }
+
     @Test fun semesterMapperRequiresExplicitBindingAndPreservesUnknownValues() {
         val result = mapCampusRunDecodedSemester(semesterData(), fingerprint, summaryBindings)
         assertEquals(100_000L, result.targetMeters)
