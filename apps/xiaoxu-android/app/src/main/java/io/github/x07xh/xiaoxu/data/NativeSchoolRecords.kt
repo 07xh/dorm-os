@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import java.security.MessageDigest
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -53,8 +54,12 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
 fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" || record.kind != "homework" ||
         record.sourceHost != "mooc1.chaoxing.com") return null
-    return Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
-        .find(record.details)?.groupValues?.get(1)
+    val identity = Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|homework|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
 }
 
 @Dao
