@@ -130,6 +130,29 @@ internal fun parseWorkspaceDue(value: String?): LocalDate? {
         ?: runCatching { Instant.parse(value).atZone(SchoolZone).toLocalDate() }.getOrNull()
 }
 
+/**
+ * Render a canonical official homework record only once if historical imports
+ * have the exact same Chaoxing course/class/work ID. Never deduplicate by
+ * title or date, and never delete imported records from the cloud database.
+ *
+ * Without a trusted official row the historical entries stay visible:
+ * unverified IDs cannot decide which personal task record is canonical.
+ */
+internal fun distinctVerifiedChaoxingHomeworkRows(cloud: List<CloudTask>): List<CloudTask> {
+    val trustedIds = cloud.asSequence().filter {
+        trustedChaoxingPlatformStatus(it.provider,it.sourceExternalId,it.officialStatus) != null
+    }.mapNotNull { it.sourceExternalId }.toSet()
+    val shownOfficialIds = mutableSetOf<String>()
+    return cloud.filter { row ->
+        val sourceId = row.sourceExternalId
+        if (row.provider != "chaoxing" || sourceId == null ||
+            sourceId !in trustedIds) true
+        else trustedChaoxingPlatformStatus(
+            row.provider, sourceId, row.officialStatus
+        ) != null && shownOfficialIds.add(sourceId)
+    }
+}
+
 internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask>): List<WorkspaceTask> =
     buildList {
         local.forEach { task ->
@@ -142,7 +165,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
             add(WorkspaceTask("local:" + task.id, task.title, source, task.completed,
                 parseWorkspaceDue(task.due), "本人填写", "local"))
         }
-        cloud.forEach { task ->
+        distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
                 "chaoxing" -> "学习通记录"
