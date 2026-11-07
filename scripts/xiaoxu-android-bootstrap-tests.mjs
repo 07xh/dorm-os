@@ -1298,7 +1298,10 @@ assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsStat
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机作业快照/);
-assert.match(workspace, /不纳入待完成\/已完成数量/);
+// Only source-ID-verified official records may affect task completion.
+assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
+assert.match(workspace, /localEvidence\.filterKeys \{ it !in cloudIds \}/);
+assert.match(workspace, /不按标题改写云端历史任务或重复计入总数/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
