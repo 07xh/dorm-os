@@ -70,6 +70,23 @@ class WorkspaceDueProvenanceTest {
         assertEquals(LocalDate.of(2026, 11, 9), item.date)
         assertEquals(LocalDate.of(2026, 11, 12), item.sourceDueDate)
         assertEquals("本人计划", item.dateSource)
+        assertEquals(1, countUpcomingLocalDeadlines(listOf(item), today))
+        assertEquals(listOf("提交实验报告"),
+            searchWorkspaceTasks(listOf(item), "week", "", today).map { it.title })
+        assertEquals(listOf("提交实验报告"),
+            facetWorkspaceTasks(listOf(item), "all", true, today).map { it.title })
+    }
+
+    @Test
+    fun cloudDueWithoutPersonalPlanNeverEntersLocalDeadlineCounts() {
+        val sourceOnly = CloudTask(
+            id = "source-1", title = "未核实云端任务",
+            status = "todo", kind = "platform", provider = "chaoxing",
+            due = "2026-11-08", revision = 3
+        )
+        val item = combineWorkspaceTasks(emptyList(), listOf(sourceOnly)).single()
         assertEquals(0, countUpcomingLocalDeadlines(listOf(item), today))
+        assertEquals(emptyList<String>(),
+            searchWorkspaceTasks(listOf(item), "week", "", today).map { it.title })
     }
 }
