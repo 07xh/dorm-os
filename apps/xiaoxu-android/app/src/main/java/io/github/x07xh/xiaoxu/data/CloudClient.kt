@@ -37,6 +37,22 @@ data class CloudTask(
     val officialStatus: String? = null
 )
 
+/** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
+ * Only a strictly newer locally confirmed WeChat revision wins; newer server
+ * revisions still take precedence. No synthetic records are ever added.
+ */
+internal fun preferConfirmedWechatRevisions(
+    fetched: List<CloudTask>, shown: List<CloudTask>
+): List<CloudTask> {
+    val confirmed = shown.filter { it.provider == "wechat" && it.revision >= 0 }
+        .associateBy { it.id }
+    return fetched.map { row ->
+        val local = confirmed[row.id]
+        if (row.provider == "wechat" && local != null && local.revision > row.revision)
+            local else row
+    }
+}
+
 private val ChaoxingWorkSourceId = Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""")
 private val ChaoxingPlatformStatuses =
     setOf("todo", "submitted", "graded", "returned", "unknown")
@@ -515,7 +531,8 @@ class CloudClient(context: Context) {
         // Only the newest request can certify school-connection freshness.
         if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
         state = state.copy(
-            tasks = tasks ?: state.tasks,
+            tasks = tasks?.let { preferConfirmedWechatRevisions(it, state.tasks) }
+                ?: state.tasks,
             tasksFresh = tasks != null,
             platforms = platforms ?: state.platforms,
             connectionsFresh = platforms != null,
@@ -1594,9 +1611,9 @@ class CloudClient(context: Context) {
                 state = state.copy(privateError = "任务状态发生变化，请刷新后重试")
                 return false
             }
-            // Invalidate an earlier snapshot read so it cannot undo this newer
-            // confirmed write. No optimistic state is persisted to CloudClient.
-            privateSnapshotReadId++
+            // Present the owner-confirmed mutation immediately. An older GET
+            // is reconciled by revision in refreshPrivate, without cancelling
+            // unrelated school connection and candidate refreshes.
             state = state.copy(
                 tasks = state.tasks.map {
                     if (it.id == id && it.provider == "wechat" && it.revision == revision)
@@ -1604,7 +1621,11 @@ class CloudClient(context: Context) {
                             revision = committedRevision.toInt())
                     else it
                 },
-                privateError = null
+                privateError = state.privateError?.takeUnless {
+                    it.startsWith("微信任务状态更新失败") ||
+                        it.startsWith("任务状态发生变化") ||
+                        it.startsWith("云端可能已更新")
+                }
             )
             true
         } catch (_: Exception) {
