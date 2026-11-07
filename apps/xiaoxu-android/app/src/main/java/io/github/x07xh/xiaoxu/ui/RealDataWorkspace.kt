@@ -87,6 +87,7 @@ import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
+import io.github.x07xh.xiaoxu.data.trustedChaoxingPlatformStatus
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -151,7 +152,10 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
                 task.revision, task.provider, task.links,
-                task.sourceExternalId, task.officialStatus))
+                task.sourceExternalId,
+                trustedChaoxingPlatformStatus(
+                    task.provider, task.sourceExternalId, task.officialStatus
+                )))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
