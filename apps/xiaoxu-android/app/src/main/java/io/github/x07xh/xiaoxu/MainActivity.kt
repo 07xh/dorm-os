@@ -93,6 +93,7 @@ import io.github.x07xh.xiaoxu.ui.CampusRunPanel
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.xiaoxuPrimaryPageTransition
+import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
@@ -659,8 +660,21 @@ private fun NativeShell(
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
-                                if (profileSettingsRoute == "timetable-settings" ||
-                                    profileSettingsRoute == "timetable-editor") {
+                                // Reuse the existing settings-depth motion for the timetable
+                                // child. It must not bypass the settings host on entry/back.
+                                AnimatedContent(
+                                    targetState = profileSettingsRoute == "timetable-settings" ||
+                                        profileSettingsRoute == "timetable-editor",
+                                    transitionSpec = {
+                                        xiaoxuSettingsRouteTransition(
+                                            if (initialState) "detail" else "home",
+                                            if (targetState) "detail" else "home"
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxSize(),
+                                    label = "profileTimetableChild"
+                                ) { timetableChild ->
+                                    if (timetableChild) {
                                     // A native child of 我的/设置, not a switch to the timetable tab.
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
                                     // second full timetable page and glass dock during entry.
@@ -684,7 +698,9 @@ private fun NativeShell(
                                     )
                                 } else {
                                     ProfileSettingsPage(
-                                        route = profileSettingsRoute,
+                                        route = if (profileSettingsRoute == "timetable-settings" ||
+                                            profileSettingsRoute == "timetable-editor") "home"
+                                            else profileSettingsRoute,
                                         onRouteChange = { profileSettingsRoute = it },
                                         onScheduleSettings = {
                                             profileSettingsRoute = "timetable-settings"
@@ -701,6 +717,7 @@ private fun NativeShell(
                                         onMessages = { messagesOpen = true },
                                         onRefresh = { scope.launch { cloud.refresh() } }
                                     )
+                                }
                                 }
                             }
                         }
@@ -774,6 +791,19 @@ private fun AcademicPage(
     onMessages: () -> Unit
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
+    // Animate the whole academic child, including its header, as a single page.
+    // The second-class Room data and per-destination saveable state remain owned here.
+    AnimatedContent(
+        targetState = selected,
+        transitionSpec = {
+            xiaoxuSettingsRouteTransition(
+                if (initialState == AcademicDestination.OVERVIEW) "home" else "detail",
+                if (targetState == AcademicDestination.OVERVIEW) "home" else "detail"
+            )
+        },
+        modifier = Modifier.fillMaxSize(),
+        label = "academicChild"
+    ) { academicRoute ->
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -782,7 +812,7 @@ private fun AcademicPage(
             Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (selected != AcademicDestination.OVERVIEW) {
+            if (academicRoute != AcademicDestination.OVERVIEW) {
                 IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = "返回教务",
@@ -791,7 +821,7 @@ private fun AcademicPage(
             }
             Box(Modifier.weight(1f)) {
                 CompactPageHeading(
-                    title = when (selected) {
+                    title = when (academicRoute) {
                         AcademicDestination.OVERVIEW -> "教务"
                         AcademicDestination.GRADES -> "成绩"
                         AcademicDestination.EXAMS -> "考试"
@@ -802,7 +832,7 @@ private fun AcademicPage(
                 )
             }
         }
-        when (selected) {
+        when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
                     // One continuous glass surface; no nested rectangle around the four rows.
@@ -862,6 +892,7 @@ private fun AcademicPage(
                 }
             }
         }
+    }
     }
 }
 
