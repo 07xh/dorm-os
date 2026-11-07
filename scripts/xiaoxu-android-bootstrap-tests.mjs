@@ -726,11 +726,14 @@ assert.match(messageCenter, /state\.notices\.isNotEmpty\(\)/,
   "只有已读取的公告数量非零时，顶部来源标签才显示计数");
 assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
 assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
-assert.match(messageCenter, /title = "华水官方公告"/);
+assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
+  '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
 assert.match(messageCenter, /title = "微信候选"/);
 assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length >= 3, true,
-  '两个分区都要渲染分区标题');
+assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
+  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
+assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
+  '消息中心禁止持续显示面向开发人员的来源免责声明');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
 assert.doesNotMatch(messageCenter, /private fun SourceChip\(/,
   '来源摘要卡已退出消息主布局，防止第二套来源容器回流');
