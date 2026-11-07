@@ -357,15 +357,8 @@ fun MessageCenterPanel(
                 }
 
                 if (showOfficialSection) {
-                    item {
-                        SourceSectionHeader(
-                            icon = Icons.Outlined.MailOutline,
-                            title = "华水官方公告",
-                            badge = "官方网站",
-                            detail = if (query.isBlank()) "共 ${filtered.size} 条"
-                            else "匹配 ${filtered.size} 条"
-                        )
-                    }
+                    // Source tab shows the total; each notice retains its official-source
+                    // identity. Avoid a second full-width header before the first row.
                     items(count = filtered.size, key = { index -> noticeKeys[index] }) { index ->
                         val notice = filtered[index]
                         NoticeCard(
@@ -400,7 +393,6 @@ fun MessageCenterPanel(
                     }
                 }
 
-                item { MessageFooterNote() }
             }
         }
     }
@@ -974,14 +966,3 @@ private fun MessageSkeleton() {
     )
 }
 
-@Composable
-private fun MessageFooterNote() {
-    Text(
-        text = "官方公告来自学校官网，只有标题、分类、日期标签与原文链接；" +
-            "微信候选来自本人已绑定的电脑，未经学校核验，需逐条确认。" +
-            "未连接、读取失败或来源未验证时，不填充任何演示消息。",
-        style = MaterialTheme.typography.labelSmall,
-        color = XiaoxuPalette.Ink3,
-        modifier = Modifier.padding(top = 6.dp)
-    )
-}
