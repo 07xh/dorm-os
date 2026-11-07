@@ -46,3 +46,21 @@ https://github.com/xiaomanjun233/SleepDown-Schedule
   - 未复用上游的 LiquidBottomTabs、glass 模块、界面资源或应用包结构；
     悬浮胶囊渲染层 ui/FloatingBottomBar.kt 为本项目自行编写。
   - 若未来改为商业分发，必须先移除上述两个文件并换用自研动画驱动。
+
+------------------------------------------------------------------
+北化课表 / CourseSelector v1.0.83 — GNU GPL version 3 (GPL-3.0)
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/v1.0.83
+Copyright: original authors and contributors (see upstream Git history).
+License text included in this APK: assets/LICENSE-GPL-3.0.txt
+
+The Android 13+ navigation material, lens rendering recipe, Phosphor icon
+paths, animation playback and responsive layout were adapted from the upstream
+GPL-3.0 source into this project's existing one-shell Compose navigation.
+Adapted paths: ui/NorthGlassNavChrome.kt, ui/PrimaryBottomGeometry.kt,
+ui/northglass/*, ui/PrimaryNavigation.kt and ui/FloatingBottomBar.kt.
+Uses io.github.kyant0:backdrop:2.0.0-alpha03 and shapes:1.2.0.
+
+Distribution warning: combining the GPLv3 UI adaptation with the existing
+non-commercial SleepDown-derived animation code has NOT been cleared for
+public redistribution. This is a development/QA integration; publicly
+distributing APKs requires a separate license compatibility/source review.
