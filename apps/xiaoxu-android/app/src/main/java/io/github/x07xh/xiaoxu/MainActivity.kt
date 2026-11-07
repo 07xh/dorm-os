@@ -577,17 +577,9 @@ private fun NativeShell(
                 if (navBackdrop != null) Modifier.layerBackdrop(navBackdrop) else Modifier
             ),
             containerColor = Color.Transparent,
-            topBar = {
-                // Every main destination, including the locally imported timetable, opens the inbox.
-                if (!messagesOpen && current == MainDestination.HOME) XiaoxuTopBar(
-                    title = "今日",
-                    subtitle = null,
-                    refreshing = current != MainDestination.SCHEDULE && cloud.state.busy,
-                    onRefresh = if (current == MainDestination.SCHEDULE) null
-                        else ({ scope.launch { cloud.refresh() } }),
-                    onMessages = { messagesOpen = true }
-                )
-            },
+            // Keep Scaffold measurements stable while switching tabs. HOME owns
+            // its own header within the animated page; other tabs already have headers.
+            topBar = {},
             bottomBar = {
                 if (!tabletLayout && showPrimaryNavigation) {
                     // Layout-only reserve. Actual dock sits outside the sampled subtree.
@@ -620,11 +612,24 @@ private fun NativeShell(
                                 forward = targetState.ordinal >= initialState.ordinal
                             )
                         },
+                        modifier = Modifier.fillMaxSize().clipToBounds(),
                         label = "page"
                     ) { page ->
                         pageStateHolder.SaveableStateProvider(page.name) {
+                        // Full-size opaque layers and bounds clipping prevent old
+                        // page labels from showing through while rapidly changing tabs.
+                        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
                         when (page) {
-                            MainDestination.HOME -> RealAcademicHome(localTasks, client = cloud,
+                            MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
+                                XiaoxuTopBar(
+                                    title = "今日",
+                                    subtitle = null,
+                                    refreshing = cloud.state.busy,
+                                    onRefresh = { scope.launch { cloud.refresh() } },
+                                    onMessages = { messagesOpen = true }
+                                )
+                                Box(Modifier.weight(1f)) {
+                                RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
                                 openSchedule = { current = MainDestination.SCHEDULE },
                                 openTasks = { current = MainDestination.TASKS },
@@ -646,6 +651,8 @@ private fun NativeShell(
                                 },
                                 openSecondClass = { openSecondClass() },
                                 openArticle = openArticle)
+                                }
+                            }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
@@ -725,6 +732,7 @@ private fun NativeShell(
                                     }
                                 }
                             }
+                        }
                         }
                         }
                     }
