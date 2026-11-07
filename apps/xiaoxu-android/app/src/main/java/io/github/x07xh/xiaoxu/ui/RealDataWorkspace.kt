@@ -114,7 +114,8 @@ internal data class WorkspaceTask(
     val storage: String,
     val category: String = storage,
     val revision: Int = -1,
-    val provider: String? = null
+    val provider: String? = null,
+    val links: List<String> = emptyList()
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -147,7 +148,7 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 task.status == "done", parseWorkspaceDue(task.due),
                 "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
-                task.revision, task.provider))
+                task.revision, task.provider, task.links))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -1493,6 +1494,9 @@ internal fun WorkspaceTaskDetailSheet(
             else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (selectedTask.category == "wechat") {
+            WechatTaskLinkActions(selectedTask.links)
+        }
         if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
             OutlinedButton(
                 onClick = onVerifyChaoxing,
