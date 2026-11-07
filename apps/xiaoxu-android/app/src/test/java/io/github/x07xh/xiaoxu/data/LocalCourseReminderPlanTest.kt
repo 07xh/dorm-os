@@ -27,6 +27,21 @@ class LocalCourseReminderPlanTest {
         assertEquals(19 * 60 * 60 * 1000L + 45 * 60 * 1000L, result.first().delayMillis)
     }
 
+    @Test fun changingReminderLeadReplansBeforeSameClassAndRejectsInvalidMinutes() {
+        val now = ZonedDateTime.of(2026, 9, 6, 12, 0, 0, 0, zone)
+        val earlier = planCourseReminders(listOf(lesson), config, now, leadMinutes = 30).first()
+        val later = planCourseReminders(listOf(lesson), config, now, leadMinutes = 5).first()
+        assertEquals(earlier.expectedStartEpoch, later.expectedStartEpoch)
+        assertEquals(25L * 60L * 1000L, later.delayMillis - earlier.delayMillis)
+        val previous = setOf("class-${earlier.expectedStartEpoch}-lead30")
+        val desired = setOf("class-${later.expectedStartEpoch}-lead5")
+        assertEquals(previous, reminderWorkDelta(previous, desired).toCancel)
+        assertEquals(desired, reminderWorkDelta(previous, desired).toEnqueue)
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            planCourseReminders(listOf(lesson), config, now, leadMinutes = 61)
+        }
+    }
+
     @Test fun unchangedTimetableDoesNotResubmitExistingJobs() {
         val existing = setOf("monday-math", "tuesday-english")
         val unchanged = reminderWorkDelta(existing, existing)

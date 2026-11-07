@@ -50,9 +50,11 @@ internal fun planCourseReminders(
     lessons: List<VerifiedLesson>,
     calendar: SemesterCalendar,
     now: ZonedDateTime,
-    horizonDays: Long = 14
+    horizonDays: Long = 14,
+    leadMinutes: Int = 15
 ): List<CourseReminderPlan> {
     require(horizonDays in 1..31)
+    require(leadMinutes in 0..60)
     val result = mutableListOf<CourseReminderPlan>()
     lessons.forEach { lesson ->
         val start = calendar.sectionTimes[lesson.startSection]?.start ?: return@forEach
@@ -60,7 +62,7 @@ internal fun planCourseReminders(
             val date = calendar.dateFor(week, lesson.weekday) ?: return@weekLoop
             if (date.isAfter(now.toLocalDate().plusDays(horizonDays))) return@weekLoop
             val target = date.atTime(start).atZone(now.zone)
-            val delay = ChronoUnit.MILLIS.between(now.toInstant(), target.minusMinutes(15).toInstant())
+            val delay = ChronoUnit.MILLIS.between(now.toInstant(), target.minusMinutes(leadMinutes.toLong()).toInstant())
             if (delay > 0) {
                 result += CourseReminderPlan(
                     id = lesson.id,
@@ -108,6 +110,7 @@ internal fun remappedCourseIds(
 object LocalCourseReminders {
     private const val PREFS = "xiaoxu-course-reminders-v1"
     private const val ENABLED = "enabled"
+    private const val LEAD_MINUTES = "lead-minutes"
     private const val COURSE_PREFIX = "course-enabled-"
     private const val ACTIVE_NAMES = "scheduled-names"
     private const val TAG = "xiaoxu-course-reminder"
@@ -117,6 +120,17 @@ object LocalCourseReminders {
     fun enabled(context: Context): Boolean =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(ENABLED, false)
+
+    /** Device-local preference, bounded to prevent scheduling unreasonable alarms. */
+    fun leadMinutes(context: Context): Int =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(LEAD_MINUTES, 15).coerceIn(0, 60)
+
+    fun setLeadMinutes(context: Context, value: Int): Boolean {
+        require(value in 0..60)
+        return context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(LEAD_MINUTES, value).commit()
+    }
 
     /** Explicit per-course choice overrides the default reminder setting. */
     fun enabledForCourse(context: Context, lessonId: String): Boolean {
@@ -220,10 +234,12 @@ object LocalCourseReminders {
         val manager = WorkManager.getInstance(app)
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val selectedLessons = lessons.filter { enabledForCourse(app, it.id) }
+        val lead = leadMinutes(app)
         val plans = if (calendar == null) emptyList()
-            else planCourseReminders(selectedLessons, calendar, ZonedDateTime.now(zone))
+            else planCourseReminders(selectedLessons, calendar, ZonedDateTime.now(zone), leadMinutes = lead)
         val desired = plans.associateBy { plan ->
-            "xiaoxu-course-${plan.id}-${plan.day}-${plan.expectedStartEpoch}"
+            // Lead changes must replace persisted jobs, even with identical start times.
+            "xiaoxu-course-${plan.id}-${plan.day}-${plan.expectedStartEpoch}-lead$lead"
         }
         val previous = prefs.getStringSet(ACTIVE_NAMES, emptySet()).orEmpty().toSet()
         // Existing jobs survive activity restarts; alter only the changed work names.
@@ -235,6 +251,7 @@ object LocalCourseReminders {
                 .putString("id", plan.id)
                 .putString("date", plan.day.toString())
                 .putLong("startEpoch", plan.expectedStartEpoch)
+                .putInt("leadMinutes", lead)
                 .build()
             val work = OneTimeWorkRequestBuilder<LocalCourseReminderWorker>()
                 .setInitialDelay(plan.delayMillis, TimeUnit.MILLISECONDS)
@@ -289,7 +306,10 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
         val date = runCatching { LocalDate.parse(dateText) }.getOrNull()
             ?: return Result.success()
         val expectedStart = inputData.getLong("startEpoch", -1L)
-        if (expectedStart <= 0L || !LocalCourseReminders.canNotify(applicationContext)) {
+        val expectedLead = inputData.getInt("leadMinutes", 15)
+        if (expectedStart <= 0L || expectedLead !in 0..60 ||
+            expectedLead != LocalCourseReminders.leadMinutes(applicationContext) ||
+            !LocalCourseReminders.canNotify(applicationContext)) {
             return Result.success()
         }
         val config = LocalSemesterConfigStore.load(applicationContext) ?: return Result.success()
@@ -302,8 +322,11 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
             } == true
         } ?: return Result.success()
         val startAt = java.time.Instant.ofEpochSecond(expectedStart)
-        if (now.toInstant().isBefore(startAt.minusSeconds(18 * 60)) ||
-            !now.toInstant().isBefore(startAt.plusSeconds(5 * 60))) return Result.success()
+        val plannedAt = startAt.minusSeconds(expectedLead * 60L)
+        // Never replay old or heavily delayed jobs after the reminder's useful window.
+        if (now.toInstant().isBefore(plannedAt.minusSeconds(3 * 60L)) ||
+            now.toInstant().isAfter(plannedAt.plusSeconds(10 * 60L)) ||
+            !now.toInstant().isBefore(startAt.plusSeconds(5 * 60L))) return Result.success()
         LocalCourseReminders.deliver(applicationContext, lesson)
         return Result.success()
     }
