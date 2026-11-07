@@ -123,8 +123,25 @@ object XiaoxuPalette {
         listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.015f))
     )
     val SheetSheen = Brush.verticalGradient(
-        listOf(Color(0xFFFCFDFF), Color(0xFFF5F7FF), Color(0xFFFAF8FD))
+        listOf(Color(0xFFFCFDFF), Color(0xFFF5F7FB), Color(0xFFFAF9FD))
     )
+    /** 北化式材质分工：仅悬浮控件带高光，普通内容卡仍使用稳定浅色底。 */
+    val GlassControlSurface = Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.48f),
+        1f to Color.White.copy(alpha = 0.24f)
+    )
+    /** 单条白色柔性边缘高光；不再叠加第二层深灰 Card 描边。 */
+    val GlassRim = Brush.linearGradient(
+        0.00f to Color.White.copy(alpha = 0.98f),
+        0.34f to Color.White.copy(alpha = 0.65f),
+        0.72f to Color.White.copy(alpha = 0.34f),
+        1.00f to Color.White.copy(alpha = 0.78f)
+    )
+    /** 无可采样 Backdrop 的 Dialog 保持可读的静态模态材质。 */
+    val GlassModalFallback = Brush.linearGradient(
+        listOf(Color(0xFFFBFDFF), Color(0xFFF3F7FC), Color(0xFFF9F8FE))
+    )
+    val SheetInfoSurface = Color.White.copy(alpha = 0.58f)
 
     /** Touch feedback is pale blue, never a default dark rectangular ripple. */
     val PressTint = Color(0xFF4D86D9).copy(alpha = 0.12f)
@@ -330,11 +347,19 @@ internal fun XiaoxuSoftIconButton(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.Transparent,
+    glassChrome: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(48.dp).clip(CircleShape).background(backgroundColor)
+        modifier = modifier.size(48.dp).clip(CircleShape)
+            .background(backgroundColor)
+            // Capture-free glass fallback: only floating controls get this rim.
+            // Keep the click indicator after clipping to prevent square dark flashes.
+            .then(if (glassChrome) Modifier
+                .background(XiaoxuPalette.GlassControlSurface)
+                .border(0.5.dp, XiaoxuPalette.GlassRim, CircleShape)
+                else Modifier)
             .clickable(
                 enabled = enabled, role = Role.Button, interactionSource = source,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
@@ -432,8 +457,10 @@ fun XiaoxuSegmentedControl(
     Row(
         modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).clip(track)
             .background(if (compact) XiaoxuPalette.SurfaceAlt else XiaoxuPalette.GlassTrack)
-            .border(XiaoxuSpacing.glassStroke,
-                if (compact) Color(0xFFD6E0F0) else XiaoxuPalette.GlassBorder, track)
+            .then(if (compact) Modifier.border(
+                XiaoxuSpacing.glassStroke, Color(0xFFD6E0F0), track
+            ) else Modifier.background(XiaoxuPalette.GlassControlSurface)
+                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, track))
             .padding(if (compact) 3.dp else 4.dp).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -456,9 +483,13 @@ fun XiaoxuSegmentedControl(
                     .clip(itemShape).background(itemColor)
                     // The track owns the outline: avoid a second dark rim
                     // around ordinary selected tabs while retaining compact styling.
-                    .then(if (selected && compact) Modifier.border(
-                        XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
-                    ) else Modifier)
+                    .then(
+                        if (selected && compact) Modifier.border(
+                            XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
+                        ) else if (selected) Modifier.border(
+                            XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, itemShape
+                        ) else Modifier
+                    )
                     .selectable(selected = selected, role = Role.Tab,
                         onClick = { if (!selected) onSelected(option.key) }),
                 contentAlignment = Alignment.Center
@@ -485,7 +516,7 @@ internal fun XiaoxuGroupSurface(
         modifier = modifier.fillMaxWidth().clip(shape)
             .background(XiaoxuPalette.GlassCard)
             .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
             .padding(vertical = verticalPadding),
         content = content
     )
@@ -775,17 +806,8 @@ fun XiaoxuGlassDialog(
                 .widthIn(max = 560.dp)
                 .heightIn(max = maxDialogHeight)
                 .clip(shape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xFFE5F3FF),
-                            Color(0xFFF5F0FF),
-                            Color(0xFFE7F8F6),
-                            Color(0xFFF9F2FC)
-                        )
-                    )
-                )
-                .border(0.5.dp, Color.White.copy(alpha = 0.82f), shape)
+                .background(XiaoxuPalette.GlassModalFallback)
+                .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -935,6 +957,7 @@ internal fun XiaoxuToolbarAction(
     XiaoxuSoftIconButton(
         modifier = Modifier.size(42.dp),
         backgroundColor = if (emphasized) XiaoxuPalette.BrandSoft else Color.Transparent,
+        glassChrome = true,
         enabled = enabled,
         onClick = onClick
     ) {
@@ -989,7 +1012,7 @@ fun XiaoxuTopBar(
             }
         }
         if (onMessages != null) {
-            XiaoxuSoftIconButton(onClick = onMessages) {
+            XiaoxuSoftIconButton(onClick = onMessages, glassChrome = true) {
                 Icon(
                     imageVector = Icons.Outlined.NotificationsNone,
                     contentDescription = "打开消息中心",
@@ -998,7 +1021,7 @@ fun XiaoxuTopBar(
             }
         }
         if (onRefresh != null) {
-            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
+            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing, glassChrome = true) {
                 if (refreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
@@ -1031,7 +1054,7 @@ fun QuickEntry(
             .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.card))
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(XiaoxuRadius.card))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, RoundedCornerShape(XiaoxuRadius.card))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },
