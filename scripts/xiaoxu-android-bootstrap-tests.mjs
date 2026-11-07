@@ -2103,6 +2103,8 @@ assert.match(workspace, /pendingWechatTaskUpdates\[row\.key\] = checked/,
   '点击立即反馈，不等待网络返回才能勾选');
 assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
   '成功确认与失败回滚均清理临时状态');
+assert.match(workspace, /if \(!confirmed\) \{[\s\S]*?Toast\.makeText\([\s\S]*?client\.state\.privateError/,
+  '微信任务状态写入未确认时须立即提示，不得仅把错误显示在列表末尾');
 assert.match(workspace, /val statusText = if \(isPending\) "保存中…"/,
   '尚未收到云端回执时必须明确显示保存中');
 assert.match(workspace, /modifier = Modifier\.animateItem\(/,
