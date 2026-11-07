@@ -152,6 +152,15 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
 
+/** Only self-entered dates are reliable as personal task deadlines.
+ * CloudTask has no verified school deadline or work-ID provenance yet.
+ */
+internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: LocalDate): Int =
+    tasks.count { task ->
+        task.storage == "local" && !task.done &&
+            task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
+    }
+
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -163,7 +172,7 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         when (filter) {
             "pending" -> !task.done
             "done" -> task.done
-            "week" -> !task.done && thisWeek(task.date, today)
+            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -175,7 +184,8 @@ internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
-        (!thisWeekOnly || (!task.done && thisWeek(task.date, today)))
+        (!thisWeekOnly || (task.storage == "local" && !task.done &&
+            thisWeek(task.date, today)))
 }
 
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
@@ -237,9 +247,7 @@ fun RealAcademicHome(
     val pending = all.count { !it.done }
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
-    val attention = all.count { !it.done && it.storage == "local" &&
-        it.date != null && !it.date.isBefore(today) &&
-        !it.date.isAfter(today.plusDays(3)) }
+    val attention = countUpcomingLocalDeadlines(all, today)
     val upcoming = all.filter { !it.done }.take(3)
     val cloudSnapshotRows = state.tasks.size
     // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
