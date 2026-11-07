@@ -416,11 +416,11 @@ fun XiaoxuExpandableGlassRow(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val rotation by animateFloatAsState(
+    val rotation = animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "glass-row-chevron"
-    )
+    ).value
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
         Row(
             modifier = Modifier.fillMaxWidth()
