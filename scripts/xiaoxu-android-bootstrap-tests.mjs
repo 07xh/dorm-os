@@ -1267,7 +1267,7 @@ assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
 // Never let CAS pages or network failures become an extractable work list.
 assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
 assert.match(localNative, /override fun onReceivedError\(/);
-assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pageFailed = true/);
+assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pendingOfficialCatalogRead = false\s*pageFailed = true/);
 assert.match(localNative, /private fun invalidateCapture\(\) \{\s*captureEpoch\+\+\s*scoreSaveJob\?\.cancel\(\)/);
 assert.match(localNative, /scoreSaveJob = lifecycleScope\.launch/);
 assert.match(localNative, /currentCoroutineContext\(\)\.ensureActive\(\)/);
