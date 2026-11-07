@@ -1278,10 +1278,18 @@ fun RealAcademicTaskHub(
                                             pendingWechatTaskUpdates[row.key] = checked
                                             taskScope.launch {
                                                 try {
-                                                    client.setWechatTaskCompleted(
+                                                    val confirmed = client.setWechatTaskCompleted(
                                                         row.key.removePrefix("cloud:"),
                                                         row.revision, checked
                                                     )
+                                                    if (!confirmed) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            client.state.privateError
+                                                                ?: "微信任务保存未确认，请刷新后重试",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
                                                 } finally {
                                                     pendingWechatTaskUpdates.remove(row.key)
                                                 }
