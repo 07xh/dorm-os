@@ -5,3 +5,5 @@
 产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版。
 验证：静态边界测试、Android 编译、JVM 回归、APK SHA256；真机流畅度、灰边及原版对照仍单独验收。
 不得自动合并 main；不得替换正式包或声称真机验收完成。
+
+QA 2026-11-07 screen-recording regression: opaque full-screen child backgrounds + bounded transitions. Exact UI base SHA aaa7633b416144fd389bca91075de645f4f62b88; ensure settings notifications/backup/about and academic/timetable have no label ghosting. No changes to business logic; no auto-merge.
