@@ -1,7 +1,6 @@
 package io.github.x07xh.xiaoxu.data
 
 import java.math.BigDecimal
-import java.util.concurrent.CancellationException
 
 /**
  * The owner's earlier HAR exposes only r/s/v, not these inner JSON fields.
@@ -83,7 +82,7 @@ private fun observedLong(data: Map<String, Any?>, key: String?): Long? {
 
 private fun observedInt(data: Map<String, Any?>, key: String?): Int? {
     val number = observedLong(data, key) ?: return null
-    require(number in Int.MIN_VALUE..Int.MAX_VALUE) { "invalid_integer" }
+    require(number in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) { "invalid_integer" }
     return number.toInt()
 }
 
@@ -140,8 +139,9 @@ fun mapCampusRunDecodedHistoryRecord(
         complete == true && isValid == true -> CampusRunRecordStatus.VALID
         else -> CampusRunRecordStatus.UNKNOWN
     }
-    val start = observedLong(fields, bindings.startedAtKey)?.let {
-        Math.multiplyExact(it, bindings.startedAtUnit!!.millisMultiplier)
+    val start = observedLong(fields, bindings.startedAtKey)?.let { epoch ->
+        try { Math.multiplyExact(epoch, bindings.startedAtUnit!!.millisMultiplier) }
+        catch (_: ArithmeticException) { throw IllegalArgumentException("invalid_start_time") }
     }
     return CampusRunRecord(
         recordKey = recordKey,
