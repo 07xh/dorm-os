@@ -1685,8 +1685,8 @@ class CloudClient(context: Context) {
                 })
                 return false
             }
-            val newRevision = item.optLong("revision", -1L)
-            if (item.optBoolean("unchanged", true) ||
+            val newRevision = item?.optLong("revision", -1L) ?: -1L
+            if ((item?.optBoolean("unchanged", true) ?: true) ||
                 newRevision != revision.toLong() + 1L ||
                 newRevision > Int.MAX_VALUE) {
                 state = state.copy(privateError = "云端计划可能已变更，请刷新后核对")
