@@ -119,10 +119,10 @@ internal fun SemesterSettingsPage(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
+                XiaoxuSoftIconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(46.dp)
-                        .clip(CircleShape).background(Color.White.copy(alpha = 0.65f))
+                    modifier = Modifier.size(46.dp),
+                    backgroundColor = Color.White.copy(alpha = 0.65f)
                 ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课表设置") }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text("课表设置", fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
