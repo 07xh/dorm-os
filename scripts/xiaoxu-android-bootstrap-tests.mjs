@@ -1426,7 +1426,10 @@ assert.match(localNative, /CHAOXING_HOMEWORK/);
 assert.match(localNative, /"学习通 · 打开我的作业"/);
 assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
 assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
-assert.match(localNative, /li\[onclick\*="goTask"\]/);
+assert.match(localNative, /li\[data\]/,
+ '已完成作业即使没有 goTask 点击处理器也能读出标题与状态');
+assert.doesNotMatch(localNative, /li\[onclick\*="goTask"\]/,
+ '旧 onclick-only 选择器不得重新引入');
 assert.match(localNative, /p\.overHidden2\.fl/);
 assert.match(localNative, /p\.status\.fl/);
 assert.match(localNative, /foundKind === 'homework'/);
@@ -1442,7 +1445,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
       querySelectorAll(selector) {
         if(selector==='iframe')return [];
         if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
-        if(selector==='li[onclick*="goTask"]')return li;
+        if(selector==='li[data]')return li;
         if(selector.includes('.course-name'))return courses;
         return [];
       }
@@ -1467,6 +1470,18 @@ assert.equal(workResult.kind,'homework');
 assert.equal(workResult.records.length,1);
 assert.equal(workResult.records[0].title,'工程制图 第三次作业');
 assert.match(workResult.records[0].details,/未提交/);
+const completedWorkLi=visible({
+  querySelector(sel) {
+    if(sel==='p.overHidden2.fl')return {innerText:'工程制图 已完成作业'};
+    if(sel==='p.status.fl')return {innerText:'已完成'};
+    return null;
+  }
+});
+const completedWorkResult=parseNativePage(fixtureDocument({li:[completedWorkLi]}),
+ 'mooc1.chaoxing.com','/mooc2/work/list');
+assert.equal(completedWorkResult.records.length,1,
+ '没有 onclick 的已完成记录不能被本机 DOM 筛掉');
+assert.match(completedWorkResult.records[0].details,/已完成/);
 assert.ok(!JSON.stringify(workResult).includes('workEnc'));
 const courseTitle=visible({getAttribute(key){return key==='title'?'高等数学':null;},innerText:'高等数学'});
 const courseResult=parseNativePage(fixtureDocument({courses:[courseTitle]}),
