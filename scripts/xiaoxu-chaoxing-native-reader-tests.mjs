@@ -193,7 +193,7 @@ const wrongPage = runReader({host:'task.chaoxing.com',
 assert.equal(wrongPage.records.length,0);
 
 assert.match(native,/path == "\/userStudyPlan\/studyPlanSubPage"/);
-assert.match(native,/kind in kinds/);
+assert.match(native,/if \(kind !in kinds\)/);
 assert.match(records,/nativeChaoxingVisibleStatus/);
 assert.match(records,/kind in setOf\("course", "homework", "study_task"\)/);
 assert.match(records,/sourceHost !in setOf/);
