@@ -1120,7 +1120,7 @@ fun RealAcademicTaskHub(
             }
         } else {
             if (cloudRows.isNotEmpty()) {
-                item {
+                item(key = "group:course") {
                     TaskGroupHeader(
                         title = "课程任务",
                         count = cloudRows.size,
@@ -1141,7 +1141,7 @@ fun RealAcademicTaskHub(
                 }
             }
             if (wechatRows.isNotEmpty()) {
-                item {
+                item(key = "group:wechat") {
                     TaskGroupHeader(
                         title = "微信任务",
                         count = wechatRows.size,
@@ -1150,6 +1150,11 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.ChatBubbleOutline,
                         expanded = showWechatTasks,
                         joinedRows = true,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(140),
+                            placementSpec = tween(180),
+                            fadeOutSpec = tween(140)
+                        ),
                         onClick = { showWechatTasks = !showWechatTasks }
                     )
                 }
@@ -1194,7 +1199,7 @@ fun RealAcademicTaskHub(
                 }
             }
             if (localRows.isNotEmpty()) {
-                item {
+                item(key = "group:local") {
                     TaskGroupHeader(
                         title = "本机任务",
                         count = localRows.size,
@@ -1603,7 +1608,8 @@ private fun TaskGroupHeader(
     expanded: Boolean,
     onClick: () -> Unit,
     showCount: Boolean = true,
-    joinedRows: Boolean = false
+    joinedRows: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val shape = if (joinedRows && expanded) RoundedCornerShape(
         topStart = XiaoxuRadius.card, topEnd = XiaoxuRadius.card,
@@ -1615,7 +1621,7 @@ private fun TaskGroupHeader(
         label = "task-group-chevron"
     )
     Row(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .padding(top = 8.dp)
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
