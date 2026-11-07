@@ -1610,8 +1610,8 @@ assert.match(pageMotion, /slideOutHorizontally\(SettingsPageSlide\) \{ width -> 
   '旧设置页应减少视差位移，避免与新页同时大幅运动');
 assert.match(main, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\),\s*label = "page"/,
   '五个主页面的动画容器必须裁剪边界');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{\s*Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\)/,
-  '主标签切换时旧内容不得从透明背景穿透新页面');
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
+  '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
 assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBounds\(\)/,
