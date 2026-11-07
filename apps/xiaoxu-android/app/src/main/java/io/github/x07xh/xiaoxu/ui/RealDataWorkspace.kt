@@ -887,15 +887,9 @@ fun RealAcademicTaskHub(
     // All optional rows must be counted. Fixed indexes shifted when old helper lines
     // were removed, so local/cloud buttons could land on the wrong section.
     val taskListState = rememberLazyListState()
-    // LazyColumn normally anchors by item key. Expanding a large group while
-    // the header is partially on screen can otherwise move the viewport.
-    // Pin the current visible index/offset for the next measurement only.
-    val pinTaskListViewport = {
-        taskListState.requestScrollToItem(
-            taskListState.firstVisibleItemIndex,
-            taskListState.firstVisibleItemScrollOffset
-        )
-    }
+    // Section headers and task rows use stable keys below. Let LazyColumn
+    // preserve the visible item by key when preceding rows are inserted or
+    // removed. Forcing an old numeric index would jump to a different row.
     var jumpTo by remember { mutableStateOf<String?>(null) }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
@@ -1235,10 +1229,7 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.MenuBook,
                         expanded = showCourseTasks,
                         joinedRows = true,
-                        onClick = {
-                            pinTaskListViewport()
-                            showCourseTasks = !showCourseTasks
-                        }
+                        onClick = { showCourseTasks = !showCourseTasks }
                     )
                 }
                 if (showCourseTasks) {
@@ -1262,10 +1253,7 @@ fun RealAcademicTaskHub(
                         // No placement animation: when course tasks above this
                         // group expand/collapse, its header must not visibly chase
                         // a stale LazyColumn position.
-                        onClick = {
-                            pinTaskListViewport()
-                            showWechatTasks = !showWechatTasks
-                        }
+                        onClick = { showWechatTasks = !showWechatTasks }
                     )
                 }
                 if (showWechatTasks) {
@@ -1313,10 +1301,7 @@ fun RealAcademicTaskHub(
                         icon = Icons.Outlined.CheckBox,
                         expanded = showPersonalTasks,
                         joinedRows = true,
-                        onClick = {
-                            pinTaskListViewport()
-                            showPersonalTasks = !showPersonalTasks
-                        }
+                        onClick = { showPersonalTasks = !showPersonalTasks }
                     )
                 }
                 if (showPersonalTasks) {
