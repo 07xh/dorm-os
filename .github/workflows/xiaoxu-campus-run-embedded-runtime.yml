@@ -1,0 +1,98 @@
+name: Xiaoxu Campus Run Embedded Python Runtime Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'integrations/campus-run-readonly/android-runtime-smoke/**'
+      - '.github/workflows/xiaoxu-campus-run-embedded-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chaquopy-readonly-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned MIT OSS read-only source only
+        uses: actions/checkout@v4
+        with:
+          repository: Inverx/com.zjwh.android_wh_physicalfitness
+          ref: 412a2e28bed209201057bf8b943fcd0a0e2211c1
+          path: upstream-campus-run
+          sparse-checkout: |
+            协议/7.3.92/core
+            协议/7.3.92/profile
+            协议/7.3.92/policy
+            协议/7.3.92/history
+      - name: Copy source into isolated test app
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_root='upstream-campus-run/协议/7.3.92'
+          target='integrations/campus-run-readonly/android-runtime-smoke/app/src/main/python'
+          for pkg in core profile policy history; do
+            test -f "$source_root/$pkg/client.py"
+            cp -R "$source_root/$pkg" "$target/"
+          done
+          test -f "$target/readonly_runtime_smoke.py"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK used by standalone runtime
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Package arm64 read-only Python modules without changing the main App
+        run: |
+          gradle -p integrations/campus-run-readonly/android-runtime-smoke \
+            :app:assembleDebug --no-daemon --stacktrace
+          f='integrations/campus-run-readonly/android-runtime-smoke/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$f"
+          echo "Embedded Python smoke APK size (bytes): $(stat -c %s "$f")"
+          mkdir -p integrations/campus-run-readonly/android-runtime-smoke/metrics
+          printf 'arm64_apk_bytes=%s\n' "$(stat -c %s "$f")" > integrations/campus-run-readonly/android-runtime-smoke/metrics/build.txt
+      - name: Retain installable ARM64 offline CPU smoke APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-run-cpu-smoke-arm64-NOT-XIAOXU
+          path: integrations/campus-run-readonly/android-runtime-smoke/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Import pinned OSS read modules inside Android emulator (offline)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            set -euo pipefail
+            adb logcat -c
+            gradle -p integrations/campus-run-readonly/android-runtime-smoke \
+              :app:connectedDebugAndroidTest -PcampusRunSmokeEmulator --no-daemon --stacktrace
+            metrics='integrations/campus-run-readonly/android-runtime-smoke/metrics'
+            mkdir -p "$metrics"
+            adb logcat -d -s CAMPUS_RUN_PERF:I '*:S' | tee "$metrics/emulator-performance.log"
+            test "$(grep -c 'CAMPUS_RUN_PERF' "$metrics/emulator-performance.log")" -ge 4
+            apk='integrations/campus-run-readonly/android-runtime-smoke/app/build/outputs/apk/debug/app-debug.apk'
+            echo "emulator_x86_64_apk_bytes=$(stat -c %s "$apk")" | tee -a "$metrics/build.txt"
+            echo "emulator_abi=$(adb shell getprop ro.product.cpu.abi | tr -d '\r')" | tee -a "$metrics/build.txt"
+      - name: Retain non-sensitive isolated-runtime performance measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-run-embedded-python-perf
+          path: integrations/campus-run-readonly/android-runtime-smoke/metrics/
+          if-no-files-found: warn
+          retention-days: 7
