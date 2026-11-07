@@ -549,8 +549,19 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     val details = row.optString("details").trim()
                     if (title.isBlank() || title.length > 100 ||
                         details.length > 350) throw IllegalArgumentException("invalid data")
+                    // A validated official work tuple gives this local
+                    // snapshot stable identity across status changes. Never
+                    // persist the signed URL or session token from li[data].
+                    val sourceKey = row.optString("sourceKey").trim()
+                    if (sourceKey.isNotEmpty() && (
+                        provider != "chaoxing" || kind != "homework" ||
+                        host != "mooc1.chaoxing.com" ||
+                        !sourceKey.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))))
+                        throw IllegalArgumentException("invalid school work identity")
+                    val identity = if (sourceKey.isNotEmpty()) sourceKey
+                        else title + "|" + details
                     val fingerprint = MessageDigest.getInstance("SHA-256")
-                        .digest((provider + "|" + kind + "|" + title + "|" + details)
+                        .digest((provider + "|" + kind + "|" + identity)
                             .toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
                     if (keys.add(fingerprint)) accepted.add(NativeSchoolRecord(
@@ -845,8 +856,29 @@ private const val READ_VISIBLE_PAGE = """
         if (!title) continue;
         const status = clean(li.querySelector('p.status.fl')?.innerText ||
           li.querySelector('p.status')?.innerText).slice(0,60);
-        rows.push({title,details: status ?
-          '当前网页显示的状态：' + status : '网页未展示提交状态'});
+        // Drop all signed query components. A trusted numeric tuple is
+        // sufficient for cross-source matching; never export li.data itself.
+        let sourceKey = '';
+        try {
+          const raw = li.getAttribute('data');
+          const link = new URL(raw, location.href);
+          const qp = link.searchParams, courseId = qp.get('courseId');
+          const classId = qp.get('classId'), workId = qp.get('workId') || qp.get('workid');
+          const num = value => /^\\d{1,24}$/.test(value || '');
+          if (link.protocol === 'https:' && link.hostname === 'mooc1.chaoxing.com' &&
+              ['/mooc-ans/mooc2/work/task','/mooc-ans/mooc2/work/dowork',
+               '/work/dowork'].includes(link.pathname) &&
+              !link.username && !link.password && !link.hash &&
+              [courseId, classId, workId].every(num) &&
+              qp.getAll('courseId').length === 1 &&
+              qp.getAll('classId').length === 1 &&
+              qp.getAll('workId').length + qp.getAll('workid').length === 1)
+            sourceKey = 'work:' + courseId + ':' + classId + ':' + workId;
+        } catch (_) {}
+        const details = status ? '当前网页显示的状态：' + status :
+          '网页未展示提交状态';
+        rows.push({title,details: sourceKey ?
+          details + ' · 官方作业身份：' + sourceKey : details,sourceKey});
         if (rows.length > MAX_RECORDS) break;
       }
     }
