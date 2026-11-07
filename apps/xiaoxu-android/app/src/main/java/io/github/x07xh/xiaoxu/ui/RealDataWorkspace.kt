@@ -115,7 +115,9 @@ internal data class WorkspaceTask(
     val category: String = storage,
     val revision: Int = -1,
     val provider: String? = null,
-    val links: List<String> = emptyList()
+    val links: List<String> = emptyList(),
+    val sourceExternalId: String? = null,
+    val officialStatus: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -148,13 +150,26 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 task.status == "done", parseWorkspaceDue(task.due),
                 "云端记录，需核对来源", "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
-                task.revision, task.provider, task.links))
+                task.revision, task.provider, task.links,
+                task.sourceExternalId, task.officialStatus))
         }
     }.sortedWith(compareBy<WorkspaceTask> { it.done }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
 
+/** Official status never overrides a user's personal checked state or
+ * becomes a verified due date. It is only a last-synced source status.
+ */
+internal fun officialTaskStatusLabel(status: String?): String? = when (status) {
+    "todo" -> "官方未提交"
+    "submitted" -> "官方已提交"
+    "graded" -> "官方已批阅"
+    "returned" -> "官方已退回"
+    "unknown" -> "官方状态未知"
+    else -> null
+}
+
 /** Only self-entered dates are reliable as personal task deadlines.
- * CloudTask has no verified school deadline or work-ID provenance yet.
+ * Some CloudTask records have source work IDs, but no verified due date.
  */
 internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: LocalDate): Int =
     tasks.count { task ->
@@ -1496,9 +1511,13 @@ internal fun WorkspaceTaskDetailSheet(
                 if (selectedTask.done) XiaoxuTone.Success else XiaoxuTone.Neutral)
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
-        Text("截止：" + selectedDue.label, style = MaterialTheme.typography.bodyMedium)
-        Text(if (selectedTask.storage == "cloud") {
-            if (tasksFresh) "云端任务记录；不代表学习通官方截止或提交状态"
+        Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
+            selectedDue.label, style = MaterialTheme.typography.bodyMedium)
+        Text(if (selectedTask.officialStatus != null) {
+            "上次官方同步：" + officialTaskStatusLabel(selectedTask.officialStatus) +
+                " · 与个人完成标记分开"
+        } else if (selectedTask.storage == "cloud") {
+            if (tasksFresh) "云端任务记录；尚无可核对的学校提交状态"
             else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
@@ -1511,8 +1530,9 @@ internal fun WorkspaceTaskDetailSheet(
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
             ) { Text("打开学习通核对") }
             Text(
-                "官方核验结果在任务中心的「学习通 · 官方作业核验」查看；" +
-                    "本条云端记录尚无对应的官方作业 ID，不能自动标记为已核实。",
+                if (selectedTask.officialStatus != null)
+                    "已关联学习通来源作业 ID。状态以最近一次可信同步为准，刷新后再核对。"
+                else "本条记录尚无可关联的官方作业 ID，请在学习通读取本人作业。",
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
             )
@@ -1771,14 +1791,29 @@ private fun TaskRow(
         DUE_WEEK -> XiaoxuPalette.Brand
         else -> XiaoxuPalette.Ink2
     }
-    val statusText = if (task.done) "个人已完成" else due.label
-    val statusInk = if (task.done) XiaoxuPalette.Success else dueTone
+    val officialLabel = if (task.provider == "chaoxing")
+        officialTaskStatusLabel(task.officialStatus) else null
+    val statusText = officialLabel ?: if (task.done) "个人已完成" else due.label
+    val statusInk = when {
+        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
+        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
+        officialLabel != null && task.officialStatus in listOf("submitted", "graded") ->
+            XiaoxuPalette.Success
+        officialLabel != null -> XiaoxuPalette.Ink2
+        task.done -> XiaoxuPalette.Success
+        else -> dueTone
+    }
     val statusBackground = when {
+        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
+        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
+        officialLabel != null && task.officialStatus in listOf("submitted", "graded") ->
+            XiaoxuPalette.SuccessSoft
+        officialLabel != null -> XiaoxuPalette.GlassTrack
         task.done -> XiaoxuPalette.SuccessSoft
         due.emphasis == DUE_OVERDUE -> XiaoxuPalette.DangerSoft
         due.emphasis == DUE_TODAY -> XiaoxuPalette.WarningSoft
         due.emphasis == DUE_WEEK -> XiaoxuPalette.BrandSoft
-        else -> XiaoxuPalette.SurfaceAlt
+        else -> XiaoxuPalette.GlassTrack
     }
     Row(
         modifier = Modifier
@@ -1788,7 +1823,9 @@ private fun TaskRow(
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
                     "；" + (if (task.done) "个人标记已完成" else "待办") +
-                    "；" + due.spoken + "；点击查看任务详情"
+                    "；" + due.spoken +
+                    (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
+                    "；点击查看任务详情"
             }
             .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
