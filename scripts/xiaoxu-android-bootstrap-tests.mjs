@@ -848,8 +848,8 @@ assert.match(nativeWeekGrid, /if \(next != available\) break/,
 assert.match(nativeWeekGrid, /overlapChoices = available/);
 assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
-assert.match(main, /onRefresh = if \(current == MainDestination\.SCHEDULE\) null/,
-  '课表顶栏不显示云端刷新入口');
+assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
+  '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
 assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
   '成绩页面入口仍为独立原生内容页');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
