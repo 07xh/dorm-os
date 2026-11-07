@@ -1,6 +1,12 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -44,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -392,6 +400,65 @@ fun XiaoxuGroupedSection(
                 color = XiaoxuPalette.Ink2, modifier = Modifier.padding(start = 14.dp))
         }
         XiaoxuGroupSurface(verticalPadding = 4.dp, content = content)
+    }
+}
+
+/**
+ * 北化式可展开玻璃行：一张玻璃卡 + 原地展开详情，没有内部白色矩形。
+ * 只接收业务页已经读取的真实内容，不推断成绩、活动或任务状态。
+ */
+@Composable
+fun XiaoxuExpandableGlassRow(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        label = "glass-row-chevron"
+    )
+    XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = XiaoxuSpacing.listRowMin)
+                .clickable(role = Role.Button, onClickLabel = if (expanded) "收起$title" else "展开$title",
+                    onClick = onToggle)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                tint = XiaoxuPalette.Ink2,
+                modifier = Modifier.size(20.dp).rotate(rotation)
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
+                fadeIn(animationSpec = tween(XiaoxuMotion.SelectionMs)),
+            exit = shrinkVertically(animationSpec = tween(XiaoxuMotion.SelectionMs)) +
+                fadeOut(animationSpec = tween(XiaoxuMotion.SelectionMs))
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(
+                    start = 16.dp, end = 16.dp, bottom = 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(XiaoxuSpacing.gap),
+                content = content
+            )
+        }
     }
 }
 
