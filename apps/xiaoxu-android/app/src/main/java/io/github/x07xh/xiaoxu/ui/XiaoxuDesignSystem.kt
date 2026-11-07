@@ -104,19 +104,27 @@ object XiaoxuPalette {
 
     /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
     val PageGradient = Brush.linearGradient(
-        0.00f to Color(0xFFEDF5FF),
-        0.29f to Color(0xFFE9F1FF),
-        0.55f to Color(0xFFF2EBFB),
-        0.78f to Color(0xFFEAF5F3),
-        1.00f to Color(0xFFF8F2FC)
+        0.00f to Color(0xFFF2F8FF),
+        0.22f to Color(0xFFE4EEFF),
+        0.44f to Color(0xFFF2ECFF),
+        0.68f to Color(0xFFE7F4F4),
+        0.86f to Color(0xFFF5EEFC),
+        1.00f to Color(0xFFFAF8FF)
     )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.90f)
-    val GlassBorder = Color.White.copy(alpha = 0.55f)
-    val GlassTrack = Color.White.copy(alpha = 0.42f)
-    val GlassIndicator = Color.White.copy(alpha = 0.52f)
+    val GlassCard = Color.White.copy(alpha = 0.85f)
+    val GlassBorder = Color.White.copy(alpha = 0.74f)
+    val GlassTrack = Color.White.copy(alpha = 0.48f)
+    val GlassIndicator = Color.White.copy(alpha = 0.60f)
     val SheetSurface = Color(0xFFF9FAFF)
+    /** Local highlight gradients imitate fine surface reflections without runtime blur. */
+    val GlassSheen = Brush.verticalGradient(
+        listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.015f))
+    )
+    val SheetSheen = Brush.verticalGradient(
+        listOf(Color(0xFFFCFDFF), Color(0xFFF5F7FF), Color(0xFFFAF8FD))
+    )
 
     /** Touch feedback is pale blue, never a default dark rectangular ripple. */
     val PressTint = Color(0xFF4D86D9).copy(alpha = 0.12f)
@@ -358,6 +366,8 @@ fun XiaoxuCard(
             .fillMaxWidth()
             .clip(shape)
             .background(container)
+            .then(if (container == XiaoxuPalette.GlassCard)
+                Modifier.background(XiaoxuPalette.GlassSheen) else Modifier)
             .border(
                 if (container == XiaoxuPalette.GlassCard) XiaoxuSpacing.glassStroke else 0.75.dp,
                 if (container == XiaoxuPalette.GlassCard) XiaoxuPalette.GlassBorder
@@ -474,6 +484,7 @@ internal fun XiaoxuGroupSurface(
     Column(
         modifier = modifier.fillMaxWidth().clip(shape)
             .background(XiaoxuPalette.GlassCard)
+            .background(XiaoxuPalette.GlassSheen)
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
             .padding(vertical = verticalPadding),
         content = content
