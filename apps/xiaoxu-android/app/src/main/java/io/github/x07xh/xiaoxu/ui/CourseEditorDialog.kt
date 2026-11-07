@@ -135,11 +135,11 @@ internal fun CourseEditorDialog(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
+                XiaoxuSoftIconButton(
                     enabled = !busy,
                     onClick = onDismiss,
-                    modifier = Modifier.size(46.dp)
-                        .clip(CircleShape).background(Color.White.copy(alpha = 0.65f))
+                    modifier = Modifier.size(46.dp),
+                    backgroundColor = Color.White.copy(alpha = 0.65f)
                 ) { Icon(Icons.Outlined.Close, contentDescription = "关闭课程编辑") }
                 Text(
                     if (original == null) "新增课程" else "编辑课程",

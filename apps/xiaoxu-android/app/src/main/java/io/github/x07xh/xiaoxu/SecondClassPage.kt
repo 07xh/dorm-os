@@ -387,9 +387,6 @@ fun SecondClassPage(
                             contentDescription = "查看学校活动",
                             tint = XiaoxuPalette.Ink2)
                     }
-                    Text("上次从学校活动广场读取 · $activeCatalogFilter",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2)
                 }
             }
         } else {

@@ -8,6 +8,7 @@ import androidx.work.WorkInfo
 import androidx.work.NetworkType
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.After
@@ -28,7 +29,11 @@ class SecondClassBackgroundReadTest {
     private fun payload() = JSONObject("""{"schema":"xiaoxu/local-secondclass-scores-v1","ok":true,
         "identityMatched":true,"httpStatus":200,"accountHash":"$hash",
         "rows":[{"termIndex":1,"qualityScore":0,"volunteerHours":0,"categories":[0,0,0,0,0,0]}],
-        "activitiesComplete":true,"activities":[],"catalogStatus":"unavailable","catalogEmptyFilters":[]}""")
+        "activitiesComplete":true,"activities":[],"catalogStatus":"unavailable","catalogEmptyFilters":[],"catalogActivities":[]}""")
+
+    private fun mixedCatalog() = payload().put("catalogStatus", "verified_nonempty")
+        .put("catalogEmptyFilters", JSONArray("""["待验证","即将开始报名"]"""))
+        .put("catalogActivities", JSONArray("""[{"filter":"报名中","title":"合成活动甲","ordinal":0}]"""))
 
     @Before fun prepare() = runBlocking {
         assertRuntimeIsolation(c)
@@ -47,7 +52,7 @@ class SecondClassBackgroundReadTest {
         awaitCancellationOfScheduledWork()
         settings.edit().clear().commit()
         identity.edit().clear().commit()
-        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "account_binding"))
+        for (kind in listOf("credits", "activity", "activity_summary", "catalog_empty", "catalog_activity", "account_binding"))
             dao.deleteKind("second_class", kind)
     }
     @Test fun disablingBackgroundCancelsTheActualReadAndPreservesRoom() = runBlocking {
@@ -118,6 +123,66 @@ class SecondClassBackgroundReadTest {
         assertEquals(before, dao.snapshot())
         assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
     }
+    @Test fun temporaryForbiddenResponseDoesNotPermanentlyDisableAutomaticReads() = runBlocking {
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            JSONObject("{\"ok\":false,\"httpStatus\":403,\"stage\":\"activity_http\"}")
+        }
+        assertEquals("failed", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+        // Bypass only the normal attempt throttle, not the failure state.
+        settings.edit().putLong("attempt", 0).commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > 0)
+    }
+    @Test fun downstreamUnauthorizedResponseDoesNotClaimGlobalLogout() = runBlocking {
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ ->
+            JSONObject("{\"ok\":false,\"httpStatus\":401,\"stage\":\"activity_http\"}")
+        }
+        assertEquals("failed", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+    }
+    @Test fun legacyAmbiguousReconnectGetsExactlyOneOwnerVerifiedRecheck() = runBlocking {
+        settings.edit().putString("status", "needs_reconnect").commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > 0)
+        dao.insertAll(dao.snapshot().map { it.copy(capturedAt = savedAt) })
+        settings.edit().putString("status", "needs_reconnect").putLong("attempt", 0).commit()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> error("a genuine new expiry must stay paused") }
+        assertEquals("needs_reconnect", SecondClassAutoRefresh.status(c))
+    }
+    @Test fun policyUpgradeDoesNotResetAnAccountChangeOrOptOut() = runBlocking {
+        settings.edit().putString("status", "needs_confirmation").commit()
+        val before = dao.snapshot()
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> error("account change needs the owner") }
+        assertEquals("needs_confirmation", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(hash, identity.getString("account", null))
+        assertTrue(SecondClassAutoRefresh.background(c))
+    }
+    @Test fun mixedCatalogMarksOnlyTheActuallyEmptyFilters() {
+        val mixed = mixedCatalog()
+        assertEquals(listOf("待验证", "即将开始报名"),
+            parseLocalSecondClassCatalogEmpty(mixed, savedAt).map { it.title })
+        mixed.put("catalogEmptyFilters", JSONArray())
+        assertTrue(parseLocalSecondClassCatalogEmpty(mixed, savedAt).isEmpty())
+    }
+    @Test fun automaticReadReplacesCatalogActivitiesWithoutInventingZeroRows() = runBlocking {
+        dao.insertAll(listOf(NativeSchoolRecord("second_class", "catalog_activity", "old",
+            "旧的合成活动", "筛选：报名中\n来源：合成测试", "dekt.ncwu.edu.cn", savedAt)))
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> mixedCatalog() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        val saved = dao.snapshot()
+        assertEquals(listOf("合成活动甲"), saved.filter { it.kind == "catalog_activity" }.map { it.title })
+        assertEquals(setOf("待验证", "即将开始报名"), saved.filter { it.kind == "catalog_empty" }.map { it.title }.toSet())
+        assertEquals(saved.filter { it.kind == "credits" }.single().capturedAt,
+            saved.filter { it.kind == "catalog_activity" }.single().capturedAt)
+    }
     @Test fun roomRejectsAChangedBindingWithoutAdvancingSuccessEvidence() = runBlocking {
         settings.edit().putLong("success_at", 123_456L).commit()
         var changed: List<NativeSchoolRecord> = emptyList()
@@ -160,5 +225,21 @@ class SecondClassBackgroundReadTest {
         awaitCancellationOfScheduledWork()
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)
         assertTrue(cancelled.all { it.state == WorkInfo.State.CANCELLED || it.state.isFinished })
+    }
+
+
+    @Test fun unavailableCatalogUpdatesPersonalScoresButRetainsLastGoodActivityCards() = runBlocking {
+        val oldCard = NativeSchoolRecord("second_class", "catalog_activity",
+            "previous-good-card", "之前核验的活动",
+            "筛选：报名中\n来源：学校活动广场",
+            "dekt.ncwu.edu.cn", savedAt)
+        dao.insertAll(listOf(oldCard))
+        SecondClassAutoRefresh.refreshIfDue(c, true) { _, _ -> payload() }
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > savedAt)
+        assertEquals(listOf(oldCard),
+            dao.snapshot().filter { it.kind == "catalog_activity" })
+        assertEquals("unavailable",
+            settings.getString("catalog_status", ""))
     }
 }

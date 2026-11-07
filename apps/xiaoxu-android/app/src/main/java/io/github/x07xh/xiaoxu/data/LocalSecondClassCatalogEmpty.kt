@@ -30,7 +30,10 @@ fun parseLocalSecondClassCatalogEmpty(
     val actual = (0 until filters.length()).map { filters.getString(it) }
     require(actual.distinct().size == actual.size && actual.all { it in required })
     if (status == "verified_empty") require(actual == required)
-    return required.map { title ->
+    // Only the filters actually confirmed empty may be stored. In a mixed
+    // nonempty snapshot, creating empty rows for all filters conflicts with
+    // real activity cards and rejects the entire Room transaction.
+    return actual.map { title ->
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(("second_class|catalog_empty|" + title).toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }

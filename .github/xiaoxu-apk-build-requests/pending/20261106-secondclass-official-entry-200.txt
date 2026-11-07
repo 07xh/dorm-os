@@ -1,3 +1,0 @@
-User request: continue fixing second-class #200 and restore the already-approved App official-device authorization flow; do not keep the old cloud password path.
-Build scope: compile the existing Android app and run JVM tests for direct official-reader entry and validated saved-data receipt forwarding.
-This build does not prove school QR session handoff, cloud authorization or owner-device acceptance, and does not replace the parallel unified QA branch #338.

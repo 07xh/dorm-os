@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import io.github.x07xh.xiaoxu.data.SecondClassAutoReadPolicy
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassActivities
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassCatalogEmpty
@@ -630,7 +631,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val stage = payload.optString("stage").takeIf {
                     it in setOf("context", "identity", "score_http", "score_request", "score_response", "score_record", "activity_http", "activity_request", "activity_response", "activity_record", "catalog_request", "catalog_response")
                 } ?: "score_response"
-                tell((if (code == 401 || code == 403) "登录已失效，请在官网重新登录。"
+                tell((if (SecondClassAutoReadPolicy.requiresReconnect(code, stage)) "登录已失效，请在官网重新登录。"
                       else "积分读取失败，请检查官网或稍后重试。") +
                     " 阶段：$stage" + (if (code in 100..599) "，HTTP $code。" else "。") +
                     "已保存的旧积分保持不变。")
@@ -648,6 +649,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             } catch (_: Exception) {
                 tell("活动广场名称字段校验失败，旧记录保持不变。"); unlock(); return
             }
+            val catalogVerified = payload.optString("catalogStatus") in
+                setOf("verified_empty", "verified_nonempty")
             val catalogMessage = when {
                 catalogActivities.isNotEmpty() ->
                     "活动广场已读取 ${catalogActivities.size} 条已验证的活动名称（其他字段未核对）"
@@ -655,7 +658,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     "活动广场三个筛选本次均返回0条"
                 payload.optString("catalogStatus") == "nonempty_unverified" ->
                     "活动广场有非空结果，但字段或分页尚未核验；不保存猜测记录"
-                else -> "活动广场暂无可用的已验证快照"
+                else -> "活动广场本次未核验；旧目录仅在同账号时保留"
             }
             val summary = rows.joinToString("\n") { it.title + " · " + it.details.substringBefore('\n') }
             val accountHash = payload.optString("accountHash")
@@ -671,7 +674,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             withContext(Dispatchers.IO) {
                                 currentCoroutineContext().ensureActive()
                                 LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
-                                    .replaceSecondClassSnapshot(rows, activities, catalog, catalogActivities, accountHash = accountHash)
+                                    .replaceSecondClassSnapshot(rows, activities, catalog, catalogActivities,
+                                        accountHash = accountHash, catalogVerified = catalogVerified)
                             }
                             if (!valid()) return@launch
                             scoreIdentity.edit().putString("account", accountHash).commit()
