@@ -103,6 +103,8 @@ dependencies {
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
     baselineProfile(project(':benchmark'))
     testImplementation 'junit:junit:4.13.2'
+    // Local JVM tests need a real JSONObject; Android's mockable jar only has stubs.
+    testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.7.0'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
 }
