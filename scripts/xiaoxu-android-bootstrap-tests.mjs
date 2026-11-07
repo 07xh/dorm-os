@@ -33,6 +33,13 @@ assert.match(visualQa, /sha256sum', installedBase/,'必须尝试核对手机实�
 assert.match(visualQa, /installedMatchesLocal !== true/,'无法核实安装包与本机文件一致时不可开始人工视觉验收');
 assert.match(visualQa, /unverified_installed_build/,'截图完整也不能掩盖 APK 版本证据不足');
 assert.match(visualQa, /gitCommitVerifiedAgainstRepository: false/,'采集脚本不可把用户填写的提交 SHA 冒充已核验');
+assert.match(visualQa, /jankyPercent/, '玻璃导航性能采集必须保留卡顿帧比例');
+assert.match(visualQa, /frameSampleUsable: validFrameSample && totalFrames >= 30/,
+  '不足30帧不得当作有效性能样本');
+assert.match(visualQa, /performanceEvidenceComplete = metadata.performanceSamples.every/,
+  '必须逐场景记录快速切页、拖拽与真实课程背景的性能样本');
+assert.match(visualQa, /requires_manual_frame_and_visual_review/,
+  '不能仅凭 gfxinfo 帧数把玻璃复刻标记为验收完成');
 assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
   '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
