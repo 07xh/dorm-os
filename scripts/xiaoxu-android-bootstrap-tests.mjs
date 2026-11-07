@@ -750,7 +750,7 @@ assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
 assert.match(schedulePanel, /context\.startActivity\(settings\)/,
   '通知设置入口必须真正连接系统设置');
 const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (settingsOpen) {'),
+  schedulePanel.indexOf('if (animatedSettingsOpen) {'),
   schedulePanel.indexOf('private fun DayLessonList(')
 );
 assert.match(timetableSettingsCallback, /LocalCourseReminders\.anyEnabled\(context\)/,
