@@ -171,29 +171,31 @@ fun LocalSchoolRecordSection(types: Set<String>) {
     val all by dao.observe().collectAsState(initial = emptyList())
     val rows = all.filter { it.kind in types }
     if (rows.isEmpty()) return
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    var expanded by rememberSaveable(types.sorted().joinToString("|")) {
+        mutableStateOf(false)
+    }
+    XiaoxuExpandableGlassRow(
+        title = "手机本机读取",
+        subtitle = "已保存 ${rows.size} 条本机记录",
+        expanded = expanded,
+        onToggle = { expanded = !expanded }
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("手机本机读取", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold)
-            Text("来自本人在官方网页明确触发的只读导入；不是实时官方接口同步。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall)
-            rows.take(12).forEach { record: NativeSchoolRecord ->
-                Text(schoolLabel(record.provider) + " · " + kindLabel(record.kind) +
-                    " · " + record.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium)
-                if (record.details.isNotBlank())
-                    Text(record.details, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall)
-            }
-            if (rows.size > 12) {
-                Text("还有 " + (rows.size - 12) + " 条本机记录，请到「我的」查看各平台。",
+        Text("来自本人在官方网页明确触发的只读导入；不是实时官方接口同步。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall)
+        rows.take(12).forEach { record: NativeSchoolRecord ->
+            Text(schoolLabel(record.provider) + " · " + kindLabel(record.kind) +
+                " · " + record.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium)
+            if (record.details.isNotBlank()) {
+                Text(record.details, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall)
             }
+        }
+        if (rows.size > 12) {
+            Text("还有 " + (rows.size - 12) + " 条本机记录，请到「我的」查看各平台。",
+                style = MaterialTheme.typography.labelSmall)
         }
     }
 }
