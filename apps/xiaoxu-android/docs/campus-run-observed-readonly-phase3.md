@@ -33,7 +33,7 @@
 3. `CampusRunObservedMappingSource` 实现现有 `CampusRunReadOnlySource`，可直接接 #367 的 `refreshSummary` 和 `refresh`。只有**授权读取、已验证且解码后的**数据提供者可以供应数据，未写入真实网络请求。
 4. `CampusRunObservedMappingTest.kt`：严格信封、历史旧/新列表形式、单位、空值、状态门禁、身份不一致、与 #367 查询流组合验证，全部使用合成数据。
 
-第三方 [Inverx/com.zjwh.android_wh_physicalfitness](https://github.com/Inverx/com.zjwh.android_wh_physicalfitness) 的 MIT 许可历史只读模块仅用于交叉验证**候选字段名**（例如 `rrid`、`totalDis`、`totalTime`、`complete`、`isValid`）。未复制加解密、认证绕过、验证码、轨迹合成、成绩上报等任何实现；候选字段**不等于**本人的 HAR 已经证实。
+第三方 [Inverx/com.zjwh.android_wh_physicalfitness](https://github.com/Inverx/com.zjwh.android_wh_physicalfitness) 的 MIT 许可历史只读模块仅用于交叉验证**候选字段名**（例如 `rrid`、`totalDis`、`totalTime`、`complete`、`isValid`）。其历史成绩查询输出还涉及 `sname`、`semesterDis`、`semesterValidDis`、`semesterCount` 和 `semesterValidCount`（参考版本较旧，均属于**待真实确认的候选键名**；不等于当前抓包明文字段，也没有证实“学期目标”键名）。未复制加解密、认证绕过、验证码、轨迹合成、成绩上报等任何实现；候选字段**不等于**本人的 HAR 已经证实。
 
 ## 必须保留的区别
 
