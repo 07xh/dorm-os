@@ -68,6 +68,14 @@ await refused(ingestWechatCandidates(db,device,{...batch,records:[
 const repeat=await ingestWechatCandidates(db,device,{...batch,batchId:str('r')});
 assert.equal(repeat.inserted,0,'same candidate ID in a different batch is still deduplicated');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_wechat_candidates').get().n,1);
+const detailed='11月6日前提交电路实验报告。'+'必须附原理、截图和实验结论。'.repeat(100);
+assert.ok(detailed.length > 240 && detailed.length < 4000);
+const backfilled=await ingestWechatCandidates(db,device,{...batch,batchId:str('B'),records:[
+ {...batch.records[0],excerpt:detailed}
+]});
+assert.equal(backfilled.inserted,0,'rescan must not create duplicate candidate');
+assert.equal((await listWechatCandidates(db,owner))[0].excerpt,detailed,
+ 'a pending legacy candidate must receive its full redacted message text');
 await refused(ingestWechatCandidates(db,device,{...batch,deviceId:str('x')}),'device_mismatch');
 await refused(ingestWechatCandidates(db,device,{...batch,batchId:str('z'),records:[
  {...batch.records[0],cookie:'do not persist'}
@@ -104,6 +112,12 @@ const pending=(await listWechatCandidates(db,owner))[0];
 await refused(reviewWechatCandidate(db,'owner-b',pending.id,'accept'),'candidate_not_found');
 const accepted=await reviewWechatCandidate(db,owner,pending.id,'accept');
 assert.equal(accepted.status,'accepted');
+await ingestWechatCandidates(db,device,{...batch,batchId:str('C'),records:[
+ {...batch.records[0],excerpt:detailed+'补充原文'}
+]});
+assert.equal(sqlite.prepare('SELECT excerpt FROM academic_wechat_candidates WHERE id=?')
+ .get(pending.id).excerpt,detailed,
+ 'reviewed message content remains immutable when old scans replay');
 assert.ok(accepted.assignmentId);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM academic_assignments').get().n,1,
  'one explicitly approved candidate becomes one existing manual task');
