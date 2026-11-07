@@ -1,0 +1,6 @@
+校序 Android UI 第三批性能 QA 构建
+PR: #376 -> #351
+预备源码 SHA: 3483cbfdff93e7459e04b52958743a6de110e178
+范围: WorkManager 本机提醒增量协调与删除清理；保持北化式玻璃导航、SleepDown 式 360/500ms 切换与共享任务控件。
+验证: Android Debug APK / 独立 QA APK、JVM 单元测试、导航基准模块编译及综合静态门禁。
+注意: 真机帧率、截图/光学折射和本人学校数据尚未验收。
