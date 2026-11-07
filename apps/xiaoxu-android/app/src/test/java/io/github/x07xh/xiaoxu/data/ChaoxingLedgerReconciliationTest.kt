@@ -82,4 +82,24 @@ class ChaoxingLedgerReconciliationTest {
         assertNull(stale.courses.getValue("10:20:30").stored)
         assertNull(stale.courses.getValue("10:20:30").possibleLegacy)
     }
+
+    @Test fun completeCourseTotalsCannotHideMissingOrConflictingStoredStatuses() {
+        val audits = listOf(course("10:20:30", "程序设计",
+            ChaoxingCourseCoverage.COUNT_VERIFIED,
+            work("1", "submitted"), work("2", "graded")))
+        val summary = summarizeChaoxingAudit(audits, totalCourses = 1, taskLedgerFresh = true)
+        val complete = reconcileChaoxingLedger(audits, listOf(
+            task("one", "submitted", "work:10:20:1"),
+            task("two", "graded", "work:10:20:2")
+        ), true)
+        assertEquals(true, chaoxingBatchEvidenceReconciled(summary, complete))
+        val missing = reconcileChaoxingLedger(audits, listOf(
+            task("one", "submitted", "work:10:20:1"),
+            task("two", "todo", "work:10:20:2")
+        ), true)
+        assertEquals(1, missing.missingFromLedger)
+        assertEquals(false, chaoxingBatchEvidenceReconciled(summary, missing))
+        assertEquals(false, chaoxingBatchEvidenceReconciled(summary,
+            reconcileChaoxingLedger(audits, emptyList(), false)))
+    }
 }

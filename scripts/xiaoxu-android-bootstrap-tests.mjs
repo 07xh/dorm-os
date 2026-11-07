@@ -407,7 +407,7 @@ assert.match(workspace, /title = "学习通作业"/,
   '官方作业读取入口必须直接出现在真实任务页');
 assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
   '学习通部分读取不得冒充全部课程已核验');
-assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "已核对当前课程列表"/,
+assert.match(workspace, /auditReady -> "已核对当前课程列表"/,
   '只有证据完整且刷新成功才显示当前课程列表核验状态');
 assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
   '本机页面记录需保留入口及真实数量');
@@ -415,6 +415,12 @@ assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
   '正式任务首页不得继续显示面向开发的旧卡片标题');
 assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
   '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
+assert.match(workspace, /selectChaoxingHomeworkRows\(state\.chaoxingBatchAudit, officialHomeworkFilter\)/,
+  '官方已提交/已批阅必须能跨课程按状态筛选，不能埋在前30条之后');
+assert.match(workspace, /chaoxingBatchEvidenceReconciled\(auditSummary, auditLedger\)/,
+  '云端状态未逐条匹配不许显示全部核对完成');
+assert.match(cloud, /chaoxingBatchEvidenceReconciled\(summary, comparison\)/,
+  '批量同步文案必须同时核对可信状态与云端落库');
 assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
   '用户必须可以展开全部已读取作业而非静默只展示前30项');
 assert.doesNotMatch(coursePanel, /其他记录请在校序任务列表查看/,

@@ -77,4 +77,24 @@ class ChaoxingBatchAuditTest {
             throw AssertionError("unverified school row must not enter audit")
         } catch (_: IllegalArgumentException) { }
     }
+
+    @Test fun viewFilterFindsCompletedAcrossAllCoursesWithoutGuessingMissingRows() {
+        val audits = listOf(
+            course("101", ChaoxingCourseCoverage.COUNT_VERIFIED,
+                listOf(work("1", "todo"), work("2", "submitted"))),
+            course("102", ChaoxingCourseCoverage.LIST_ONLY,
+                listOf(work("3", "graded"), work("4", "returned"), work("5", "unknown"))),
+            course("103", ChaoxingCourseCoverage.FAILED)
+        )
+        assertEquals(listOf("2", "3"), selectChaoxingHomeworkRows(audits, "completed")
+            .map { it.second.workId })
+        assertEquals(listOf("1", "4"), selectChaoxingHomeworkRows(audits, "actionable")
+            .map { it.second.workId })
+        assertEquals(listOf("5"), selectChaoxingHomeworkRows(audits, "unknown")
+            .map { it.second.workId })
+        assertEquals(5, selectChaoxingHomeworkRows(audits, "all").size)
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            selectChaoxingHomeworkRows(audits, "invented")
+        }
+    }
 }

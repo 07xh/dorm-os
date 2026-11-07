@@ -1392,6 +1392,8 @@ class CloudClient(context: Context) {
             if (epoch != sessionEpoch || !state.authenticated) return
             val fresh = state.tasksFresh
             val summary = summarizeChaoxingAudit(audit, courses.size, fresh)
+            val comparison = reconcileChaoxingLedger(audit, state.tasks, fresh)
+            val fullReconciled = chaoxingBatchEvidenceReconciled(summary, comparison)
             val status = "学习通本次检查 ${summary.checkedCourses} / ${courses.size} 门：" +
                 "条数已核验 ${summary.countVerifiedCourses} 门，" +
                 "仅列表已核验 ${summary.listOnlyCourses} 门，" +
@@ -1402,8 +1404,10 @@ class CloudClient(context: Context) {
             val note = when {
                 stoppedForAuth -> "学校授权已失效或要求交互登录，需在官网重新授权。"
                 !fresh -> "云端任务清单刷新失败；不能声称整个任务中心已同步。"
-                summary.fullyCoveredAndRefreshed ->
-                    "全部课程作业条数与返回记录已逐门核对；仍请与本人官网逐项对照。"
+                fullReconciled ->
+                    "全部课程作业条数与对应云端状态已逐门核对；仍请与本人官网逐项对照。"
+                summary.fullyCoveredAndRefreshed && comparison.missingFromLedger != 0 ->
+                    "官网作业总数已核对，但有 ${comparison.missingFromLedger} 条官方状态未在云端任务中一致匹配，不能算完成。"
                 else -> "本次未证实全部课程作业覆盖，缺失课程或列表不作为已完成。"
             }
             state = state.copy(
