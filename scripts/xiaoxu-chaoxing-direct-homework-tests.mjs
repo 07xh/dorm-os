@@ -210,9 +210,23 @@ const duplicatedReader=await duplicatedAdapter.forSession({session,userId:'owner
 await duplicatedReader.verifySession();
 await assert.rejects(()=>duplicatedReader.readHomeworkList(courseKeys),
  e=>e.code==='work_list_incomplete');
-assert.throws(()=>parseChaoxingWorkList(
- paginated(1,row('910','作业','已完成'),'3'),courseKeys,
- {pageNumber:1}),e=>e.code==='work_list_incomplete' || e.code==='invalid_response');
+// Total is checked across ALL official pages, not incorrectly on page one.
+const missingWorkAdapter=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list'){
+  return response(paginated(Number(u.searchParams.get('pageNum')),
+   Number(u.searchParams.get('pageNum'))===1?
+    row('910','作业1','未提交'):row('911','作业2','已完成'),'3'));
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const missingWorkReader=await missingWorkAdapter.forSession({session,userId:'owner1'});
+await missingWorkReader.verifySession();
+await assert.rejects(()=>missingWorkReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_list_incomplete','partial pages cannot be persisted');
 // The official status text, never the icon-zy-g CSS label, controls completion.
 assert.equal(classifyChaoxingWorkStatus('已批改'),'graded');
 assert.equal(classifyChaoxingWorkStatus('已互評'),'submitted');
