@@ -11,3 +11,5 @@
 - 第二课堂：复用 #379 单页积分概览/学期选择/我的活动/活动广场与 #382 本人授权状态下严格非空活动读取；不混入旧三 Tab。
 - 设置：220ms 无弹跳、仅 1/6 页宽移动，进入不再推动上一页，返回不再推动背景页。
 - 必须检查原生 APK、JVM、node 契约测试、CI、隔离 QA APK SHA256；一加 Ace 6 复测前保持 Draft，不合 main。
+
+QA trigger only: verify commit 6290b2358b98c67a3e5add700497c58620bf79d9 contains PR379/382 single-page SecondClassPage, verified activity reader, 220ms settings animation; no extra production code.
