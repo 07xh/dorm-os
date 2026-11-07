@@ -1716,6 +1716,15 @@ assert.match(main, /AcademicActionRow\("第二课堂"/,
   '真实第二课堂必须保留直接可达入口');
 assert.match(main, /CampusRunPanel\(cloud\)/,
   '校园跑/学校服务真实面板不可在 UI 精简时丢失');
+const campusRunUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CampusRunPanel.kt');
+assert.match(campusRunUi, /fun CampusRunPanel\(client: CloudClient\)/,
+  '校园跑继续使用原有 CloudClient 会话作用域');
+assert.match(campusRunUi, /key\(scope\) \{ CampusRunScopedPanel\(scope\) \}/,
+  '切换账号时必须重置本机校园跑 UI 状态');
+assert.equal((campusRunUi.match(/XiaoxuCard\(/g) || []).length, 2,
+  '校园跑锁定态与记录态必须共用唯一玻璃卡片');
+assert.doesNotMatch(campusRunUi, /\bCardDefaults\b|\bCard\s*\(/,
+  '校园跑不得恢复独立 Material3 Card 容器');
 assert.match(main, /SecondClassPage\(\)/,
   '第二课堂独立内容仍须可达');
 
