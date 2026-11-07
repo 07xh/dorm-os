@@ -92,4 +92,51 @@ class LocalDeadlineRemindersTest {
         assertEquals(LocalDate.of(2026, 11, 6), plans[0].deliverOn)
         assertEquals(30L * 60L * 1000L, plans[0].delayMillis)
     }
+    @Test fun approvedWechatPersonalPlanUsesExistingDayBeforeAndDayOfSchedule() {
+        val task = CloudTask(id = "approved-1", title = "微信来源",
+            status = "todo", kind = "manual", provider = "wechat", revision = 2,
+            due = "2026-11-12",
+            personalTargetAt = "2026-11-08T15:59:00.000Z")
+        assertEquals(mapOf("approved-1" to "2026-11-08"),
+            approvedWechatPersonalDates(listOf(task)))
+        val plans = planWechatPersonalReminders(listOf(task), now)
+        assertEquals(listOf("before", "today"), plans.map { it.phase })
+        assertEquals(listOf(LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 8)),
+            plans.map { it.deliverOn })
+        assertEquals(listOf(24L, 48L).map { it * 60L * 60L * 1000L + 30L * 60L * 1000L },
+            plans.map { it.delayMillis })
+    }
+
+    @Test fun completedOrUnapprovedOrSourceOnlyCloudTaskNeverSchedulesWechat() {
+        val approved = CloudTask(id = "approved", title = "待办",
+            status = "todo", kind = "manual", provider = "wechat", revision = 1,
+            due = "2026-11-09",
+            personalTargetAt = "2026-11-08T15:59:00.000Z")
+        val ineligible = listOf(
+            approved.copy(status = "done"),
+            approved.copy(revision = -1),
+            approved.copy(provider = "chaoxing"),
+            approved.copy(personalTargetAt = null),
+            approved.copy(personalTargetAt = "invalid"),
+            approved.copy(id = "../unsafe"),
+            approved.copy(personalTargetAt = "2026-99-99T15:59:00.000Z")
+        )
+        assertTrue(approvedWechatPersonalDates(ineligible).isEmpty())
+        assertTrue(planWechatPersonalReminders(ineligible, now).isEmpty())
+        assertEquals(mapOf("approved" to "2026-11-08"),
+            approvedWechatPersonalDates(listOf(approved)))
+        // The unverified source due must never become the user's plan.
+        assertTrue(approvedWechatPersonalDates(listOf(
+            approved.copy(personalTargetAt = null, due = "2026-11-08")
+        )).isEmpty())
+    }
+
+    @Test fun wechatPlanPastTheMorningDoesNotCreateLateWork() {
+        val atTen = LocalDate.of(2026, 11, 8).atTime(10, 0).atZone(zone)
+        val task = CloudTask(id = "approved", title = "个人计划",
+            status = "todo", kind = "manual", provider = "wechat", revision = 2,
+            due = null, personalTargetAt = "2026-11-08T15:59:00.000Z")
+        assertTrue(planWechatPersonalReminders(listOf(task), atTen).isEmpty())
+    }
+
 }
