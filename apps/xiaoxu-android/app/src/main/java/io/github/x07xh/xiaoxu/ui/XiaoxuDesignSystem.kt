@@ -974,7 +974,7 @@ fun XiaoxuTopBar(
             .background(Color.Transparent)
             // 边到边模式下由顶栏自己吃掉状态栏高度，页面内容不再各自处理。
             .statusBarsPadding()
-            .padding(start = 22.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
