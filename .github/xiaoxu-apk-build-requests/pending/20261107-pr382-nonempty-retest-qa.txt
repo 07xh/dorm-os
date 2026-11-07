@@ -1,0 +1,6 @@
+QA retest request for official second-class catalog reading fix PR #382, after source test and Kotlin fixes.
+Feature source commit: 8cca56aca5c4be32967fea7d5fc52c91fa817f68.
+QA branch includes only this build marker in addition to feature commit.
+Run all existing static security, Node integration, Android Kotlin/JVM, separate isolated APK and SHA256.
+No live school credentials, no real CAS requests, no fabricated campus activity data.
+Success criteria in CI is buildability, NOT successful read of real nonempty school activity. OnePlus Ace 6 signed-in verification remains mandatory before merge.
