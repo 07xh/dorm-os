@@ -196,14 +196,22 @@ fun mapCampusRunDecodedHistoryRows(
 
 data class CampusRunAuthorizedDecodedSemester(
     val subjectFingerprint: String,
-    val fields: Map<String, Any?>
+    val fields: Map<String, Any?>,
+    /**
+     * Must be explicitly confirmed against the owner's official App data.
+     * The upstream OSS bridge emits false until semantic/units audit passes.
+     */
+    val verifiedFieldSemantics: Boolean = false
 )
 
 data class CampusRunAuthorizedDecodedPage(
     val subjectFingerprint: String,
     val recordsPayload: Any?,
     val nextCursor: String?,
-    val isLastPage: Boolean
+    val isLastPage: Boolean,
+    val verifiedFieldSemantics: Boolean = false,
+    /** Never infer final history page from a short or empty page. */
+    val paginationVerified: Boolean = false
 )
 
 /**
@@ -228,6 +236,9 @@ class CampusRunObservedMappingSource(
 
     override suspend fun readSemester(): CampusRunReadSummary {
         val decoded = reader.semester()
+        if (!decoded.verifiedFieldSemantics) {
+            throw CampusRunSourceException(CampusRunFailure.INVALID_DATA)
+        }
         return mapCampusRunDecodedSemester(
             decoded.fields, decoded.subjectFingerprint, semesterBindings
         )
@@ -235,6 +246,10 @@ class CampusRunObservedMappingSource(
 
     override suspend fun readHistoryPage(cursor: String?): CampusRunReadPage {
         val decoded = reader.historyPage(cursor)
+        if (!decoded.verifiedFieldSemantics || !decoded.paginationVerified ||
+            decoded.isLastPage != (decoded.nextCursor == null)) {
+            throw CampusRunSourceException(CampusRunFailure.INVALID_DATA)
+        }
         return CampusRunReadPage(
             subjectFingerprint = decoded.subjectFingerprint,
             records = mapCampusRunDecodedHistoryRows(
