@@ -1,0 +1,5 @@
+校序任务中心 #392 与 #351 新基线合流后的独立 QA 构建 (2026-11-07)
+合流提交 c5e0ea9a35c3df295b37a0c33a590fba137cf5d2
+保留 #351 新版无列表位移的玻璃 UI、学习通已提交清理/恢复、可信官方状态；整合本人任务编辑、云端来源独立折叠、微信保存失败即时提示。
+请求：:app:assembleDebug + :app:testDebugUnitTest + :benchmark:assembleBenchmarkRelease + :benchmark:assembleNonMinifiedRelease, 生成独立 .unifiedqa APK 和 SHA256。
+真机 Ace6 流畅度、修改持久化、截止提醒重新计划、学校真实数据仍待核验。请勿自动合并到 main。
