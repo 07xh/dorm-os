@@ -162,7 +162,7 @@ internal fun SemesterSettingsPage(
             // Use SleepDown's compact grouped hierarchy without adding mock
             // timetable features or replacing the existing Xiaoxu controls.
             SettingsGroupTitle("学期与显示")
-            SettingsSurface {
+            XiaoxuGroupSurface {
                 SettingsActionRow(
                     title = "学期周数",
                     value = if (weeks.isBlank()) "设置周数" else weeks + " 周",
@@ -219,7 +219,7 @@ internal fun SemesterSettingsPage(
             }
 
             SettingsGroupTitle("课程与数据")
-            SettingsSurface {
+            XiaoxuGroupSurface {
                 SettingsActionRow(title = "添加课程", onClick = onAddCourse)
                 HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.6.dp)
                 SettingsActionRow(
@@ -232,7 +232,7 @@ internal fun SemesterSettingsPage(
             }
 
             SettingsGroupTitle("本课表作息")
-            SettingsSurface {
+            XiaoxuGroupSurface {
                 repeat(sections) { zeroBased ->
                     val index = zeroBased + 1
                     val pair = findSectionTime(times, index)
@@ -411,12 +411,6 @@ private fun semesterSettingsErrorField(message: String?): String = when {
 private fun SettingsGroupTitle(title: String) {
     Text(title, modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 10.dp),
         style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-}
-
-@Composable
-private fun SettingsSurface(content: @Composable () -> Unit) {
-    // Keep 北化's original group spacing and controls; share only the glass container.
-    XiaoxuGroupSurface { content() }
 }
 
 @Composable

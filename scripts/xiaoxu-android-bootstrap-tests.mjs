@@ -841,11 +841,10 @@ assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassC
   '消息搜索框需与列表共用玻璃材质');
 assert.match(messageSearchSource, /GlassBorder/,
   '消息搜索框描边须取自唯一组件调色板');
-const semesterSettingsSource = timetableSettings.slice(
-    timetableSettings.indexOf('private fun SettingsSurface('),
-    timetableSettings.indexOf('private fun SettingsActionRow('));
-assert.match(semesterSettingsSource, /XiaoxuGroupSurface\s*\{\s*content\(\)/,
-  '课表设置必须复用单一玻璃分组宿主，不自行维护重复的背景和边框');
+assert.equal((timetableSettings.match(/XiaoxuGroupSurface\s*\{/g) || []).length, 3,
+  '课表设置的三个分组必须直接复用设计系统的玻璃容器');
+assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
+  '课表设置不得恢复已移除的重复分组包装');
 const groupedGlassSource = designSystem.slice(
     designSystem.indexOf('internal fun XiaoxuGroupSurface('),
     designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
@@ -862,6 +861,8 @@ assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
 const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
+assert.doesNotMatch(messageCenter, /private val TileShape\s*=/,
+  '消息中心不得恢复未使用的页面级形状常量');
 assert.match(messageCenter, /fun filterNotices\(/);
 assert.match(messageCenter, /state\.notices/);
 assert.match(messageCenter, /state\.pendingWechatCount/);
