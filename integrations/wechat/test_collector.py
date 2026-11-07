@@ -37,6 +37,65 @@ class CollectorTests(TestCase):
         self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
+    def test_extract_https_links_basics(self):
+        self.assertEqual(
+            bridge.extract_https_links(
+                "实验报告模板 https://course.example/hw/template.zip 请下载"),
+            ["https://course.example/hw/template.zip"])
+        # Chinese punctuation directly after the URL must not join the URL,
+        # and the title keeps the redacted placeholder instead of the link.
+        links = bridge.extract_https_links(
+            "详情见https://x.example/a，截止前提交。备用：https://x.example/b。")
+        self.assertEqual(links, ["https://x.example/a", "https://x.example/b"])
+        # Unbalanced markdown-style paren is not part of the URL.
+        self.assertEqual(
+            bridge.extract_https_links("参考(https://x.example/c)"),
+            ["https://x.example/c"])
+        self.assertEqual(
+            bridge.extract_https_links("括号内(https://x.example/d)后缀"),
+            ["https://x.example/d"])
+        # http is never accepted, only https.
+        self.assertEqual(bridge.extract_https_links("看 http://x.example/e 提交"), [])
+        # Embedded credentials make the URL invalid.
+        self.assertEqual(
+            bridge.extract_https_links("看 https://user:pw@x.example/f 提交"), [])
+        self.assertEqual(bridge.extract_https_links("没有链接也要提交"), [])
+
+    def test_extract_https_links_caps_and_dedups(self):
+        four = " ".join(f"https://x.example/{i}" for i in range(4))
+        self.assertEqual(len(bridge.extract_https_links(four)), 3)
+        dup = "https://x.example/same https://x.example/same"
+        self.assertEqual(bridge.extract_https_links(dup),
+                         ["https://x.example/same"])
+        self.assertEqual(bridge.extract_https_links("x" * 600), [])
+
+    def test_classify_keeps_links_out_of_title(self):
+        ts = 1793764800
+        task = bridge.classify(
+            "11月6日前提交报告，模板 https://school.example/hw1 提交", ts)
+        self.assertNotIn("school.example", task["title"])
+        self.assertIn("[链接]", task["title"])
+        self.assertEqual(task["links"], ["https://school.example/hw1"])
+
+    def test_records_carry_links_without_changing_identity(self):
+        ts = 1793764800
+        secret = b"link-test-secret"
+        rows = [("shard/Msg", 7, ts,
+                 "11月6日提交实验报告 https://lab.example/report 逾期不收")]
+        def reader(name, cutoff):
+            yield from rows
+        records, _, _ = bridge.extract_groups(
+            {"chats": ["群"]}, secret, {}, reader=reader, now_ts=ts + 10)
+        self.assertEqual(records[0]["links"], ["https://lab.example/report"])
+        self.assertNotIn("lab.example", records[0]["title"])
+        base = {**records[0], "links": None}
+        def reader_plain(name, cutoff):
+            yield ("shard/Msg", 7, ts, "11月6日提交实验报告 逾期不收")
+        plain, _, _ = bridge.extract_groups(
+            {"chats": ["群"]}, secret, {}, reader=reader_plain, now_ts=ts + 10)
+        self.assertEqual(records[0]["candidateKey"], plain[0]["candidateKey"],
+                         "links must not change the stable candidate identity")
+
     def test_cloud_schema_utf16_limits_and_control_characters(self):
         # Python length differs from JS UTF-16 length for emoji/non-BMP glyphs.
         text = "提交报告" + "📘"*85 + chr(1) + "请按时提交"
@@ -256,6 +315,7 @@ class CollectorTests(TestCase):
         for body, expected in [
             (b'{"error":"title_invalid"}', "title_invalid"),
             (b'{"error":"chat_label_invalid"}', "chat_label_invalid"),
+            (b'{"error":"links_invalid"}', "links_invalid"),
             (b'{"error":"secret_or_untrusted_response"}', "unknown_schema_error"),
         ]:
             with self.subTest(expected=expected), patch.object(bridge.urllib.request, "build_opener") as opener:

@@ -34,6 +34,31 @@ const unknown = normalizeWechatCandidateBatch({...batch,records:[
 ]});
 assert.equal(unknown.records[0].deadline.date,null);
 assert.equal(unknown.records[0].excerpt,null);
+// Optional links (V1): absent stays valid for old collectors, present must be
+// 1-3 structurally validated HTTPS URLs without credentials or duplicates.
+const link='https://course.example/hw/template.zip';
+const withLinks=normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:[link,'https://backup.example/b（附件）'.replace('（附件）','')]}
+]});
+assert.deepEqual(withLinks.records[0].links,[link,'https://backup.example/b']);
+assert.deepEqual(normalizeWechatCandidateBatch(batch).records[0].links,[],
+ 'old batches without links keep syncing unchanged');
+function rejectedLinks(value){
+ rejected({...batch,records:[{...baseRecord,links:value}]},'links_invalid');
+}
+rejectedLinks('https://course.example/a');
+assert.deepEqual(normalizeWechatCandidateBatch({...batch,records:[
+  {...baseRecord,links:[]}
+]}).records[0].links,[],'an explicitly empty link list is valid');
+rejectedLinks([link,link]);
+rejectedLinks([link,link,link,link]);
+rejectedLinks(['http://course.example/insecure']);
+rejectedLinks(['https://user:pw@course.example/leak']);
+rejectedLinks(['ftp://course.example/file']);
+rejectedLinks(['https://']);
+rejectedLinks(['javascript:alert(1)']);
+rejectedLinks(['https://course.example/'+'a'.repeat(520)]);
+rejectedLinks([42]);
 function rejected(payload,code) {
   assert.throws(()=>normalizeWechatCandidateBatch(payload),
     e=>e instanceof WechatCandidateError && e.code===code);
