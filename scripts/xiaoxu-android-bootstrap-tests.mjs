@@ -689,12 +689,16 @@ assert.match(timetableSettings, /internal fun SemesterSettingsPage\(/,
   '课表设置必须是同 Activity 内原生子页面');
 const timetablePageSource = timetableSettings.slice(
   timetableSettings.indexOf('internal fun SemesterSettingsPage('),
-  timetableSettings.indexOf('// Use Material3 date/time controls')
+  timetableSettings.indexOf('// Keep the existing date chooser; use a numeric wheel for lesson times.')
 );
 assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
   '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
 assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
   '课表设置需要填满当前主导航内容窗口');
+assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?Dialog\(/,
+  '节次时间数字滚轮可使用独立居中弹窗，不能误判为全屏设置');
+assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
+  '课表节次时间保留当前数字滚轮交互');
 assert.match(schedulePanel, /targetState = settingsOpen/,
   '课表和设置应复用一个动画内容宿主');
 assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
