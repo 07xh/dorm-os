@@ -1,6 +1,7 @@
-校序 PR #351 一加 Ace 6 / Android 16 页面动效 QA 构建请求
-源码基线：74764c9916783db2e7bbab21cc32a4ee08a11022
-目标：验证 SleepDown 风格一级页方向切换与设置二级页阻尼动效
-产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版
-门禁：Android 编译、JVM 回归、APK SHA256；真机 FPS/无灰边/无重影仍需独立验收
-不得自动合并 main；不得替换正式包或声明完成真机验收。
+校序 PR #351 一加 Ace 6 / Android 16 页面动效 QA 构建请求（续）
+源码基线：221e83b1aa8f09dc5c6a3e152f285eb373e82062
+本轮：保持五栏既有 360ms 整页切换；补齐教务总览→成绩/考试/第二课堂/校园服务的整页推进/返回，以及「我的→课表设置」的二级推入/返回。
+实现：仅复用 PrimaryPageMotion.kt 的 xiaoxuSettingsRouteTransition；不新增导航所有者，不改变课表详情弹层、底栏玻璃、课程颜色及本人数据。
+产物：正常 Debug APK + io.github.x07xh.xiaoxu.unifiedqa 隔离版。
+验证：静态边界测试、Android 编译、JVM 回归、APK SHA256；真机流畅度、灰边及原版对照仍单独验收。
+不得自动合并 main；不得替换正式包或声称真机验收完成。
