@@ -51,6 +51,17 @@ data class CampusRunHistoryBindings(
     init { require((startedAtKey == null) == (startedAtUnit == null)) }
 }
 
+/**
+ * Explicitly reject an undecoded response envelope. Network HTTP 200 and
+ * Base64 decoding alone never establish semester or history business fields.
+ * Avoid accidentally promoting encrypted transport data to TRUSTED_READONLY.
+ */
+private fun requirePlainCampusRunFields(fields: Map<String, Any?>) {
+    val isProtectedEnvelope = fields["r"] is String &&
+        fields["s"] is String && fields["v"] is Number
+    require(!isProtectedEnvelope) { "protected_response_requires_authorized_decoder" }
+}
+
 private fun observedNumber(input: Any?): BigDecimal? {
     if (input == null) return null
     require(input is Number || input is String) { "invalid_numeric_type" }
@@ -98,6 +109,7 @@ fun mapCampusRunDecodedSemester(
     subjectFingerprint: String,
     bindings: CampusRunSemesterBindings
 ): CampusRunReadSummary {
+    requirePlainCampusRunFields(fields)
     val term = bindings.termKey?.let { key ->
         val raw = fields[key]
         require(raw == null || raw is String) { "invalid_term_field" }
@@ -126,6 +138,7 @@ fun mapCampusRunDecodedHistoryRecord(
     fields: Map<String, Any?>,
     bindings: CampusRunHistoryBindings
 ): CampusRunRecord {
+    requirePlainCampusRunFields(fields)
     val rawId = fields[bindings.recordIdKey] ?: throw IllegalArgumentException("missing_record_id")
     require(rawId is Number || rawId is String) { "invalid_record_id" }
     val recordKey = rawId.toString()
