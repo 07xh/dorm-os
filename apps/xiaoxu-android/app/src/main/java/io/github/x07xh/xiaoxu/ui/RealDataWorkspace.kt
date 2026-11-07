@@ -887,6 +887,9 @@ fun RealAcademicTaskHub(
     // All optional rows must be counted. Fixed indexes shifted when old helper lines
     // were removed, so local/cloud buttons could land on the wrong section.
     val taskListState = rememberLazyListState()
+    // Section headers and task rows use stable keys below. Let LazyColumn
+    // preserve the visible item by key when preceding rows are inserted or
+    // removed. Forcing an old numeric index would jump to a different row.
     var jumpTo by remember { mutableStateOf<String?>(null) }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     LaunchedEffect(jumpTo, showLocal, showCloud, showManager, showSearch,
@@ -1827,7 +1830,7 @@ private fun TaskGroupHeader(
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
             .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
