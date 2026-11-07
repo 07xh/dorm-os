@@ -812,6 +812,7 @@ fun RealAcademicTaskHub(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
+    var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     // Default collapsed on first entry. Saveable state still restores a user's
     // subsequent expand/collapse choice when switching tabs or rotating.
@@ -1110,6 +1111,30 @@ fun RealAcademicTaskHub(
                     onClick = { showCloud = !showCloud; if (showCloud) jumpTo = "cloud" },
                     modifier = Modifier.weight(1f)
                 ) { Text(if (showCloud) "收起云端新增" else "新增云端任务") }
+            }
+        }
+        if (showManager) item {
+            val submitted = all.filter { it.storage == "cloud" &&
+                it.provider == "chaoxing" &&
+                it.officialStatus in setOf("submitted", "graded") }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    enabled = submitted.isNotEmpty(),
+                    onClick = {
+                        archiveStore.archiveAll(submitted.map { it.key })
+                        Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条",
+                            Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("清理已提交 (${submitted.size})") }
+                OutlinedButton(
+                    enabled = archivedRows.isNotEmpty(),
+                    onClick = { showArchiveSheet = true },
+                    modifier = Modifier.weight(1f)
+                ) { Text("恢复已清理 (${archivedRows.size})") }
             }
         }
         if (showManager && showLocal) item {
@@ -1539,6 +1564,13 @@ fun RealAcademicTaskHub(
     if (selectedTask != null) {
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
+            onArchive = if (selectedTask.storage == "cloud" &&
+                selectedTask.provider == "chaoxing") {
+                {
+                    archiveStore.archive(selectedTask.key)
+                    openedTaskKey = null
+                }
+            } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
                 showManager = true
@@ -1554,6 +1586,32 @@ fun RealAcademicTaskHub(
                 openedTaskKey = null
             })
     }
+    if (showArchiveSheet) {
+        XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {
+            Text("仅隐藏本机列表，不会删除学习通作业或云端记录。",
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+            if (archivedRows.isEmpty()) {
+                Text("没有可恢复的任务")
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(count = archivedRows.size, key = { i -> archivedRows[i].key }) { index ->
+                        val task = archivedRows[index]
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(task.title, modifier = Modifier.weight(1f),
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { archiveStore.restore(task.key) }) {
+                                Text("恢复")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** 首页与任务中心共用任务详情，不在首页重建独立状态机。 */
@@ -1564,7 +1622,8 @@ internal fun WorkspaceTaskDetailSheet(
     tasksFresh: Boolean,
     onDismiss: () -> Unit,
     onManage: () -> Unit,
-    onVerifyChaoxing: (() -> Unit)? = null
+    onVerifyChaoxing: (() -> Unit)? = null,
+    onArchive: (() -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
@@ -1615,6 +1674,12 @@ internal fun WorkspaceTaskDetailSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
             )
+        }
+        if (onArchive != null) {
+            OutlinedButton(onClick = onArchive,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                Text("从本机任务列表移出")
+            }
         }
         OutlinedButton(onClick = onManage,
             modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
