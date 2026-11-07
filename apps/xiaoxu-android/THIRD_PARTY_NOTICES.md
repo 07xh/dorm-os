@@ -39,7 +39,7 @@ SOFTWARE.
 
 ## SleepDown课程表（署名非商业、源码可见许可 1.1）
 
-PR #328 起，校序的悬浮底部导航复用以下两个文件。初始移植只替换 package 与来源头注释；2026-11-07 删除了无调用的动画完成回调 API，现用拖动与回弹逻辑保持不变：
+PR #328 起，校序的悬浮底部导航复用以下两个文件，随后新增页面切换动效移植。初始移植只替换 package 与来源头注释；2026-11-07 删除了无调用的动画完成回调 API，现用拖动与回弹逻辑保持不变：
 
 - 项目：[xiaomanjun233/SleepDown-Schedule](https://github.com/xiaomanjun233/SleepDown-Schedule)
 - 原作者：xiaomanjun233
@@ -50,8 +50,9 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件。初始移植
 | --- | --- | --- |
 | `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt` | package、来源注释；删除无调用的 animateToValueAndThen 完成回调 API |
 | `app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DragGestureInspector.kt` | `app/src/main/java/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt` | 仅改 package 与文件头注释 |
+| `app/src/main/java/io/github/x07xh/xiaoxu/ui/PrimaryPageMotion.kt` | `feature/home/HomeSwitchMotion.kt`、`feature/settings/SettingsNavigationMotion.kt` | 移植 360ms 单页滑动与 500ms Miuix 阻尼设置页切换，保留校序独立路由与页面状态，不移植 HomeSwitch 卡片分组控制器 |
 
-这两个上游文件自身基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。
+前两项导航手势文件基于 [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 的 Apache-2.0 代码并由 SleepDown 修改，因此同时受 Apache-2.0 与本 1.1 许可约束；校序按更严格的一方（1.1）履行义务。
 
 **未复用的部分**：校序**没有**复制 SleepDown 的 `LiquidBottomTabs`、`glass` 模块、界面资源或应用包结构。`ui/FloatingBottomBar.kt` 保留校序自己的 Compose 手势驱动与旧系统回退，Android 13+ 的玻璃轨道、透镜和图标另外适配自下述北化课表 GPL-3.0 项目。
 
@@ -65,9 +66,9 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件。初始移植
 | App 内「关于」页署名与链接 | 见「我的」页面底部「开源组件与致谢」区块 |
 | 明确标注为修改版并列出修改内容 | 上表 + 仓库内 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` |
 | 不使用近似名称/包名/图标 | 校序应用名「校序」、包名 `io.github.x07xh.xiaoxu`、图标独立设计，与上游无关联 |
-| 保留本许可与原始版权声明 | 本文件 + 两个源文件的文件头 |
+| 保留本许可与原始版权声明 | 本文件 + 三个源文件的文件头 |
 
-> 若校序未来改为商业分发（应用商店付费、广告、收费服务），**必须先移除**这两个文件并换用自研动画驱动。此约束同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` 的「§0 许可证前提」。
+> 若校序未来改为商业分发（应用商店付费、广告、收费服务），**必须先移除**这些 SleepDown 衍生文件并换用许可兼容的动画驱动。此约束同时记录在 `docs/SLEEPDOWN-NAV-RESEARCH-2026-11-06.md` 的「§0 许可证前提」。
 
 ---
 

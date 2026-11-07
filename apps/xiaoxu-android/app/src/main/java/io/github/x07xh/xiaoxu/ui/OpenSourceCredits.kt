@@ -45,7 +45,7 @@ fun OpenSourceCreditsPanel(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "本 App 使用拾光教务适配（MIT）、SleepDown 导航手势（署名非商业许可 1.1）" +
+            "本 App 使用拾光教务适配（MIT）、SleepDown 导航手势与页面动效（署名非商业许可 1.1）" +
                 "和北化课表 v1.0.83 玻璃材质及图标（GPL-3.0）。完整声明见下方。" +
                 " 组合分发的许可证兼容性尚未审查，当前仅供开发与设备验收。",
             style = MaterialTheme.typography.bodySmall,
