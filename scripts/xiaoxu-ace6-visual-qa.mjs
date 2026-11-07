@@ -126,7 +126,7 @@ const metadata = {
   source: 'physical-device-adb',
   note: '截图为用户自行导航的真实本机画面；不代表真实学校数据核验通过',
   result: 'pending_capture',
-  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day'],
+  requiredReferenceScenes: ['02-schedule', '03-course-detail', '04-schedule-settings', '05-schedule-day', '06-course-editor'],
   scenes: []
 };
 const steps = [
@@ -135,10 +135,11 @@ const steps = [
   ['03-course-detail', '课程详情：点击本人已有课程后保持底部抽屉打开，对照原图的弹出位置、文字、双信息卡、教师/周次、提醒和关闭按钮；不要切换提醒'],
   ['04-schedule-settings', '课表设置：从现有入口打开并停留在设置页，对照原图的页面位置、分组、文字、节次时间和周/日视图入口；不要改动真实学期'],
   ['05-schedule-day', '日视图：在课表设置中只切换到日视图并点“完成”，采集真实单日课表，最后恢复原视图；不得修改课程、学期或导入演示数据'],
-  ['06-tasks', '任务中心：核对三态数量、来源切换、长列表、搜索及返回'],
-  ['07-task-detail', '任务详情：打开已有一条任务核对原生详情；不要修改完成状态'],
-  ['08-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
-  ['09-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过']
+  ['06-course-editor', '编辑课程：打开本人已有课程详情，点课程名称进入编辑页，核对全屏玻璃分组、星期选择和保存按钮；截图后取消，禁止更改真实课程'],
+  ['07-tasks', '任务中心：核对三态数量、来源切换、长列表、搜索及返回'],
+  ['08-task-detail', '任务详情：打开已有一条任务核对原生详情；不要修改完成状态'],
+  ['09-messages', '消息中心：核对官方通知/微信审核来源切换、列表及返回'],
+  ['10-message-detail', '消息详情：核对官方公告弹层与返回；无真实公告可跳过']
 ];
 // Screenshot validation must check which application is actually in the
 // foreground, rather than accepting a PNG of Settings, launcher or another app.
