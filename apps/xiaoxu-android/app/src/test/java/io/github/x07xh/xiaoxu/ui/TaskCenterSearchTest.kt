@@ -33,8 +33,8 @@ class TaskCenterSearchTest {
         assertEquals(listOf("cloud:1"),
             searchWorkspaceTasks(records, "pending", "报告", today).map { it.key })
         assertTrue(searchWorkspaceTasks(records, "done", "报告", today).isEmpty())
-        assertEquals(listOf("cloud:1"),
-            searchWorkspaceTasks(records, "week", "", today).map { it.key })
+        // A cloud task date alone does not prove an official school deadline.
+        assertTrue(searchWorkspaceTasks(records, "week", "", today).isEmpty())
         assertEquals(listOf("local:2"),
             searchWorkspaceTasks(records, "done", "复习", today).map { it.key })
     }
@@ -43,8 +43,7 @@ class TaskCenterSearchTest {
     fun independentStatusSourceAndDueFiltersPreserveRealRecords() {
         val pending = searchWorkspaceTasks(records, "pending", "", today)
         assertEquals(listOf("cloud:1", "local:1"), pending.map { it.key })
-        assertEquals(listOf("cloud:1"),
-            facetWorkspaceTasks(pending, "all", true, today).map { it.key })
+        assertTrue(facetWorkspaceTasks(pending, "all", true, today).isEmpty())
         assertEquals(listOf("local:1"),
             facetWorkspaceTasks(pending, "local", false, today).map { it.key })
         assertTrue(facetWorkspaceTasks(pending, "local", true, today).isEmpty())
@@ -76,11 +75,33 @@ class TaskCenterSearchTest {
             facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
         assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
-        assertEquals(listOf("cloud:wx-accepted"),
-            facetWorkspaceTasks(
-                searchWorkspaceTasks(combined, "pending", "", today),
-                "wechat", true, today
-            ).map { it.key })
+        // WeChat's extracted date is not a confirmed personal due date.
+        assertTrue(facetWorkspaceTasks(
+            searchWorkspaceTasks(combined, "pending", "", today),
+            "wechat", true, today
+        ).isEmpty())
+    }
+
+    @Test
+    fun upcomingDeadlineCountUsesOnlyPersonalEnteredFutureDates() {
+        val rows = listOf(
+            WorkspaceTask("local:today", "今天截止", "本机待办", false,
+                today, "本人填写", "local"),
+            WorkspaceTask("local:three", "三天后", "本机待办", false,
+                today.plusDays(3), "本人填写", "local"),
+            WorkspaceTask("local:past", "之前逾期", "本机待办", false,
+                today.minusDays(1), "本人填写", "local"),
+            WorkspaceTask("local:later", "四天后", "本机待办", false,
+                today.plusDays(4), "本人填写", "local"),
+            WorkspaceTask("local:done", "已经完成", "本机待办", true,
+                today.plusDays(1), "本人填写", "local"),
+            WorkspaceTask("cloud:unverified", "未核验学校任务", "学习通记录", false,
+                today.plusDays(1), "云端记录，需核对来源", "cloud",
+                provider = "chaoxing")
+        )
+        assertEquals(2, countUpcomingLocalDeadlines(rows, today))
+        assertEquals(listOf("local:today", "local:three"),
+            facetWorkspaceTasks(rows, "all", true, today).map { it.key })
     }
 
     @Test
