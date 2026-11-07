@@ -201,6 +201,20 @@ class TaskCenterSearchTest {
     }
 
     @Test
+    fun conflictingTrustedOfficialRowsAreNotSilentlyCollapsed() {
+        val rows = listOf(
+            CloudTask("official-todo", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = "todo"),
+            CloudTask("official-submitted", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = "submitted"),
+            CloudTask("legacy", "同名作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:11:22:33", officialStatus = null)
+        )
+        assertEquals(rows, distinctVerifiedChaoxingHomeworkRows(rows))
+        assertEquals(3, combineWorkspaceTasks(emptyList(), rows).size)
+    }
+
+    @Test
     fun editorScrollIndexMatchesActualOptionalRows() {
         // Always present: header, status strip, combined source/filter controls.
         assertEquals(3, taskEditorStartIndex(false, false, false, false))
