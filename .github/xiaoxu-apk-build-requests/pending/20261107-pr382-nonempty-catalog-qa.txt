@@ -1,0 +1,6 @@
+Requested isolated QA build: second-class official catalog nonempty reader PR #382.
+Source fix/xiaoxu-secondclass-nonempty-catalog-20261107 at 4fc082a9243cb0f0a2122efb19a2ed03de9204de.
+The QA branch is identical source with only this build-request marker.
+Run existing safety tests, Node tests, Android Kotlin JVM unit tests, standalone APK and isolated QA package checksum.
+No school login, replay of credentials, or real network request during CI. No fake school data in app; synthetic test activity title exists only in test fixtures.
+Do NOT merge or deploy production. User's Ace 6 must validate real nonempty JSON from their authorized official account before declaring the ingestion fixed.
