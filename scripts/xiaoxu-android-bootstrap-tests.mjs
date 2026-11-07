@@ -114,6 +114,18 @@ assert.match(reminder, /LocalTaskDatabase\.open\(applicationContext\)\.tasks\(\)
   'Reminder worker must only read local tasks, not school snapshots');
 assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
   'Local notifications may not use school accounts, credentials or cached homework');
+assert.match(localTaskUi, /var visibleLimit by rememberSaveable\(filterKey\) \{ mutableStateOf\(30\) \}/,
+  '本机任务编辑器只组合首30条，切换筛选重置显示进度');
+assert.match(localTaskUi, /visible\.take\(visibleLimit\)/,
+  '本机任务必须按需显示更多，而非一次构造200张卡');
+assert.match(localTaskUi, /XiaoxuGroupSurface\s*\{/,
+  '本机任务列表复用唯一玻璃连续分组外壳');
+assert.match(localTaskUi, /dao\.setCompleted\(task\.id, checked\)/,
+  '本机任务完成操作必须仍写原Room记录');
+assert.match(localTaskUi, /onDelete = \{ pendingDelete = task \}/,
+  '本机任务删除仍需原确认流程');
+assert.doesNotMatch(localTaskUi, /visible\.take\(200\)/,
+  '旧式200行即时合成已清退');
 assert.match(localTaskUi, /rememberLauncherForActivityResult\(/,
   'Android notification permission must follow user activation');
 assert.match(localTaskUi, /LocalDeadlineReminders\.setEnabled\(context, false\)/);
