@@ -37,6 +37,22 @@ data class CloudTask(
     val officialStatus: String? = null
 )
 
+/** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
+ * Only a strictly newer locally confirmed WeChat revision wins; newer server
+ * revisions still take precedence. No synthetic records are ever added.
+ */
+internal fun preferConfirmedWechatRevisions(
+    fetched: List<CloudTask>, shown: List<CloudTask>
+): List<CloudTask> {
+    val confirmed = shown.filter { it.provider == "wechat" && it.revision >= 0 }
+        .associateBy { it.id }
+    return fetched.map { row ->
+        val local = confirmed[row.id]
+        if (row.provider == "wechat" && local != null && local.revision > row.revision)
+            local else row
+    }
+}
+
 private val ChaoxingWorkSourceId = Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""")
 private val ChaoxingPlatformStatuses =
     setOf("todo", "submitted", "graded", "returned", "unknown")
@@ -515,7 +531,8 @@ class CloudClient(context: Context) {
         // Only the newest request can certify school-connection freshness.
         if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
         state = state.copy(
-            tasks = tasks ?: state.tasks,
+            tasks = tasks?.let { preferConfirmedWechatRevisions(it, state.tasks) }
+                ?: state.tasks,
             tasksFresh = tasks != null,
             platforms = platforms ?: state.platforms,
             connectionsFresh = platforms != null,
@@ -1568,21 +1585,49 @@ class CloudClient(context: Context) {
             if (response.code != 200 ||
                 response.json.optJSONObject("item")?.optString("id") != id) {
                 if (response.code in setOf(401, 409)) refreshPrivate()
-                state = state.copy(privateError = when (response.code) {
+                if (epoch == sessionEpoch) state = state.copy(privateError = when (response.code) {
                     401 -> "登录状态已过期，请重新连接"
                     409 -> "任务已被其他设备更新，请刷新后重试"
                     else -> "微信任务状态更新失败，请重试"
                 })
                 return false
             }
-            refreshPrivate()
-            val updated = state.tasks.firstOrNull { it.id == id && it.provider == "wechat" }
-            if (state.tasksFresh && updated != null &&
-                (updated.status == "done") == completed) true
-            else {
-                state = state.copy(privateError = "云端可能已更新，但本次刷新未确认，请重新刷新")
-                false
+            // The owner-scoped POST only mutates localStatus and returns the
+            // committed revision. Updating this one row avoids a second full
+            // refresh (auth + paged ledger + connections + candidates + school).
+            val item = response.json.getJSONObject("item")
+            val committedRevision = item.optLong("revision", -1L)
+            if (item.optBoolean("unchanged", true) ||
+                committedRevision != revision.toLong() + 1L ||
+                committedRevision > Int.MAX_VALUE) {
+                state = state.copy(privateError =
+                    "云端可能已更新，但版本未能确认，请手动刷新")
+                return false
             }
+            val currentRow = state.tasks.firstOrNull {
+                it.id == id && it.provider == "wechat" && it.revision == revision
+            }
+            if (currentRow == null || !state.authenticated) {
+                state = state.copy(privateError = "任务状态发生变化，请刷新后重试")
+                return false
+            }
+            // Present the owner-confirmed mutation immediately. An older GET
+            // is reconciled by revision in refreshPrivate, without cancelling
+            // unrelated school connection and candidate refreshes.
+            state = state.copy(
+                tasks = state.tasks.map {
+                    if (it.id == id && it.provider == "wechat" && it.revision == revision)
+                        it.copy(status = if (completed) "done" else "todo",
+                            revision = committedRevision.toInt())
+                    else it
+                },
+                privateError = state.privateError?.takeUnless {
+                    it.startsWith("微信任务状态更新失败") ||
+                        it.startsWith("任务状态发生变化") ||
+                        it.startsWith("云端可能已更新")
+                }
+            )
+            true
         } catch (_: Exception) {
             if (epoch == sessionEpoch)
                 state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")

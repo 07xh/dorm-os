@@ -63,6 +63,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -791,7 +792,9 @@ fun RealAcademicTaskHub(
     var showWechatTasks by rememberSaveable { mutableStateOf(false) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
-    var updatingWechatKey by remember { mutableStateOf<String?>(null) }
+    // Per-row state delivers immediate feedback while the owner-only POST runs.
+    // Other checkboxes remain interactive; only a pending row is locked.
+    val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
     var showSchoolRecords by rememberSaveable { mutableStateOf(false) }
     // Reading or refreshing official data never expands this group on its own.
     // Preserve a deliberate user toggle across ordinary UI recomposition.
@@ -1152,15 +1155,24 @@ fun RealAcademicTaskHub(
                 }
                 if (showWechatTasks) {
                     items(count = wechatRows.size, key = { i -> wechatRows[i].key }) { i ->
-                        ConnectedTaskShell(index = i, total = wechatRows.size) {
+                        ConnectedTaskShell(
+                            index = i, total = wechatRows.size,
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = tween(140),
+                                placementSpec = tween(180),
+                                fadeOutSpec = tween(140)
+                            )
+                        ) {
                             val row = wechatRows[i]
                             TaskRow(
                                 row, today,
                                 onOpen = { openedTaskKey = row.key },
                                 onToggleWechat = if (state.tasksFresh && row.revision >= 0) {
                                     { checked ->
-                                        if (updatingWechatKey == null) {
-                                            updatingWechatKey = row.key
+                                        if (!pendingWechatTaskUpdates.containsKey(row.key)) {
+                                            // Provisional, presentation-only state: the real
+                                            // task and counters change after confirmed POST.
+                                            pendingWechatTaskUpdates[row.key] = checked
                                             taskScope.launch {
                                                 try {
                                                     client.setWechatTaskCompleted(
@@ -1168,13 +1180,14 @@ fun RealAcademicTaskHub(
                                                         row.revision, checked
                                                     )
                                                 } finally {
-                                                    updatingWechatKey = null
+                                                    pendingWechatTaskUpdates.remove(row.key)
                                                 }
                                             }
                                         }
                                     }
                                 } else null,
-                                actionEnabled = updatingWechatKey == null
+                                pendingChecked = pendingWechatTaskUpdates[row.key],
+                                actionEnabled = !pendingWechatTaskUpdates.containsKey(row.key)
                             )
                         }
                     }
@@ -1748,6 +1761,7 @@ private const val DUE_OVERDUE = 4
 private fun ConnectedTaskShell(
     index: Int,
     total: Int,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val radius = XiaoxuRadius.card
@@ -1758,7 +1772,7 @@ private fun ConnectedTaskShell(
         else -> RoundedCornerShape(0.dp)
     }
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
     ) {
@@ -1781,6 +1795,7 @@ private fun TaskRow(
     onOpen: () -> Unit,
     onToggleLocal: ((Boolean) -> Unit)? = null,
     onToggleWechat: ((Boolean) -> Unit)? = null,
+    pendingChecked: Boolean? = null,
     actionEnabled: Boolean = true
 ) {
     val due = remember(task, today) { describeDue(task, today) }
@@ -1792,8 +1807,12 @@ private fun TaskRow(
     }
     val officialLabel = if (task.provider == "chaoxing")
         officialTaskStatusLabel(task.officialStatus) else null
-    val statusText = officialLabel ?: if (task.done) "个人已完成" else due.label
+    // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
+    val isPending = pendingChecked != null
+    val statusText = if (isPending) "保存中…" else
+        officialLabel ?: if (task.done) "个人已完成" else due.label
     val statusInk = when {
+        isPending -> XiaoxuPalette.Brand
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -1803,6 +1822,7 @@ private fun TaskRow(
         else -> dueTone
     }
     val statusBackground = when {
+        isPending -> XiaoxuPalette.BrandSoft
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -1843,11 +1863,13 @@ private fun TaskRow(
             )
         } else if (task.category == "wechat" && onToggleWechat != null) {
             Checkbox(
-                checked = task.done,
+                checked = pendingChecked ?: task.done,
                 enabled = actionEnabled,
                 onCheckedChange = onToggleWechat,
                 modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = if (task.done)
+                    contentDescription = if (isPending)
+                        "正在保存微信任务“" + task.title + "”的个人完成状态"
+                    else if (task.done)
                         "将微信任务“" + task.title + "”改为待完成"
                     else "将微信任务“" + task.title + "”标记为个人已完成"
                 }
