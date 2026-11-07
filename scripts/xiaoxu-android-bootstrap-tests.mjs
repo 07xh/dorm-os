@@ -567,6 +567,12 @@ assert.match(localReader, /catalogStatus='verified_nonempty'/,
 assert.match(localReader, /catalogActivities/,
   '必须只返回经过字段白名单投影的活动目录');
 assert.match(localNativeCatalog, /parseLocalSecondClassCatalogEmpty\(payload, rows\.first\(\)\.capturedAt\)/);
+assert.match(localNativeCatalog, /pendingOfficialCatalogRead = true/,
+  '学校活动卡不能再交给仅识别 table 的旧页面读取器');
+assert.match(localNativeCatalog, /browser\.loadUrl\(entries\.getValue\("second_class"\)\)/,
+  '人工点击当前活动页必须回用已授权的本人积分与活动联合读取链路');
+assert.match(localNativeCatalog, /parseLocalSecondClassCatalogActivities\(payload, rows\.first\(\)\.capturedAt\)/,
+  '非空目录进入严格 Kotlin 字段校验后才写入本机');
 assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, catalogActivities, accountHash = accountHash\)/);
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
