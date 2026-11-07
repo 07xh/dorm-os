@@ -187,14 +187,26 @@ try {
     fs.writeFileSync(path.join(output, name + '.gfxinfo.txt'), gfx, 'utf8');
     const total = gfx.match(/Total frames rendered:\s*(\d+)/i);
     const janky = gfx.match(/Janky frames:\s*(\d+)/i);
+    const totalFrames = total ? Number(total[1]) : null;
+    const jankyFrames = janky ? Number(janky[1]) : null;
+    // dumpsys gfxinfo only reports observed UI frames: short/idle captures do not
+    // provide a reliable smoothness verdict. Record raw evidence and a ratio,
+    // but never infer 60/120 Hz or a visual pass from these counters alone.
+    const validFrameSample = Number.isInteger(totalFrames) && totalFrames > 0 &&
+      Number.isInteger(jankyFrames) && jankyFrames >= 0 && jankyFrames <= totalFrames;
+    const jankyPercent = validFrameSample
+      ? Math.round(10000 * jankyFrames / totalFrames) / 100 : null;
     metadata.scenes.push({
       name, captured: true, foregroundVerified,
       png: name + '.png', frameDump: name + '.gfxinfo.txt',
-      totalFrames: total ? Number(total[1]) : null,
-      jankyFrames: janky ? Number(janky[1]) : null,
+      totalFrames, jankyFrames, jankyPercent,
+      frameSampleUsable: validFrameSample && totalFrames >= 30,
       screenshotSha256: crypto.createHash('sha256').update(png).digest('hex')
     });
-    console.log('已保存 ' + name + '.png；未根据截图推定验收通过。');
+    console.log('已保存 ' + name + '.png；' +
+      (jankyPercent == null ? '系统未返回可解析帧数据' :
+        '观测卡顿帧 ' + jankyFrames + '/' + totalFrames + '（' + jankyPercent + '%）') +
+      '；仍须与原版进行真机视觉/交互对照。');
   }
 } finally {
   rl.close();
@@ -204,6 +216,21 @@ try {
     .filter(x => x.captured && x.foregroundVerified).map(x => x.name));
   metadata.missingReferenceScenes =
     metadata.requiredReferenceScenes.filter(x => !captured.has(x));
+  // Only representative motion scenes count toward fluidity evidence.
+  // An absent or tiny gfxinfo sample must be marked as missing, not smooth.
+  const motionScenes = ['12-glass-rapid-tabs', '13-glass-drag-return', '14-glass-course-content'];
+  metadata.performanceSamples = motionScenes.map(name => {
+    const scene = metadata.scenes.find(x => x.name === name);
+    return {
+      name,
+      sampled: Boolean(scene?.captured && scene.foregroundVerified && scene.frameSampleUsable),
+      totalFrames: scene?.totalFrames ?? null,
+      jankyFrames: scene?.jankyFrames ?? null,
+      jankyPercent: scene?.jankyPercent ?? null
+    };
+  });
+  metadata.performanceEvidenceComplete = metadata.performanceSamples.every(x => x.sampled);
+  metadata.performanceVerdict = 'requires_manual_frame_and_visual_review';
   metadata.result = metadata.missingReferenceScenes.length > 0
     ? 'incomplete_reference_screenshots'
     : (!declaredCommitLooksLikeSha || installedMatchesLocal !== true)
