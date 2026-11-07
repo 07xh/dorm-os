@@ -19,17 +19,21 @@ fun parseLocalSecondClassCatalogEmpty(
     require(payload.getBoolean("ok") && payload.getBoolean("identityMatched"))
     require(capturedAt > 0)
     val status = payload.getString("catalogStatus")
-    require(status in setOf("verified_empty", "nonempty_unverified", "unavailable"))
+    require(status in setOf("verified_empty", "verified_nonempty", "nonempty_unverified", "unavailable"))
     val filters = payload.getJSONArray("catalogEmptyFilters")
-    if (status != "verified_empty") {
+    if (status !in setOf("verified_empty", "verified_nonempty")) {
         require(filters.length() == 0)
         return emptyList()
     }
     val required = listOf("报名中", "待验证", "即将开始报名")
-    require(filters.length() == required.size)
+    require(filters.length() <= required.size)
     val actual = (0 until filters.length()).map { filters.getString(it) }
-    require(actual == required)
-    return required.map { title ->
+    require(actual.distinct().size == actual.size && actual.all { it in required })
+    if (status == "verified_empty") require(actual == required)
+    // Only the filters actually confirmed empty may be stored. In a mixed
+    // nonempty snapshot, creating empty rows for all filters conflicts with
+    // real activity cards and rejects the entire Room transaction.
+    return actual.map { title ->
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(("second_class|catalog_empty|" + title).toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
