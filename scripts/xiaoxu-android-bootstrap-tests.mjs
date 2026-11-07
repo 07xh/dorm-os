@@ -2108,6 +2108,10 @@ assert.match(main, /private fun CompactPageHeading\(/,
   '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
 assert.match(main, /topBar = \{\},/,
   'Scaffold 顶栏不随五个标签跳动，避免切页时整体内容高度变化');
+assert.match(main, /applyStatusBarInset = false/,
+  '首页顶栏移动到页面内后应使用Scaffold既有状态栏内边距，不可重复下移');
+assert.match(design, /then\(if \(applyStatusBarInset\) Modifier\.statusBarsPadding\(\) else Modifier\)/,
+  '统一顶栏允许复用Scaffold安全区，同时保持原有独立顶栏默认行为');
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)/,
   '首页顶栏必须成为唯一一级页面内容，不影响其他页面的 Scaffold 几何');
 assert.match(main, /onMessages = \{ messagesOpen = true \}/,
