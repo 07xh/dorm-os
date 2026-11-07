@@ -1,0 +1,9 @@
+User-requested public Android RC release (2026-11-07).
+Version 0.8.12-rc.1, versionCode 33; no main/cloudflare auto-merge.
+Integrated source passed CI at d66bb7f230f6f512bd6b3c4de90c57de0c2cd956:
+- DORM OS CI 42388220423 success
+- Android JVM 42388220443 success
+- Android Alpha/QA build 42388220395 success
+- Second-class WebView runtime 42388220435 success
+The publishing workflow must rebuild and verify its OWN exact source SHA, then attach an APK, SHA256SUMS.txt, and BUILD-COMMIT.txt to immutable prerelease xiaoxu-android-v0.8.12-rc1.
+Do not alter main, remove historical releases, or mark true-device acceptance as passed.
