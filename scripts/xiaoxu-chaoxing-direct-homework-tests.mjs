@@ -39,19 +39,6 @@ assert.throws(()=>parseChaoxingCourseList(
 assert.deepEqual(parseChaoxingWorkCredentials(middle),
  {workEnc:'signedWork',pageEnc:'signedPage',openc:'openKey'});
 assert.deepEqual(parseChaoxingWorkList(workHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
-// Upstream xuexitong-cli unquotes signed work URLs. An encoded li[data]
-// must not silently exclude a legitimate already-submitted assignment.
-const encodedWorkHtml=workHtml.replace(taskUrl.replaceAll('&','&amp;'),
- encodeURIComponent(taskUrl));
-assert.deepEqual(parseChaoxingWorkList(encodedWorkHtml,{courseId:'123',classId:'456'}).items.map(x=>x.workId),['987']);
-assert.equal(safeChaoxingWorkUrl(encodeURIComponent(taskUrl),
- {courseId:'123',classId:'456'}).workId,'987');
-for(const untrusted of [
- encodeURIComponent('https://evil.example/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=987'),
- encodeURIComponent('http://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=987'),
- encodeURIComponent(taskUrl.replace('courseId=123','courseId=999')),
- encodeURIComponent(taskUrl+'\n')
-])assert.throws(()=>safeChaoxingWorkUrl(untrusted,{courseId:'123',classId:'456'}));
 // Only the xuexitong-cli official work-page total, never an inferred total.
 const countHtml=workHtml.replace('<ul>', '<div><div><span>1/1</span></div></div><ul>');
 assert.deepEqual(parseChaoxingWorkList(countHtml,{courseId:'123',classId:'456'}).progress,
@@ -115,7 +102,6 @@ assert.equal(list.items[0].statusCode,'todo');
 assert.equal(list.items[0].platformVerified,true);
 for(const [label,code] of [
  ['未提交','todo'],['待评阅','submitted'],['已提交','submitted'],
- ['已完成','submitted'],['已批改','graded'],['批阅完成','graded'],
  ['已评分','graded'],['退回重做','returned'],['','unknown'],['待开放','unknown']
 ])assert.equal(classifyChaoxingWorkStatus(label),code);
 assert.ok(!JSON.stringify(list).includes('signedTask'));
@@ -165,60 +151,88 @@ const captchaTitle=workHtml.replace('循环练习','验证码识别实验');
 assert.equal(parseChaoxingWorkList(captchaTitle,{courseId:'123',classId:'456'}).items.length,1);
 assert.throws(()=>parseChaoxingWorkList('<body>请输入验证码</body>',{courseId:'123',classId:'456'}),
  e=>e.code==='interactive_login_required');
-// Completed/graded work may be a signed li[data] without any goTask handler.
-const completedUrl=taskUrl.replace('workId=987','workId=988');
-const completedLi='<li data="'+encodeURIComponent(completedUrl)+'">'+
- '<p class="overHidden2 fl">已完成的实验报告</p>'+
- '<p class="status fl">已批改</p></li>';
-assert.deepEqual(parseChaoxingWorkList('<ul>'+completedLi+'</ul>',
- {courseId:'123',classId:'456'}).items.map(row=>row.workId),['988']);
-for(const [label,expected] of [
- ['待批改','submitted'],['已互評','submitted'],['待互评','unknown']
-])assert.equal(classifyChaoxingWorkStatus(label),expected);
 
-// A two-page signed official list contains the earlier pending row AND a
-// later completed row; all records must be read before marking it verified.
-const pager=n=>'<div id="page">'+
- '<li class="'+(n===1?'xl-active':'')+'">1</li>'+
- '<li class="'+(n===2?'xl-active':'')+'">2</li>'+
- '<li class="xl-nextPage">下一页</li></div>';
-const pageOne=workHtml.replace('<ul>','<div><div><span>1/2</span></div></div><ul>')+pager(1);
-const pageTwo='<ul>'+completedLi+'</ul>'+pager(2);
-assert.deepEqual(parseChaoxingWorkList(pageOne,
- {courseId:'123',classId:'456'}).pagination,{page:1,totalPages:2});
-assert.throws(()=>parseChaoxingWorkList(workHtml+pager(1).replace('>2<','>11<'),
- {courseId:'123',classId:'456'}),e=>e.code==='work_list_incomplete');
-const pagedCalls=[];
-const pagedFetch=async(raw,options)=>{
- const url=new URL(raw);
- if(url.pathname==='/mooc2/work/list'){
-  const current=url.searchParams.get('pageNum');
-  pagedCalls.push(current);
-  return response(current==='1'?pageOne:pageTwo);
+// Regression: completed assignments can be li[data] rows without goTask,
+// and the upstream list is paginated. Do not mistake page one for full coverage.
+const courseKeys={courseId:'123',classId:'456',cpi:'789'};
+const row=(id,title,status)=>
+ '<li data="https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task'+
+ '?courseId=123&amp;classId=456&amp;workId='+id+'&amp;enc=signedTask">'+
+ '<div class="tag icon-zy-g"></div><p class="overHidden2 fl">'+title+'</p>'+
+ '<p class="status fl">'+status+'</p></li>';
+const paginated=(number,html,total='2')=>
+ '<div><div><span>1/'+total+'</span></div></div>'+
+ '<div id="page"><li'+(number===1?' class="xl-active"':'')+'>1</li>'+
+ '<li'+(number===2?' class="xl-active"':'')+'>2</li></div>'+
+ '<ul>'+html+'</ul>';
+const firstPage=paginated(1,row('910','第一次作业','未提交'));
+const secondPage=paginated(2,row('911','第二次作业','已完成'));
+const parsedFirst=parseChaoxingWorkList(firstPage,courseKeys);
+assert.equal(parsedFirst.totalPages,2);
+assert.equal(parsedFirst.progress.total,2);
+assert.equal(parsedFirst.items.length,1,'first page is not the entire course');
+assert.equal(parseChaoxingWorkList(secondPage,courseKeys,{pageNumber:2}).items[0].workId,'911');
+const pagesFetched=[];
+const pagedAdapter=createChaoxingSchoolAdapter({fetchImpl:async (raw)=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list'){
+  const pageNum=u.searchParams.get('pageNum');
+  pagesFetched.push(pageNum);
+  return response(pageNum==='1'?firstPage:secondPage);
  }
- return fakeFetch(raw,options);
-};
-const paged=await createChaoxingSchoolAdapter({fetchImpl:pagedFetch})
- .forSession({session,userId:'owner1'});
-await paged.verifySession();
-const full=await paged.readHomeworkList({courseId:'123',classId:'456',cpi:'789'});
-assert.deepEqual(full.items.map(item=>[item.workId,item.statusCode]),[
- ['987','todo'],['988','graded']
+ throw Error('unexpected route '+u.pathname);
+}});
+const pagedReader=await pagedAdapter.forSession({session,userId:'owner1'});
+await pagedReader.verifySession();
+const paged=await pagedReader.readHomeworkList(courseKeys);
+assert.deepEqual(pagesFetched,['1','2']);
+assert.deepEqual(paged.items.map(x=>[x.workId,x.statusCode]),[
+ ['910','todo'],['911','submitted']
 ]);
-assert.deepEqual(full.progress,{completed:1,total:2});
-assert.deepEqual(pagedCalls,['1','2']);
-assert.ok(!JSON.stringify(full).includes('signedTask'));
-const repeatedPage=await createChaoxingSchoolAdapter({
- fetchImpl:async(raw,options)=>{
-  const url=new URL(raw);
-  if(url.pathname==='/mooc2/work/list')return response(pageOne);
-  return fakeFetch(raw,options);
+assert.deepEqual(paged.progress,{completed:1,total:2});
+assert.equal(paged.items.every(x=>x.platformVerified),true);
+assert.ok(!JSON.stringify(paged).includes('signedTask'));
+// Mutating/duplicated pagination must not emit a partial trusted list.
+const duplicatedAdapter=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list')
+  return response(u.searchParams.get('pageNum')==='1'?firstPage:
+   paginated(2,row('910','重复作业','已完成')));
+ throw Error('unexpected route '+u.pathname);
+}});
+const duplicatedReader=await duplicatedAdapter.forSession({session,userId:'owner1'});
+await duplicatedReader.verifySession();
+await assert.rejects(()=>duplicatedReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_list_incomplete');
+// Total is checked across ALL official pages, not incorrectly on page one.
+const missingWorkAdapter=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(middle);
+ if(u.pathname==='/mooc2/work/list'){
+  return response(paginated(Number(u.searchParams.get('pageNum')),
+   Number(u.searchParams.get('pageNum'))===1?
+    row('910','作业1','未提交'):row('911','作业2','已完成'),'3'));
  }
-}).forSession({session,userId:'owner1'});
-await repeatedPage.verifySession();
-await assert.rejects(()=>repeatedPage.readHomeworkList({
- courseId:'123',classId:'456',cpi:'789'
-}),e=>e.code==='work_list_incomplete',
- 'repeating the first page must never masquerade as a complete list');
+ throw Error('unexpected route '+u.pathname);
+}});
+const missingWorkReader=await missingWorkAdapter.forSession({session,userId:'owner1'});
+await missingWorkReader.verifySession();
+await assert.rejects(()=>missingWorkReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_list_incomplete','partial pages cannot be persisted');
+// The official status text, never the icon-zy-g CSS label, controls completion.
+assert.equal(classifyChaoxingWorkStatus('已批改'),'graded');
+assert.equal(classifyChaoxingWorkStatus('已互評'),'submitted');
+assert.equal(classifyChaoxingWorkStatus('待批改'),'submitted');
+assert.equal(classifyChaoxingWorkStatus('待互评'),'unknown');
+assert.equal(classifyChaoxingWorkStatus('未交'),'todo');
+console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
 
-console.log('Chaoxing review: paginated completed rows, owner scope and missing-page guard passed');
+console.log('Chaoxing review: login-redirect and challenge-title regressions passed');

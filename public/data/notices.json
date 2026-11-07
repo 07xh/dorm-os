@@ -2,35 +2,28 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-07T08:50:20.821Z",
+  "lastSuccessAt": "2026-11-07T16:28:46.748Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-06T17:31:45.960Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-06T17:31:45.960Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-02T17:20:09.934Z",
-      "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-07T08:50:20.821Z",
-      "count": 29
+      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
+      "count": 20
     }
   ],
   "items": [
@@ -665,6 +658,15 @@
       "category": "学生事务"
     },
     {
+      "id": "ncwu-8c8f4014e581a403",
+      "title": "关于核对和张贴2026级新生考生电子照片的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4139.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
       "id": "ncwu-dac81ace38c08f9c",
       "title": "关于开展2026年10月大学生思政主题教育活动的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4141.htm",
@@ -695,6 +697,33 @@
       "id": "ncwu-c10237416171a13b",
       "title": "关于开展学生宿舍安全隐患排查和整治工作的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4150.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-3e2ba8f6151b7495",
+      "title": "关于组织学习《华北水利水电大学学生手册》的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4152.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-ae004bb3504acd4e",
+      "title": "关于做好我校2025年“自强助学金”评定的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4155.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-1ba7236cba791d6c",
+      "title": "关于我校2025-2026学年本科学生奖学金审核结果及公示的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4156.htm",
       "date": null,
       "sourceId": "student",
       "sourceName": "学生工作处",
