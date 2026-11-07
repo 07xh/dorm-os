@@ -23,7 +23,7 @@ assert.match(visualQa, /\['13-glass-drag-return',/, '必须采集拖拽回弹');
 assert.match(visualQa, /\['14-glass-course-content',/, '必须采集课表背景折射');
 assert.match(visualQa, /\['15-glass-gesture-inset',/, '必须检查系统手势安全区');
 assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
-assert.match(visualQa, /function isTargetInForeground\(\)/,
+assert.match(visualQa, /function isTargetInForeground\(targetPackage = packageName\)/,
   '真机截图须核验校序应用位于前台');
 assert.match(visualQa, /const foregroundVerified = isTargetInForeground\(\)/,
   '必须在实际截图时检查应用前台状态');
