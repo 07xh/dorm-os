@@ -111,6 +111,11 @@ object SecondClassAutoRefresh {
             val activities = parseLocalSecondClassActivities(payload, startedAt)
             val catalog = parseLocalSecondClassCatalogEmpty(payload, startedAt)
             val catalogActivities = parseLocalSecondClassCatalogActivities(payload, startedAt)
+            // Catalog may be independently unavailable: still save verified
+            // personal scores/registrations, while the DAO retains only the
+            // same owner's earlier catalog and its original capture time.
+            val catalogVerified = payload.optString("catalogStatus") in
+                setOf("verified_empty", "verified_nonempty")
             currentCoroutineContext().ensureActive()
             if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
                 identity.getString("salt", null) != salt) return
@@ -119,10 +124,13 @@ object SecondClassAutoRefresh {
             withContext(Dispatchers.IO) {
                 currentCoroutineContext().ensureActive()
                 dao.replaceSecondClassSnapshot(scores, activities, catalog, catalogActivities,
-                    accountHash = expected, expectedBinding = expected)
+                    accountHash = expected, expectedBinding = expected,
+                    catalogVerified = catalogVerified)
             }
             settings.edit().putLong("success_at", System.currentTimeMillis())
-                .putBoolean("success_background", backgroundRun).putString("status", "updated").apply()
+                .putBoolean("success_background", backgroundRun)
+                .putString("catalog_status", payload.optString("catalogStatus"))
+                .putString("status", "updated").apply()
         } catch (_: TimeoutCancellationException) { state("failed") }
         catch (cancelled: CancellationException) {
             if (status(c) == "reading") state("idle")

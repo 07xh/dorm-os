@@ -644,7 +644,11 @@ assert.match(localNativeCatalog, /browser\.loadUrl\(entries\.getValue\("second_c
   '人工点击当前活动页必须回用已授权的本人积分与活动联合读取链路');
 assert.match(localNativeCatalog, /parseLocalSecondClassCatalogActivities\(payload, rows\.first\(\)\.capturedAt\)/,
   '非空目录进入严格 Kotlin 字段校验后才写入本机');
-assert.match(localNativeCatalog, /replaceSecondClassSnapshot\(rows, activities, catalog, catalogActivities, accountHash = accountHash\)/);
+assert.match(localNativeCatalog,
+  /replaceSecondClassSnapshot\(rows, activities, catalog, catalogActivities,\s*accountHash = accountHash, catalogVerified = catalogVerified\)/,
+  '第二课堂手动保存应区分活动广场完整快照和暂不可用');
+assert.match(secondClassDao, /val preserveCatalog = !catalogVerified/,
+  '只有同账号可保留旧目录，换号需清理');
 assert.match(secondClassDao, /deleteKind\("second_class", "catalog_empty"\)/);
 assert.doesNotMatch(localReader, /document\.cookie|localStorage|sessionStorage|addJavascriptInterface/);
 
