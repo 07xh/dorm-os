@@ -587,13 +587,13 @@ private fun MessagePill(
     onClick: () -> Unit
 ) {
     val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-        else XiaoxuPalette.Surface,
+        targetValue = if (isSelected) XiaoxuPalette.GlassIndicator
+        else XiaoxuPalette.GlassTrack,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-bg"
     )
     val foreground by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+        targetValue = if (isSelected) XiaoxuPalette.BrandDeep
         else XiaoxuPalette.Ink2,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
         label = "message-pill-fg"
@@ -604,8 +604,8 @@ private fun MessagePill(
             .clip(RoundedCornerShape(50))
             .background(background)
             .border(
-                width = 1.dp,
-                color = if (isSelected) background else XiaoxuPalette.Line,
+                width = XiaoxuSpacing.glassStroke,
+                color = XiaoxuPalette.GlassBorder,
                 shape = RoundedCornerShape(50)
             )
             // selected 由 selectable 提供，与 selectableGroup 一起被读屏当作单选组播报。
@@ -892,7 +892,7 @@ private fun MessageBanner(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(container)
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(14.dp))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.Top
