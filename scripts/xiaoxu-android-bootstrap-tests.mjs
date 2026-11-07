@@ -647,16 +647,16 @@ const semesterSettingsSource = timetableSettings.slice(
     timetableSettings.indexOf('private fun SettingsActionRow('));
 assert.match(semesterSettingsSource, /XiaoxuGroupSurface\s*\{\s*content\(\)/,
   '课表设置必须复用单一玻璃分组宿主，不自行维护重复的背景和边框');
-const groupedGlassSource = design.slice(
-    design.indexOf('internal fun XiaoxuGroupSurface('),
-    design.indexOf('/** 连续分组设置', design.indexOf('internal fun XiaoxuGroupSurface(')));
+const groupedGlassSource = designSystem.slice(
+    designSystem.indexOf('internal fun XiaoxuGroupSurface('),
+    designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
 assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
   '课表设置分组圆角必须与所有设置页同源');
 assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
   '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
 assert.match(groupedGlassSource, /border\(0\.75\.dp, XiaoxuPalette\.GlassBorder/,
   '课表设置分组边界必须使用轻玻璃描边');
-assert.match(design, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
+assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
   '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
 
 
