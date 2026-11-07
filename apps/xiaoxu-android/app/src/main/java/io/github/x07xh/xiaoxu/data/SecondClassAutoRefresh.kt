@@ -98,8 +98,8 @@ object SecondClassAutoRefresh {
             state("reading")
             val payload = reader(c, salt!!)
             if (!payload.optBoolean("ok")) {
-                state(if (payload.optInt("httpStatus") == 401 &&
-                    payload.optString("stage") != "activity_http") "needs_reconnect"
+                state(if (SecondClassAutoReadPolicy.requiresReconnect(
+                    payload.optInt("httpStatus"), payload.optString("stage"))) "needs_reconnect"
                     else if (payload.optString("stage") == "identity" &&
                         payload.optString("reason") != "visible_account_required") "needs_confirmation" else "failed")
                 return

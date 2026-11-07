@@ -69,6 +69,28 @@ const read=()=>readConnectedChaoxing({db,userId:'owner1',adapter:newAdapter(),se
 
 assert.equal((await connect()).connected,true);
 assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
+// A still-valid official login must survive several days without opening the
+// app. Each verified read renews the local lease; unverified failures do not.
+const realNow=Date.now,startedAt=realNow(),day=86_400_000;
+try{
+ Date.now=()=>startedAt+4*day;
+ await read();
+ assert.deepEqual(await schoolSessionStates(db,'owner1',secret),{chaoxing:'active'});
+ Date.now=()=>startedAt+33*day;
+ await refreshSchoolAccount({db,userId:'owner1',provider:'chaoxing',
+  adapter:newAdapter(),secret,sync:async()=>({lastSuccessAt:new Date().toISOString()})});
+ const verified=vault();
+ mode='offline';
+ Date.now=()=>startedAt+62*day;
+ await assert.rejects(()=>read(),e=>e.code==='upstream_unavailable');
+ assert.deepEqual(vault(),verified,'failed identity checks must not renew the lease');
+ mode='normal';
+ Date.now=()=>startedAt+64*day;
+ const upstreamCalls=baseCookies.length;
+ await assert.rejects(()=>read(),e=>e.code==='session_expired');
+ assert.equal(baseCookies.length,upstreamCalls,'idle retention remains bounded');
+}finally{Date.now=realNow;mode='normal';}
+await connect();
 const original=vault();
 // First trusted read rotates an upstream cookie; a later independent reader
 // must use the rotated value from D1, not the original login jar.

@@ -78,6 +78,8 @@ for(const bad of [
 ])assert.throws(()=>validateChaoxingCookieExport(bad),
  e=>e.code==='invalid_cookie_format');
 const directlyImported=await adapter.importSession({cookies:officialCookies});
+assert.ok(Date.parse(directlyImported.expiresAt)>Date.now()+29*86_400_000,
+ 'verified imported sessions must also survive several days of inactivity');
 assert.equal(directlyImported.session.uid,'1234567');
 assert.equal(directlyImported.session.schema,'chaoxing-session-v1');
 assert.ok(!JSON.stringify(directlyImported).includes('test-password'));
