@@ -1,0 +1,9 @@
+{
+  "source_commit": "903a7660416950d23a951afe71035d12a6860b5a",
+  "build_run": 42479289944,
+  "artifact_id": 13617121003,
+  "apk_blob": "a926e3dbd1ed642a5dd161f0f2b730f1d931fb21",
+  "apk_sha256": "9a7ff304b1f52575d6319abe9f9f65dc2924c3f0eef9da8c922196dc1fa027ae",
+  "version": "0.8.14",
+  "version_code": 35
+}
