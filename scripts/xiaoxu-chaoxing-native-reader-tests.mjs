@@ -292,10 +292,10 @@ assert.equal(partial.data.records.length,0,'no partially trusted group read');
 const invalidId=await taskGroupsFixture({userId:'invalid\\nCookie=secret'});
 assert.equal(invalidId.data.error,'identity_unavailable');
 assert.equal(invalidId.requested.length,0);
-const tooMany=await taskGroupsFixture({groups:Array.from({length:25},
+const oversizedGroupRead=await taskGroupsFixture({groups:Array.from({length:25},
   (_,i)=>({encryptGroupId:'g'+i}))});
-assert.equal(tooMany.data.error,'too_many_groups');
-assert.deepEqual(tooMany.requested,['/userStudyPlan/getGroupData']);
+assert.equal(oversizedGroupRead.data.error,'too_many_groups');
+assert.deepEqual(oversizedGroupRead.requested,['/userStudyPlan/getGroupData']);
 const wrongHost=await taskGroupsFixture({page:'/untrusted'});
 assert.equal(wrongHost.data.error,'wrong_page');
 assert.equal(wrongHost.requested.length,0);
