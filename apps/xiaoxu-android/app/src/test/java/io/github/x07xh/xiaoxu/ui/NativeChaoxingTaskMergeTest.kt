@@ -23,6 +23,16 @@ class NativeChaoxingTaskMergeTest {
         CloudTask("cloud-1", "实验报告一", "todo", "homework", "chaoxing",
             null, sourceExternalId = source, officialStatus = state)
 
+    @Test fun sourceIdentitySeparatesLiveHomeworkFromHistoricalNotice() {
+        val official = combineWorkspaceTasks(emptyList(), listOf(cloud()), listOf(record("已完成"))).single()
+        assertEquals("官方作业身份：$id", chaoxingTaskIdentityHint(official))
+        val notice = cloud(source="cxn:" + "a".repeat(40))
+        val historic = combineWorkspaceTasks(emptyList(), listOf(notice), emptyList()).single()
+        assertTrue(chaoxingTaskIdentityHint(historic)!!.contains("尚未关联当前官方作业"))
+        assertEquals("unknown", historic.officialStatus ?: "unknown")
+        assertFalse(considerCompleteInTaskList(historic))
+    }
+
     @Test fun completedOfficialLocalWorkShowsInExistingTaskCounts() {
         val tasks = combineWorkspaceTasks(emptyList(), emptyList(), listOf(record("待批阅")))
         assertEquals(1, tasks.size)
