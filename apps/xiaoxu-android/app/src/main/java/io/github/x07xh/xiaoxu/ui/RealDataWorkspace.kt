@@ -229,7 +229,7 @@ internal fun combineWorkspaceTasks(
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
                 "学习通 · 本机官网", false, null, "本机官方页面观察",
-                "native", "local", provider = "chaoxing",
+                "native", "chaoxing", provider = "chaoxing",
                 sourceExternalId = id, officialStatus = status,
                 officialStatusRaw = nativeChaoxingVisibleStatusText(record)
             ))
@@ -239,7 +239,7 @@ internal fun combineWorkspaceTasks(
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
                 "学习通 · 学习计划（本人页面）", false, null, "本机官方页面观察",
-                "native", "local", provider = "chaoxing",
+                "native", "chaoxing", provider = "chaoxing",
                 sourceExternalId = id, officialStatus = status,
                 officialStatusRaw = nativeChaoxingVisibleStatusText(record)
             ))
@@ -862,7 +862,7 @@ private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Uni
  * A unified VIEW, preserving both write stores and existing live Chaoxing reader.
  *
  * 视觉分区（本机 / 云端 / 本机页面快照）只是展示层分组：三个数据来源依旧各自存储，
- * 本机学习通快照不参与待完成 / 本周截止 / 已完成三项统计，也不合成任何任务或截止日。
+ * 本机学习通按官方身份和状态参与待完成/已完成，截止日期仍不推断。
  */
 @Composable
 fun RealAcademicTaskHub(
@@ -912,6 +912,7 @@ fun RealAcademicTaskHub(
     // Default collapsed on first entry. Saveable state still restores a user's
     // subsequent expand/collapse choice when switching tabs or rotating.
     var showCourseTasks by rememberSaveable { mutableStateOf(false) }
+    var showChaoxingTasks by rememberSaveable { mutableStateOf(false) }
     var showWechatTasks by rememberSaveable { mutableStateOf(false) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
@@ -970,6 +971,7 @@ fun RealAcademicTaskHub(
         )
     }
     // Keep each source as a stable lazy section across unrelated UI updates.
+    val chaoxingRows = remember(shown) { shown.filter { it.category == "chaoxing" } }
     val localRows = remember(shown) { shown.filter { it.category == "local" } }
     val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
@@ -1109,6 +1111,7 @@ fun RealAcademicTaskHub(
                                 "local" -> "本机来源"
                                 "cloud" -> "云端来源"
                                 "wechat" -> "微信任务"
+                                "chaoxing" -> "学习通任务"
                                 else -> "全部来源"
                             },
                             style = MaterialTheme.typography.titleSmall,
@@ -1122,7 +1125,7 @@ fun RealAcademicTaskHub(
                         onDismissRequest = { sourceMenuOpen = false }
                     ) {
                         val sources = listOf("all" to "全部来源",
-                            "cloud" to "云端来源", "wechat" to "微信任务",
+                            "cloud" to "云端来源", "wechat" to "微信任务", "chaoxing" to "学习通任务",
                             "local" to "本机来源")
                         sources.forEach { (source, label) ->
                             DropdownMenuItem(
@@ -1226,6 +1229,30 @@ fun RealAcademicTaskHub(
         }
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
+        }
+        if ((capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty()) &&
+            sourceFilter in setOf("all", "chaoxing")) {
+            item(key = "group:chaoxing") {
+                TaskGroupHeader(
+                    title = "学习通任务",
+                    count = chaoxingRows.size,
+                    badge = "",
+                    note = if (chaoxingRows.isEmpty())
+                        "当前筛选没有匹配记录，可在全部或已完成中查看。" else "",
+                    icon = Icons.Outlined.MenuBook,
+                    expanded = showChaoxingTasks,
+                    joinedRows = chaoxingRows.isNotEmpty(),
+                    onClick = { showChaoxingTasks = !showChaoxingTasks }
+                )
+            }
+            if (showChaoxingTasks) {
+                items(count = chaoxingRows.size, key = { i -> chaoxingRows[i].key }) { i ->
+                    ConnectedTaskShell(index = i, total = chaoxingRows.size) {
+                        TaskRow(chaoxingRows[i], today,
+                            onOpen = { openedTaskKey = chaoxingRows[i].key })
+                    }
+                }
+            }
         }
         if (shown.isEmpty()) {
             item {
@@ -1551,6 +1578,7 @@ internal fun WorkspaceTaskDetailSheet(
                     "wechat" -> "微信任务"
                     "local" -> "本机任务"
                     "native" -> "本机官网读取"
+                    "chaoxing" -> "学习通任务"
                     else -> "云端任务"
                 },
                 if (selectedTask.category == "local") XiaoxuTone.Brand else XiaoxuTone.Neutral

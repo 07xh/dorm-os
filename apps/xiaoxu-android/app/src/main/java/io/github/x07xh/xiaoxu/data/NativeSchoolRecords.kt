@@ -32,11 +32,18 @@ data class NativeSchoolRecord(
  * never match a separate historical row by title, and never write this state
  * back to the owner's personal checkbox or an official submission endpoint.
  */
+private fun nativeChaoxingOfficialHost(host: String): Boolean {
+    val url = "https://$host/"
+    return runCatching {
+        java.net.URI(url).host.equals(host, ignoreCase = true) &&
+            ChaoxingWebNavigation.target(url) != null
+    }.getOrDefault(false)
+}
+
 fun nativeChaoxingVisibleStatusText(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" ||
         record.kind !in setOf("homework", "study_task") ||
-        record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com",
-            "task.chaoxing.com", "mooc2-ans.chaoxing.com", "notice.chaoxing.com")) return null
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
     return Regex(
         """(?:^|[·\n])\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\s*[：:]\s*([^·\n]{1,60})"""
     ).find(record.details)?.groupValues?.get(1)?.trim()
@@ -57,7 +64,7 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
 /** Stable, non-secret official work tuple validated by the fixed on-device reader. */
 fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" || record.kind != "homework" ||
-        record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com", "mooc2-ans.chaoxing.com")) return null
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
     val identity = Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
         .find(record.details)?.groupValues?.get(1) ?: return null
     val expected = MessageDigest.getInstance("SHA-256")
@@ -69,7 +76,7 @@ fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
 /** Stable official plan identity; never derive it from an assignment title. */
 fun nativeChaoxingPlanSourceId(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" || record.kind != "study_task" ||
-        !record.sourceHost.endsWith(".chaoxing.com")) return null
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
     val identity = Regex("""(?:^| · )学习任务身份：((?:plan:\d{1,24}|study:[a-f0-9]{64}))$""")
         .find(record.details)?.groupValues?.get(1) ?: return null
     val expected = MessageDigest.getInstance("SHA-256")

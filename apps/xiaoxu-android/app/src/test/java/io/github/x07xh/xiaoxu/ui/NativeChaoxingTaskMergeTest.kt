@@ -58,7 +58,7 @@ class NativeChaoxingTaskMergeTest {
         val shown = combineWorkspaceTasks(emptyList(), emptyList(), listOf(plan))
         assertEquals(1, shown.size)
         assertEquals("native", shown.single().storage)
-        assertEquals("local", shown.single().category)
+        assertEquals("chaoxing", shown.single().category)
         assertEquals(identity, shown.single().sourceExternalId)
         assertEquals("待批阅", shown.single().officialStatusRaw)
         assertTrue(considerCompleteInTaskList(shown.single()))
