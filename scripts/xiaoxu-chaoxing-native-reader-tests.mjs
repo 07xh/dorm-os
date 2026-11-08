@@ -454,7 +454,7 @@ const signedDoc=(rows=[],pages=1,inputs={})=>({
 async function runCourseHomeworkScan({
  host='mooc1.chaoxing.com',path='/visit/stucoursemiddle',
  document=signedDoc([workNode('901','待批阅')]),
- course={courseId:'123',classId:'456'},responses={},
+ course={courseId:'123',classId:'456',cpi:'789'},responses={},
  failFetch=false
 }={}){
  const window={__xiaoxuOwnedWorkCourse:course};
@@ -467,6 +467,10 @@ async function runCourseHomeworkScan({
    assert.equal(options.method,'GET');
    assert.equal(url.searchParams.get('courseId'),'123');
    assert.equal(url.searchParams.get('classId'),'456');
+   assert.equal(url.searchParams.get('cpi'),'789');
+   assert.equal(url.searchParams.get('ut'),'s');
+   assert.equal(url.searchParams.get('isdisplaytable'),'2');
+   assert.match(url.searchParams.get('t')||'',/^\d{10,}$/);
    if(failFetch)return {ok:false,text:async()=>''};
    return {ok:true,text:async()=>responses[url.searchParams.get('pageNum')]||'page1'};
  };
@@ -504,12 +508,20 @@ assert.equal(pagedCourse.calls.length,2);
 assert.ok(pagedCourse.calls.every(url=>
  url.searchParams.get('enc')==='private-work-enc'));
 assert.ok(!JSON.stringify(pagedCourse.data).includes('private-work-enc'));
+const optionalTokens=await runCourseHomeworkScan({
+ document:signedDoc([],1,{workEnc:'private-work-enc'}),
+ responses:{'1':'page1','2':'page2'}
+});
+assert.equal(optionalTokens.data.error,'');
+assert.equal(optionalTokens.calls.length,2);
+assert.equal(optionalTokens.calls[0].searchParams.has('openc'),false);
+assert.equal(optionalTokens.calls[0].searchParams.has('stuenc'),false);
 const absentWork=await runCourseHomeworkScan({document:signedDoc()});
 assert.equal(absentWork.data.error,'work_entry_unavailable');
 assert.equal(absentWork.data.records.length,0);
 const unownedWork=await runCourseHomeworkScan({
  document:signedDoc([workNode('901','待批阅')]),
- course:{courseId:'124',classId:'456'}
+ course:{courseId:'124',classId:'456',cpi:'789'}
 });
 assert.equal(unownedWork.data.error,'invalid_response');
 assert.equal(unownedWork.data.records.length,0);
