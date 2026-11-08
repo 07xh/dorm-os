@@ -94,6 +94,7 @@ import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
+import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatusText
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
@@ -174,6 +175,13 @@ internal fun combineWorkspaceTasks(
                 id to record else null
         }.groupBy({ it.first }, { it.second })
             .mapValues { (_, records) -> records.maxByOrNull { it.capturedAt }!! }
+        val planEvidence = native.mapNotNull { record ->
+            val id = nativeChaoxingPlanSourceId(record)
+            val status = nativeChaoxingVisibleStatus(record)
+            if (id != null && status in setOf("todo", "returned", "submitted", "graded"))
+                id to record else null
+        }.groupBy({ it.first }, { it.second })
+            .mapValues { (_, records) -> records.maxByOrNull { it.capturedAt }!! }
         val cloudIds = cloud.filter { it.provider == "chaoxing" }
             .mapNotNull { it.sourceExternalId }.toSet()
         local.forEach { task ->
@@ -221,7 +229,17 @@ internal fun combineWorkspaceTasks(
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
                 "学习通 · 本机官网", false, null, "本机官方页面观察",
-                "native", "cloud", provider = "chaoxing",
+                "native", "local", provider = "chaoxing",
+                sourceExternalId = id, officialStatus = status,
+                officialStatusRaw = nativeChaoxingVisibleStatusText(record)
+            ))
+        }
+        planEvidence.forEach { (id, record) ->
+            val status = nativeChaoxingVisibleStatus(record)
+            add(WorkspaceTask(
+                "native:" + record.fingerprint, record.title,
+                "学习通 · 学习计划（本人页面）", false, null, "本机官方页面观察",
+                "native", "local", provider = "chaoxing",
                 sourceExternalId = id, officialStatus = status,
                 officialStatusRaw = nativeChaoxingVisibleStatusText(record)
             ))
@@ -862,8 +880,10 @@ fun RealAcademicTaskHub(
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
-    val allRecords = remember(localTasks, state.tasks, capturedHomework) {
-        combineWorkspaceTasks(localTasks, state.tasks, capturedHomework)
+    val allRecords = remember(localTasks, state.tasks,
+        capturedHomework, capturedStudyTasks) {
+        combineWorkspaceTasks(localTasks, state.tasks,
+            capturedHomework + capturedStudyTasks)
     }
     val all = remember(allRecords, archivedKeys) {
         visibleWorkspaceTasks(allRecords, archivedKeys)
