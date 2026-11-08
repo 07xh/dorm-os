@@ -860,9 +860,21 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             finish(false)
                             return@evaluateJavascript
                         }
-                        captureVisibleRecords(append=true,readTaskGroups=false) {
-                            success -> finish(success)
+                        // The bounded read is already complete; preserve its
+                        // sanitized work tuple and platform status end-to-end.
+                        val expected = "work:" + course.courseId + ":" + course.classId + ":"
+                        val rows = result.getJSONArray("records")
+                        if ((0 until rows.length()).any { i ->
+                            val key = rows.optJSONObject(i)?.optString("sourceKey").orEmpty()
+                            !key.startsWith(expected) ||
+                                !key.removePrefix(expected).matches(Regex("""\\d{1,24}"""))
+                        }) {
+                            tell("课程作业身份与本次选择的课程不一致；未写入任何记录。")
+                            finish(false)
+                            return@evaluateJavascript
                         }
+                        captureVisibleRecords(append=true,readTaskGroups=false,
+                            preparedPayload=result) { success -> finish(success) }
                     }
                 }
                 poll(0)
@@ -954,6 +966,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     private fun captureVisibleRecords(
         append: Boolean = false, readTaskGroups: Boolean = true,
+        preparedPayload: JSONObject? = null,
         onSaved: ((Boolean) -> Unit)? = null
     ) {
         if (provider == "second_class") {
@@ -985,7 +998,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             captureStudyPlanGroups()
             return
         }
-        val host = Uri.parse(currentUrl).host
         if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
             !extractionAllowed(provider, currentUrl)) {
             tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
@@ -996,8 +1008,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         extract.isEnabled = false
         appendVisible?.isEnabled = false
         tell("正在从当前已显示的官方页面读取记录（不会获取密码和 Cookie）…")
-        // Fixed read-only script, never interpolates caller-controlled values or
-        // executes arbitrary downloaded adapters. No form submit or hidden data.
+        // A course scan has already parsed the official pages and obtained a
+        // bounded owner-scoped result. Never throw it away to scrape only the
+        // current DOM: a fetched/paginated list may not exist in that DOM.
+        if (preparedPayload != null) {
+            persistVisiblePayload(preparedPayload, currentUrl, epoch, append, onSaved)
+            return
+        }
         browser.evaluateJavascript(READ_VISIBLE_PAGE) { encoded ->
             if (epoch != captureEpoch || isFinishing) return@evaluateJavascript
             extract.isEnabled = loaded && !pageFailed &&
@@ -1011,12 +1028,26 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             try {
                 val decoded = JSONTokener(encoded).nextValue() as? String
                     ?: throw IllegalArgumentException("empty")
-                val payload = JSONObject(decoded)
+                persistVisiblePayload(JSONObject(decoded), currentUrl, epoch, append, onSaved)
+            } catch (_: Exception) {
+                tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
+                onSaved?.invoke(false)
+            }
+        }
+    }
+
+    /** One validated persistence path for direct DOM reads and course scans. */
+    private fun persistVisiblePayload(
+        payload: JSONObject, currentUrl: String, epoch: Int, append: Boolean,
+        onSaved: ((Boolean) -> Unit)?
+    ) {
+        val host = Uri.parse(currentUrl).host
+        try {
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
                     tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
                     onSaved?.invoke(false)
-                    return@evaluateJavascript
+                    return
                 }
                 val kind = payload.optString("kind")
                 val kinds = when (provider) {
@@ -1102,10 +1133,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         }
                     }
                 }
-            } catch (_: Exception) {
-                tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
-                onSaved?.invoke(false)
-            }
+        } catch (_: Exception) {
+            tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
+            onSaved?.invoke(false)
         }
     }
 
