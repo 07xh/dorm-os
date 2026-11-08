@@ -14,6 +14,20 @@ assert.match(native, /captureVisibleRecords\(append = true\)/);
 assert.match(native, /if \(append\) dao\.appendKind\(provider, kind, accepted\)/);
 assert.match(native, /dao\.replaceKind\(provider, kind, accepted\)/);
 assert.match(native, /savedCount = total/);
+// Regression: an asynchronous official course scanner must persist its own
+// complete sanitized response, not scrape the parent page a second time.
+const scannerBody = native.slice(native.indexOf('private fun scanOwnedCourseHomework()'),
+  native.indexOf('private fun openNextOfficialPlan()'));
+assert.match(scannerBody, /preparedPayload=result/);
+assert.match(scannerBody, /val expected = "work:" \+ course\.courseId/);
+assert.match(scannerBody, /key\.removePrefix\(expected\)\.matches/);
+assert.doesNotMatch(scannerBody,
+  /captureVisibleRecords\(append=true,readTaskGroups=false\)\s*\{/);
+assert.match(native,
+  /if \(preparedPayload != null\) \{\s*persistVisiblePayload\(preparedPayload, currentUrl, epoch, append, onSaved\)/);
+assert.match(native, /private fun persistVisiblePayload\(/);
+assert.equal((native.match(/dao\.appendKind\(provider, kind, accepted\)/g)||[]).length,1,
+  'DOM reader and fetched official task scan must share a single persistence path');
 assert.match(native, /extract = control\("读取并替换同类记录"\)/);
 assert.match(native, /appendVisible\?\.isEnabled = false/);
 assert.ok(native.indexOf('if (payload.optBoolean("truncated"))') <
