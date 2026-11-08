@@ -5,6 +5,16 @@ import org.junit.Test
 import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
+    @Test fun detailStatusSurvivesGenericListButReopenedWorkStaysPending() {
+        val reader = ChaoxingLocalReader(ChaoxingReadTransport { error("no network needed") })
+        assertEquals("已互评", reader.reconcileWorkStatus("待批阅", "已互评"))
+        assertEquals("已批阅", reader.reconcileWorkStatus("已提交", "已批阅"))
+        assertEquals("已完成", reader.reconcileWorkStatus("", "已完成"))
+        assertEquals("未提交", reader.reconcileWorkStatus("未提交", "已互评"))
+        assertEquals("退回重做", reader.reconcileWorkStatus("退回重做", "已批阅"))
+        assertEquals("已退回", reader.reconcileWorkStatus("待批阅", "已退回"))
+        assertEquals("状态未知", reader.reconcileWorkStatus("", null))
+    }
     @Test fun noticeAliasesUseCloudIdentityAndOnlyBindResolvedSameCourseWork() {
         val work = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
         fun notice(peer: Boolean) = JSONObject().put("title", if(peer) "作业互评通知" else "作业通知")
