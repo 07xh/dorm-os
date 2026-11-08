@@ -66,6 +66,18 @@ fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
     return identity.takeIf { record.fingerprint == expected }
 }
 
+/** Stable official plan identity; never derive it from an assignment title. */
+fun nativeChaoxingPlanSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "study_task" ||
+        record.sourceHost != "task.chaoxing.com") return null
+    val identity = Regex("""(?:^| · )学习任务身份：(plan:\d{1,24})$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
+}
+
 @Dao
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */
