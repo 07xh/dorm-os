@@ -55,7 +55,7 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
         Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
         Regex("""退回|重做|重新提交|驳回""").containsMatchIn(raw) -> "returned"
         Regex("""已批阅|已批閱|已评分|已評分|已评阅|已評閱|已批改""").containsMatchIn(raw) -> "graded"
-        Regex("""已完成|已提交|已交|待批阅|待批閱|待评阅|待評閱|待批改|已达标|已作答|已互评|已互評|提交成功""").containsMatchIn(raw) ->
+        Regex("""已完成|已提交|已交|待批阅|待批閱|待评阅|待評閱|待批改|已达标|已作答|已互评|已互評|互评完成|互評完成|提交成功""").containsMatchIn(raw) ->
             "submitted"
         else -> "unknown"
     }
