@@ -522,6 +522,21 @@ assert.equal(pagedCourse.data.error,'');
 assert.deepEqual(pagedCourse.data.records.map(x=>x.sourceKey),
  ['work:123:456:902','work:123:456:903']);
 assert.equal(pagedCourse.calls.length,2);
+// A course entry that displays only page one must continue to the official
+// paginated list when its own signed work token is available.
+const partialEntry=await runCourseHomeworkScan({
+ document:signedDoc([workNode('901','待批阅')],2,inputCreds),
+ responses:{'1':'page1','2':'page2'}
+});
+assert.equal(partialEntry.data.error,'');
+assert.deepEqual(partialEntry.data.records.map(x=>x.sourceKey),
+ ['work:123:456:902','work:123:456:903']);
+assert.equal(partialEntry.calls.length,2);
+const incompleteEntry=await runCourseHomeworkScan({
+ document:signedDoc([workNode('901','待批阅')],2)
+});
+assert.equal(incompleteEntry.data.error,'partial_page');
+assert.equal(incompleteEntry.data.records.length,0);
 assert.ok(pagedCourse.calls.every(url=>
  url.searchParams.get('enc')==='private-work-enc'));
 assert.ok(!JSON.stringify(pagedCourse.data).includes('private-work-enc'));
