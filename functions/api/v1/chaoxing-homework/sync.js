@@ -34,16 +34,22 @@ export async function onRequestPost(context){
    view:'list',live:true,data});
  }catch(e){
   const code=e?.code;
+  // Deliberately expose only code-owned read stages to the authenticated owner.
+  const safeStages=new Set(['course_catalog','course_identity','course_entry',
+    'list_legacy','list_official','list_integrity']);
+  const stage=safeStages.has(e?.schoolReadStage)?e.schoolReadStage:null;
+  const safeError=(error,status)=>json(
+    stage?{error,readStage:stage}:{error},status);
   if(code==='session_expired'||code==='authorization_failed')
-   return json({error:'session_expired'},409);
-  if(code==='interactive_login_required')return json({error:code},409);
+   return safeError('session_expired',409);
+  if(code==='interactive_login_required')return safeError(code,409);
   if(code==='work_not_available'||code==='courses_unverified'||
      code==='work_list_incomplete'||code==='invalid_response')
-   return json({error:code},422);
-  if(code==='invalid_query')return json({error:code},400);
+   return safeError(code,422);
+  if(code==='invalid_query')return safeError(code,400);
   if(code==='not_configured'||code==='database_unavailable'||
-     code==='connector_not_configured')return json({error:'database_unavailable'},503);
+     code==='connector_not_configured')return safeError('database_unavailable',503);
   // Never expose source HTML, secrets, signed task links or upstream stack.
-  return json({error:'upstream_unavailable'},502);
+  return safeError('upstream_unavailable',502);
  }
 }
