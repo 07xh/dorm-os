@@ -174,7 +174,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var scanSaved = 0
     private var scanFailed = 0
     private var planFallbackTried = false
-    private var planOpening = false
     private var scanSerial = 0
     private var scanningCourseTasks = false
     private var planScanBusy = false
@@ -187,7 +186,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         scanPlanIndex = 0
         scanningCourseTasks = false
         planScanBusy = false
-        planOpening = false
         scanButton?.isEnabled = true
     }
 
@@ -375,11 +373,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     if (request.isForMainFrame) {
                         invalidateCapture()
                         pendingOfficialCatalogRead = false
+                        pageFailed = true
                         if (scanStage != null) {
                             abortTaskDiscovery()
                             tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
                         }
-                        pageFailed = true
                         loaded = false
                         extract.isEnabled = false
                         appendVisible?.isEnabled = false
@@ -616,7 +614,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
             }
             "mobile" -> {
-                if (uri.host == "mobilelearn.chaoxing.com" && uri.path == "/") {
+                if (uri.host == "mobilelearn.chaoxing.com") {
                     readNextOwnedCourseTasks()
                 } else {
                     tell("任务服务需要正常登录。完成学习通官方登录后，重新点击扫描即可。")
@@ -947,12 +945,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         savedKind = kind
                         savedCount = total
                         finishAndReturn.isEnabled = true
-                        onSaved?.invoke(true)
                         tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
                             accepted.size + " 条；当前本机同类共 " + total + " 条。" +
-                            (if (append) "旧页保留，作业状态更新可能产生重复，请按课程核对。" else
+                            (if (append) "旧页保留，作业状态按官方 ID 去重；请核对不同来源。" else
                                 "下次跨页读取请选择「分页追加本页」。") +
                             "这不是学校官方完整同步，也未核实全部提交状态。")
+                        onSaved?.invoke(true)
                     } catch (_: IllegalArgumentException) {
                         tell("合并后超出 500 条上限，已拒绝写入，旧记录保持不变。请核对本机记录或重新开始本类采集。")
                         onSaved?.invoke(false)
