@@ -950,3 +950,115 @@ private const val READ_VISIBLE_PAGE = """
   return JSON.stringify({host,kind,records:rows});
 })()
 """;
+
+/**
+ * One user-initiated, read-only scan of the official task.chaoxing.com page.
+ * Credentials and encrypted task/group identifiers never leave this origin.
+ * The sole native result is sanitized title, explicit official state and
+ * non-secret numeric plan ID. No navigation, submission or auto-reading.
+ */
+private const val READ_TASK_PLAN_GROUPS = """
+(function () {
+  const host = location.hostname;
+  const done = (error, records = []) => {
+    window.__xiaoxuPlanResult = JSON.stringify({
+      host, kind: 'study_task', records, error: error || ''
+    });
+  };
+  window.__xiaoxuPlanResult = '';
+  if (host !== 'task.chaoxing.com' ||
+      location.pathname !== '/userStudyPlan/studyPlanSubPage' ||
+      location.protocol !== 'https:') {
+    done('wrong_page'); return 'blocked';
+  }
+  const clean = (text, max = 100) => String(text ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  let userId = '';
+  try {
+    userId = new URL(location.href).searchParams.get('encryTaskUserId') || '';
+  } catch (_) {}
+  try {
+    if (!userId && typeof eTaskUserId !== 'undefined')
+      userId = String(eTaskUserId || '');
+    if (!userId && typeof window.eTaskUserId === 'string')
+      userId = window.eTaskUserId;
+  } catch (_) {}
+  if (!userId) {
+    for (const node of Array.from(document.scripts || []).slice(0, 80)) {
+      const source = String(node.textContent || '').slice(0, 40000);
+      const match = source.match(/(?:const|let|var)\s+eTaskUserId\s*=\s*["']([^"']{1,220})["']/);
+      if (match) { userId = match[1]; break; }
+    }
+  }
+  // The opaque credential is only an argument to same-origin official APIs.
+  // It is not placed in records, logs, Android storage or Cloudflare.
+  if (!/^[A-Za-z0-9+\/=_-]{1,220}$/.test(userId)) {
+    done('identity_unavailable'); return 'blocked';
+  }
+  (async () => {
+    const post = async (path, args) => {
+      const url = new URL(path, location.origin);
+      for (const [key, value] of Object.entries(args))
+        url.searchParams.set(key, value);
+      const response = await fetch(url.pathname + url.search, {
+        method: 'POST', credentials: 'same-origin', redirect: 'error',
+        cache: 'no-store', headers: {'X-Requested-With':'XMLHttpRequest'}
+      });
+      if (!response.ok) throw Error('upstream_unavailable');
+      const text = await response.text();
+      if (text.length > 180000) throw Error('invalid_response');
+      const value = JSON.parse(text);
+      if (!value || !Array.isArray(value.data))
+        throw Error('invalid_response');
+      return value.data;
+    };
+    const groups = await post('/userStudyPlan/getGroupData',
+      {encryTaskUserId:userId});
+    if (groups.length > 24) throw Error('too_many_groups');
+    const keys = groups.map(group => String(group?.encryptGroupId ?? ''));
+    if (keys.some(key => !/^[A-Za-z0-9+\/=_-]{1,220}$/.test(key)))
+      throw Error('invalid_group');
+    const rows = [], seen = new Set();
+    for (let i=0; i<keys.length; i+=4) {
+      const batches = await Promise.all(keys.slice(i,i+4).map(encryGroupId =>
+        post('/userStudyPlan/getPlanDataByGroupId',
+          {encryTaskUserId:userId,encryGroupId})));
+      for (const plans of batches) {
+        for (const plan of plans) {
+          if (!plan || typeof plan !== 'object' || Array.isArray(plan))
+            throw Error('invalid_response');
+          const title = clean(plan.name || plan.title);
+          if (!title) throw Error('invalid_response');
+          const boolDone = plan.isFinish === true || Number(plan.isFinish) === 1 ||
+            Number(plan.planUser?.finish) === 1 ||
+            Number(plan.score?.completed) === 1;
+          const boolTodo = plan.isFinish === false || plan.isFinish === 0 ||
+            plan.planUser?.finish === 0 || plan.planUser?.finish === '0';
+          const explicit = clean(plan.statusText || plan.statusName ||
+            plan.planUser?.statusText || '',60);
+          const status = explicit || (boolDone ? '已完成' :
+            boolTodo ? '未完成' : '状态未知');
+          const planId = String(plan.planId ?? '');
+          const sourceKey = /^\d{1,24}$/.test(planId) ? 'plan:' + planId : '';
+          const identity = sourceKey || title + '|' + status;
+          if (seen.has(identity)) continue;
+          seen.add(identity);
+          if (rows.length >= 120) throw Error('too_many_records');
+          rows.push({
+            title, details: '学习计划状态：' + status +
+              (sourceKey ? ' · 学习任务身份：' + sourceKey : ''),
+            sourceKey
+          });
+        }
+      }
+    }
+    if (!rows.length) throw Error('no_records');
+    done('', rows);
+  })().catch(e => {
+    const permitted = new Set(['upstream_unavailable','invalid_response',
+      'too_many_groups','invalid_group','too_many_records','no_records']);
+    done(permitted.has(e?.message) ? e.message : 'plan_read_failed');
+  });
+  return 'started';
+})()
+""";
