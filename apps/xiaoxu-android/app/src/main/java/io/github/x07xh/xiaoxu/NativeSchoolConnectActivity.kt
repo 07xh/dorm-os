@@ -281,11 +281,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = if (provider == "chaoxing") loaded && chaoxingReadJob?.isActive != true
                         else loaded && extractionAllowed(provider, url)
-                    val isTaskPlan = provider == "chaoxing" &&
-                        host == "task.chaoxing.com" &&
-                        Uri.parse(url ?: "").path == "/userStudyPlan/studyPlanSubPage"
-                    extract.text = if (isTaskPlan) "读取本人学习计划任务" else
-                        if (provider == "second_class") "读取／刷新本人积分"
+                    extract.text = if (provider == "second_class") "读取／刷新本人积分"
                         else "读取全部"
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
