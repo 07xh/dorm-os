@@ -220,4 +220,93 @@ assert.match(records,/nativeChaoxingVisibleStatus/);
 assert.match(records,/kind in setOf\("course", "homework", "study_task"\)/);
 assert.match(records,/sourceHost !in setOf/);
 
+
+// One tap, same-origin official task-plan group APIs in the on-device WebView.
+// The reference app also uses these endpoints, but not its auto-reading code.
+const studyScriptMatch = native.match(/private const val READ_TASK_PLAN_GROUPS = """([\s\S]*?)"""/);
+assert.ok(studyScriptMatch, 'the task-group scan must be a reviewable fixed script');
+const taskScript = studyScriptMatch[1];
+assert.doesNotMatch(taskScript,/document\.cookie|\.click\(|\.submit\(|getToStudyUrl|readProgress/);
+assert.match(native, /captureVisibleRecords\(append = true, readTaskGroups = false\)/);
+assert.match(native, /readTaskGroups && provider == "chaoxing"/);
+assert.match(native, /scoreHandler\.postDelayed\(\{ poll\(attempt \+ 1\) \}, 250\)/);
+assert.match(native, /if \(attempt >= 72\)/);
+async function taskGroupsFixture({
+  page='/userStudyPlan/studyPlanSubPage',
+  userId='opaqueUser7',
+  groups=[{encryptGroupId:'encryptedGroup7'}],
+  plans=[{planId:567,name:'Python 实验报告一',statusText:'待批阅'},
+    {planId:568,name:'工程制图 第五次作业',isFinish:1},
+    {planId:569,name:'课程阅读',isFinish:0},
+    {name:'无来源 ID 的学习任务',statusText:'状态未知'}],
+  failPlan=false
+}={}) {
+  const window={};
+  const requested=[];
+  const location={hostname:'task.chaoxing.com',pathname:page,
+    origin:'https://task.chaoxing.com',protocol:'https:',
+    href:'https://task.chaoxing.com'+page};
+  const document={scripts:[{textContent:'const eTaskUserId = "'+userId+'";'}]};
+  const fetch=async (url,opts)=>{
+    const u=new URL(url,location.origin);
+    requested.push(u.pathname);
+    assert.equal(u.origin,location.origin,'requests must stay same-origin');
+    assert.equal(opts.method,'POST');
+    assert.equal(opts.credentials,'same-origin');
+    assert.equal(opts.redirect,'error');
+    assert.equal(opts.headers['X-Requested-With'],'XMLHttpRequest');
+    assert.equal(u.searchParams.get('encryTaskUserId'),userId);
+    if(u.pathname==='/userStudyPlan/getGroupData') {
+      return {ok:true,text:async()=>JSON.stringify({data:groups})};
+    }
+    if(u.pathname==='/userStudyPlan/getPlanDataByGroupId') {
+      if(failPlan) return {ok:false,text:async()=>'<secret html>'};
+      assert.equal(u.searchParams.get('encryGroupId'),groups[0].encryptGroupId);
+      return {ok:true,text:async()=>JSON.stringify({data:plans})};
+    }
+    throw Error('unapproved path');
+  };
+  runInNewContext(taskScript,{window,location,document,URL,fetch});
+  for(let i=0;i<30&&!window.__xiaoxuPlanResult;i++)
+    await new Promise(resolve=>setTimeout(resolve,5));
+  assert.ok(window.__xiaoxuPlanResult,'async read must finish with bounded result');
+  return {data:JSON.parse(window.__xiaoxuPlanResult),requested};
+}
+const fetched=await taskGroupsFixture();
+assert.equal(fetched.data.error,'');
+assert.equal(fetched.data.kind,'study_task');
+assert.equal(fetched.data.records.length,4);
+assert.deepEqual(Array.from(fetched.data.records,x=>[x.sourceKey,x.details]),[
+ ['plan:567','学习计划状态：待批阅 · 学习任务身份：plan:567'],
+ ['plan:568','学习计划状态：已完成 · 学习任务身份：plan:568'],
+ ['plan:569','学习计划状态：未完成 · 学习任务身份：plan:569'],
+ ['','学习计划状态：状态未知']
+]);
+assert.deepEqual(fetched.requested,[
+ '/userStudyPlan/getGroupData','/userStudyPlan/getPlanDataByGroupId']);
+assert.ok(!JSON.stringify(fetched.data).includes('opaqueUser7'));
+assert.ok(!JSON.stringify(fetched.data).includes('encryptedGroup7'));
+const partial=await taskGroupsFixture({failPlan:true});
+assert.equal(partial.data.error,'upstream_unavailable');
+assert.equal(partial.data.records.length,0,'no partially trusted group read');
+const invalidId=await taskGroupsFixture({userId:'invalid\\nCookie=secret'});
+assert.equal(invalidId.data.error,'identity_unavailable');
+assert.equal(invalidId.requested.length,0);
+const tooMany=await taskGroupsFixture({groups:Array.from({length:25},
+  (_,i)=>({encryptGroupId:'g'+i}))});
+assert.equal(tooMany.data.error,'too_many_groups');
+assert.deepEqual(tooMany.requested,['/userStudyPlan/getGroupData']);
+const wrongHost=await taskGroupsFixture({page:'/untrusted'});
+assert.equal(wrongHost.data.error,'wrong_page');
+assert.equal(wrongHost.requested.length,0);
+const planPayload=JSON.stringify(fetched.data);
+const displayed=JSON.parse(runInNewContext(matched[1],{
+  document:{querySelectorAll:()=>[]},
+  location:{hostname:'task.chaoxing.com',pathname:'/userStudyPlan/studyPlanSubPage'},
+  window:{__xiaoxuPlanResult:planPayload}
+}));
+assert.deepEqual(Array.from(displayed.records,x=>x.title),
+ fetched.data.records.map(x=>x.title));
+console.log('xiaoxu official on-device plan-group read and status mapping passed');
+
 console.log('xiaoxu chaoxing native visible-reader tests passed');
