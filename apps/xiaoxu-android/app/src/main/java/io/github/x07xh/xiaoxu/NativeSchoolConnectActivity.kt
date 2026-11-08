@@ -646,7 +646,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 if (uri.host == "mobilelearn.chaoxing.com") {
                     readNextOwnedCourseTasks()
                 } else {
-                    tell("任务服务需要正常登录。完成学习通官方登录后，重新点击扫描即可。")
+                    // Study plans are optional: some valid Chaoxing sessions
+                    // require a separate interactive login for mobilelearn.
+                    // Never let that block the owner's ordinary course homework.
+                    scanFailed++
+                    scanStage = "homework"
+                    scanHomeworkIndex = 0
+                    tell("学习计划入口需要单独登录；继续读取本人普通课程作业。")
+                    openNextOwnedCourseHomework()
                 }
             }
             "homework" -> {
