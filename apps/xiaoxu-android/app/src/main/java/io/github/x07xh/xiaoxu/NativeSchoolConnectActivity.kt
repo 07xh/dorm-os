@@ -1032,7 +1032,11 @@ private const val READ_VISIBLE_PAGE = """
 private const val READ_TASK_PLAN_GROUPS = """
 (function () {
   const host = location.hostname;
+  // A stale first request must not overwrite a newer user-triggered read.
+  const run = (Number(window.__xiaoxuPlanReadEpoch) || 0) + 1;
+  window.__xiaoxuPlanReadEpoch = run;
   const done = (error, records = []) => {
+    if (window.__xiaoxuPlanReadEpoch !== run) return;
     window.__xiaoxuPlanResult = JSON.stringify({
       host, kind: 'study_task', records, error: error || ''
     });
@@ -1105,7 +1109,8 @@ private const val READ_TASK_PLAN_GROUPS = """
             Number(plan.planUser?.finish) === 1 ||
             Number(plan.score?.completed) === 1;
           const boolTodo = plan.isFinish === false || plan.isFinish === 0 ||
-            plan.planUser?.finish === 0 || plan.planUser?.finish === '0';
+            plan.isFinish === '0' || plan.planUser?.finish === 0 ||
+            plan.planUser?.finish === '0';
           const explicit = clean(plan.statusText || plan.statusName ||
             plan.planUser?.statusText || '',60);
           const status = explicit || (boolDone ? '已完成' :
