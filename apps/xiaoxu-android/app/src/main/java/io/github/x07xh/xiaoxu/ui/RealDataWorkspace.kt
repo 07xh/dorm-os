@@ -190,7 +190,7 @@ internal fun combineWorkspaceTasks(
             val binding = bindings.distinct().singleOrNull() ?: return@mapNotNull null
             val (work, peer) = binding
             val raw = localEvidence[work]?.let(::nativeChaoxingVisibleStatusText).orEmpty()
-            if (peer && !raw.contains("已互评") && !raw.contains("已互評")) null else alias to work
+            if (peer && !Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成").containsMatchIn(raw)) null else alias to work
         }.toMap()
         fun workId(task: CloudTask): String? = if (task.provider == "chaoxing")
             aliases[task.sourceExternalId] ?: task.sourceExternalId else null
