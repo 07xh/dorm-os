@@ -76,13 +76,17 @@
   const tokenOk=value=>value.length<=500&&!/[\r\n\u0000-\u001f<>"']/.test(value);
   (async()=>{
     const first=parse(document,path==='/visit/stucoursemiddle');
-    if(first.found>0) {
-      if(first.pages>1)throw Error('partial_page');
+    if(first.found>0&&first.pages===1) {
       reply('',Array.from(all.values()));return;
     }
+    // A visible first page is not the entire assignment history. If the
+    // official entry also exposes a work token, fetch every bounded page
+    // instead of aborting before reaching the completed-work pages.
+    const partialEntry=first.found>0&&first.pages>1;
+    all.clear();
     const workEnc=input('workEnc'),stuenc=input('enc'),openc=input('openc');
     if(!workEnc||![workEnc,stuenc,openc].every(tokenOk))
-      throw Error('work_entry_unavailable');
+      throw Error(partialEntry?'partial_page':'work_entry_unavailable');
     // Match the existing verified server-side list contract instead of
     // creating a second, incomplete request shape for some course templates.
     const query=new URLSearchParams({courseId:selected.courseId,
