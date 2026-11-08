@@ -124,12 +124,7 @@ with tempfile.TemporaryDirectory() as temp:
     files = sorted(out.iterdir())
     (out/'SHA256SUMS').write_text(''.join(f'{sha(p.read_bytes())}  {p.name}\n' for p in files))
     assert api('git/ref/heads/main')['object']['sha'] == HEAD
-    if resume:
-        assets = api(f'releases/{release_id}')['assets']
-        assert len(assets) == len(list(out.iterdir()))
-        assert {a['name']: a['digest'] for a in assets} == {
-            p.name: 'sha256:' + sha(p.read_bytes()) for p in out.iterdir()}
-    else:
+    if not resume:
         subprocess.run(['gh','api','--method','POST',f'repos/{REPO}/git/refs','-f',f'ref=refs/tags/{tag}','-f',f'sha={source}'],check=True,stdout=subprocess.DEVNULL)
         assert api(f'git/ref/tags/{tag}')['object']['sha'] == source
         draft = json.loads(call('gh','api','--method','POST',f'repos/{REPO}/releases',
@@ -138,6 +133,10 @@ with tempfile.TemporaryDirectory() as temp:
         release_id = draft['id']
         for p in sorted(out.iterdir()):
             subprocess.run(['gh','release','upload',tag,str(p),'--repo',REPO],check=True)
+    assets = api(f'releases/{release_id}')['assets']
+    assert len(assets) == len(list(out.iterdir()))
+    assert {a['name']: a['digest'] for a in assets} == {
+        p.name: 'sha256:' + sha(p.read_bytes()) for p in out.iterdir()}
     asset = next(a for a in api(f'releases/{release_id}')['assets'] if a['name'] == apk.name)
     assert asset['digest'] == 'sha256:' + m['apk_sha256']
     assert api('git/ref/heads/main')['object']['sha'] == HEAD

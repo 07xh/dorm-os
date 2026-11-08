@@ -1,8 +1,30 @@
 from pathlib import Path
+import hashlib
+import tempfile
 import unittest
 
 
 class DraftReleaseRegression(unittest.TestCase):
+    def test_all_assets_must_match_before_publication(self):
+        source = Path('scripts/promote-xiaoxu-android.py').read_text()
+        block = source[source.index('    assets = api('):source.index('    asset = next(')]
+        code = '\n'.join(line[4:] for line in block.splitlines())
+        digest = lambda data: hashlib.sha256(data).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            (out/'APK').write_bytes(b'apk')
+            (out/'manifest').write_bytes(b'evidence')
+            valid = [{'name': p.name, 'digest': 'sha256:'+digest(p.read_bytes())} for p in out.iterdir()]
+            def verify(assets):
+                exec(compile(code, '<asset-verification>', 'exec'), dict(
+                    api=lambda path: {'assets': assets}, release_id=438227551,
+                    out=out, sha=digest))
+            verify(valid)
+            for invalid in (valid[:-1], valid+[valid[0]],
+                            [dict(a, digest='sha256:wrong') for a in valid]):
+                with self.assertRaises(AssertionError):
+                    verify(invalid)
+
     def test_draft_publication_uses_release_id_even_when_tag_lookup_is_404(self):
         # Execute the actual publication tail against a GitHub draft that is
         # available by ID but deliberately unavailable through /releases/tags/.
