@@ -398,6 +398,49 @@ const missingReader=await bothMissing.forSession({session,userId:'owner1'});
 await missingReader.verifySession();
 await assert.rejects(()=>missingReader.readHomeworkList(courseKeys),
  e=>e.code==='work_not_available');
+
+// Diagnostic stage codes identify failing official read phases; no token,
+// raw HTML or URL may be echoed to the caller.
+const stageMiddle=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response('<body>no workEnc</body>');
+ throw Error('unexpected route '+path);
+}});
+const stageMiddleReader=await stageMiddle.forSession({session,userId:'owner1'});
+await stageMiddleReader.verifySession();
+await assert.rejects(()=>stageMiddleReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_not_available'&&e.schoolReadStage==='course_entry');
+
+const stageBothMissing=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path==='/mooc-ans/mooc2/work/list')
+  return response('<body>无数据</body>');
+ throw Error('unexpected route '+path);
+}});
+const stageBothReader=await stageBothMissing.forSession({session,userId:'owner1'});
+await stageBothReader.verifySession();
+await assert.rejects(()=>stageBothReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_not_available'&&e.schoolReadStage==='list_official');
+const stageCount=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path==='/mooc-ans/mooc2/work/list')
+  return response('<div><div><span>1/2</span></div></div>'+workHtml);
+ throw Error('unexpected route '+path);
+}});
+const stageCountReader=await stageCount.forSession({session,userId:'owner1'});
+await stageCountReader.verifySession();
+await assert.rejects(()=>stageCountReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_list_incomplete'&&e.schoolReadStage==='list_integrity');
+console.log('Chaoxing safe course-entry, list-endpoint and count-failure stages passed');
+
 console.log('Chaoxing verified alternate work-list route and completed state fallback passed');
 
 console.log('Chaoxing legacy/modern owner-verified course token variants passed');
