@@ -294,6 +294,112 @@ const redirectReader=await redirected.forSession({session,userId:'owner1'});
 await redirectReader.verifySession();
 assert.equal((await redirectReader.readHomeworkList(
  {courseId:'123',classId:'456',cpi:'789'})).items.length,1);
+
+// Regression: a documented newer official work-list path can expose completed
+// homework for a course whose legacy /mooc2/work/list page is malformed.
+// Both requests MUST use the already verified owner and the same course IDs.
+const officialAltPath='/mooc-ans/mooc2/work/list';
+const alternateCalls=[];
+const legacyBroken=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(workOnly);
+ if(u.pathname==='/mooc2/work/list'){
+  alternateCalls.push('legacy');
+  return response('<html><body>无数据</body></html>');
+ }
+ if(u.pathname===officialAltPath){
+  alternateCalls.push('official');
+  assert.equal(u.hostname,'mooc1.chaoxing.com');
+  assert.equal(u.searchParams.get('courseId'),'123');
+  assert.equal(u.searchParams.get('classId'),'456');
+  assert.equal(u.searchParams.get('cpi'),'789');
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  assert.equal(options.method,'GET');
+  return response('<ul>'+row('930','Python 实验报告一','已完成')+
+    row('931','Python 实验报告二','待批阅')+'</ul>');
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const legacyReader=await legacyBroken.forSession({session,userId:'owner1'});
+await legacyReader.verifySession();
+const recovered=await legacyReader.readHomeworkList(courseKeys);
+assert.deepEqual(alternateCalls,['legacy','official']);
+assert.deepEqual(recovered.items.map(x=>[x.workId,x.statusCode]),[
+ ['930','submitted'],['931','submitted']]);
+assert.ok(recovered.items.every(x=>x.platformVerified));
+assert.ok(!JSON.stringify(recovered).includes('signedTask'));
+assert.equal(recovered.verifiedEmpty,false);
+
+// A verified "no work" banner from the obsolete route is not proof that the
+// newer official route also has no homework.
+const obsoleteEmpty=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>暂无作业</body>');
+ if(path===officialAltPath)return response('<ul>'+row('932','报告','已批阅')+'</ul>');
+ throw Error('unexpected route '+path);
+}});
+const emptyReader=await obsoleteEmpty.forSession({session,userId:'owner1'});
+await emptyReader.verifySession();
+assert.equal((await emptyReader.readHomeworkList(courseKeys)).items[0].statusCode,'graded');
+
+// Old-route data must remain authoritative when fully verified, never union
+// unrelated pages or double count a work ID in two endpoint responses.
+let mustNotCallAlternate=false;
+const legacyWorking=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response(workHtml);
+ if(path===officialAltPath){mustNotCallAlternate=true;throw Error('wrong route');}
+ throw Error('unexpected route '+path);
+}});
+const workingReader=await legacyWorking.forSession({session,userId:'owner1'});
+await workingReader.verifySession();
+assert.equal((await workingReader.readHomeworkList(courseKeys)).items.length,1);
+assert.equal(mustNotCallAlternate,false);
+
+// A login redirect is an authorization failure and must never cause a second
+// work-list probe under the same expired session, even if a fake fixture says
+// a newer route would contain assignments.
+let authAltRequested=0;
+const expiredLegacy=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return loginRedirect();
+ if(path===officialAltPath){authAltRequested++;return response(workHtml);}
+ if(path==='/login')return response('<html>login</html>');
+ throw Error('unexpected route '+path);
+}});
+const expiredReader=await expiredLegacy.forSession({session,userId:'owner1'});
+await expiredReader.verifySession();
+await assert.rejects(()=>expiredReader.readHomeworkList(courseKeys),
+ e=>e.code==='authorization_failed');
+assert.equal(authAltRequested,0);
+
+// Both routes being unusable never creates an empty trusted sync response.
+const bothMissing=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path===officialAltPath)
+  return response('<body>登录页面以外的空壳</body>');
+ throw Error('unexpected route '+path);
+}});
+const missingReader=await bothMissing.forSession({session,userId:'owner1'});
+await missingReader.verifySession();
+await assert.rejects(()=>missingReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available');
+console.log('Chaoxing verified alternate work-list route and completed state fallback passed');
+
 console.log('Chaoxing legacy/modern owner-verified course token variants passed');
 
 console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
