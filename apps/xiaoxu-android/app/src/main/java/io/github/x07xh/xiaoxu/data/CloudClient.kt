@@ -1331,7 +1331,8 @@ class CloudClient(context: Context) {
                     checked++
                     consecutiveFailures++
                     audit.add(ChaoxingCourseAudit(
-                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList()
+                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList(),
+                        ChaoxingReadIssue.NETWORK
                     ))
                     state = state.copy(
                         chaoxingBatchAudit = audit.toList(),
@@ -1345,15 +1346,33 @@ class CloudClient(context: Context) {
                 if (result.code == 401 || result.json.optString("error") in
                     setOf("session_expired", "authorization_failed", "interactive_login_required")) {
                     stoppedForAuth = true
+                    failed++
+                    checked++
+                    audit.add(ChaoxingCourseAudit(
+                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList(),
+                        ChaoxingReadIssue.AUTHORIZATION
+                    ))
+                    state = state.copy(chaoxingBatchAudit = audit.toList())
                     break
                 }
                 // Record individual official statuses ONLY after the same strict
                 // provider, count, pagination, row and persistence checks used
                 // for one-course sync. A 200 response alone is not proof.
+                var validationIssue: ChaoxingReadIssue? = null
                 val validated = if (result.code == 200) {
                     try {
                         verifiedChaoxingWork(result.json, course)
-                    } catch (_: Exception) { null }
+                    } catch (e: Exception) {
+                        // Only known local validation codes reach the UI.
+                        validationIssue = when (e.message) {
+                            "unverified_homework_persistence" ->
+                                ChaoxingReadIssue.STORAGE
+                            "unverified_homework_total" ->
+                                ChaoxingReadIssue.LIST_INCOMPLETE
+                            else -> ChaoxingReadIssue.INVALID_RESPONSE
+                        }
+                        null
+                    }
                 } else null
                 if (validated != null) {
                     val (work, _, progress) = validated
@@ -1367,7 +1386,10 @@ class CloudClient(context: Context) {
                     consecutiveFailures = 0
                 } else {
                     audit.add(ChaoxingCourseAudit(
-                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList()
+                        course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList(),
+                        validationIssue ?: classifyChaoxingReadIssue(
+                            result.json.optString("error"), result.code
+                        )
                     ))
                     failed++
                     consecutiveFailures++
