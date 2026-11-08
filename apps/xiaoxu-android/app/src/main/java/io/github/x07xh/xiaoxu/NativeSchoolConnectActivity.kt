@@ -863,7 +863,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         // The bounded read is already complete; preserve its
                         // sanitized work tuple and platform status end-to-end.
                         val expected = "work:" + course.courseId + ":" + course.classId + ":"
-                        val rows = result.getJSONArray("records")
+                        val rows = result?.optJSONArray("records") ?: run {
+                            tell("学习通扫描结果缺少有效作业列表；旧记录保持不变。")
+                            finish(false)
+                            return@evaluateJavascript
+                        }
                         if ((0 until rows.length()).any { i ->
                             val key = rows.optJSONObject(i)?.optString("sourceKey").orEmpty()
                             !key.startsWith(expected) ||
