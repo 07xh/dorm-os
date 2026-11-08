@@ -49,10 +49,14 @@ if resume:
                'scripts/test_xiaoxu_promotion.py', '.github/workflows/promote-xiaoxu-android.yml'}
     assert set(call('git','diff','--name-only',promotion_commit,HEAD).splitlines()) <= allowed
     changed = call('git','diff','--name-only',promotion_commit+'^',promotion_commit).splitlines()
-assert changed == ['.github/xiaoxu-release/promotions/0.8.14.json']
+assert len(changed) == 1 and changed[0] in {
+    '.github/xiaoxu-release/promotions/0.8.14.json',
+    '.github/xiaoxu-release/promotions/0.8.15.json'}
 m = json.loads(call('git','show',promotion_commit+':'+changed[0]))
 assert set(m) == {'source_commit','build_run','artifact_id','apk_blob','apk_sha256','version','version_code'}
-assert m['version'] == '0.8.14' and m['version_code'] == 35
+assert m['version'] in {'0.8.14', '0.8.15'}
+assert changed[0] == '.github/xiaoxu-release/promotions/' + m['version'] + '.json'
+assert m['version_code'] == {'0.8.14': 35, '0.8.15': 36}[m['version']]
 assert re.fullmatch('[0-9a-f]{40}',m['source_commit'])
 assert re.fullmatch('[0-9a-f]{40}',m['apk_blob']) and re.fullmatch('[0-9a-f]{64}',m['apk_sha256'])
 assert type(m['build_run']) is int and type(m['artifact_id']) is int
