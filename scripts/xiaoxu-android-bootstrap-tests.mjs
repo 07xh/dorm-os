@@ -1261,8 +1261,8 @@ assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.13'/, '正式版本名必须明确');
-assert.match(appGradle, /versionCode 34\b/, '正式版版本码应高于已发布 RC');
+assert.match(appGradle, /versionName '0\.8\.14'/, '正式版本名必须明确');
+assert.match(appGradle, /versionCode 35\b/, '正式版版本码应高于已发布 RC');
 
 // The removed Chaoxing DOM parser has been replaced by Jsoup JVM fixtures.
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
@@ -1822,7 +1822,7 @@ assert.match(workspace, /val cloudRows = remember\(shown\) \{ shown\.filter \{ i
   '云端任务保持独立缓存分组');
 assert.match(workspace, /"wechat" -> "微信任务"/,
   '原生任务标题与筛选菜单必须识别微信来源');
-assert.match(workspace, /task\.provider == "wechat"/,
+assert.match(workspace, /"wechat" -> "wechat"/,
   '微信来源仅由后端存储记录判断，不得通过标题或群聊文本猜测');
 assert.match(messageCenter, /val wechatTitle = "微信审核" \+/,
   '微信审核标签仍由真实候选计数生成');

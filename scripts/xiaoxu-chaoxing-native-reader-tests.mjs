@@ -24,8 +24,14 @@ assert.match(session,/getCookie\(url\)/);
 assert.match(session,/setCookie\(url,cookie\)/);
 assert.match(session,/readOnlyPosts/);
 const workspace=readFileSync(base+'java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt','utf8');
-assert.equal((workspace.match(/state\.tasks\.filterNot \{ it\.provider == "chaoxing" \}/g)||[]).length,2,
- 'home and task hub both exclude the retired cloud Chaoxing source');
+assert.doesNotMatch(workspace,/state\.tasks\.filterNot \{ it\.provider == "chaoxing" \}/,
+ 'retiring the reader must not hide existing cloud Chaoxing tasks');
+assert.doesNotMatch(workspace,/if \(\(capturedHomework\.isNotEmpty\(\) \|\| capturedStudyTasks\.isNotEmpty\(\)\) &&/,
+ 'the Chaoxing group remains available on a fresh install with cloud-only or no records');
+const panels=readFileSync(base+'java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt','utf8');
+assert.match(panels,/"chaoxing" to "学习通"/,'cloud connections must retain the Chaoxing card');
+assert.match(panels,/id == "chaoxing"\) client\.refreshPrivate\(\)/,
+ 'cloud record refresh uses the existing assignment API, not the retired reader');
 assert.doesNotMatch(reader+session,/api\/v1|CloudClient|addJavascriptInterface|readProgress|saveStatus|submitForm.*POST/);
 assert.match(storage,/if \(old != accountHash \|\| complete\) \{/);
 assert.match(storage,/@Transaction\s+suspend fun mergeChaoxingRead/);

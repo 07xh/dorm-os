@@ -39,12 +39,12 @@ class NativeChaoxingTaskMergeTest {
         assertTrue(considerCompleteInTaskList(tasks.single()))
     }
 
-    @Test fun explicitReturnedCloudStatusIsNotOverwrittenByLocalSnapshot() {
+    @Test fun knownLocalOfficialStatusReplacesRetiredCloudSnapshot() {
         val tasks = combineWorkspaceTasks(emptyList(), listOf(cloud(state = "returned")),
             listOf(record("已完成")))
         assertEquals(1, tasks.size)
-        assertEquals("returned", tasks.single().officialStatus)
-        assertFalse(considerCompleteInTaskList(tasks.single()))
+        assertEquals("submitted", tasks.single().officialStatus)
+        assertTrue(considerCompleteInTaskList(tasks.single()))
     }
 
     @Test fun realPlanIdCreatesOneLocalOfficialTaskWithCompletedState() {
@@ -75,5 +75,16 @@ class NativeChaoxingTaskMergeTest {
         assertTrue(tasks.any { it.storage == "cloud" && !considerCompleteInTaskList(it) })
         val fake = records.single().copy(fingerprint = "not-a-valid-source")
         assertEquals(0, combineWorkspaceTasks(emptyList(), emptyList(), listOf(fake)).size)
+    }
+    @Test fun returnedOfficialLocalWorkCannotDisappearBehindCloudCompletion() {
+        val tasks=combineWorkspaceTasks(emptyList(),listOf(cloud(state="submitted")),listOf(record("已退回")))
+        assertEquals(1,tasks.size)
+        assertEquals("returned",tasks.single().officialStatus)
+        assertFalse(considerCompleteInTaskList(tasks.single()))
+    }
+    @Test fun unknownLocalStatusDoesNotEraseKnownCloudStatus() {
+        val tasks=combineWorkspaceTasks(emptyList(),listOf(cloud(state="submitted")),listOf(record("状态未知")))
+        assertEquals("submitted",tasks.single().officialStatus)
+        assertTrue(considerCompleteInTaskList(tasks.single()))
     }
 }

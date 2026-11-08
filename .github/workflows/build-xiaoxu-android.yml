@@ -156,7 +156,19 @@ jobs:
           done
           echo 'Exact-source main CI did not finish successfully.' >&2
           exit 1
+      - name: Select stable signing route
+        id: signing
+        env:
+          SIGNING_KEY: ${{ secrets.XIAOXU_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -n "$SIGNING_KEY" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Unsigned Release verified. Await an APK signed with the existing private key; never generate a replacement key.'
+          fi
       - name: Sign, preserve encrypted recovery backup and publish formal release
+        if: steps.signing.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           XIAOXU_KEYSTORE_BASE64: ${{ secrets.XIAOXU_KEYSTORE_BASE64 }}
