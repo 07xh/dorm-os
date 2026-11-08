@@ -1,9 +1,9 @@
 # 校序 R8 规则（#334）
 #
-# 本轮只加 release 构建用于性能测量，不追求极限瘦身。
+# 正式 Release 启用 R8；保留可还原的崩溃栈。
 # Room / Compose / AndroidX 均有自己的 consumer rules，这里只补本项目自己的需要。
 
-# 保留行号，崩溃栈才可读；release 测量时不要为了体积把栈信息压掉。
+# 保留行号，崩溃栈才可读；正式发布时不要为了体积把栈信息压掉。
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 

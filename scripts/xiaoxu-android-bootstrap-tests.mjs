@@ -247,7 +247,7 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao, onEditTask =/);
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -304,7 +304,7 @@ assert.ok(
     '本机官方页面读取必须先于云端可选授权展示'
 );
 const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
-assert.match(nativeSchoolPanel, /在 App 中打开学习通/);
+assert.match(nativeSchoolPanel, /连接学习通／刷新全部任务/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
 assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
@@ -318,33 +318,22 @@ assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
   '第二课堂记录属于业务页，不回流设置首页');
 
 assert.match(panels, /openLocalSchool\(id\)/);
-assert.match(panels, /只有一台手机？打开学习通官网/);
+assert.match(panels, /LocalSchoolConnectionPanel/);
 assert.match(panels, /成绩读取待接入/,
   '青果连接保留，旧课表同步不得冒充成绩读取');
 assert.doesNotMatch(panels, /"ncwu" -> "本机打开青果官方课表"/);
 assert.match(panels, /本机打开第二课堂官网/);
 assert.match(panels, /本机官网读取仅保存当前可见记录/);
-assert.match(cloud, /val connectionTrusted = state.platforms.firstOrNull/);
 assert.match(cloud, /val tasksFresh: Boolean = false/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /tasksFresh = tasks != null/);
-assert.match(cloud, /!fresh -> "云端任务清单刷新失败/, '批量核验必须披露任务清单刷新失败');
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
 assert.match(workspace, /!state\.tasksFresh && state\.tasks\.isNotEmpty\(\)/,
   '云端任务快照新鲜度必须由统一任务中心说明');
 assert.match(workspace, /含上次云端快照/,
   '旧快照提醒不可因删除嵌套列表而消失');
-assert.match(panels, /client\.syncChaoxingAllCourses\(\)/);
-assert.match(panels, /platform\?\.verified == true && !state\.chaoxingBusy/);
-assert.match(panels, /一键核验全部课程作业/);
-assert.match(panels, /state\.chaoxingBatchStatus\?\.let/);
-assert.match(cloud, /val workChecked = state.chaoxingCheckedAt != null/);
-assert.match(cloud, /!connectionTrusted/);
-assert.match(cloud, /!workChecked/);
-assert.match(cloud, /state.chaoxingCheckedAt != null && state.chaoxingError == null/);
 assert.match(panels, /openLocalSchool: \(String\) -> Unit/);
 assert.match(panels, /connectionStatusLabel\(platform\)/);
-assert.match(panels, /client\.loadChaoxingCourses\(\)/);
 assert.match(panels, /client\.syncAuthorizedSchool\(id\)/);
 assert.match(panels, /"ncwu" to "青果教务"/);
 assert.match(panels, /"second_class" to "第二课堂"/);
@@ -387,144 +376,11 @@ assert.doesNotMatch(panels, /schoolPassword|CookieManager|WebView|READ_SMS/);
 assert.doesNotMatch(cloud + panels, /addJavascriptInterface|READ_SMS|READ_CONTACTS|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET\s*=/);
 assert.doesNotMatch(cloud, /http:\/\/|https:\/\/[^\s"]+school/);
 
-const coursePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ChaoxingHomeworkPanel.kt');
-const batchAudit = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/ChaoxingBatchAudit.kt');
-assert.match(batchAudit, /enum class ChaoxingCourseCoverage \{ COUNT_VERIFIED, LIST_ONLY, FAILED, NOT_CHECKED \}/,
-  '必须区分所有课程条数已核验与仅逐项列表状态');
-assert.match(batchAudit, /audit\.map \{ it\.courseKey \}\.distinct\(\)\.size == totalCourses/,
-  '重复课程不能冒充已经完整覆盖');
-assert.match(batchAudit, /countVerified == totalCourses &&\s*taskLedgerFresh/,
-  '只有全部课程条数可信且任务清单刷新成功才能声明覆盖完整');
-assert.match(cloud, /chaoxingBatchAudit: List<ChaoxingCourseAudit>/,
-  '云端只读批量核验结果必须在当前会话中保留结构化证据');
-assert.match(cloud, /if \(progress != null\) ChaoxingCourseCoverage\.COUNT_VERIFIED\s*else ChaoxingCourseCoverage\.LIST_ONLY/,
-  '缺失官网作业总数时不允许宣称本课程完整核验');
-assert.match(cloud, /ChaoxingCourseCoverage\.NOT_CHECKED, emptyList\(\)/,
-  '未检查课程必须显式列出，不能冒充零作业');
-assert.match(cloud, /if \(epoch != sessionEpoch \|\| !state\.authenticated\) return/,
-  '学校授权失效后不得恢复旧会话里的审核账本');
-assert.match(workspace, /title = "学习通作业"/,
-  '官方作业读取入口必须直接出现在真实任务页');
-assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
-  '学习通部分读取不得冒充全部课程已核验');
-assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "已核对当前课程列表"/,
-  '只有证据完整且刷新成功才显示当前课程列表核验状态');
-assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
-  '本机页面记录需保留入口及真实数量');
-assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
-  '正式任务首页不得继续显示面向开发的旧卡片标题');
-assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
-  '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
-assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
-  '用户必须可以展开全部已读取作业而非静默只展示前30项');
-assert.doesNotMatch(coursePanel, /其他记录请在校序任务列表查看/,
-  '本课程未展开的记录不得谎称已经自动并入本机任务清单');
-
-assert.match(workspace, /ChaoxingHomeworkPanel\(client, openSchoolReader = \{ openLocalSchool\("chaoxing"\) \}\)/);
-assert.match(coursePanel, /fun ChaoxingHomeworkPanel\(client: CloudClient, openSchoolReader: \(\) -> Unit\)/);
-assert.match(coursePanel, /XiaoxuCard\(modifier = Modifier\.fillMaxWidth\(\), contentPadding = 0\.dp\)/,
-  '学习通课业页面必须复用统一玻璃卡片');
-assert.match(coursePanel, /state\.chaoxingPreview\?\.let \{ preview ->\s*XiaoxuSheet\(/,
-  '只读作业详情必须走共享浮层，不可在列表内嵌旧方形 Card');
-assert.match(coursePanel, /onDismiss = \{ client\.clearChaoxingDetail\(\) \}/,
-  '学习通详情可返回关闭并清理只读预览状态');
-assert.doesNotMatch(coursePanel, /\bCardDefaults\b|\bCard\s*\(/,
-  '不得恢复第二套独立 Material3 作业卡片');
-assert.match(coursePanel, /OutlinedButton\(onClick = openSchoolReader\)/);
-assert.match(coursePanel, /在 App 内读取学习通作业/);
-assert.doesNotMatch(coursePanel, /前往现有数据连接中心/);
-// Native first-party QR uses existing server start/image/status, never new login routes.
-assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/start/);
-assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/image/);
-assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/qr\/status/);
-assert.match(cloud, /suspend fun startChaoxingQr\(\)/);
-assert.match(cloud, /suspend fun pollChaoxingQr\(\)/);
-assert.match(cloud, /fun cancelChaoxingQr\(\)/);
-assert.match(cloud, /qrGeneration/);
-assert.match(cloud, /image_too_large/);
-const svgRaster = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/NativeQrSvgRenderer.kt');
-assert.match(svgRaster, /internal object NativeQrSvgRenderer/);
-assert.match(svgRaster, /document\.matchEntire\(text\)/);
-assert.match(svgRaster, /out_of_bounds_module/);
-assert.match(svgRaster, /count > 20000/);
-assert.match(svgRaster, /Bitmap\.CompressFormat\.PNG/);
-assert.match(svgRaster, /bitmap\.recycle\(\)/);
-assert.match(cloud, /NativeQrSvgRenderer\.rasterize\(bytes\)/);
-assert.doesNotMatch(svgRaster, /addJavascriptInterface|evaluateJavascript|loadUrl|CookieManager/);
-assert.match(cloud, /qr\.polls >= 24/);
-assert.match(cloud, /completeSchoolReturn\("chaoxing"\)/);
-assert.doesNotMatch(cloud, /addJavascriptInterface|CookieManager|getCookie\(/);
-assert.match(panels, /显示扫码二维码（需另一设备）/);
-assert.match(panels, /BitmapFactory\.decodeByteArray/);
-assert.match(panels, /Lifecycle\.Event\.ON_PAUSE/);
-assert.match(panels, /LaunchedEffect\(qrStartedAt, foreground\)/);
-assert.match(cloud, /\/api\/v1\/chaoxing-homework\?view=courses/);
-assert.match(cloud, /\/api\/v1\/chaoxing-homework\/sync/);
-assert.match(cloud, /loadChaoxingCourses/);
-assert.match(cloud, /setChaoxingAutoSync\(enabled: Boolean\)/);
-assert.match(cloud, /\/api\/v1\/connections\/chaoxing\/auto-sync/);
-assert.match(cloud, /JSONObject\(\)\.put\("enabled", enabled\)/);
-assert.match(cloud, /autoSyncAvailable/);
-assert.match(cloud, /autoSyncLastResult/);
-assert.match(cloud, /autoSyncEnabled = isChaoxingAuto && auto!!\.optBoolean/);
-assert.match(coursePanel, /connection\.autoSyncAvailable \|\| connection\.autoSyncEnabled/);
-assert.match(coursePanel, /定时 Worker 未确认可用/);
-assert.match(coursePanel, /开启每小时自动同步/);
-assert.match(coursePanel, /关闭每小时自动同步/);
-assert.match(coursePanel, /默认关闭/);
-assert.match(coursePanel, /定时任务已登记；仍需验证服务端实际运行/);
-assert.doesNotMatch(coursePanel, /自动代交|后台自动提交|已经完成全部学校同步/);
-
-
-assert.match(cloud, /syncChaoxingCourse/);
-// Owner-initiated multi-course sync reuses the same backend validation as a
-// single course. Never infer success from the HTTP status alone.
-assert.match(cloud,/suspend fun syncChaoxingAllCourses\(\)/);
-assert.match(cloud,/val courses = state\.chaoxingCourses\.toList\(\)/);
-assert.match(cloud,/for \(course in courses\)/);
-assert.match(cloud,/verifiedChaoxingWork\(result\.json, course\)/);
-assert.match(cloud,/val \(work, verifiedEmpty, progress\) = verifiedChaoxingWork\(response\.json, selected\)/);
-assert.match(cloud,/data\.getJSONObject\("sync"\)/);
-assert.match(cloud,/saved\.optInt\("received", -1\) != work\.size/);
-assert.match(cloud,/chaoxingPageProgress = progress/);
-assert.match(cloud,/unverified_homework_total/);
-assert.match(coursePanel,/官网本课程进度/);
-assert.match(coursePanel,/官网未提供可核实的作业总数/);
-assert.match(cloud,/result\.code == 401/);
-assert.match(cloud,/if \(consecutiveFailures >= 2\) break/);
-assert.match(cloud,/courses\.filterNot \{ it\.key in checkedKeys \}/, '中断后需要明确列出未检查课程');
-assert.match(cloud,/chaoxingBatchBusy = false/);
-assert.match(coursePanel,/client\.syncChaoxingAllCourses\(\)/);
-assert.match(coursePanel,/一键核验全部课程作业/);
-assert.match(coursePanel,/state\.chaoxingBatchStatus/);
-// App restart must not require two separate owner actions to refresh the
-// course list and each verified course's homework. Never poll automatically.
-assert.match(cloud,/suspend fun refreshChaoxingCoursesAndHomework\(\)/);
-assert.match(cloud,/loadChaoxingCourses\(\)[\s\S]*?syncChaoxingAllCourses\(\)/);
-assert.match(cloud,/if \(state\.chaoxingError != null \|\| state\.chaoxingCourses\.isEmpty\(\)\)/);
-assert.match(coursePanel,/client\.refreshChaoxingCoursesAndHomework\(\)/);
-assert.match(coursePanel,/connection\?\.sessionState == "active"/);
-assert.match(coursePanel,/仅读取本人课程列表/);
-assert.match(coursePanel,/var showAllHomework by rememberSaveable/);
-assert.match(coursePanel,/本次实际读取 \$count 条作业；当前展示 \$visible \/ \$count 条/);
-assert.match(coursePanel,/查看剩余/);
-assert.match(coursePanel,/state\.chaoxingHomework\.size > 50/);
-
-assert.match(cloud, /interactive_login_required/);
-assert.match(cloud, /work_list_incomplete/);
-assert.match(cloud, /courseId|classId|cpi/);
-assert.match(cloud, /chaoxingVerifiedEmpty/);
-assert.match(coursePanel, /同步本课程真实作业及状态/);
-assert.doesNotMatch(coursePanel, /自动提交作业|自动作答/);
-assert.match(cloud, /loadChaoxingWorkDetail/);
-assert.match(cloud, /view=detail/);
-assert.match(cloud, /xiaoxu\/chaoxing-work-preview-v1/);
-assert.match(cloud, /state\.chaoxingHomework\.firstOrNull/);
-assert.match(cloud, /chaoxingDetailBusy/);
-assert.match(cloud, /chaoxingSelectedKey != selected\.key/);
-assert.match(coursePanel, /只读查看作业内容/);
-assert.match(coursePanel, /包含图片，请在学习通官方页面查看原图/);
-assert.doesNotMatch(coursePanel, /自动填写|自动代交|显示正确答案/);
+// Chaoxing now has one local reader. Its protocol and parsing behavior run
+// in Android JVM tests; cloud endpoint and old DOM implementation assertions
+// were retired with those implementations, not kept as false requirements.
+assert.doesNotMatch(cloud, /suspend fun (?:loadChaoxingCourses|syncChaoxingAllCourses|startChaoxingQr)/);
+assert.doesNotMatch(panels + workspace, /client\.(?:loadChaoxingCourses|syncChaoxingAllCourses|refreshChaoxingCoursesAndHomework)/);
 
 const secondClass = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/SecondClassSnapshot.kt');
 assert.equal(existsSync(new URL('../apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassPanel.kt', import.meta.url)), false,
@@ -1297,8 +1153,11 @@ assert.match(workspace, /val sameWeekday = localLessons\.filter/,
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
-assert.match(workspace, /学习通 · 本机作业快照/);
-assert.match(workspace, /不纳入待完成\/已完成数量/);
+assert.match(workspace, /学习通 · 本机读取/);
+// Only source-ID-verified official records may affect task completion.
+assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
+assert.match(workspace, /localEvidence\.filterKeys \{ it !in cloudIds \}/);
+assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
@@ -1325,7 +1184,7 @@ assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是�
 assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
 assert.match(workspace, /title = "课程任务"/, '云端课程任务须有独立分区');
 assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
-assert.match(workspace, /本机页面快照/, '快照须标注来源徽标');
+assert.match(workspace, /本机读取记录/, '快照须标注来源徽标');
 assert.match(workspace, /含上次云端快照/,
   '上次云端任务必须明确标注快照，不可冒充新读取');
 assert.match(workspace, /DueUi\("日期未记录", "云端任务没有已核实的截止日期"/,
@@ -1365,14 +1224,8 @@ assert.match(localSchoolUi, /不代表当前官网状态/);
 assert.match(localNative, /EXTRA_RETURN_KIND/);
 assert.match(localNative, /EXTRA_SAVED_COUNT/);
 assert.match(localNative, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
-assert.match(localNative, /savedKind = kind/);
-assert.match(localNative, /savedCount = total/);
-assert.match(localNative, /dao\.appendKind\(provider, kind, accepted\)/);
-assert.match(main, /if \(permitted && count in 1\.\.500\)/);
-assert.match(nativeRecords, /@Transaction\s+suspend fun appendKind\(/);
-assert.match(nativeRecords, /require\(keys\.size <= 500\)/);
-assert.match(workspace, /items\(count = minOf\(capturedHomework\.size, 500\)/);
-assert.match(localNative, /\.replaceKind\(provider, kind, accepted\)/);
+assert.match(main, /if \(permitted && count in 1\.\.5000\)/);
+assert.match(workspace, /items\(count = minOf\(capturedHomework\.size, 5000\)/);
 assert.doesNotMatch(main + localSchoolUi, /ownerCookie|schoolPassword|CAS_TICKET/);
 for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
 assert.doesNotMatch(localNative, /"ncwu" to "https:/);
@@ -1392,7 +1245,7 @@ assert.match(localNative, /uri\.path in setOf\("\/cassso\/ncwu", "\/cassso\/ncwu
 assert.match(localNative, /"华水统一身份认证（学习通）"/);
 assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
 // Never let CAS pages or network failures become an extractable work list.
-assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
+assert.match(localNative, /if \(provider == "chaoxing"\) loaded && chaoxingReadJob\?\.isActive != true/);
 assert.match(localNative, /override fun onReceivedError\(/);
 assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pendingOfficialCatalogRead = false\s*pageFailed = true/);
 assert.match(localNative, /private fun invalidateCapture\(\) \{\s*captureEpoch\+\+\s*scoreSaveJob\?\.cancel\(\)/);
@@ -1401,132 +1254,17 @@ assert.match(localNative, /currentCoroutineContext\(\)\.ensureActive\(\)/);
 assert.match(localNative, /extract\.isEnabled = loaded && !pageFailed &&/);
 assert.match(localNative, /extractionAllowed\(provider, browser\.url\)/);
 assert.match(localNative, /handler\.cancel\(\)/);
-assert.match(localNative, /setAcceptThirdPartyCookies\(this, false\)/);
+assert.match(localNative, /setAcceptThirdPartyCookies\(this, provider == "chaoxing"\)/);
 assert.match(localNative, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);
-assert.match(localNative, /browser\.evaluateJavascript\(READ_VISIBLE_PAGE\)/);
-assert.match(localNative, /replaceKind\(provider, kind, accepted\)/);
 assert.match(localNative, /LocalTaskDatabase\.open\(applicationContext\)/);
 assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
-assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
-assert.match(appGradle, /versionCode 32\b/, '0.8.11 RC 的版本码应递增');
+assert.match(appGradle, /versionName '0\.8\.13'/, '正式版本名必须明确');
+assert.match(appGradle, /versionCode 34\b/, '正式版版本码应高于已发布 RC');
 
-/* Official-page local readable content, tested only with synthetic DOM.
- * This never claims real account login or exercises hidden school APIs. */
-assert.match(localNative, /CHAOXING_HOMEWORK/);
-assert.match(localNative, /"学习通 · 打开我的作业"/);
-assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
-assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
-assert.match(localNative, /li\[onclick\*="goTask"\]/);
-assert.match(localNative, /p\.overHidden2\.fl/);
-assert.match(localNative, /p\.status\.fl/);
-assert.match(localNative, /foundKind === 'homework'/);
-assert.match(localNative, /homeworkOverview && foundKind !== 'homework'/);
-assert.match(localNative, /foundKind === 'homework' \? titleIndex/);
-assert.match(localNative, /if \(appended\) kind = foundKind/);
-assert.doesNotMatch(localNative, /getAttribute\(['"]data['"]\)/);
-const inlineMatch = localNative.match(/private const val READ_VISIBLE_PAGE = """([\s\S]*?)"""/);
-assert.ok(inlineMatch, 'on-device readonly DOM script must be testable');
-const inlineScript = inlineMatch[1];
-function fixtureDocument({table=null,li=[],courses=[]}={}) {
-    return {
-      querySelectorAll(selector) {
-        if(selector==='iframe')return [];
-        if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
-        if(selector==='li[onclick*="goTask"]')return li;
-        if(selector.includes('.course-name'))return courses;
-        return [];
-      }
-    };
-}
-const visible = node => ({...node,getClientRects:()=>[{}]});
-function parseNativePage(doc, host, pathname) {
-  const returned=runInNewContext(inlineScript,{document:doc,
-    location:{hostname:host,pathname,origin:'https://'+host}});
-  return JSON.parse(returned);
-}
-const workLi=visible({
-  querySelector(sel) {
-    if(sel==='p.overHidden2.fl')return {innerText:'工程制图 第三次作业'};
-    if(sel==='p.status.fl')return {innerText:'未提交'};
-    return null;
-  }
-});
-const workResult=parseNativePage(fixtureDocument({li:[workLi]}),
- 'mooc1.chaoxing.com','/mooc2/work/list');
-assert.equal(workResult.kind,'homework');
-assert.equal(workResult.records.length,1);
-assert.equal(workResult.records[0].title,'工程制图 第三次作业');
-assert.match(workResult.records[0].details,/未提交/);
-assert.ok(!JSON.stringify(workResult).includes('workEnc'));
-const courseTitle=visible({getAttribute(key){return key==='title'?'高等数学':null;},innerText:'高等数学'});
-const courseResult=parseNativePage(fixtureDocument({courses:[courseTitle]}),
- 'mooc2-ans.chaoxing.com','/mooc2-ans/visit/courselistdata');
-assert.equal(courseResult.kind,'course');
-assert.equal(courseResult.records[0].title,'高等数学');
-function nativeTable(headers,cells) {
- const column=text=>({innerText:text});
- const headerRow=visible({
-   querySelectorAll(selector) {return selector==='th,td'?headers.map(column):[];}
- });
- const contentRow=visible({
-   querySelectorAll(selector) {
-     return selector===':scope > th,:scope > td'?cells.map(column):[];
-   }
- });
- return visible({querySelectorAll(s){return s==='tr'?[headerRow,contentRow]:[];}});
-}
-const homeworkOverview=parseNativePage(fixtureDocument({
- table:nativeTable(['课程名称','作业名称','提交状态'],['高数','作业测试','未交'])
-}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(homeworkOverview.kind,'homework');
-assert.equal(homeworkOverview.records[0].title,'作业测试',
- 'must prefer homework column, not course column');
-assert.match(homeworkOverview.records[0].details,/高数/);
-// A course title plus a homework-status column is NOT an assignment title.
-const statusOnlyOverview=parseNativePage(fixtureDocument({
- table:nativeTable(['课程名称','作业状态'],['高等数学','未提交'])
-}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(statusOnlyOverview.records.length,0,
- 'do not save a course title as homework when only status is visible');
-assert.equal(statusOnlyOverview.kind,'',
- 'no official homework kind without an explicit work title');
-const courseSummary=parseNativePage(fixtureDocument({
- table:nativeTable(['课程名称','教师'],['高等数学','李老师'])
-}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(courseSummary.records.length,0,
- 'course summary in the homework page is not a homework item');
-const blankWork=parseNativePage(fixtureDocument({
- table:nativeTable(['课程名称','作业名称','提交状态'],['高等数学','','未交'])
-}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(blankWork.records.length,0, 'blank work title must fail closed');
-const multiTable=parseNativePage(fixtureDocument({table:[
- nativeTable(['课程名称','作业状态'],['高等数学','未提交']),
- nativeTable(['课程名称','作业名称','提交状态'],['工程制图','第三次作业','已交'])
-]}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(multiTable.kind,'homework');
-assert.equal(multiTable.records.length,1);
-assert.equal(multiTable.records[0].title,'第三次作业');
-assert.match(multiTable.records[0].details,/已交/);
-const explicitWorkHeader=parseNativePage(fixtureDocument({
- table:nativeTable(['课程名称','作业','提交状态'],['工程制图','第三次作业','未交'])
-}), 'mooc1-api.chaoxing.com','/mooc-ans/mooc2/work/all-task');
-assert.equal(explicitWorkHeader.records[0].title,'第三次作业');
-const activityWithPoints=parseNativePage(fixtureDocument({
- table:nativeTable(['活动名称','积分'],['校园公益活动','2'])
-}), 'dekt.ncwu.edu.cn','/student/activities');
-assert.equal(activityWithPoints.kind,'activity',
- 'activity point column is not cumulative credit statement');
-const creditRows=parseNativePage(fixtureDocument({
- table:nativeTable(['积分项目','积分'],['实践活动','2'])
-}), 'dekt.ncwu.edu.cn','/student/credits');
-assert.equal(creditRows.kind,'credits');
-assert.equal(parseNativePage(fixtureDocument(),
- 'mooc1.chaoxing.com','/mooc2/work/list').records.length,0);
-
+// The removed Chaoxing DOM parser has been replaced by Jsoup JVM fixtures.
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
 const importer = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/LocalQingguoImportActivity.kt');
 const localStore = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
@@ -2018,8 +1756,8 @@ assert.match(workspace, /var showWechatTasks by rememberSaveable \{ mutableState
   '首次进入任务中心的微信任务必须默认折叠');
 assert.match(workspace, /var showPersonalTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的本机任务必须默认折叠');
-assert.match(workspace, /var showOfficialAudit by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '学习通数据读取完成后也不得自动展开作业分组');
+assert.doesNotMatch(workspace, /var showOfficialAudit by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '旧云端作业读取分组已经退役');
 assert.match(workspace, /var showSchoolRecords by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的本机读取必须默认折叠');
 const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
@@ -2098,12 +1836,12 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
-  '本机任务只在管理展开时展示真实 Room 编辑器');
-assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
-  '关闭任务管理也必须隐藏云端新建表单');
-assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
-  '顶部新增按钮再次点击应完整收起编辑区');
+assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(localTasks, dao, onEditTask =/,
+  '本机管理复用已发布版本的独立浮层');
+assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
+  '云端新建使用独立浮层');
+assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
+  '移除已淘汰的内联编辑器与固定索引跳转');
 assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
   '本机任务仍从稳定来源 key 打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
@@ -2182,7 +1920,7 @@ assert.match(workspace, /selectedTask.provider == "chaoxing"/,
   '只有学习通相关任务显示学习通核对入口');
 assert.match(workspace, /本条记录尚无可关联的官方作业 ID/,
   '没有可信来源 ID 的旧记录必须提供人工核对入口');
-assert.match(workspace, /已关联学习通来源作业 ID/,
+assert.match(workspace, /已关联学习通官方作业 ID/,
   '具有可信来源 ID 的任务必须明确显示已关联状态');
 assert.match(workspace, /trustedChaoxingPlatformStatus\(/,
   '学习通状态必须通过后端受信任来源元数据校验，不按标题猜测');
@@ -2198,10 +1936,10 @@ assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
-  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
-assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
-  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
+assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)/,
+  '本机详情编辑现有任务而非打开新建表单');
+assert.match(workspace, /LocalTaskEditSheet\(task = editingLocal, dao = dao/);
+assert.match(db, /UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id/);
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
@@ -2220,26 +1958,17 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
-assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
-  '任务中心必须保留独立可滚动列表状态');
-assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
-  '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
-  '云端表单跳转须考虑本机管理展开与否');
-assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
 assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
 assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
-assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
+assert.match(workspace, /filter = "pending"/,
   '待完成统计卡应真实切换过滤器');
-assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
+assert.match(workspace, /filter = "done"/,
   '已完成统计卡应真实切换过滤器');
-assert.match(workspace, /jumpTo = "local"/,
-  '本机任务按钮应自动定位管理区域');
-assert.match(workspace, /jumpTo = "cloud"/,
-  '云端任务按钮应自动定位管理区域');
+assert.match(workspace, /showLocalEditor = true/);
+assert.match(workspace, /showCloudEditor = true/);
 assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
   '窄屏任务分区标题必须给来源和条数预留空间');
 // Issue #275：消息中心与「我的」按七张海报/四屏 HTML 精细化，只换视觉层级，

@@ -1,0 +1,2 @@
+User authorized formal release after cleanup.
+Version 0.8.13 (34), canonical package, signed Release APK, no QA distribution.

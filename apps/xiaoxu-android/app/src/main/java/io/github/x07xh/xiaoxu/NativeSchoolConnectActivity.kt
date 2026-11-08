@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
@@ -23,7 +24,13 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import io.github.x07xh.xiaoxu.data.ChaoxingWebNavigation
+import io.github.x07xh.xiaoxu.data.ChaoxingWebSession
+import io.github.x07xh.xiaoxu.data.ChaoxingLocalReader
+import io.github.x07xh.xiaoxu.data.ChaoxingReadFailure
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
@@ -36,6 +43,7 @@ import java.util.UUID
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -59,13 +67,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         const val EXTRA_AUTO_SCORE = "auto_score"
         const val EXTRA_RETURN_KIND = "saved_kind"
         const val EXTRA_SAVED_COUNT = "saved_count"
-        // Exactly the existing first-party course-list endpoint used by the
-        // trusted server adapter; this shortcut does not transfer WebView cookies.
-        private const val CHAOXING_COURSES =
-            "https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata"
-        // Official personal homework overview; still requires the owner's normal login.
-        private const val CHAOXING_HOMEWORK =
-            "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
         // NCWU's independently published CAS -> Chaoxing SSO service.
         // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
         private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
@@ -79,12 +80,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         private val schools = setOf(
             "authserver.ncwu.edu.cn",
             "sec.ncwu.edu.cn", "dekt.ncwu.edu.cn"
-        )
-        private val chaoxing = setOf(
-            "i.chaoxing.com", "passport2.chaoxing.com",
-            "mooc2-ans.chaoxing.com", "mooc1.chaoxing.com",
-            "mooc1-api.chaoxing.com", "mooc2.chaoxing.com",
-            "passport2-app.chaoxing.com", "kb.chaoxing.com"
         )
         fun navigationAllowed(provider: String, raw: String?): Boolean {
             val uri = runCatching { Uri.parse(raw ?: "") }.getOrNull() ?: return false
@@ -100,7 +95,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             uri.getQueryParameter("service") == CHAOXING_SCHOOL_SERVICE
                     "fysso.chaoxing.com" ->
                         uri.path in setOf("/cassso/ncwu", "/cassso/ncwu/")
-                    else -> host in chaoxing
+                    else -> ChaoxingWebNavigation.target(raw) == raw
                 }
                 "second_class" -> host in schools
                 else -> false
@@ -110,20 +105,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (!navigationAllowed(provider, url)) return false
             val uri = Uri.parse(url ?: "")
             val host = uri.host?.lowercase() ?: return false
-            val path = uri.path.orEmpty()
             return when (provider) {
                 "second_class" -> host == "dekt.ncwu.edu.cn"
-                "chaoxing" ->
-                    (host == "mooc1-api.chaoxing.com" &&
-                        path == "/mooc-ans/mooc2/work/all-task") ||
-                    (host == "mooc1.chaoxing.com" &&
-                        (path.startsWith("/mooc2/work/") ||
-                         path.startsWith("/mooc-ans/mooc2/work/") ||
-                         path.startsWith("/visit/"))) ||
-                    (host == "mooc2-ans.chaoxing.com" &&
-                        path.startsWith("/mooc2-ans/visit/")) ||
-                    (host == "kb.chaoxing.com" &&
-                        path.startsWith("/res/pc/curriculum/"))
                 else -> false
             }
         }
@@ -132,7 +115,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
     private lateinit var extract: Button
-    private var appendVisible: Button? = null
     private lateinit var finishAndReturn: Button
     private lateinit var catalogProbe: Button
     private var catalogProbeOn = false
@@ -150,6 +132,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private val scoreIdentity by lazy { getSharedPreferences("second_class_local_identity", MODE_PRIVATE) }
     private var scoreSaveJob: Job? = null
     private var manualReservation = false
+
+    private var chaoxingReadJob: Job? = null
+    private var chaoxingWebSession: ChaoxingWebSession? = null
+    private fun abortTaskDiscovery() {
+        chaoxingWebSession?.cancel()
+        chaoxingReadJob?.cancel()
+        chaoxingWebSession = null
+    }
 
     private fun invalidateCapture() {
         captureEpoch++
@@ -176,11 +166,18 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
-            setPadding(16, 12, 16, 12)
+            val gap = (8 * resources.displayMetrics.density).toInt()
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+                view.setPadding(gap + bars.left, bars.top, gap + bars.right,
+                    maxOf(bars.bottom, keyboard.bottom))
+                insets
+            }
         }
         status = TextView(this).apply {
             textSize = 13f
-            text = "请在学校或学习通官方页面正常登录，打开本人课程／作业／活动列表后，点击「读取当前页」。"
+            text = "学习通正常登录后点「读取全部」，读取通知、学习计划和课程作业。"
             setPadding(8, 4, 8, 8)
             if (provider == "second_class") text =
                 "首次在学校官网正常登录；会话有效时可直接读取积分，无需每次登录。积分仅保存在此设备。"
@@ -194,27 +191,16 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
         control("返回") {
+            abortTaskDiscovery()
             if (browser.canGoBack()) browser.goBack() else finish()
         }
-        control("刷新页面") { browser.reload() }
-        extract = control("读取并替换同类记录") { captureVisibleRecords() }
+        control("刷新页面") {
+            abortTaskDiscovery()
+            browser.reload()
+        }
+        extract = control("读取全部") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
-        // Explicit paginated-page action. The default still replaces the old
-        // snapshot; only deliberate appends preserve previously read pages.
-        appendVisible = if (provider == "chaoxing") Button(this).apply {
-            text = "分页追加本页（保留已保存记录）"
-            isEnabled = false
-            setOnClickListener { captureVisibleRecords(append = true) }
-        } else null
-        val courseShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 打开我的课程"
-            setOnClickListener { browser.loadUrl(CHAOXING_COURSES) }
-        } else null
-        val homeworkShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 打开我的作业"
-            setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
-        } else null
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
             setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
@@ -231,6 +217,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
+            if (provider == "chaoxing") visibility = View.GONE
             setOnClickListener {
                 // Only a committed Room write enables this button.
                 setResult(Activity.RESULT_OK, Intent()
@@ -244,6 +231,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         browser = WebView(this).apply {
             settings.javaScriptEnabled = true // Required for the official interactive login.
             settings.domStorageEnabled = true
+            if (provider == "chaoxing") {
+                // Match the desktop course templates used by the reference client.
+                settings.userAgentString = ChaoxingWebSession.USER_AGENT
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
+            }
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.allowFileAccessFromFileURLs = false
@@ -252,12 +245,18 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             settings.setSupportMultipleWindows(false)
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             settings.safeBrowsingEnabled = true
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, provider == "chaoxing")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     if (!request.isForMainFrame) return false
-                    val allowed = navigationAllowed(provider, request.url.toString())
-                    if (!allowed) tell("已拦截非指定学校／学习通主站的页面跳转。")
+                    val raw = request.url.toString()
+                    val target = if (provider == "chaoxing") ChaoxingWebNavigation.target(raw) else null
+                    if (target != null && target != raw && navigationAllowed(provider, target)) {
+                        view.loadUrl(target)
+                        return true
+                    }
+                    val allowed = navigationAllowed(provider, raw)
+                    if (!allowed) tell("当前链接不是受支持的官方网页，请返回继续登录。")
                     return !allowed
                 }
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
@@ -268,7 +267,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     catalogProbe.text = "观测活动列表请求（手动）"
                     catalogProbe.isEnabled = false
                     extract.isEnabled = false
-                    appendVisible?.isEnabled = false
                     if (!navigationAllowed(provider, url)) {
                         pageFailed = true
                         view.stopLoading()
@@ -279,9 +277,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 override fun onPageFinished(view: WebView, url: String?) {
                     loaded = !pageFailed && navigationAllowed(provider, url)
+                    if (loaded) CookieManager.getInstance().flush()
                     val host = Uri.parse(url ?: "").host
-                    extract.isEnabled = loaded && extractionAllowed(provider, url)
-                    appendVisible?.isEnabled = extract.isEnabled
+                    extract.isEnabled = if (provider == "chaoxing") loaded && chaoxingReadJob?.isActive != true
+                        else loaded && extractionAllowed(provider, url)
+                    extract.text = if (provider == "second_class") "读取／刷新本人积分"
+                        else "读取全部"
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
                         Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
@@ -318,9 +319,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         invalidateCapture()
                         pendingOfficialCatalogRead = false
                         pageFailed = true
+                        if (chaoxingReadJob?.isActive == true) {
+                            abortTaskDiscovery()
+                            tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
+                        }
                         loaded = false
                         extract.isEnabled = false
-                        appendVisible?.isEnabled = false
                         catalogProbe.isEnabled = false
                         tell("学校页面加载失败；请检查网络或重新打开官方页面，本次未读取数据。")
                     }
@@ -329,12 +333,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, handler: SslErrorHandler, error: SslError
                 ) {
                     handler.cancel()
+                    abortTaskDiscovery()
                     invalidateCapture()
                     pendingOfficialCatalogRead = false
                     pageFailed = true
                     loaded = false
                     extract.isEnabled = false
-                    appendVisible?.isEnabled = false
                     catalogProbe.isEnabled = false
                     tell("学校 HTTPS 证书验证失败，已阻止继续访问。")
                 }
@@ -346,7 +350,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
-                        appendVisible?.isEnabled = false
                         catalogProbe.isEnabled = false
                         tell("学校页面返回 HTTP " + response.statusCode + "。请检查官网是否可正常访问。")
                     }
@@ -354,10 +357,22 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
-        appendVisible?.let { root.addView(it) }
-        if (courseShortcut != null) root.addView(courseShortcut)
-        if (homeworkShortcut != null) root.addView(homeworkShortcut)
-        if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
+        if (provider == "chaoxing") {
+            val more = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+            ncwuSsoShortcut?.let { more.addView(it) }
+            root.addView(Button(this).apply {
+                text = "更多读取选项"
+                setOnClickListener {
+                    val expanded = more.visibility == View.VISIBLE
+                    more.visibility = if (expanded) View.GONE else View.VISIBLE
+                    text = if (expanded) "更多读取选项" else "收起读取选项"
+                }
+            })
+            root.addView(more)
+        }
         if (scoreShortcut != null) root.addView(scoreShortcut)
         if (provider == "second_class") root.addView(catalogProbe)
         root.addView(finishAndReturn)
@@ -474,128 +489,82 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
     }
 
-    private fun captureVisibleRecords(append: Boolean = false) {
-        if (provider == "second_class") {
+    private fun captureVisibleRecords() {
+        if (provider == "chaoxing") {
+            startOwnerTaskDiscovery()
+        } else if (provider == "second_class") {
             val uri = Uri.parse(browser.url ?: "")
             if (!loaded || pageFailed || uri.host != "dekt.ncwu.edu.cn") {
                 tell("请先在学校官网正常登录，再读取活动。")
-                return
-            }
-            if (uri.path == "/sys/stu/score") {
+            } else if (uri.path == "/sys/stu/score") {
                 captureSecondClassScores()
             } else if (uri.path.orEmpty().startsWith("/sys/")) {
-                // The official catalog uses card layout, not the generic HTML
-                // table parser. Reuse the already audited owner-bound score +
-                // same-origin catalog API, instead of overwriting personal
-                // signup records from a brittle visible-page scrape.
                 pendingOfficialCatalogRead = true
-                tell("正在核验本人学校会话，并读取积分与活动广场…")
                 browser.loadUrl(entries.getValue("second_class"))
-            } else {
-                tell("请先进入学校本人业务页面，登录后可刷新活动。")
             }
-            return
         }
-        if (append && provider != "chaoxing") return
-        val currentUrl = browser.url ?: return
-        val host = Uri.parse(currentUrl).host
-        if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
-            !extractionAllowed(provider, currentUrl)) {
-            tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
-            return
-        }
-        val epoch = ++captureEpoch
+    }
+
+    /** The sole App Chaoxing reader uses the official login's own cookie jar. */
+    private fun startOwnerTaskDiscovery() {
+        if (provider != "chaoxing" || chaoxingReadJob?.isCompleted == false) return
+        val session = ChaoxingWebSession()
+        chaoxingWebSession = session
         extract.isEnabled = false
-        appendVisible?.isEnabled = false
-        tell("正在从当前已显示的官方页面读取记录（不会获取密码和 Cookie）…")
-        // Fixed read-only script, never interpolates caller-controlled values or
-        // executes arbitrary downloaded adapters. No form submit or hidden data.
-        browser.evaluateJavascript(READ_VISIBLE_PAGE) { encoded ->
-            if (epoch != captureEpoch || isFinishing) return@evaluateJavascript
-            extract.isEnabled = loaded && !pageFailed &&
-                extractionAllowed(provider, browser.url)
-            appendVisible?.isEnabled = extract.isEnabled
-            if (!extract.isEnabled || browser.url != currentUrl) {
-                tell("读取时页面已变化，请重新打开需要的列表。")
-                return@evaluateJavascript
-            }
+        tell("读取本机学习通通知、学习计划和课程作业…")
+        chaoxingReadJob = lifecycleScope.launch {
+            val context = currentCoroutineContext()
             try {
-                val decoded = JSONTokener(encoded).nextValue() as? String
-                    ?: throw IllegalArgumentException("empty")
-                val payload = JSONObject(decoded)
-                if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
-                if (payload.optBoolean("truncated")) {
-                    tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
-                    return@evaluateJavascript
+                val result = withContext(Dispatchers.IO) {
+                    ChaoxingLocalReader(session,
+                        progress = { message -> runOnUiThread {
+                            if (!isFinishing && context.isActive) tell(message)
+                        } }, checkCancelled = { context.ensureActive() })
+                        .scan(java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
                 }
-                val kind = payload.optString("kind")
-                val kinds = when (provider) {
-                    "chaoxing" -> setOf("course", "homework")
-                    "second_class" -> setOf("activity")
-                    else -> emptySet()
+                context.ensureActive()
+                if (result.items.isEmpty() && !result.complete) {
+                    tell("本次没有成功读取的任务来源，原记录保留：\n" + result.failures.take(8).joinToString("\n"))
+                    return@launch
                 }
-                if (kind !in kinds) throw IllegalArgumentException("unknown kind")
-                val items = payload.getJSONArray("records")
-                if (items.length() !in 1..120) throw IllegalArgumentException("no trusted rows")
                 val now = System.currentTimeMillis()
-                val accepted = mutableListOf<NativeSchoolRecord>()
-                val keys = mutableSetOf<String>()
-                for (i in 0 until items.length()) {
-                    val row = items.getJSONObject(i)
-                    val title = row.optString("title").trim()
-                    val details = row.optString("details").trim()
-                    if (title.isBlank() || title.length > 100 ||
-                        details.length > 350) throw IllegalArgumentException("invalid data")
+                val rows = result.items.map { item ->
+                    val status = if (item.kind == "homework") "当前网页显示的状态：" else "学习计划状态："
+                    val label = if (item.kind == "homework") "官方作业身份：" else "学习任务身份："
+                    val detail = if (item.kind == "course") "课程列表" else status + item.status + " · " + label + item.sourceKey
                     val fingerprint = MessageDigest.getInstance("SHA-256")
-                        .digest((provider + "|" + kind + "|" + title + "|" + details)
-                            .toByteArray(Charsets.UTF_8))
+                        .digest(("chaoxing|" + item.kind + "|" + item.sourceKey).toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
-                    if (keys.add(fingerprint)) accepted.add(NativeSchoolRecord(
-                        provider = provider, kind = kind, fingerprint = fingerprint,
-                        title = title, details = details, sourceHost = host ?: "",
-                        capturedAt = now
-                    ))
+                    NativeSchoolRecord("chaoxing", item.kind, fingerprint, item.title,
+                        detail, item.sourceHost, now)
                 }
-                if (accepted.isEmpty()) throw IllegalArgumentException("no records")
-                // Prevent two overlapping writes from changing the same kind.
-                extract.isEnabled = false
-                appendVisible?.isEnabled = false
-                lifecycleScope.launch {
-                    try {
-                        val total = withContext(Dispatchers.IO) {
-                            val dao = LocalTaskDatabase.open(applicationContext)
-                                .nativeSchoolRecords()
-                            if (append) dao.appendKind(provider, kind, accepted)
-                            else {
-                                dao.replaceKind(provider, kind, accepted)
-                                accepted.size
-                            }
-                        }
-                        if (epoch != captureEpoch || isFinishing) return@launch
-                        // This result only includes a provider, kind and actual
-                        // total saved count. School titles and HTML stay in Room.
-                        savedKind = kind
-                        savedCount = total
-                        finishAndReturn.isEnabled = true
-                        tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
-                            accepted.size + " 条；当前本机同类共 " + total + " 条。" +
-                            (if (append) "旧页保留，作业状态更新可能产生重复，请按课程核对。" else
-                                "下次跨页读取请选择「分页追加本页」。") +
-                            "这不是学校官方完整同步，也未核实全部提交状态。")
-                    } catch (_: IllegalArgumentException) {
-                        tell("合并后超出 500 条上限，已拒绝写入，旧记录保持不变。请核对本机记录或重新开始本类采集。")
-                    } catch (_: Exception) {
-                        tell("本机数据库保存失败。本次操作没有清空已有记录。")
-                    } finally {
-                        if (epoch == captureEpoch && !isFinishing) {
-                            extract.isEnabled = loaded && !pageFailed &&
-                                extractionAllowed(provider, browser.url)
-                            appendVisible?.isEnabled = extract.isEnabled
-                        }
-                    }
+                val count = withContext(Dispatchers.IO) {
+                    LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
+                        .mergeChaoxingRead(rows, result.accountHash, result.complete, result.supersededKeys)
                 }
+                context.ensureActive()
+                savedKind = listOf("homework", "study_task", "course").firstOrNull {kind -> rows.any {it.kind == kind}} ?: "homework"
+                savedCount = rows.count {it.kind == savedKind}
+                finishAndReturn.isEnabled = true
+                finishAndReturn.visibility = View.VISIBLE
+                tell("已读取通知 " + result.noticePages + " 页、课程 " + result.courseCount +
+                    " 门，保存任务 " + count + " 条。" +
+                    if (result.complete) "请返回任务中心核对。"
+                    else "部分来源未完成：\n" + result.failures.take(8).joinToString("\n"))
+            } catch (_: CancellationException) {
+                // Cancelling navigation or closing Activity never reports a new saved snapshot.
+            } catch (e: ChaoxingReadFailure) {
+                tell(when (e.code) {
+                    "login_required" -> "请先在当前学习通官网完成登录，再点读取全部。"
+                    "account_changed" -> "读取过程中账号发生变化，未保存本次结果，请重新读取。"
+                    else -> "本机读取未完成（" + e.code + "），已保留原有记录。"
+                })
             } catch (_: Exception) {
-                tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
+                tell("本机读取或保存未完成，已保留原有记录。")
+            } finally {
+                session.cancel()
+                if (chaoxingWebSession === session) chaoxingWebSession = null
+                if (!isFinishing && !isDestroyed) extract.isEnabled = loaded && !pageFailed
             }
         }
     }
@@ -683,6 +652,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             savedKind = "credits"
                             savedCount = rows.size
                             finishAndReturn.isEnabled = true
+                            finishAndReturn.visibility = View.VISIBLE
                             if (intent.getBooleanExtra(EXTRA_AUTO_SCORE, false)) {
                                 setResult(Activity.RESULT_OK, Intent()
                                     .putExtra(EXTRA_PROVIDER, provider).putExtra(EXTRA_RETURN_KIND, savedKind)
@@ -737,6 +707,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     override fun onDestroy() {
         val pendingSave = scoreSaveJob
+        abortTaskDiscovery()
         invalidateCapture()
         if (::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)
@@ -750,122 +721,3 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
-
-/** The current page must have visible structured records. Unknown layouts fail closed. */
-private const val READ_VISIBLE_PAGE = """
-(function () {
-  const host = location.hostname;
-  const clean = x => String(x || '').replace(/\s+/g, ' ').trim().slice(0,350);
-  const docs = [document];
-  document.querySelectorAll('iframe').forEach(frame => {
-    try { if (frame.contentDocument && frame.contentDocument.location.origin === location.origin)
-      docs.push(frame.contentDocument); } catch (_) {}
-  });
-  const onScreen = node => !!(node && node.getClientRects().length);
-  const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
-  // A partial snapshot must never replace previously saved personal records.
-  const MAX_RECORDS = 120;
-  // Bound DOM traversal, but never silently drop tables beyond an arbitrary prefix.
-  const MAX_TABLES = 200;
-  let visibleTables = 0;
-  const rows = [];
-  let kind = '';
-  // The all-task page may also contain course/summary tables. Those are NOT
-  // evidence that a homework title was read from an official work row.
-  const homeworkOverview = provider === 'chaoxing' &&
-    host === 'mooc1-api.chaoxing.com' &&
-    location.pathname === '/mooc-ans/mooc2/work/all-task';
-  for (const doc of docs) {
-    for (const table of Array.from(doc.querySelectorAll('table'))) {
-      if (!onScreen(table)) continue;
-      if (++visibleTables > MAX_TABLES)
-        return JSON.stringify({host,kind,records:[],truncated:true});
-      const trs = Array.from(table.querySelectorAll('tr')).filter(onScreen);
-      if (trs.length < 2) continue;
-      const header = Array.from(trs[0].querySelectorAll('th,td')).map(el => clean(el.innerText));
-      if (header.length < 2 || header.length > 18) continue;
-      const compact = header.map(s => s.replace(/\s/g,''));
-      const matching = provider === 'second_class'
-        ? compact.some(h => /活动名称|项目名称|积分|学时|第二课堂/.test(h))
-        : compact.some(h => /作业名称|课程名称|课程名|作业|任务名称/.test(h));
-      if (!matching) continue;
-      // An activity table can have an "积分" column. That does not make its
-      // rows an official cumulative credit statement.
-      const foundKind = provider === 'second_class'
-        ? (compact.some(h => /^(活动名称|活动项目|报名活动)$/.test(h))
-            ? 'activity'
-            : compact.some(h => /^(积分项目|积分项|学时项目|积分来源|学时汇总)$/.test(h))
-              ? 'credits'
-              : 'activity')
-        : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
-      if (kind && foundKind !== kind) continue;
-      const titleIndex = foundKind === 'homework'
-        ? compact.findIndex(h => /^(作业名称|作业名|任务名称|作业标题|作业)$/.test(h))
-        : compact.findIndex(h => /^(课程名称|课程名|活动名称|项目名称|积分项目|学时项目)$/.test(h));
-      // Never substitute course name or a status column for the work title.
-      // On the official all-task page, ignore course-only summary tables.
-      const first = foundKind === 'homework' ? titleIndex :
-        titleIndex >= 0 ? titleIndex :
-        compact.findIndex(h => /^(课程|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
-      if (first < 0 || (homeworkOverview && foundKind !== 'homework')) continue;
-      let appended = false;
-      for (const tr of trs.slice(1)) {
-        const cells = Array.from(tr.querySelectorAll(':scope > th,:scope > td')).map(el => clean(el.innerText));
-        if (cells.length !== header.length || !cells[first]) continue;
-        const title = cells[first].slice(0,100);
-        const details = cells.map((value,i) =>
-          i !== first && value ? compact[i] + '：' + value.slice(0,90) : ''
-        ).filter(Boolean).join(' · ').slice(0,350);
-        if (title.length >= 2 && !/登录|验证码|退出系统/.test(title)) {
-          rows.push({title,details});
-          appended = true;
-        }
-        if (rows.length > MAX_RECORDS) break;
-      }
-      // A header without valid visible records must not block another table.
-      if (appended) kind = foundKind;
-    }
-  }
-  if (!rows.length && provider === 'chaoxing' &&
-      host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
-    // Mirror the already-tested FIRST-PARTY backend list evidence: each
-    // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
-    // Never read the li "data" attribute: it may contain an auth token.
-    for (const doc of docs) {
-      const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
-      for (const li of Array.from(tasks)) {
-        if (!onScreen(li)) continue;
-        const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
-          li.querySelector('p.overHidden2')?.innerText).slice(0,100);
-        if (!title) continue;
-        const status = clean(li.querySelector('p.status.fl')?.innerText ||
-          li.querySelector('p.status')?.innerText).slice(0,60);
-        rows.push({title,details: status ?
-          '当前网页显示的状态：' + status : '网页未展示提交状态'});
-        if (rows.length > MAX_RECORDS) break;
-      }
-    }
-    if (rows.length) kind = 'homework';
-  }
-  if (!rows.length && provider === 'chaoxing' &&
-      host === 'mooc2-ans.chaoxing.com' &&
-      location.pathname.includes('/visit/courselistdata')) {
-    // MIT xuexitong-cli shows course-name and courseid links on the
-    // authenticated official course-list page. Never infer course titles
-    // from unrelated links or sign-in screens.
-    for (const doc of docs) {
-      const nodes = doc.querySelectorAll('.course-name[title],a[href*="courseid="] .course-name');
-      for (const el of Array.from(nodes)) {
-        if (!onScreen(el)) continue;
-        const title = clean(el.getAttribute('title') || el.innerText).slice(0,100);
-        if (title.length > 1) rows.push({title,details:'课程列表页面'});
-        if (rows.length > MAX_RECORDS) break;
-      }
-    }
-    if (rows.length) kind = 'course';
-  }
-  if (rows.length > MAX_RECORDS)
-    return JSON.stringify({host,kind,records:[],truncated:true});
-  return JSON.stringify({host,kind,records:rows});
-})()
-""";

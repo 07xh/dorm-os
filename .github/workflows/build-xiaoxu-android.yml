@@ -1,8 +1,8 @@
-name: Build Xiaoxu Android Alpha
+name: Build Xiaoxu Android
 
 # Build only by explicit user request. A pending request on a PR first compiles
 # the Android APK and JVM tests before merge; the same approved marker on main
-# triggers the distributable artifact after merge. No signing credentials used.
+# triggers the formal Release after merge. Private signing material is never published.
 # Web/Cloudflare releases still follow independent main CI.
 on:
   workflow_dispatch:
@@ -47,7 +47,20 @@ jobs:
         with:
           gradle-version: '8.13'
       - name: Compile APK and run existing Android JVM unit tests
-        run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest --no-daemon
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest :app:assembleRelease --no-daemon
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate complete application contracts
+        run: npm install --no-audit --no-fund --ignore-scripts && npm run check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-android-release-unsigned
+          path: |
+            apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk
+            apps/xiaoxu-android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 14
       - name: Compile navigation frame benchmark instrumentation
         run: gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon
       - name: Validate APK archive and produce verifiable SHA-256
@@ -97,3 +110,65 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
+  publish-release:
+    needs: build-android
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'build-tools;36.0.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: xiaoxu-android-release-unsigned
+          path: downloaded-release
+      - name: Restore checked unsigned APK
+        run: |
+          mkdir -p apps/xiaoxu-android/app/build/outputs/apk/release
+          cp "$(find downloaded-release -name app-release-unsigned.apk -print -quit)" apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Require complete main CI at this exact source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..120}; do
+            runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow check.yml --commit "$GITHUB_SHA" --event push --limit 10 --json databaseId,headSha,status,conclusion)
+            count=$(jq 'length' <<< "$runs")
+            if [[ "$count" -gt 0 ]]; then
+              status=$(jq -r '.[0].status' <<< "$runs")
+              if [[ "$status" == completed ]]; then
+                [[ $(jq -r '.[0].conclusion' <<< "$runs") == success ]] || exit 1
+                [[ $(jq -r '.[0].headSha' <<< "$runs") == "$GITHUB_SHA" ]]
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo 'Exact-source main CI did not finish successfully.' >&2
+          exit 1
+      - name: Sign, preserve encrypted recovery backup and publish formal release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          XIAOXU_KEYSTORE_BASE64: ${{ secrets.XIAOXU_KEYSTORE_BASE64 }}
+          XIAOXU_STORE_PASSWORD: ${{ secrets.XIAOXU_STORE_PASSWORD }}
+          XIAOXU_KEY_PASSWORD: ${{ secrets.XIAOXU_KEY_PASSWORD }}
+          XIAOXU_KEY_ALIAS: ${{ secrets.XIAOXU_KEY_ALIAS }}
+        run: bash scripts/xiaoxu-android-release.sh
+      - name: Preserve signed release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-android-formal-release
+          path: ${{ runner.temp }}/xiaoxu-release/
+          if-no-files-found: ignore
+          retention-days: 30

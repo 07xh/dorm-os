@@ -1,0 +1,3 @@
+Owner confirmed 068b1f0 successfully reads Chaoxing but its pending tasks/group disappear.
+Build existing isolated QA after source host adapter parity, independent Chaoxing grouping and source filter fix.
+Preserve actual submitted/grading states and existing local records; no old cloud read fallback.

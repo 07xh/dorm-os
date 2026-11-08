@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import java.security.MessageDigest
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -24,6 +25,65 @@ data class NativeSchoolRecord(
     val sourceHost: String,
     val capturedAt: Long
 )
+
+/**
+ * Official text visible in the owner's on-device Chaoxing page.
+ * This is a UI completion hint, not a cloud submission acknowledgement:
+ * never match a separate historical row by title, and never write this state
+ * back to the owner's personal checkbox or an official submission endpoint.
+ */
+private fun nativeChaoxingOfficialHost(host: String): Boolean {
+    val url = "https://$host/"
+    return runCatching {
+        java.net.URI(url).host.equals(host, ignoreCase = true) &&
+            ChaoxingWebNavigation.target(url) != null
+    }.getOrDefault(false)
+}
+
+fun nativeChaoxingVisibleStatusText(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" ||
+        record.kind !in setOf("homework", "study_task") ||
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
+    return Regex(
+        """(?:^|[·\n])\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\s*[：:]\s*([^·\n]{1,60})"""
+    ).find(record.details)?.groupValues?.get(1)?.trim()
+}
+
+fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
+    val raw = nativeChaoxingVisibleStatusText(record) ?: return null
+    return when {
+        Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
+        Regex("""退回|重做|重新提交|驳回""").containsMatchIn(raw) -> "returned"
+        Regex("""已批阅|已批閱|已评分|已評分|已评阅|已評閱|已批改""").containsMatchIn(raw) -> "graded"
+        Regex("""已完成|已提交|已交|待批阅|待批閱|待评阅|待評閱|待批改|已达标|已作答|已互评|已互評|提交成功""").containsMatchIn(raw) ->
+            "submitted"
+        else -> "unknown"
+    }
+}
+
+/** Stable, non-secret official work tuple validated by the fixed on-device reader. */
+fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "homework" ||
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
+    val identity = Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|homework|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
+}
+
+/** Stable official plan identity; never derive it from an assignment title. */
+fun nativeChaoxingPlanSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "study_task" ||
+        !nativeChaoxingOfficialHost(record.sourceHost)) return null
+    val identity = Regex("""(?:^| · )学习任务身份：((?:plan:\d{1,24}|study:[a-f0-9]{64}))$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
+}
 
 @Dao
 interface NativeSchoolRecordDao {
@@ -124,26 +184,36 @@ interface NativeSchoolRecordDao {
      * Duplicate fingerprints update in-place. The size bound is checked within
      * the Room transaction before any write, preserving all old rows on error.
      */
+    /** Single local reader commit. Changed accounts never inherit old snapshots. */
     @Transaction
-    suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
-        require(provider == "chaoxing" && kind in setOf("course", "homework"))
-        require(rows.isNotEmpty() && rows.size <= 120)
-        require(rows.all { it.provider == provider && it.kind == kind })
-        val keys = (snapshotKind(provider, kind).map { it.fingerprint } +
-            rows.map { it.fingerprint }).toSet()
-        require(keys.size <= 500) { "page_collection_limit" }
+    suspend fun mergeChaoxingRead(rows: List<NativeSchoolRecord>, accountHash: String,
+        complete: Boolean = false, supersededKeys: Set<String> = emptySet()): Int {
+        require(accountHash.matches(Regex("^[a-f0-9]{64}$")))
+        require(rows.isNotEmpty() || complete) { "failed_empty_scan" }
+        require(rows.size <= 5000 && rows.all {
+            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task") &&
+                it.sourceHost.endsWith(".chaoxing.com") && it.title.isNotBlank()
+        })
+        val old = snapshotKind("chaoxing", "account_binding").singleOrNull()?.details
+        if (old != accountHash || complete) {
+            for (kind in listOf("course", "homework", "study_task")) deleteKind("chaoxing", kind)
+        } else if (supersededKeys.isNotEmpty()) {
+            require(supersededKeys.size <= 5000)
+            val fingerprints = supersededKeys.map { key ->
+                require(key.matches(Regex("""plan:\d{1,24}|study:[a-f0-9]{64}""")))
+                MessageDigest.getInstance("SHA-256").digest(("chaoxing|study_task|" + key).toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+            }.toSet()
+            val retained = snapshotKind("chaoxing", "study_task").filterNot {it.fingerprint in fingerprints}
+            deleteKind("chaoxing", "study_task")
+            insertAll(retained)
+        }
         insertAll(rows)
-        return keys.size
+        deleteKind("chaoxing", "account_binding")
+        insertAll(listOf(NativeSchoolRecord("chaoxing", "account_binding", "current", "", accountHash,
+            "i.chaoxing.com", rows.firstOrNull()?.capturedAt ?: System.currentTimeMillis())))
+        return rows.count {it.kind != "course"}
     }
 
-    @Transaction
-    suspend fun replaceKind(provider: String, kind: String, rows: List<NativeSchoolRecord>) {
-        require(provider in setOf("ncwu", "chaoxing", "second_class"))
-        require(kind in setOf("schedule", "course", "homework", "activity", "credits"))
-        require(rows.isNotEmpty() && rows.size <= 120)
-        require(rows.all { it.provider == provider && it.kind == kind })
-        deleteKind(provider, kind)
-        insertAll(rows)
-    }
 }
 
