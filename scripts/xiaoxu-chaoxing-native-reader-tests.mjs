@@ -324,6 +324,22 @@ assert.match(native,/planFallbackTried/);
 const courseTaskScript = readFileSync(
  'apps/xiaoxu-android/app/src/main/assets/xiaoxu_chaoxing_course_task_discovery.js','utf8');
 assert.doesNotMatch(courseTaskScript,/document\.cookie|\.click\(|\.submit\(|getToStudyUrl/);
+const profileData=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,location:{hostname:'i.chaoxing.com',pathname:'/base',
+  href:'https://i.chaoxing.com/base'},
+ document:{scripts:[{textContent:'var uid="secret"; var fid="427";'}]}
+}));
+assert.deepEqual(Object.keys(profileData).sort(),['fid','kind']);
+assert.equal(profileData.kind,'profile');
+assert.equal(profileData.fid,'427');
+assert.ok(!JSON.stringify(profileData).includes('secret'));
+assert.match(native,/courseType=1&courseFid=/);
+const badProfile=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,location:{hostname:'i.chaoxing.com',pathname:'/base',
+  href:'https://i.chaoxing.com/base'},
+ document:{scripts:[{textContent:'var fid="not-a-number";'}]}
+}));
+assert.equal(badProfile.error,'school_identity');
 const baseCourse=[
  {href:'/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789',title:'Python 程序设计'},
  {href:'/visit/stucoursemiddle?cpi=777&courseid=124&clazzid=457',title:'工程制图'}
