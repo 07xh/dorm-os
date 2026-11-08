@@ -656,9 +656,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     stopOwnerDiscovery("课程作业页面需要正常登录；请重新登录后再扫描。")
                     return
                 }
-                if (uri.path == "/visit/stucoursemiddle" ||
-                    uri.path.startsWith("/mooc2/work/") ||
-                    uri.path.startsWith("/mooc-ans/mooc2/work/")) {
+                val coursePath = uri.path.orEmpty()
+                if (coursePath == "/visit/stucoursemiddle" ||
+                    coursePath.startsWith("/mooc2/work/") ||
+                    coursePath.startsWith("/mooc-ans/mooc2/work/")) {
                     scanOwnedCourseHomework()
                 } else {
                     // The current course page format is unsupported; do not
