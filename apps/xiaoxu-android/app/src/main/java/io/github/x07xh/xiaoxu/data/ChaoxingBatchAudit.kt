@@ -22,6 +22,27 @@ enum class ChaoxingReadIssue(val label: String) {
     INVALID_RESPONSE("官方返回内容未通过校验，未更新作业状态")
 }
 
+/** Code-owned diagnostic phases. Never accept upstream text or arbitrary URLs. */
+enum class ChaoxingReadStage(val label: String) {
+    COURSE_CATALOG("课程目录读取"),
+    COURSE_IDENTITY("课程身份校验"),
+    COURSE_ENTRY("课程作业入口"),
+    LIST_LEGACY("旧版作业列表"),
+    LIST_OFFICIAL("新版作业列表"),
+    LIST_INTEGRITY("列表分页与数量核对")
+}
+
+fun classifyChaoxingReadStage(raw: String?): ChaoxingReadStage? =
+    when (raw) {
+        "course_catalog" -> ChaoxingReadStage.COURSE_CATALOG
+        "course_identity" -> ChaoxingReadStage.COURSE_IDENTITY
+        "course_entry" -> ChaoxingReadStage.COURSE_ENTRY
+        "list_legacy" -> ChaoxingReadStage.LIST_LEGACY
+        "list_official" -> ChaoxingReadStage.LIST_OFFICIAL
+        "list_integrity" -> ChaoxingReadStage.LIST_INTEGRITY
+        else -> null
+    }
+
 /** Never place HTTP response bodies, upstream URLs or exception messages in UI state. */
 fun classifyChaoxingReadIssue(error: String, status: Int): ChaoxingReadIssue =
     when (error) {
@@ -44,7 +65,8 @@ data class ChaoxingCourseAudit(
     val courseTitle: String,
     val coverage: ChaoxingCourseCoverage,
     val homework: List<ChaoxingHomework>,
-    val failure: ChaoxingReadIssue? = null
+    val failure: ChaoxingReadIssue? = null,
+    val failureStage: ChaoxingReadStage? = null
 ) {
     init {
         require(courseKey.isNotBlank() && courseTitle.isNotBlank())
@@ -52,6 +74,7 @@ data class ChaoxingCourseAudit(
             coverage == ChaoxingCourseCoverage.COUNT_VERIFIED ||
             coverage == ChaoxingCourseCoverage.LIST_ONLY)
         require(failure == null || coverage == ChaoxingCourseCoverage.FAILED)
+        require(failureStage == null || coverage == ChaoxingCourseCoverage.FAILED)
         require(homework.all { it.platformVerified })
         require(homework.map { it.workId }.distinct().size == homework.size)
     }
