@@ -247,7 +247,7 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao, onEditTask =/);
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -318,7 +318,7 @@ assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
   '第二课堂记录属于业务页，不回流设置首页');
 
 assert.match(panels, /openLocalSchool\(id\)/);
-assert.match(panels, /只有一台手机？打开学习通官网/);
+assert.match(panels, /LocalSchoolConnectionPanel/);
 assert.match(panels, /成绩读取待接入/,
   '青果连接保留，旧课表同步不得冒充成绩读取');
 assert.doesNotMatch(panels, /"ncwu" -> "本机打开青果官方课表"/);
@@ -1245,7 +1245,7 @@ assert.match(localNative, /uri\.path in setOf\("\/cassso\/ncwu", "\/cassso\/ncwu
 assert.match(localNative, /"华水统一身份认证（学习通）"/);
 assert.match(localNative, /browser\.loadUrl\(CHAOXING_SCHOOL_SSO\)/);
 // Never let CAS pages or network failures become an extractable work list.
-assert.match(localNative, /"chaoxing" ->[\s\S]*?"mooc1-api\.chaoxing\.com"/);
+assert.match(localNative, /if \(provider == "chaoxing"\) loaded && chaoxingReadJob\?\.isActive != true/);
 assert.match(localNative, /override fun onReceivedError\(/);
 assert.match(localNative, /if \(request\.isForMainFrame\) \{\s*invalidateCapture\(\)\s*pendingOfficialCatalogRead = false\s*pageFailed = true/);
 assert.match(localNative, /private fun invalidateCapture\(\) \{\s*captureEpoch\+\+\s*scoreSaveJob\?\.cancel\(\)/);
@@ -1261,8 +1261,8 @@ assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
-assert.match(appGradle, /versionCode 32\b/, '0.8.11 RC 的版本码应递增');
+assert.match(appGradle, /versionName '0\.8\.13'/, '正式版本名必须明确');
+assert.match(appGradle, /versionCode 34\b/, '正式版版本码应高于已发布 RC');
 
 // The removed Chaoxing DOM parser has been replaced by Jsoup JVM fixtures.
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
@@ -1836,12 +1836,12 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
-  '本机任务只在管理展开时展示真实 Room 编辑器');
-assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
-  '关闭任务管理也必须隐藏云端新建表单');
-assert.match(workspace, /if \(showManager && showLocal\) \{[\s\S]*?showManager = false[\s\S]*?showCloud = false/,
-  '顶部新增按钮再次点击应完整收起编辑区');
+assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(localTasks, dao, onEditTask =/,
+  '本机管理复用已发布版本的独立浮层');
+assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
+  '云端新建使用独立浮层');
+assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
+  '移除已淘汰的内联编辑器与固定索引跳转');
 assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
   '本机任务仍从稳定来源 key 打开详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
@@ -1936,10 +1936,10 @@ assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
-  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
-assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
-  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
+assert.match(workspace, /editingLocalId = selectedTask\.key\.removePrefix\("local:"\)/,
+  '本机详情编辑现有任务而非打开新建表单');
+assert.match(workspace, /LocalTaskEditSheet\(task = editingLocal, dao = dao/);
+assert.match(db, /UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id/);
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),
@@ -1958,26 +1958,17 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
-assert.match(workspace, /val taskListState = rememberLazyListState\(\)/,
-  '任务中心必须保留独立可滚动列表状态');
-assert.match(workspace, /taskListState\.animateScrollToItem\(targetIndex\)/,
-  '任务跳转须滚到真实管理入口，不能只是展开不可见区域');
-assert.match(workspace, /"cloud" -> if \(showCloud\) managerStart \+ \(if \(showLocal\) 1 else 0\)/,
-  '云端表单跳转须考虑本机管理展开与否');
-assert.match(workspace, /"filters" -> 1/, '蓝色三状态切换应回到顶部筛选区');
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
 assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
 assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
-assert.match(workspace, /filter = "pending"[\s\S]*?jumpTo = "filters"/,
+assert.match(workspace, /filter = "pending"/,
   '待完成统计卡应真实切换过滤器');
-assert.match(workspace, /filter = "done"[\s\S]*?jumpTo = "filters"/,
+assert.match(workspace, /filter = "done"/,
   '已完成统计卡应真实切换过滤器');
-assert.match(workspace, /jumpTo = "local"/,
-  '本机任务按钮应自动定位管理区域');
-assert.match(workspace, /jumpTo = "cloud"/,
-  '云端任务按钮应自动定位管理区域');
+assert.match(workspace, /showLocalEditor = true/);
+assert.match(workspace, /showCloudEditor = true/);
 assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
   '窄屏任务分区标题必须给来源和条数预留空间');
 // Issue #275：消息中心与「我的」按七张海报/四屏 HTML 精细化，只换视觉层级，

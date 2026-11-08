@@ -53,6 +53,10 @@ interface LocalTaskDao {
     @Query("UPDATE local_tasks SET completed = :completed WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean)
 
+    /** Edit only personal metadata; completion, creation time and school records remain unchanged. */
+    @Query("UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id")
+    suspend fun updateDetails(id: Long, title: String, source: String?, due: String?): Int
+
     @Query("DELETE FROM local_tasks WHERE id = :id")
     suspend fun remove(id: Long)
 }

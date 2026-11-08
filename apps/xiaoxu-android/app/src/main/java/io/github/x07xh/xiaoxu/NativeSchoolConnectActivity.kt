@@ -67,17 +67,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         const val EXTRA_AUTO_SCORE = "auto_score"
         const val EXTRA_RETURN_KIND = "saved_kind"
         const val EXTRA_SAVED_COUNT = "saved_count"
-        // Exactly the existing first-party course-list endpoint used by the
-        // trusted server adapter; this shortcut does not transfer WebView cookies.
-        private const val CHAOXING_COURSES =
-            "https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata"
-        // Official personal homework overview; still requires the owner's normal login.
-        private const val CHAOXING_HOMEWORK =
-            "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
-        // Discover actual task IDs from the owner's official courses first.
-        // A bare studyPlanSubPage lacks taskId and cannot identify a plan.
-        private const val CHAOXING_TASK_DISCOVERY_ORIGIN =
-            "https://mobilelearn.chaoxing.com/"
         // NCWU's independently published CAS -> Chaoxing SSO service.
         // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
         private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
@@ -116,23 +105,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             if (!navigationAllowed(provider, url)) return false
             val uri = Uri.parse(url ?: "")
             val host = uri.host?.lowercase() ?: return false
-            val path = uri.path.orEmpty()
             return when (provider) {
                 "second_class" -> host == "dekt.ncwu.edu.cn"
-                "chaoxing" ->
-                    (host == "mooc1-api.chaoxing.com" &&
-                        path == "/mooc-ans/mooc2/work/all-task") ||
-                    (host == "mooc1.chaoxing.com" &&
-                        (path.startsWith("/mooc2/work/") ||
-                         path.startsWith("/mooc-ans/mooc2/work/") ||
-                         path.startsWith("/visit/"))) ||
-                    (host == "mooc2-ans.chaoxing.com" &&
-                        (path.startsWith("/mooc2-ans/visit/") ||
-                         path == "/mooc2-ans/mycourse/stu")) ||
-                    (host == "kb.chaoxing.com" &&
-                        path.startsWith("/res/pc/curriculum/")) ||
-                    (host == "task.chaoxing.com" &&
-                        path == "/userStudyPlan/studyPlanSubPage")
                 else -> false
             }
         }
@@ -227,14 +201,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         extract = control("读取全部") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
-        val courseShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 打开我的课程"
-            setOnClickListener { browser.loadUrl(CHAOXING_COURSES) }
-        } else null
-        val homeworkShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 打开我的作业"
-            setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
-        } else null
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
             setOnClickListener { browser.loadUrl(CHAOXING_SCHOOL_SSO) }
@@ -400,8 +366,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 orientation = LinearLayout.VERTICAL
                 visibility = View.GONE
             }
-            courseShortcut?.let { more.addView(it) }
-            homeworkShortcut?.let { more.addView(it) }
             ncwuSsoShortcut?.let { more.addView(it) }
             root.addView(Button(this).apply {
                 text = "更多读取选项"

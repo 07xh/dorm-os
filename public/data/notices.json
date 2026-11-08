@@ -2,27 +2,27 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-07T16:28:46.748Z",
+  "lastSuccessAt": "2026-11-08T09:03:42.248Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
+      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
+      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
       "status": "ok",
-      "lastSuccessAt": "2026-11-07T16:28:46.748Z",
+      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
       "count": 20
     }
   ],

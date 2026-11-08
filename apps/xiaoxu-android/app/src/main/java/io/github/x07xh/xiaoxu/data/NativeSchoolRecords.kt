@@ -215,26 +215,5 @@ interface NativeSchoolRecordDao {
         return rows.count {it.kind != "course"}
     }
 
-    @Transaction
-    suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
-        require(provider == "chaoxing" && kind in setOf("course", "homework", "study_task"))
-        require(rows.isNotEmpty() && rows.size <= 120)
-        require(rows.all { it.provider == provider && it.kind == kind })
-        val keys = (snapshotKind(provider, kind).map { it.fingerprint } +
-            rows.map { it.fingerprint }).toSet()
-        require(keys.size <= 500) { "page_collection_limit" }
-        insertAll(rows)
-        return keys.size
-    }
-
-    @Transaction
-    suspend fun replaceKind(provider: String, kind: String, rows: List<NativeSchoolRecord>) {
-        require(provider in setOf("ncwu", "chaoxing", "second_class"))
-        require(kind in setOf("schedule", "course", "homework", "study_task", "activity", "credits"))
-        require(rows.isNotEmpty() && rows.size <= 120)
-        require(rows.all { it.provider == provider && it.kind == kind })
-        deleteKind(provider, kind)
-        insertAll(rows)
-    }
 }
 

@@ -17,8 +17,8 @@ android {
         applicationId 'io.github.x07xh.xiaoxu'
         minSdk 26
         targetSdk 35
-        versionCode 32
-        versionName '0.8.11-rc.1'
+        versionCode 34
+        versionName '0.8.13'
         // Normal application identity remains unchanged. Only explicit QA builds
         // use their own app data and authorization-return host.
         manifestPlaceholders = [
@@ -56,14 +56,10 @@ android {
                 resValue 'string', 'school_auth_return_host', 'school-auth-return-unified-qa'
             }
         }
-        // 校序没有发布 keystore。默认 release 不配置签名，assembleRelease 产出未签名包，
-        // 装不上设备也就不会被误当正式产物分发；只有显式传 -PxiaoxuPerfRelease=true
-        // 时才复用 debug 签名，用于在本机测量 R8 包的真实表现。
-        //   gradle :app:assembleRelease -PxiaoxuPerfRelease=true
+        // Signing is performed by the release job after all checks pass.
+        // No public debug-key fallback is permitted for formal releases.
         release {
-            if (project.hasProperty('xiaoxuPerfRelease')) {
-                signingConfig signingConfigs.debug
-            }
+            debuggable false
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

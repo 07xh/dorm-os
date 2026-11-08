@@ -68,8 +68,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
-import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
-import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
 import io.github.x07xh.xiaoxu.data.PlatformConnection
 import kotlinx.coroutines.launch
 
@@ -411,7 +409,6 @@ private fun CloudAuthorizationSection(
             )
 
             val providerIcons = mapOf(
-                "chaoxing" to Icons.AutoMirrored.Outlined.MenuBook,
                 "ncwu" to Icons.Outlined.School,
                 "second_class" to Icons.Outlined.EmojiEvents
             )
@@ -466,20 +463,10 @@ private fun PlatformStatusCard(
     val platform = state.platforms.firstOrNull { it.id == id }
     val canRead = state.authenticated && state.connectionsFresh &&
         platform?.sessionState == "active"
-    val refreshing = state.schoolSyncBusyProvider == id ||
-        (id == "chaoxing" && state.chaoxingBusy)
-    // Authorization to read courses is not proof of complete homework coverage.
-    val workAudit = if (id == "chaoxing" &&
-        state.chaoxingBatchCheckedAt != null) state.chaoxingBatchAudit else emptyList()
-    val unresolvedWork = workAudit.filter {
-        it.coverage != ChaoxingCourseCoverage.COUNT_VERIFIED
-    }
-    val workIncomplete = unresolvedWork.isNotEmpty()
-    val activeWorkIncomplete = workIncomplete && platform?.sessionState == "active"
+    val refreshing = state.schoolSyncBusyProvider == id
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
         !state.connectionsFresh -> XiaoxuTone.Warning
-        activeWorkIncomplete -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
     }
@@ -523,7 +510,6 @@ private fun PlatformStatusCard(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
-                        activeWorkIncomplete -> "本人授权有效；部分课程作业仍待核验"
                         else -> connectionStatusLabel(platform)
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -537,7 +523,6 @@ private fun PlatformStatusCard(
                 text = when {
                     !state.authenticated -> "云端未连接"
                     !state.connectionsFresh -> "状态待刷新"
-                    activeWorkIncomplete -> "作业部分已读取"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
                     platform?.sessionState == "active" -> "尚未核验数据"
@@ -571,14 +556,13 @@ private fun PlatformStatusCard(
             SecondaryAction(
                 label = when {
                     refreshing -> "正在读取…"
-                    id == "chaoxing" -> "读取本人课程"
                     id == "ncwu" -> "成绩读取待接入"
                     else -> "刷新本人数据"
                 },
                 // The old ncwu sync path refreshes a server timetable, NOT grades.
                 // Keep school authorization, but do not send the imported schedule to cloud.
                 enabled = id != "ncwu" && canRead && !state.busy &&
-                    !state.chaoxingBusy && state.schoolSyncBusyProvider == null,
+                    state.schoolSyncBusyProvider == null,
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
@@ -603,8 +587,7 @@ private fun PlatformStatusCard(
         if (id != "ncwu") {
             SettingRow(
                 icon = Icons.Outlined.School,
-                title = if (id == "chaoxing") "只有一台手机？打开学习通官网"
-                    else "本机打开第二课堂官网",
+                title = "本机打开第二课堂官网",
                 subtitle = "在本机浏览器读取当前可见记录，不经过云端",
                 onClick = { openLocalSchool(id) }
             )

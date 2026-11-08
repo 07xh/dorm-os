@@ -75,26 +75,6 @@ private fun readCloudLinks(row: JSONObject): List<String> {
     return safeCloudLinks(raw)
 }
 
-data class ChaoxingCourse(
-    val courseId: String, val classId: String, val cpi: String, val title: String
-) {
-    val key: String get() = "$courseId:$classId:$cpi"
-}
-data class ChaoxingHomework(
-    val workId: String, val title: String, val statusCode: String,
-    val platformVerified: Boolean, val statusText: String
-)
-data class ChaoxingPageProgress(val completed: Int, val total: Int)
-data class ChaoxingQuestion(
-    val number: Int, val type: String, val stem: String,
-    val options: List<String>, val hasImage: Boolean
-)
-data class ChaoxingWorkPreview(
-    val workId: String, val title: String, val course: String,
-    val statusCode: String, val questionsAvailable: Boolean,
-    val declaredQuestionCount: Int?, val questions: List<ChaoxingQuestion>,
-    val startTimeRaw: String?, val deadlineRaw: String?, val note: String
-)
 data class VerifiedLesson(
     val id: String, val term: String, val title: String, val teacher: String,
     val location: String, val weekday: Int, val startSection: Int,
@@ -126,18 +106,6 @@ data class PlatformConnection(
         get() = authorization == "verified_session" &&
             sessionState == "active" && status in setOf("connected", "partial")
 }
-/** Opaque encrypted challenge, never a school session. In-memory only. */
-data class ChaoxingQrUi(
-    val status: String = "idle",
-    val message: String? = null,
-    val ticket: String? = null,
-    val image: ByteArray? = null,
-    val startedAt: Long = 0L,
-    val expiresAt: Long = 0L,
-    val polls: Int = 0,
-    val busy: Boolean = false
-)
-
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
@@ -155,26 +123,6 @@ data class CloudUiState(
     val pendingWechatCount: Int? = null, val lastSyncAt: String? = null,
     val wechatCandidates: List<WechatCandidate> = emptyList(),
     val wechatError: String? = null, val wechatReviewingId: String? = null,
-    val chaoxingBusy: Boolean = false,
-    val chaoxingQr: ChaoxingQrUi = ChaoxingQrUi(),
-    val chaoxingBatchBusy: Boolean = false,
-    val chaoxingBatchStatus: String? = null,
-    /** Per-course official status evidence from the current explicit owner batch only. */
-    val chaoxingBatchAudit: List<ChaoxingCourseAudit> = emptyList(),
-    val chaoxingBatchCheckedAt: String? = null,
-    val chaoxingBatchTaskLedgerFresh: Boolean = false,
-    val chaoxingAutoSyncBusy: Boolean = false,
-    val chaoxingAutoSyncError: String? = null,
-    val chaoxingCourses: List<ChaoxingCourse> = emptyList(),
-    val chaoxingSelectedKey: String? = null,
-    val chaoxingHomework: List<ChaoxingHomework> = emptyList(),
-    val chaoxingCheckedAt: String? = null,
-    val chaoxingVerifiedEmpty: Boolean = false,
-    val chaoxingPageProgress: ChaoxingPageProgress? = null,
-    val chaoxingError: String? = null,
-    val chaoxingDetailBusy: Boolean = false,
-    val chaoxingPreview: ChaoxingWorkPreview? = null,
-    val chaoxingDetailError: String? = null,
     val secondClass: SecondClassSnapshot? = null,
     val secondClassFresh: Boolean = false,
     val secondClassBusy: Boolean = false,
@@ -757,30 +705,10 @@ class CloudClient(context: Context) {
         }
     }
 
-    private fun clearAccountSnapshots(): CloudUiState = emptyChaoxing().copy(
+    private fun clearAccountSnapshots(): CloudUiState = state.copy(
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
-    )
-
-    private fun emptyChaoxing(): CloudUiState = state.copy(
-        chaoxingCourses = emptyList(),
-        chaoxingQr = ChaoxingQrUi(),
-        chaoxingSelectedKey = null,
-        chaoxingHomework = emptyList(),
-        chaoxingCheckedAt = null,
-        chaoxingVerifiedEmpty = false,
-        chaoxingPageProgress = null,
-        chaoxingError = null,
-        chaoxingBusy = false,
-        chaoxingBatchBusy = false,
-        chaoxingBatchStatus = null,
-        chaoxingBatchAudit = emptyList(),
-        chaoxingBatchCheckedAt = null,
-        chaoxingBatchTaskLedgerFresh = false,
-        chaoxingAutoSyncBusy = false,
-        chaoxingAutoSyncError = null,
-        chaoxingPreview = null, chaoxingDetailBusy = false, chaoxingDetailError = null
     )
 
     suspend fun signIn(passphrase: String): Boolean {
