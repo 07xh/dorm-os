@@ -405,4 +405,102 @@ const invalidSource=JSON.parse(runInNewContext(courseTaskScript,{
 assert.equal(invalidSource.error,'course_identity');
 console.log('xiaoxu course-to-mobilelearn task discovery tests passed');
 
+
+// Ordinary course homework is distinct from task-engine study plans. Fetch
+// only official pages in the signed-in mooc1 WebView and save numeric IDs.
+const homeworkScript=readFileSync(
+  'apps/xiaoxu-android/app/src/main/assets/xiaoxu_chaoxing_course_homework_scan.js','utf8');
+assert.doesNotMatch(homeworkScript,/document\.cookie|\.click\(|\.submit\(|localStorage|sessionStorage/);
+assert.match(native,/openNextOwnedCourseHomework\(\)/);
+assert.match(native,/window\.__xiaoxuOwnedWorkCourse/);
+assert.match(native,/__xiaoxuCourseHomeworkResult/);
+assert.match(native,/course\.cpi \+ "&ismooc2=1&v=2"/);
+const homeworkLink=id=>'https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task'+
+  '?courseId=123&classId=456&workId='+id+'&enc=private-signed-token';
+const workNode=(id,status)=>({
+ getAttribute:key=>key==='data'?homeworkLink(id):null,
+ querySelector:selector=> {
+   if(selector==='p.overHidden2.fl')return {textContent:'Python 第'+id+'次作业'};
+   if(selector==='p.status.fl')return {textContent:status};
+   return null;
+ }
+});
+const signedDoc=(rows=[],pages=1,inputs={})=>({
+ title:'作业列表',
+ querySelectorAll:selector=>
+   selector==='.bottomList li[data]'?rows:
+   selector==='#page li'?
+     Array.from({length:pages},(_,i)=>({textContent:String(i+1)})):[],
+ querySelector:selector=>{
+   const match=/^input#(.+)$/.exec(selector);
+   return match&&inputs[match[1]]!==undefined?
+     {value:inputs[match[1]]}:null;
+ }
+});
+async function runCourseHomeworkScan({
+ host='mooc1.chaoxing.com',path='/visit/stucoursemiddle',
+ document=signedDoc([workNode('901','待批阅')]),
+ course={courseId:'123',classId:'456'},responses={},
+ failFetch=false
+}={}){
+ const window={__xiaoxuOwnedWorkCourse:course};
+ const calls=[];
+ const fetch=async(raw,options)=>{
+   const url=new URL(raw,'https://mooc1.chaoxing.com');
+   calls.push(url);
+   assert.equal(url.hostname,'mooc1.chaoxing.com');
+   assert.equal(options.credentials,'same-origin');
+   assert.equal(options.method,'GET');
+   assert.equal(url.searchParams.get('courseId'),'123');
+   assert.equal(url.searchParams.get('classId'),'456');
+   if(failFetch)return {ok:false,text:async()=>''};
+   return {ok:true,text:async()=>responses[url.searchParams.get('pageNum')]||'page1'};
+ };
+ const DOMParser=class {
+   parseFromString(content){
+     if(content==='page1')return signedDoc([workNode('902','已批阅')],2);
+     if(content==='page2')return signedDoc([workNode('903','已完成')],2);
+     return signedDoc();
+   }
+ };
+ const location={hostname:host,pathname:path,
+   href:'https://'+host+path,origin:'https://'+host,protocol:'https:'};
+ const result=runInNewContext(homeworkScript,{window,location,URL,fetch,DOMParser,document,URLSearchParams});
+ assert.equal(result,host==='mooc1.chaoxing.com'?'started':'blocked');
+ for(let i=0;i<35&&!window.__xiaoxuCourseHomeworkResult;i++)
+   await new Promise(resolve=>setTimeout(resolve,5));
+ assert.ok(window.__xiaoxuCourseHomeworkResult);
+ return {data:JSON.parse(window.__xiaoxuCourseHomeworkResult),calls};
+}
+const embeddedCourse=await runCourseHomeworkScan();
+assert.equal(embeddedCourse.data.error,'');
+assert.equal(embeddedCourse.data.records.length,1);
+assert.equal(embeddedCourse.data.records[0].sourceKey,'work:123:456:901');
+assert.match(embeddedCourse.data.records[0].details,/待批阅/);
+assert.equal(embeddedCourse.calls.length,0);
+assert.ok(!JSON.stringify(embeddedCourse.data).includes('private-signed-token'));
+const inputCreds={workEnc:'private-work-enc',enc:'private-stu-enc',openc:'private-openc'};
+const pagedCourse=await runCourseHomeworkScan({
+ document:signedDoc([],1,inputCreds),responses:{'1':'page1','2':'page2'}
+});
+assert.equal(pagedCourse.data.error,'');
+assert.deepEqual(pagedCourse.data.records.map(x=>x.sourceKey),
+ ['work:123:456:902','work:123:456:903']);
+assert.equal(pagedCourse.calls.length,2);
+assert.ok(pagedCourse.calls.every(url=>
+ url.searchParams.get('enc')==='private-work-enc'));
+assert.ok(!JSON.stringify(pagedCourse.data).includes('private-work-enc'));
+const absentWork=await runCourseHomeworkScan({document:signedDoc()});
+assert.equal(absentWork.data.error,'work_entry_unavailable');
+assert.equal(absentWork.data.records.length,0);
+const unownedWork=await runCourseHomeworkScan({
+ document:signedDoc([workNode('901','待批阅')]),
+ course:{courseId:'124',classId:'456'}
+});
+assert.equal(unownedWork.data.error,'invalid_response');
+assert.equal(unownedWork.data.records.length,0);
+const blockedWork=await runCourseHomeworkScan({host:'evil.example'});
+assert.equal(blockedWork.data.error,'wrong_origin');
+console.log('xiaoxu same-origin ordinary homework discovery passed');
+
 console.log('xiaoxu chaoxing native visible-reader tests passed');
