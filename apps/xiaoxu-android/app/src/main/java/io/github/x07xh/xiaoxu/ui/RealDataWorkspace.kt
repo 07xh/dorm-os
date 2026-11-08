@@ -184,20 +184,21 @@ internal fun combineWorkspaceTasks(
             .mapNotNull { it.sourceExternalId }.toSet()
         val aliases = native.flatMap { record ->
             val work = nativeChaoxingWorkSourceId(record) ?: return@flatMap emptyList()
-            val ids = nativeChaoxingNoticeAliases(record) +
-                if (nativeChaoxingVisibleStatusText(record)?.let {
-                        it.contains("已互评") || it.contains("已互評") } == true)
-                    nativeChaoxingNoticeAliases(record, peer = true) else emptySet()
-            ids.map { it to work }
-        }.groupBy({it.first}, {it.second}).mapNotNull { (alias, ids) ->
-            ids.distinct().singleOrNull()?.let {alias to it}
+            nativeChaoxingNoticeAliases(record).map { it to (work to false) } +
+                nativeChaoxingNoticeAliases(record, peer = true).map {it to (work to true)}
+        }.groupBy({it.first}, {it.second}).mapNotNull { (alias, bindings) ->
+            val binding = bindings.distinct().singleOrNull() ?: return@mapNotNull null
+            val (work, peer) = binding
+            val raw = localEvidence[work]?.let(::nativeChaoxingVisibleStatusText).orEmpty()
+            if (peer && !raw.contains("已互评") && !raw.contains("已互評")) null else alias to work
         }.toMap()
         fun workId(task: CloudTask): String? = if (task.provider == "chaoxing")
             aliases[task.sourceExternalId] ?: task.sourceExternalId else null
         // One display row per proved work identity. Prefer the original official
         // cloud row; preserve every underlying D1 record and personal flag.
-        val linkedCloud = cloud.filter { aliases.containsKey(it.sourceExternalId) && it.provider == "chaoxing" }
-        val canonical = (linkedCloud + cloud.filter { it.provider == "chaoxing" &&
+        val dedupedCloud = distinctVerifiedChaoxingHomeworkRows(cloud)
+        val linkedCloud = dedupedCloud.filter { aliases.containsKey(it.sourceExternalId) && it.provider == "chaoxing" }
+        val canonical = (linkedCloud + dedupedCloud.filter { it.provider == "chaoxing" &&
             it.sourceExternalId in aliases.values }).groupBy {workId(it)}
             .mapValues { (_, rows) -> rows.sortedWith(compareBy<CloudTask> {
                 if (it.sourceExternalId in aliases.values) 0 else 1
@@ -213,7 +214,7 @@ internal fun combineWorkspaceTasks(
             add(WorkspaceTask("local:" + task.id, task.title, source, task.completed,
                 parseWorkspaceDue(task.due), "本人填写", "local"))
         }
-        distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
+        dedupedCloud.forEach { task ->
             val effectiveId = workId(task)
             if (task.provider == "chaoxing" && canonical[effectiveId]?.let {it != task.id} == true)
                 return@forEach

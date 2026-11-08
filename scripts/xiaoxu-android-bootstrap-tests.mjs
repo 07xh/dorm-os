@@ -1156,7 +1156,7 @@ assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学�
 assert.match(workspace, /学习通 · 本机读取/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
-assert.match(workspace, /localEvidence\.filterKeys \{ it !in cloudIds \}/);
+assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
 assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。

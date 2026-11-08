@@ -365,8 +365,14 @@ internal class ChaoxingLocalReader(
                 }
                 val stable=key?:stableStudyKey(url)
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
+                val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
+                val detailedStatus=items[stable]?.status
+                // Submission-only list text cannot undo explicit peer review
+                // completion read from this work's detail in the same scan.
+                val status=if (detailedStatus?.let {it.contains("已互评") || it.contains("已互評")} == true &&
+                    listedStatus in setOf("待批阅","已提交","已完成","已批阅")) detailedStatus else listedStatus
                 record(if(key==null) "study_task" else "homework",stable,
-                    row.selectFirst("p.overHidden2")!!.text(),row.selectFirst("p.status")?.text().orEmpty(),URI(url).host)
+                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
             }
             val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)

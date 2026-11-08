@@ -26,14 +26,16 @@ class ChaoxingLocalReaderTest {
                     JSONObject().put("lastPage",1).put("list",org.json.JSONArray().put(notice(false)).put(notice(true))
                         .put(notice(false).put("tag","courseId999")))).toString()
                 "/work/dowork" -> "<p class='status'>已互评</p>"
-                "/mooc2-ans/visit/courselistdata" -> "暂无课程"
+                "/mooc2-ans/visit/courselistdata" -> "<div class='learnCourse'><a href='$courseUrl'><span class='course-name'>Python</span></a></div>"
+                "/visit/stucoursemiddle" -> "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" -> "<ul class='bottomList'><li data='$work'><p class='overHidden2'>实验报告二</p><p class='status'>待批阅</p></li></ul>"
                 else -> error("unexpected URL")
             }
             ChaoxingReadPage(r.url,body)
         }).scan(2026)
         assertTrue(read.complete)
         assertEquals(2,ownerCalls)
-        val row=read.items.single()
+        val row=read.items.single {it.kind=="homework"}
         assertEquals(setOf(assignment.id),row.noticeAliases)
         assertEquals(setOf(peer.id),row.peerAliases)
         assertEquals("已互评",row.status)

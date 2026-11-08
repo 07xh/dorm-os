@@ -39,4 +39,18 @@ class ChaoxingNoticeAliasTest {
         assertEquals(3,tasks.size)
         assertFalse(considerCompleteInTaskList(tasks.single {it.key=="cloud:old"}))
     }
+    @Test fun ambiguousPeerAliasCannotUseOnlyTheCompletedWorkAsEvidence() {
+        val tasks = combineWorkspaceTasks(emptyList(),listOf(cloud()),
+            listOf(work(peer=true),work("902",state="未提交",peer=true)))
+        assertEquals(3,tasks.size)
+        assertFalse(considerCompleteInTaskList(tasks.single {it.key=="cloud:old"}))
+    }
+    @Test fun existingTrustedCanonicalCannotDisappearDuringAliasMerge() {
+        val unverified=cloud().copy(id="a",sourceExternalId="work:123:456:901")
+        val verified=unverified.copy(id="z",officialStatus="submitted")
+        val tasks=combineWorkspaceTasks(emptyList(),listOf(cloud(),unverified,verified),listOf(work()))
+        assertEquals(1,tasks.size)
+        assertEquals("cloud:z",tasks.single().key)
+        assertTrue(considerCompleteInTaskList(tasks.single()))
+    }
 }
