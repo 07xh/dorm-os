@@ -867,7 +867,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         if ((0 until rows.length()).any { i ->
                             val key = rows.optJSONObject(i)?.optString("sourceKey").orEmpty()
                             !key.startsWith(expected) ||
-                                !key.removePrefix(expected).matches(Regex("""\\d{1,24}"""))
+                                !key.removePrefix(expected).matches(Regex("""\d{1,24}"""))
                         }) {
                             tell("课程作业身份与本次选择的课程不一致；未写入任何记录。")
                             finish(false)
