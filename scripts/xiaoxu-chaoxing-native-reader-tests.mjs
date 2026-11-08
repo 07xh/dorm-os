@@ -53,7 +53,7 @@ function runReader({ host, path, tables = [], tasks = [], courses = [], plans = 
     querySelectorAll(selector) {
       if (selector === 'iframe') return [];
       if (selector === 'table') return tables;
-      if (selector === 'li[data]') return tasks;
+      if (selector === '.bottomList li[data]') return tasks;
       if (selector === '.xtask_item') return plans;
       if (selector.startsWith('.course-name[title]')) return courses;
       return [];
@@ -166,6 +166,22 @@ assert.deepEqual(Array.from(finished.records, x => [x.title, x.details]),
   [['Python 实验报告一',
     '当前网页显示的状态：待批阅 · 官方作业身份：work:123:456:987']]);
 assert.equal(finished.records[0].sourceKey,'work:123:456:987');
+// Jsoup-based reference reader sees completed tabs whose DOM rows are hidden.
+// A validated official work tuple and explicit status are required for this.
+const hiddenCompletedNode = {
+  ...finishedNode,
+  getClientRects: () => []
+};
+const hiddenCompleted = runReader({ host:'mooc1.chaoxing.com',
+  path:'/mooc2/work/list', tasks:[hiddenCompletedNode] });
+assert.equal(hiddenCompleted.records.length,1);
+assert.equal(hiddenCompleted.records[0].sourceKey,'work:123:456:987');
+const hiddenUntrustedNode={...hiddenCompletedNode,
+  getAttribute: ()=>'https://attacker.invalid/work/task?courseId=123&classId=456&workId=987'};
+const hiddenUntrusted=runReader({host:'mooc1.chaoxing.com',
+  path:'/mooc2/work/list',tasks:[hiddenUntrustedNode]});
+assert.equal(hiddenUntrusted.records.length,0);
+
 assert.ok(!JSON.stringify(finished).includes('secret-token'));
 const unrelatedSignedNode = {...finishedNode,
   getAttribute: () => 'https://attacker.example/work/task?courseId=123&classId=456&workId=987'};
