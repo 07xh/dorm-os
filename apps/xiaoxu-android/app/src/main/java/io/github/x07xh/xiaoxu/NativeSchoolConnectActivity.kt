@@ -761,10 +761,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
      * page. Only official same-origin task-group POST requests are made by
      * the WebView page; the native app never receives session identifiers.
      */
-    private fun captureStudyPlanGroups() {
-        val url = browser.url ?: return
-        if (!loaded || pageFailed || !extractionAllowed("chaoxing", url) ||
-            Uri.parse(url).host != "task.chaoxing.com") return
+    private fun captureStudyPlanGroups(onSaved: ((Boolean) -> Unit)? = null) {
+        val url = browser.url
+        if (url == null || !loaded || pageFailed || !extractionAllowed("chaoxing", url) ||
+            Uri.parse(url).host != "task.chaoxing.com") {
+            onSaved?.invoke(false)
+            return
+        }
         val epoch = ++captureEpoch
         extract.isEnabled = false
         appendVisible?.isEnabled = false
@@ -782,6 +785,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         if (attempt >= 72) {
                             extract.isEnabled = loaded && !pageFailed
                             tell("学习计划接口未在本次操作内返回完整数据，旧记录保持不变。")
+                            onSaved?.invoke(false)
                         } else scoreHandler.postDelayed({ poll(attempt + 1) }, 250)
                         return@evaluateJavascript
                     }
@@ -798,12 +802,15 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             else -> "学习计划分组读取失败或响应结构不兼容。"
                         }
                         tell(label + " 未修改本机历史记录。")
+                        onSaved?.invoke(false)
                         return@evaluateJavascript
                     }
                     // The read-only script prepared a sanitized result in the
                     // current page. Reuse the existing bounded Room parser and
                     // append instead of replacing other courses' plan records.
-                    captureVisibleRecords(append = true, readTaskGroups = false)
+                    captureVisibleRecords(
+                        append = true, readTaskGroups = false, onSaved = onSaved
+                    )
                 }
             }
             poll(0)
@@ -811,7 +818,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     }
 
     private fun captureVisibleRecords(
-        append: Boolean = false, readTaskGroups: Boolean = true
+        append: Boolean = false, readTaskGroups: Boolean = true,
+        onSaved: ((Boolean) -> Unit)? = null
     ) {
         if (provider == "second_class") {
             val uri = Uri.parse(browser.url ?: "")
@@ -846,6 +854,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
             !extractionAllowed(provider, currentUrl)) {
             tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
+            onSaved?.invoke(false)
             return
         }
         val epoch = ++captureEpoch
@@ -861,6 +870,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             appendVisible?.isEnabled = extract.isEnabled
             if (!extract.isEnabled || browser.url != currentUrl) {
                 tell("读取时页面已变化，请重新打开需要的列表。")
+                onSaved?.invoke(false)
                 return@evaluateJavascript
             }
             try {
@@ -870,6 +880,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
                     tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
+                    onSaved?.invoke(false)
                     return@evaluateJavascript
                 }
                 val kind = payload.optString("kind")
@@ -936,6 +947,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         savedKind = kind
                         savedCount = total
                         finishAndReturn.isEnabled = true
+                        onSaved?.invoke(true)
                         tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
                             accepted.size + " 条；当前本机同类共 " + total + " 条。" +
                             (if (append) "旧页保留，作业状态更新可能产生重复，请按课程核对。" else
@@ -943,8 +955,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             "这不是学校官方完整同步，也未核实全部提交状态。")
                     } catch (_: IllegalArgumentException) {
                         tell("合并后超出 500 条上限，已拒绝写入，旧记录保持不变。请核对本机记录或重新开始本类采集。")
+                        onSaved?.invoke(false)
                     } catch (_: Exception) {
                         tell("本机数据库保存失败。本次操作没有清空已有记录。")
+                        onSaved?.invoke(false)
                     } finally {
                         if (epoch == captureEpoch && !isFinishing) {
                             extract.isEnabled = loaded && !pageFailed &&
@@ -955,6 +969,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
             } catch (_: Exception) {
                 tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
+                onSaved?.invoke(false)
             }
         }
     }
