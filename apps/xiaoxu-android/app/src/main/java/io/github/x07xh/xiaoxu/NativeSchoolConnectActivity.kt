@@ -291,7 +291,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     loaded = !pageFailed && navigationAllowed(provider, url)
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = loaded && extractionAllowed(provider, url)
-                    appendVisible?.isEnabled = extract.isEnabled
+                    val isTaskPlan = provider == "chaoxing" &&
+                        host == "task.chaoxing.com" &&
+                        Uri.parse(url ?: "").path == "/userStudyPlan/studyPlanSubPage"
+                    extract.text = if (isTaskPlan) "读取本人学习计划任务" else
+                        if (provider == "second_class") "读取／刷新本人积分"
+                        else "读取并替换同类记录"
+                    appendVisible?.isEnabled = extract.isEnabled && !isTaskPlan
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
                         Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
@@ -517,7 +523,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     val result = runCatching { JSONObject(jsonText) }.getOrNull()
                     val failure = result?.optString("error").orEmpty()
                     if (result?.optString("host") != "task.chaoxing.com" ||
-                        result.optString("kind") != "study_task" || failure.isNotEmpty()) {
+                        result?.optString("kind") != "study_task" || failure.isNotEmpty()) {
                         extract.isEnabled = loaded && !pageFailed
                         val label = when (failure) {
                             "identity_unavailable" -> "任务身份不可用，请通过本人官方学习任务入口重新进入。"
@@ -845,7 +851,7 @@ private const val READ_VISIBLE_PAGE = """
   const host = location.hostname;
   if (host === 'task.chaoxing.com' &&
       location.pathname === '/userStudyPlan/studyPlanSubPage' &&
-      window.__xiaoxuPlanResult)
+      typeof window !== 'undefined' && window.__xiaoxuPlanResult)
     return window.__xiaoxuPlanResult;
   const clean = x => String(x || '').replace(/\s+/g, ' ').trim().slice(0,350);
   const docs = [document];
