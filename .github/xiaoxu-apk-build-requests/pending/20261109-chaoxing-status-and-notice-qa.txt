@@ -1,2 +1,3 @@
 Requested by owner: verify Chaoxing official work detail status, peer-review completion, and legacy notice IDs on an isolated Android QA build.
 Source: PR #428; do not replace the installed signed production APK.
+Regression fix: legacy status-alias assertion updated to retain the authoritative completed detail; require full Android unit tests before artifact upload.
