@@ -845,9 +845,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         }
                         val result=runCatching {JSONObject(raw)}.getOrNull()
                         val error=result?.optString("error").orEmpty()
+                        val count=result?.optJSONArray("records")?.length() ?: 0
                         if(error.isNotEmpty() || result?.optString("kind")!="homework" ||
-                            result.optString("host")!="mooc1.chaoxing.com" ||
-                            result.optJSONArray("records")?.length() !in 1..120){
+                            result?.optString("host")!="mooc1.chaoxing.com" ||
+                            count !in 1..120){
                             tell("本课程尚无法取得完整、可核实的作业列表：" +
                                 when(error){
                                     "work_entry_unavailable" -> "没有可读取的官方作业入口"
