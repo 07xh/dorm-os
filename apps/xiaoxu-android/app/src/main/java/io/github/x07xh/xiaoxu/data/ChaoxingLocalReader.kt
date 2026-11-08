@@ -158,6 +158,24 @@ internal class ChaoxingLocalReader(
             return "study:"+hash(URI(url).host+URI(url).path+"?"+identity)
         }
     }
+    /**
+     * Work detail and course list belong to the same on-device official scan.
+     * Preserve a more specific completed/reviewed detail when the list only
+     * reports the generic submission state. A later negative/reopened list
+     * state always wins; do not turn a reopened work into a completed task.
+     */
+    internal fun reconcileWorkStatus(listed: String, detailed: String?): String {
+        val list = listed.trim()
+        val detail = detailed?.trim().orEmpty().takeUnless { it.isBlank() || it == "状态未知" }
+        if (list.isBlank()) return detail ?: "状态未知"
+        if (detail == null) return list
+        val negative = Regex("未提交|未完成|待提交|待完成|未交|退回|重做|重新提交|驳回")
+        if (negative.containsMatchIn(list)) return list
+        if (negative.containsMatchIn(detail)) return detail
+        val positive = Regex("已完成|已提交|已交|提交成功|待批阅|待批改|待评阅|已批阅|已评分|已评阅|已互评|已互評|互评完成|互評完成")
+        return if (positive.containsMatchIn(list) && positive.containsMatchIn(detail)) detail else list
+    }
+
     private val items=linkedMapOf<String,ChaoxingReadItem>()
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
@@ -326,7 +344,7 @@ internal class ChaoxingLocalReader(
         if(key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
         val page=fetch(link.url);val doc=Jsoup.parse(page.text,page.url)
         val state=doc.selectFirst("p.status,.workStatus,.work-status")?.text().orEmpty().ifBlank {
-            Regex("已完成此作业|已提交[，,、 ]*待批阅|待批阅|提交成功|已达标|已退回|未提交").find(doc.text())?.value.orEmpty()
+            Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已评分|已完成此作业|已提交[，,、 ]*待批阅|待批阅|提交成功|已达标|已退回|未提交").find(doc.text())?.value.orEmpty()
         }.ifBlank {knownStatus}.ifBlank {"状态未知"}
         if(key!=null) record("homework",key,link.title,state,URI(link.url).host)
         else record("study_task",stableStudyKey(link.url),link.title,state,URI(link.url).host)
@@ -367,10 +385,10 @@ internal class ChaoxingLocalReader(
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
                 val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
                 val detailedStatus=items[stable]?.status
-                // Submission-only list text cannot undo explicit peer review
-                // completion read from this work's detail in the same scan.
-                val status=if (detailedStatus?.let {it.contains("已互评") || it.contains("已互評")} == true &&
-                    listedStatus in setOf("待批阅","已提交","已完成","已批阅")) detailedStatus else listedStatus
+                // The course list may say merely "submitted" while the work
+                // detail already proves graded/peer-reviewed/completed.
+                // A reopened or returned work in the current list still wins.
+                val status=reconcileWorkStatus(listedStatus,detailedStatus)
                 record(if(key==null) "study_task" else "homework",stable,
                     row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
             }
