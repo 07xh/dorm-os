@@ -422,6 +422,13 @@ console.log('xiaoxu course-to-mobilelearn task discovery tests passed');
 
 // Ordinary course homework is distinct from task-engine study plans. Fetch
 // only official pages in the signed-in mooc1 WebView and save numeric IDs.
+// The batch audit must expose bounded source-owned failure causes, otherwise
+// a repeat failure screenshot cannot distinguish course-entry from list parse.
+const taskHub=readFileSync(
+ 'apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt','utf8');
+assert.match(taskHub,/course\.failure\?\.label/);
+assert.match(taskHub,/course\.failureStage\?\.let/);
+assert.match(native,/学习计划入口需要单独登录；继续读取本人普通课程作业/);
 const homeworkScript=readFileSync(
   'apps/xiaoxu-android/app/src/main/assets/xiaoxu_chaoxing_course_homework_scan.js','utf8');
 assert.doesNotMatch(homeworkScript,/document\.cookie|\.click\(|\.submit\(|localStorage|sessionStorage/);
@@ -439,10 +446,11 @@ const workNode=(id,status)=>({
    return null;
  }
 });
-const signedDoc=(rows=[],pages=1,inputs={})=>({
+const signedDoc=(rows=[],pages=1,inputs={},bare=false)=>({
  title:'作业列表',
  querySelectorAll:selector=>
-   selector==='.bottomList li[data]'?rows:
+   selector==='.bottomList li[data]'?(bare?[]:rows):
+   selector==='li[data]'?rows:
    selector==='#page li'?
      Array.from({length:pages},(_,i)=>({textContent:String(i+1)})):[],
  querySelector:selector=>{
@@ -476,8 +484,8 @@ async function runCourseHomeworkScan({
  };
  const DOMParser=class {
    parseFromString(content){
-     if(content==='page1')return signedDoc([workNode('902','已批阅')],2);
-     if(content==='page2')return signedDoc([workNode('903','已完成')],2);
+     if(content==='page1')return signedDoc([workNode('902','已批阅')],2,{},true);
+     if(content==='page2')return signedDoc([workNode('903','已完成')],2,{},true);
      return signedDoc();
    }
  };
@@ -496,6 +504,15 @@ assert.equal(embeddedCourse.data.records.length,1);
 assert.equal(embeddedCourse.data.records[0].sourceKey,'work:123:456:901');
 assert.match(embeddedCourse.data.records[0].details,/待批阅/);
 assert.equal(embeddedCourse.calls.length,0);
+// A real official work-list template need not wrap li[data] in .bottomList.
+const bareList=await runCourseHomeworkScan({
+ path:'/mooc2/work/list',
+ document:signedDoc([workNode('905','已完成')],1,{},true)
+});
+assert.equal(bareList.data.error,'');
+assert.equal(bareList.data.records.length,1);
+assert.match(bareList.data.records[0].details,/已完成/);
+assert.equal(bareList.calls.length,0);
 assert.ok(!JSON.stringify(embeddedCourse.data).includes('private-signed-token'));
 const inputCreds={workEnc:'private-work-enc',enc:'private-stu-enc',openc:'private-openc'};
 const pagedCourse=await runCourseHomeworkScan({
