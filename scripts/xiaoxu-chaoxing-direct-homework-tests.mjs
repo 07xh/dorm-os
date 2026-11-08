@@ -332,6 +332,54 @@ assert.ok(recovered.items.every(x=>x.platformVerified));
 assert.ok(!JSON.stringify(recovered).includes('signedTask'));
 assert.equal(recovered.verifiedEmpty,false);
 
+// Some signed-in courses use the compact official /mooc-ans/ work-list
+// query. Legacy-only ut/stuenc/openc/isdisplaytable/t may produce a shell.
+// Retry the documented compact request once, never for identity/login failures.
+const compactCalls=[];
+const compactOnly=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw),path=u.pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>无数据</body>');
+ if(path===officialAltPath){
+  const keys=[...u.searchParams.keys()].sort();
+  compactCalls.push(keys);
+  if(keys.join(',')!=='classId,courseId,cpi,enc,pageNum')
+   return new Response('<body>旧参数不兼容</body>',{status:400});
+  assert.equal(u.searchParams.get('courseId'),'123');
+  assert.equal(u.searchParams.get('classId'),'456');
+  assert.equal(u.searchParams.get('cpi'),'789');
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  return response('<ul>'+row('940','Python 作业一','待批阅')+
+    row('941','Python 作业二','已完成')+'</ul>');
+ }
+ throw Error('unexpected route '+path);
+}});
+const compactReader=await compactOnly.forSession({session,userId:'owner1'});
+await compactReader.verifySession();
+const compactWorks=await compactReader.readHomeworkList(courseKeys);
+assert.deepEqual(compactCalls.map(keys=>keys.includes('ut')), [true,false]);
+assert.deepEqual(compactWorks.items.map(x=>[x.workId,x.statusCode]),
+ [['940','submitted'],['941','submitted']]);
+assert.ok(!JSON.stringify(compactWorks).includes('signedWork'));
+
+// A broken response under BOTH query shapes must not create fake zero work,
+// alter trusted statuses or downgrade an actual official authorization failure.
+const compactBroken=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw),path=u.pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>无数据</body>');
+ if(path===officialAltPath)return response('<body>未验证的页面空壳</body>');
+ throw Error('unexpected route '+path);
+}});
+const compactBrokenReader=await compactBroken.forSession({session,userId:'owner1'});
+await compactBrokenReader.verifySession();
+await assert.rejects(()=>compactBrokenReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available'&&e.schoolReadStage==='list_official');
+
 // A verified "no work" banner from the obsolete route is not proof that the
 // newer official route also has no homework.
 const obsoleteEmpty=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
