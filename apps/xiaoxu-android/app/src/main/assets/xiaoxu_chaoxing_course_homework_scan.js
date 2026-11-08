@@ -23,7 +23,8 @@
   }
   const selected=window.__xiaoxuOwnedWorkCourse;
   const numeric=value=>/^\d{1,24}$/.test(String(value??''));
-  if(!selected||!numeric(selected.courseId)||!numeric(selected.classId)){
+  if(!selected||!numeric(selected.courseId)||!numeric(selected.classId)||
+    !numeric(selected.cpi)){
     reply('course_identity');return 'blocked';
   }
   const clean=(value,max=100)=>String(value??'')
@@ -78,8 +79,13 @@
     const workEnc=input('workEnc'),stuenc=input('enc'),openc=input('openc');
     if(!workEnc||![workEnc,stuenc,openc].every(tokenOk))
       throw Error('work_entry_unavailable');
+    // Match the existing verified server-side list contract instead of
+    // creating a second, incomplete request shape for some course templates.
     const query=new URLSearchParams({courseId:selected.courseId,
-      classId:selected.classId,enc:workEnc,stuenc,openc});
+      classId:selected.classId,cpi:selected.cpi,ut:'s',enc:workEnc,
+      t:String(Date.now()),isdisplaytable:'2'});
+    if(stuenc)query.set('stuenc',stuenc);
+    if(openc)query.set('openc',openc);
     const readList=async prefix=>{
       all.clear();
       let pages=1;
