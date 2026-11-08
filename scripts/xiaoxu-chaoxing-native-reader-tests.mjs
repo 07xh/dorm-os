@@ -228,7 +228,7 @@ const studyScriptMatch = native.match(/private const val READ_TASK_PLAN_GROUPS =
 assert.ok(studyScriptMatch, 'the task-group scan must be a reviewable fixed script');
 const taskScript = studyScriptMatch[1];
 assert.doesNotMatch(taskScript,/document\.cookie|\.click\(|\.submit\(|getToStudyUrl|readProgress/);
-assert.match(native, /captureVisibleRecords\(append = true, readTaskGroups = false\)/);
+assert.match(native, /readTaskGroups = false, onSaved = onSaved/);
 assert.match(native, /readTaskGroups && provider == "chaoxing"/);
 assert.match(native, /scoreHandler\.postDelayed\(\{ poll\(attempt \+ 1\) \}, 250\)/);
 assert.match(native, /if \(attempt >= 72\)/);
