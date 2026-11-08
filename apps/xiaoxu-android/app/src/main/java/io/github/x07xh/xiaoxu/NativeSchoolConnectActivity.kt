@@ -860,9 +860,11 @@ private const val READ_VISIBLE_PAGE = """
     for (const doc of docs) {
       // Completed work may lack goTask entirely. Only visible official
       // rows carrying the title selector are kept; do not export li.data.
-      const tasks = doc.querySelectorAll('li[data]');
+      const tasks = doc.querySelectorAll('.bottomList li[data]');
       for (const li of Array.from(tasks)) {
-        if (!onScreen(li)) continue;
+        // The reference app's HTML reader also sees completed tab rows
+        // present in DOM but not currently visible. Hidden rows are admitted
+        // only with a validated official work tuple and explicit status.
         const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
           li.querySelector('p.overHidden2')?.innerText).slice(0,100);
         if (!title) continue;
@@ -887,6 +889,7 @@ private const val READ_VISIBLE_PAGE = """
               qp.getAll('workId').length + qp.getAll('workid').length === 1)
             sourceKey = 'work:' + courseId + ':' + classId + ':' + workId;
         } catch (_) {}
+        if (!onScreen(li) && (!sourceKey || !status)) continue;
         const details = status ? '当前网页显示的状态：' + status :
           '网页未展示提交状态';
         rows.push({title,details: sourceKey ?
