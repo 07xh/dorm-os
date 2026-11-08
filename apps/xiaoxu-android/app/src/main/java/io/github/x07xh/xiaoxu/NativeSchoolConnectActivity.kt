@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
@@ -23,7 +24,10 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import io.github.x07xh.xiaoxu.data.ChaoxingWebNavigation
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
@@ -84,13 +88,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             "authserver.ncwu.edu.cn",
             "sec.ncwu.edu.cn", "dekt.ncwu.edu.cn"
         )
-        private val chaoxing = setOf(
-            "i.chaoxing.com", "passport2.chaoxing.com",
-            "mooc2-ans.chaoxing.com", "mooc1.chaoxing.com",
-            "mooc1-api.chaoxing.com", "mooc2.chaoxing.com",
-            "passport2-app.chaoxing.com", "kb.chaoxing.com",
-            "task.chaoxing.com", "mobilelearn.chaoxing.com"
-        )
         fun navigationAllowed(provider: String, raw: String?): Boolean {
             val uri = runCatching { Uri.parse(raw ?: "") }.getOrNull() ?: return false
             if (uri.scheme != "https" || uri.userInfo != null) return false
@@ -105,7 +102,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             uri.getQueryParameter("service") == CHAOXING_SCHOOL_SERVICE
                     "fysso.chaoxing.com" ->
                         uri.path in setOf("/cassso/ncwu", "/cassso/ncwu/")
-                    else -> host in chaoxing
+                    else -> ChaoxingWebNavigation.target(raw) == raw
                 }
                 "second_class" -> host in schools
                 else -> false
@@ -126,7 +123,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                          path.startsWith("/mooc-ans/mooc2/work/") ||
                          path.startsWith("/visit/"))) ||
                     (host == "mooc2-ans.chaoxing.com" &&
-                        path.startsWith("/mooc2-ans/visit/")) ||
+                        (path.startsWith("/mooc2-ans/visit/") ||
+                         path == "/mooc2-ans/mycourse/stu")) ||
                     (host == "kb.chaoxing.com" &&
                         path.startsWith("/res/pc/curriculum/")) ||
                     (host == "task.chaoxing.com" &&
@@ -217,7 +215,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
-            setPadding(16, 12, 16, 12)
+            val gap = (8 * resources.displayMetrics.density).toInt()
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+                view.setPadding(gap + bars.left, bars.top, gap + bars.right,
+                    maxOf(bars.bottom, keyboard.bottom))
+                insets
+            }
         }
         status = TextView(this).apply {
             textSize = 13f
@@ -242,7 +247,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             abortTaskDiscovery()
             browser.reload()
         }
-        extract = control("读取并替换同类记录") { captureVisibleRecords() }
+        extract = control("读取当前页") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
         // Explicit paginated-page action. The default still replaces the old
@@ -261,7 +266,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
         } else null
         val studyTaskShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 扫描本人全部课程任务"
+            text = "读取本人课程与作业"
             scanButton = this
             setOnClickListener { startOwnerTaskDiscovery() }
         } else null
@@ -281,6 +286,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
+            if (provider == "chaoxing") visibility = View.GONE
             setOnClickListener {
                 // Only a committed Room write enables this button.
                 setResult(Activity.RESULT_OK, Intent()
@@ -294,6 +300,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         browser = WebView(this).apply {
             settings.javaScriptEnabled = true // Required for the official interactive login.
             settings.domStorageEnabled = true
+            if (provider == "chaoxing") {
+                // Match the desktop course templates used by the reference client.
+                settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) " +
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
+            }
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.allowFileAccessFromFileURLs = false
@@ -302,17 +315,24 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             settings.setSupportMultipleWindows(false)
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             settings.safeBrowsingEnabled = true
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, provider == "chaoxing")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     if (!request.isForMainFrame) return false
-                    val allowed = navigationAllowed(provider, request.url.toString())
-                    if (!allowed) tell("已拦截非指定学校／学习通主站的页面跳转。")
+                    val raw = request.url.toString()
+                    val target = if (provider == "chaoxing") ChaoxingWebNavigation.target(raw) else null
+                    if (target != null && target != raw && navigationAllowed(provider, target)) {
+                        view.loadUrl(target)
+                        return true
+                    }
+                    val allowed = navigationAllowed(provider, raw)
+                    if (!allowed) tell("当前链接不是受支持的官方网页，请返回继续登录。")
                     return !allowed
                 }
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                     loaded = false
                     pageFailed = false
+                    if (scanStage == "homework") planScanBusy = false
                     invalidateCapture()
                     catalogProbeOn = false // A new document loses the in-page observer.
                     catalogProbe.text = "观测活动列表请求（手动）"
@@ -329,6 +349,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 override fun onPageFinished(view: WebView, url: String?) {
                     loaded = !pageFailed && navigationAllowed(provider, url)
+                    if (loaded) CookieManager.getInstance().flush()
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = loaded && extractionAllowed(provider, url)
                     val isTaskPlan = provider == "chaoxing" &&
@@ -336,7 +357,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         Uri.parse(url ?: "").path == "/userStudyPlan/studyPlanSubPage"
                     extract.text = if (isTaskPlan) "读取本人学习计划任务" else
                         if (provider == "second_class") "读取／刷新本人积分"
-                        else "读取并替换同类记录"
+                        else "读取当前页"
                     appendVisible?.isEnabled = extract.isEnabled && !isTaskPlan
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
@@ -418,11 +439,26 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
-        appendVisible?.let { root.addView(it) }
-        if (courseShortcut != null) root.addView(courseShortcut)
-        if (homeworkShortcut != null) root.addView(homeworkShortcut)
         if (studyTaskShortcut != null) root.addView(studyTaskShortcut)
-        if (ncwuSsoShortcut != null) root.addView(ncwuSsoShortcut)
+        if (provider == "chaoxing") {
+            val more = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+            appendVisible?.let { more.addView(it) }
+            courseShortcut?.let { more.addView(it) }
+            homeworkShortcut?.let { more.addView(it) }
+            ncwuSsoShortcut?.let { more.addView(it) }
+            root.addView(Button(this).apply {
+                text = "更多读取选项"
+                setOnClickListener {
+                    val expanded = more.visibility == View.VISIBLE
+                    more.visibility = if (expanded) View.GONE else View.VISIBLE
+                    text = if (expanded) "更多读取选项" else "收起读取选项"
+                }
+            })
+            root.addView(more)
+        }
         if (scoreShortcut != null) root.addView(scoreShortcut)
         if (provider == "second_class") root.addView(catalogProbe)
         root.addView(finishAndReturn)
@@ -657,7 +693,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
             }
             "homework" -> {
-                if (uri.host != "mooc1.chaoxing.com") {
+                if (uri.host !in setOf("mooc1.chaoxing.com", "mooc2-ans.chaoxing.com")) {
                     // Only the owner's verified first-party course page can
                     // be scanned. Login redirects require human interaction.
                     stopOwnerDiscovery("课程作业页面需要正常登录；请重新登录后再扫描。")
@@ -665,6 +701,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 val coursePath = uri.path.orEmpty()
                 if (coursePath == "/visit/stucoursemiddle" ||
+                    coursePath == "/mooc2-ans/mycourse/stu" ||
                     coursePath.startsWith("/mooc2/work/") ||
                     coursePath.startsWith("/mooc-ans/mooc2/work/")) {
                     scanOwnedCourseHomework()
@@ -1126,6 +1163,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         savedKind = kind
                         savedCount = total
                         finishAndReturn.isEnabled = true
+                        finishAndReturn.visibility = View.VISIBLE
                         tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
                             accepted.size + " 条；当前本机同类共 " + total + " 条。" +
                             (if (append) "旧页保留，作业状态按官方 ID 去重；请核对不同来源。" else
@@ -1235,6 +1273,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                             savedKind = "credits"
                             savedCount = rows.size
                             finishAndReturn.isEnabled = true
+                            finishAndReturn.visibility = View.VISIBLE
                             if (intent.getBooleanExtra(EXTRA_AUTO_SCORE, false)) {
                                 setResult(Activity.RESULT_OK, Intent()
                                     .putExtra(EXTRA_PROVIDER, provider).putExtra(EXTRA_RETURN_KIND, savedKind)

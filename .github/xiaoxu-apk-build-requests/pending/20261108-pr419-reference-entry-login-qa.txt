@@ -1,0 +1,3 @@
+User requested 2026-11-08: fix Chaoxing reading and login redirect, follow supplied reference APK implementation.
+Build existing isolated unified QA package for PR #419 after actual course work-entry discovery and official HTTPS navigation fixes.
+Do not claim real-account completion until owner verifies login, all three courses and restart refresh.

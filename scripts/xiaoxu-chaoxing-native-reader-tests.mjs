@@ -28,7 +28,7 @@ assert.match(native,
 assert.match(native, /private fun persistVisiblePayload\(/);
 assert.equal((native.match(/dao\.appendKind\(provider, kind, accepted\)/g)||[]).length,1,
   'DOM reader and fetched official task scan must share a single persistence path');
-assert.match(native, /extract = control\("读取并替换同类记录"\)/);
+assert.match(native, /extract = control\("读取当前页"\)/);
 assert.match(native, /appendVisible\?\.isEnabled = false/);
 assert.ok(native.indexOf('if (payload.optBoolean("truncated"))') <
   native.indexOf('if (append) dao.appendKind(provider, kind, accepted)'),
@@ -562,3 +562,27 @@ assert.equal(blockedWork.data.error,'wrong_origin');
 console.log('xiaoxu same-origin ordinary homework discovery passed');
 
 console.log('xiaoxu chaoxing native visible-reader tests passed');
+
+// The reference client follows an actual course-owned work link. Both legacy
+// and mooc2 student pages may contain it; no native credential extraction.
+const entryNavigation=[];
+const actualLink='/mooc-ans/mooc2/work/list?courseId=123&classId=456&cpi=789&enc=entryToken&t=1700000000123';
+const entryDoc=signedDoc([],1,{});
+entryDoc.querySelectorAll=selector=>selector.includes('data-url')?[{
+ getAttribute:key=>key==='data-url'?'https://mooc1.chaoxing.com'+actualLink:null,
+ tagName:'A',hasAttribute:key=>key==='data-url'
+}]:[];
+const entryWindow={__xiaoxuOwnedWorkCourse:{courseId:'123',classId:'456',cpi:'789'}};
+runInNewContext(homeworkScript,{window:entryWindow,URL,URLSearchParams,
+ document:entryDoc,location:{hostname:'mooc2-ans.chaoxing.com',
+  pathname:'/mooc2-ans/mycourse/stu',protocol:'https:',
+  origin:'https://mooc2-ans.chaoxing.com',
+  href:'https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/stu?enc=courseToken',
+  replace:url=>entryNavigation.push(url)}});
+assert.equal(entryNavigation.length,1,'mooc2 student page must follow its actual official work link');
+const navigated=new URL(entryNavigation[0]);
+assert.equal(navigated.searchParams.get('enc'),'entryToken');
+assert.equal(navigated.searchParams.get('t'),'1700000000123');
+assert.equal(navigated.hostname,'mooc1.chaoxing.com');
+assert.equal(entryWindow.__xiaoxuCourseHomeworkResult,'');
+console.log('xiaoxu real course work-entry navigation passed');

@@ -31,15 +31,21 @@ export async function onRequestGet(context){
   return json({schema:'xiaoxu/chaoxing-work-browser-v1',view:mode,live:true,data});
  }catch(e){
   const code=e?.code;
+  // Deliberately expose only code-owned read stages to the authenticated owner.
+  const safeStages=new Set(['course_catalog','course_identity','course_entry',
+    'list_legacy','list_official','list_integrity']);
+  const stage=safeStages.has(e?.schoolReadStage)?e.schoolReadStage:null;
+  const safeError=(error,status)=>json(
+    stage?{error,readStage:stage}:{error},status);
   if(code==='session_expired'||code==='authorization_failed')
-   return json({error:'session_expired'},409);
-  if(code==='interactive_login_required')return json({error:code},409);
-  if(code==='not_found')return json({error:'not_found'},404);
+   return safeError('session_expired',409);
+  if(code==='interactive_login_required')return safeError(code,409);
+  if(code==='not_found')return safeError('not_found',404);
   if(code==='work_not_available'||code==='courses_unverified'||
      code==='work_list_incomplete'||code==='invalid_response')
-   return json({error:code},422);
+   return safeError(code,422);
   if(code==='not_configured'||code==='database_unavailable')
-   return json({error:code},503);
-  return json({error:'upstream_unavailable'},502);
+   return safeError(code,503);
+  return safeError('upstream_unavailable',502);
  }
 }

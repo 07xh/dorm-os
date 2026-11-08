@@ -294,8 +294,317 @@ const redirectReader=await redirected.forSession({session,userId:'owner1'});
 await redirectReader.verifySession();
 assert.equal((await redirectReader.readHomeworkList(
  {courseId:'123',classId:'456',cpi:'789'})).items.length,1);
+
+// Regression: a documented newer official work-list path can expose completed
+// homework for a course whose legacy /mooc2/work/list page is malformed.
+// Both requests MUST use the already verified owner and the same course IDs.
+const officialAltPath='/mooc-ans/mooc2/work/list';
+const alternateCalls=[];
+const legacyBroken=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+ const u=new URL(raw);
+ if(u.pathname==='/base')return response(profile);
+ if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(u.pathname==='/visit/stucoursemiddle')return response(workOnly);
+ if(u.pathname==='/mooc2/work/list'){
+  alternateCalls.push('legacy');
+  return response('<html><body>无数据</body></html>');
+ }
+ if(u.pathname===officialAltPath){
+  alternateCalls.push('official');
+  assert.equal(u.hostname,'mooc1.chaoxing.com');
+  assert.equal(u.searchParams.get('courseId'),'123');
+  assert.equal(u.searchParams.get('classId'),'456');
+  assert.equal(u.searchParams.get('cpi'),'789');
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  assert.equal(options.method,'GET');
+  return response('<ul>'+row('930','Python 实验报告一','已完成')+
+    row('931','Python 实验报告二','待批阅')+'</ul>');
+ }
+ throw Error('unexpected route '+u.pathname);
+}});
+const legacyReader=await legacyBroken.forSession({session,userId:'owner1'});
+await legacyReader.verifySession();
+const recovered=await legacyReader.readHomeworkList(courseKeys);
+assert.deepEqual(alternateCalls,['legacy','official']);
+assert.deepEqual(recovered.items.map(x=>[x.workId,x.statusCode]),[
+ ['930','submitted'],['931','submitted']]);
+assert.ok(recovered.items.every(x=>x.platformVerified));
+assert.ok(!JSON.stringify(recovered).includes('signedTask'));
+assert.equal(recovered.verifiedEmpty,false);
+
+// Some signed-in courses use the compact official /mooc-ans/ work-list
+// query. Legacy-only ut/stuenc/openc/isdisplaytable/t may produce a shell.
+// Retry the documented compact request once, never for identity/login failures.
+const compactCalls=[];
+const compactOnly=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw),path=u.pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>无数据</body>');
+ if(path===officialAltPath){
+  const keys=[...u.searchParams.keys()].sort();
+  compactCalls.push(keys);
+  if(keys.join(',')!=='classId,courseId,cpi,enc,pageNum')
+   return new Response('<body>旧参数不兼容</body>',{status:400});
+  assert.equal(u.searchParams.get('courseId'),'123');
+  assert.equal(u.searchParams.get('classId'),'456');
+  assert.equal(u.searchParams.get('cpi'),'789');
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  return response('<ul>'+row('940','Python 作业一','待批阅')+
+    row('941','Python 作业二','已完成')+'</ul>');
+ }
+ throw Error('unexpected route '+path);
+}});
+const compactReader=await compactOnly.forSession({session,userId:'owner1'});
+await compactReader.verifySession();
+const compactWorks=await compactReader.readHomeworkList(courseKeys);
+assert.deepEqual(compactCalls.map(keys=>keys.includes('ut')), [true,false]);
+assert.deepEqual(compactWorks.items.map(x=>[x.workId,x.statusCode]),
+ [['940','submitted'],['941','submitted']]);
+assert.ok(!JSON.stringify(compactWorks).includes('signedWork'));
+
+// A broken response under BOTH query shapes must not create fake zero work,
+// alter trusted statuses or downgrade an actual official authorization failure.
+const compactBroken=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw),path=u.pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>无数据</body>');
+ if(path===officialAltPath)return response('<body>未验证的页面空壳</body>');
+ throw Error('unexpected route '+path);
+}});
+const compactBrokenReader=await compactBroken.forSession({session,userId:'owner1'});
+await compactBrokenReader.verifySession();
+await assert.rejects(()=>compactBrokenReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available'&&e.schoolReadStage==='list_official');
+
+// A verified "no work" banner from the obsolete route is not proof that the
+// newer official route also has no homework.
+const obsoleteEmpty=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response('<body>暂无作业</body>');
+ if(path===officialAltPath)return response('<ul>'+row('932','报告','已批阅')+'</ul>');
+ throw Error('unexpected route '+path);
+}});
+const emptyReader=await obsoleteEmpty.forSession({session,userId:'owner1'});
+await emptyReader.verifySession();
+assert.equal((await emptyReader.readHomeworkList(courseKeys)).items[0].statusCode,'graded');
+
+// Old-route data must remain authoritative when fully verified, never union
+// unrelated pages or double count a work ID in two endpoint responses.
+let mustNotCallAlternate=false;
+const legacyWorking=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return response(workHtml);
+ if(path===officialAltPath){mustNotCallAlternate=true;throw Error('wrong route');}
+ throw Error('unexpected route '+path);
+}});
+const workingReader=await legacyWorking.forSession({session,userId:'owner1'});
+await workingReader.verifySession();
+assert.equal((await workingReader.readHomeworkList(courseKeys)).items.length,1);
+assert.equal(mustNotCallAlternate,false);
+
+// A login redirect is an authorization failure and must never cause a second
+// work-list probe under the same expired session, even if a fake fixture says
+// a newer route would contain assignments.
+let authAltRequested=0;
+const expiredLegacy=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list')return loginRedirect();
+ if(path===officialAltPath){authAltRequested++;return response(workHtml);}
+ if(path==='/login')return response('<html>login</html>');
+ throw Error('unexpected route '+path);
+}});
+const expiredReader=await expiredLegacy.forSession({session,userId:'owner1'});
+await expiredReader.verifySession();
+await assert.rejects(()=>expiredReader.readHomeworkList(courseKeys),
+ e=>e.code==='authorization_failed');
+assert.equal(authAltRequested,0);
+
+// Both routes being unusable never creates an empty trusted sync response.
+const bothMissing=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path===officialAltPath)
+  return response('<body>登录页面以外的空壳</body>');
+ throw Error('unexpected route '+path);
+}});
+const missingReader=await bothMissing.forSession({session,userId:'owner1'});
+await missingReader.verifySession();
+await assert.rejects(()=>missingReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available');
+
+// Diagnostic stage codes identify failing official read phases; no token,
+// raw HTML or URL may be echoed to the caller.
+const stageMiddle=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response('<body>no workEnc</body>');
+ throw Error('unexpected route '+path);
+}});
+const stageMiddleReader=await stageMiddle.forSession({session,userId:'owner1'});
+await stageMiddleReader.verifySession();
+await assert.rejects(()=>stageMiddleReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_not_available'&&e.schoolReadStage==='course_entry');
+
+const stageBothMissing=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path==='/mooc-ans/mooc2/work/list')
+  return response('<body>无数据</body>');
+ throw Error('unexpected route '+path);
+}});
+const stageBothReader=await stageBothMissing.forSession({session,userId:'owner1'});
+await stageBothReader.verifySession();
+await assert.rejects(()=>stageBothReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_not_available'&&e.schoolReadStage==='list_official');
+const stageCount=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path==='/mooc-ans/mooc2/work/list')
+  return response('<div><div><span>1/2</span></div></div>'+workHtml);
+ throw Error('unexpected route '+path);
+}});
+const stageCountReader=await stageCount.forSession({session,userId:'owner1'});
+await stageCountReader.verifySession();
+await assert.rejects(()=>stageCountReader.readHomeworkList(courseKeys),e=>
+ e.code==='work_list_incomplete'&&e.schoolReadStage==='list_integrity');
+
+// Reference mobile client's scanCourses reads .bottomList li[data] from the
+// signed-in owner's course entry. This path does not require workEnc.
+const embeddedHtml='<section class="bottomList"><ul>'+
+ row('950','Python 程序实验报告一','已完成')+
+ row('951','工程制图 第五次作业','待批阅')+
+ '</ul></section>';
+const embeddedParsed=parseChaoxingWorkList(
+ '<li data="https://example.com/bad"><p class="overHidden2">其他页条目</p></li>'+
+ embeddedHtml,courseKeys,{embedded:true});
+assert.deepEqual(embeddedParsed.items.map(x=>x.workId),['950','951']);
+assert.equal(embeddedParsed.totalPages,1);
+let embeddedListRequests=0;
+const entryOnly=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(embeddedHtml);
+ if(path.includes('/work/list')){embeddedListRequests++;throw Error('unexpected list fetch');}
+ throw Error('unexpected route '+path);
+}});
+const entryOnlyReader=await entryOnly.forSession({session,userId:'owner1'});
+await entryOnlyReader.verifySession();
+const embeddedStatus=await entryOnlyReader.readHomeworkList(courseKeys);
+assert.equal(embeddedStatus.items.length,2);
+assert.deepEqual(embeddedStatus.items.map(x=>x.statusCode),['submitted','submitted']);
+assert.equal(embeddedStatus.progress,null);
+assert.equal(embeddedStatus.items.every(x=>x.platformVerified),true);
+assert.equal(embeddedListRequests,0,'entry-page source needs no fabricated workEnc');
+
+// With a signed list route available, prefer its verified result; the
+// embedded panel is only a fallback when the official list is inaccessible.
+const entryAndList=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')
+  return response(middle+embeddedHtml);
+ if(path==='/mooc2/work/list')return response(workHtml);
+ if(path==='/mooc-ans/mooc2/work/list')throw Error('alternative route was not needed');
+ throw Error('unexpected route '+path);
+}});
+const entryAndListReader=await entryAndList.forSession({session,userId:'owner1'});
+await entryAndListReader.verifySession();
+assert.deepEqual((await entryAndListReader.readHomeworkList(courseKeys))
+ .items.map(x=>x.workId),['987']);
+
+// No assignment in the owner's verified course panel must not be treated as
+// evidence that a failed signed listing is empty.
+const fakePanel=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')
+  return response('<section class="bottomList"><p>课程目录</p></section>');
+ throw Error('unexpected route '+path);
+}});
+const fakePanelReader=await fakePanel.forSession({session,userId:'owner1'});
+await fakePanelReader.verifySession();
+await assert.rejects(()=>fakePanelReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available'&&e.schoolReadStage==='course_entry');
+console.log('Chaoxing signed-in course-entry embedded homework fallback passed');
+
+console.log('Chaoxing safe course-entry, list-endpoint and count-failure stages passed');
+
+console.log('Chaoxing verified alternate work-list route and completed state fallback passed');
+
 console.log('Chaoxing legacy/modern owner-verified course token variants passed');
 
 console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
 
 console.log('Chaoxing review: login-redirect and challenge-title regressions passed');
+
+// Reference CourseEntry follows the actual official link and its signed query,
+// rather than manufacturing a work/list request from workEnc alone.
+const actualEntryPath='/mooc-ans/mooc2/work/list';
+const actualEntryQuery='courseId=123&classId=456&cpi=789&enc=entryToken&t=1700000000123&customView=owner';
+for(const tag of [
+ '<a data-url="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>',
+ '<iframe src="https://mooc1.chaoxing.com'+actualEntryPath+'?'+actualEntryQuery+'"></iframe>',
+ '<a href="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>'
+]) {
+ const seen=[];
+ const reader=await createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+  const u=new URL(raw);seen.push(u);
+  if(u.pathname==='/base')return response(profile);
+  if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+  if(u.pathname==='/visit/stucoursemiddle')return response(tag);
+  if(u.pathname===actualEntryPath){
+   assert.equal(u.searchParams.get('enc'),'entryToken');
+   assert.equal(u.searchParams.get('t'),'1700000000123');
+   assert.equal(u.searchParams.get('customView'),'owner');
+   return response(workHtml);
+  }
+  throw Error('must use course-owned entry, not synthesized legacy path');
+ }}).forSession({session:structuredClone(session),userId:'owner1'});
+ await reader.verifySession();
+ const result=await reader.readHomeworkList(courseKeys);
+ assert.equal(result.items[0].workId,'987');
+ assert.equal(seen.filter(u=>u.pathname.includes('/work/list')).length,1);
+ assert.ok(!JSON.stringify(result).includes('entryToken'));
+}
+console.log('Chaoxing reference course-owned work entry regression passed');
+
+const {parseChaoxingCourseWorkEntry}=await import('../lib/academic-chaoxing-work-discovery.mjs');
+for(const url of [
+ 'https://evil.example/mooc2/work/list?'+actualEntryQuery,
+ 'https://mooc1.chaoxing.com:444/mooc2/work/list?'+actualEntryQuery,
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery+'&courseId=999',
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery.replace('classId=456','classId=999'),
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery+'&enc=other',
+])assert.throws(()=>parseChaoxingCourseWorkEntry('<a data-url="'+url+'">作业</a>',courseKeys),
+ e=>['invalid_response','authorization_failed'].includes(e.code));
+const filledEntry=parseChaoxingCourseWorkEntry(middle+'<input id="t" value="1700000000123">'+
+ '<a data-url="/mooc2/work/list?courseId=123&classId=456&cpi=789&enc=old">作业</a>',courseKeys);
+assert.equal(new URL(filledEntry).searchParams.get('enc'),'signedWork');
+assert.equal(new URL(filledEntry).searchParams.get('t'),'1700000000123');
+assert.throws(()=>parseChaoxingCourseWorkEntry('<input id="courseid" value="999">'+
+ '<a data-url="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>',courseKeys),
+ e=>e.code==='authorization_failed');
+console.log('Chaoxing actual-entry ownership, URL and hidden-identity guards passed');

@@ -1404,7 +1404,7 @@ assert.match(localNative, /currentCoroutineContext\(\)\.ensureActive\(\)/);
 assert.match(localNative, /extract\.isEnabled = loaded && !pageFailed &&/);
 assert.match(localNative, /extractionAllowed\(provider, browser\.url\)/);
 assert.match(localNative, /handler\.cancel\(\)/);
-assert.match(localNative, /setAcceptThirdPartyCookies\(this, false\)/);
+assert.match(localNative, /setAcceptThirdPartyCookies\(this, provider == "chaoxing"\)/);
 assert.match(localNative, /mixedContentMode = WebSettings\.MIXED_CONTENT_NEVER_ALLOW/);
 assert.match(localNative, /browser\.evaluateJavascript\(READ_VISIBLE_PAGE\)/);
 assert.match(localNative, /replaceKind\(provider, kind, accepted\)/);
