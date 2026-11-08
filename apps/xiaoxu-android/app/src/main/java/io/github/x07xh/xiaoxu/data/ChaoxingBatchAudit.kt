@@ -64,6 +64,35 @@ fun summarizeChaoxingAudit(
             audit.size == totalCourses &&
             audit.map { it.courseKey }.distinct().size == totalCourses &&
             countVerified == totalCourses &&
-            taskLedgerFresh
+            taskLedgerFresh &&
+            // Complete list coverage does not prove every official status is known.
+            work.none { it.statusCode == "unknown" }
     )
+}
+
+/** Source-only view of the user's latest authorized course audit.
+ * This deliberately never merges with unverified historical task names.
+ * Filtering happens before UI pagination, so a completed task after row 30
+ * remains discoverable without expanding thousands of unrelated entries.
+ */
+internal fun selectChaoxingHomeworkRows(
+    audits: List<ChaoxingCourseAudit>,
+    statusFilter: String
+): List<Pair<ChaoxingCourseAudit, ChaoxingHomework>> {
+    require(statusFilter in setOf("all", "completed", "actionable", "unknown"))
+    return audits.asSequence()
+        .filter { it.coverage in setOf(
+            ChaoxingCourseCoverage.COUNT_VERIFIED, ChaoxingCourseCoverage.LIST_ONLY
+        ) }
+        .flatMap { course ->
+            course.homework.asSequence()
+                .filter { work ->
+                    when (statusFilter) {
+                        "completed" -> work.statusCode in setOf("submitted", "graded")
+                        "actionable" -> work.statusCode in setOf("todo", "returned")
+                        "unknown" -> work.statusCode == "unknown"
+                        else -> true
+                    }
+                }.map { course to it }
+        }.toList()
 }

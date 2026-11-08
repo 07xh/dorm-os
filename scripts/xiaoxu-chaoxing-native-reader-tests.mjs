@@ -30,7 +30,10 @@ const main = readFileSync(
 );
 assert.match(records, /@Transaction\s+suspend fun appendKind\(/);
 assert.match(records, /require\(provider == "chaoxing" && kind in setOf\("course", "homework"\)\)/);
-assert.match(records, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
+assert.match(records, /require\(rows\.isNotEmpty\(\) && rows\.size <= 200\)/);
+assert.match(records, /val pageLimit = if \(provider == "chaoxing"\) 200 else 120/);
+assert.match(native, /const MAX_RECORDS = 200/);
+assert.match(native, /items\.length\(\) !in 1\.\.200/);
 assert.match(records, /require\(keys\.size <= 500\)/);
 assert.match(records, /insertAll\(rows\)\s+return keys\.size/);
 assert.match(main, /count in 1\.\.500/);
@@ -53,7 +56,7 @@ function runReader({ host, path, tables = [], tasks = [], courses = [] }) {
     querySelectorAll(selector) {
       if (selector === 'iframe') return [];
       if (selector === 'table') return tables;
-      if (selector === 'li[onclick*="goTask"]') return tasks;
+      if (selector === 'li[data]') return tasks;
       if (selector.startsWith('.course-name[title]')) return courses;
       return [];
     }
@@ -68,19 +71,19 @@ const workRow = i => ['作业 ' + i, i % 2 ? '已提交' : '未提交', '高等�
 const makeWorkTable = count => tableOf(
   ['作业名称', '状态', '课程名称'], Array.from({ length: count }, (_,i) => workRow(i+1))
 );
-const normal = runReader({ host: homeworkHost, path: homeworkPath, tables: [makeWorkTable(120)] });
+const normal = runReader({ host: homeworkHost, path: homeworkPath, tables: [makeWorkTable(200)] });
 assert.equal(normal.kind, 'homework');
-assert.equal(normal.records.length, 120);
-assert.equal(normal.records[119].title, '作业 120');
+assert.equal(normal.records.length, 200);
+assert.equal(normal.records[199].title, '作业 200');
 assert.equal(normal.truncated, undefined);
 
-const tooMany = runReader({ host: homeworkHost, path: homeworkPath, tables: [makeWorkTable(121)] });
+const tooMany = runReader({ host: homeworkHost, path: homeworkPath, tables: [makeWorkTable(201)] });
 assert.equal(tooMany.truncated, true);
 assert.equal(tooMany.records.length, 0, 'partial results must never replace saved records');
 
-// Multiple valid tables must be counted together, not silently stop at the first 120.
+// Multiple valid tables must be counted together, not silently stop at 200.
 const split = runReader({ host: homeworkHost, path: homeworkPath,
-  tables: [makeWorkTable(70), makeWorkTable(51)] });
+  tables: [makeWorkTable(140), makeWorkTable(61)] });
 assert.equal(split.truncated, true);
 assert.equal(split.records.length, 0);
 
@@ -130,21 +133,29 @@ const courseList = runReader({ host: courseHost, path: coursePath,
 assert.equal(courseList.kind, 'course');
 assert.deepEqual(Array.from(courseList.records, r=>r.title), ['高等数学', '大学英语']);
 const largeCourseList = runReader({ host: courseHost, path: coursePath,
-  courses: Array.from({length:121}, (_,i)=>courseNode('课程 '+i)) });
+  courses: Array.from({length:201}, (_,i)=>courseNode('课程 '+i)) });
 assert.equal(largeCourseList.truncated, true);
 assert.equal(largeCourseList.records.length, 0);
 
-const taskNode = title => ({
+const taskNode = (title, statusText = '未提交') => ({
   ...element(title),
   querySelector: selector => {
     if (selector.startsWith('p.overHidden2')) return element(title);
-    if (selector.startsWith('p.status')) return element('未提交');
+    if (selector.startsWith('p.status')) return element(statusText);
     return null;
   }
 });
 const workList = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list',
-  tasks: Array.from({length:121},(_,i)=>taskNode('实验报告 '+i)) });
+  tasks: Array.from({length:201},(_,i)=>taskNode('实验报告 '+i)) });
 assert.equal(workList.truncated, true);
 assert.equal(workList.records.length, 0);
+
+// The authorized official list may omit onclick for already-completed rows.
+// Import only visible status text; never expose the signed li[data] URL.
+const completedWork = runReader({ host: 'mooc1.chaoxing.com', path: '/mooc2/work/list',
+  tasks: [taskNode('期末实验报告', '已完成')] });
+assert.equal(completedWork.kind, 'homework');
+assert.equal(completedWork.records.length, 1);
+assert.match(completedWork.records[0].details, /已完成/);
 
 console.log('xiaoxu chaoxing native visible-reader tests passed');

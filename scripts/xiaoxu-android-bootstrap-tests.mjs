@@ -407,7 +407,7 @@ assert.match(workspace, /title = "学习通作业"/,
   '官方作业读取入口必须直接出现在真实任务页');
 assert.match(workspace, /state\.chaoxingBatchCheckedAt != null -> "部分已读取"/,
   '学习通部分读取不得冒充全部课程已核验');
-assert.match(workspace, /auditSummary\.fullyCoveredAndRefreshed -> "已核对当前课程列表"/,
+assert.match(workspace, /auditReady -> "已核对当前课程列表"/,
   '只有证据完整且刷新成功才显示当前课程列表核验状态');
 assert.match(workspace, /title = "本机读取",\s*count = capturedHomework\.size/,
   '本机页面记录需保留入口及真实数量');
@@ -415,6 +415,12 @@ assert.doesNotMatch(workspace, /title = "学习通与本机页面快照"/,
   '正式任务首页不得继续显示面向开发的旧卡片标题');
 assert.match(workspace, /summarizeChaoxingAudit\(state\.chaoxingBatchAudit/,
   '任务页报告必须从真实逐门证据计算，禁止手填演示课程');
+assert.match(workspace, /selectChaoxingHomeworkRows\(state\.chaoxingBatchAudit, officialHomeworkFilter\)/,
+  '官方已提交/已批阅必须能跨课程按状态筛选，不能埋在前30条之后');
+assert.match(workspace, /chaoxingBatchEvidenceReconciled\(auditSummary, auditLedger\)/,
+  '云端状态未逐条匹配不许显示全部核对完成');
+assert.match(cloud, /chaoxingBatchEvidenceReconciled\(summary, comparison\)/,
+  '批量同步文案必须同时核对可信状态与云端落库');
 assert.match(workspace, /if \(showAllOfficialHomework\) officialRows\.size/,
   '用户必须可以展开全部已读取作业而非静默只展示前30项');
 assert.doesNotMatch(coursePanel, /其他记录请在校序任务列表查看/,
@@ -1408,7 +1414,11 @@ assert.match(localNative, /replaceKind\(provider, kind, accepted\)/);
 assert.match(localNative, /LocalTaskDatabase\.open\(applicationContext\)/);
 assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
-assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 120\)/);
+assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= 200\)/,
+  'Chaoxing visible-page append must match the new 200-row reader limit');
+assert.match(nativeRecords, /val pageLimit = if \(provider == "chaoxing"\) 200 else 120/,
+  'Non-Chaoxing local readers must retain their original 120-row bound');
+assert.match(nativeRecords, /require\(rows\.isNotEmpty\(\) && rows\.size <= pageLimit\)/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
 assert.match(appGradle, /versionName '0\.8\.11-rc\.1'/, '校序整合 RC 必须使用明确的 0.8.11-rc.1 版本名');
@@ -1420,7 +1430,10 @@ assert.match(localNative, /CHAOXING_HOMEWORK/);
 assert.match(localNative, /"学习通 · 打开我的作业"/);
 assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
 assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
-assert.match(localNative, /li\[onclick\*="goTask"\]/);
+assert.match(localNative, /li\[data\]/,
+ '已完成作业即使没有 goTask 点击处理器也能读出标题与状态');
+assert.doesNotMatch(localNative, /li\[onclick\*="goTask"\]/,
+ '旧 onclick-only 选择器不得重新引入');
 assert.match(localNative, /p\.overHidden2\.fl/);
 assert.match(localNative, /p\.status\.fl/);
 assert.match(localNative, /foundKind === 'homework'/);
@@ -1436,7 +1449,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
       querySelectorAll(selector) {
         if(selector==='iframe')return [];
         if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
-        if(selector==='li[onclick*="goTask"]')return li;
+        if(selector==='li[data]')return li;
         if(selector.includes('.course-name'))return courses;
         return [];
       }
@@ -1461,6 +1474,18 @@ assert.equal(workResult.kind,'homework');
 assert.equal(workResult.records.length,1);
 assert.equal(workResult.records[0].title,'工程制图 第三次作业');
 assert.match(workResult.records[0].details,/未提交/);
+const completedWorkLi=visible({
+  querySelector(sel) {
+    if(sel==='p.overHidden2.fl')return {innerText:'工程制图 已完成作业'};
+    if(sel==='p.status.fl')return {innerText:'已完成'};
+    return null;
+  }
+});
+const completedWorkResult=parseNativePage(fixtureDocument({li:[completedWorkLi]}),
+ 'mooc1.chaoxing.com','/mooc2/work/list');
+assert.equal(completedWorkResult.records.length,1,
+ '没有 onclick 的已完成记录不能被本机 DOM 筛掉');
+assert.match(completedWorkResult.records[0].details,/已完成/);
 assert.ok(!JSON.stringify(workResult).includes('workEnc'));
 const courseTitle=visible({getAttribute(key){return key==='title'?'高等数学':null;},innerText:'高等数学'});
 const courseResult=parseNativePage(fixtureDocument({courses:[courseTitle]}),

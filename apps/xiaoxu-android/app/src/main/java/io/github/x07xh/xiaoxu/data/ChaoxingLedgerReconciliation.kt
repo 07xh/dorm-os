@@ -84,3 +84,12 @@ fun reconcileChaoxingLedger(
         ledgerFresh = ledgerFresh
     )
 }
+
+/** Full coverage must also match each official source ID and status in a
+ * freshly read D1 ledger. A successful GET alone cannot prove persistence.
+ */
+internal fun chaoxingBatchEvidenceReconciled(
+    summary: ChaoxingAuditSummary,
+    ledger: ChaoxingLedgerReconciliation
+): Boolean = summary.fullyCoveredAndRefreshed &&
+    ledger.ledgerFresh && ledger.missingFromLedger == 0

@@ -17,17 +17,17 @@ class ChaoxingBatchAuditTest {
             course("101:1:1", ChaoxingCourseCoverage.COUNT_VERIFIED,
                 listOf(work("1", "todo"), work("2", "submitted"))),
             course("102:1:2", ChaoxingCourseCoverage.COUNT_VERIFIED,
-                listOf(work("3", "graded"), work("4", "returned"), work("5", "unknown")))
+                listOf(work("3", "graded"), work("4", "returned"), work("5", "submitted")))
         )
         val report = summarizeChaoxingAudit(audits, 2, taskLedgerFresh = true)
         assertTrue(report.fullyCoveredAndRefreshed)
         assertEquals(2, report.countVerifiedCourses)
         assertEquals(5, report.verifiedWorkRows)
         assertEquals(1, report.statuses["todo"])
-        assertEquals(1, report.statuses["submitted"])
+        assertEquals(2, report.statuses["submitted"])
         assertEquals(1, report.statuses["graded"])
         assertEquals(1, report.statuses["returned"])
-        assertEquals(1, report.statuses["unknown"])
+        assertEquals(null, report.statuses["unknown"])
         assertFalse(summarizeChaoxingAudit(audits, 2, false).fullyCoveredAndRefreshed)
     }
 
@@ -76,5 +76,39 @@ class ChaoxingBatchAuditTest {
                 listOf(ChaoxingHomework("2", "未知", "submitted", false, "")))
             throw AssertionError("unverified school row must not enter audit")
         } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun viewFilterFindsCompletedAcrossAllCoursesWithoutGuessingMissingRows() {
+        val audits = listOf(
+            course("101", ChaoxingCourseCoverage.COUNT_VERIFIED,
+                listOf(work("1", "todo"), work("2", "submitted"))),
+            course("102", ChaoxingCourseCoverage.LIST_ONLY,
+                listOf(work("3", "graded"), work("4", "returned"), work("5", "unknown"))),
+            course("103", ChaoxingCourseCoverage.FAILED)
+        )
+        assertEquals(listOf("2", "3"), selectChaoxingHomeworkRows(audits, "completed")
+            .map { it.second.workId })
+        assertEquals(listOf("1", "4"), selectChaoxingHomeworkRows(audits, "actionable")
+            .map { it.second.workId })
+        assertEquals(listOf("5"), selectChaoxingHomeworkRows(audits, "unknown")
+            .map { it.second.workId })
+        assertEquals(5, selectChaoxingHomeworkRows(audits, "all").size)
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            selectChaoxingHomeworkRows(audits, "invented")
+        }
+    }
+
+    @Test fun unknownOfficialStatusPreventsClaimingAllSubmissionStatesVerified() {
+        val audits = listOf(course("101:1:1", ChaoxingCourseCoverage.COUNT_VERIFIED,
+            listOf(work("1", "submitted"), work("2", "unknown"))))
+        val report = summarizeChaoxingAudit(audits, totalCourses = 1, taskLedgerFresh = true)
+        assertEquals(1, report.countVerifiedCourses)
+        assertEquals(2, report.verifiedWorkRows)
+        assertEquals(1, report.statuses["unknown"])
+        assertFalse(report.fullyCoveredAndRefreshed)
+        assertTrue(summarizeChaoxingAudit(listOf(
+            course("101:1:1", ChaoxingCourseCoverage.COUNT_VERIFIED,
+                listOf(work("1", "submitted"), work("2", "graded")))
+        ), totalCourses = 1, taskLedgerFresh = true).fullyCoveredAndRefreshed)
     }
 }

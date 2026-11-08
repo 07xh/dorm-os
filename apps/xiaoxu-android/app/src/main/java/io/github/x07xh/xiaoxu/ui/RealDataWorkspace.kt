@@ -86,6 +86,8 @@ import androidx.compose.ui.unit.sp
 import io.github.x07xh.xiaoxu.data.ChaoxingCourseCoverage
 import io.github.x07xh.xiaoxu.data.summarizeChaoxingAudit
 import io.github.x07xh.xiaoxu.data.reconcileChaoxingLedger
+import io.github.x07xh.xiaoxu.data.chaoxingBatchEvidenceReconciled
+import io.github.x07xh.xiaoxu.data.selectChaoxingHomeworkRows
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
 import io.github.x07xh.xiaoxu.data.CloudTask
@@ -864,9 +866,11 @@ fun RealAcademicTaskHub(
     // Reading or refreshing official data never expands this group on its own.
     // Preserve a deliberate user toggle across ordinary UI recomposition.
     var showOfficialAudit by rememberSaveable { mutableStateOf(false) }
-    var showAllOfficialHomework by rememberSaveable(state.chaoxingBatchCheckedAt) {
-        mutableStateOf(false)
+    var officialHomeworkFilter by rememberSaveable(state.chaoxingBatchCheckedAt) {
+        mutableStateOf("all")
     }
+    var showAllOfficialHomework by rememberSaveable(state.chaoxingBatchCheckedAt,
+        officialHomeworkFilter) { mutableStateOf(false) }
     val auditSummary = remember(state.chaoxingBatchAudit, state.chaoxingCourses,
         state.chaoxingBatchTaskLedgerFresh) {
         summarizeChaoxingAudit(state.chaoxingBatchAudit, state.chaoxingCourses.size,
@@ -877,10 +881,11 @@ fun RealAcademicTaskHub(
         reconcileChaoxingLedger(state.chaoxingBatchAudit, state.tasks,
             state.chaoxingBatchTaskLedgerFresh)
     }
-    val officialRows = remember(state.chaoxingBatchAudit) {
-        state.chaoxingBatchAudit.flatMap { course ->
-            course.homework.map { work -> course to work }
-        }
+    val auditReady = remember(auditSummary, auditLedger) {
+        chaoxingBatchEvidenceReconciled(auditSummary, auditLedger)
+    }
+    val officialRows = remember(state.chaoxingBatchAudit, officialHomeworkFilter) {
+        selectChaoxingHomeworkRows(state.chaoxingBatchAudit, officialHomeworkFilter)
     }
     var showLocal by rememberSaveable { mutableStateOf(false) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
@@ -1352,7 +1357,7 @@ fun RealAcademicTaskHub(
                 count = auditSummary.verifiedWorkRows,
                 badge = when {
                     state.chaoxingBatchBusy -> "读取中"
-                    auditSummary.fullyCoveredAndRefreshed -> "已核对当前课程列表"
+                    auditReady -> "已核对当前课程列表"
                     state.chaoxingBatchCheckedAt != null -> "部分已读取"
                     else -> "未读取"
                 },
@@ -1423,11 +1428,14 @@ fun RealAcademicTaskHub(
                             color = XiaoxuPalette.Ink2
                         )
                         Text(
-                            if (auditSummary.fullyCoveredAndRefreshed)
-                                "已核对所列课程的当前作业列表；仍需与学习通官网核对是否遗漏其他类别。"
+                            if (auditReady)
+                                "已核对所列课程作业与云端状态；仍需与本人学习通官网对照是否存在其他类别。"
+                            else if (auditSummary.fullyCoveredAndRefreshed &&
+                                auditLedger.missingFromLedger != 0)
+                                "官网作业条数已核对，但部分官方状态未与云端任务匹配，不可标记整体核验完成。"
                             else "本次尚不能确认全部作业覆盖；不以缺失、失败或未检查记录推定已完成。",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (auditSummary.fullyCoveredAndRefreshed)
+                            color = if (auditReady)
                                 XiaoxuPalette.Success else XiaoxuPalette.Warning
                         )
                         if (auditLedger.ledgerFresh) {
@@ -1512,6 +1520,36 @@ fun RealAcademicTaskHub(
                     }
                 }
             }
+            if (auditSummary.verifiedWorkRows > 0) {
+                item {
+                    LazyRow(
+                        modifier = Modifier.padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "all" to "全部",
+                            "completed" to "已提交／已批阅",
+                            "actionable" to "未提交／已退回",
+                            "unknown" to "状态未知"
+                        ).forEach { (key, label) ->
+                            item(key = "cx-status-filter:$key") {
+                                FilterChip(
+                                    selected = officialHomeworkFilter == key,
+                                    onClick = { officialHomeworkFilter = key },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (officialRows.isEmpty() && auditSummary.verifiedWorkRows > 0) {
+                item {
+                    Text("本次官方读取没有符合当前筛选的作业。",
+                        modifier = Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+                }
+            }
             if (officialRows.isNotEmpty()) {
                 item {
                     Text("逐项官方状态（本次本人会话读取） · 显示 " +
@@ -1531,7 +1569,7 @@ fun RealAcademicTaskHub(
                     val (course, work) = officialRows[i]
                     val status = when (work.statusCode) {
                         "todo" -> "官方：未提交"
-                        "submitted" -> "官方：已提交／待批阅"
+                        "submitted" -> "官方：已提交／已完成"
                         "graded" -> "官方：已批阅"
                         "returned" -> "官方：已退回"
                         else -> "官方：状态未知"
@@ -1544,9 +1582,12 @@ fun RealAcademicTaskHub(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XiaoxuPalette.Ink2)
                             Text(status, style = MaterialTheme.typography.labelSmall,
-                                color = if (work.statusCode == "todo")
+                                color = if (work.statusCode in setOf("todo", "returned", "unknown"))
                                     XiaoxuPalette.Warning else XiaoxuPalette.Brand)
                         }
+                        Text("官网状态原文：" + work.statusText.ifBlank { "未返回明确文字" },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
                     }
                 }
                 if (officialRows.size > 30) {

@@ -525,7 +525,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val payload = JSONObject(decoded)
                 if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
                 if (payload.optBoolean("truncated")) {
-                    tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
+                    tell("当前页面超过 200 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
                     return@evaluateJavascript
                 }
                 val kind = payload.optString("kind")
@@ -536,7 +536,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 if (kind !in kinds) throw IllegalArgumentException("unknown kind")
                 val items = payload.getJSONArray("records")
-                if (items.length() !in 1..120) throw IllegalArgumentException("no trusted rows")
+                if (items.length() !in 1..200) throw IllegalArgumentException("no trusted rows")
                 val now = System.currentTimeMillis()
                 val accepted = mutableListOf<NativeSchoolRecord>()
                 val keys = mutableSetOf<String>()
@@ -764,7 +764,7 @@ private const val READ_VISIBLE_PAGE = """
   const onScreen = node => !!(node && node.getClientRects().length);
   const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
   // A partial snapshot must never replace previously saved personal records.
-  const MAX_RECORDS = 120;
+  const MAX_RECORDS = 200;
   // Bound DOM traversal, but never silently drop tables beyond an arbitrary prefix.
   const MAX_TABLES = 200;
   let visibleTables = 0;
@@ -828,18 +828,19 @@ private const val READ_VISIBLE_PAGE = """
   }
   if (!rows.length && provider === 'chaoxing' &&
       host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
-    // Mirror the already-tested FIRST-PARTY backend list evidence: each
-    // visible li[onclick*=goTask] has title p.overHidden2 and status p.status.
-    // Never read the li "data" attribute: it may contain an auth token.
+    // A completed work row may omit goTask entirely. Inspect visible
+    // title/status nodes only; never access li[data]'s signed URL.
     for (const doc of docs) {
-      const tasks = doc.querySelectorAll('li[onclick*="goTask"]');
+      const tasks = doc.querySelectorAll('li[data]');
       for (const li of Array.from(tasks)) {
         if (!onScreen(li)) continue;
         const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
-          li.querySelector('p.overHidden2')?.innerText).slice(0,100);
+          li.querySelector('p.overHidden2')?.innerText ||
+          li.querySelector('.overHidden2')?.innerText).slice(0,100);
         if (!title) continue;
         const status = clean(li.querySelector('p.status.fl')?.innerText ||
-          li.querySelector('p.status')?.innerText).slice(0,60);
+          li.querySelector('p.status')?.innerText ||
+          li.querySelector('.status')?.innerText).slice(0,60);
         rows.push({title,details: status ?
           '当前网页显示的状态：' + status : '网页未展示提交状态'});
         if (rows.length > MAX_RECORDS) break;
