@@ -11,6 +11,17 @@
   const reply = payload => JSON.stringify(payload);
   const url = new URL(location.href);
   if (url.protocol !== 'https:') return reply({error:'wrong_origin'});
+  if (url.hostname === 'i.chaoxing.com' && url.pathname === '/base') {
+    // School FID is a public numeric tenant identifier; no password, UID or
+    // browser cookie is read or returned.
+    let fid = '';
+    for (const node of Array.from(document.scripts || []).slice(0,80)) {
+      const source=String(node.textContent || '').slice(0,40000);
+      const match=source.match(/(?:var|let|const)\s+fid\s*=\s*["']?(\d{1,20})["']?/);
+      if (match) { fid=match[1]; break; }
+    }
+    return reply(number(fid)?{kind:'profile',fid}:{error:'school_identity'});
+  }
   if (url.hostname === 'mooc2-ans.chaoxing.com' &&
       url.pathname === '/mooc2-ans/visit/courselistdata') {
     const courses=[], seen=new Set();
@@ -35,7 +46,9 @@
     }
     return reply(courses.length?{kind:'courses',courses}:{error:'courses_unverified'});
   }
-  if (url.hostname !== 'mobilelearn.chaoxing.com' || url.pathname !== '/') {
+  // mobilelearn may redirect its homepage to another first-party path.
+  // The only API ever called remains the fixed read-only getData endpoint.
+  if (url.hostname !== 'mobilelearn.chaoxing.com') {
     return reply({error:'wrong_origin'});
   }
   const selected = window.__xiaoxuOwnedCourse;
