@@ -310,4 +310,82 @@ assert.deepEqual(Array.from(displayed.records,x=>x.title),
  fetched.data.records.map(x=>x.title));
 console.log('xiaoxu official on-device plan-group read and status mapping passed');
 
+
+// The previous shortcut was a bare studyPlanSubPage with no taskId.
+// Discovery must first obtain numeric course IDs, read task-engine summaries
+// from mobilelearn's own origin, then construct the official jumpStudyPlanList.
+assert.doesNotMatch(native,/CHAOXING_STUDY_TASKS\s*=/);
+assert.match(native,/startOwnerTaskDiscovery\(\)/);
+assert.match(native,/\/api\/v1\/middlePageApi\/jumpStudyPlanList/);
+assert.match(native,/captureStudyPlanGroups \{ success ->/);
+assert.match(native,/onSaved\?\.invoke\(true\)/);
+assert.match(native,/planFallbackTried/);
+const courseTaskScript = readFileSync(
+ 'apps/xiaoxu-android/app/src/main/assets/xiaoxu_chaoxing_course_task_discovery.js','utf8');
+assert.doesNotMatch(courseTaskScript,/document\.cookie|\.click\(|\.submit\(|getToStudyUrl/);
+const baseCourse=[
+ {href:'/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789',title:'Python 程序设计'},
+ {href:'/visit/stucoursemiddle?cpi=777&courseid=124&clazzid=457',title:'工程制图'}
+];
+const courseAnchors=baseCourse.map(({href,title})=>({
+ getAttribute:key=>key==='href'?href:null,
+ querySelector:key=>key==='.course-name'?{getAttribute:k=>k==='title'?title:null}:null,
+ parentElement:null
+}));
+const courseResult=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,location:{hostname:'mooc2-ans.chaoxing.com',
+  pathname:'/mooc2-ans/visit/courselistdata',
+  href:'https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata'},
+ document:{querySelectorAll:selector=>
+   selector==='a[href*="stucoursemiddle"]'?courseAnchors:[]}
+}));
+assert.equal(courseResult.kind,'courses');
+assert.deepEqual(courseResult.courses.map(c=>[c.courseId,c.classId,c.title]),[
+ ['123','456','Python 程序设计'],['124','457','工程制图']]);
+const fakeOutsideCourse={...courseAnchors[0],
+ getAttribute:()=> 'https://other.example/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789'};
+const spoofed=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,location:{hostname:'mooc2-ans.chaoxing.com',
+  pathname:'/mooc2-ans/visit/courselistdata',
+  href:'https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata'},
+ document:{querySelectorAll:()=>[fakeOutsideCourse]}
+}));
+assert.equal(spoofed.error,'courses_unverified');
+const ownerSession={__xiaoxuOwnedCourse:{courseId:'123',classId:'456'}};
+const seenCalls=[];
+const discovered=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,window:ownerSession,
+ location:{hostname:'mobilelearn.chaoxing.com',pathname:'/',
+  href:'https://mobilelearn.chaoxing.com/'},
+ fetch:async (raw,opts)=>{
+   const url=new URL(raw,'https://mobilelearn.chaoxing.com');
+   seenCalls.push(url);
+   assert.equal(url.hostname,'mobilelearn.chaoxing.com');
+   assert.equal(url.pathname,'/v2/apis/active/getData');
+   assert.equal(url.searchParams.get('courseId'),'123');
+   assert.equal(url.searchParams.get('classId'),'456');
+   assert.equal(opts.credentials,'same-origin');
+   assert.equal(opts.method,'GET');
+   return {ok:true,text:async()=>JSON.stringify({
+     data:[{id:4321,name:'Python 课程任务',planCount:3},
+           {id:4322,name:'实验报告',planCount:4}]
+   })};
+ }
+}));
+assert.equal(discovered.kind,'started');
+for(let i=0;i<40&&!ownerSession.__xiaoxuTaskDiscoveryResult;i++)
+ await new Promise(resolve=>setTimeout(resolve,5));
+const taskResult=JSON.parse(ownerSession.__xiaoxuTaskDiscoveryResult);
+assert.equal(taskResult.kind,'tasks');
+assert.deepEqual(taskResult.tasks.map(t=>t.taskId),['4321','4322']);
+assert.equal(seenCalls.length,1);
+assert.ok(!JSON.stringify(taskResult).includes('encryTaskUserId'));
+const invalidSource=JSON.parse(runInNewContext(courseTaskScript,{
+ URL,window:{__xiaoxuOwnedCourse:{courseId:'x',classId:'456'}},
+ location:{hostname:'mobilelearn.chaoxing.com',pathname:'/',
+  href:'https://mobilelearn.chaoxing.com/'}
+}));
+assert.equal(invalidSource.error,'course_identity');
+console.log('xiaoxu course-to-mobilelearn task discovery tests passed');
+
 console.log('xiaoxu chaoxing native visible-reader tests passed');
