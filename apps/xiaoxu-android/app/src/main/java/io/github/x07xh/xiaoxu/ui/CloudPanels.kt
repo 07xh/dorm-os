@@ -732,7 +732,9 @@ private fun PlatformStatusCard(
                 unresolvedWork.take(8).forEach { course ->
                     val detail = when (course.coverage) {
                         ChaoxingCourseCoverage.FAILED ->
-                            "读取失败 · " + (course.failure?.label ?: "未获得可核实的故障类型")
+                            "读取失败 · " +
+                                (course.failure?.label ?: "未获得可核实的故障类型") +
+                                (course.failureStage?.let { " · 阶段：" + it.label } ?: "")
                         ChaoxingCourseCoverage.NOT_CHECKED -> "尚未读取，不能判定为已提交"
                         ChaoxingCourseCoverage.LIST_ONLY -> "状态已读取，作业总量尚未核验"
                         ChaoxingCourseCoverage.COUNT_VERIFIED -> "已核验"
