@@ -77,6 +77,35 @@ class ChaoxingBatchAuditTest {
             throw AssertionError("unverified school row must not enter audit")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun readStageIsStrictlyAllowlistedAndNeverContainsUpstreamData() {
+        val expected = mapOf(
+            "course_catalog" to ChaoxingReadStage.COURSE_CATALOG,
+            "course_identity" to ChaoxingReadStage.COURSE_IDENTITY,
+            "course_entry" to ChaoxingReadStage.COURSE_ENTRY,
+            "list_legacy" to ChaoxingReadStage.LIST_LEGACY,
+            "list_official" to ChaoxingReadStage.LIST_OFFICIAL,
+            "list_integrity" to ChaoxingReadStage.LIST_INTEGRITY
+        )
+        expected.forEach { (raw, kind) ->
+            assertEquals(kind, classifyChaoxingReadStage(raw))
+            assertFalse(kind.label.contains("http", ignoreCase = true))
+        }
+        for (raw in listOf("", "https://mooc1.chaoxing.com", "enc=token",
+                "error: raw upstream HTML", "list_official;cookie")) {
+            assertEquals(null, classifyChaoxingReadStage(raw))
+        }
+        val failed = ChaoxingCourseAudit("course-1", "Python程序设计",
+            ChaoxingCourseCoverage.FAILED, emptyList(),
+            ChaoxingReadIssue.PAGE_UNAVAILABLE, ChaoxingReadStage.COURSE_ENTRY)
+        assertEquals(ChaoxingReadStage.COURSE_ENTRY, failed.failureStage)
+        try {
+            ChaoxingCourseAudit("course-1", "Python程序设计",
+                ChaoxingCourseCoverage.COUNT_VERIFIED, emptyList(), null,
+                ChaoxingReadStage.LIST_OFFICIAL)
+            throw AssertionError("success must not include failed-read stage")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun failedCourseExplainsCauseWithoutClaimingOfficialCompletion() {
         assertEquals(ChaoxingReadIssue.LIST_INCOMPLETE,
             classifyChaoxingReadIssue("work_list_incomplete", 422))
