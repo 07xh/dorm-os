@@ -548,10 +548,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         discoveredPlans.clear()
         scanSaved = 0
         scanFailed = 0
-        scanStage = "courses"
+        scanStage = "profile"
         scanButton?.isEnabled = false
-        tell("正在从本人学习通课程列表发现任务，不读取登录凭据…")
-        browser.loadUrl(CHAOXING_COURSES)
+        tell("先核对本人学校身份，再发现学习通课程任务…")
+        browser.loadUrl(entries.getValue("chaoxing"))
     }
 
     private fun discoveryScript() = assets.open(
@@ -567,6 +567,30 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val uri = Uri.parse(url ?: "")
         if (pageFailed || !loaded || provider != "chaoxing") return
         when (scanStage) {
+            "profile" -> {
+                if (uri.host != "i.chaoxing.com" || uri.path != "/base") {
+                    tell("请先完成学习通官方登录，登录成功后重新点击课程任务扫描。")
+                    return
+                }
+                val serial = scanSerial
+                browser.evaluateJavascript(discoveryScript()) { encoded ->
+                    if (scanStage != "profile" || serial != scanSerial ||
+                        browser.url != url) return@evaluateJavascript
+                    val data = runCatching {
+                        JSONObject(JSONTokener(encoded).nextValue() as String)
+                    }.getOrNull()
+                    val fid = data?.optString("fid").orEmpty()
+                    if (data?.optString("kind") != "profile" ||
+                        !fid.matches(Regex("""\d{1,20}"""))) {
+                        stopOwnerDiscovery("当前学习通首页未提供可验证的学校来源 ID。")
+                        return@evaluateJavascript
+                    }
+                    scanStage = "courses"
+                    val url = CHAOXING_COURSES + "?courseType=1&courseFid=" +
+                        fid + "&courseTeacherid=0"
+                    browser.loadUrl(url)
+                }
+            }
             "courses" -> {
                 if (uri.host != "mooc2-ans.chaoxing.com" ||
                     uri.path != "/mooc2-ans/visit/courselistdata") {
