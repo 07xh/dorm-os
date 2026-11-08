@@ -5,6 +5,39 @@ import org.junit.Test
 import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
+    @Test fun noticeAliasesUseCloudIdentityAndOnlyBindResolvedSameCourseWork() {
+        val work = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        fun notice(peer: Boolean) = JSONObject().put("title", if(peer) "作业互评通知" else "作业通知")
+            .put("tag","courseId123").put("content","作业名称：实验报告二")
+            .put("extendParam",JSONObject().put("cparams", """{"funConfig":{"content":{"key":"901234"}}}"""))
+            .put("attachment",org.json.JSONArray().put(JSONObject().put("url",work)))
+        val assignment = ChaoxingLocalReader.noticeLinks(notice(false)).single().aliases.single()
+        val peer = ChaoxingLocalReader.noticeLinks(notice(true)).single().aliases.single()
+        assertFalse(assignment.peer)
+        assertTrue(peer.peer)
+        assertNotEquals(assignment.id,peer.id)
+        assertEquals("cxn:d5c660bedb337eb6315542b90377d719ce794df6",assignment.id)
+        assertEquals("cxn:b11bca381bf9b8af16aca73f1e35ebf1af22c866",peer.id)
+        var ownerCalls=0
+        val read = ChaoxingLocalReader(ChaoxingReadTransport { r ->
+            val body=when(java.net.URI(r.url).path) {
+                "/base" -> {ownerCalls++; "<script>var uid='42';</script>"}
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true).put("notices",
+                    JSONObject().put("lastPage",1).put("list",org.json.JSONArray().put(notice(false)).put(notice(true))
+                        .put(notice(false).put("tag","courseId999")))).toString()
+                "/work/dowork" -> "<p class='status'>已互评</p>"
+                "/mooc2-ans/visit/courselistdata" -> "暂无课程"
+                else -> error("unexpected URL")
+            }
+            ChaoxingReadPage(r.url,body)
+        }).scan(2026)
+        assertTrue(read.complete)
+        assertEquals(2,ownerCalls)
+        val row=read.items.single()
+        assertEquals(setOf(assignment.id),row.noticeAliases)
+        assertEquals(setOf(peer.id),row.peerAliases)
+        assertEquals("已互评",row.status)
+    }
     private val profile = "<script>var uid='42';</script><span id='siteName'>华北水利水电大学</span>"
     private val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
     private val workUrl = "https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=901&enc=privateWork"

@@ -93,6 +93,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingNoticeAliases
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatusText
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
@@ -181,6 +182,27 @@ internal fun combineWorkspaceTasks(
             .mapValues { (_, records) -> records.maxByOrNull { it.capturedAt }!! }
         val cloudIds = cloud.filter { it.provider == "chaoxing" }
             .mapNotNull { it.sourceExternalId }.toSet()
+        val aliases = native.flatMap { record ->
+            val work = nativeChaoxingWorkSourceId(record) ?: return@flatMap emptyList()
+            val ids = nativeChaoxingNoticeAliases(record) +
+                if (nativeChaoxingVisibleStatusText(record)?.let {
+                        it.contains("已互评") || it.contains("已互評") } == true)
+                    nativeChaoxingNoticeAliases(record, peer = true) else emptySet()
+            ids.map { it to work }
+        }.groupBy({it.first}, {it.second}).mapNotNull { (alias, ids) ->
+            ids.distinct().singleOrNull()?.let {alias to it}
+        }.toMap()
+        fun workId(task: CloudTask): String? = if (task.provider == "chaoxing")
+            aliases[task.sourceExternalId] ?: task.sourceExternalId else null
+        // One display row per proved work identity. Prefer the original official
+        // cloud row; preserve every underlying D1 record and personal flag.
+        val linkedCloud = cloud.filter { aliases.containsKey(it.sourceExternalId) && it.provider == "chaoxing" }
+        val canonical = (linkedCloud + cloud.filter { it.provider == "chaoxing" &&
+            it.sourceExternalId in aliases.values }).groupBy {workId(it)}
+            .mapValues { (_, rows) -> rows.sortedWith(compareBy<CloudTask> {
+                if (it.sourceExternalId in aliases.values) 0 else 1
+            }.thenBy {it.id}).first().id }
+        val represented = cloudIds + linkedCloud.mapNotNull { workId(it) }
         local.forEach { task ->
             val source = when (task.source) {
                 "chaoxing" -> "本人标注学习通"
@@ -192,6 +214,9 @@ internal fun combineWorkspaceTasks(
                 parseWorkspaceDue(task.due), "本人填写", "local"))
         }
         distinctVerifiedChaoxingHomeworkRows(cloud).forEach { task ->
+            val effectiveId = workId(task)
+            if (task.provider == "chaoxing" && canonical[effectiveId]?.let {it != task.id} == true)
+                return@forEach
             val source = when (task.provider) {
                 "wechat" -> "微信任务"
                 "chaoxing" -> task.sourceCourse?.takeIf { it.isNotBlank() }
@@ -202,7 +227,7 @@ internal fun combineWorkspaceTasks(
             }
             val trustedStatus = trustedChaoxingPlatformStatus(
                 task.provider, task.sourceExternalId, task.officialStatus)
-            val localStatus = task.sourceExternalId
+            val localStatus = effectiveId
                 ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatus)
             // The active on-device reader supplies explicit official status for
             // this exact work ID. Retired cloud snapshots must not hide returned
@@ -219,12 +244,12 @@ internal fun combineWorkspaceTasks(
                     else -> "cloud"
                 },
                 task.revision, task.provider, task.links,
-                task.sourceExternalId, visibleStatus,
-                if (fromLocal) task.sourceExternalId
+                effectiveId ?: task.sourceExternalId, visibleStatus,
+                if (fromLocal) effectiveId
                     ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatusText)
                 else null))
         }
-        localEvidence.filterKeys { it !in cloudIds }.forEach { (id, record) ->
+        localEvidence.filterKeys { it !in represented }.forEach { (id, record) ->
             val status = nativeChaoxingVisibleStatus(record)
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
@@ -2037,7 +2062,8 @@ private fun SnapshotRow(work: NativeSchoolRecord) {
             }
             if (work.details.isNotBlank()) {
                 Text(
-                    text = work.details.substringBefore(" · 官方作业身份："),
+                    text = work.details.substringBefore(" · 官方作业身份：")
+                        .substringBefore(" · 旧通知身份：").substringBefore(" · 互评通知身份："),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,

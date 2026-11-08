@@ -379,7 +379,8 @@ class CloudClient(context: Context) {
                             .takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1
                         val sourceId = o.optString("source_external_id")
                             .takeIf { provider == "chaoxing" &&
-                                ChaoxingWorkSourceId.matches(it) }
+                                (ChaoxingWorkSourceId.matches(it) ||
+                                    it.matches(Regex("cxn:[a-f0-9]{40}"))) }
                         val official = trustedChaoxingPlatformStatus(
                             provider, sourceId, o.optString("platform_status")
                         )
