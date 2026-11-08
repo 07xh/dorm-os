@@ -18,6 +18,13 @@ class ChaoxingNoticeAliasTest {
     }
     private fun cloud() = CloudTask("old", "实验报告二", "todo", "homework", "chaoxing", null,
         sourceExternalId = alias)
+    @Test fun explicitPeerReviewCompletionVariantsLinkHistoricalPeerNotice() {
+        for (status in listOf("已互评", "互评完成", "互评已完成", "已完成互评")) {
+            val tasks = combineWorkspaceTasks(emptyList(), listOf(cloud()), listOf(work(state=status, peer=true)))
+            assertEquals(status, 1, tasks.size)
+            assertTrue(status, considerCompleteInTaskList(tasks.single()))
+        }
+    }
     @Test fun noticeAndOfficialWorkBecomeOneCompletedRowWithoutChangingPersonalFlag() {
         val tasks = combineWorkspaceTasks(emptyList(), listOf(cloud()), listOf(work()))
         assertEquals(1, tasks.size)
