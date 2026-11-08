@@ -52,6 +52,22 @@ class NativeChaoxingVisibleStatusTest {
             details = "当前网页显示的状态：已完成 · 官方作业身份：work:123:456:bad")))
     }
 
+    @Test fun planIdentityIsStableAndBoundToOfficialCard() {
+        val identity = "plan:987654"
+        val value = "学习计划状态：待批阅 · 学习任务身份：$identity"
+        val hash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val plan = row(value, "study_task", "task.chaoxing.com")
+            .copy(fingerprint = hash)
+        assertEquals(identity, nativeChaoxingPlanSourceId(plan))
+        assertEquals("submitted", nativeChaoxingVisibleStatus(plan))
+        assertNull(nativeChaoxingPlanSourceId(plan.copy(fingerprint = "wrong")))
+        assertNull(nativeChaoxingPlanSourceId(plan.copy(sourceHost = "other.example")))
+        assertNull(nativeChaoxingPlanSourceId(plan.copy(
+            details = "学习计划状态：待批阅 · 学习任务身份：plan:abc")))
+    }
+
     @Test fun ignoreUnrelatedWordsAndUntrustedOrigin() {
         assertNull(nativeChaoxingVisibleStatus(row("作业标题：已完成的程序")))
         assertNull(nativeChaoxingVisibleStatus(row(
