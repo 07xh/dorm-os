@@ -1543,6 +1543,17 @@ fun RealAcademicTaskHub(
                                 color = if (course.coverage == ChaoxingCourseCoverage.COUNT_VERIFIED)
                                     XiaoxuPalette.Success else XiaoxuPalette.Warning)
                         }
+                        if (course.coverage == ChaoxingCourseCoverage.FAILED) {
+                            // The backend already returns fixed, non-sensitive error
+                            // and phase codes. Surface them in the EXISTING audit row,
+                            // not as a new diagnostic screen or an upstream HTML dump.
+                            Text(
+                                "失败原因：" + (course.failure?.label ?: "未取得有效错误分类") +
+                                    (course.failureStage?.let { " · 位置：${it.label}" } ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Warning
+                            )
+                        }
                         if (course.coverage in setOf(ChaoxingCourseCoverage.COUNT_VERIFIED,
                                 ChaoxingCourseCoverage.LIST_ONLY)) {
                             val statuses = ledger?.statuses ?: emptyMap()
