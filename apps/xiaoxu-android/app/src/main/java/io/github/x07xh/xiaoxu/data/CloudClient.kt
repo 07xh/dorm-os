@@ -1389,7 +1389,10 @@ class CloudClient(context: Context) {
                         course.key, course.title, ChaoxingCourseCoverage.FAILED, emptyList(),
                         validationIssue ?: classifyChaoxingReadIssue(
                             result.json.optString("error"), result.code
-                        )
+                        ),
+                        if (validationIssue == null)
+                            classifyChaoxingReadStage(result.json.optString("readStage"))
+                        else null
                     ))
                     failed++
                     consecutiveFailures++
