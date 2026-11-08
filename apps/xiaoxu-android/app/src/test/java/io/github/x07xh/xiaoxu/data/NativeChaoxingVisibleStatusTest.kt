@@ -12,7 +12,7 @@ class NativeChaoxingVisibleStatusTest {
 
     @Test fun officialSubmittedAndReviewStatesCountAsCompleted() {
         for (status in listOf("已完成", "已提交", "待批阅",
-            "待評閱", "已达标", "提交成功", "已互评")) {
+            "待評閱", "已达标", "提交成功", "已互评", "互评完成", "互評完成")) {
             assertEquals(status, "submitted",
                 nativeChaoxingVisibleStatus(row("当前网页显示的状态：$status")))
         }

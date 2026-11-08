@@ -190,7 +190,7 @@ internal fun combineWorkspaceTasks(
             val binding = bindings.distinct().singleOrNull() ?: return@mapNotNull null
             val (work, peer) = binding
             val raw = localEvidence[work]?.let(::nativeChaoxingVisibleStatusText).orEmpty()
-            if (peer && !raw.contains("已互评") && !raw.contains("已互評")) null else alias to work
+            if (peer && !Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成").containsMatchIn(raw)) null else alias to work
         }.toMap()
         fun workId(task: CloudTask): String? = if (task.provider == "chaoxing")
             aliases[task.sourceExternalId] ?: task.sourceExternalId else null
@@ -279,6 +279,23 @@ internal fun combineWorkspaceTasks(
 internal fun considerCompleteInTaskList(task: WorkspaceTask): Boolean =
     task.done || (task.provider == "chaoxing" &&
         task.officialStatus in setOf("submitted", "graded"))
+
+/** Distinguish live homework identity from a legacy inbox identity in details.
+ * Notice identity alone cannot prove an assignment still exists or was deleted.
+ */
+internal fun chaoxingTaskIdentityHint(task: WorkspaceTask): String? {
+    if (task.provider != "chaoxing") return null
+    val id = task.sourceExternalId.orEmpty()
+    return when {
+        Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""").matches(id) ->
+            "官方作业身份：$id"
+        id.matches(Regex("""cxn:[a-f0-9]{40}""")) ->
+            "历史通知身份：${id.take(16)}… · 尚未关联当前官方作业"
+        id.startsWith("plan:") || id.startsWith("study:") ->
+            "学习计划身份：$id"
+        else -> "未获得可核验的官方作业身份"
+    }
+}
 
 internal fun visibleWorkspaceTasks(
     tasks: List<WorkspaceTask>, archivedKeys: Set<String>
@@ -1576,6 +1593,8 @@ internal fun WorkspaceTaskDetailSheet(
                 when {
                     selectedTask.done -> "个人已完成"
                     considerCompleteInTaskList(selectedTask) -> "官方已提交"
+                    selectedTask.provider == "chaoxing" &&
+                        selectedTask.officialStatus in setOf(null, "unknown") -> "待核对"
                     else -> "待完成"
                 },
                 if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
@@ -1583,6 +1602,10 @@ internal fun WorkspaceTaskDetailSheet(
             )
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
+        chaoxingTaskIdentityHint(selectedTask)?.let { identity ->
+            Text(identity, style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+        }
         Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
             selectedDue.label, style = MaterialTheme.typography.bodyMedium)
         Text(if (selectedTask.officialStatus != null) {
