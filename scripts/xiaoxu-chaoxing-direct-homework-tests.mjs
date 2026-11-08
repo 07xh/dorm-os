@@ -439,6 +439,69 @@ const stageCountReader=await stageCount.forSession({session,userId:'owner1'});
 await stageCountReader.verifySession();
 await assert.rejects(()=>stageCountReader.readHomeworkList(courseKeys),e=>
  e.code==='work_list_incomplete'&&e.schoolReadStage==='list_integrity');
+
+// Reference mobile client's scanCourses reads .bottomList li[data] from the
+// signed-in owner's course entry. This path does not require workEnc.
+const embeddedHtml='<section class="bottomList"><ul>'+
+ row('950','Python 程序实验报告一','已完成')+
+ row('951','工程制图 第五次作业','待批阅')+
+ '</ul></section>';
+const embeddedParsed=parseChaoxingWorkList(
+ '<li data="https://example.com/bad"><p class="overHidden2">其他页条目</p></li>'+
+ embeddedHtml,courseKeys,{embedded:true});
+assert.deepEqual(embeddedParsed.items.map(x=>x.workId),['950','951']);
+assert.equal(embeddedParsed.totalPages,1);
+let embeddedListRequests=0;
+const entryOnly=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(embeddedHtml);
+ if(path.includes('/work/list')){embeddedListRequests++;throw Error('unexpected list fetch');}
+ throw Error('unexpected route '+path);
+}});
+const entryOnlyReader=await entryOnly.forSession({session,userId:'owner1'});
+await entryOnlyReader.verifySession();
+const embeddedStatus=await entryOnlyReader.readHomeworkList(courseKeys);
+assert.equal(embeddedStatus.items.length,2);
+assert.deepEqual(embeddedStatus.items.map(x=>x.statusCode),['submitted','submitted']);
+assert.equal(embeddedStatus.progress,null);
+assert.equal(embeddedStatus.items.every(x=>x.platformVerified),true);
+assert.equal(embeddedListRequests,0,'entry-page source needs no fabricated workEnc');
+
+// With a signed list route available, prefer its verified result; the
+// embedded panel is only a fallback when the official list is inaccessible.
+const entryAndList=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')
+  return response(middle+embeddedHtml);
+ if(path==='/mooc2/work/list')return response(workHtml);
+ if(path==='/mooc-ans/mooc2/work/list')throw Error('alternative route was not needed');
+ throw Error('unexpected route '+path);
+}});
+const entryAndListReader=await entryAndList.forSession({session,userId:'owner1'});
+await entryAndListReader.verifySession();
+assert.deepEqual((await entryAndListReader.readHomeworkList(courseKeys))
+ .items.map(x=>x.workId),['987']);
+
+// No assignment in the owner's verified course panel must not be treated as
+// evidence that a failed signed listing is empty.
+const fakePanel=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const path=new URL(raw).pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')
+  return response('<section class="bottomList"><p>课程目录</p></section>');
+ throw Error('unexpected route '+path);
+}});
+const fakePanelReader=await fakePanel.forSession({session,userId:'owner1'});
+await fakePanelReader.verifySession();
+await assert.rejects(()=>fakePanelReader.readHomeworkList(courseKeys),
+ e=>e.code==='work_not_available'&&e.schoolReadStage==='course_entry');
+console.log('Chaoxing signed-in course-entry embedded homework fallback passed');
+
 console.log('Chaoxing safe course-entry, list-endpoint and count-failure stages passed');
 
 console.log('Chaoxing verified alternate work-list route and completed state fallback passed');
