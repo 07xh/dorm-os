@@ -71,8 +71,10 @@ class TaskCenterSearchTest {
         assertEquals("微信任务", wechat.origin)
         assertEquals(listOf("cloud:wx-accepted"),
             facetWorkspaceTasks(combined, "wechat", false, today).map { it.key })
-        assertEquals(setOf("cloud:course-1", "cloud:manual-1"),
+        assertEquals(setOf("cloud:manual-1"),
             facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
+        assertEquals(listOf("cloud:course-1"),
+            facetWorkspaceTasks(combined, "chaoxing", false, today).map { it.key })
         assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
         // WeChat's extracted date is not a confirmed personal due date.

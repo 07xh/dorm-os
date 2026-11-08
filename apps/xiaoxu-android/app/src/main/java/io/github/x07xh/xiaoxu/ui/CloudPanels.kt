@@ -410,10 +410,12 @@ private fun CloudAuthorizationSection(
 
             val providerIcons = mapOf(
                 "ncwu" to Icons.Outlined.School,
+                "chaoxing" to Icons.AutoMirrored.Outlined.MenuBook,
                 "second_class" to Icons.Outlined.EmojiEvents
             )
             for ((id, title) in listOf(
                 "ncwu" to "青果教务",
+                "chaoxing" to "学习通",
                 "second_class" to "第二课堂")) {
                 PlatformStatusCard(
                     id = id,
@@ -463,9 +465,11 @@ private fun PlatformStatusCard(
     val platform = state.platforms.firstOrNull { it.id == id }
     val canRead = state.authenticated && state.connectionsFresh &&
         platform?.sessionState == "active"
-    val refreshing = state.schoolSyncBusyProvider == id
+    val refreshing = state.schoolSyncBusyProvider == id || (id == "chaoxing" && state.busy)
+    val cloudChaoxingCount = state.tasks.count { it.provider == "chaoxing" }
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
+        id == "chaoxing" -> if (state.tasksFresh) XiaoxuTone.Brand else XiaoxuTone.Warning
         !state.connectionsFresh -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
@@ -509,6 +513,8 @@ private fun PlatformStatusCard(
                 Text(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
+                        id == "chaoxing" -> if (state.tasksFresh)
+                            "云端已保存 $cloudChaoxingCount 条任务" else "已有云端任务待刷新"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
                         else -> connectionStatusLabel(platform)
                     },
@@ -522,6 +528,7 @@ private fun PlatformStatusCard(
             SourceBadge(
                 text = when {
                     !state.authenticated -> "云端未连接"
+                    id == "chaoxing" -> if (state.tasksFresh) "已读取云端记录" else "待刷新"
                     !state.connectionsFresh -> "状态待刷新"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
@@ -544,7 +551,7 @@ private fun PlatformStatusCard(
                 fadeOut(animationSpec = tween(XiaoxuMotion.SelectionMs))
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (state.connectionsFresh && platform?.verified == true &&
+        if (id != "chaoxing" && state.connectionsFresh && platform?.verified == true &&
             platform.lastSuccessAt != null) {
             Text(
                 text = (if (id == "ncwu") "上次连接记录：" else "上次可信读取：") + platform.lastSuccessAt,
@@ -556,35 +563,39 @@ private fun PlatformStatusCard(
             SecondaryAction(
                 label = when {
                     refreshing -> "正在读取…"
+                    id == "chaoxing" -> "刷新已保存任务"
                     id == "ncwu" -> "成绩读取待接入"
                     else -> "刷新本人数据"
                 },
                 // The old ncwu sync path refreshes a server timetable, NOT grades.
                 // Keep school authorization, but do not send the imported schedule to cloud.
-                enabled = id != "ncwu" && canRead && !state.busy &&
+                enabled = id != "ncwu" &&
+                    (if (id == "chaoxing") state.authenticated else canRead) && !state.busy &&
                     state.schoolSyncBusyProvider == null,
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
-                    client.syncAuthorizedSchool(id)
+                    if (id == "chaoxing") client.refreshPrivate()
+                    else client.syncAuthorizedSchool(id)
                 }
             }
             PrimaryAction(
-                label = if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
+                label = if (id == "chaoxing") "读取本人任务"
+                    else if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
                     "expired", "unreadable" -> "重新授权"
                     "active" -> "管理授权"
                     else -> "连接账号"
                 },
-                enabled = id == "second_class" || client.ownerSessionBinding() != null,
+                enabled = id in setOf("chaoxing", "second_class") || client.ownerSessionBinding() != null,
                 modifier = Modifier.weight(1f)
             ) {
-                if (id == "second_class") openLocalSchool(id)
+                if (id in setOf("chaoxing", "second_class")) openLocalSchool(id)
                 else startSchoolAuthorization(id)
             }
         }
         // Reuse the native school reader for one-phone users.
         // Local visible records remain separate from verified cloud sync.
-        if (id != "ncwu") {
+        if (id == "second_class") {
             SettingRow(
                 icon = Icons.Outlined.School,
                 title = "本机打开第二课堂官网",

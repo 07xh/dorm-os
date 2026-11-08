@@ -1,5 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.data.CloudTask
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -34,5 +35,27 @@ class ChaoxingNativeTaskDisplayTest {
         for(fake in listOf(real.copy(sourceHost="mooc1.chaoxing.com.evil.example"),
             real.copy(sourceHost="person@mooc1.chaoxing.com"),real.copy(fingerprint="invalid")))
             assertTrue(combineWorkspaceTasks(emptyList(),emptyList(),listOf(fake)).isEmpty())
+    }
+    @Test fun cloudOnlyAccountKeepsItsOwnChaoxingPendingAndCompletedGroup() {
+        val cloud=listOf(
+            CloudTask("pending","云端作业一","todo","homework","chaoxing",null,
+                sourceExternalId="work:123:456:910",officialStatus="todo"),
+            CloudTask("done","云端作业二","todo","homework","chaoxing",null,
+                sourceExternalId="work:123:456:911",officialStatus="submitted"))
+        val tasks=combineWorkspaceTasks(emptyList(),cloud,emptyList())
+        assertEquals(2,tasks.size)
+        assertTrue("cloud records belong in the same Chaoxing source",tasks.all {it.category=="chaoxing"})
+        val today=LocalDate.of(2026,11,8)
+        assertEquals(1,facetWorkspaceTasks(searchWorkspaceTasks(tasks,"pending","",today),"chaoxing",false,today).size)
+        assertEquals(1,facetWorkspaceTasks(searchWorkspaceTasks(tasks,"done","",today),"chaoxing",false,today).size)
+    }
+    @Test fun cloudAndNativeStillMergeByExactOfficialIdentity() {
+        val cloud=CloudTask("same","云端作业","todo","homework","chaoxing",null,
+            sourceExternalId="work:123:456:912",officialStatus="todo")
+        val shown=combineWorkspaceTasks(emptyList(),listOf(cloud),listOf(row("912","待批阅")))
+        assertEquals(1,shown.size)
+        assertEquals("cloud:same",shown.single().key)
+        assertEquals("chaoxing",shown.single().category)
+        assertTrue(considerCompleteInTaskList(shown.single()))
     }
 }

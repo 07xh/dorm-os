@@ -1,0 +1,3 @@
+Owner reports cloud Chaoxing card and independent task group missing after formal release.
+Restore existing cloud records in the same Chaoxing group; keep local reader and existing fixed signing identity.
+Formal 0.8.14 (35), not a separate QA distribution.

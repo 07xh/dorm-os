@@ -204,17 +204,20 @@ internal fun combineWorkspaceTasks(
                 task.provider, task.sourceExternalId, task.officialStatus)
             val localStatus = task.sourceExternalId
                 ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatus)
-            // Only owner-visible completed evidence may promote a
-            // missing/old pending label for display. Never override a returned
-            // official work or mutate D1/Room personal completion.
-            val fromLocal = trustedStatus !in setOf("submitted", "graded", "returned") &&
-                localStatus in setOf("submitted", "graded")
+            // The active on-device reader supplies explicit official status for
+            // this exact work ID. Retired cloud snapshots must not hide returned
+            // work; an unknown local status cannot erase known cloud evidence.
+            val fromLocal = localStatus in setOf("todo", "returned", "submitted", "graded")
             val visibleStatus = if (fromLocal) localStatus else trustedStatus
             add(WorkspaceTask("cloud:" + task.id, task.title,
-                if (fromLocal) "$source · 本机官网已完成" else source,
+                if (fromLocal) "$source · 本机官网状态" else source,
                 task.status == "done", parseWorkspaceDue(task.due),
                 if (fromLocal) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
-                if (task.provider == "wechat") "wechat" else "cloud",
+                when (task.provider) {
+                    "wechat" -> "wechat"
+                    "chaoxing" -> "chaoxing"
+                    else -> "cloud"
+                },
                 task.revision, task.provider, task.links,
                 task.sourceExternalId, visibleStatus,
                 if (fromLocal) task.sourceExternalId
@@ -346,7 +349,7 @@ fun RealAcademicHome(
     val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     val all = remember(localTasks, state.tasks, nativeRows, archivedKeys) {
         visibleWorkspaceTasks(combineWorkspaceTasks(localTasks,
-            state.tasks.filterNot { it.provider == "chaoxing" }, nativeRows), archivedKeys)
+            state.tasks, nativeRows), archivedKeys)
     }
 
     // Both Home and Schedule use the SAME locally imported timetable. Never fall
@@ -874,7 +877,7 @@ fun RealAcademicTaskHub(
     }
     val allRecords = remember(localTasks, state.tasks,
         capturedHomework, capturedStudyTasks) {
-        combineWorkspaceTasks(localTasks, state.tasks.filterNot { it.provider == "chaoxing" },
+        combineWorkspaceTasks(localTasks, state.tasks,
             capturedHomework + capturedStudyTasks)
     }
     val all = remember(allRecords, archivedKeys) {
@@ -1167,15 +1170,16 @@ fun RealAcademicTaskHub(
                 ) { Text("恢复已清理 (${archivedRows.size})") }
             }
         }
-        if ((capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty()) &&
-            sourceFilter in setOf("all", "chaoxing")) {
+        if (sourceFilter in setOf("all", "chaoxing")) {
             item(key = "group:chaoxing") {
                 TaskGroupHeader(
                     title = "学习通任务",
                     count = chaoxingRows.size,
                     badge = "",
-                    note = if (chaoxingRows.isEmpty())
-                        "当前筛选没有匹配记录，可在全部或已完成中查看。" else "",
+                    note = if (chaoxingRows.isNotEmpty()) ""
+                        else if (allRecords.any { it.category == "chaoxing" })
+                            "当前筛选没有匹配记录，可在全部或已完成中查看。"
+                        else "尚无已保存的学习通任务，展开后可读取。",
                     icon = Icons.Outlined.MenuBook,
                     expanded = showChaoxingTasks,
                     joinedRows = chaoxingRows.isNotEmpty(),
@@ -1183,6 +1187,12 @@ fun RealAcademicTaskHub(
                 )
             }
             if (showChaoxingTasks) {
+                if (chaoxingRows.isEmpty()) item(key = "chaoxing:read") {
+                    OutlinedButton(onClick = { openLocalSchool("chaoxing") },
+                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
+                        Text("读取学习通任务")
+                    }
+                }
                 items(count = chaoxingRows.size, key = { i -> chaoxingRows[i].key }) { i ->
                     ConnectedTaskShell(index = i, total = chaoxingRows.size) {
                         TaskRow(chaoxingRows[i], today,

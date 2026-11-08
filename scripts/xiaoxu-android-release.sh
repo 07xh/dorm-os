@@ -3,8 +3,12 @@
 set -euo pipefail
 : "${GH_TOKEN:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_SHA:?}" "${ANDROID_HOME:?}" "${RUNNER_TEMP:?}"
 [[ "${GITHUB_REF:-}" == refs/heads/main ]]
-version=0.8.13
-code=34
+read -r version code < <(python3 - <<'PYV'
+import re
+s=open('apps/xiaoxu-android/app/build.gradle').read()
+print(re.search(r"versionName '([^']+)'",s)[1], re.search(r"versionCode (\d+)",s)[1])
+PYV
+)
 tag="xiaoxu-android-v$version"
 appid=io.github.x07xh.xiaoxu
 out="$RUNNER_TEMP/xiaoxu-release"
