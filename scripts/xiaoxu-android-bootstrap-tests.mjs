@@ -1423,7 +1423,7 @@ assert.match(localNative, /CHAOXING_HOMEWORK/);
 assert.match(localNative, /"学习通 · 打开我的作业"/);
 assert.match(localNative, /mooc1-api\.chaoxing\.com\/mooc-ans\/mooc2\/work\/all-task/);
 assert.match(localNative, /path == "\/mooc-ans\/mooc2\/work\/all-task"/);
-assert.match(localNative, /li\[data\]/);
+assert.match(localNative, /bottomList li\[data\]/);
 assert.match(localNative, /p\.overHidden2\.fl/);
 assert.match(localNative, /p\.status\.fl/);
 assert.match(localNative, /foundKind === 'homework'/);
@@ -1443,7 +1443,7 @@ function fixtureDocument({table=null,li=[],courses=[]}={}) {
       querySelectorAll(selector) {
         if(selector==='iframe')return [];
         if(selector==='table')return !table?[]:Array.isArray(table)?table:[table];
-        if(selector==='li[data]')return li;
+        if(selector==='.bottomList li[data]')return li;
         if(selector.includes('.course-name'))return courses;
         return [];
       }
