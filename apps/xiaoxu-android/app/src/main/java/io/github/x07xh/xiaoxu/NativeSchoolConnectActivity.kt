@@ -1214,6 +1214,11 @@ private const val READ_VISIBLE_PAGE = """
       location.pathname === '/userStudyPlan/studyPlanSubPage' &&
       typeof window !== 'undefined' && window.__xiaoxuPlanResult)
     return window.__xiaoxuPlanResult;
+  if (host === 'mooc1.chaoxing.com' &&
+      ['/visit/stucoursemiddle','/mooc2/work/list',
+       '/mooc-ans/mooc2/work/list'].includes(location.pathname) &&
+      typeof window !== 'undefined' && window.__xiaoxuCourseHomeworkResult)
+    return window.__xiaoxuCourseHomeworkResult;
   const clean = x => String(x || '').replace(/\s+/g, ' ').trim().slice(0,350);
   const docs = [document];
   document.querySelectorAll('iframe').forEach(frame => {
@@ -1286,7 +1291,9 @@ private const val READ_VISIBLE_PAGE = """
     }
   }
   if (!rows.length && provider === 'chaoxing' &&
-      host === 'mooc1.chaoxing.com' && /\/work\/list/.test(location.pathname)) {
+      host === 'mooc1.chaoxing.com' &&
+      (location.pathname === '/visit/stucoursemiddle' ||
+       /\/work\/list/.test(location.pathname))) {
     // Mirror the already-tested FIRST-PARTY backend list evidence: each
     // visible li[data] has title p.overHidden2 and status p.status.
     // Only extract validated numeric IDs from data; discard signed tokens.
