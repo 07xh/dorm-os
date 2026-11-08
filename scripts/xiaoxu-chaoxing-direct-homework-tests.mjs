@@ -559,3 +559,52 @@ console.log('Chaoxing legacy/modern owner-verified course token variants passed'
 console.log('Chaoxing completed-work variants, bounded pagination, strict totals and duplicate guard passed');
 
 console.log('Chaoxing review: login-redirect and challenge-title regressions passed');
+
+// Reference CourseEntry follows the actual official link and its signed query,
+// rather than manufacturing a work/list request from workEnc alone.
+const actualEntryPath='/mooc-ans/mooc2/work/list';
+const actualEntryQuery='courseId=123&classId=456&cpi=789&enc=entryToken&t=1700000000123&customView=owner';
+for(const tag of [
+ '<a data-url="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>',
+ '<iframe src="https://mooc1.chaoxing.com'+actualEntryPath+'?'+actualEntryQuery+'"></iframe>',
+ '<a href="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>'
+]) {
+ const seen=[];
+ const reader=await createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+  const u=new URL(raw);seen.push(u);
+  if(u.pathname==='/base')return response(profile);
+  if(u.pathname==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+  if(u.pathname==='/visit/stucoursemiddle')return response(tag);
+  if(u.pathname===actualEntryPath){
+   assert.equal(u.searchParams.get('enc'),'entryToken');
+   assert.equal(u.searchParams.get('t'),'1700000000123');
+   assert.equal(u.searchParams.get('customView'),'owner');
+   return response(workHtml);
+  }
+  throw Error('must use course-owned entry, not synthesized legacy path');
+ }}).forSession({session:structuredClone(session),userId:'owner1'});
+ await reader.verifySession();
+ const result=await reader.readHomeworkList(courseKeys);
+ assert.equal(result.items[0].workId,'987');
+ assert.equal(seen.filter(u=>u.pathname.includes('/work/list')).length,1);
+ assert.ok(!JSON.stringify(result).includes('entryToken'));
+}
+console.log('Chaoxing reference course-owned work entry regression passed');
+
+const {parseChaoxingCourseWorkEntry}=await import('../lib/academic-chaoxing-work-discovery.mjs');
+for(const url of [
+ 'https://evil.example/mooc2/work/list?'+actualEntryQuery,
+ 'https://mooc1.chaoxing.com:444/mooc2/work/list?'+actualEntryQuery,
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery+'&courseId=999',
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery.replace('classId=456','classId=999'),
+ 'https://mooc1.chaoxing.com/mooc2/work/list?'+actualEntryQuery+'&enc=other',
+])assert.throws(()=>parseChaoxingCourseWorkEntry('<a data-url="'+url+'">作业</a>',courseKeys),
+ e=>['invalid_response','authorization_failed'].includes(e.code));
+const filledEntry=parseChaoxingCourseWorkEntry(middle+'<input id="t" value="1700000000123">'+
+ '<a data-url="/mooc2/work/list?courseId=123&classId=456&cpi=789&enc=old">作业</a>',courseKeys);
+assert.equal(new URL(filledEntry).searchParams.get('enc'),'signedWork');
+assert.equal(new URL(filledEntry).searchParams.get('t'),'1700000000123');
+assert.throws(()=>parseChaoxingCourseWorkEntry('<input id="courseid" value="999">'+
+ '<a data-url="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>',courseKeys),
+ e=>e.code==='authorization_failed');
+console.log('Chaoxing actual-entry ownership, URL and hidden-identity guards passed');
