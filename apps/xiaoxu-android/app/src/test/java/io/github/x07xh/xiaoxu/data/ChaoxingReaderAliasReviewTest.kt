@@ -27,7 +27,8 @@ class ChaoxingReaderAliasReviewTest {
   val read=reader.scan(2026)
   assertEquals(1,destinations)
   assertEquals(listOf("work:123:456:901"),read.items.filter {it.kind!="course"}.map {it.sourceKey})
-  assertEquals("待批阅",read.items.first {it.kind=="homework"}.status)
+  // The detail proves completion; generic list "待批阅" must not downgrade it.
+  assertEquals("已完成",read.items.first {it.kind=="homework"}.status)
   assertEquals(setOf("plan:700"),read.supersededKeys)
  }
  private class MemoryDao:NativeSchoolRecordDao {
