@@ -66,9 +66,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         // Official personal homework overview; still requires the owner's normal login.
         private const val CHAOXING_HOMEWORK =
             "https://mooc1-api.chaoxing.com/mooc-ans/mooc2/work/all-task"
-        // Existing official learning-plan page; only the visible task text is read.
-        private const val CHAOXING_STUDY_TASKS =
-            "https://task.chaoxing.com/userStudyPlan/studyPlanSubPage"
+        // Discover actual task IDs from the owner's official courses first.
+        // A bare studyPlanSubPage lacks taskId and cannot identify a plan.
+        private const val CHAOXING_TASK_DISCOVERY_ORIGIN =
+            "https://mobilelearn.chaoxing.com/"
         // NCWU's independently published CAS -> Chaoxing SSO service.
         // This is a SCHOOL-owned login redirect, not authorization to Xiaoxu.
         private const val CHAOXING_SCHOOL_SERVICE = "https://fysso.chaoxing.com/cassso/ncwu"
@@ -157,6 +158,39 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var scoreSaveJob: Job? = null
     private var manualReservation = false
 
+    // Session-local, user-triggered plan discovery. No school credentials,
+    // signed URLs or task-user tokens enter native fields or Room.
+    private data class OwnedCourse(
+        val courseId: String, val classId: String, val title: String
+    )
+    private data class OwnedPlanLink(
+        val taskId: String, val classId: String, val title: String
+    )
+    private val ownedCourses = mutableListOf<OwnedCourse>()
+    private val discoveredPlans = mutableListOf<OwnedPlanLink>()
+    private var scanStage: String? = null
+    private var scanCourseIndex = 0
+    private var scanPlanIndex = 0
+    private var scanSaved = 0
+    private var scanFailed = 0
+    private var planFallbackTried = false
+    private var planOpening = false
+    private var scanSerial = 0
+    private var scanningCourseTasks = false
+    private var planScanBusy = false
+    private var scanButton: Button? = null
+
+    private fun abortTaskDiscovery() {
+        scanSerial++
+        scanStage = null
+        scanCourseIndex = 0
+        scanPlanIndex = 0
+        scanningCourseTasks = false
+        planScanBusy = false
+        planOpening = false
+        scanButton?.isEnabled = true
+    }
+
     private fun invalidateCapture() {
         captureEpoch++
         scoreSaveJob?.cancel()
@@ -200,9 +234,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
         control("返回") {
+            abortTaskDiscovery()
             if (browser.canGoBack()) browser.goBack() else finish()
         }
-        control("刷新页面") { browser.reload() }
+        control("刷新页面") {
+            abortTaskDiscovery()
+            browser.reload()
+        }
         extract = control("读取并替换同类记录") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
@@ -222,8 +260,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
         } else null
         val studyTaskShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "学习通 · 打开学习计划"
-            setOnClickListener { browser.loadUrl(CHAOXING_STUDY_TASKS) }
+            text = "学习通 · 扫描本人全部课程任务"
+            scanButton = this
+            setOnClickListener { startOwnerTaskDiscovery() }
         } else null
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
@@ -312,6 +351,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         browser.loadUrl(entries.getValue("second_class"))
                         return
                     }
+                    if (provider == "chaoxing" && scanStage != null && loaded) {
+                        onTaskDiscoveryPage(url)
+                    }
                     if (provider == "second_class") {
                         val isScore = Uri.parse(url ?: "").path == "/sys/stu/score"
                         extract.text = if (isScore) "读取／刷新本人积分" else "读取活动与积分"
@@ -331,6 +373,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, request: WebResourceRequest, error: WebResourceError
                 ) {
                     if (request.isForMainFrame) {
+                        if (scanStage != null) {
+                            tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
+                            abortTaskDiscovery()
+                        }
                         invalidateCapture()
                         pendingOfficialCatalogRead = false
                         pageFailed = true
@@ -345,6 +391,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, handler: SslErrorHandler, error: SslError
                 ) {
                     handler.cancel()
+                    abortTaskDiscovery()
                     invalidateCapture()
                     pendingOfficialCatalogRead = false
                     pageFailed = true
