@@ -33,8 +33,12 @@
   const allowedPaths=new Set(['/mooc-ans/mooc2/work/task',
     '/mooc-ans/mooc2/work/dowork','/work/dowork']);
   const all=new Map();
-  const parse=doc=>{
-    const rows=doc.querySelectorAll('.bottomList li[data]');
+  const parse=(doc,embedded=false)=>{
+    // Course entry panels use .bottomList; the official paginated work
+    // endpoint can return a bare li[data] list without that wrapper.
+    const selector=embedded?'.bottomList li[data]':'li[data]';
+    const rows=Array.from(doc.querySelectorAll(selector)).filter(li=>
+      li.querySelector('p.overHidden2.fl')||li.querySelector('p.overHidden2'));
     if(rows.length>120)throw Error('too_many_records');
     let found=0;
     for(const li of Array.from(rows)){
@@ -71,7 +75,7 @@
   const input=id=>String(document.querySelector('input#'+id)?.value||'');
   const tokenOk=value=>value.length<=500&&!/[\r\n\u0000-\u001f<>"']/.test(value);
   (async()=>{
-    const first=parse(document);
+    const first=parse(document,path==='/visit/stucoursemiddle');
     if(first.found>0) {
       if(first.pages>1)throw Error('partial_page');
       reply('',Array.from(all.values()));return;
@@ -101,7 +105,7 @@
         const doc=new DOMParser().parseFromString(html,'text/html');
         if(/验证码|人机验证|访问受限/.test(doc.title||''))
           throw Error('interactive_login_required');
-        const parsed=parse(doc);
+        const parsed=parse(doc,false);
         if(!parsed.found)throw Error('work_entry_unavailable');
         if(page===1)pages=parsed.pages;
         if(parsed.pages>pages)throw Error('partial_page');
