@@ -805,14 +805,67 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     private fun scanOwnedCourseHomework() {
         if (scanStage!="homework" || planScanBusy) return
+        val course=ownedCourses.getOrNull(scanHomeworkIndex) ?: return
         planScanBusy=true
         val serial=scanSerial
-        captureVisibleRecords(append=true,readTaskGroups=false) {success->
-            if (serial!=scanSerial || scanStage!="homework") return@captureVisibleRecords
-            if (success) scanSaved++ else scanFailed++
+        val url=browser.url ?: return
+        val identity=JSONObject()
+            .put("courseId",course.courseId).put("classId",course.classId)
+        fun finish(success: Boolean) {
+            if(serial!=scanSerial || scanStage!="homework")return
+            if(success)scanSaved++ else scanFailed++
             planScanBusy=false
             scanHomeworkIndex++
             openNextOwnedCourseHomework()
+        }
+        // The official signed credentials, if present, are read and used
+        // exclusively within mooc1's own WebView origin.
+        browser.evaluateJavascript(
+            "window.__xiaoxuOwnedWorkCourse = " + identity.toString()
+        ) {
+            if (serial!=scanSerial || browser.url!=url)return@evaluateJavascript
+            val script=assets.open("xiaoxu_chaoxing_course_homework_scan.js")
+                .bufferedReader().use { it.readText() }
+            browser.evaluateJavascript(script) {
+                fun poll(attempt: Int) {
+                    if(serial!=scanSerial || scanStage!="homework" ||
+                        browser.url!=url || isFinishing || isDestroyed)return
+                    browser.evaluateJavascript("window.__xiaoxuCourseHomeworkResult || ''") { encoded ->
+                        if(serial!=scanSerial || browser.url!=url)return@evaluateJavascript
+                        val raw=runCatching {
+                            JSONTokener(encoded).nextValue() as? String
+                        }.getOrNull()
+                        if(raw.isNullOrEmpty()){
+                            if(attempt<56)scoreHandler.postDelayed({poll(attempt+1)},250)
+                            else {
+                                tell("课程作业本机读取超时；保留已保存记录。")
+                                finish(false)
+                            }
+                            return@evaluateJavascript
+                        }
+                        val result=runCatching {JSONObject(raw)}.getOrNull()
+                        val error=result?.optString("error").orEmpty()
+                        if(error.isNotEmpty() || result?.optString("kind")!="homework" ||
+                            result.optString("host")!="mooc1.chaoxing.com" ||
+                            result.optJSONArray("records")?.length() !in 1..120){
+                            tell("本课程尚无法取得完整、可核实的作业列表：" +
+                                when(error){
+                                    "work_entry_unavailable" -> "没有可读取的官方作业入口"
+                                    "partial_page" -> "页面包含未读取的分页"
+                                    "work_http" -> "学校作业列表请求未成功"
+                                    "interactive_login_required" -> "需要在学校官网完成登录或验证"
+                                    else -> "页面结构或本机授权状态不兼容"
+                                } + "。旧记录保持不变。")
+                            finish(false)
+                            return@evaluateJavascript
+                        }
+                        captureVisibleRecords(append=true,readTaskGroups=false) {
+                            success -> finish(success)
+                        }
+                    }
+                }
+                poll(0)
+            }
         }
     }
 
