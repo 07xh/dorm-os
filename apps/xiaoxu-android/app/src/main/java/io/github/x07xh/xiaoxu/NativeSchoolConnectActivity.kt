@@ -161,7 +161,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     // Session-local, user-triggered plan discovery. No school credentials,
     // signed URLs or task-user tokens enter native fields or Room.
     private data class OwnedCourse(
-        val courseId: String, val classId: String, val title: String
+        val courseId: String, val classId: String, val cpi: String,
+        val title: String
     )
     private data class OwnedPlanLink(
         val taskId: String, val classId: String, val title: String
@@ -170,6 +171,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private val discoveredPlans = mutableListOf<OwnedPlanLink>()
     private var scanStage: String? = null
     private var scanCourseIndex = 0
+    private var scanHomeworkIndex = 0
     private var scanPlanIndex = 0
     private var scanSaved = 0
     private var scanFailed = 0
@@ -183,6 +185,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         scanSerial++
         scanStage = null
         scanCourseIndex = 0
+        scanHomeworkIndex = 0
         scanPlanIndex = 0
         scanningCourseTasks = false
         planScanBusy = false
@@ -616,15 +619,17 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         val row = rows.optJSONObject(i)
                         val courseId = row?.optString("courseId").orEmpty()
                         val classId = row?.optString("classId").orEmpty()
+                        val cpi = row?.optString("cpi").orEmpty()
                         val title = row?.optString("title").orEmpty()
                         if (!courseId.matches(Regex("""\d{1,24}""")) ||
                             !classId.matches(Regex("""\d{1,24}""")) ||
+                            !cpi.matches(Regex("""\d{1,24}""")) ||
                             title.isBlank() || title.length > 100) {
                             stopOwnerDiscovery("课程列表存在无法核验的课程身份。")
                             return@evaluateJavascript
                         }
                         if (seen.add(courseId + ":" + classId))
-                            values.add(OwnedCourse(courseId, classId, title))
+                            values.add(OwnedCourse(courseId, classId, cpi, title))
                     }
                     if (values.isEmpty()) {
                         stopOwnerDiscovery("未发现可核实的本人课程。")
@@ -642,6 +647,25 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     readNextOwnedCourseTasks()
                 } else {
                     tell("任务服务需要正常登录。完成学习通官方登录后，重新点击扫描即可。")
+                }
+            }
+            "homework" -> {
+                if (uri.host != "mooc1.chaoxing.com") {
+                    // Only the owner's verified first-party course page can
+                    // be scanned. Login redirects require human interaction.
+                    stopOwnerDiscovery("课程作业页面需要正常登录；请重新登录后再扫描。")
+                    return
+                }
+                if (uri.path == "/visit/stucoursemiddle" ||
+                    uri.path.startsWith("/mooc2/work/") ||
+                    uri.path.startsWith("/mooc-ans/mooc2/work/")) {
+                    scanOwnedCourseHomework()
+                } else {
+                    // The current course page format is unsupported; do not
+                    // invent or erase its assignments.
+                    scanFailed++
+                    scanHomeworkIndex++
+                    openNextOwnedCourseHomework()
                 }
             }
             "plans" -> {
@@ -684,13 +708,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         if (scanStage != "mobile" || scanningCourseTasks) return
         val course = ownedCourses.getOrNull(scanCourseIndex)
         if (course == null) {
-            if (discoveredPlans.isEmpty()) {
-                stopOwnerDiscovery("全部课程检查完毕，官方接口没有返回可识别的任务计划。")
-            } else {
-                scanStage = "plans"
-                scanPlanIndex = 0
-                openNextOfficialPlan()
-            }
+            // Task-engine plans and ordinary course homework are distinct
+            // official sources. Do not treat an empty task-engine as "no work".
+            scanStage = "homework"
+            scanHomeworkIndex = 0
+            openNextOwnedCourseHomework()
             return
         }
         scanningCourseTasks = true
@@ -754,6 +776,43 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 }
                 poll(0)
             }
+        }
+    }
+
+    private fun openNextOwnedCourseHomework() {
+        if (scanStage != "homework") return
+        val course=ownedCourses.getOrNull(scanHomeworkIndex)
+        if (course==null) {
+            scanStage="plans"
+            scanPlanIndex=0
+            if (discoveredPlans.isEmpty()) {
+                val finished=scanSaved
+                val failed=scanFailed
+                abortTaskDiscovery()
+                tell("已检查课程作业，本机新增官方证据 " + finished +
+                    " 组，失败 " + failed + " 组；未发现学习计划入口。" +
+                    "没有官方总数的课程仍不能认定为全部核验。")
+            } else openNextOfficialPlan()
+            return
+        }
+        val url="https://mooc1.chaoxing.com/visit/stucoursemiddle" +
+            "?courseid=" + course.courseId + "&clazzid=" + course.classId +
+            "&cpi=" + course.cpi + "&ismooc2=1&v=2"
+        tell("读取课程作业 " + (scanHomeworkIndex+1) + "/" +
+            ownedCourses.size + "：" + course.title)
+        browser.loadUrl(url)
+    }
+
+    private fun scanOwnedCourseHomework() {
+        if (scanStage!="homework" || planScanBusy) return
+        planScanBusy=true
+        val serial=scanSerial
+        captureVisibleRecords(append=true,readTaskGroups=false) {success->
+            if (serial!=scanSerial || scanStage!="homework") return@captureVisibleRecords
+            if (success) scanSaved++ else scanFailed++
+            planScanBusy=false
+            scanHomeworkIndex++
+            openNextOwnedCourseHomework()
         }
     }
 
