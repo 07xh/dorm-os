@@ -373,12 +373,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     view: WebView, request: WebResourceRequest, error: WebResourceError
                 ) {
                     if (request.isForMainFrame) {
-                        if (scanStage != null) {
-                            tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
-                            abortTaskDiscovery()
-                        }
                         invalidateCapture()
                         pendingOfficialCatalogRead = false
+                        if (scanStage != null) {
+                            abortTaskDiscovery()
+                            tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
+                        }
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
