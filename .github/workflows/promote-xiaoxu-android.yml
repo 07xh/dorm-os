@@ -2,7 +2,9 @@ name: Publish signed Xiaoxu Android release
 on:
   push:
     branches: [main]
-    paths: ['.github/xiaoxu-release/promotions/*.json']
+    paths: ['.github/xiaoxu-release/promotions/*.json', '.github/xiaoxu-release/recoveries/*.json']
+  pull_request:
+    paths: ['scripts/promote-xiaoxu-android.py', 'scripts/test_xiaoxu_promotion.py', '.github/workflows/promote-xiaoxu-android.yml']
 permissions:
   contents: write
   actions: read
@@ -10,7 +12,14 @@ concurrency:
   group: xiaoxu-signed-release-promotion
   cancel-in-progress: false
 jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/test_xiaoxu_promotion.py
   promote:
+    if: github.event_name == 'push'
+    needs: regression
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
