@@ -102,6 +102,8 @@ dependencies {
     // 安装 baseline profile。没有它，生成的 profile 只对安装它的那台设备生效。
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
     baselineProfile(project(':benchmark'))
+    // Mature MIT HTML parser, same parsing layer used by the reference client.
+    implementation 'org.jsoup:jsoup:1.21.2'
     testImplementation 'junit:junit:4.13.2'
     // JVM tests exercise JSONObject with a real implementation, not Android stubs.
     testImplementation 'org.json:json:20240303'

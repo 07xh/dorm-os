@@ -1,0 +1,3 @@
+User explicitly requested replacing the broken cloud/DOM Chaoxing reading stack with the supplied reference client's complete local notice -> study-plan -> course-work flow.
+Build existing isolated QA application after single local CookieManager + Jsoup reader integration and retirement of old App cloud/JS readers.
+Real owner login, source quantities, platform status and restart refresh still require device acceptance.

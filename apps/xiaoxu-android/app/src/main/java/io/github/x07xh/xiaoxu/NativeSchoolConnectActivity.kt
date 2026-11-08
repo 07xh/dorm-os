@@ -28,6 +28,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.ChaoxingWebNavigation
+import io.github.x07xh.xiaoxu.data.ChaoxingWebSession
+import io.github.x07xh.xiaoxu.data.ChaoxingLocalReader
+import io.github.x07xh.xiaoxu.data.ChaoxingReadFailure
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
@@ -40,6 +43,7 @@ import java.util.UUID
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -137,7 +141,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
     private lateinit var extract: Button
-    private var appendVisible: Button? = null
     private lateinit var finishAndReturn: Button
     private lateinit var catalogProbe: Button
     private var catalogProbeOn = false
@@ -156,38 +159,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private var scoreSaveJob: Job? = null
     private var manualReservation = false
 
-    // Session-local, user-triggered plan discovery. No school credentials,
-    // signed URLs or task-user tokens enter native fields or Room.
-    private data class OwnedCourse(
-        val courseId: String, val classId: String, val cpi: String,
-        val title: String
-    )
-    private data class OwnedPlanLink(
-        val taskId: String, val classId: String, val title: String
-    )
-    private val ownedCourses = mutableListOf<OwnedCourse>()
-    private val discoveredPlans = mutableListOf<OwnedPlanLink>()
-    private var scanStage: String? = null
-    private var scanCourseIndex = 0
-    private var scanHomeworkIndex = 0
-    private var scanPlanIndex = 0
-    private var scanSaved = 0
-    private var scanFailed = 0
-    private var planFallbackTried = false
-    private var scanSerial = 0
-    private var scanningCourseTasks = false
-    private var planScanBusy = false
-    private var scanButton: Button? = null
-
+    private var chaoxingReadJob: Job? = null
+    private var chaoxingWebSession: ChaoxingWebSession? = null
     private fun abortTaskDiscovery() {
-        scanSerial++
-        scanStage = null
-        scanCourseIndex = 0
-        scanHomeworkIndex = 0
-        scanPlanIndex = 0
-        scanningCourseTasks = false
-        planScanBusy = false
-        scanButton?.isEnabled = true
+        chaoxingWebSession?.cancel()
+        chaoxingReadJob?.cancel()
+        chaoxingWebSession = null
     }
 
     private fun invalidateCapture() {
@@ -226,7 +203,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         status = TextView(this).apply {
             textSize = 13f
-            text = "请在学校或学习通官方页面正常登录，打开本人课程／作业／活动列表后，点击「读取当前页」。"
+            text = "学习通正常登录后点「读取全部」，读取通知、学习计划和课程作业。"
             setPadding(8, 4, 8, 8)
             if (provider == "second_class") text =
                 "首次在学校官网正常登录；会话有效时可直接读取积分，无需每次登录。积分仅保存在此设备。"
@@ -247,16 +224,9 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             abortTaskDiscovery()
             browser.reload()
         }
-        extract = control("读取当前页") { captureVisibleRecords() }
+        extract = control("读取全部") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
         extract.isEnabled = false
-        // Explicit paginated-page action. The default still replaces the old
-        // snapshot; only deliberate appends preserve previously read pages.
-        appendVisible = if (provider == "chaoxing") Button(this).apply {
-            text = "分页追加本页（保留已保存记录）"
-            isEnabled = false
-            setOnClickListener { captureVisibleRecords(append = true) }
-        } else null
         val courseShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "学习通 · 打开我的课程"
             setOnClickListener { browser.loadUrl(CHAOXING_COURSES) }
@@ -264,11 +234,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val homeworkShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "学习通 · 打开我的作业"
             setOnClickListener { browser.loadUrl(CHAOXING_HOMEWORK) }
-        } else null
-        val studyTaskShortcut = if (provider == "chaoxing") Button(this).apply {
-            text = "读取本人课程与作业"
-            scanButton = this
-            setOnClickListener { startOwnerTaskDiscovery() }
         } else null
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
@@ -302,8 +267,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             settings.domStorageEnabled = true
             if (provider == "chaoxing") {
                 // Match the desktop course templates used by the reference client.
-                settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) " +
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                settings.userAgentString = ChaoxingWebSession.USER_AGENT
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
             }
@@ -332,13 +296,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                     loaded = false
                     pageFailed = false
-                    if (scanStage == "homework") planScanBusy = false
                     invalidateCapture()
                     catalogProbeOn = false // A new document loses the in-page observer.
                     catalogProbe.text = "观测活动列表请求（手动）"
                     catalogProbe.isEnabled = false
                     extract.isEnabled = false
-                    appendVisible?.isEnabled = false
                     if (!navigationAllowed(provider, url)) {
                         pageFailed = true
                         view.stopLoading()
@@ -351,14 +313,14 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     loaded = !pageFailed && navigationAllowed(provider, url)
                     if (loaded) CookieManager.getInstance().flush()
                     val host = Uri.parse(url ?: "").host
-                    extract.isEnabled = loaded && extractionAllowed(provider, url)
+                    extract.isEnabled = if (provider == "chaoxing") loaded && chaoxingReadJob?.isActive != true
+                        else loaded && extractionAllowed(provider, url)
                     val isTaskPlan = provider == "chaoxing" &&
                         host == "task.chaoxing.com" &&
                         Uri.parse(url ?: "").path == "/userStudyPlan/studyPlanSubPage"
                     extract.text = if (isTaskPlan) "读取本人学习计划任务" else
                         if (provider == "second_class") "读取／刷新本人积分"
-                        else "读取当前页"
-                    appendVisible?.isEnabled = extract.isEnabled && !isTaskPlan
+                        else "读取全部"
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
                         Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
@@ -372,9 +334,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         redirectedToScore = true
                         browser.loadUrl(entries.getValue("second_class"))
                         return
-                    }
-                    if (provider == "chaoxing" && scanStage != null && loaded) {
-                        onTaskDiscoveryPage(url)
                     }
                     if (provider == "second_class") {
                         val isScore = Uri.parse(url ?: "").path == "/sys/stu/score"
@@ -398,13 +357,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         invalidateCapture()
                         pendingOfficialCatalogRead = false
                         pageFailed = true
-                        if (scanStage != null) {
+                        if (chaoxingReadJob?.isActive == true) {
                             abortTaskDiscovery()
                             tell("课程任务扫描的官方页面加载失败；已保留之前保存的记录。")
                         }
                         loaded = false
                         extract.isEnabled = false
-                        appendVisible?.isEnabled = false
                         catalogProbe.isEnabled = false
                         tell("学校页面加载失败；请检查网络或重新打开官方页面，本次未读取数据。")
                     }
@@ -419,7 +377,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     pageFailed = true
                     loaded = false
                     extract.isEnabled = false
-                    appendVisible?.isEnabled = false
                     catalogProbe.isEnabled = false
                     tell("学校 HTTPS 证书验证失败，已阻止继续访问。")
                 }
@@ -431,7 +388,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         pageFailed = true
                         loaded = false
                         extract.isEnabled = false
-                        appendVisible?.isEnabled = false
                         catalogProbe.isEnabled = false
                         tell("学校页面返回 HTTP " + response.statusCode + "。请检查官网是否可正常访问。")
                     }
@@ -439,13 +395,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
-        if (studyTaskShortcut != null) root.addView(studyTaskShortcut)
         if (provider == "chaoxing") {
             val more = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 visibility = View.GONE
             }
-            appendVisible?.let { more.addView(it) }
             courseShortcut?.let { more.addView(it) }
             homeworkShortcut?.let { more.addView(it) }
             ncwuSsoShortcut?.let { more.addView(it) }
@@ -575,618 +529,83 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * User-initiated scan: signed-in course IDs -> same-origin mobilelearn
-     * task summaries -> official task-plan pages -> existing Room task hub.
-     * School credential fields stay exclusively inside WebView.
-     */
-    private fun startOwnerTaskDiscovery() {
-        if (provider != "chaoxing") return
-        abortTaskDiscovery()
-        ownedCourses.clear()
-        discoveredPlans.clear()
-        scanSaved = 0
-        scanFailed = 0
-        scanStage = "profile"
-        scanButton?.isEnabled = false
-        tell("先核对本人学校身份，再发现学习通课程任务…")
-        browser.loadUrl(entries.getValue("chaoxing"))
-    }
-
-    private fun discoveryScript() = assets.open(
-        "xiaoxu_chaoxing_course_task_discovery.js"
-    ).bufferedReader().use { it.readText() }
-
-    private fun stopOwnerDiscovery(message: String) {
-        abortTaskDiscovery()
-        tell(message + " 已保存的历史任务不会被删除。")
-    }
-
-    private fun onTaskDiscoveryPage(url: String?) {
-        val uri = Uri.parse(url ?: "")
-        if (pageFailed || !loaded || provider != "chaoxing") return
-        when (scanStage) {
-            "profile" -> {
-                if (uri.host != "i.chaoxing.com" || uri.path != "/base") {
-                    tell("请先完成学习通官方登录，登录成功后重新点击课程任务扫描。")
-                    return
-                }
-                val serial = scanSerial
-                browser.evaluateJavascript(discoveryScript()) { encoded ->
-                    if (scanStage != "profile" || serial != scanSerial ||
-                        browser.url != url) return@evaluateJavascript
-                    val data = runCatching {
-                        JSONObject(JSONTokener(encoded).nextValue() as String)
-                    }.getOrNull()
-                    val fid = data?.optString("fid").orEmpty()
-                    if (data?.optString("kind") != "profile" ||
-                        !fid.matches(Regex("""\d{1,20}"""))) {
-                        stopOwnerDiscovery("当前学习通首页未提供可验证的学校来源 ID。")
-                        return@evaluateJavascript
-                    }
-                    scanStage = "courses"
-                    val url = CHAOXING_COURSES + "?courseType=1&courseFid=" +
-                        fid + "&courseTeacherid=0"
-                    browser.loadUrl(url)
-                }
-            }
-            "courses" -> {
-                if (uri.host != "mooc2-ans.chaoxing.com" ||
-                    uri.path != "/mooc2-ans/visit/courselistdata") {
-                    tell("请在学习通官方页面完成登录，然后重新点击扫描课程任务。")
-                    return
-                }
-                val serial = scanSerial
-                browser.evaluateJavascript(discoveryScript()) { encoded ->
-                    if (scanStage != "courses" || scanSerial != serial ||
-                        browser.url != url) return@evaluateJavascript
-                    val result = runCatching {
-                        JSONObject(JSONTokener(encoded).nextValue() as String)
-                    }.getOrNull()
-                    val rows = result?.optJSONArray("courses")
-                    if (result?.optString("kind") != "courses" ||
-                        rows == null || rows.length() !in 1..36) {
-                        stopOwnerDiscovery("未从已登录课程列表取得有效课程身份，请检查官方课程是否显示。")
-                        return@evaluateJavascript
-                    }
-                    val values = mutableListOf<OwnedCourse>()
-                    val seen = mutableSetOf<String>()
-                    for (i in 0 until rows.length()) {
-                        val row = rows.optJSONObject(i)
-                        val courseId = row?.optString("courseId").orEmpty()
-                        val classId = row?.optString("classId").orEmpty()
-                        val cpi = row?.optString("cpi").orEmpty()
-                        val title = row?.optString("title").orEmpty()
-                        if (!courseId.matches(Regex("""\d{1,24}""")) ||
-                            !classId.matches(Regex("""\d{1,24}""")) ||
-                            !cpi.matches(Regex("""\d{1,24}""")) ||
-                            title.isBlank() || title.length > 100) {
-                            stopOwnerDiscovery("课程列表存在无法核验的课程身份。")
-                            return@evaluateJavascript
-                        }
-                        if (seen.add(courseId + ":" + classId))
-                            values.add(OwnedCourse(courseId, classId, cpi, title))
-                    }
-                    if (values.isEmpty()) {
-                        stopOwnerDiscovery("未发现可核实的本人课程。")
-                        return@evaluateJavascript
-                    }
-                    ownedCourses.addAll(values)
-                    scanCourseIndex = 0
-                    scanStage = "mobile"
-                    tell("已发现 " + values.size + " 门本人课程，正在进入学习通任务服务…")
-                    browser.loadUrl(CHAOXING_TASK_DISCOVERY_ORIGIN)
-                }
-            }
-            "mobile" -> {
-                if (uri.host == "mobilelearn.chaoxing.com") {
-                    readNextOwnedCourseTasks()
-                } else {
-                    // Study plans are optional: some valid Chaoxing sessions
-                    // require a separate interactive login for mobilelearn.
-                    // Never let that block the owner's ordinary course homework.
-                    scanFailed++
-                    scanStage = "homework"
-                    scanHomeworkIndex = 0
-                    tell("学习计划入口需要单独登录；继续读取本人普通课程作业。")
-                    openNextOwnedCourseHomework()
-                }
-            }
-            "homework" -> {
-                if (uri.host !in setOf("mooc1.chaoxing.com", "mooc2-ans.chaoxing.com")) {
-                    // Only the owner's verified first-party course page can
-                    // be scanned. Login redirects require human interaction.
-                    stopOwnerDiscovery("课程作业页面需要正常登录；请重新登录后再扫描。")
-                    return
-                }
-                val coursePath = uri.path.orEmpty()
-                if (coursePath == "/visit/stucoursemiddle" ||
-                    coursePath == "/mooc2-ans/mycourse/stu" ||
-                    coursePath.startsWith("/mooc2/work/") ||
-                    coursePath.startsWith("/mooc-ans/mooc2/work/")) {
-                    scanOwnedCourseHomework()
-                } else {
-                    // The current course page format is unsupported; do not
-                    // invent or erase its assignments.
-                    scanFailed++
-                    scanHomeworkIndex++
-                    openNextOwnedCourseHomework()
-                }
-            }
-            "plans" -> {
-                if (uri.host != "task.chaoxing.com") {
-                    tell("学习计划页面跳转至官方登录流程，登录完成后可重新扫描。")
-                    return
-                }
-                if (uri.path == "/userStudyPlan/studyPlanSubPage") {
-                    if (planScanBusy) return
-                    planScanBusy = true
-                    val serial = scanSerial
-                    captureStudyPlanGroups { success ->
-                        if (scanStage != "plans" || scanSerial != serial) return@captureStudyPlanGroups
-                        planScanBusy = false
-                        if (success) scanSaved++ else scanFailed++
-                        scanPlanIndex++
-                        openNextOfficialPlan()
-                    }
-                } else if (uri.path == "/api/v1/middlePageApi/jumpStudyPlanList" &&
-                    !planFallbackTried) {
-                    planFallbackTried = true
-                    val original = url
-                    val serial = scanSerial
-                    scoreHandler.postDelayed({
-                        if (scanStage == "plans" && scanSerial == serial &&
-                            browser.url == original) {
-                            val task = discoveredPlans.getOrNull(scanPlanIndex) ?: return@postDelayed
-                            browser.loadUrl("https://task.chaoxing.com/userStudyPlan/studyPlanSubPage" +
-                                "?taskId=" + task.taskId + "&encryJumpGroupId=null")
-                        }
-                    }, 850)
-                } else if (uri.path != "/api/v1/middlePageApi/jumpStudyPlanList") {
-                    tell("当前不是可核实的官方学习计划，未修改历史任务。")
-                }
-            }
-        }
-    }
-
-    private fun readNextOwnedCourseTasks() {
-        if (scanStage != "mobile" || scanningCourseTasks) return
-        val course = ownedCourses.getOrNull(scanCourseIndex)
-        if (course == null) {
-            // Task-engine plans and ordinary course homework are distinct
-            // official sources. Do not treat an empty task-engine as "no work".
-            scanStage = "homework"
-            scanHomeworkIndex = 0
-            openNextOwnedCourseHomework()
-            return
-        }
-        scanningCourseTasks = true
-        val serial = scanSerial
-        val identity = JSONObject()
-            .put("courseId",course.courseId).put("classId",course.classId)
-        tell("正在发现课程任务 " + (scanCourseIndex+1) + "/" + ownedCourses.size +
-            "：" + course.title)
-        browser.evaluateJavascript(
-            "window.__xiaoxuOwnedCourse = " + identity.toString()
-        ) {
-            if (serial != scanSerial || scanStage != "mobile") return@evaluateJavascript
-            browser.evaluateJavascript(discoveryScript()) {
-                fun poll(attempt: Int) {
-                    if (serial != scanSerial || scanStage != "mobile" ||
-                        isFinishing || isDestroyed) return
-                    browser.evaluateJavascript("window.__xiaoxuTaskDiscoveryResult || ''") { encoded ->
-                        if (serial != scanSerial || scanStage != "mobile") return@evaluateJavascript
-                        val raw = runCatching {
-                            JSONTokener(encoded).nextValue() as? String
-                        }.getOrNull()
-                        if (raw.isNullOrEmpty()) {
-                            if (attempt < 48) {
-                                scoreHandler.postDelayed({poll(attempt+1)},250)
-                            } else {
-                                scanFailed++
-                                scanningCourseTasks = false
-                                scanCourseIndex++
-                                readNextOwnedCourseTasks()
-                            }
-                            return@evaluateJavascript
-                        }
-                        val result = runCatching {JSONObject(raw)}.getOrNull()
-                        val tasks = result?.optJSONArray("tasks")
-                        if (result?.optString("kind") != "tasks" ||
-                            tasks == null || tasks.length()>30) {
-                            scanFailed++
-                        } else {
-                            val ids=mutableSetOf<String>()
-                            for (i in 0 until tasks.length()) {
-                                val item=tasks.optJSONObject(i)
-                                val taskId=item?.optString("taskId").orEmpty()
-                                val classId=item?.optString("classId").orEmpty()
-                                val title=item?.optString("title").orEmpty()
-                                if (!taskId.matches(Regex("""\d{1,24}""")) ||
-                                    classId != course.classId || title.isBlank()) {
-                                    scanFailed++
-                                    continue
-                                }
-                                val key=classId + ":" + taskId
-                                if (ids.add(key) && discoveredPlans.none {
-                                    it.classId == classId && it.taskId == taskId
-                                } && discoveredPlans.size < 120)
-                                    discoveredPlans.add(OwnedPlanLink(taskId,classId,title))
-                            }
-                        }
-                        scanningCourseTasks = false
-                        scanCourseIndex++
-                        readNextOwnedCourseTasks()
-                    }
-                }
-                poll(0)
-            }
-        }
-    }
-
-    private fun openNextOwnedCourseHomework() {
-        if (scanStage != "homework") return
-        val course=ownedCourses.getOrNull(scanHomeworkIndex)
-        if (course==null) {
-            scanStage="plans"
-            scanPlanIndex=0
-            if (discoveredPlans.isEmpty()) {
-                val finished=scanSaved
-                val failed=scanFailed
-                abortTaskDiscovery()
-                tell("已检查课程作业，本机新增官方证据 " + finished +
-                    " 组，失败 " + failed + " 组；未发现学习计划入口。" +
-                    "没有官方总数的课程仍不能认定为全部核验。")
-            } else openNextOfficialPlan()
-            return
-        }
-        val url="https://mooc1.chaoxing.com/visit/stucoursemiddle" +
-            "?courseid=" + course.courseId + "&clazzid=" + course.classId +
-            "&cpi=" + course.cpi + "&ismooc2=1&v=2"
-        tell("读取课程作业 " + (scanHomeworkIndex+1) + "/" +
-            ownedCourses.size + "：" + course.title)
-        browser.loadUrl(url)
-    }
-
-    private fun scanOwnedCourseHomework() {
-        if (scanStage!="homework" || planScanBusy) return
-        val course=ownedCourses.getOrNull(scanHomeworkIndex) ?: return
-        planScanBusy=true
-        val serial=scanSerial
-        val url=browser.url ?: return
-        val identity=JSONObject()
-            .put("courseId",course.courseId).put("classId",course.classId)
-            .put("cpi",course.cpi)
-        fun finish(success: Boolean) {
-            if(serial!=scanSerial || scanStage!="homework")return
-            if(success)scanSaved++ else scanFailed++
-            planScanBusy=false
-            scanHomeworkIndex++
-            openNextOwnedCourseHomework()
-        }
-        // The official signed credentials, if present, are read and used
-        // exclusively within mooc1's own WebView origin.
-        browser.evaluateJavascript(
-            "window.__xiaoxuOwnedWorkCourse = " + identity.toString()
-        ) {
-            if (serial!=scanSerial || browser.url!=url)return@evaluateJavascript
-            val script=assets.open("xiaoxu_chaoxing_course_homework_scan.js")
-                .bufferedReader().use { it.readText() }
-            browser.evaluateJavascript(script) {
-                fun poll(attempt: Int) {
-                    if(serial!=scanSerial || scanStage!="homework" ||
-                        browser.url!=url || isFinishing || isDestroyed)return
-                    browser.evaluateJavascript("window.__xiaoxuCourseHomeworkResult || ''") { encoded ->
-                        if(serial!=scanSerial || browser.url!=url)return@evaluateJavascript
-                        val raw=runCatching {
-                            JSONTokener(encoded).nextValue() as? String
-                        }.getOrNull()
-                        if(raw.isNullOrEmpty()){
-                            if(attempt<56)scoreHandler.postDelayed({poll(attempt+1)},250)
-                            else {
-                                tell("课程作业本机读取超时；保留已保存记录。")
-                                finish(false)
-                            }
-                            return@evaluateJavascript
-                        }
-                        val result=runCatching {JSONObject(raw)}.getOrNull()
-                        val error=result?.optString("error").orEmpty()
-                        val count=result?.optJSONArray("records")?.length() ?: 0
-                        if(error.isNotEmpty() || result?.optString("kind")!="homework" ||
-                            result?.optString("host")!="mooc1.chaoxing.com" ||
-                            count !in 1..120){
-                            tell("本课程尚无法取得完整、可核实的作业列表：" +
-                                when(error){
-                                    "work_entry_unavailable" -> "没有可读取的官方作业入口"
-                                    "partial_page" -> "页面包含未读取的分页"
-                                    "work_http" -> "学校作业列表请求未成功"
-                                    "interactive_login_required" -> "需要在学校官网完成登录或验证"
-                                    else -> "页面结构或本机授权状态不兼容"
-                                } + "。旧记录保持不变。")
-                            finish(false)
-                            return@evaluateJavascript
-                        }
-                        // The bounded read is already complete; preserve its
-                        // sanitized work tuple and platform status end-to-end.
-                        val expected = "work:" + course.courseId + ":" + course.classId + ":"
-                        val rows = result?.optJSONArray("records") ?: run {
-                            tell("学习通扫描结果缺少有效作业列表；旧记录保持不变。")
-                            finish(false)
-                            return@evaluateJavascript
-                        }
-                        if ((0 until rows.length()).any { i ->
-                            val key = rows.optJSONObject(i)?.optString("sourceKey").orEmpty()
-                            !key.startsWith(expected) ||
-                                !key.removePrefix(expected).matches(Regex("""\d{1,24}"""))
-                        }) {
-                            tell("课程作业身份与本次选择的课程不一致；未写入任何记录。")
-                            finish(false)
-                            return@evaluateJavascript
-                        }
-                        captureVisibleRecords(append=true,readTaskGroups=false,
-                            preparedPayload=result) { success -> finish(success) }
-                    }
-                }
-                poll(0)
-            }
-        }
-    }
-
-    private fun openNextOfficialPlan() {
-        if (scanStage != "plans" || planScanBusy) return
-        val task = discoveredPlans.getOrNull(scanPlanIndex)
-        if (task == null) {
-            val found = discoveredPlans.size
-            val saved = scanSaved
-            val errors = scanFailed
-            abortTaskDiscovery()
-            tell("已发现 " + found + " 个学习计划入口，本机成功读取 " + saved +
-                " 个，失败 " + errors + " 个。" +
-                "这是本机官方任务状态的部分读取结果，不代表云端课程作业已完成 3/3 核验。")
-            return
-        }
-        planFallbackTried = false
-        val url="https://task.chaoxing.com/api/v1/middlePageApi/jumpStudyPlanList" +
-            "?taskId=" + task.taskId + "&moocClassId=" + task.classId
-        tell("正在读取官方任务计划 " + (scanPlanIndex+1) + "/" +
-            discoveredPlans.size + "：" + task.title)
-        browser.loadUrl(url)
-    }
-
-    /**
-     * The user initiates this while already on their official learning-plan
-     * page. Only official same-origin task-group POST requests are made by
-     * the WebView page; the native app never receives session identifiers.
-     */
-    private fun captureStudyPlanGroups(onSaved: ((Boolean) -> Unit)? = null) {
-        val url = browser.url
-        if (url == null || !loaded || pageFailed || !extractionAllowed("chaoxing", url) ||
-            Uri.parse(url).host != "task.chaoxing.com") {
-            onSaved?.invoke(false)
-            return
-        }
-        val epoch = ++captureEpoch
-        extract.isEnabled = false
-        appendVisible?.isEnabled = false
-        tell("正在使用本机学习通登录态读取任务分组和平台状态…")
-        browser.evaluateJavascript(READ_TASK_PLAN_GROUPS) {
-            fun poll(attempt: Int) {
-                if (epoch != captureEpoch || isFinishing || isDestroyed ||
-                    browser.url != url || pageFailed) return
-                browser.evaluateJavascript("window.__xiaoxuPlanResult || ''") { encoded ->
-                    if (epoch != captureEpoch || browser.url != url || isFinishing) return@evaluateJavascript
-                    val jsonText = runCatching {
-                        JSONTokener(encoded).nextValue() as? String
-                    }.getOrNull()
-                    if (jsonText.isNullOrEmpty()) {
-                        if (attempt >= 72) {
-                            extract.isEnabled = loaded && !pageFailed
-                            tell("学习计划接口未在本次操作内返回完整数据，旧记录保持不变。")
-                            onSaved?.invoke(false)
-                        } else scoreHandler.postDelayed({ poll(attempt + 1) }, 250)
-                        return@evaluateJavascript
-                    }
-                    val result = runCatching { JSONObject(jsonText) }.getOrNull()
-                    val failure = result?.optString("error").orEmpty()
-                    if (result?.optString("host") != "task.chaoxing.com" ||
-                        result?.optString("kind") != "study_task" || failure.isNotEmpty()) {
-                        extract.isEnabled = loaded && !pageFailed
-                        val label = when (failure) {
-                            "identity_unavailable" -> "任务身份不可用，请通过本人官方学习任务入口重新进入。"
-                            "no_records" -> "本次任务分组没有可核实的任务记录。"
-                            "wrong_page" -> "当前不是已登录的学习计划页面。"
-                            "too_many_groups", "too_many_records" -> "任务数量超过本次安全读取上限。"
-                            else -> "学习计划分组读取失败或响应结构不兼容。"
-                        }
-                        tell(label + " 未修改本机历史记录。")
-                        onSaved?.invoke(false)
-                        return@evaluateJavascript
-                    }
-                    // The read-only script prepared a sanitized result in the
-                    // current page. Reuse the existing bounded Room parser and
-                    // append instead of replacing other courses' plan records.
-                    captureVisibleRecords(
-                        append = true, readTaskGroups = false, onSaved = onSaved
-                    )
-                }
-            }
-            poll(0)
-        }
-    }
-
-    private fun captureVisibleRecords(
-        append: Boolean = false, readTaskGroups: Boolean = true,
-        preparedPayload: JSONObject? = null,
-        onSaved: ((Boolean) -> Unit)? = null
-    ) {
-        if (provider == "second_class") {
+    private fun captureVisibleRecords() {
+        if (provider == "chaoxing") {
+            startOwnerTaskDiscovery()
+        } else if (provider == "second_class") {
             val uri = Uri.parse(browser.url ?: "")
             if (!loaded || pageFailed || uri.host != "dekt.ncwu.edu.cn") {
                 tell("请先在学校官网正常登录，再读取活动。")
-                return
-            }
-            if (uri.path == "/sys/stu/score") {
+            } else if (uri.path == "/sys/stu/score") {
                 captureSecondClassScores()
             } else if (uri.path.orEmpty().startsWith("/sys/")) {
-                // The official catalog uses card layout, not the generic HTML
-                // table parser. Reuse the already audited owner-bound score +
-                // same-origin catalog API, instead of overwriting personal
-                // signup records from a brittle visible-page scrape.
                 pendingOfficialCatalogRead = true
-                tell("正在核验本人学校会话，并读取积分与活动广场…")
                 browser.loadUrl(entries.getValue("second_class"))
-            } else {
-                tell("请先进入学校本人业务页面，登录后可刷新活动。")
-            }
-            return
-        }
-        if (append && provider != "chaoxing") return
-        val currentUrl = browser.url ?: return
-        if (readTaskGroups && provider == "chaoxing" &&
-            Uri.parse(currentUrl).host == "task.chaoxing.com" &&
-            Uri.parse(currentUrl).path == "/userStudyPlan/studyPlanSubPage") {
-            captureStudyPlanGroups()
-            return
-        }
-        if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
-            !extractionAllowed(provider, currentUrl)) {
-            tell("请先在指定官方业务页面打开本人列表，登录页不能导入。")
-            onSaved?.invoke(false)
-            return
-        }
-        val epoch = ++captureEpoch
-        extract.isEnabled = false
-        appendVisible?.isEnabled = false
-        tell("正在从当前已显示的官方页面读取记录（不会获取密码和 Cookie）…")
-        // A course scan has already parsed the official pages and obtained a
-        // bounded owner-scoped result. Never throw it away to scrape only the
-        // current DOM: a fetched/paginated list may not exist in that DOM.
-        if (preparedPayload != null) {
-            persistVisiblePayload(preparedPayload, currentUrl, epoch, append, onSaved)
-            return
-        }
-        browser.evaluateJavascript(READ_VISIBLE_PAGE) { encoded ->
-            if (epoch != captureEpoch || isFinishing) return@evaluateJavascript
-            extract.isEnabled = loaded && !pageFailed &&
-                extractionAllowed(provider, browser.url)
-            appendVisible?.isEnabled = extract.isEnabled
-            if (!extract.isEnabled || browser.url != currentUrl) {
-                tell("读取时页面已变化，请重新打开需要的列表。")
-                onSaved?.invoke(false)
-                return@evaluateJavascript
-            }
-            try {
-                val decoded = JSONTokener(encoded).nextValue() as? String
-                    ?: throw IllegalArgumentException("empty")
-                persistVisiblePayload(JSONObject(decoded), currentUrl, epoch, append, onSaved)
-            } catch (_: Exception) {
-                tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
-                onSaved?.invoke(false)
             }
         }
     }
 
-    /** One validated persistence path for direct DOM reads and course scans. */
-    private fun persistVisiblePayload(
-        payload: JSONObject, currentUrl: String, epoch: Int, append: Boolean,
-        onSaved: ((Boolean) -> Unit)?
-    ) {
-        val host = Uri.parse(currentUrl).host
-        try {
-                if (payload.optString("host") != host) throw IllegalArgumentException("origin changed")
-                if (payload.optBoolean("truncated")) {
-                    tell("当前页面超过 120 条可见记录，或表格数量超出安全扫描上限；已阻止不完整导入，旧记录保持不变。可在官网分页后逐页使用「分页追加本页」。")
-                    onSaved?.invoke(false)
-                    return
+    /** The sole App Chaoxing reader uses the official login's own cookie jar. */
+    private fun startOwnerTaskDiscovery() {
+        if (provider != "chaoxing" || chaoxingReadJob?.isCompleted == false) return
+        val session = ChaoxingWebSession()
+        chaoxingWebSession = session
+        extract.isEnabled = false
+        tell("读取本机学习通通知、学习计划和课程作业…")
+        chaoxingReadJob = lifecycleScope.launch {
+            val context = currentCoroutineContext()
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    ChaoxingLocalReader(session,
+                        progress = { message -> runOnUiThread {
+                            if (!isFinishing && context.isActive) tell(message)
+                        } }, checkCancelled = { context.ensureActive() })
+                        .scan(java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
                 }
-                val kind = payload.optString("kind")
-                val kinds = when (provider) {
-                    "chaoxing" -> setOf("course", "homework", "study_task")
-                    "second_class" -> setOf("activity")
-                    else -> emptySet()
+                context.ensureActive()
+                if (result.items.isEmpty() && !result.complete) {
+                    tell("本次没有成功读取的任务来源，原记录保留：\n" + result.failures.take(8).joinToString("\n"))
+                    return@launch
                 }
-                if (kind !in kinds) throw IllegalArgumentException("unknown kind")
-                val items = payload.getJSONArray("records")
-                if (items.length() !in 1..120) throw IllegalArgumentException("no trusted rows")
                 val now = System.currentTimeMillis()
-                val accepted = mutableListOf<NativeSchoolRecord>()
-                val keys = mutableSetOf<String>()
-                for (i in 0 until items.length()) {
-                    val row = items.getJSONObject(i)
-                    val title = row.optString("title").trim()
-                    val details = row.optString("details").trim()
-                    if (title.isBlank() || title.length > 100 ||
-                        details.length > 350) throw IllegalArgumentException("invalid data")
-                    // A validated official work tuple gives this local
-                    // snapshot stable identity across status changes. Never
-                    // persist the signed URL or session token from li[data].
-                    val sourceKey = row.optString("sourceKey").trim()
-                    val validWorkKey = kind == "homework" &&
-                        host == "mooc1.chaoxing.com" &&
-                        sourceKey.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))
-                    val validPlanKey = kind == "study_task" &&
-                        host == "task.chaoxing.com" &&
-                        sourceKey.matches(Regex("""plan:\d{1,24}"""))
-                    if (sourceKey.isNotEmpty() &&
-                        (provider != "chaoxing" || !(validWorkKey || validPlanKey)))
-                        throw IllegalArgumentException("invalid school task identity")
-                    val identity = if (sourceKey.isNotEmpty()) sourceKey
-                        else title + "|" + details
+                val rows = result.items.map { item ->
+                    val status = if (item.kind == "homework") "当前网页显示的状态：" else "学习计划状态："
+                    val label = if (item.kind == "homework") "官方作业身份：" else "学习任务身份："
+                    val detail = if (item.kind == "course") "课程列表" else status + item.status + " · " + label + item.sourceKey
                     val fingerprint = MessageDigest.getInstance("SHA-256")
-                        .digest((provider + "|" + kind + "|" + identity)
-                            .toByteArray(Charsets.UTF_8))
+                        .digest(("chaoxing|" + item.kind + "|" + item.sourceKey).toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
-                    if (keys.add(fingerprint)) accepted.add(NativeSchoolRecord(
-                        provider = provider, kind = kind, fingerprint = fingerprint,
-                        title = title, details = details, sourceHost = host ?: "",
-                        capturedAt = now
-                    ))
+                    NativeSchoolRecord("chaoxing", item.kind, fingerprint, item.title,
+                        detail, item.sourceHost, now)
                 }
-                if (accepted.isEmpty()) throw IllegalArgumentException("no records")
-                // Prevent two overlapping writes from changing the same kind.
-                extract.isEnabled = false
-                appendVisible?.isEnabled = false
-                lifecycleScope.launch {
-                    try {
-                        val total = withContext(Dispatchers.IO) {
-                            val dao = LocalTaskDatabase.open(applicationContext)
-                                .nativeSchoolRecords()
-                            if (append) dao.appendKind(provider, kind, accepted)
-                            else {
-                                dao.replaceKind(provider, kind, accepted)
-                                accepted.size
-                            }
-                        }
-                        if (epoch != captureEpoch || isFinishing) return@launch
-                        // This result only includes a provider, kind and actual
-                        // total saved count. School titles and HTML stay in Room.
-                        savedKind = kind
-                        savedCount = total
-                        finishAndReturn.isEnabled = true
-                        finishAndReturn.visibility = View.VISIBLE
-                        tell((if (append) "本页已追加或去重 " else "本页已替换旧记录，保存 ") +
-                            accepted.size + " 条；当前本机同类共 " + total + " 条。" +
-                            (if (append) "旧页保留，作业状态按官方 ID 去重；请核对不同来源。" else
-                                "下次跨页读取请选择「分页追加本页」。") +
-                            "这不是学校官方完整同步，也未核实全部提交状态。")
-                        onSaved?.invoke(true)
-                    } catch (_: IllegalArgumentException) {
-                        tell("合并后超出 500 条上限，已拒绝写入，旧记录保持不变。请核对本机记录或重新开始本类采集。")
-                        onSaved?.invoke(false)
-                    } catch (_: Exception) {
-                        tell("本机数据库保存失败。本次操作没有清空已有记录。")
-                        onSaved?.invoke(false)
-                    } finally {
-                        if (epoch == captureEpoch && !isFinishing) {
-                            extract.isEnabled = loaded && !pageFailed &&
-                                extractionAllowed(provider, browser.url)
-                            appendVisible?.isEnabled = extract.isEnabled
-                        }
-                    }
+                val count = withContext(Dispatchers.IO) {
+                    LocalTaskDatabase.open(applicationContext).nativeSchoolRecords()
+                        .mergeChaoxingRead(rows, result.accountHash, result.complete, result.supersededKeys)
                 }
-        } catch (_: Exception) {
-            tell("当前页面没有匹配的业务列表，或页面结构已变化。没有写入猜测数据；请进入课程／作业／活动列表后再试。")
-            onSaved?.invoke(false)
+                context.ensureActive()
+                savedKind = listOf("homework", "study_task", "course").firstOrNull {kind -> rows.any {it.kind == kind}} ?: "homework"
+                savedCount = rows.count {it.kind == savedKind}
+                finishAndReturn.isEnabled = true
+                finishAndReturn.visibility = View.VISIBLE
+                tell("已读取通知 " + result.noticePages + " 页、课程 " + result.courseCount +
+                    " 门，保存任务 " + count + " 条。" +
+                    if (result.complete) "请返回任务中心核对。"
+                    else "部分来源未完成：\n" + result.failures.take(8).joinToString("\n"))
+            } catch (_: CancellationException) {
+                // Cancelling navigation or closing Activity never reports a new saved snapshot.
+            } catch (e: ChaoxingReadFailure) {
+                tell(when (e.code) {
+                    "login_required" -> "请先在当前学习通官网完成登录，再点读取全部。"
+                    "account_changed" -> "读取过程中账号发生变化，未保存本次结果，请重新读取。"
+                    else -> "本机读取未完成（" + e.code + "），已保留原有记录。"
+                })
+            } catch (_: Exception) {
+                tell("本机读取或保存未完成，已保留原有记录。")
+            } finally {
+                session.cancel()
+                if (chaoxingWebSession === session) chaoxingWebSession = null
+                if (!isFinishing && !isDestroyed) extract.isEnabled = loaded && !pageFailed
+            }
         }
     }
 
@@ -1328,6 +747,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 
     override fun onDestroy() {
         val pendingSave = scoreSaveJob
+        abortTaskDiscovery()
         invalidateCapture()
         if (::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)
@@ -1341,305 +761,3 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
-
-/** The current page must have visible structured records. Unknown layouts fail closed. */
-private const val READ_VISIBLE_PAGE = """
-(function () {
-  const host = location.hostname;
-  if (host === 'task.chaoxing.com' &&
-      location.pathname === '/userStudyPlan/studyPlanSubPage' &&
-      typeof window !== 'undefined' && window.__xiaoxuPlanResult)
-    return window.__xiaoxuPlanResult;
-  if (host === 'mooc1.chaoxing.com' &&
-      ['/visit/stucoursemiddle','/mooc2/work/list',
-       '/mooc-ans/mooc2/work/list'].includes(location.pathname) &&
-      typeof window !== 'undefined' && window.__xiaoxuCourseHomeworkResult)
-    return window.__xiaoxuCourseHomeworkResult;
-  const clean = x => String(x || '').replace(/\s+/g, ' ').trim().slice(0,350);
-  const docs = [document];
-  document.querySelectorAll('iframe').forEach(frame => {
-    try { if (frame.contentDocument && frame.contentDocument.location.origin === location.origin)
-      docs.push(frame.contentDocument); } catch (_) {}
-  });
-  const onScreen = node => !!(node && node.getClientRects().length);
-  const provider = host === 'dekt.ncwu.edu.cn' ? 'second_class' : 'chaoxing';
-  // A partial snapshot must never replace previously saved personal records.
-  const MAX_RECORDS = 120;
-  // Bound DOM traversal, but never silently drop tables beyond an arbitrary prefix.
-  const MAX_TABLES = 200;
-  let visibleTables = 0;
-  const rows = [];
-  let kind = '';
-  // The all-task page may also contain course/summary tables. Those are NOT
-  // evidence that a homework title was read from an official work row.
-  const homeworkOverview = provider === 'chaoxing' &&
-    host === 'mooc1-api.chaoxing.com' &&
-    location.pathname === '/mooc-ans/mooc2/work/all-task';
-  for (const doc of docs) {
-    for (const table of Array.from(doc.querySelectorAll('table'))) {
-      if (!onScreen(table)) continue;
-      if (++visibleTables > MAX_TABLES)
-        return JSON.stringify({host,kind,records:[],truncated:true});
-      const trs = Array.from(table.querySelectorAll('tr')).filter(onScreen);
-      if (trs.length < 2) continue;
-      const header = Array.from(trs[0].querySelectorAll('th,td')).map(el => clean(el.innerText));
-      if (header.length < 2 || header.length > 18) continue;
-      const compact = header.map(s => s.replace(/\s/g,''));
-      const matching = provider === 'second_class'
-        ? compact.some(h => /活动名称|项目名称|积分|学时|第二课堂/.test(h))
-        : compact.some(h => /作业名称|课程名称|课程名|作业|任务名称/.test(h));
-      if (!matching) continue;
-      // An activity table can have an "积分" column. That does not make its
-      // rows an official cumulative credit statement.
-      const foundKind = provider === 'second_class'
-        ? (compact.some(h => /^(活动名称|活动项目|报名活动)$/.test(h))
-            ? 'activity'
-            : compact.some(h => /^(积分项目|积分项|学时项目|积分来源|学时汇总)$/.test(h))
-              ? 'credits'
-              : 'activity')
-        : (compact.some(h => /作业|任务名称/.test(h)) ? 'homework' : 'course');
-      if (kind && foundKind !== kind) continue;
-      const titleIndex = foundKind === 'homework'
-        ? compact.findIndex(h => /^(作业名称|作业名|任务名称|作业标题|作业)$/.test(h))
-        : compact.findIndex(h => /^(课程名称|课程名|活动名称|项目名称|积分项目|学时项目)$/.test(h));
-      // Never substitute course name or a status column for the work title.
-      // On the official all-task page, ignore course-only summary tables.
-      const first = foundKind === 'homework' ? titleIndex :
-        titleIndex >= 0 ? titleIndex :
-        compact.findIndex(h => /^(课程|活动|名称|项目|类别|类型|分类|积分项目|项目类别)$/.test(h));
-      if (first < 0 || (homeworkOverview && foundKind !== 'homework')) continue;
-      let appended = false;
-      for (const tr of trs.slice(1)) {
-        const cells = Array.from(tr.querySelectorAll(':scope > th,:scope > td')).map(el => clean(el.innerText));
-        if (cells.length !== header.length || !cells[first]) continue;
-        const title = cells[first].slice(0,100);
-        const details = cells.map((value,i) =>
-          i !== first && value ? compact[i] + '：' + value.slice(0,90) : ''
-        ).filter(Boolean).join(' · ').slice(0,350);
-        if (title.length >= 2 && !/登录|验证码|退出系统/.test(title)) {
-          rows.push({title,details});
-          appended = true;
-        }
-        if (rows.length > MAX_RECORDS) break;
-      }
-      // A header without valid visible records must not block another table.
-      if (appended) kind = foundKind;
-    }
-  }
-  if (!rows.length && provider === 'chaoxing' &&
-      host === 'mooc1.chaoxing.com' &&
-      (location.pathname === '/visit/stucoursemiddle' ||
-       /\/work\/list/.test(location.pathname))) {
-    // Mirror the already-tested FIRST-PARTY backend list evidence: each
-    // visible li[data] has title p.overHidden2 and status p.status.
-    // Only extract validated numeric IDs from data; discard signed tokens.
-    for (const doc of docs) {
-      // Completed work may lack goTask entirely. Only visible official
-      // rows carrying the title selector are kept; do not export li.data.
-      const tasks = doc.querySelectorAll('.bottomList li[data]');
-      for (const li of Array.from(tasks)) {
-        // The reference app's HTML reader also sees completed tab rows
-        // present in DOM but not currently visible. Hidden rows are admitted
-        // only with a validated official work tuple and explicit status.
-        const title = clean(li.querySelector('p.overHidden2.fl')?.innerText ||
-          li.querySelector('p.overHidden2')?.innerText).slice(0,100);
-        if (!title) continue;
-        const status = clean(li.querySelector('p.status.fl')?.innerText ||
-          li.querySelector('p.status')?.innerText).slice(0,60);
-        // Drop all signed query components. A trusted numeric tuple is
-        // sufficient for cross-source matching; never export li.data itself.
-        let sourceKey = '';
-        try {
-          const raw = li.getAttribute('data');
-          const link = new URL(raw, location.href);
-          const qp = link.searchParams, courseId = qp.get('courseId');
-          const classId = qp.get('classId'), workId = qp.get('workId') || qp.get('workid');
-          const num = value => /^\d{1,24}$/.test(value || '');
-          if (link.protocol === 'https:' && link.hostname === 'mooc1.chaoxing.com' &&
-              ['/mooc-ans/mooc2/work/task','/mooc-ans/mooc2/work/dowork',
-               '/work/dowork'].includes(link.pathname) &&
-              !link.username && !link.password && !link.hash &&
-              [courseId, classId, workId].every(num) &&
-              qp.getAll('courseId').length === 1 &&
-              qp.getAll('classId').length === 1 &&
-              qp.getAll('workId').length + qp.getAll('workid').length === 1)
-            sourceKey = 'work:' + courseId + ':' + classId + ':' + workId;
-        } catch (_) {}
-        if (!onScreen(li) && (!sourceKey || !status)) continue;
-        const details = status ? '当前网页显示的状态：' + status :
-          '网页未展示提交状态';
-        rows.push({title,details: sourceKey ?
-          details + ' · 官方作业身份：' + sourceKey : details,sourceKey});
-        if (rows.length > MAX_RECORDS) break;
-      }
-    }
-    if (rows.length) kind = 'homework';
-  }
-  if (!rows.length && provider === 'chaoxing' &&
-      host === 'task.chaoxing.com' &&
-      location.pathname === '/userStudyPlan/studyPlanSubPage') {
-    // Owner-visible learning plans: no hidden API replay, auto-clicking,
-    // credential extraction, inferred completed flag, or background reading.
-    // Display separately from the normal course-homework provider.
-    for (const doc of docs) {
-      for (const card of Array.from(doc.querySelectorAll('.xtask_item'))) {
-        if (!onScreen(card)) continue;
-        const title = clean(card.querySelector('.xname')?.innerText).slice(0,100);
-        const status = clean(Array.from(card.querySelectorAll('.xtip_info_card'))
-          .map(node => node.innerText).join(' ')).slice(0,60);
-        if (!title || !status) continue;
-        // Official card identity, when supplied, is a decimal plan ID.
-        // Do not infer an ID from its title, rule text or opaque link/token.
-        const rawId = card.getAttribute?.('data-plan-id') ||
-          String(card.id || '').replace(/^plan_?/, '');
-        const planId = /^\d{1,24}$/.test(rawId) ? rawId : '';
-        const sourceKey = planId ? 'plan:' + planId : '';
-        rows.push({
-          title, details:'学习计划状态：' + status +
-            (sourceKey ? ' · 学习任务身份：' + sourceKey : ''),
-          sourceKey
-        });
-        if (rows.length > MAX_RECORDS) break;
-      }
-    }
-    if (rows.length) kind = 'study_task';
-  }
-  if (!rows.length && provider === 'chaoxing' &&
-      host === 'mooc2-ans.chaoxing.com' &&
-      location.pathname.includes('/visit/courselistdata')) {
-    // MIT xuexitong-cli shows course-name and courseid links on the
-    // authenticated official course-list page. Never infer course titles
-    // from unrelated links or sign-in screens.
-    for (const doc of docs) {
-      const nodes = doc.querySelectorAll('.course-name[title],a[href*="courseid="] .course-name');
-      for (const el of Array.from(nodes)) {
-        if (!onScreen(el)) continue;
-        const title = clean(el.getAttribute('title') || el.innerText).slice(0,100);
-        if (title.length > 1) rows.push({title,details:'课程列表页面'});
-        if (rows.length > MAX_RECORDS) break;
-      }
-    }
-    if (rows.length) kind = 'course';
-  }
-  if (rows.length > MAX_RECORDS)
-    return JSON.stringify({host,kind,records:[],truncated:true});
-  return JSON.stringify({host,kind,records:rows});
-})()
-""";
-
-/**
- * One user-initiated, read-only scan of the official task.chaoxing.com page.
- * Credentials and encrypted task/group identifiers never leave this origin.
- * The sole native result is sanitized title, explicit official state and
- * non-secret numeric plan ID. No navigation, submission or auto-reading.
- */
-private const val READ_TASK_PLAN_GROUPS = """
-(function () {
-  const host = location.hostname;
-  // A stale first request must not overwrite a newer user-triggered read.
-  const run = (Number(window.__xiaoxuPlanReadEpoch) || 0) + 1;
-  window.__xiaoxuPlanReadEpoch = run;
-  const done = (error, records = []) => {
-    if (window.__xiaoxuPlanReadEpoch !== run) return;
-    window.__xiaoxuPlanResult = JSON.stringify({
-      host, kind: 'study_task', records, error: error || ''
-    });
-  };
-  window.__xiaoxuPlanResult = '';
-  if (host !== 'task.chaoxing.com' ||
-      location.pathname !== '/userStudyPlan/studyPlanSubPage' ||
-      location.protocol !== 'https:') {
-    done('wrong_page'); return 'blocked';
-  }
-  const clean = (text, max = 100) => String(text ?? '')
-    .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
-  let userId = '';
-  try {
-    userId = new URL(location.href).searchParams.get('encryTaskUserId') || '';
-  } catch (_) {}
-  try {
-    if (!userId && typeof eTaskUserId !== 'undefined')
-      userId = String(eTaskUserId || '');
-    if (!userId && typeof window.eTaskUserId === 'string')
-      userId = window.eTaskUserId;
-  } catch (_) {}
-  if (!userId) {
-    for (const node of Array.from(document.scripts || []).slice(0, 80)) {
-      const source = String(node.textContent || '').slice(0, 40000);
-      const match = source.match(/(?:const|let|var)\s+eTaskUserId\s*=\s*["']([^"']{1,220})["']/);
-      if (match) { userId = match[1]; break; }
-    }
-  }
-  // The opaque credential is only an argument to same-origin official APIs.
-  // It is not placed in records, logs, Android storage or Cloudflare.
-  if (!/^[A-Za-z0-9+\/=_-]{1,220}$/.test(userId)) {
-    done('identity_unavailable'); return 'blocked';
-  }
-  (async () => {
-    const post = async (path, args) => {
-      const url = new URL(path, location.origin);
-      for (const [key, value] of Object.entries(args))
-        url.searchParams.set(key, value);
-      const response = await fetch(url.pathname + url.search, {
-        method: 'POST', credentials: 'same-origin', redirect: 'error',
-        cache: 'no-store', headers: {'X-Requested-With':'XMLHttpRequest'}
-      });
-      if (!response.ok) throw Error('upstream_unavailable');
-      const text = await response.text();
-      if (text.length > 180000) throw Error('invalid_response');
-      const value = JSON.parse(text);
-      if (!value || !Array.isArray(value.data))
-        throw Error('invalid_response');
-      return value.data;
-    };
-    const groups = await post('/userStudyPlan/getGroupData',
-      {encryTaskUserId:userId});
-    if (groups.length > 24) throw Error('too_many_groups');
-    const keys = groups.map(group => String(group?.encryptGroupId ?? ''));
-    if (keys.some(key => !/^[A-Za-z0-9+\/=_-]{1,220}$/.test(key)))
-      throw Error('invalid_group');
-    const rows = [], seen = new Set();
-    for (let i=0; i<keys.length; i+=4) {
-      const batches = await Promise.all(keys.slice(i,i+4).map(encryGroupId =>
-        post('/userStudyPlan/getPlanDataByGroupId',
-          {encryTaskUserId:userId,encryGroupId})));
-      for (const plans of batches) {
-        for (const plan of plans) {
-          if (!plan || typeof plan !== 'object' || Array.isArray(plan))
-            throw Error('invalid_response');
-          const title = clean(plan.name || plan.title);
-          if (!title) throw Error('invalid_response');
-          const boolDone = plan.isFinish === true || Number(plan.isFinish) === 1 ||
-            Number(plan.planUser?.finish) === 1 ||
-            Number(plan.score?.completed) === 1;
-          const boolTodo = plan.isFinish === false || plan.isFinish === 0 ||
-            plan.isFinish === '0' || plan.planUser?.finish === 0 ||
-            plan.planUser?.finish === '0';
-          const explicit = clean(plan.statusText || plan.statusName ||
-            plan.planUser?.statusText || '',60);
-          const status = explicit || (boolDone ? '已完成' :
-            boolTodo ? '未完成' : '状态未知');
-          const planId = String(plan.planId ?? '');
-          const sourceKey = /^\d{1,24}$/.test(planId) ? 'plan:' + planId : '';
-          const identity = sourceKey || title + '|' + status;
-          if (seen.has(identity)) continue;
-          seen.add(identity);
-          if (rows.length >= 120) throw Error('too_many_records');
-          rows.push({
-            title, details: '学习计划状态：' + status +
-              (sourceKey ? ' · 学习任务身份：' + sourceKey : ''),
-            sourceKey
-          });
-        }
-      }
-    }
-    if (!rows.length) throw Error('no_records');
-    done('', rows);
-  })().catch(e => {
-    const permitted = new Set(['upstream_unavailable','invalid_response',
-      'too_many_groups','invalid_group','too_many_records','no_records']);
-    done(permitted.has(e?.message) ? e.message : 'plan_read_failed');
-  });
-  return 'started';
-})()
-""";

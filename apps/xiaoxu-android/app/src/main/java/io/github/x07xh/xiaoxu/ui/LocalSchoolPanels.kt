@@ -83,7 +83,7 @@ fun LocalSchoolConnectionPanel(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(when (provider) {
-                        "chaoxing" -> "本人课程、作业列表 · 读取后在任务页查看"
+                        "chaoxing" -> "通知、学习计划、课程作业 · 共用本机读取"
                         "ncwu" -> "个人课表 · 本机导入后直接在课表页查看"
                         else -> "官网本人积分、六类明细与分学期记录 · 保存后离线可查看"
                     }, style = MaterialTheme.typography.bodySmall,
@@ -93,7 +93,7 @@ fun LocalSchoolConnectionPanel(
                         onClick = { openLocal(provider) }
                     ) {
                         Text(when (provider) {
-                            "chaoxing" -> "在 App 中打开学习通"
+                            "chaoxing" -> "连接学习通／刷新全部任务"
                             "ncwu" -> "在 App 中导入青果课表"
                             else -> "连接第二课堂／刷新积分"
                         })

@@ -36,7 +36,7 @@ fun nativeChaoxingVisibleStatusText(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" ||
         record.kind !in setOf("homework", "study_task") ||
         record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com",
-            "task.chaoxing.com")) return null
+            "task.chaoxing.com", "mooc2-ans.chaoxing.com", "notice.chaoxing.com")) return null
     return Regex(
         """(?:^|[·\n])\s*(?:当前网页显示的状态|学习计划状态|提交状态|审核状态|任务状态|状态)\s*[：:]\s*([^·\n]{1,60})"""
     ).find(record.details)?.groupValues?.get(1)?.trim()
@@ -57,7 +57,7 @@ fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
 /** Stable, non-secret official work tuple validated by the fixed on-device reader. */
 fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" || record.kind != "homework" ||
-        record.sourceHost != "mooc1.chaoxing.com") return null
+        record.sourceHost !in setOf("mooc1.chaoxing.com", "mooc1-api.chaoxing.com", "mooc2-ans.chaoxing.com")) return null
     val identity = Regex("""(?:^| · )官方作业身份：(work:\d{1,24}:\d{1,24}:\d{1,24})$""")
         .find(record.details)?.groupValues?.get(1) ?: return null
     val expected = MessageDigest.getInstance("SHA-256")
@@ -69,8 +69,8 @@ fun nativeChaoxingWorkSourceId(record: NativeSchoolRecord): String? {
 /** Stable official plan identity; never derive it from an assignment title. */
 fun nativeChaoxingPlanSourceId(record: NativeSchoolRecord): String? {
     if (record.provider != "chaoxing" || record.kind != "study_task" ||
-        record.sourceHost != "task.chaoxing.com") return null
-    val identity = Regex("""(?:^| · )学习任务身份：(plan:\d{1,24})$""")
+        !record.sourceHost.endsWith(".chaoxing.com")) return null
+    val identity = Regex("""(?:^| · )学习任务身份：((?:plan:\d{1,24}|study:[a-f0-9]{64}))$""")
         .find(record.details)?.groupValues?.get(1) ?: return null
     val expected = MessageDigest.getInstance("SHA-256")
         .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
@@ -177,6 +177,37 @@ interface NativeSchoolRecordDao {
      * Duplicate fingerprints update in-place. The size bound is checked within
      * the Room transaction before any write, preserving all old rows on error.
      */
+    /** Single local reader commit. Changed accounts never inherit old snapshots. */
+    @Transaction
+    suspend fun mergeChaoxingRead(rows: List<NativeSchoolRecord>, accountHash: String,
+        complete: Boolean = false, supersededKeys: Set<String> = emptySet()): Int {
+        require(accountHash.matches(Regex("^[a-f0-9]{64}$")))
+        require(rows.isNotEmpty() || complete) { "failed_empty_scan" }
+        require(rows.size <= 5000 && rows.all {
+            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task") &&
+                it.sourceHost.endsWith(".chaoxing.com") && it.title.isNotBlank()
+        })
+        val old = snapshotKind("chaoxing", "account_binding").singleOrNull()?.details
+        if (old != accountHash || complete) {
+            for (kind in listOf("course", "homework", "study_task")) deleteKind("chaoxing", kind)
+        } else if (supersededKeys.isNotEmpty()) {
+            require(supersededKeys.size <= 5000)
+            val fingerprints = supersededKeys.map { key ->
+                require(key.matches(Regex("""plan:\d{1,24}|study:[a-f0-9]{64}""")))
+                MessageDigest.getInstance("SHA-256").digest(("chaoxing|study_task|" + key).toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+            }.toSet()
+            val retained = snapshotKind("chaoxing", "study_task").filterNot {it.fingerprint in fingerprints}
+            deleteKind("chaoxing", "study_task")
+            insertAll(retained)
+        }
+        insertAll(rows)
+        deleteKind("chaoxing", "account_binding")
+        insertAll(listOf(NativeSchoolRecord("chaoxing", "account_binding", "current", "", accountHash,
+            "i.chaoxing.com", rows.firstOrNull()?.capturedAt ?: System.currentTimeMillis())))
+        return rows.count {it.kind != "course"}
+    }
+
     @Transaction
     suspend fun appendKind(provider: String, kind: String, rows: List<NativeSchoolRecord>): Int {
         require(provider == "chaoxing" && kind in setOf("course", "homework", "study_task"))

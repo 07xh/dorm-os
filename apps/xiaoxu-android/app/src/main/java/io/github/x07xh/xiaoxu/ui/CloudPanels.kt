@@ -410,24 +410,13 @@ private fun CloudAuthorizationSection(
                 color = XiaoxuPalette.Ink3
             )
 
-            val qrStartedAt = state.chaoxingQr.startedAt
-            LaunchedEffect(qrStartedAt, foreground) {
-                if (qrStartedAt == 0L || !foreground) return@LaunchedEffect
-                // Bounded, foreground-only: no always-on polling or worker.
-                repeat(24) {
-                    delay(4500L)
-                    if (client.state.chaoxingQr.status !in setOf("pending", "scanned"))
-                        return@LaunchedEffect
-                    client.pollChaoxingQr()
-                }
-            }
             val providerIcons = mapOf(
                 "chaoxing" to Icons.AutoMirrored.Outlined.MenuBook,
                 "ncwu" to Icons.Outlined.School,
                 "second_class" to Icons.Outlined.EmojiEvents
             )
             for ((id, title) in listOf(
-                "chaoxing" to "学习通", "ncwu" to "青果教务",
+                "ncwu" to "青果教务",
                 "second_class" to "第二课堂")) {
                 PlatformStatusCard(
                     id = id,
@@ -593,8 +582,7 @@ private fun PlatformStatusCard(
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
-                    if (id == "chaoxing") client.loadChaoxingCourses()
-                    else client.syncAuthorizedSchool(id)
+                    client.syncAuthorizedSchool(id)
                 }
             }
             PrimaryAction(
@@ -621,150 +609,7 @@ private fun PlatformStatusCard(
                 onClick = { openLocalSchool(id) }
             )
         }
-        if (id == "chaoxing") {
-            val qr = state.chaoxingQr
-            SettingRow(
-                icon = Icons.Outlined.Cloud,
-                title = if (qr.status in setOf("pending", "scanned")) "重新生成扫码二维码"
-                else "显示扫码二维码（需另一设备）",
-                subtitle = if (qr.status in setOf("pending", "scanned"))
-                    "二维码已生成，扫码后点「已扫码，立即检查」"
-                else "用另一台设备扫码登录学习通，本机不保存密码",
-                enabled = state.authenticated && !qr.busy && !state.busy,
-                onClick = { scope.launch { client.startChaoxingQr() } }
-            )
-            if (qr.status != "idle") {
-                qr.message?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (qr.status == "failed") XiaoxuPalette.Danger
-                        else XiaoxuPalette.Ink3
-                    )
-                }
-                if (qr.status in setOf("pending", "scanned")) {
-                    val qrBitmap = remember(qr.image) {
-                        qr.image?.let { raw ->
-                            val bounds = BitmapFactory.Options().apply {
-                                inJustDecodeBounds = true
-                            }
-                            BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
-                            if (bounds.outWidth in 1..2048 && bounds.outHeight in 1..2048) {
-                                BitmapFactory.decodeByteArray(raw, 0, raw.size)?.asImageBitmap()
-                            } else null
-                        }
-                    }
-                    if (qrBitmap != null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                                .background(XiaoxuPalette.SurfaceAlt)
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                bitmap = qrBitmap,
-                                contentDescription = "学习通官方扫码登录二维码",
-                                modifier = Modifier.size(208.dp)
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "二维码图片无法安全显示，请改用网页备用连接",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = XiaoxuPalette.Danger
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryAction(
-                            label = "已扫码，立即检查",
-                            enabled = !qr.busy,
-                            modifier = Modifier.weight(1f)
-                        ) { scope.launch { client.pollChaoxingQr() } }
-                        SecondaryAction(
-                            label = "取消扫码",
-                            enabled = !qr.busy,
-                            modifier = Modifier.weight(1f),
-                            onClick = client::cancelChaoxingQr
-                        )
-                    }
-                }
-            }
-            if (state.chaoxingCourses.isNotEmpty()) {
-                Text(
-                    text = "已读取本人 " + state.chaoxingCourses.size + " 门课程",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2
-                )
-                SettingRow(
-                    icon = Icons.AutoMirrored.Outlined.MenuBook,
-                    title = if (state.chaoxingBatchBusy) "正在逐门核验作业…" else "一键核验全部课程作业",
-                    subtitle = "按已有可信只读接口逐门核验；失败或未读到的课程不标记成功",
-                    enabled = state.authenticated && state.connectionsFresh &&
-                        platform?.verified == true && !state.chaoxingBusy &&
-                        !state.chaoxingDetailBusy && !state.busy &&
-                        state.schoolSyncBusyProvider == null,
-                    onClick = { scope.launch { client.syncChaoxingAllCourses() } }
-                )
-            }
-            state.chaoxingBatchStatus?.let { result ->
-                Text(
-                    text = result,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (workIncomplete) XiaoxuPalette.Warning else XiaoxuPalette.Ink3
-                )
-            }
-            // Keep the failure visible in Data Connections itself. Previously
-            // only the separate Task page exposed the per-course evidence.
-            if (workAudit.isNotEmpty()) {
-                val summary = summarizeChaoxingAudit(
-                    workAudit, state.chaoxingCourses.size, state.chaoxingBatchTaskLedgerFresh)
-                Text(
-                    "本次可信作业：已提交 ${summary.statuses["submitted"] ?: 0}、" +
-                        "已批阅 ${summary.statuses["graded"] ?: 0}、" +
-                        "未提交 ${summary.statuses["todo"] ?: 0}、" +
-                        "退回 ${summary.statuses["returned"] ?: 0}、" +
-                        "未知 ${summary.statuses["unknown"] ?: 0}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink2
-                )
-                unresolvedWork.take(8).forEach { course ->
-                    val detail = when (course.coverage) {
-                        ChaoxingCourseCoverage.FAILED ->
-                            "读取失败 · " +
-                                (course.failure?.label ?: "未获得可核实的故障类型") +
-                                (course.failureStage?.let { " · 阶段：" + it.label } ?: "")
-                        ChaoxingCourseCoverage.NOT_CHECKED -> "尚未读取，不能判定为已提交"
-                        ChaoxingCourseCoverage.LIST_ONLY -> "状态已读取，作业总量尚未核验"
-                        ChaoxingCourseCoverage.COUNT_VERIFIED -> "已核验"
-                    }
-                    Text(
-                        "${course.courseTitle}：$detail",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = XiaoxuPalette.Warning
-                    )
-                }
-                if (unresolvedWork.size > 8) {
-                    Text("另有 ${unresolvedWork.size - 8} 门待核验；在任务页查看全部。",
-                        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3)
-                }
-            }
-            state.chaoxingError?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Danger
-                )
-            }
-            if (platform?.autoSyncEnabled == true) {
-                Text(
-                    text = "每小时检查已登记；实际同步结果以任务页为准",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3
-                )
-            }
-        }
+
         if (state.schoolSyncResultProvider == id && state.schoolSyncMessage != null) {
             Text(
                 text = state.schoolSyncMessage,

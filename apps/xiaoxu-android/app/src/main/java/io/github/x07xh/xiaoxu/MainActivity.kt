@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
                 "second_class" -> kind in setOf("activity", "credits")
                 else -> false
             }
-            if (permitted && count in 1..500) { // Explicitly combined local Chaoxing pages.
+            if (permitted && count in 1..5000) { // Explicitly combined local Chaoxing pages.
                 captureSerial++
                 lastLocalCapture = LocalSchoolImportReceipt(
                     source!!, kind!!, count, captureSerial
