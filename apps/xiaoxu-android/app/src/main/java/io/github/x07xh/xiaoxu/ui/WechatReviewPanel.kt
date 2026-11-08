@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -237,6 +239,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -271,12 +274,12 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                 ReviewMeta("消息时间", sentTime(selected.sentAt) + "（北京时间）")
                 ReviewMeta("候选截止", dueLabel(selected))
                 Text(
-                    text = "电脑端提取的候选摘要",
+                    text = "微信候选消息正文（已脱敏）",
                     style = MaterialTheme.typography.labelMedium,
                     color = XiaoxuPalette.Ink3
                 )
                 Text(
-                    text = selected.excerpt ?: "本条候选没有摘要；请前往微信核实原消息。",
+                    text = selected.excerpt ?: "旧版仅同步了短标题。请在电脑端执行微信回补同步后刷新；或前往微信查看原消息。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = XiaoxuPalette.Ink
                 )
@@ -284,7 +287,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                 WechatTaskLinkActions(selected.links)
                 HorizontalDivider(color = XiaoxuPalette.Line)
                 Text(
-                    text = "候选摘要 · 请核对原消息后确认",
+                    text = "候选正文仅用于核对，加入任务前请确认内容与截止日期",
                     color = XiaoxuPalette.Ink2,
                     style = MaterialTheme.typography.bodySmall
                 )

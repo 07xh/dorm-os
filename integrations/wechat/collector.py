@@ -43,6 +43,7 @@ OVERLAP_SECONDS = 24 * 3600
 BOOTSTRAP_SECONDS = 72 * 3600
 MAX_LINKS = 3
 MAX_LINK_LEN = 512
+MAX_EXCERPT_UNITS = 4000  # Detailed, redacted task-message text; never a whole chat archive.
 TASK_WORDS = re.compile(r"作业|实验报告|课程报告|提交|上交|截止|ddl|考试|测验|互评|报名|签到|考核|作图|结课|打卡", re.I)
 # Link extraction keeps the URL body away from adjacent Chinese text: real
 # chat links percent-encode non-ASCII, so raw CJK/full-width characters mark
@@ -174,6 +175,32 @@ def contract_text(value: str, max_units: int) -> str:
     return "".join(output).strip()
 
 
+def contract_message(value: str) -> str:
+    """Preserve line breaks in the redacted task message; flag unavoidable overflow.
+
+    This is not the raw WeChat record: URLs, email addresses, phones and long
+    identifiers are already masked by classify(). UTF-16 units match the API.
+    """
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", value)
+    value = re.sub(r"[ \t]+", " ", value)
+    value = re.sub(r"\n{3,}", "\n\n", value).strip()
+    def units(v):
+        return len(v.encode("utf-16-le")) // 2
+    if units(value) <= MAX_EXCERPT_UNITS:
+        return value
+    marker = "\n[消息过长，剩余部分请在微信查看]"
+    remaining = MAX_EXCERPT_UNITS - units(marker)
+    output = []
+    for char in value:
+        width = 2 if ord(char) > 0xFFFF else 1
+        if width > remaining:
+            break
+        output.append(char)
+        remaining -= width
+    return "".join(output).rstrip() + marker
+
+
 def due_date(text: str, sent_ts: int) -> dict:
     sent = datetime.fromtimestamp(sent_ts, CHINA).date()
     for regex in (DAY_ISO, DAY_SHORT):
@@ -270,7 +297,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
     cleaned = CLEAN_LONG_ID.sub("[编号]", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"[ \t]+", " ", cleaned).strip()
     if len(cleaned) < 4:
         return None
     if re.search(r"考试|测验|考核", text):
@@ -281,11 +308,11 @@ def classify(text: str, sent_ts: int) -> dict | None:
         kind = "activity"
     else:
         kind = "homework"
-    return {"kind": kind, "title": contract_text(cleaned, 120), "deadline": due_date(text, sent_ts), "links": links}
+    return {"kind": kind, "title": contract_text(cleaned, 120), "excerpt": contract_message(cleaned), "deadline": due_date(text, sent_ts), "links": links}
 
 
 def extract_groups(config: dict, secret: bytes, cursors: dict, *,
-                   reader=None, now_ts=None) -> tuple[list[dict], dict, list[str]]:
+                   reader=None, now_ts=None, bootstrap_seconds=None) -> tuple[list[dict], dict, list[str]]:
     now_ts = int(time.time()) if now_ts is None else int(now_ts)
     if reader is None:
         # Reuse wechat-cli-plus ONLY. It has already been installed and tested
@@ -328,7 +355,7 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
     candidates, next_cursors, summary = [], dict(cursors), []
     for chat in config["chats"]:
         old = int(cursors.get(chat, 0))
-        since = max(0, old - OVERLAP_SECONDS) if old else now_ts - BOOTSTRAP_SECONDS
+        since = max(0, old - OVERLAP_SECONDS) if old else now_ts - (bootstrap_seconds or BOOTSTRAP_SECONDS)
         total = 0
         max_ts = old
         for table_name, local_id, ts, text in reader(chat, since):
@@ -345,7 +372,7 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
             candidates.append({
                 "messageKey": msg_key, "candidateKey": candidate_key,
                 "chatKey": group_key, "chatLabel": contract_text(chat, 80),
-                "kind": task["kind"], "title": task["title"],
+                "kind": task["kind"], "title": task["title"], "excerpt": task["excerpt"],
                 "sentAt": datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "deadline": task["deadline"],
                 "links": task.get("links", []),
@@ -473,9 +500,12 @@ def setup() -> None:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（复用 Wechat-Todo，不上传原文）")
-    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify"))
+    parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（仅上传脱敏任务候选正文）")
+    parser.add_argument("command", choices=("setup", "preview", "sync", "backfill", "status", "verify"))
+    parser.add_argument("--days", type=int, default=3, help="backfill: days to rescan (1-30)")
     args = parser.parse_args(argv)
+    if args.command == "backfill" and not 1 <= args.days <= 30:
+        raise BridgeError("回补天数须为 1-30")
     if args.command == "setup":
         setup()
         return 0
@@ -502,7 +532,9 @@ def main(argv=None) -> int:
         return 0
     secret = opened(config["hmacDpapi"])
     cursors = read_state()
-    records, next_state, notes = extract_groups(config, secret, cursors)
+    records, next_state, notes = extract_groups(
+        config, secret, {} if args.command == "backfill" else cursors,
+        bootstrap_seconds=args.days * 86400 if args.command == "backfill" else None)
     for note in notes:
         print(note)
     print(f"检测到 {len(records)} 条待审核候选。规则筛选可能有误，均需在校序人工确认。")
@@ -518,7 +550,21 @@ def main(argv=None) -> int:
     # "同步完成" could be printed while the device never authenticated once.
     # Server receives zero message bodies, updates the paired device's last_seen_at
     # and acknowledges received:0. A failure never advances local checkpoints.
-    chunks = [records[i:i + 25] for i in range(0, len(records), 25)] or [[]]
+    # Full candidate text makes fixed 25-record batches too large for the 60KB
+    # endpoint. Bound each batch by both record count and UTF-8 payload size.
+    chunks, current = [], []
+    for record in records:
+        proposed = current + [record]
+        encoded = json.dumps(proposed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if current and (len(proposed) > 25 or len(encoded) > 48000):
+            chunks.append(current)
+            current = [record]
+        else:
+            current = proposed
+    if current:
+        chunks.append(current)
+    if not chunks:
+        chunks = [[]]
     for chunk in chunks:
         if chunk:
             # Stable retry ID for candidate-containing batches.
@@ -534,7 +580,8 @@ def main(argv=None) -> int:
                    "batchId": batch_id, "capturedAt": captured_at, "records": chunk}
         submit(config["site"], token, payload)
     # Advance only when the server has acknowledged every batch (or heartbeat).
-    save_json(STATE, next_state)
+    if args.command != "backfill":
+        save_json(STATE, next_state)
     print("服务器已确认本次同步；请在校序「任务 → 微信待审核」中审核。"
           if records else "服务器已确认设备在线，本次没有待审核任务。")
     return 0

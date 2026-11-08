@@ -2,8 +2,11 @@
 # 仅加载微信工具源码；三方依赖从 py312-venv 读取，不再混用捆绑 deps。
 param(
  [Parameter(Position=0)]
- [ValidateSet("setup","preview","sync","status","verify")]
- [string]$Command="status"
+ [ValidateSet("setup","preview","sync","backfill","status","verify")]
+ [string]$Command="status",
+ [Parameter(Position=1)]
+ [ValidateRange(1,30)]
+ [int]$Days=3
 )
 $ErrorActionPreference="Stop"
 $homeCli=Join-Path $env:USERPROFILE ".wechat-cli"
@@ -24,5 +27,6 @@ if(!(Test-Path -LiteralPath $collector -PathType Leaf)){
 }
 # 覆盖父进程的旧 PYTHONPATH，确保不会加载 deps 中不匹配的原生扩展。
 $env:PYTHONPATH=$toolDir
-& $python $collector $Command
+if($Command -eq "backfill") { & $python $collector $Command --days $Days }
+else { & $python $collector $Command }
 exit $LASTEXITCODE

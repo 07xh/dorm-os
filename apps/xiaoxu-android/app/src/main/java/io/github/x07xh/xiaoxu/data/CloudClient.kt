@@ -36,7 +36,9 @@ data class CloudTask(
     /** Last trusted platform state, independent of the user's local done flag. */
     val officialStatus: String? = null,
     /** Course label from the imported/verified source; NOT identity proof. */
-    val sourceCourse: String? = null
+    val sourceCourse: String? = null,
+    /** Read-only redacted body of a user-reviewed WeChat source message. */
+    val wechatExcerpt: String? = null
 )
 
 /** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
@@ -439,10 +441,14 @@ class CloudClient(context: Context) {
                         val sourceCourse = (o.opt("source_course") as? String)
                             ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
                             ?.take(80)
+                        val wechatExcerpt = (o.opt("wechat_excerpt") as? String)
+                            ?.takeIf { provider == "wechat" && it.isNotBlank() }
+                        if (wechatExcerpt != null && wechatExcerpt.length > 4000)
+                            throw IllegalStateException("invalid_wechat_body")
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
                             o.optString("local_status"), o.optString("kind"), provider, due,
                             revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
-                            sourceId, official, sourceCourse))
+                            sourceId, official, sourceCourse, wechatExcerpt))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
@@ -520,7 +526,9 @@ class CloudClient(context: Context) {
                         throw IllegalStateException("invalid_candidate")
                     Instant.parse(at)
                     val excerpt = row.optString("excerpt")
-                        .takeIf { it.isNotBlank() && it != "null" }?.take(240)
+                        .takeIf { it.isNotBlank() && it != "null" }
+                    if (excerpt != null && excerpt.length > 4000)
+                        throw IllegalStateException("invalid_candidate_excerpt")
                     val chat = row.optString("chatLabel")
                         .takeIf { it.isNotBlank() && it != "null" }?.take(80)
                     add(WechatCandidate(id, kind, title, excerpt, chat, at, precision, due,

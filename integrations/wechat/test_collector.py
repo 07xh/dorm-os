@@ -37,6 +37,25 @@ class CollectorTests(TestCase):
         self.assertNotIn("202612345678", task["title"])
         self.assertLessEqual(len(task["title"]), 120)
 
+    def test_full_redacted_message_keeps_long_details_and_marks_overflow(self):
+        body = "11月7日提交实验报告\n" + "需要包含原理、步骤和数据。" * 180
+        task = bridge.classify(body, 1793764800)
+        self.assertLessEqual(len(task["title"].encode("utf-16-le")) // 2, 120)
+        self.assertIn("需要包含原理", task["excerpt"])
+        self.assertGreater(len(task["excerpt"]), 240)
+        self.assertEqual(task["excerpt"], body)
+        self.assertIn(chr(10), task["excerpt"])
+
+        secret = "13812345678"
+        protected = bridge.classify(
+            "提交实验报告\n" + secret + " example@school.edu", 1793764800)
+        self.assertNotIn(secret, protected["excerpt"])
+        self.assertNotIn("example@school.edu", protected["excerpt"])
+        too_long = bridge.classify("提交实验报告" + "说明" * 3000, 1793764800)
+        self.assertLessEqual(len(too_long["excerpt"].encode("utf-16-le")) // 2,
+                             bridge.MAX_EXCERPT_UNITS)
+        self.assertIn("剩余部分请在微信查看", too_long["excerpt"])
+
     def test_extract_https_links_basics(self):
         self.assertEqual(
             bridge.extract_https_links(
@@ -187,6 +206,30 @@ class CollectorTests(TestCase):
             finally:
                 bridge.STATE = old_state
 
+
+    def test_backfill_uses_requested_window_without_resetting_sync_cursor(self):
+        with TemporaryDirectory() as temp:
+            original = bridge.STATE
+            bridge.STATE = Path(temp) / "sync-state.json"
+            bridge.STATE.write_text('{"课程群":1000}', encoding="utf-8")
+            config = {"chats": ["课程群"], "site": "https://dorm-os-dk9.pages.dev",
+                      "deviceId": "wxd_" + "a" * 24,
+                      "tokenDpapi": "secret-token", "hmacDpapi": "secret-hmac"}
+            calls = []
+            def extract(cfg, secret, cursors, **kwargs):
+                calls.append((cursors, kwargs.get("bootstrap_seconds")))
+                return [], {"课程群":999999}, ["synthetic"]
+            try:
+                with patch.object(bridge, "load_config", return_value=config), \
+                     patch.object(bridge, "opened",
+                                  side_effect=[b"hmac", ("wxu_" + "b"*43).encode()]), \
+                     patch.object(bridge, "extract_groups", side_effect=extract), \
+                     patch.object(bridge, "submit", return_value={"received":0}):
+                    bridge.main(["backfill", "--days", "3"])
+                self.assertEqual(calls, [({}, 3*86400)])
+                self.assertEqual(bridge.read_state(), {"课程群":1000})
+            finally:
+                bridge.STATE = original
 
     def test_empty_result_still_verifies_server_before_checkpoint(self):
         with TemporaryDirectory() as temp:
