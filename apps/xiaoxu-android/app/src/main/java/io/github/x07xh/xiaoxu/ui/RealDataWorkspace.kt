@@ -880,6 +880,9 @@ fun RealAcademicTaskHub(
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
+    val capturedStudyTasks = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "study_task" }
+    }
     val allRecords = remember(localTasks, state.tasks,
         capturedHomework, capturedStudyTasks) {
         combineWorkspaceTasks(localTasks, state.tasks,
@@ -890,9 +893,6 @@ fun RealAcademicTaskHub(
     }
     val archivedRows = remember(allRecords, archivedKeys) {
         allRecords.filter { it.key in archivedKeys }
-    }
-    val capturedStudyTasks = remember(schoolRows) {
-        schoolRows.filter { it.provider == "chaoxing" && it.kind == "study_task" }
     }
     val visibleCompleted = remember(capturedHomework, capturedStudyTasks) {
         (capturedHomework + capturedStudyTasks).count {
