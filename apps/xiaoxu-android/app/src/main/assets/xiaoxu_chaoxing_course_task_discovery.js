@@ -17,7 +17,7 @@
     let fid = '';
     for (const node of Array.from(document.scripts || []).slice(0,80)) {
       const source=String(node.textContent || '').slice(0,40000);
-      const match=source.match(/(?:var|let|const)\s+fid\s*=\s*["']?(\d{1,20})["']?/);
+      const match=source.match(/(?:["']fid["']\s*:\s*["']?|(?:var|let|const)\s+fid\s*=\s*["']?)(\d{1,24})/);
       if (match) { fid=match[1]; break; }
     }
     return reply(number(fid)?{kind:'profile',fid}:{error:'school_identity'});
