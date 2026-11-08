@@ -812,6 +812,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         val url=browser.url ?: return
         val identity=JSONObject()
             .put("courseId",course.courseId).put("classId",course.classId)
+            .put("cpi",course.cpi)
         fun finish(success: Boolean) {
             if(serial!=scanSerial || scanStage!="homework")return
             if(success)scanSaved++ else scanFailed++
