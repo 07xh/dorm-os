@@ -177,17 +177,21 @@ assert.equal(untrusted.records[0].sourceKey,'',
 
 // Only the owner-visible plan page yields local learning-plan records.
 // These are display evidence, never a request to click or finish anything.
-const planCard = (title, state) => ({
+const planCard = (title, state, id) => ({
   ...element(title),
+  getAttribute: name => name === 'data-plan-id' ? id : null,
   querySelector: selector => selector === '.xname' ? element(title) : null,
   querySelectorAll: selector => selector === '.xtip_info_card' ? [element(state)] : []
 });
 const plans = runReader({host:'task.chaoxing.com',
   path:'/userStudyPlan/studyPlanSubPage',
-  plans: [planCard('工程制图 第四次作业','待批阅'), planCard('课程阅读','未完成')]});
+  plans: [planCard('工程制图 第四次作业','待批阅','987654'),
+    planCard('课程阅读','未完成')]});
 assert.equal(plans.kind, 'study_task');
 assert.deepEqual(Array.from(plans.records, x=>x.details),
- ['学习计划状态：待批阅','学习计划状态：未完成']);
+ ['学习计划状态：待批阅 · 学习任务身份：plan:987654','学习计划状态：未完成']);
+assert.equal(plans.records[0].sourceKey,'plan:987654');
+assert.equal(plans.records[1].sourceKey,'');
 const wrongPage = runReader({host:'task.chaoxing.com',
  path:'/untrusted',plans:[planCard('假状态','已完成')]});
 assert.equal(wrongPage.records.length,0);
