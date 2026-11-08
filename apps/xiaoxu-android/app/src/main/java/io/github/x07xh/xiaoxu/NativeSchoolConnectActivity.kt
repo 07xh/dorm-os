@@ -911,7 +911,7 @@ private const val READ_VISIBLE_PAGE = """
         if (!title || !status) continue;
         // Official card identity, when supplied, is a decimal plan ID.
         // Do not infer an ID from its title, rule text or opaque link/token.
-        const rawId = card.getAttribute('data-plan-id') ||
+        const rawId = card.getAttribute?.('data-plan-id') ||
           String(card.id || '').replace(/^plan_?/, '');
         const planId = /^\d{1,24}$/.test(rawId) ? rawId : '';
         const sourceKey = planId ? 'plan:' + planId : '';
