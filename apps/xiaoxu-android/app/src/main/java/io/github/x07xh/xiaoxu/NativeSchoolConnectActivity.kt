@@ -561,11 +561,15 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     // snapshot stable identity across status changes. Never
                     // persist the signed URL or session token from li[data].
                     val sourceKey = row.optString("sourceKey").trim()
-                    if (sourceKey.isNotEmpty() && (
-                        provider != "chaoxing" || kind != "homework" ||
-                        host != "mooc1.chaoxing.com" ||
-                        !sourceKey.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))))
-                        throw IllegalArgumentException("invalid school work identity")
+                    val validWorkKey = kind == "homework" &&
+                        host == "mooc1.chaoxing.com" &&
+                        sourceKey.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))
+                    val validPlanKey = kind == "study_task" &&
+                        host == "task.chaoxing.com" &&
+                        sourceKey.matches(Regex("""plan:\d{1,24}"""))
+                    if (sourceKey.isNotEmpty() &&
+                        (provider != "chaoxing" || !(validWorkKey || validPlanKey)))
+                        throw IllegalArgumentException("invalid school task identity")
                     val identity = if (sourceKey.isNotEmpty()) sourceKey
                         else title + "|" + details
                     val fingerprint = MessageDigest.getInstance("SHA-256")
@@ -905,7 +909,17 @@ private const val READ_VISIBLE_PAGE = """
         const status = clean(Array.from(card.querySelectorAll('.xtip_info_card'))
           .map(node => node.innerText).join(' ')).slice(0,60);
         if (!title || !status) continue;
-        rows.push({title,details:'学习计划状态：' + status});
+        // Official card identity, when supplied, is a decimal plan ID.
+        // Do not infer an ID from its title, rule text or opaque link/token.
+        const rawId = card.getAttribute('data-plan-id') ||
+          String(card.id || '').replace(/^plan_?/, '');
+        const planId = /^\d{1,24}$/.test(rawId) ? rawId : '';
+        const sourceKey = planId ? 'plan:' + planId : '';
+        rows.push({
+          title, details:'学习计划状态：' + status +
+            (sourceKey ? ' · 学习任务身份：' + sourceKey : ''),
+          sourceKey
+        });
         if (rows.length > MAX_RECORDS) break;
       }
     }
