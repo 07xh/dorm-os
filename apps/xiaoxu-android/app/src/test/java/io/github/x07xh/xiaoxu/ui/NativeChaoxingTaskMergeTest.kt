@@ -47,6 +47,25 @@ class NativeChaoxingTaskMergeTest {
         assertFalse(considerCompleteInTaskList(tasks.single()))
     }
 
+    @Test fun realPlanIdCreatesOneLocalOfficialTaskWithCompletedState() {
+        val identity = "plan:987654"
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val plan = NativeSchoolRecord("chaoxing", "study_task", hash,
+            "第四次作业", "学习计划状态：待批阅 · 学习任务身份：$identity",
+            "task.chaoxing.com", 1720000000000L)
+        val shown = combineWorkspaceTasks(emptyList(), emptyList(), listOf(plan))
+        assertEquals(1, shown.size)
+        assertEquals("native", shown.single().storage)
+        assertEquals("local", shown.single().category)
+        assertEquals(identity, shown.single().sourceExternalId)
+        assertEquals("待批阅", shown.single().officialStatusRaw)
+        assertTrue(considerCompleteInTaskList(shown.single()))
+        assertEquals(0, combineWorkspaceTasks(emptyList(), emptyList(),
+            listOf(plan.copy(fingerprint = "spoofed"))).size)
+    }
+
     @Test fun neverMergeSameTitleWithDifferentOrUnverifiedSourceId() {
         val records = listOf(record("已完成"))
         val cloud = listOf(cloud(source = "work:123:456:998"))
