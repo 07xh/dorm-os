@@ -1,0 +1,3 @@
+Owner requests repair of duplicate cloud notices after official peer review.
+Build formal 0.8.15 (36), same package and existing release certificate.
+Read-only alias reconciliation; preserve every underlying task and personal flag.

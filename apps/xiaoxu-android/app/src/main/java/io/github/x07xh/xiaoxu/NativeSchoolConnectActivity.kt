@@ -531,7 +531,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val rows = result.items.map { item ->
                     val status = if (item.kind == "homework") "当前网页显示的状态：" else "学习计划状态："
                     val label = if (item.kind == "homework") "官方作业身份：" else "学习任务身份："
-                    val detail = if (item.kind == "course") "课程列表" else status + item.status + " · " + label + item.sourceKey
+                    val aliases = (if (item.noticeAliases.isEmpty()) "" else
+                        " · 旧通知身份：" + item.noticeAliases.sorted().joinToString(",")) +
+                        (if (item.peerAliases.isEmpty()) "" else
+                        " · 互评通知身份：" + item.peerAliases.sorted().joinToString(","))
+                    val detail = if (item.kind == "course") "课程列表" else status + item.status + aliases + " · " + label + item.sourceKey
                     val fingerprint = MessageDigest.getInstance("SHA-256")
                         .digest(("chaoxing|" + item.kind + "|" + item.sourceKey).toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }

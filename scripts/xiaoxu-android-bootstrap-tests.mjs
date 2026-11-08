@@ -1156,7 +1156,7 @@ assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学�
 assert.match(workspace, /学习通 · 本机读取/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
-assert.match(workspace, /localEvidence\.filterKeys \{ it !in cloudIds \}/);
+assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
 assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
@@ -1261,8 +1261,8 @@ assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.14'/, '正式版本名必须明确');
-assert.match(appGradle, /versionCode 35\b/, '正式版版本码应高于已发布 RC');
+assert.match(appGradle, /versionName '0\.8\.15'/, '正式版本名必须明确');
+assert.match(appGradle, /versionCode 36\b/, '正式版版本码应高于已发布 RC');
 
 // The removed Chaoxing DOM parser has been replaced by Jsoup JVM fixtures.
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */

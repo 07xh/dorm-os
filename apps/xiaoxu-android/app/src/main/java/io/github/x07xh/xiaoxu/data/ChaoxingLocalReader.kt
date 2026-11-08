@@ -14,13 +14,16 @@ internal data class ChaoxingReadRequest(val url: String, val method: String = "G
 internal data class ChaoxingReadPage(val url: String, val text: String)
 internal fun interface ChaoxingReadTransport { fun request(request: ChaoxingReadRequest): ChaoxingReadPage }
 internal class ChaoxingReadFailure(val code: String) : Exception(code)
-internal data class ChaoxingReadItem(val kind: String, val sourceKey: String, val title: String, val status: String, val sourceHost: String)
+internal data class ChaoxingReadItem(val kind: String, val sourceKey: String, val title: String, val status: String, val sourceHost: String,
+    val noticeAliases: Set<String> = emptySet(), val peerAliases: Set<String> = emptySet())
 internal data class ChaoxingLocalRead(val items: List<ChaoxingReadItem>, val accountHash: String,
     val courseCount: Int, val noticePages: Int, val failures: List<String>,
     val supersededKeys: Set<String> = emptySet()) {
     val complete: Boolean get() = failures.isEmpty()
 }
-internal data class ChaoxingDiscoveredLink(val title: String, val url: String)
+internal data class ChaoxingNoticeAlias(val id: String, val course: String, val peer: Boolean)
+internal data class ChaoxingDiscoveredLink(val title: String, val url: String,
+    val aliases: Set<ChaoxingNoticeAlias> = emptySet())
 
 /** One on-device, read-only flow: notices -> study plans -> actual course entries.
  * Interoperability follows the supplied reference client; HTML parsing is Jsoup.
@@ -92,7 +95,30 @@ internal class ChaoxingLocalReader(
             walk(notice.opt("attachment"),title,0);walk(notice.opt("attachments"),title,0)
             for(key in listOf("content","rtf_content")) for(a in Jsoup.parse(notice.optString(key)).select("a[href]"))
                 add(a.text().ifBlank {title},a.attr("href"))
-            return result.values.toList()
+            val aliases = noticeAliases(notice)
+            return result.values.map { it.copy(aliases = aliases) }
+        }
+        /** Reproduce the existing cloud notice identity contract, using the
+         * notification's own metadata, never comparing titles across tasks. */
+        internal fun noticeAliases(notice: JSONObject): Set<ChaoxingNoticeAlias> {
+            val course = Regex("courseId(\\d{1,24})").matchEntire(notice.optString("tag"))
+                ?.groupValues?.get(1) ?: return emptySet()
+            val fields = linkedMapOf<String,String>()
+            for (line in notice.optString("content").split(Regex("\\r\\n|\\r|\\n"))) {
+                val m = Regex("^\\s*([^：:\\s]{2,20})[：:]\\s*(.*?)\\s*$").matchEntire(line) ?: continue
+                fields.putIfAbsent(m.groupValues[1], m.groupValues[2].replace(Regex("<[^>]*>"), "").trim())
+            }
+            val name = fields["作业名称"]?.take(100)?.takeIf {it.isNotBlank()} ?: return emptySet()
+            val title = notice.optString("title")
+            val peer = title.contains("互评")
+            val identity = if (peer) "peer_review|$course|互评：$name|" else {
+                if (!title.contains("作业") && !fields.containsKey("结束时间")) return emptySet()
+                val key = runCatching { JSONObject(notice.optJSONObject("extendParam")?.optString("cparams").orEmpty())
+                    .optJSONObject("funConfig")?.optJSONObject("content")?.optString("key") }.getOrNull()
+                if (key == null || !key.matches(Regex("[A-Za-z0-9_-]{6,100}"))) return emptySet()
+                "assignment|$course|work:$key"
+            }
+            return setOf(ChaoxingNoticeAlias("cxn:"+hash(identity).take(40), course, peer))
         }
         private fun stringConstant(doc: Document, key: String): String {
             val pattern=Regex("(?:const|let|var)\\s+"+Regex.escape(key)+"\\s*=\\s*(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')")
@@ -135,6 +161,12 @@ internal class ChaoxingLocalReader(
     private val items=linkedMapOf<String,ChaoxingReadItem>()
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
+    private val noticeBindings=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
+    private fun bindNotice(link: ChaoxingDiscoveredLink, work: String?) {
+        if (work == null || !work.matches(Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}"))) return
+        val aliases = link.aliases.filter {it.course == work.split(':')[1]}
+        noticeBindings.getOrPut(work) {linkedSetOf()}.addAll(aliases)
+    }
     private fun fetch(url: String, method: String="GET", form: Map<String,String> = emptyMap()):ChaoxingReadPage {
         checkCancelled()
         val safe=safeUrl(url) ?: throw ChaoxingReadFailure("non_official_url")
@@ -159,7 +191,7 @@ internal class ChaoxingLocalReader(
         }
     }
     fun scan(year:Int):ChaoxingLocalRead {
-        items.clear();failures.clear();superseded.clear()
+        items.clear();failures.clear();superseded.clear();noticeBindings.clear()
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
@@ -178,7 +210,7 @@ internal class ChaoxingLocalReader(
                 noticePages++
                 for(i in 0 until list.length()) for(link in noticeLinks(list.getJSONObject(i))) {
                     if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
-                    links[link.url]=link
+                    links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
                 }
                 if(list.length()==0 || notices?.optInt("lastPage",1)==1) break
                 val cursor=notices?.optString("lastGetId").orEmpty()
@@ -215,7 +247,12 @@ internal class ChaoxingLocalReader(
         }
         progress("确认读取前后为同一账号…")
         if(account(fetch(HOME))!=owner) throw ChaoxingReadFailure("account_changed")
-        return ChaoxingLocalRead(items.values.toList(),owner,courseCount,noticePages,failures.toList(),superseded.toSet())
+        val rows = items.values.map { item ->
+            val bound = noticeBindings[item.sourceKey].orEmpty()
+            item.copy(noticeAliases = bound.filterNot {it.peer}.map {it.id}.toSet(),
+                peerAliases = bound.filter {it.peer}.map {it.id}.toSet())
+        }
+        return ChaoxingLocalRead(rows,owner,courseCount,noticePages,failures.toList(),superseded.toSet())
     }
     private fun readStudyPlan(link:ChaoxingDiscoveredLink) {
         progress("展开学习计划："+clean(link.title))
@@ -235,10 +272,14 @@ internal class ChaoxingLocalReader(
         }
         val base=mapOf("encryTaskUserId" to user)
         val groups=data("/userStudyPlan/getGroupData",base)
+        val resolvedWorks=mutableSetOf<String>()
+        var assignmentCount=0
+        var lockedGroup=false
         if(groups.length()>200) throw ChaoxingReadFailure("group_limit")
         for(i in 0 until groups.length()) {
             val group=groups.getJSONObject(i);val encrypted=group.optString("encryptGroupId")
             if(!group.optBoolean("groupAllowStudy")) {
+                lockedGroup=true
                 record("study_task","study:"+hash(link.url.substringBefore('?')+user+encrypted),
                     link.title+" · "+group.optString("name","未解锁分组"),"未解锁",URI(page.url).host)
                 continue
@@ -248,6 +289,7 @@ internal class ChaoxingLocalReader(
             if(plans.length()>2000) throw ChaoxingReadFailure("plan_limit")
             for(j in 0 until plans.length()) {
                 val plan=plans.getJSONObject(j)
+                if (plan.optInt("planType",-1)==4) assignmentCount++
                 val id=plan.optString("planId")
                 val key=if(numeric.matches(id)) "plan:$id" else "study:"+hash(user+encrypted+plan.optString("encryptPlanId"))
                 val accessible=plan.optBoolean("planAllowStudy")||plan.optBoolean("chooseStudy")
@@ -266,15 +308,21 @@ internal class ChaoxingLocalReader(
                         ?: throw ChaoxingReadFailure("work_destination")
                     if(!supported(url)) throw ChaoxingReadFailure("work_destination")
                     readWorkLink(ChaoxingDiscoveredLink(title,url),status)
+                    workKey(url)?.let { resolvedWorks.add(it) }
                     // An actual work identity replaces the plan child in the
                     // task center, preventing two copies of the same assignment.
                     if(workKey(url)!=null) {items.remove(key);superseded.add(key)}
                 }
             }
         }
+        // A notification can wrap a whole plan. Bind its legacy identity only
+        // if the complete response proves it contains exactly one assignment.
+        if (!lockedGroup && assignmentCount == 1 && resolvedWorks.size == 1)
+            bindNotice(link, resolvedWorks.single())
     }
     private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="") {
         val key=workKey(link.url)
+        bindNotice(link,key)
         if(key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
         val page=fetch(link.url);val doc=Jsoup.parse(page.text,page.url)
         val state=doc.selectFirst("p.status,.workStatus,.work-status")?.text().orEmpty().ifBlank {
@@ -317,8 +365,14 @@ internal class ChaoxingLocalReader(
                 }
                 val stable=key?:stableStudyKey(url)
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
+                val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
+                val detailedStatus=items[stable]?.status
+                // Submission-only list text cannot undo explicit peer review
+                // completion read from this work's detail in the same scan.
+                val status=if (detailedStatus?.let {it.contains("已互评") || it.contains("已互評")} == true &&
+                    listedStatus in setOf("待批阅","已提交","已完成","已批阅")) detailedStatus else listedStatus
                 record(if(key==null) "study_task" else "homework",stable,
-                    row.selectFirst("p.overHidden2")!!.text(),row.selectFirst("p.status")?.text().orEmpty(),URI(url).host)
+                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
             }
             val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)

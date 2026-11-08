@@ -85,6 +85,18 @@ fun nativeChaoxingPlanSourceId(record: NativeSchoolRecord): String? {
     return identity.takeIf { record.fingerprint == expected }
 }
 
+/** Non-secret notice aliases rebuilt from the same official notification and
+ * resolved work destination. These are identity evidence, never status proof. */
+fun nativeChaoxingNoticeAliases(record: NativeSchoolRecord, peer: Boolean = false): Set<String> {
+    if (nativeChaoxingWorkSourceId(record) == null) return emptySet()
+    val label = if (peer) "互评通知身份" else "旧通知身份"
+    val value = Regex("(?:^| · )" + label + "：([^·]+) · ")
+        .find(record.details)?.groupValues?.get(1)?.trim() ?: return emptySet()
+    val ids = value.split(',')
+    return if (ids.size <= 100 && ids.all {it.matches(Regex("cxn:[a-f0-9]{40}"))})
+        ids.toSet() else emptySet()
+}
+
 @Dao
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */
