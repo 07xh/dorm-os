@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import java.time.LocalDate
+import io.github.x07xh.xiaoxu.data.CloudTask
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -54,5 +55,39 @@ class WorkspaceDueProvenanceTest {
     fun unknownDatesAreNotCountedAsUpcoming() {
         assertEquals(0, countUpcomingLocalDeadlines(
             listOf(task("none", "local", null), task("cloud", "cloud", null)), today))
+    }
+
+    @Test
+    fun reviewedWechatPersonalPlanNeverOverwritesMessageDeadline() {
+        val fromCloud = CloudTask(
+            id = "reviewed-1", title = "提交实验报告",
+            status = "todo", kind = "manual", provider = "wechat",
+            due = "2026-11-12", revision = 2,
+            personalTargetAt = "2026-11-09T15:59:00.000Z"
+        )
+        val item = combineWorkspaceTasks(emptyList(), listOf(fromCloud)).single()
+        assertEquals("wechat", item.category)
+        assertEquals(LocalDate.of(2026, 11, 9), item.date)
+        assertEquals(LocalDate.of(2026, 11, 12), item.sourceDueDate)
+        assertEquals("本人计划", item.dateSource)
+        assertEquals(1, countUpcomingLocalDeadlines(listOf(item), today))
+        val monday = LocalDate.of(2026, 11, 9)
+        assertEquals(listOf("提交实验报告"),
+            searchWorkspaceTasks(listOf(item), "week", "", monday).map { it.title })
+        assertEquals(listOf("提交实验报告"),
+            facetWorkspaceTasks(listOf(item), "all", true, monday).map { it.title })
+    }
+
+    @Test
+    fun cloudDueWithoutPersonalPlanNeverEntersLocalDeadlineCounts() {
+        val sourceOnly = CloudTask(
+            id = "source-1", title = "未核实云端任务",
+            status = "todo", kind = "platform", provider = "chaoxing",
+            due = "2026-11-08", revision = 3
+        )
+        val item = combineWorkspaceTasks(emptyList(), listOf(sourceOnly)).single()
+        assertEquals(0, countUpcomingLocalDeadlines(listOf(item), today))
+        assertEquals(emptyList<String>(),
+            searchWorkspaceTasks(listOf(item), "week", "", today).map { it.title })
     }
 }

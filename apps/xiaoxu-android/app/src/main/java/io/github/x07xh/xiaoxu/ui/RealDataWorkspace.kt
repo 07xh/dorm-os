@@ -122,7 +122,9 @@ internal data class WorkspaceTask(
     val provider: String? = null,
     val links: List<String> = emptyList(),
     val sourceExternalId: String? = null,
-    val officialStatus: String? = null
+    val officialStatus: String? = null,
+    val personalTargetAt: String? = null,
+    val sourceDueDate: LocalDate? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -176,15 +178,19 @@ internal fun combineWorkspaceTasks(local: List<LocalTask>, cloud: List<CloudTask
                 "second_class" -> "第二课堂记录"
                 else -> "校序云端任务"
             }
+            val personalDate = parseWorkspaceDue(task.personalTargetAt)
+            val sourceDate = parseWorkspaceDue(task.due)
             add(WorkspaceTask("cloud:" + task.id, task.title, source,
-                task.status == "done", parseWorkspaceDue(task.due),
-                "云端记录，需核对来源", "cloud",
+                task.status == "done", personalDate ?: sourceDate,
+                if (personalDate != null) "本人计划" else "云端记录，需核对来源",
+                "cloud",
                 if (task.provider == "wechat") "wechat" else "cloud",
                 task.revision, task.provider, task.links,
                 task.sourceExternalId,
                 trustedChaoxingPlatformStatus(
                     task.provider, task.sourceExternalId, task.officialStatus
-                )))
+                ),
+                task.personalTargetAt, sourceDate))
         }
     }.sortedWith(compareBy<WorkspaceTask> { considerCompleteInTaskList(it) }
         .thenBy { it.date ?: LocalDate.MAX }.thenBy { it.key })
@@ -212,12 +218,15 @@ internal fun officialTaskStatusLabel(status: String?): String? = when (status) {
     else -> null
 }
 
-/** Only self-entered dates are reliable as personal task deadlines.
- * Some CloudTask records have source work IDs, but no verified due date.
+/** Personal dates: local Room due OR owner-confirmed plan on an approved WeChat task.
+ * Source-only cloud due dates are never treated as verified school deadlines.
  */
+private fun hasPersonalDue(task: WorkspaceTask): Boolean =
+    task.storage == "local" || (task.provider == "wechat" && task.personalTargetAt != null)
+
 internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: LocalDate): Int =
     tasks.count { task ->
-        task.storage == "local" && !task.done &&
+        hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
@@ -232,7 +241,8 @@ private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalD
         when (filter) {
             "pending" -> !considerCompleteInTaskList(task)
             "done" -> considerCompleteInTaskList(task)
-            "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
+            "week" -> hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
+                thisWeek(task.date, today)
             "local" -> task.storage == "local"
             "cloud" -> task.storage == "cloud"
             else -> true
@@ -244,7 +254,7 @@ internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
-        (!thisWeekOnly || (task.storage == "local" && !considerCompleteInTaskList(task) &&
+        (!thisWeekOnly || (hasPersonalDue(task) && !considerCompleteInTaskList(task) &&
             thisWeek(task.date, today)))
 }
 
@@ -910,6 +920,7 @@ fun RealAcademicTaskHub(
     }
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     // Checkbox previews, expansion toggles and sheet navigation do not need
     // another search + date-facet pass over every stored task.
@@ -1172,7 +1183,10 @@ fun RealAcademicTaskHub(
             }
         }
         if (showManager && showLocal) item {
-            Column(Modifier.padding(top = 12.dp)) { LocalTaskEditor(localTasks, dao) }
+            Column(Modifier.padding(top = 12.dp)) {
+                LocalTaskEditor(localTasks, dao,
+                    onEditTask = { editingTaskKey = "local:${it.id}" })
+            }
         }
         if (showManager && showCloud) item {
             Column(Modifier.padding(top = 12.dp)) { CloudTaskEditor(client) }
@@ -1646,18 +1660,20 @@ fun RealAcademicTaskHub(
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
             onManage = {
-                showManager = true
-                if (selectedTask.storage == "local") {
-                    showLocal = true
-                    showCloud = false
-                    jumpTo = "local"
-                } else {
-                    showCloud = true
-                    showLocal = false
-                    jumpTo = "cloud"
-                }
+                editingTaskKey = selectedTask.key
                 openedTaskKey = null
             })
+    }
+    val editingLocal = localTasks.firstOrNull { "local:${it.id}" == editingTaskKey }
+    val editingCloud = state.tasks.firstOrNull {
+        "cloud:${it.id}" == editingTaskKey && it.provider == "wechat"
+    }
+    if (editingLocal != null || editingCloud != null) {
+        TaskPersonalEditSheet(
+            localTask = editingLocal, cloudTask = editingCloud,
+            dao = dao, client = client,
+            onDismiss = { editingTaskKey = null }
+        )
     }
     if (showArchiveSheet) {
         XiaoxuSheet(onDismiss = { showArchiveSheet = false }, title = "已清理任务") {
@@ -1722,8 +1738,13 @@ internal fun WorkspaceTaskDetailSheet(
             )
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
-        Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
+        Text((if (selectedTask.personalTargetAt != null) "个人计划：" else
+                if (selectedTask.storage == "cloud") "来源日期：" else "本人截止：") +
             selectedDue.label, style = MaterialTheme.typography.bodyMedium)
+        if (selectedTask.personalTargetAt != null) {
+            Text("来源原截止：" + (selectedTask.sourceDueDate?.toString() ?: "未识别"),
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
         Text(if (selectedTask.officialStatus != null) {
             "上次官方同步：" + officialTaskStatusLabel(selectedTask.officialStatus) +
                 " · 与个人完成标记分开"
@@ -1754,10 +1775,12 @@ internal fun WorkspaceTaskDetailSheet(
                 Text("从本机任务列表移出")
             }
         }
-        OutlinedButton(onClick = onManage,
-            modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-            Text(if (selectedTask.storage == "local")
-                "打开本机任务管理" else "新增云端任务")
+        if (selectedTask.storage == "local" || selectedTask.provider == "wechat") {
+            val canEdit = selectedTask.storage == "local" || tasksFresh
+            OutlinedButton(onClick = onManage, enabled = canEdit,
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                Text(if (canEdit) "编辑个人任务" else "刷新云端后编辑个人计划")
+            }
         }
     }
 }
@@ -1942,6 +1965,18 @@ private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
     // recorded date, but never color it as an officially overdue school work.
     val text = date.monthValue.toString().padStart(2, '0') + "-" +
         date.dayOfMonth.toString().padStart(2, '0')
+    if (task.storage == "cloud" && task.provider == "wechat" &&
+        task.personalTargetAt != null) {
+        return when {
+            !task.done && date.isBefore(today) ->
+                DueUi("计划已逾期 · $text", "本人计划日期已过 $text；不是消息原截止", DUE_OVERDUE)
+            !task.done && date.isEqual(today) ->
+                DueUi("计划今天完成", "本人计划今天完成；不是消息原截止", DUE_TODAY)
+            !task.done && thisWeek(date, today) ->
+                DueUi("计划本周 · $text", "本人计划本周 $text 完成；不是消息原截止", DUE_WEEK)
+            else -> DueUi("计划 $text", "本人计划日期 $text；不是消息原截止", DUE_NORMAL)
+        }
+    }
     if (task.storage == "cloud") {
         return DueUi("记录 $text", "云端记录日期 $text，非学校核实的截止时间", DUE_NORMAL)
     }

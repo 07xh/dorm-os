@@ -82,7 +82,10 @@ object LocalDeadlineReminders {
     fun setEnabled(context: Context, value: Boolean) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(ENABLED, value).apply()
-        if (!value) WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(TAG)
+        if (!value) {
+            WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(TAG)
+            WechatPersonalReminders.clear(context)
+        }
     }
 
     /** Reconcile changed Room records; WorkManager persists jobs across reboot. */
@@ -137,35 +140,53 @@ object LocalDeadlineReminders {
             NotificationManagerCompat.from(context).areNotificationsEnabled()
 
     internal fun deliver(context: Context, taskId: Long, phase: String) {
+        val id = (taskId % 1000000).toInt() * 2 + if (phase == "today") 1 else 0
+        val requestCode = (taskId % Int.MAX_VALUE).toInt()
+        sendPersonalNotification(context, id, requestCode,
+            if (phase == "before") "明天有一项本机待办截止" else "今天有一项本机待办截止",
+            "这是你自己填写的截止日期，点击进入校序任务中心核对。")
+    }
+
+    internal fun deliverWechat(context: Context, taskId: String, phase: String) {
+        val salt = "wechat-personal:$taskId:$phase"
+        val notificationId = salt.hashCode() and Int.MAX_VALUE
+        sendPersonalNotification(context, notificationId, notificationId,
+            if (phase == "before") "明天有一项微信任务个人计划到期"
+            else "今天有一项微信任务个人计划到期",
+            "仅依据上次同步的个人计划日期；点击进入任务中心核对，不代表微信原消息截止。")
+    }
+
+    private fun sendPersonalNotification(
+        context: Context, notificationId: Int, requestCode: Int,
+        title: String, detail: String
+    ) {
         if (!enabled(context) || !canNotify(context)) return
         val app = context.applicationContext
         val notifications = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
-            notifications.createNotificationChannel(
-                NotificationChannel(CHANNEL, "本机待办截止提醒", NotificationManager.IMPORTANCE_DEFAULT)
-            )
+            notifications.createNotificationChannel(NotificationChannel(
+                CHANNEL, "个人任务截止提醒", NotificationManager.IMPORTANCE_DEFAULT))
         }
         val launch = Intent(app, MainActivity::class.java).apply {
             putExtra("xiaoxu_open_tasks_from_reminder", true)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
-            app, (taskId % Int.MAX_VALUE).toInt(), launch,
+            app, requestCode, launch,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val title = if (phase == "before") "明天有一项本机待办截止" else "今天有一项本机待办截止"
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText("这是你自己填写的截止日期，点击进入校序任务中心核对。")
+            .setContentText(detail)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        notifications.notify((taskId % 1000000).toInt() * 2 + if (phase == "today") 1 else 0,
-            notification)
+        notifications.notify(notificationId, notification)
     }
+
 }
 
 /** Verify fresh Room row + exact intended date before showing anything. */

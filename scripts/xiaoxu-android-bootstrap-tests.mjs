@@ -130,6 +130,7 @@ assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
+const wechatReminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/WechatPersonalReminders.kt');
 const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
   'Two reminder toggles must share one Android permission gateway');
@@ -192,8 +193,8 @@ const cloud = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu
 const taskUpdateRoute = read('functions/api/v1/assignments/[id].js');
 assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
   'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
-assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
-  '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
+assert.match(taskUpdateRoute, /keys!=='localStatus,revision'&&keys!=='personalTargetAt,revision'/,
+  'Android POST 只允许本人完成状态或个人计划时间，禁止改写来源字段');
 const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
@@ -247,10 +248,19 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao\)/);
+assert.match(workspace, /LocalTaskEditor\(localTasks, dao,/);
+assert.match(workspace, /TaskPersonalEditSheet\(/, '本机与已审核微信任务复用唯一编辑弹层');
+assert.match(workspace, /editingTaskKey = selectedTask.key/,
+  '任务详情编辑直接打开现有统一编辑器，不跳转重复任务页');
+
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
+assert.match(localEditorSource, /internal fun TaskPersonalEditSheet\(/);
+assert.match(localEditorSource, /dao\.updateDetails\(localTask\.id, title\.trim\(\), source, date\)/);
+assert.match(localEditorSource, /client\.setWechatPersonalPlanDate\(/);
+assert.doesNotMatch(localEditorSource, /internal fun LocalTaskEditSheet\(/,
+  '不得同时保留另一套本机编辑浮层');
 assert.match(localEditorSource, /XiaoxuCard\(/,
   '本机任务编辑与列表必须使用唯一设计系统玻璃卡片');
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
@@ -266,6 +276,18 @@ assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, valu
   '本机截止提醒应由统一通知页面控制');
 assert.match(profileSettings, /LocalDeadlineReminders\.reconcile\(context, tasks\)/,
   '新通知设置必须沿用真实 Room 任务的既有提醒计划');
+assert.match(profileSettings, /WechatPersonalReminders\.reconcile\(/,
+  '同一通知开关应调度本人微信个人计划，不增加第二个开关');
+assert.match(reminder, /WechatPersonalReminders\.clear\(context\)/,
+  '关闭任务提醒时须清除微信个人计划调度');
+assert.match(wechatReminder, /class WechatPersonalReminderWorker[\s\S]*?canDeliver\(/,
+  '通知送达前必须复核本人会话、日期和调度状态');
+assert.match(wechatReminder, /CloudClient\(context\.applicationContext\)\.ownerSessionBinding\(\)/,
+  '退出或更换本人登录态后不得继续送出旧微信计划通知');
+assert.doesNotMatch(wechatReminder, /putString\("raw_message"|putString\("excerpt"|putString\("title"/,
+  '提醒存储不得含微信原文或题目');
+assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
+  '已有 Room 本机通知仍不可依赖云端账户或学校记录');
 assert.match(workspace, /CloudTaskEditor\(client\)/);
 assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
 assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
@@ -311,7 +333,7 @@ assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun Conn
   '旧版工具弹窗和混合式连接入口应彻底退役');
 assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
   '设置按分类索引；业务内容应进入独立二级路由');
-assert.match(profileSettings, /"notifications" -> item \{ NotificationSettingsContent\(localTasks\) \}/);
+assert.match(profileSettings, /"notifications" -> item \{ NotificationSettingsContent\(localTasks, client\) \}/);
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
 assert.match(profileSettings, /"licenses" -> item \{ OpenSourceCreditsPanel\(\) \}/);
 assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
@@ -1942,8 +1964,10 @@ assert.match(workspace, /云端日期仅供参考/,
   '首页只保留一次云端日期来源提示，不伪称学校正式截止日');
 assert.match(workspace, /countUpcomingLocalDeadlines\(all, today\)/,
   '首页近期截止使用单一已测试的来源安全统计函数');
-assert.match(workspace, /task.storage == "local" && !task.done/,
-  '近期截止仅统计本人填写的未完成任务');
+assert.match(workspace, /hasPersonalDue\(task\) && !considerCompleteInTaskList\(task\)/,
+  '近期截止仅统计本人填写或已审核微信个人计划，排除来源日期和完成任务');
+assert.match(workspace, /task.storage == "local" \|\| \(task.provider == "wechat" && task.personalTargetAt != null\)/,
+  '来源云端日期不能冒充本人计划或学校官方截止');
 assert.match(workspace, /!it.isBefore\(today\) && !it.isAfter\(today.plusDays\(3\)\)/,
   '历史逾期记录不得混入未来三天的近期截止统计');
 const dueTest = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/WorkspaceDueProvenanceTest.kt');
@@ -2098,7 +2122,7 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao\)/,
+assert.match(workspace, /if \(showManager && showLocal\) item \{[\s\S]*?LocalTaskEditor\(localTasks, dao,/,
   '本机任务只在管理展开时展示真实 Room 编辑器');
 assert.match(workspace, /if \(showManager && showCloud\) item \{[\s\S]*?CloudTaskEditor\(client\)/,
   '关闭任务管理也必须隐藏云端新建表单');
@@ -2198,10 +2222,12 @@ assert.match(cloud, /platform_status/,
   '学校任务应读取已有 API 的可信平台状态');
 assert.match(workspace, /本机记录 · 离线保存/,
   '任务详情须标注本机来源');
-assert.match(workspace, /showManager = true\s*if \(selectedTask\.storage == "local"\) \{\s*showLocal = true\s*showCloud = false\s*jumpTo = "local"/,
-  '本机任务详情必须同时展开管理器及本机表单，关闭云端编辑器');
-assert.match(workspace, /else \{\s*showCloud = true\s*showLocal = false\s*jumpTo = "cloud"/,
-  '云端任务详情必须展开正确的云端表单，关闭本机编辑器');
+assert.match(workspace, /editingTaskKey = selectedTask.key/,
+  '任务详情直接进入唯一个人编辑浮层，不开启额外管理页面');
+assert.match(workspace, /editingLocal = localTasks.firstOrNull/,
+  '编辑本机任务时用 Room 中当前记录，不能用历史快照');
+assert.match(workspace, /editingCloud = state.tasks.firstOrNull/,
+  '微信个人计划从云端当前版本读取并限制来源');
 assert.match(messageCenter, /modifier = Modifier\.fillMaxWidth\(\)\.heightIn\(min = 56\.dp\)/,
   '消息页使用 56dp 紧凑标题，不再包一层大卡');
 assert.ok(messageCenter.includes('SourceBadge(\n            text = badge'),

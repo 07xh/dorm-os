@@ -10,6 +10,8 @@ import java.net.URL
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -36,7 +38,9 @@ data class CloudTask(
     /** Last trusted platform state, independent of the user's local done flag. */
     val officialStatus: String? = null,
     /** Course label from the imported/verified source; NOT identity proof. */
-    val sourceCourse: String? = null
+    val sourceCourse: String? = null,
+    /** Personal planning date, independent from official or source due date. */
+    val personalTargetAt: String? = null
 )
 
 /** Prevent an in-flight older GET snapshot from undoing an already confirmed owner POST.
@@ -235,7 +239,8 @@ private data class HttpResult(val code: Int, val json: JSONObject, val cookie: S
  * Never send private data to arbitrary URLs. School auth stays on existing service.
  */
 class CloudClient(context: Context) {
-    private val session = SessionStore(context)
+    private val appContext = context.applicationContext
+    private val session = SessionStore(appContext)
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
@@ -359,6 +364,7 @@ class CloudClient(context: Context) {
             secondClassFresh = false)
         // Android Keystore decryption may block; keep it off main.
         if (withContext(Dispatchers.IO) { session.load() } == null) {
+            withContext(Dispatchers.IO) { WechatPersonalReminders.clear(appContext) }
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 privateError = null, lastSyncAt = null,
@@ -372,7 +378,10 @@ class CloudClient(context: Context) {
             if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
             if (auth.code == 401) {
                 sessionEpoch++
-                session.clear()
+                withContext(Dispatchers.IO) {
+                    session.clear()
+                    WechatPersonalReminders.clear(appContext)
+                }
                 state = clearAccountSnapshots().copy(authenticated = false, authMessage = "会话过期，请重新连接",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                     secondClass = null, secondClassError = null, secondClassBusy = false)
@@ -382,6 +391,10 @@ class CloudClient(context: Context) {
                 // An explicit authorization denial must not leave private snapshots
                 // visible under a falsely disconnected account.
                 sessionEpoch++
+                withContext(Dispatchers.IO) {
+                    session.clear()
+                    WechatPersonalReminders.clear(appContext)
+                }
                 state = clearAccountSnapshots().copy(
                     authenticated = false, privateError = "云端认证不可用",
                     tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
@@ -439,10 +452,13 @@ class CloudClient(context: Context) {
                         val sourceCourse = (o.opt("source_course") as? String)
                             ?.trim()?.takeIf { it.isNotBlank() && provider == "chaoxing" }
                             ?.take(80)
+                        val target = (o.opt("personal_target_at") as? String)
+                            ?.takeIf { it.isNotBlank() && it.length <= 40 }
+                            ?.takeIf { runCatching { Instant.parse(it) }.isSuccess }
                         add(CloudTask(o.getString("id"), o.optString("title").take(120),
                             o.optString("local_status"), o.optString("kind"), provider, due,
                             revision, if (provider == "wechat") readCloudLinks(o) else emptyList(),
-                            sourceId, official, sourceCourse))
+                            sourceId, official, sourceCourse, target))
                     }
                 }
                 pages.append(rows, r.json.getInt("limit"), r.json.getInt("offset"))
@@ -1552,6 +1568,9 @@ class CloudClient(context: Context) {
                     .find(r.cookie ?: "")?.groupValues?.get(1)
                     ?: throw IllegalStateException("missing_cookie")
                 withContext(Dispatchers.IO) {
+                    // A renewed login must never inherit reminders from a previous
+                    // owner token, even if task IDs happen to be identical.
+                    WechatPersonalReminders.clear(appContext)
                     session.save(token, r.json.getString("expiresAt"))
                 }
                 sessionEpoch++
@@ -1640,6 +1659,70 @@ class CloudClient(context: Context) {
         }
     }
 
+    /**
+     * User-specified plan date on an explicitly approved WeChat task.
+     * The source deadline and original chat text are immutable. We use
+     * the existing owner-scoped POST compatibility endpoint, not PATCH
+     * (HttpURLConnection does not reliably support that verb).
+     */
+    suspend fun setWechatPersonalPlanDate(
+        id: String, revision: Int, date: LocalDate?
+    ): Boolean {
+        if (!state.authenticated || !state.tasksFresh || revision < 0 ||
+            !Regex("^[A-Za-z0-9_-]{1,100}$").matches(id)) return false
+        val current = state.tasks.firstOrNull {
+            it.id == id && it.provider == "wechat" && it.revision == revision
+        } ?: return false
+        val target = date?.atTime(23, 59)
+            ?.atZone(ZoneId.of("Asia/Shanghai"))?.toInstant()?.toString()
+        val existingDate = current.personalTargetAt?.let {
+            runCatching { Instant.parse(it).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate() }.getOrNull()
+        }
+        if (existingDate == date) return true
+        val epoch = sessionEpoch
+        return try {
+            val body = JSONObject().put("revision", revision)
+                .put("personalTargetAt", target ?: JSONObject.NULL)
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/assignments/$id", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch) return false
+            val item = response.json.optJSONObject("item")
+            if (response.code != 200 || item?.optString("id") != id) {
+                if (response.code in setOf(401,409)) refreshPrivate()
+                if (epoch == sessionEpoch) state = state.copy(privateError = when (response.code) {
+                    401 -> "登录状态已过期，请重新连接"
+                    409 -> "任务已被其他设备修改，请刷新后重试"
+                    else -> "个人计划日期保存失败，请重试"
+                })
+                return false
+            }
+            val newRevision = item?.optLong("revision", -1L) ?: -1L
+            if ((item?.optBoolean("unchanged", true) ?: true) ||
+                newRevision != revision.toLong() + 1L ||
+                newRevision > Int.MAX_VALUE) {
+                state = state.copy(privateError = "云端计划可能已变更，请刷新后核对")
+                return false
+            }
+            if (!state.authenticated || state.tasks.none {
+                it.id == id && it.provider == "wechat" && it.revision == revision
+            }) return false
+            state = state.copy(
+                tasks = state.tasks.map {
+                    if (it.id == id && it.provider == "wechat" && it.revision == revision)
+                        it.copy(personalTargetAt = target, revision = newRevision.toInt())
+                    else it
+                },
+                privateError = null
+            )
+            true
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(
+                privateError = "个人计划日期保存失败，请刷新后重试")
+            false
+        }
+    }
+
     suspend fun addCloudTask(title: String): Boolean {
         if (!state.authenticated || title.isBlank() || title.trim().length > 120) return false
         return try {
@@ -1661,6 +1744,7 @@ class CloudClient(context: Context) {
         sessionEpoch++
         qrGeneration++
         state = clearAccountSnapshots()
+        withContext(Dispatchers.IO) { WechatPersonalReminders.clear(appContext) }
         try {
             withContext(Dispatchers.IO) {
                 request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true)
