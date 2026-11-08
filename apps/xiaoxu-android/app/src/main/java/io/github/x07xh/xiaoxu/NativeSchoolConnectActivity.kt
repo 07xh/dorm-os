@@ -485,7 +485,63 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
     }
 
-    private fun captureVisibleRecords(append: Boolean = false) {
+    /**
+     * The user initiates this while already on their official learning-plan
+     * page. Only official same-origin task-group POST requests are made by
+     * the WebView page; the native app never receives session identifiers.
+     */
+    private fun captureStudyPlanGroups() {
+        val url = browser.url ?: return
+        if (!loaded || pageFailed || !extractionAllowed("chaoxing", url) ||
+            Uri.parse(url).host != "task.chaoxing.com") return
+        val epoch = ++captureEpoch
+        extract.isEnabled = false
+        appendVisible?.isEnabled = false
+        tell("正在使用本机学习通登录态读取任务分组和平台状态…")
+        browser.evaluateJavascript(READ_TASK_PLAN_GROUPS) {
+            fun poll(attempt: Int) {
+                if (epoch != captureEpoch || isFinishing || isDestroyed ||
+                    browser.url != url || pageFailed) return
+                browser.evaluateJavascript("window.__xiaoxuPlanResult || ''") { encoded ->
+                    if (epoch != captureEpoch || browser.url != url || isFinishing) return@evaluateJavascript
+                    val jsonText = runCatching {
+                        JSONTokener(encoded).nextValue() as? String
+                    }.getOrNull()
+                    if (jsonText.isNullOrEmpty()) {
+                        if (attempt >= 72) {
+                            extract.isEnabled = loaded && !pageFailed
+                            tell("学习计划接口未在本次操作内返回完整数据，旧记录保持不变。")
+                        } else scoreHandler.postDelayed({ poll(attempt + 1) }, 250)
+                        return@evaluateJavascript
+                    }
+                    val result = runCatching { JSONObject(jsonText) }.getOrNull()
+                    val failure = result?.optString("error").orEmpty()
+                    if (result?.optString("host") != "task.chaoxing.com" ||
+                        result.optString("kind") != "study_task" || failure.isNotEmpty()) {
+                        extract.isEnabled = loaded && !pageFailed
+                        val label = when (failure) {
+                            "identity_unavailable" -> "任务身份不可用，请通过本人官方学习任务入口重新进入。"
+                            "no_records" -> "本次任务分组没有可核实的任务记录。"
+                            "wrong_page" -> "当前不是已登录的学习计划页面。"
+                            "too_many_groups", "too_many_records" -> "任务数量超过本次安全读取上限。"
+                            else -> "学习计划分组读取失败或响应结构不兼容。"
+                        }
+                        tell(label + " 未修改本机历史记录。")
+                        return@evaluateJavascript
+                    }
+                    // The read-only script prepared a sanitized result in the
+                    // current page. Reuse the existing bounded Room parser and
+                    // append instead of replacing other courses' plan records.
+                    captureVisibleRecords(append = true, readTaskGroups = false)
+                }
+            }
+            poll(0)
+        }
+    }
+
+    private fun captureVisibleRecords(
+        append: Boolean = false, readTaskGroups: Boolean = true
+    ) {
         if (provider == "second_class") {
             val uri = Uri.parse(browser.url ?: "")
             if (!loaded || pageFailed || uri.host != "dekt.ncwu.edu.cn") {
@@ -509,6 +565,12 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         if (append && provider != "chaoxing") return
         val currentUrl = browser.url ?: return
+        if (readTaskGroups && provider == "chaoxing" &&
+            Uri.parse(currentUrl).host == "task.chaoxing.com" &&
+            Uri.parse(currentUrl).path == "/userStudyPlan/studyPlanSubPage") {
+            captureStudyPlanGroups()
+            return
+        }
         val host = Uri.parse(currentUrl).host
         if (!loaded || pageFailed || !navigationAllowed(provider, currentUrl) ||
             !extractionAllowed(provider, currentUrl)) {
@@ -781,6 +843,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
 private const val READ_VISIBLE_PAGE = """
 (function () {
   const host = location.hostname;
+  if (host === 'task.chaoxing.com' &&
+      location.pathname === '/userStudyPlan/studyPlanSubPage' &&
+      window.__xiaoxuPlanResult)
+    return window.__xiaoxuPlanResult;
   const clean = x => String(x || '').replace(/\s+/g, ' ').trim().slice(0,350);
   const docs = [document];
   document.querySelectorAll('iframe').forEach(frame => {
