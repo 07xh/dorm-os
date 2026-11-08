@@ -35,15 +35,29 @@ def require_absent(path):
 
 # The push must add exactly one promotion request, never alter application code.
 changed = call('git','diff','--name-only','HEAD^',HEAD).splitlines()
-assert len(changed) == 1 and re.fullmatch(r'\.github/xiaoxu-release/promotions/0\.8\.14\.json',changed[0])
-m = json.loads(Path(changed[0]).read_text())
+recovery_path = '.github/xiaoxu-release/recoveries/0.8.14.json'
+resume = recovery_path in changed
+promotion_commit = HEAD
+release_id = None
+if resume:
+    recovery = json.loads(Path(recovery_path).read_text())
+    assert recovery == {'release_id': 438227551, 'promotion_commit': '1921bd532c9691ebf587d2523f2b5995a984aeed'}
+    promotion_commit = recovery['promotion_commit']
+    release_id = recovery['release_id']
+    subprocess.run(['git','merge-base','--is-ancestor',promotion_commit,HEAD],check=True)
+    allowed = {recovery_path, 'scripts/promote-xiaoxu-android.py',
+               'scripts/test_xiaoxu_promotion.py', '.github/workflows/promote-xiaoxu-android.yml'}
+    assert set(call('git','diff','--name-only',promotion_commit,HEAD).splitlines()) <= allowed
+    changed = call('git','diff','--name-only',promotion_commit+'^',promotion_commit).splitlines()
+assert changed == ['.github/xiaoxu-release/promotions/0.8.14.json']
+m = json.loads(call('git','show',promotion_commit+':'+changed[0]))
 assert set(m) == {'source_commit','build_run','artifact_id','apk_blob','apk_sha256','version','version_code'}
 assert m['version'] == '0.8.14' and m['version_code'] == 35
 assert re.fullmatch('[0-9a-f]{40}',m['source_commit'])
 assert re.fullmatch('[0-9a-f]{40}',m['apk_blob']) and re.fullmatch('[0-9a-f]{64}',m['apk_sha256'])
 assert type(m['build_run']) is int and type(m['artifact_id']) is int
 source = m['source_commit']
-assert call('git','diff','--name-only',source,HEAD).splitlines() == changed
+assert call('git','diff','--name-only',source,promotion_commit).splitlines() == changed
 assert api('git/ref/heads/main')['object']['sha'] == HEAD
 run = api(f'actions/runs/{m["build_run"]}')
 assert run['head_sha'] == source and run['head_branch'] == 'main' and run['event'] == 'push'
@@ -59,8 +73,13 @@ version_source = Path('apps/xiaoxu-android/app/build.gradle').read_text()
 assert re.search(r"versionName '([^']+)'",version_source)[1] == m['version']
 assert int(re.search(r'versionCode (\d+)',version_source)[1]) == m['version_code']
 tag = 'xiaoxu-android-v' + m['version']
-require_absent(f'releases/tags/{tag}')
-require_absent(f'git/ref/tags/{tag}')
+if resume:
+    draft = api(f'releases/{release_id}')
+    assert draft['draft'] and draft['tag_name'] == tag and not draft['prerelease']
+    assert api(f'git/ref/tags/{tag}')['object']['sha'] == source
+else:
+    require_absent(f'releases/tags/{tag}')
+    require_absent(f'git/ref/tags/{tag}')
 
 with tempfile.TemporaryDirectory() as temp:
     root = Path(temp)
@@ -101,16 +120,26 @@ with tempfile.TemporaryDirectory() as temp:
     cert = Path('.github/xiaoxu-release/android-signing-certificate.pem').read_bytes()
     assert call('openssl','x509','-in','.github/xiaoxu-release/android-signing-certificate.pem','-noout','-fingerprint','-sha256').split('=')[1].replace(':','') == PIN
     (out/'xiaoxu-release-certificate.pem').write_bytes(cert)
-    (out/'release-manifest.json').write_text(json.dumps(dict(version=m['version'],versionCode=m['version_code'],applicationId=APP,sourceCommit=source,promotionCommit=HEAD,certificateSha256=PIN,apkSha256=m['apk_sha256'],buildRun=m['build_run'],artifactId=m['artifact_id']),indent=2))
+    (out/'release-manifest.json').write_text(json.dumps(dict(version=m['version'],versionCode=m['version_code'],applicationId=APP,sourceCommit=source,promotionCommit=promotion_commit,certificateSha256=PIN,apkSha256=m['apk_sha256'],buildRun=m['build_run'],artifactId=m['artifact_id']),indent=2))
     files = sorted(out.iterdir())
     (out/'SHA256SUMS').write_text(''.join(f'{sha(p.read_bytes())}  {p.name}\n' for p in files))
     assert api('git/ref/heads/main')['object']['sha'] == HEAD
-    subprocess.run(['gh','api','--method','POST',f'repos/{REPO}/git/refs','-f',f'ref=refs/tags/{tag}','-f',f'sha={source}'],check=True,stdout=subprocess.DEVNULL)
-    assert api(f'git/ref/tags/{tag}')['object']['sha'] == source
-    subprocess.run(['gh','release','create',tag,'--repo',REPO,'--verify-tag','--draft','--title','校序 '+m['version'],'--notes-file','.github/xiaoxu-release/notes.md'],check=True)
-    for p in sorted(out.iterdir()):
-        subprocess.run(['gh','release','upload',tag,str(p),'--repo',REPO],check=True)
-    asset = next(a for a in api(f'releases/tags/{tag}')['assets'] if a['name'] == apk.name)
+    if resume:
+        assets = api(f'releases/{release_id}')['assets']
+        assert len(assets) == len(list(out.iterdir()))
+        assert {a['name']: a['digest'] for a in assets} == {
+            p.name: 'sha256:' + sha(p.read_bytes()) for p in out.iterdir()}
+    else:
+        subprocess.run(['gh','api','--method','POST',f'repos/{REPO}/git/refs','-f',f'ref=refs/tags/{tag}','-f',f'sha={source}'],check=True,stdout=subprocess.DEVNULL)
+        assert api(f'git/ref/tags/{tag}')['object']['sha'] == source
+        draft = json.loads(call('gh','api','--method','POST',f'repos/{REPO}/releases',
+            '-f',f'tag_name={tag}','-f','name=校序 '+m['version'],
+            '-f','body='+Path('.github/xiaoxu-release/notes.md').read_text(),'-F','draft=true'))
+        release_id = draft['id']
+        for p in sorted(out.iterdir()):
+            subprocess.run(['gh','release','upload',tag,str(p),'--repo',REPO],check=True)
+    asset = next(a for a in api(f'releases/{release_id}')['assets'] if a['name'] == apk.name)
     assert asset['digest'] == 'sha256:' + m['apk_sha256']
     assert api('git/ref/heads/main')['object']['sha'] == HEAD
-    subprocess.run(['gh','release','edit',tag,'--repo',REPO,'--draft=false','--prerelease=false','--latest'],check=True)
+    subprocess.run(['gh','api','--method','PATCH',f'repos/{REPO}/releases/{release_id}',
+                    '-F','draft=false','-F','prerelease=false','-f','make_latest=true'],check=True)
