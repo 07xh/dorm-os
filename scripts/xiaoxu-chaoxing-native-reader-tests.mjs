@@ -231,13 +231,14 @@ assert.match(native, /captureVisibleRecords\(append = true, readTaskGroups = fal
 assert.match(native, /readTaskGroups && provider == "chaoxing"/);
 assert.match(native, /scoreHandler\.postDelayed\(\{ poll\(attempt \+ 1\) \}, 250\)/);
 assert.match(native, /if \(attempt >= 72\)/);
+assert.match(native, /__xiaoxuPlanReadEpoch/);
 async function taskGroupsFixture({
   page='/userStudyPlan/studyPlanSubPage',
   userId='opaqueUser7',
   groups=[{encryptGroupId:'encryptedGroup7'}],
   plans=[{planId:567,name:'Python 实验报告一',statusText:'待批阅'},
     {planId:568,name:'工程制图 第五次作业',isFinish:1},
-    {planId:569,name:'课程阅读',isFinish:0},
+    {planId:569,name:'课程阅读',isFinish:'0'},
     {name:'无来源 ID 的学习任务',statusText:'状态未知'}],
   failPlan=false
 }={}) {
