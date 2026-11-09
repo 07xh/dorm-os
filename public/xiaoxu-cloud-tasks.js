@@ -7,7 +7,7 @@
  let online=false,items=[],health=null,error='',migration=null,busy=false;
  // A returning response from a previous login must never repopulate a disconnected
  // or newly connected owner's screen. Coalesce concurrent refreshes per session.
- let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0;
+ let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0,snapshotVersion=0;
  let graphRevision=0,graphEdges=[],graphReady=false,graphError='';
  async function api(path,method='GET',data){
   const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
@@ -29,6 +29,7 @@
   connectionEpoch++;refreshGeneration++;online=false;items=[];health=null;error='';migration=null;
   busy=false;refreshPromise=null;lastRefreshAt=0;
   graphRevision=0;graphEdges=[];graphReady=false;graphError='';
+  snapshotVersion++;
  }
  function refresh(){
   if(!online)return Promise.reject(Error('请先连接本人的学业数据'));
@@ -66,6 +67,7 @@
       graphReady=false;graphRevision=0;graphEdges=[];
       graphError=graphResult.error||'云端先后关系数据格式无效';
     }
+    snapshotVersion++;
     lastRefreshAt=Date.now();return true;
    }catch(e){
     if(online&&epoch===connectionEpoch&&generation===refreshGeneration)
@@ -120,6 +122,9 @@
   await refresh();
   if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，请重新核对');
   if(!graphReady)throw Error('云端依赖未就绪，暂不能出具同步核对码');
+  // Pin the receipt to one coherent client snapshot. Another refresh while
+  // SHA-256 is pending must not mix an old task hash with a new graph revision.
+  const snapshotAtStart=snapshotVersion,revisionAtStart=graphRevision;
   const own=items.filter(r=>r.kind==='manual').map(r=>({
    id:r.id,title:r.title,revision:r.revision,
    status:r.local_status||'todo',
@@ -137,10 +142,12 @@
   const data=new root.TextEncoder().encode(JSON.stringify({v:1,tasks:own,links}));
   const hash=await root.crypto.subtle.digest('SHA-256',data);
   if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，核对码已作废');
+  if(snapshotVersion!==snapshotAtStart)
+   throw Error('核对期间任务数据已刷新，请重新核对');
   const code=Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0'))
    .join('').slice(0,20).toUpperCase();
   return {code,taskCount:own.length,completed:own.filter(t=>t.status==='done').length,
-   edgeCount:links.length,graphRevision,checkedAt:new Date().toISOString()};
+   edgeCount:links.length,graphRevision:revisionAtStart,checkedAt:new Date().toISOString()};
  }
  const taskCount=()=>items.length;
  function formatDue(r){
