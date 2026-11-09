@@ -21,6 +21,50 @@ class TaskCenterSearchTest {
     )
 
     @Test
+    fun sameTitleHistoricNoticeMustNotReturnAsPendingAfterOfficialHomeworkCompleted() {
+        val rows = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("old", "实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "cxn:" + "a".repeat(40)),
+            CloudTask("completed", "实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:123:456:901", officialStatus = "graded"),
+            CloudTask("unfinished", "另一门课的实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:999:456:901", officialStatus = "todo")
+        ))
+        assertEquals(3, rows.size)
+        assertEquals(listOf("cloud:unfinished"),
+            searchWorkspaceTasks(rows, "pending", "", today).map { it.key })
+        assertEquals(listOf("cloud:old"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key })
+        assertEquals(listOf("cloud:completed"),
+            searchWorkspaceTasks(rows, "done", "", today).map { it.key })
+        assertEquals(3, searchWorkspaceTasks(rows, "all", "", today).size)
+        assertEquals(listOf("cloud:unfinished"),
+            readyWorkspaceTasks(rows, emptyList(), emptyList()).map { it.key })
+        assertTrue(requiresChaoxingVerification(rows.single {it.key == "cloud:old"}))
+        assertTrue(rows.none { it.done })
+    }
+
+    @Test
+    fun dependencyUnlockDoesNotAccidentallyRestoreAnUnknownChaoxingNotice() {
+        val local = listOf(LocalTask(id = 1, title = "前置任务"),
+            LocalTask(id = 2, title = "后续任务"))
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val unknown = CloudTask("history", "已完成但尚未关联的旧通知", "todo",
+            "homework", "chaoxing", null, sourceExternalId = "cxn:" + "f".repeat(40))
+        val before = combineWorkspaceTasks(local, listOf(unknown))
+        assertEquals(listOf("local:1"),
+            readyWorkspaceTasks(before, local, edges).map { it.key })
+        val completed = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        val after = combineWorkspaceTasks(completed, listOf(unknown))
+        assertEquals(listOf("local:2"),
+            readyWorkspaceTasks(after, completed, edges).map { it.key })
+        assertEquals(listOf("cloud:history"),
+            searchWorkspaceTasks(after, "verify", "", today).map { it.key })
+        assertEquals(listOf("local:2"),
+            searchWorkspaceTasks(after, "pending", "", today).map { it.key })
+    }
+
+    @Test
     fun nextViewShowsOnlyReadyTasksAndNeverWritesOfficialState() {
         val local = listOf(LocalTask(id = 1, title = "准备材料"),
             LocalTask(id = 2, title = "完成报告"),
@@ -60,7 +104,9 @@ class TaskCenterSearchTest {
         val review = unverifiedChaoxingWorkspaceTasks(rows).map { it.key }.toSet()
         assertEquals(setOf("cloud:unverified", "cloud:unknown"), review)
         assertEquals(4, rows.size) // no historical task is deleted or rewritten
-        assertEquals(3, searchWorkspaceTasks(rows, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(rows, "pending", "", today).size)
+        assertEquals(setOf("cloud:unverified", "cloud:unknown"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key }.toSet())
     }
 
     @Test
@@ -144,7 +190,9 @@ class TaskCenterSearchTest {
             facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
         assertEquals(listOf("cloud:course-1"),
             facetWorkspaceTasks(combined, "chaoxing", false, today).map { it.key })
-        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(listOf("cloud:course-1"),
+            searchWorkspaceTasks(combined, "verify", "", today).map { it.key })
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
         // WeChat's extracted date is not a confirmed personal due date.
         assertTrue(facetWorkspaceTasks(
@@ -226,9 +274,11 @@ class TaskCenterSearchTest {
             searchWorkspaceTasks(records, "done", "", today).map { it.key }.toSet()
         )
         assertEquals(
-            setOf("cloud:returned", "cloud:legacy", "cloud:wechat"),
+            setOf("cloud:returned", "cloud:wechat"),
             searchWorkspaceTasks(records, "pending", "", today).map { it.key }.toSet()
         )
+        assertEquals(listOf("cloud:legacy"),
+            searchWorkspaceTasks(records, "verify", "", today).map { it.key })
     }
 
     @Test
@@ -267,7 +317,8 @@ class TaskCenterSearchTest {
             setOf("cloud:official", "cloud:other-work", "cloud:other-course", "cloud:other-provider"),
             combined.map { it.key }.toSet()
         )
-        assertEquals(3, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "verify", "", today).size)
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
     }
 
