@@ -10,7 +10,7 @@ class ChaoxingLocalReaderTest {
         val course1="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
         val course2="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=124&clazzid=457&cpi=789"
         val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
-            val course = if (request.url.contains("courseid=124")) "124" else "123"
+            val course = if (Regex("(?i)courseid=124").containsMatchIn(request.url)) "124" else "123"
             val body=when(java.net.URI(request.url).path) {
                 "/base" -> "<script>var uid='42';</script>"
                 "/pc/notice/getNoticeList" -> JSONObject().put("status",true).put("notices",
