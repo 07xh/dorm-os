@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {webcrypto} from 'node:crypto';
 
 const code=readFileSync(new URL('../public/xiaoxu-cloud-tasks.js',import.meta.url),'utf8');
 const initial=[
@@ -46,7 +47,8 @@ function server(url,{method='GET',body}={}){
  throw Error('unexpected request '+method+' '+url);
 }
 const client=()=>{
- const ctx={fetch:async(url,options)=>server(url,options),Date,Intl,Response};
+ const ctx={fetch:async(url,options)=>server(url,options),Date,Intl,Response,
+ crypto:webcrypto,TextEncoder};
  runInNewContext(code,ctx);
  return ctx.XiaoxuCloudTasks;
 };
@@ -66,6 +68,19 @@ await desktop.refresh();
 assert.deepEqual(Array.from(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_ids),
  ['cloud-a']);
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').dependency_ready,true);
+const phoneProof=await phone.syncFingerprint();
+const deskProof=await desktop.syncFingerprint();
+assert.equal(phoneProof.code,deskProof.code,'same real API data produces same receipt');
+assert.equal(phoneProof.taskCount,2);
+assert.equal(phoneProof.edgeCount,1);
+assert.equal(phoneProof.graphRevision,1);
+const oldProof=phoneProof.code;
+tasks[0].title='先完成讲义（已改）';
+const updatedProof=await desktop.syncFingerprint();
+assert.notEqual(updatedProof.code,oldProof,'renamed task changes cross-device fingerprint');
+assert.equal((await phone.syncFingerprint()).code,updatedProof.code,
+ 'second device refresh must converge without fake local tasks');
+tasks[0].title='先完成讲义';
 const workspaceRoot={};
 runInNewContext(readFileSync(new URL('../public/xiaoxu-workspace.js',import.meta.url),'utf8'),
  workspaceRoot);
@@ -88,6 +103,7 @@ assert.equal(desktop.graphSnapshot().ready,false);
 assert.deepEqual(Array.from(desktop.graphSnapshot().edges),[]);
 assert.deepEqual(Array.from(desktop.displayRecords()),[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/云端先后关系暂不可用/);
+await assert.rejects(()=>desktop.syncFingerprint(),/先连接/);
 // A stale browser gets a conflict, refreshes, and does not overwrite another edit.
 await desktop.connect();
 await phone.refresh();
