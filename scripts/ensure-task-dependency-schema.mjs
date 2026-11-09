@@ -14,6 +14,34 @@ const TABLES={
 const GUARD='trg_academic_task_graph_guard';
 const COMPLETION_GUARD='trg_academic_task_done_prerequisites';
 
+// Compare aggregate counts from one consistent SQLite SELECT before and after
+// the additive migration. Names are hard-coded, never constructed from user
+// input; values and identity of students/tasks never enter CI logs.
+const CORE_COUNT_TABLES=[
+ 'academic_users','academic_connections','academic_courses',
+ 'academic_assignments','academic_assignment_sources',
+ 'academic_assignment_events','academic_verified_records'
+];
+const CORE_COUNT_SQL='SELECT '+CORE_COUNT_TABLES.map(name=>
+ '(SELECT COUNT(*) FROM '+name+') AS '+name).join(', ');
+function coreCounts(database){
+ const rows=remoteRows(database,CORE_COUNT_SQL);
+ if(rows.length!==1)throw Error('core_count_snapshot_invalid');
+ return rows[0];
+}
+export function assertCoreCountsUnchanged(before,after){
+ if(!before||!after||typeof before!=='object'||typeof after!=='object')
+  throw Error('core_count_snapshot_invalid');
+ for(const name of CORE_COUNT_TABLES){
+  if(!Number.isSafeInteger(before[name])||before[name]<0||
+     !Number.isSafeInteger(after[name])||after[name]<0)
+    throw Error('core_count_snapshot_invalid');
+  if(before[name]!==after[name])
+   throw Error('core_data_changed_during_migration_manual_review');
+ }
+ return true;
+}
+
 // D1 Time Travel is supported by the production storage backend. Refuse an
 // incremental write unless a pre-migration recovery bookmark is obtainable.
 // Do NOT print, persist or upload its value; a UTC time remains in CI logs.
@@ -76,6 +104,7 @@ export async function ensureTaskGraphSchema(){
  if(before==='partial')throw Error('task_graph_schema_partial_manual_review_required');
  integrity(db);
  if(before==='missing'){
+  const countsBefore=coreCounts(db);
   // A Time Travel checkpoint is a non-destructive recovery point; exporting
   // the full private database into an ephemeral CI runner is unnecessary.
   const boundId=findPagesBoundD1(project);
@@ -89,6 +118,8 @@ export async function ensureTaskGraphSchema(){
   // Existing task data, sessions and source attribution are unchanged.
   localWrangler(['d1','execute',db,'--remote','--yes','--json',
    '--file=./migrations/0019_academic_task_dependencies.sql']);
+  assertCoreCountsUnchanged(countsBefore,coreCounts(db));
+  console.log('✅ 迁移前后核心业务表记录数量一致（不记录数量或个人数据）');
  }
  if(inspect(db)!=='ready')throw Error('task_graph_schema_not_ready');
  integrity(db);
