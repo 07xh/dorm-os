@@ -31,8 +31,11 @@ const db={
   }catch(e){dbFile.exec('ROLLBACK');throw e;}
  }
 };
-const timestamp='2026-11-09T10:00:00.000Z', opts={
- id:()=> 'dependency-event-'+(++sequence),now:()=>timestamp
+const timestamp='2026-11-09T10:00:00.000Z';
+let stampSequence=0;
+const opts={
+ id:()=> 'dependency-event-'+(++sequence),
+ now:()=>new Date(Date.parse(timestamp)+1000*(++stampSequence)).toISOString()
 };
 for(const name of ['owner-a','owner-b'])
  dbFile.prepare('INSERT INTO academic_users(id,created_at) VALUES (?,?)')
