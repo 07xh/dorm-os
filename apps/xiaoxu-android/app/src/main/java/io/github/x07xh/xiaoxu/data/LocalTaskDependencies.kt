@@ -84,3 +84,70 @@ fun unfinishedLocalPrerequisites(
         .distinctBy { it.id }
         .toList()
 }
+
+
+/**
+ * Topological layer view of explicitly related local tasks only.
+ *
+ * An edge (taskId, prerequisiteId) means the task waits for its prerequisite.
+ * This is the native Compose equivalent of NextTodo's DAG relationship view:
+ * no synthetic source IDs, no cloud state, and no persisted duplicate graph.
+ * A corrupt cycle fails closed rather than being drawn as an executable chain.
+ */
+data class LocalTaskGraphNode(
+    val task: LocalTask,
+    val stage: Int,
+    val prerequisites: List<LocalTask>,
+    val unlocks: List<LocalTask>
+)
+
+fun localTaskGraphLayers(
+    tasks: List<LocalTask>,
+    edges: List<LocalTaskDependency>
+): List<List<LocalTaskGraphNode>> {
+    val byId = tasks.associateBy { it.id }
+    val valid = edges.asSequence()
+        .filter { it.taskId != it.prerequisiteId &&
+            it.taskId in byId && it.prerequisiteId in byId }
+        .distinct().toList()
+    if (valid.isEmpty()) return emptyList()
+
+    val linked = valid.flatMapTo(mutableSetOf()) {
+        listOf(it.taskId, it.prerequisiteId)
+    }
+    val prerequisites = valid.groupBy { it.taskId }
+    val outgoing = valid.groupBy { it.prerequisiteId }
+    val indegree = linked.associateWith { prerequisites[it]?.size ?: 0 }.toMutableMap()
+    val stages = linked.associateWith { 0 }.toMutableMap()
+    val queue = ArrayDeque<Long>()
+    linked.sorted().filter { indegree[it] == 0 }.forEach(queue::addLast)
+
+    var visited = 0
+    while (queue.isNotEmpty()) {
+        val current = queue.removeFirst()
+        visited++
+        for (edge in outgoing[current].orEmpty()) {
+            val dependent = edge.taskId
+            stages[dependent] = maxOf(stages.getValue(dependent),
+                stages.getValue(current) + 1)
+            val remaining = indegree.getValue(dependent) - 1
+            indegree[dependent] = remaining
+            if (remaining == 0) queue.addLast(dependent)
+        }
+    }
+    if (visited != linked.size) return emptyList()
+
+    return linked.map { id ->
+        LocalTaskGraphNode(
+            task = byId.getValue(id),
+            stage = stages.getValue(id),
+            prerequisites = prerequisites[id].orEmpty().map { byId.getValue(it.prerequisiteId) }
+                .sortedWith(compareBy<LocalTask> { it.createdAt }.thenBy { it.id }),
+            unlocks = outgoing[id].orEmpty().map { byId.getValue(it.taskId) }
+                .sortedWith(compareBy<LocalTask> { it.createdAt }.thenBy { it.id })
+        )
+    }.groupBy { it.stage }.toSortedMap().values.map { layer ->
+        layer.sortedWith(compareBy<LocalTaskGraphNode> { it.task.completed }
+            .thenBy { it.task.createdAt }.thenBy { it.task.id })
+    }
+}
