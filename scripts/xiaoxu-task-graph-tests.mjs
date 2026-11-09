@@ -61,4 +61,9 @@ assert.equal(limited.truncated,true);
 assert.ok(limited.height<=700,'wide plans should not produce a giant vertical graph');
 assert.ok(graph.render(aLot).includes('仅展示前 72 项'));
 assert.equal(graph.render([]).includes('暂无可绘制的个人任务关系'),true);
+const checkCommand=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).scripts.check;
+assert.match(checkCommand,/node scripts\/xiaoxu-task-graph-tests\.mjs/,
+ 'graph regression suite must remain registered after branch synchronization');
+assert.match(checkCommand,/node scripts\/xiaoxu-task-production-preflight-tests\.mjs/,
+ 'D1 read-only preflight safety tests must survive branch synchronization');
 console.log('NextTodo graph: redundant edge reduction, lineage, local/cloud isolation, XSS, cycle, offline and graph cap PASS');
