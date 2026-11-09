@@ -16,6 +16,9 @@
 
 ## 首次生产写入必须手动批准
 
+2026-11-09 更新：独立迁移工具已通过 [PR #437](https://github.com/07xh/dorm-os/pull/437) 合入默认分支，其入口为 **Apply NextTodo D1 0019 (manual only)**。此工具与网站发布分开，**尚无成功执行生产迁移的证据**；运行时必须由本人在 GitHub Actions 明确批准，不得用普通「继续」代替该批准。
+
+
 **默认状态：拒绝自动迁移。** 普通 `main` CI 成功后触发的 Pages 部署可以读取 D1 结构、完整性和恢复点，但如果生产仍缺少 0019，最终会以 `task_graph_migration_manual_approval_required` 停止发布；它不能自行升级数据库。已经完成且检查通过的 0019 不要求每次发布再次批准。
 
 仅在本人已核对目标 Cloudflare 项目、数据库 UUID、现有任务备份与恢复能力之后，才从 GitHub Actions 的 **Deploy DORM OS to Cloudflare Pages → Run workflow → main** 手动运行，并明确勾选 `approve_task_dependency_migration`。未勾选默认是 `false`。仅该次 `workflow_dispatch` 可为迁移脚本提供 `APPLY-0019`，脚本还检查事件类型，不能通过普通 push / workflow_run 绕过。
