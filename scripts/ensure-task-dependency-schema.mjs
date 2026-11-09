@@ -101,6 +101,10 @@ function integrity(database){
  if(rows.length!==1||rows[0]?.quick_check!=='ok')
   throw Error('sqlite_integrity_check_failed');
 }
+// Share the exact production read-only checks with the standalone preflight.
+// Both helpers issue SELECT/PRAGMA statements only; no D1 migration here.
+export {inspect as inspectTaskGraphSchema,integrity as verifyTaskGraphIntegrity};
+
 export async function ensureTaskGraphSchema(){
  if(process.env.GITHUB_REPOSITORY!=='07xh/dorm-os'||
     process.env.GITHUB_REF!=='refs/heads/main')throw Error('production_only');
