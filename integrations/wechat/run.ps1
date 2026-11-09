@@ -2,7 +2,7 @@
 # 仅加载微信工具源码；三方依赖从 py312-venv 读取，不再混用捆绑 deps。
 param(
  [Parameter(Position=0)]
- [ValidateSet("setup","preview","sync","status","verify")]
+ [ValidateSet("setup","preview","sync","status","verify","ai-prepare","ai-submit")]
  [string]$Command="status"
 )
 $ErrorActionPreference="Stop"
