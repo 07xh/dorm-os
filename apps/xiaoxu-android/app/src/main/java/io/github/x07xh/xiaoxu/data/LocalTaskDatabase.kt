@@ -5,6 +5,8 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Transaction
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -59,6 +61,28 @@ interface LocalTaskDao {
 
     @Query("DELETE FROM local_tasks WHERE id = :id")
     suspend fun remove(id: Long)
+
+    @Query("SELECT * FROM local_task_dependencies ORDER BY taskId, prerequisiteId")
+    fun observeDependencies(): Flow<List<LocalTaskDependency>>
+
+    @Query("SELECT * FROM local_task_dependencies ORDER BY taskId, prerequisiteId")
+    suspend fun dependencySnapshot(): List<LocalTaskDependency>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertDependency(edge: LocalTaskDependency): Long
+
+    @Query("DELETE FROM local_task_dependencies WHERE taskId = :taskId AND prerequisiteId = :prerequisiteId")
+    suspend fun deleteDependency(taskId: Long, prerequisiteId: Long)
+
+    /** Validate the DAG and task existence in a single Room transaction. */
+    @Transaction
+    suspend fun tryAddDependency(taskId: Long, prerequisiteId: Long): Boolean {
+        if (taskId == prerequisiteId || findById(taskId) == null ||
+            findById(prerequisiteId) == null) return false
+        val edges = dependencySnapshot()
+        if (wouldCreateDependencyCycle(edges, taskId, prerequisiteId)) return false
+        return insertDependency(LocalTaskDependency(taskId, prerequisiteId)) != -1L
+    }
 }
 
 /**
@@ -96,7 +120,23 @@ internal val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [LocalTask::class, NativeSchoolRecord::class], version = 3, exportSchema = false)
+/** Preserve existing records; local dependencies share the same Room database. */
+internal val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS local_task_dependencies (
+                taskId INTEGER NOT NULL,
+                prerequisiteId INTEGER NOT NULL,
+                PRIMARY KEY(taskId, prerequisiteId),
+                FOREIGN KEY(taskId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(prerequisiteId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_local_task_dependencies_prerequisiteId ON local_task_dependencies(prerequisiteId)")
+    }
+}
+
+@Database(entities = [LocalTask::class, NativeSchoolRecord::class, LocalTaskDependency::class], version = 4, exportSchema = false)
 abstract class LocalTaskDatabase : RoomDatabase() {
     abstract fun tasks(): LocalTaskDao
     abstract fun nativeSchoolRecords(): NativeSchoolRecordDao
@@ -110,7 +150,7 @@ abstract class LocalTaskDatabase : RoomDatabase() {
                     context.applicationContext,
                     LocalTaskDatabase::class.java,
                     "xiaoxu-local-tasks.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
             }
     }
 }
