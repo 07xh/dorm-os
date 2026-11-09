@@ -5,6 +5,56 @@ import org.junit.Test
 import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
+
+    @Test fun detachedNoticeLinksOnlyOneVerifiedCourseWorkTuple() {
+        val official = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val notice = JSONObject().put("title", "作业通知").put("tag", "courseId123")
+            .put("content", "作业名称：实验报告一")
+            .put("extendParam", JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        // There is deliberately no notification attachment: the cloud cxn
+        // identity exists but cannot be connected by following a link.
+        assertTrue(ChaoxingLocalReader.noticeLinks(notice).isEmpty())
+        val expectedAlias = ChaoxingLocalReader.noticeAliases(notice).single().id
+        fun read(twoClasses: Boolean, failSecond: Boolean = false): ChaoxingLocalRead {
+            val first = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+            val second = first.replace("clazzid=456", "clazzid=457")
+            return ChaoxingLocalReader(ChaoxingReadTransport { r ->
+                val url = java.net.URI(r.url)
+                val clazz = if (r.url.contains("457")) "457" else "456"
+                val content = when (url.path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status", true)
+                        .put("notices", JSONObject().put("lastPage", 1)
+                            .put("list", org.json.JSONArray().put(notice))).toString()
+                    "/mooc2-ans/visit/courselistdata" -> {
+                        "<a href='$first'><span class='course-name'>Python 1</span></a>" +
+                            if (twoClasses) "<a href='$second'><span class='course-name'>Python 2</span></a>" else ""
+                    }
+                    "/visit/stucoursemiddle" -> {
+                        if (clazz == "457" && failSecond) throw ChaoxingReadFailure("course_http")
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=$clazz'>作业</a>"
+                    }
+                    "/mooc-ans/mooc2/work/list" -> {
+                        val workUrl = official.replace("classId=456", "classId=$clazz")
+                        "<ul class='bottomList'><li data='$workUrl'>" +
+                            "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                    }
+                    else -> error("unexpected request: " + url.path)
+                }
+                ChaoxingReadPage(r.url, content)
+            }).scan(2026)
+        }
+        val unique = read(twoClasses = false)
+        assertTrue(unique.complete)
+        assertEquals(setOf(expectedAlias), unique.items.single { it.kind == "homework" }.noticeAliases)
+        val ambiguous = read(twoClasses = true)
+        assertTrue(ambiguous.complete)
+        assertTrue(ambiguous.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
+        val partial = read(twoClasses = true, failSecond = true)
+        assertFalse(partial.complete)
+        assertTrue(partial.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
+    }
     @Test fun detailStatusSurvivesGenericListButReopenedWorkStaysPending() {
         val reader = ChaoxingLocalReader(ChaoxingReadTransport { error("no network needed") })
         assertEquals("已互评", reader.reconcileWorkStatus("待批阅", "已互评"))
