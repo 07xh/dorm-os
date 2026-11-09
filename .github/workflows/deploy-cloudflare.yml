@@ -6,6 +6,12 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      approve_task_dependency_migration:
+        description: 'Allow one-time production D1 0019 migration after restore-point verification'
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 env:
@@ -118,6 +124,9 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Explicit user-approved manual run only. CI-driven deployment does
+          # not carry this approval, so missing 0019 blocks publication.
+          XIAOXU_TASK_D1_0019_APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.approve_task_dependency_migration && 'APPLY-0019' || 'NO' }}
         run: node scripts/ensure-task-dependency-schema.mjs
       - name: Publish verified static website
         if: steps.publish_guard.outputs.fresh == 'true'
