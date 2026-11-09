@@ -234,17 +234,31 @@ internal fun combineWorkspaceTasks(
             }
             val trustedStatus = trustedChaoxingPlatformStatus(
                 task.provider, task.sourceExternalId, task.officialStatus)
-            val localStatus = effectiveId
-                ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatus)
-            // The active on-device reader supplies explicit official status for
-            // this exact work ID. Retired cloud snapshots must not hide returned
-            // work; an unknown local status cannot erase known cloud evidence.
-            val fromLocal = localStatus in setOf("todo", "returned", "submitted", "graded")
-            val visibleStatus = if (fromLocal) localStatus else trustedStatus
+            val localRecord = if (task.provider == "chaoxing")
+                effectiveId?.let { localEvidence[it] } else null
+            val planRecord = if (task.provider == "chaoxing")
+                effectiveId?.let { planEvidence[it] } else null
+            val localStatus = localRecord?.let(::nativeChaoxingVisibleStatus)
+            val planStatus = planRecord?.let(::nativeChaoxingVisibleStatus)
+            // Exact official IDs can identify BOTH homework and study plans.
+            // Unknown local observations cannot erase a trusted work status.
+            val verifiedStatuses = setOf("todo", "returned", "submitted", "graded")
+            val fromLocal = localStatus in verifiedStatuses
+            val fromPlan = !fromLocal && planStatus in verifiedStatuses
+            val visibleStatus = when {
+                fromLocal -> localStatus
+                fromPlan -> planStatus
+                else -> trustedStatus
+            }
+            val evidence = when {
+                fromLocal -> localRecord
+                fromPlan -> planRecord
+                else -> null
+            }
             add(WorkspaceTask("cloud:" + task.id, task.title,
-                if (fromLocal) "$source · 本机官网状态" else source,
+                if (evidence != null) "$source · 本机官网状态" else source,
                 task.status == "done", parseWorkspaceDue(task.due),
-                if (fromLocal) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
+                if (evidence != null) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
                 when (task.provider) {
                     "wechat" -> "wechat"
                     "chaoxing" -> "chaoxing"
@@ -252,9 +266,7 @@ internal fun combineWorkspaceTasks(
                 },
                 task.revision, task.provider, task.links,
                 effectiveId ?: task.sourceExternalId, visibleStatus,
-                if (fromLocal) effectiveId
-                    ?.let { localEvidence[it] }?.let(::nativeChaoxingVisibleStatusText)
-                else null))
+                evidence?.let(::nativeChaoxingVisibleStatusText)))
         }
         localEvidence.filterKeys { it !in represented }.forEach { (id, record) ->
             val status = nativeChaoxingVisibleStatus(record)
@@ -266,7 +278,9 @@ internal fun combineWorkspaceTasks(
                 officialStatusRaw = nativeChaoxingVisibleStatusText(record)
             ))
         }
-        planEvidence.forEach { (id, record) ->
+        // A source-ID matched cloud row already represents this official plan;
+        // do not append an extra native row solely because its kind is study_task.
+        planEvidence.filterKeys { it !in cloudIds }.forEach { (id, record) ->
             val status = nativeChaoxingVisibleStatus(record)
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
