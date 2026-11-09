@@ -42,6 +42,31 @@ class TaskCenterSearchTest {
         assertEquals(listOf("local:2"), after.map { it.key })
     }
 
+
+    @Test
+    fun waitingSectionOnlyContainsBlockedLocalTasksAndRespectsSearchFilter() {
+        val local = listOf(
+            LocalTask(id = 1, title = "准备实验"),
+            LocalTask(id = 2, title = "写报告"),
+            LocalTask(id = 3, title = "独立任务")
+        )
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val rows = combineWorkspaceTasks(local, listOf(
+            CloudTask("school", "课程待办", "todo", "manual", "chaoxing", null)
+        ))
+        val waiting = waitingWorkspaceTasks(rows, local, edges)
+        assertEquals(listOf("local:2"), waiting.map { it.key })
+        assertEquals(listOf("local:2"), waitingWorkspaceTasks(
+            searchWorkspaceTasks(rows, "pending", "报告", today), local, edges
+        ).map { it.key })
+        assertTrue(waitingWorkspaceTasks(
+            facetWorkspaceTasks(rows, "chaoxing", false, today), local, edges
+        ).isEmpty())
+        val unlocked = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        assertTrue(waitingWorkspaceTasks(combineWorkspaceTasks(unlocked, emptyList()),
+            unlocked, edges).isEmpty())
+    }
+
     @Test
     fun searchByTitleAndSourceKeepsStorageAndOriginalOrder() {
         assertEquals(listOf("cloud:1"),
