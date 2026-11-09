@@ -145,3 +145,50 @@ test('cloud sync receipt uses authenticated fetch only and does not expose priva
  await page.locator('#editor [data-action="close-modal"]').click();
  await expect(page.locator('#editor')).not.toBeVisible();
 });
+
+
+test('successful cloud PATCH followed by a failed read keeps task visible but not actionable',async({page})=>{
+ let personal={id:'cloud-z',title:'真实接口状态演练',kind:'manual',
+  local_status:'todo',revision:0,due_precision:'unknown',source_provider:'manual'};
+ let failNextRead=false,writes=0;
+ await page.route('**/api/v1/assignments?*',route=>{
+  if(failNextRead){
+   failNextRead=false;
+   return route.fulfill({status:503,contentType:'application/json',
+    body:'{"error":"database_unavailable"}'});
+  }
+  return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({items:[personal]})});
+ });
+ await page.route('**/api/v1/sources',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:'{"connections":[],"userSnapshots":[]}'
+ }));
+ await page.route('**/api/v1/assignments/dependencies',route=>route.fulfill({
+  status:200,contentType:'application/json',body:'{"revision":0,"edges":[]}'
+ }));
+ await page.route('**/api/v1/assignments/cloud-z',route=>{
+  const patch=route.request().postDataJSON();
+  if(route.request().method()!=='PATCH'||patch?.revision!==personal.revision)
+   return route.fulfill({status:409,contentType:'application/json',
+    body:'{"error":"revision_conflict"}'});
+  personal={...personal,local_status:patch.localStatus,revision:personal.revision+1};
+  writes++;failNextRead=true;
+  return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({item:personal})});
+ });
+ await page.goto('/#tasks');
+ await page.evaluate(()=>window.XiaoxuCloudTasks.connect());
+ await page.locator('[data-filter="ready"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('真实接口状态演练');
+ await page.locator('[data-action="cloud-toggle:cloud-z:done"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('云端依赖待同步');
+ await expect(page.locator('.xu-cloud-task [data-action^="cloud-toggle:"]')).toHaveCount(0);
+ expect(writes).toBe(1,'PATCH succeeded exactly once despite the read failure');
+ expect(personal.local_status).toBe('done','the simulated server accepted the mutation');
+ // A real subsequent read confirms the committed change without a second PATCH.
+ await page.evaluate(()=>window.XiaoxuCloudTasks.refresh());
+ await page.locator('[data-filter="done"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('真实接口状态演练');
+ expect(writes).toBe(1);
+});
