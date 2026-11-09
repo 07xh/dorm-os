@@ -1166,6 +1166,13 @@ assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真�
 assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek, today\)[\s\S]*?facetWorkspaceTasks\(/,
   '任务中心按真实任务与当前筛选条件计算可见记录');
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
+assert.match(workspace, /"pending" -> isActionableWorkspaceTask\(task\)/,
+  '待办不能再把学习通未关联旧通知直接认作未完成');
+assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
+  '学习通待核对需保留可检索入口，不静默删除历史记录');
+assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
+  '待完成计数必须与去除未知状态后的任务列表一致');
+
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
 assert.ok(workspace.indexOf('title = "其他云端待办"') <
