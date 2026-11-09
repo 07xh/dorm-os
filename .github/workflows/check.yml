@@ -19,7 +19,7 @@ jobs:
       - name: Validate optional Windows schedule script without registering tasks
         shell: powershell
         run: |
-          foreach ($script in @(".\integrations\wechat\schedule.ps1", ".\integrations\wechat\run.ps1", ".\integrations\wechat\scheduled-run.ps1")) {
+          foreach ($script in @(".\integrations\wechat\schedule.ps1", ".\integrations\wechat\run.ps1", ".\integrations\wechat\scheduled-run.ps1", ".\integrations\wechat\scheduled-digest.ps1", ".\integrations\wechat\digest-schedule.ps1")) {
             $tokens=$null; $parseErrors=$null
             [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$parseErrors) | Out-Null
             if ($parseErrors.Count -ne 0) {
@@ -58,6 +58,24 @@ jobs:
               $scheduler -notmatch 'legacyArgsLine') {
             throw "Scheduler must reuse collector with Beijing gate and support safe legacy upgrade"
           }
+          # Verify 23:10 Beijing digest boundary without reading chat or installing tasks.
+          $digestCases=@(
+            @("2026-11-09T15:09:00Z", "SKIP"),
+            @("2026-11-09T15:10:00Z", "RUN"),
+            @("2026-11-09T15:59:00Z", "RUN"),
+            @("2026-11-09T16:00:00Z", "SKIP")
+          )
+          foreach($test in $digestCases) {
+            $got=& .\integrations\wechat\scheduled-digest.ps1 check-time -AtUtc $test[0]
+            if ($got -ne $test[1]) { throw "Digest UTC+8 gate mismatch at $($test[0]): $got" }
+          }
+          $digestSchedule=Get-Content ".\integrations\wechat\digest-schedule.ps1" -Raw
+          if ($digestSchedule -notmatch 'scheduled-digest.ps1' -or
+              $digestSchedule -notmatch 'PT5M' -or
+              $digestSchedule -notmatch 'Interactive') {
+            throw "Digest scheduler must be opt-in, 5-minute gate, logged-on user only"
+          }
+          & .\integrations\wechat\digest-schedule.ps1 status
           & .\integrations\wechat\schedule.ps1 status
   check:
     runs-on: ubuntu-latest
