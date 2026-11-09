@@ -111,6 +111,37 @@
     dependency_ready:graphReady};
   });
  }
+ // On-device comparison of the SAME authenticated cloud records on two
+ // devices. Never sends personal task content to a diagnostic service.
+ // No demo rows, no added assignments, no password/cookie handling.
+ async function syncFingerprint(){
+  if(!online)throw Error('请先连接本人的云端任务');
+  const epoch=connectionEpoch;
+  await refresh();
+  if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，请重新核对');
+  if(!graphReady)throw Error('云端依赖未就绪，暂不能出具同步核对码');
+  const own=items.filter(r=>r.kind==='manual').map(r=>({
+   id:r.id,title:r.title,revision:r.revision,
+   status:r.local_status||'todo',
+   deadline:r.due_at_utc||r.due_local_date||null,
+   precision:r.due_precision||'unknown',
+   target:r.personal_target_at||null
+  })).sort((a,b)=>a.id.localeCompare(b.id));
+  if(!own.length)throw Error('云端尚无本人个人任务，无法使用真实任务核对');
+  const ids=new Set(own.map(t=>t.id));
+  const links=graphEdges.filter(e=>ids.has(e.taskId)&&ids.has(e.prerequisiteId))
+   .map(e=>[e.taskId,e.prerequisiteId])
+   .sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1]));
+  if(!root.crypto?.subtle||!root.TextEncoder)
+   throw Error('当前浏览器不支持安全摘要计算');
+  const data=new root.TextEncoder().encode(JSON.stringify({v:1,tasks:own,links}));
+  const hash=await root.crypto.subtle.digest('SHA-256',data);
+  if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，核对码已作废');
+  const code=Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0'))
+   .join('').slice(0,20).toUpperCase();
+  return {code,taskCount:own.length,completed:own.filter(t=>t.status==='done').length,
+   edgeCount:links.length,graphRevision,checkedAt:new Date().toISOString()};
+ }
  const taskCount=()=>items.length;
  function formatDue(r){
   if(r.due_precision==='exact'&&r.due_at_utc){
@@ -374,6 +405,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:recordsWithDependencies,snapshotKeys,dependenciesAvailable,graphSnapshot,setPrerequisites,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:recordsWithDependencies,snapshotKeys,dependenciesAvailable,graphSnapshot,setPrerequisites,syncFingerprint,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
  });
 })(globalThis);
