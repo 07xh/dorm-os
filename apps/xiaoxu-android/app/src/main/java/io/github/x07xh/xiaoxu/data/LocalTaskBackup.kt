@@ -31,12 +31,16 @@ class LocalTaskBackup(
     private val resolver: ContentResolver
 ) {
     suspend fun exportTo(uri: Uri): Int {
-        val tasks = database.tasks().snapshot()
+        // Read both tables from one transaction: concurrent edits must never
+        // create a backup with a task snapshot and mismatched dependency edges.
+        val (tasks, snapshotEdges) = database.withTransaction {
+            database.tasks().snapshot() to database.tasks().dependencySnapshot()
+        }
         require(tasks.size <= MAX_TASKS) { "too_many_local_tasks" }
         val records = JSONArray()
         val ids = tasks.mapTo(hashSetOf()) { it.id }
         val links = JSONArray()
-        for (edge in database.tasks().dependencySnapshot()) {
+        for (edge in snapshotEdges) {
             if (edge.taskId in ids && edge.prerequisiteId in ids) {
                 links.put(JSONObject().put("task", edge.taskId)
                     .put("before", edge.prerequisiteId))
