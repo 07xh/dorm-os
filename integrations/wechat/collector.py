@@ -538,7 +538,7 @@ def main(argv=None) -> int:
     upload_candidates(config, secret, records, next_state)
     return 0
 
-def upload_candidates(config: dict, secret: bytes, records: list[dict], next_state: dict) -> None:
+def upload_candidates(config: dict, secret: bytes, records: list[dict], next_state: dict, *, mode: str = 'rules') -> None:
     token = opened(config["tokenDpapi"]).decode("utf-8")
     if not TOKEN.fullmatch(token):
         raise BridgeError("设备凭据无效")
@@ -563,6 +563,13 @@ def upload_candidates(config: dict, secret: bytes, records: list[dict], next_sta
         submit(config["site"], token, payload)
     # Advance only when the server has acknowledged every batch (or heartbeat).
     save_json(STATE, next_state)
+    # Metadata-only local evidence; never undo a confirmed cloud upload due to
+    # log/digest filesystem trouble. No message bodies, titles or chat names.
+    try:
+        from sync_digest import record_success
+        record_success(records, mode)
+    except (OSError, ValueError):
+        print("已确认云端同步，但本机摘要写入失败；日报可能不完整。", file=sys.stderr)
     print("服务器已确认本次同步；请在校序「任务 → 微信待审核」中审核。"
           if records else "服务器已确认设备在线，本次没有待审核任务。")
 
