@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -91,6 +92,8 @@ import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import io.github.x07xh.xiaoxu.data.readyLocalTaskIds
+import io.github.x07xh.xiaoxu.data.waitingLocalTaskIds
+import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
@@ -381,6 +384,20 @@ internal fun readyWorkspaceTasks(
             { if (it.storage == "local") it.date ?: LocalDate.MAX else LocalDate.MAX },
             { it.key }
         ))
+        .toList()
+}
+
+/** Waiting items remain discoverable without a second task store or status model. */
+internal fun waitingWorkspaceTasks(
+    tasks: List<WorkspaceTask>,
+    local: List<LocalTask>,
+    dependencies: List<LocalTaskDependency>
+): List<WorkspaceTask> {
+    val waitingIds = waitingLocalTaskIds(local, dependencies)
+    return tasks.asSequence()
+        .filter { it.storage == "local" && !considerCompleteInTaskList(it) }
+        .filter { it.key.removePrefix("local:").toLongOrNull() in waitingIds }
+        .sortedWith(compareBy<WorkspaceTask>({ it.date ?: LocalDate.MAX }, { it.key }))
         .toList()
 }
 
@@ -978,6 +995,7 @@ fun RealAcademicTaskHub(
     var showChaoxingTasks by rememberSaveable { mutableStateOf(false) }
     var showWechatTasks by rememberSaveable { mutableStateOf(false) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
+    var showWaitingTasks by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
@@ -1016,6 +1034,14 @@ fun RealAcademicTaskHub(
     }
     val nowCount = remember(all, localTasks, dependencies) {
         readyWorkspaceTasks(all, localTasks, dependencies).size
+    }
+    val waitingRows = remember(all, filter, localTasks, dependencies, searchQuery,
+        sourceFilter, onlyThisWeek, today) {
+        if (filter != "now") emptyList()
+        else waitingWorkspaceTasks(
+            facetWorkspaceTasks(searchWorkspaceTasks(all, "pending", searchQuery, today),
+                sourceFilter, onlyThisWeek, today), localTasks, dependencies
+        )
     }
     // Keep each source as a stable lazy section across unrelated UI updates.
     val chaoxingRows = remember(shown) { shown.filter { it.category == "chaoxing" } }
@@ -1330,6 +1356,39 @@ fun RealAcademicTaskHub(
                             actionEnabled = row.key !in pendingLocalTaskUpdates &&
                                 row.key !in pendingWechatTaskUpdates
                         )
+                    }
+                }
+            }
+            if (waitingRows.isNotEmpty()) {
+                item(key = "next:waiting") {
+                    TaskGroupHeader(
+                        title = "等待前置",
+                        count = waitingRows.size,
+                        badge = "",
+                        note = "本人设置的先后关系 · 点击查看",
+                        icon = Icons.Outlined.Lock,
+                        expanded = showWaitingTasks,
+                        joinedRows = true,
+                        onClick = { showWaitingTasks = !showWaitingTasks }
+                    )
+                }
+                if (showWaitingTasks) {
+                    items(count = waitingRows.size,
+                        key = { i -> "waiting:" + waitingRows[i].key }) { i ->
+                        val row = waitingRows[i]
+                        val id = row.key.removePrefix("local:").toLongOrNull()
+                        val prerequisites = id?.let {
+                            unfinishedLocalPrerequisites(it, localTasks, dependencies)
+                        }.orEmpty()
+                        val hint = "等待 ${prerequisites.size} 项前置" +
+                            prerequisites.take(2).joinToString(prefix = " · ") { it.title }
+                        ConnectedTaskShell(index = i, total = waitingRows.size) {
+                            TaskRow(
+                                row, today,
+                                onOpen = { openedTaskKey = row.key },
+                                dependencyHint = hint
+                            )
+                        }
                     }
                 }
             }
@@ -1981,7 +2040,8 @@ private fun TaskRow(
     onToggleLocal: ((Boolean) -> Unit)? = null,
     onToggleWechat: ((Boolean) -> Unit)? = null,
     pendingChecked: Boolean? = null,
-    actionEnabled: Boolean = true
+    actionEnabled: Boolean = true,
+    dependencyHint: String? = null
 ) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
@@ -1997,9 +2057,10 @@ private fun TaskRow(
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
     val statusText = if (isPending) "保存中…" else
-        officialLabel ?: if (task.done) "个人已完成" else due.label
+        dependencyHint ?: officialLabel ?: if (task.done) "个人已完成" else due.label
     val statusInk = when {
         isPending -> XiaoxuPalette.Brand
+        dependencyHint != null -> XiaoxuPalette.Ink2
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2010,6 +2071,7 @@ private fun TaskRow(
     }
     val statusBackground = when {
         isPending -> XiaoxuPalette.BrandSoft
+        dependencyHint != null -> XiaoxuPalette.GlassTrack
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2033,6 +2095,7 @@ private fun TaskRow(
                         else if (considerCompleteInTaskList(task)) "官方已提交，已移出待办"
                         else "待办") +
                     "；" + due.spoken +
+                    (dependencyHint?.let { "；" + it } ?: "") +
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击查看任务详情"
             }
@@ -2067,7 +2130,9 @@ private fun TaskRow(
         } else {
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 Icon(
-                    if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                    if (dependencyHint != null) Icons.Outlined.Lock
+                    else if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox
+                    else Icons.Outlined.CheckBoxOutlineBlank,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = XiaoxuPalette.Ink3
