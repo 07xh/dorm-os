@@ -53,3 +53,11 @@ body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,Blink
 
 /* Update feedback floats above the mobile navigation without blocking editing. */
 .xu-update-notice{position:fixed;bottom:calc(var(--xu-bottom) + 12px);right:16px;z-index:150;display:flex;align-items:center;gap:12px;max-width:min(420px,calc(100vw - 32px));padding:14px 17px;border:1px solid var(--xu-line);border-radius:10px;background:var(--xu-surface);color:var(--xu-ink);box-shadow:0 8px 30px #18263d20;font-size:13px}.xu-update-notice button{border:0;border-radius:6px;background:var(--xu-brand);color:var(--xu-surface);min-height:44px;padding:8px 13px;white-space:nowrap}
+
+/* NextTodo-style dependency choices: intentionally within the existing editor. */
+.xu-task-prerequisites{border:1px solid var(--xu-line);border-radius:12px;padding:12px 14px;min-width:0}
+.xu-task-prerequisites legend{font-weight:600;padding:0 5px}
+.xu-task-prerequisite-option{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-size:14px}
+.xu-task-prerequisite-option input{width:18px;height:18px;accent-color:var(--xu-brand)}
+.xu-task-prerequisite-option span{min-width:0;overflow-wrap:anywhere}
+.xu-task-prerequisites .muted{display:block;margin-top:5px;line-height:1.5}
