@@ -76,4 +76,37 @@ class LocalTaskDependenciesTest {
         assertEquals(listOf(1L, 2L), layers.flatten().map { it.task.id })
     }
 
+    @Test fun graphFocusIncludesNecessaryMergePrerequisitesButNotUnrelatedBranches() {
+        val tasks = (1L..6L).map { LocalTask(id = it, title = "Node $it") }
+        val edges = listOf(
+            LocalTaskDependency(2, 1), // 1 -> 2
+            LocalTaskDependency(3, 1), // 1 -> 3
+            LocalTaskDependency(4, 2), // 2 -> 4
+            LocalTaskDependency(4, 3), // 3 -> 4
+            LocalTaskDependency(5, 1), // unrelated sibling 5
+            LocalTaskDependency(6, 5)  // unrelated descendant of 5
+        )
+        val layers = localTaskGraphLayers(tasks, edges)
+        val focused = localTaskGraphVisibleIds(layers, focusTaskId = 2)
+        assertEquals(setOf(1L, 2L, 3L, 4L), focused)
+        assertFalse(5L in focused)
+        assertFalse(6L in focused)
+        assertEquals(setOf(1L, 2L, 3L, 4L),
+            localTaskGraphVisibleIds(layers, titleSearch = "NODE 4"))
+        assertEquals(setOf(1L, 5L),
+            localTaskGraphVisibleIds(layers, titleSearch = "node 5"))
+        assertEquals((1L..6L).toSet(), localTaskGraphVisibleIds(layers))
+        assertTrue(localTaskGraphVisibleIds(layers, focusTaskId = 99).isEmpty())
+        assertTrue(localTaskGraphVisibleIds(layers, titleSearch = "no-match").isEmpty())
+    }
+
+    @Test fun invalidSelfLoopCannotRenderAsValidGraph() {
+        val tasks = listOf(LocalTask(id = 1, title = "自己"),
+            LocalTask(id = 2, title = "另一个"))
+        assertTrue(localTaskGraphLayers(tasks, listOf(
+            LocalTaskDependency(1, 1), LocalTaskDependency(2, 1)
+        )).isEmpty())
+    }
+
+
 }
