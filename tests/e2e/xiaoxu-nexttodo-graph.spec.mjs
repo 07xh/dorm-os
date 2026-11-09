@@ -95,3 +95,34 @@ test('missing cloud dependency endpoint fails closed on graph but does not hide 
  await page.locator('[data-filter="all"]').click();
  await expect(page.locator('#app')).toContainText('历史个人云端任务');
 });
+
+test('cloud sync receipt uses authenticated fetch only and does not expose private titles',async({page})=>{
+ const personal=[{id:'owner-sample-01',title:'仅供当前测试的私密标题',
+  kind:'manual',revision:2,local_status:'todo',source_provider:'manual',
+  due_precision:'unknown',due_local_date:null}];
+ let reads=0;
+ await page.route('**/api/v1/assignments?*',route=>{
+  reads++;return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({items:personal})});
+ });
+ await page.route('**/api/v1/sources',r=>r.fulfill({
+  status:200,contentType:'application/json',body:'{"connections":[],"userSnapshots":[]}'
+ }));
+ await page.route('**/api/v1/assignments/dependencies',r=>r.fulfill({
+  status:200,contentType:'application/json',body:'{"revision":7,"edges":[]}'
+ }));
+ await page.goto('/#tasks');
+ await page.locator('.xu-task-tools summary').click();
+ await page.locator('[data-action="cloud-sync-evidence"]').click();
+ await expect(page.locator('#editor')).not.toBeVisible();
+ await page.evaluate(()=>window.XiaoxuCloudTasks.connect());
+ await page.locator('[data-action="cloud-sync-evidence"]').click();
+ await expect(page.locator('#editor')).toBeVisible();
+ await expect(page.locator('#editor')).toContainText('核对码');
+ await expect(page.locator('#editor')).toContainText('个人任务 1 项');
+ await expect(page.locator('#editor')).toContainText('图修订 7');
+ await expect(page.locator('#editor')).not.toContainText('仅供当前测试的私密标题');
+ expect(reads).toBeGreaterThanOrEqual(2,'receipt must re-fetch real API, never only local snapshot');
+ await page.locator('#editor [data-action="close-modal"]').click();
+ await expect(page.locator('#editor')).not.toBeVisible();
+});
