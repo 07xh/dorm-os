@@ -8,6 +8,7 @@
  // A returning response from a previous login must never repopulate a disconnected
  // or newly connected owner's screen. Coalesce concurrent refreshes per session.
  let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0;
+ let graphRevision=0,graphEdges=[],graphReady=false,graphError='';
  async function api(path,method='GET',data){
   const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
    redirect:'error',headers:{'Accept':'application/json',...(data?{'Content-Type':'application/json'}:{})},
@@ -27,6 +28,7 @@
  function disconnect(){
   connectionEpoch++;refreshGeneration++;online=false;items=[];health=null;error='';migration=null;
   busy=false;refreshPromise=null;lastRefreshAt=0;
+  graphRevision=0;graphEdges=[];graphReady=false;graphError='';
  }
  function refresh(){
   if(!online)return Promise.reject(Error('请先连接本人的学业数据'));
@@ -47,10 +49,24 @@
      if(data.items.length<100)break;
      if(page===49)throw Error('任务超过单次安全加载上限，请使用分页管理');
     }
-    const sources=await api('/api/v1/sources').catch(()=>null);
+    const [sources,graphResult]=await Promise.all([
+     api('/api/v1/sources').catch(()=>null),
+     api('/api/v1/assignments/dependencies').then(value=>({value}))
+      .catch(e=>({error:String(e.message||'先后关系接口不可用')}))
+    ]);
     // Logout/reconnect can happen while a request is running.
     if(!online||epoch!==connectionEpoch||generation!==refreshGeneration)return false;
-    items=next;health=sources;error='';lastRefreshAt=Date.now();return true;
+    items=next;health=sources;error='';
+    const graph=graphResult.value;
+    if(graph&&Number.isSafeInteger(graph.revision)&&graph.revision>=0&&
+       Array.isArray(graph.edges)&&graph.edges.every(e=>
+        typeof e.taskId==='string'&&typeof e.prerequisiteId==='string')){
+      graphRevision=graph.revision;graphEdges=graph.edges;graphReady=true;graphError='';
+    }else{
+      graphReady=false;graphRevision=0;graphEdges=[];
+      graphError=graphResult.error||'云端先后关系数据格式无效';
+    }
+    lastRefreshAt=Date.now();return true;
    }catch(e){
     if(online&&epoch===connectionEpoch&&generation===refreshGeneration)
      error=String(e.message||'刷新失败');
@@ -74,6 +90,27 @@
   return refresh();
  }
  const isReady=()=>online;
+ const dependenciesAvailable=()=>online&&graphReady;
+ function graphSnapshot(){
+  return {revision:graphRevision,ready:dependenciesAvailable(),error:graphError,
+   edges:graphEdges.map(e=>({...e}))};
+ }
+ function recordsWithDependencies(){
+  if(!online)return [];
+  const links=new Map();
+  if(graphReady)for(const e of graphEdges){
+   if(!links.has(e.taskId))links.set(e.taskId,[]);
+   links.get(e.taskId).push(e.prerequisiteId);
+  }
+  const byId=new Map(items.map(r=>[r.id,r]));
+  return items.map(r=>{
+   const ids=links.get(r.id)||[];
+   const waiting=ids.filter(id=>byId.get(id)?.local_status!=='done')
+    .map(id=>byId.get(id)?.title||'前置任务已删除');
+   return {...r,prerequisite_ids:[...ids],prerequisite_waiting:waiting,
+    dependency_ready:graphReady};
+  });
+ }
  const taskCount=()=>items.length;
  function formatDue(r){
   if(r.due_precision==='exact'&&r.due_at_utc){
@@ -267,9 +304,33 @@
   return {...response.item,cloudListRefreshed};
  }
  function editable(id){
-  const item=online?items.find(x=>x.id===id&&x.kind==='manual'):null;
+  const item=online?recordsWithDependencies().find(x=>x.id===id&&x.kind==='manual'):null;
   return item?{id:item.id,title:item.title,dueDate:item.due_local_date||'',
-    duePrecision:item.due_precision,revision:item.revision}:null;
+    duePrecision:item.due_precision,revision:item.revision,
+    prerequisiteIds:item.prerequisite_ids,graphRevision,graphReady}:null;
+ }
+ async function setPrerequisites(taskId,prerequisiteIds){
+  if(!dependenciesAvailable())throw Error('云端先后关系暂不可用，请检查数据库迁移');
+  const item=editable(taskId);
+  if(!item)throw Error('只能编辑本人创建的云端任务依赖');
+  const requested=[...new Set(prerequisiteIds||[])];
+  if(!Array.isArray(prerequisiteIds)||requested.length!==prerequisiteIds.length)
+   throw Error('前置任务不能重复');
+  if(requested.length>30||requested.includes(taskId)||
+     requested.some(id=>!items.some(r=>r.id===id&&r.kind==='manual')))
+   throw Error('只允许选择其他云端个人任务作为前置');
+  if(requested.length===item.prerequisiteIds.length&&
+     requested.every(id=>item.prerequisiteIds.includes(id)))return {unchanged:true};
+  try{
+   const response=await api('/api/v1/assignments/dependencies','PUT',{
+    taskId,taskRevision:item.revision,graphRevision,prerequisiteIds:requested
+   });
+   await refreshAfterWrite();
+   return response.item;
+  }catch(e){
+   if(e.status===409)await refresh().catch(()=>{});
+   throw e;
+  }
  }
  async function updatePersonal(id,{title,dueDate}){
   const item=editable(id);
@@ -313,6 +374,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:()=>online?items.map(r=>({...r})):[],snapshotKeys,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:recordsWithDependencies,snapshotKeys,dependenciesAvailable,graphSnapshot,setPrerequisites,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
  });
 })(globalThis);
