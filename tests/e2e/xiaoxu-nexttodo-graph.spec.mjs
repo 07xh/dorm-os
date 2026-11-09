@@ -94,6 +94,12 @@ test('missing cloud dependency endpoint fails closed on graph but does not hide 
  await expect(page.locator('.xu-graph-node')).toHaveCount(0);
  await page.locator('[data-filter="all"]').click();
  await expect(page.locator('#app')).toContainText('历史个人云端任务');
+ await expect(page.locator('.xu-cloud-task')).toContainText('云端依赖待同步');
+ await expect(page.locator('.xu-cloud-task [data-action^="cloud-toggle:"]')).toHaveCount(0);
+ await page.locator('[data-filter="ready"]').click();
+ await expect(page.locator('.xu-cloud-task')).toHaveCount(0);
+ await page.locator('[data-filter="open"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('历史个人云端任务');
 });
 
 test('cloud sync receipt uses authenticated fetch only and does not expose private titles',async({page})=>{
