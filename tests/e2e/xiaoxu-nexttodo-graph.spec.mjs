@@ -69,7 +69,7 @@ test('cloud task dependency graph reads the same synced graph and opens the exis
  await expect(page.locator('.xu-graph-node')).toHaveCount(2);
  await expect(page.locator('.xu-graph-line')).toHaveCount(1);
  await expect(page.locator('.xu-graph-node.is-waiting')).toContainText('云端后续任务');
- await expect(page.locator('.xu-graph-node')).toContainText('私人云端');
+ await expect(page.locator('.xu-graph-node').first()).toContainText('私人云端');
  await page.locator('[data-xu-graph-edit="cloud:cloud-b"]').click();
  await expect(page.locator('#modalForm #taskTitle')).toHaveValue('云端后续任务');
  await expect(page.locator('#modalForm input[name="prerequisiteId"][value="cloud-a"]')).toBeChecked();
