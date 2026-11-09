@@ -132,6 +132,21 @@ class AiHandoffTests(TestCase):
                 self.assertFalse(a.exists())
                 self.assertFalse(b.exists())
 
+    def test_ai_check_does_not_upload_or_modify_files(self):
+        with TemporaryDirectory() as tmp:
+            snapshot_path = Path(tmp) / "input.json"
+            decision_path = Path(tmp) / "decisions.json"
+            snapshot_path.write_text(json.dumps(self.snapshot), encoding="utf-8")
+            decision_path.write_text(json.dumps(self.decisions()), encoding="utf-8")
+            with patch.object(ai, "INPUT", snapshot_path), patch.object(ai, "DECISIONS", decision_path), \
+                 patch.object(ai, "datetime", wraps=datetime) as clock, \
+                 patch.object(collector, "upload_candidates", side_effect=AssertionError("no upload")) as upload:
+                clock.now.return_value = self.now
+                ai.check_ai(self.cfg, self.secret, self.base)
+                upload.assert_not_called()
+                self.assertTrue(snapshot_path.exists())
+                self.assertTrue(decision_path.exists())
+
     def test_empty_decisions_still_allow_verified_heartbeat(self):
         result = self.decisions()
         result["tasks"] = []
