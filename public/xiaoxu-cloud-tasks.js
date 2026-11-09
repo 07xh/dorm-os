@@ -126,12 +126,12 @@
    deadline:r.due_at_utc||r.due_local_date||null,
    precision:r.due_precision||'unknown',
    target:r.personal_target_at||null
-  })).sort((a,b)=>a.id.localeCompare(b.id));
+  })).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
   if(!own.length)throw Error('云端尚无本人个人任务，无法使用真实任务核对');
   const ids=new Set(own.map(t=>t.id));
   const links=graphEdges.filter(e=>ids.has(e.taskId)&&ids.has(e.prerequisiteId))
    .map(e=>[e.taskId,e.prerequisiteId])
-   .sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1]));
+   .sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0);
   if(!root.crypto?.subtle||!root.TextEncoder)
    throw Error('当前浏览器不支持安全摘要计算');
   const data=new root.TextEncoder().encode(JSON.stringify({v:1,tasks:own,links}));
