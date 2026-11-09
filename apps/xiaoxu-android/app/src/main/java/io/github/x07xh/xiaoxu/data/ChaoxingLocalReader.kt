@@ -100,6 +100,16 @@ internal class ChaoxingLocalReader(
         }
         /** Reproduce the existing cloud notice identity contract, using the
          * notification's own metadata, never comparing titles across tasks. */
+        /** Follow the existing cloud cxn identity contract, not an assignment title. */
+        private fun noticeSourceTaskKey(notice: JSONObject): String? {
+            val encoded = notice.optJSONObject("extendParam")?.optString("cparams").orEmpty()
+            if (encoded.length > 4000) return null
+            val key = runCatching {
+                JSONObject(encoded).optJSONObject("funConfig")?.optJSONObject("content")?.optString("key")
+            }.getOrNull()
+            return key?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{6,100}")) }
+        }
+
         internal fun noticeAliases(notice: JSONObject): Set<ChaoxingNoticeAlias> {
             val course = Regex("courseId(\\d{1,24})").matchEntire(notice.optString("tag"))
                 ?.groupValues?.get(1) ?: return emptySet()
@@ -113,9 +123,7 @@ internal class ChaoxingLocalReader(
             val peer = title.contains("互评")
             val identity = if (peer) "peer_review|$course|互评：$name|" else {
                 if (!title.contains("作业") && !fields.containsKey("结束时间")) return emptySet()
-                val key = runCatching { JSONObject(notice.optJSONObject("extendParam")?.optString("cparams").orEmpty())
-                    .optJSONObject("funConfig")?.optJSONObject("content")?.optString("key") }.getOrNull()
-                if (key == null || !key.matches(Regex("[A-Za-z0-9_-]{6,100}"))) return emptySet()
+                val key = noticeSourceTaskKey(notice) ?: return emptySet()
                 "assignment|$course|work:$key"
             }
             return setOf(ChaoxingNoticeAlias("cxn:"+hash(identity).take(40), course, peer))
@@ -180,6 +188,10 @@ internal class ChaoxingLocalReader(
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
     private val noticeBindings=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
+    // Notices without an actionable attachment may still contain the exact
+    // official work key. Resolve them against a COMPLETE course-list scan only.
+    private val detachedNoticeCandidates=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
+    private val courseWorkKeys=linkedSetOf<String>()
     private fun bindNotice(link: ChaoxingDiscoveredLink, work: String?) {
         if (work == null || !work.matches(Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}"))) return
         val aliases = link.aliases.filter {it.course == work.split(':')[1]}
@@ -210,6 +222,7 @@ internal class ChaoxingLocalReader(
     }
     fun scan(year:Int):ChaoxingLocalRead {
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
+        detachedNoticeCandidates.clear();courseWorkKeys.clear()
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
@@ -226,9 +239,22 @@ internal class ChaoxingLocalReader(
                 val notices=body.optJSONObject("notices")
                 val list=notices?.optJSONArray("list") ?: if(notices==null) JSONArray() else throw ChaoxingReadFailure("notice_response")
                 noticePages++
-                for(i in 0 until list.length()) for(link in noticeLinks(list.getJSONObject(i))) {
-                    if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
-                    links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
+                for(i in 0 until list.length()) {
+                    val notice = list.getJSONObject(i)
+                    val aliases = noticeAliases(notice).filterNot { it.peer }
+                    // The server-side cxn hash uses this sourceTaskKey, too.
+                    // No title-only match: require a numeric work ID and course.
+                    val workKey = noticeSourceTaskKey(notice)
+                        ?.takeIf { it.matches(Regex("[0-9]{6,24}")) }
+                    if (workKey != null) for (alias in aliases) {
+                        detachedNoticeCandidates.getOrPut(alias.course + ":" + workKey) {
+                            linkedSetOf()
+                        }.add(alias)
+                    }
+                    for(link in noticeLinks(notice)) {
+                        if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
+                        links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
+                    }
                 }
                 if(list.length()==0 || notices?.optInt("lastPage",1)==1) break
                 val cursor=notices?.optString("lastGetId").orEmpty()
@@ -265,6 +291,21 @@ internal class ChaoxingLocalReader(
         }
         progress("确认读取前后为同一账号…")
         if(account(fetch(HOME))!=owner) throw ChaoxingReadFailure("account_changed")
+        if (failures.isEmpty()) {
+            // Resolve a detached historical notice only when the same official
+            // course/work ID occurs in exactly one fully scanned class. Never
+            // infer identity from matching titles or a partial read.
+            val byCourseWork = courseWorkKeys.groupBy { key ->
+                val parts = key.split(':')
+                parts[1] + ":" + parts[3]
+            }
+            for ((key, aliases) in detachedNoticeCandidates) {
+                val matches = byCourseWork[key].orEmpty()
+                if (matches.size == 1) noticeBindings.getOrPut(matches.single()) {
+                    linkedSetOf()
+                }.addAll(aliases)
+            }
+        }
         val rows = items.values.map { item ->
             val bound = noticeBindings[item.sourceKey].orEmpty()
             item.copy(noticeAliases = bound.filterNot {it.peer}.map {it.id}.toSet(),
@@ -383,6 +424,7 @@ internal class ChaoxingLocalReader(
                 }
                 val stable=key?:stableStudyKey(url)
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
+                if (key != null) courseWorkKeys.add(key)
                 val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
                 val detailedStatus=items[stable]?.status
                 // The course list may say merely "submitted" while the work
