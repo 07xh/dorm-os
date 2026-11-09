@@ -1168,21 +1168,24 @@ assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceF
 assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /if \(showSchoolRecords\) \{/,
   '本机学习通快照应可收纳，避免默认铺满任务页');
-assert.ok(workspace.indexOf('title = "课程任务"') <
+assert.ok(workspace.indexOf('title = "其他云端待办"') <
     workspace.indexOf('title = "微信任务"') &&
     workspace.indexOf('title = "微信任务"') <
     workspace.indexOf('title = "本机任务"'),
-  '任务按课程、审核通过微信、本机三个来源独立排序');
+  '任务按其他云端、审核通过微信、本机三个来源独立排序');
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不能重复承载群消息候选审核；必须归属消息中心');
 assert.match(messageCenter, /WechatReviewPanel\(/,
   '消息中心继续保留原生微信候选审核');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
 
+assert.match(workspace, /var showSourceGroups by rememberSaveable/, '任务中心须保留接下来与按来源两种视图');
+assert.match(workspace, /orderWorkspaceTasksForFocus\(shown\)/, '接下来视图必须使用当前真实筛选记录');
+assert.match(workspace, /if \(!showSourceGroups\) \{/, '不能把按来源分组误当成接下来展示');
 assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
 assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
 assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
-assert.match(workspace, /title = "课程任务"/, '云端课程任务须有独立分区');
+assert.match(workspace, /title = "其他云端待办"/, '普通云端待办须与学习通分区');
 assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
 assert.match(workspace, /本机读取记录/, '快照须标注来源徽标');
 assert.match(workspace, /含上次云端快照/,
