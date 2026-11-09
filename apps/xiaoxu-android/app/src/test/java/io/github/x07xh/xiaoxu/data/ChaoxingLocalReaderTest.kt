@@ -6,6 +6,75 @@ import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
 
+    @Test fun equivalentCaseAliasesProduceOneOfficialWorkIdAndLinkNotification() {
+        val workUrl = "https://mooc1.chaoxing.com/work/dowork?" +
+            "courseId=123&courseid=123&classId=456&clazzid=456&workId=901234&taskrefId=901234"
+        val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?" +
+            "courseId=123&courseid=123&classId=456&clazzid=456&cpi=789"
+        val notice = JSONObject().put("title", "作业通知").put("tag", "courseId123")
+            .put("content", "作业名称：实验报告一")
+            .put("extendParam",JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        val alias = ChaoxingLocalReader.noticeAliases(notice).single().id
+        val read = ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val content = when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1).put("list",
+                        org.json.JSONArray().put(notice))).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$workUrl'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                else -> error("unexpected path")
+            }
+            ChaoxingReadPage(request.url, content)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(1,read.items.count { it.kind == "homework" })
+        val work=read.items.single { it.kind == "homework" }
+        assertEquals("work:123:456:901234", work.sourceKey)
+        assertEquals(setOf(alias),work.noticeAliases)
+    }
+
+    @Test fun conflictingAliasesQuarantineWorkAndUppercaseCourseScopeIsEnforced() {
+        fun fixture(work: String, course: String): ChaoxingLocalRead {
+            val courseUrl="https://mooc1.chaoxing.com/visit/stucoursemiddle?" +
+                "courseId=$course&classId=456&cpi=789"
+            val workUrl="https://mooc1.chaoxing.com/work/dowork?" + work
+            return ChaoxingLocalReader(ChaoxingReadTransport { r ->
+                val body=when(java.net.URI(r.url).path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                        .put("notices",JSONObject().put("lastPage",1)
+                            .put("list",org.json.JSONArray())).toString()
+                    "/mooc2-ans/visit/courselistdata" ->
+                        "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                    "/visit/stucoursemiddle" ->
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=$course&amp;classId=456'>作业</a>"
+                    "/mooc-ans/mooc2/work/list" ->
+                        "<ul class='bottomList'><li data='$workUrl'><p class='overHidden2'>实验报告</p>" +
+                            "<p class='status'>待批阅</p></li></ul>"
+                    else -> error("unexpected path")
+                }
+                ChaoxingReadPage(r.url,body)
+            }).scan(2026)
+        }
+        val conflict=fixture("courseId=123&classId=456&workId=901234&taskrefId=901235", "123")
+        assertFalse(conflict.complete)
+        assertTrue(conflict.failures.toString(),
+            conflict.failures.any { it.contains("ambiguous_identity") })
+        assertFalse(conflict.items.any { it.kind == "homework" })
+
+        val scope=fixture("courseId=124&classId=456&workId=901234", "123")
+        assertFalse(scope.complete)
+        assertTrue(scope.failures.toString(), scope.failures.any {it.contains("course_identity")})
+        assertFalse(scope.items.any {it.kind == "homework"})
+    }
+
     @Test fun detachedPeerNoticeMustHaveOfficialPeerCompletionEvidence() {
         val workUrl = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
         val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
