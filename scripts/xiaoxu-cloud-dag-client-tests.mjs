@@ -66,6 +66,14 @@ await desktop.refresh();
 assert.deepEqual(Array.from(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_ids),
  ['cloud-a']);
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').dependency_ready,true);
+const workspaceRoot={};
+runInNewContext(readFileSync(new URL('../public/xiaoxu-workspace.js',import.meta.url),'utf8'),
+ workspaceRoot);
+const projection=workspaceRoot.XiaoxuWorkspace;
+assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{filter:'ready'}),r=>r.id),
+ ['cloud-a'],'cloud successor cannot enter the ready list before predecessors');
+assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{filter:'waiting'}),r=>r.id),
+ ['cloud-b'],'waiting cloud task remains visible and editable');
 await phone.toggle('cloud-a','done');
 await desktop.refresh();
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_waiting.length,0);
