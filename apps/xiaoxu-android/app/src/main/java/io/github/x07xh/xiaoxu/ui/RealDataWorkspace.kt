@@ -1033,6 +1033,7 @@ fun RealAcademicTaskHub(
     // Preserve a deliberate user toggle across ordinary UI recomposition.
     var editingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showLocalEditor by rememberSaveable { mutableStateOf(false) }
+    var showLocalComposer by rememberSaveable { mutableStateOf(false) }
     var showCloudEditor by rememberSaveable { mutableStateOf(false) }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
@@ -1165,7 +1166,7 @@ fun RealAcademicTaskHub(
                     icon = Icons.Outlined.Add,
                     label = "新增本机任务",
                     emphasized = true,
-                    onClick = { showLocalEditor = true }
+                    onClick = { showLocalComposer = true }
                 )
             }
         }
@@ -1348,7 +1349,7 @@ fun RealAcademicTaskHub(
                 OutlinedButton(
                     onClick = { showLocalEditor = true },
                     modifier = Modifier.weight(1f)
-                ) { Text("新建 / 管理本机") }
+                ) { Text("管理本机任务") }
                 OutlinedButton(
                     onClick = { showCloudEditor = true },
                     modifier = Modifier.weight(1f)
@@ -1410,7 +1411,7 @@ fun RealAcademicTaskHub(
                             when {
                                 waitingRows.isNotEmpty() -> showWaitingTasks = true
                                 needsVerificationRows.isNotEmpty() -> showNeedsVerification = true
-                                else -> showLocalEditor = true
+                                else -> showLocalComposer = true
                             }
                         }
                     )
@@ -1563,7 +1564,7 @@ fun RealAcademicTaskHub(
                             sourceFilter != "all" -> sourceFilter = "all"
                             onlyThisWeek -> onlyThisWeek = false
                             else -> {
-                                showLocalEditor = true
+                                showLocalComposer = true
                             }
                         }
                     }
@@ -1788,12 +1789,30 @@ fun RealAcademicTaskHub(
         LocalTaskEditSheet(task = editingLocal, dao = dao,
             onDismiss = { editingLocalId = null })
     }
+    if (showLocalComposer) {
+        LocalTaskCreateSheet(
+            dao = dao,
+            onDismiss = { showLocalComposer = false }
+        )
+    }
     if (showLocalEditor) {
-        XiaoxuSheet(onDismiss = { showLocalEditor = false }, title = "本机任务管理") {
-            LocalTaskEditor(localTasks, dao, onEditTask = { task ->
-                showLocalEditor = false
-                editingLocalId = task.id
-            })
+        XiaoxuGlassDialog(
+            title = "本机任务",
+            dismissLabel = "关闭",
+            onDismiss = { showLocalEditor = false }
+        ) {
+            LocalTaskEditor(
+                tasks = localTasks,
+                dao = dao,
+                onEditTask = { task ->
+                    showLocalEditor = false
+                    editingLocalId = task.id
+                },
+                onCreateTask = {
+                    showLocalEditor = false
+                    showLocalComposer = true
+                }
+            )
         }
     }
     if (showCloudEditor) {
