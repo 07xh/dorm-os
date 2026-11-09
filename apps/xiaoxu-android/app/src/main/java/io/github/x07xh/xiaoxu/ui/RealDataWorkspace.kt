@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.DropdownMenu
@@ -280,6 +281,16 @@ internal fun considerCompleteInTaskList(task: WorkspaceTask): Boolean =
     task.done || (task.provider == "chaoxing" &&
         task.officialStatus in setOf("submitted", "graded"))
 
+/** A legacy notice without a verified source status is not proof of unfinished work.
+ * Preserve it in the review queue and All; never silently auto-complete/delete it.
+ * Personal completion remains separate from the read-only official status. */
+internal fun requiresChaoxingVerification(task: WorkspaceTask): Boolean =
+    task.provider == "chaoxing" && !considerCompleteInTaskList(task) &&
+        task.officialStatus !in setOf("todo", "returned")
+
+internal fun isActionableWorkspaceTask(task: WorkspaceTask): Boolean =
+    !considerCompleteInTaskList(task) && !requiresChaoxingVerification(task)
+
 /** Distinguish live homework identity from a legacy inbox identity in details.
  * Notice identity alone cannot prove an assignment still exists or was deleted.
  */
@@ -331,7 +342,8 @@ private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
 private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalDate) =
     list.filter { task ->
         when (filter) {
-            "pending" -> !considerCompleteInTaskList(task)
+            "pending" -> isActionableWorkspaceTask(task)
+            "verify" -> requiresChaoxingVerification(task)
             "done" -> considerCompleteInTaskList(task)
             "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
             "local" -> task.storage == "local"
@@ -366,8 +378,7 @@ internal fun orderWorkspaceTasksForFocus(tasks: List<WorkspaceTask>): List<Works
     tasks.sortedWith(compareBy<WorkspaceTask> { task ->
         when {
             considerCompleteInTaskList(task) -> 2
-            task.provider == "chaoxing" && task.officialStatus !in
-                setOf("todo", "returned", "submitted", "graded") -> 1
+            requiresChaoxingVerification(task) -> 1
             else -> 0
         }
     }.thenBy { task ->
@@ -414,11 +425,11 @@ fun RealAcademicHome(
     val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = all.count { !considerCompleteInTaskList(it) }
+    val pending = all.count(::isActionableWorkspaceTask)
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
     val attention = countUpcomingLocalDeadlines(all, today)
-    val upcoming = all.filter { !considerCompleteInTaskList(it) }.take(3)
+    val upcoming = all.filter(::isActionableWorkspaceTask).take(3)
     val cloudSnapshotRows = state.tasks.size
     // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
     // One provenance hint in the task section; do not repeat the same technical
@@ -1004,6 +1015,7 @@ fun RealAcademicTaskHub(
     val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
     val focusRows = remember(shown) { orderWorkspaceTasksForFocus(shown) }
+    val reviewCount = remember(all) { all.count(::requiresChaoxingVerification) }
 
     // Shared handlers: optimistic feedback is presentation-only until persistence confirms.
     fun toggleWechat(row: WorkspaceTask, checked: Boolean) {
@@ -1108,7 +1120,7 @@ fun RealAcademicTaskHub(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
-                    label = "待完成", count = all.count { !considerCompleteInTaskList(it) },
+                    label = "待完成", count = all.count(::isActionableWorkspaceTask),
                     active = filter == "pending", modifier = Modifier.weight(1f),
                     onClick = { filter = "pending" }
                 )
@@ -1122,6 +1134,23 @@ fun RealAcademicTaskHub(
                     active = filter == "done", modifier = Modifier.weight(1f),
                     onClick = { filter = "done" }
                 )
+            }
+        }
+        if (reviewCount > 0 || filter == "verify") item(key = "task:verification-filter") {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = filter == "verify",
+                    onClick = {
+                        filter = if (filter == "verify") "pending" else "verify"
+                        if (filter == "verify") sourceFilter = "chaoxing"
+                    },
+                    label = { Text("学习通待核对 ($reviewCount)") })
+                if (filter == "verify") {
+                    Text("旧通知或状态未知，未算作待完成",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
+                }
             }
         }
         if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
@@ -1286,6 +1315,7 @@ fun RealAcademicTaskHub(
                     Text(when (filter) {
                         "done" -> "已完成"
                         "all" -> "全部任务"
+                        "verify" -> "学习通待核对"
                         else -> "接下来"
                     }, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink,
@@ -1298,7 +1328,9 @@ fun RealAcademicTaskHub(
                 item(key = "focus:empty") {
                     XiaoxuEmpty(modifier = Modifier.padding(top = 8.dp),
                         title = "当前筛选暂无任务",
-                        message = "可切换状态或来源；未核验的学校任务不会被自动视为已完成。",
+                        message = if (filter == "verify")
+                            "没有待核对的学习通记录；若官方已完成但仍显示待办，请重新读取本人作业。"
+                        else "可切换状态或来源；学习通未知状态已单列待核对。",
                         actionLabel = "按来源查看",
                         onAction = { showSourceGroups = true })
                 }
@@ -1361,6 +1393,8 @@ fun RealAcademicTaskHub(
                     message = when {
                         filter == "done" && onlyThisWeek ->
                             "“本周截止”只筛选未完成任务；请取消该日期筛选后查看已完成记录。"
+                        filter == "verify" ->
+                            "当前来源或搜索条件下没有待核对记录；历史通知并未删除。"
                         searchQuery.isNotBlank() ->
                             "搜索未匹配到已保存任务，可清除搜索词；不能据此推断学校没有作业。"
                         sourceFilter != "all" ->
@@ -1663,8 +1697,7 @@ internal fun WorkspaceTaskDetailSheet(
                 when {
                     selectedTask.done -> "个人已完成"
                     considerCompleteInTaskList(selectedTask) -> "官方已提交"
-                    selectedTask.provider == "chaoxing" &&
-                        selectedTask.officialStatus in setOf(null, "unknown") -> "待核对"
+                    requiresChaoxingVerification(selectedTask) -> "待核对"
                     else -> "待完成"
                 },
                 if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
@@ -1699,9 +1732,10 @@ internal fun WorkspaceTaskDetailSheet(
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
             ) { Text("打开学习通核对") }
             Text(
-                if (selectedTask.officialStatus != null)
-                    "已关联学习通官方作业 ID。云端与本机状态来源独立，不按标题合并或提交作业。"
-                else "本条记录尚无可关联的官方作业 ID，请在学习通读取本人作业。",
+                if (Regex("""work:\\d{1,24}:\\d{1,24}:\\d{1,24}""").matches(
+                        selectedTask.sourceExternalId.orEmpty()))
+                    "已识别官方作业身份，状态来自只读记录；若与官网不同，请重新读取。"
+                else "尚未确认当前官方作业身份；请在学习通重新读取，本条历史记录不会自动删除或标记完成。",
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
             )
@@ -1983,8 +2017,13 @@ private fun TaskRow(
     // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
-    val statusText = if (isPending) "保存中…" else
-        officialLabel ?: if (task.done) "个人已完成" else due.label
+    val needsReview = requiresChaoxingVerification(task)
+    val statusText = if (isPending) "保存中…" else when {
+        needsReview -> "学习通 · 待核对"
+        officialLabel != null -> officialLabel
+        task.done -> "个人已完成"
+        else -> due.label
+    }
     val statusInk = when {
         isPending -> XiaoxuPalette.Brand
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
@@ -2018,6 +2057,7 @@ private fun TaskRow(
                     "；" + (if (isPending) "个人状态保存中" else
                         if (task.done) "个人标记已完成"
                         else if (considerCompleteInTaskList(task)) "官方已提交，已移出待办"
+                        else if (needsReview) "官方状态待核对，未算作待完成"
                         else "待办") +
                     "；" + due.spoken +
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
@@ -2054,7 +2094,9 @@ private fun TaskRow(
         } else {
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 Icon(
-                    if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                    if (needsReview) Icons.Outlined.HelpOutline
+                    else if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox
+                    else Icons.Outlined.CheckBoxOutlineBlank,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = XiaoxuPalette.Ink3
