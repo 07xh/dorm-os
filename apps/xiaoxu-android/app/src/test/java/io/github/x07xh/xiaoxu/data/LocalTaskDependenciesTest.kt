@@ -30,4 +30,17 @@ class LocalTaskDependenciesTest {
         val tasks = listOf(LocalTask(id = 2, title = "B"))
         assertEquals(setOf(2L), readyLocalTaskIds(tasks, emptyList()))
     }
+
+    @Test fun waitingListTracksOnlyUnfinishedPredecessors() {
+        val tasks = listOf(LocalTask(id = 1, title = "已完成", completed = true),
+            LocalTask(id = 2, title = "还在准备"),
+            LocalTask(id = 3, title = "报告"))
+        val edges = listOf(LocalTaskDependency(3, 1), LocalTaskDependency(3, 2))
+        assertEquals(listOf(2L),
+            unfinishedLocalPrerequisites(3, tasks, edges).map { it.id })
+        assertEquals(setOf(3L), waitingLocalTaskIds(tasks, edges))
+        val finished = tasks.map { if (it.id == 2L) it.copy(completed = true) else it }
+        assertTrue(unfinishedLocalPrerequisites(3, finished, edges).isEmpty())
+        assertTrue(waitingLocalTaskIds(finished, edges).isEmpty())
+    }
 }
