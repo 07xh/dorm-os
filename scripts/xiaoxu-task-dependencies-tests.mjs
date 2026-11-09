@@ -84,6 +84,19 @@ const blocked=()=>patchPersonalTask(db,'owner-a','b',{revision:1,localStatus:'do
 await assert.rejects(blocked,e=>rejected(e,'prerequisites_incomplete',409));
 assert.equal(dbFile.prepare("SELECT local_status FROM academic_assignments WHERE id='b'").get().local_status,'todo');
 await patchPersonalTask(db,'owner-a','a',{revision:0,localStatus:'done'},opts);
+// The pre-check sees completed A, but A is reopened by another request
+// just before B's D1 batch starts. The DB trigger must reject B atomically.
+beforeBatch=()=>dbFile.prepare(`UPDATE academic_assignments
+ SET local_status='todo',revision=revision+1 WHERE id='a'`).run();
+await assert.rejects(()=>patchPersonalTask(db,'owner-a','b',{
+ revision:1,localStatus:'done'
+},opts),e=>rejected(e,'prerequisites_incomplete',409));
+assert.equal(dbFile.prepare("SELECT local_status FROM academic_assignments WHERE id='b'")
+ .get().local_status,'todo','no illegal completion after predecessor race');
+assert.equal(dbFile.prepare(`SELECT COUNT(*) AS n FROM academic_assignment_events
+ WHERE assignment_id='b' AND event_type='personal_status_changed'`).get().n,0,
+ 'aborted update never creates a misleading completion history');
+await patchPersonalTask(db,'owner-a','a',{revision:2,localStatus:'done'},opts);
 await patchPersonalTask(db,'owner-a','b',{revision:1,localStatus:'done'},opts);
 assert.equal(dbFile.prepare("SELECT local_status FROM academic_assignments WHERE id='b'").get().local_status,'done');
 const add=await set({taskId:'c',taskRevision:0,graphRevision:1,prerequisiteIds:['b','a']});
