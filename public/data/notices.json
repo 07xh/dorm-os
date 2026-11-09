@@ -2,27 +2,27 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+  "lastSuccessAt": "2026-11-09T20:48:02.521Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 20
     }
   ],
@@ -742,6 +742,15 @@
       "id": "ncwu-1ba7236cba791d6c",
       "title": "关于我校2025-2026学年本科学生奖学金审核结果及公示的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4156.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-358e55c30c5c315a",
+      "title": "关于开展2026年11月大学生思政主题教育活动的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4158.htm",
       "date": null,
       "sourceId": "student",
       "sourceName": "学生工作处",
