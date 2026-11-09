@@ -190,154 +190,244 @@ private val DueLaterInk = Color(0xFF6B7B93)
 @Composable
 fun LocalTaskEditor(
     tasks: List<LocalTask>, dao: LocalTaskDao,
-    onEditTask: (LocalTask) -> Unit
+    onEditTask: (LocalTask) -> Unit,
+    onCreateTask: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val today = LocalDate.now()
-    var draft by rememberSaveable { mutableStateOf("") }
-    var source by rememberSaveable { mutableStateOf(TASK_SOURCE_LOCAL) }
-    var due by rememberSaveable { mutableStateOf<String?>(null) }
     var filterKey by rememberSaveable { mutableStateOf(TASK_FILTER_ALL) }
-    // The editor lives inside the parent task feed; compose only a bounded batch
-    // instead of eagerly creating 200 nested Material cards on every visit.
     var visibleLimit by rememberSaveable(filterKey) { mutableStateOf(30) }
-    var pickerOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<LocalTask?>(null) }
-
+    val dependencies by dao.observeDependencies().collectAsState(initial = emptyList())
     val visible = remember(tasks, filterKey, today) { filterLocalTasks(tasks, filterKey, today) }
 
-    fun addTask() {
-        val title = draft.trim()
-        if (title.isEmpty()) return
-        draft = ""
-        val chosenSource = source
-        val chosenDue = due
-        scope.launch {
-            dao.insert(LocalTask(title = title, source = chosenSource, due = chosenDue))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "已保存 ${tasks.size} 条本机任务",
+                style = MaterialTheme.typography.titleSmall,
+                color = XiaoxuPalette.Ink,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onCreateTask) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("新建")
+            }
         }
-    }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // ---------- 新建 ----------
-        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "新建本机待办",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { heading() }
-                )
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it.take(120) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    label = { Text("要做什么") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Text(
-                    text = "来源（本人标注）",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(count = TASK_SOURCES.size, key = { index -> TASK_SOURCES[index].code }) { index ->
-                        val option = TASK_SOURCES[index]
-                        SourcePill(
-                            label = option.label,
-                            isSelected = source == option.code,
-                            a11yLabel = "来源标注为" + option.label,
-                            onClick = { source = option.code }
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(
-                        onClick = { pickerOpen = true },
-                        modifier = Modifier.heightIn(min = 48.dp)
+        if (tasks.isEmpty()) {
+            Text(
+                "还没有本机任务。点击「新建」输入任务名称即可添加，分类与截止日期可以以后再填。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink2
+            )
+        } else {
+            Text(
+                "筛选本机任务",
+                style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2
+            )
+            // Two rows instead of an overflowing strip: every filter is visible
+            // on narrow Android screens without horizontal scrolling.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TASK_FILTERS.chunked(2).forEach { options ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Outlined.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(due ?: "选择截止日期")
-                    }
-                    if (due != null) {
-                        TextButton(onClick = { due = null }, modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text("清除")
+                        options.forEach { option ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                SourcePill(
+                                    label = option.label,
+                                    isSelected = filterKey == option.key,
+                                    a11yLabel = "按" + option.label + "筛选本机任务",
+                                    onClick = { filterKey = option.key }
+                                )
+                            }
                         }
                     }
                 }
-                Button(
-                    onClick = ::addTask,
-                    enabled = draft.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("添加任务")
+            }
+            Text(
+                "当前显示 ${visible.size} 条",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+            if (visible.isEmpty()) {
+                EmptyTaskHint(filterKey = filterKey, hasAny = true)
+            } else {
+                val shown = visible.take(visibleLimit)
+                XiaoxuGroupSurface {
+                    shown.forEachIndexed { index, task ->
+                        androidx.compose.runtime.key(task.id) {
+                            TaskRow(
+                                task = task,
+                                today = today,
+                                onToggle = { checked ->
+                                    scope.launch { dao.setCompleted(task.id, checked) }
+                                },
+                                onEdit = { onEditTask(task) },
+                                onDelete = { pendingDelete = task }
+                            )
+                        }
+                        if (index < shown.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = XiaoxuPalette.Line.copy(alpha = 0.35f),
+                                thickness = 0.5.dp
+                            )
+                        }
+                    }
                 }
-                Text(
-                    text = "来源与截止只是本机提醒，不会被当成学校平台的官方截止时间。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (visible.size > shown.size) {
+                    TextButton(
+                        onClick = {
+                            visibleLimit = (visibleLimit + 30).coerceAtMost(visible.size)
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) { Text("显示更多（剩余 ${visible.size - shown.size} 条）") }
+                }
             }
         }
+    }
 
-        // The canonical task center owns all counters and status tabs.
-        // Keep only editing filters here so the user can still reach older local
-        // records and toggle/delete them.
-        // ---------- 本机编辑筛选 ----------
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(count = TASK_FILTERS.size, key = { index -> TASK_FILTERS[index].key }) { index ->
-                val option = TASK_FILTERS[index]
-                SourcePill(
-                    label = option.label,
-                    isSelected = filterKey == option.key,
-                    a11yLabel = "按" + option.label + "筛选任务",
-                    onClick = { filterKey = option.key }
+    pendingDelete?.let { task ->
+        val downstreamCount = dependencies.count { it.prerequisiteId == task.id }
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("删除本机任务？") },
+            text = {
+                Text(
+                    "“" + task.title + "”删除后不可恢复。" +
+                        if (downstreamCount > 0)
+                            " 另有 ${downstreamCount} 条后置任务将失去这项前置关系。"
+                        else ""
                 )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { dao.remove(task.id) }
+                    pendingDelete = null
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("取消") }
+            }
+        )
+    }
+}
+
+/**
+ * One-field-first task creation. Not nested inside the task management list:
+ * the user sees one short form, never a large card + filters + empty list.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun LocalTaskCreateSheet(
+    dao: LocalTaskDao,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var title by rememberSaveable { mutableStateOf("") }
+    var source by rememberSaveable { mutableStateOf<String?>(TASK_SOURCE_LOCAL) }
+    var due by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickerOpen by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun create() {
+        val clean = title.trim()
+        if (clean.isEmpty() || saving) return
+        val sourceValue = source
+        val dueValue = due
+        saving = true
+        error = null
+        scope.launch {
+            try {
+                dao.insert(LocalTask(title = clean, source = sourceValue, due = dueValue))
+                onDismiss()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                error = "保存到本机失败，请重试"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    XiaoxuGlassDialog(
+        title = "新建本机任务",
+        onDismiss = { if (!saving) onDismiss() },
+        showDismissButton = false
+    ) {
+        Text(
+            "只需填写任务名称。分类和日期均可选，之后还能编辑。",
+            style = MaterialTheme.typography.bodySmall,
+            color = XiaoxuPalette.Ink2
+        )
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it.take(120); error = null },
+            label = { Text("任务名称") },
+            placeholder = { Text("例如：完成电路实验报告") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        LocalTaskSourcePicker(source = source, onSelect = { source = it })
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { pickerOpen = true },
+                enabled = !saving,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                Icon(Icons.Outlined.DateRange, contentDescription = null,
+                    modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(due ?: "添加截止日期（可选）")
+            }
+            if (due != null) {
+                TextButton(onClick = { due = null }, enabled = !saving) {
+                    Text("清除")
+                }
+            }
+        }
+        if (error != null) {
+            Text(error!!, color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !saving,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text("取消") }
+            Button(
+                onClick = ::create,
+                enabled = !saving && title.isNotBlank(),
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            ) {
+                Text(if (saving) "保存中…" else "添加任务")
             }
         }
         Text(
-            text = "共 ${tasks.size} 条本机任务，当前显示 ${visible.size} 条",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            "保存在本机；个人分类与日期不代表学校平台的官方状态。",
+            style = MaterialTheme.typography.labelSmall,
+            color = XiaoxuPalette.Ink2
         )
-
-        // ---------- 连续玻璃编辑列表：分页渲染，不丢失任何 Room 记录 ----------
-        if (visible.isEmpty()) {
-            EmptyTaskHint(filterKey = filterKey, hasAny = tasks.isNotEmpty())
-        } else {
-            val shown = visible.take(visibleLimit)
-            XiaoxuGroupSurface {
-                shown.forEachIndexed { index, task ->
-                    androidx.compose.runtime.key(task.id) {
-                        TaskRow(
-                            task = task,
-                            today = today,
-                            onToggle = { checked -> scope.launch { dao.setCompleted(task.id, checked) } },
-                            onEdit = { onEditTask(task) },
-                            onDelete = { pendingDelete = task }
-                        )
-                    }
-                    if (index < shown.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = XiaoxuPalette.Line.copy(alpha = 0.35f),
-                            thickness = 0.5.dp
-                        )
-                    }
-                }
-            }
-            if (visible.size > shown.size) {
-                TextButton(
-                    onClick = { visibleLimit = (visibleLimit + 30).coerceAtMost(visible.size) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                ) { Text("显示更多本机任务（剩余 ${visible.size - shown.size} 条）") }
-            }
-        }
     }
 
     if (pickerOpen) {
@@ -358,26 +448,56 @@ fun LocalTaskEditor(
             dismissButton = {
                 TextButton(onClick = { pickerOpen = false }) { Text("取消") }
             }
-        ) {
-            DatePicker(state = dateState)
-        }
+        ) { DatePicker(state = dateState) }
     }
+}
 
-    pendingDelete?.let { task ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("删除这条本机任务？") },
-            text = { Text("“" + task.title + "”只存在本机，删除后无法恢复。") },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch { dao.remove(task.id) }
-                    pendingDelete = null
-                }) { Text("删除") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("取消") }
+/** One readable chooser rather than five truncated horizontal source chips. */
+@Composable
+private fun LocalTaskSourcePicker(
+    source: String?,
+    onSelect: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Text(
+        "个人分类（可选）",
+        style = MaterialTheme.typography.labelMedium,
+        color = XiaoxuPalette.Ink2
+    )
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) {
+            Text(
+                taskSourceLabel(source),
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text("⌄")
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("不标注") },
+                onClick = {
+                    onSelect(null)
+                    expanded = false
+                }
+            )
+            TASK_SOURCES.forEach { option ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onSelect(option.code)
+                        expanded = false
+                    }
+                )
             }
-        )
+        }
     }
 }
 
@@ -417,19 +537,10 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        Text("来源（本人标注）", style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink2)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(count = TASK_SOURCES.size, key = { index -> TASK_SOURCES[index].code }) { index ->
-                val option = TASK_SOURCES[index]
-                SourcePill(
-                    label = option.label,
-                    isSelected = source == option.code,
-                    a11yLabel = "来源标注为" + option.label,
-                    onClick = { source = option.code }
-                )
-            }
-        }
+        LocalTaskSourcePicker(
+            source = source,
+            onSelect = { selected -> source = selected; error = null }
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(
                 onClick = { pickerOpen = true },
