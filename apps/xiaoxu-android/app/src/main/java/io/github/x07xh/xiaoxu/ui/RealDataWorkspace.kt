@@ -1002,6 +1002,7 @@ fun RealAcademicTaskHub(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var showManager by rememberSaveable { mutableStateOf(false) }
+    var showDependencyGraph by rememberSaveable { mutableStateOf(false) }
     var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
     // Default collapsed on first entry. Saveable state still restores a user's
@@ -1294,6 +1295,12 @@ fun RealAcademicTaskHub(
                             )
                         }
                     }
+                }
+                TextButton(
+                    onClick = { showDependencyGraph = true },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
+                    Text("关系图", style = MaterialTheme.typography.labelLarge)
                 }
                 TextButton(
                     onClick = { showManager = !showManager },
@@ -1739,6 +1746,21 @@ fun RealAcademicTaskHub(
         }
     }
 
+    if (showDependencyGraph) {
+        LocalTaskDependencyGraphDialog(
+            tasks = localTasks,
+            dependencies = dependencies,
+            onDismiss = { showDependencyGraph = false },
+            onEditTask = { id ->
+                showDependencyGraph = false
+                editingLocalId = id
+            },
+            onManageTasks = {
+                showDependencyGraph = false
+                showLocalEditor = true
+            }
+        )
+    }
     if (selectedTask != null) {
         WorkspaceTaskDetailSheet(selectedTask, today, state.tasksFresh,
             onDismiss = { openedTaskKey = null },
