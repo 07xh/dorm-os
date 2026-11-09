@@ -89,4 +89,22 @@ assert.doesNotMatch(manualWorkflow,/^  (?:push|pull_request|workflow_run):/m,
  '0019 production writes must not run automatically');
 assert.match(checkCommand,/node scripts\/xiaoxu-nexttodo-manual-migration-tests\.mjs/,
  'manual 0019 migration guard tests must survive branch synchronization');
+// Every production D1 mutation must use the same GitHub Actions concurrency
+// group as the Pages publisher; the two workflow files are in different PRs,
+// so compare their effective contracts in the combined build.
+const productionMutex=/^\s*group:\s*(dorm-os-pages)\s*$/m;
+assert.match(manualWorkflow,productionMutex,
+ 'schema migration must serialize with live Pages deployments');
+assert.match(deployWorkflow,productionMutex,
+ 'Pages publishing must use the same production D1 mutex');
+assert.match(manualWorkflow,/cancel-in-progress:\s*false/,
+ 'a newer Actions request must never cancel an in-flight schema change');
+assert.match(deployWorkflow,/cancel-in-progress:\s*false/,
+ 'Pages deployment must never cancel an in-flight migration');
+assert.match(manualWorkflow,/github\.ref == 'refs\/heads\/main'/,
+ 'production schema changes require the protected main branch');
+assert.match(manualWorkflow,/XIAOXU_TASK_D1_0019_APPLY:\s*APPLY-0019/,
+ 'schema mutation requires explicit one-time write approval');
+assert.match(deployWorkflow,/node scripts\/ensure-task-dependency-schema\.mjs/,
+ 'Pages must verify that the production task dependency schema is ready');
 console.log('NextTodo graph: redundant edge reduction, lineage, local/cloud isolation, XSS, cycle, offline and graph cap PASS');
