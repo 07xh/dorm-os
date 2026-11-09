@@ -77,4 +77,21 @@ assert.equal(duplicate.filter(r=>r.sourceId==='work:12:34:56').length,1,
  'same official source key cannot create a second visible task');
 assert.equal(duplicate.find(r=>r.sourceId==='work:12:34:56').status,'done',
  'trusted cloud completion must win over stale local duplicate');
-console.log('NextTodo web readiness: dependencies, DAG, unlock, verified school status and duplicate safety passed');
+const graphOffline={cloud:[
+ {id:'cloud-needs-check',title:'云端依赖状态未知',kind:'manual',
+  local_status:'todo',dependency_ready:false,prerequisite_waiting:[]},
+ {id:'cloud-already-done',title:'已经完成的云端记录',kind:'manual',
+  local_status:'done',dependency_ready:false}
+]};
+assert.deepEqual(Array.from(model.tasks(graphOffline,{filter:'ready'}),r=>r.id),[],
+ 'failed graph retrieval must never promote unknown cloud tasks into Next');
+assert.deepEqual(Array.from(model.tasks(graphOffline,{filter:'open'}),r=>r.id),['cloud-needs-check'],
+ 'uncertain cloud task remains visible in the Pending tab');
+assert.equal(model.tasks(graphOffline,{filter:'all'}).find(r=>r.id==='cloud-needs-check').status,
+ 'sync_pending','uncertain cloud dependency has a separate status from school verification');
+assert.deepEqual(Array.from(model.tasks(graphOffline,{filter:'verify'}),r=>r.id),[],
+ 'cloud dependency outage must not pollute the Chaoxing review queue');
+assert.deepEqual(Array.from(model.tasks(graphOffline,{filter:'done'}),r=>r.id),['cloud-already-done'],
+ 'existing completed tasks remain completed during graph API outage');
+
+console.log('NextTodo web readiness: dependencies, DAG, unlock, verified school status and duplicate safety and cloud dependency outage passed');
