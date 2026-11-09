@@ -1143,13 +1143,16 @@ if(form.dataset.form==='task'&&(d.get('cloudId')||(!d.get('id')&&d.get('saveScop
    const result=cloudId?await XiaoxuCloudTasks.updatePersonal(cloudId,{title,dueDate}):
     await XiaoxuCloudTasks.createPersonal({title,dueDate});
    savedBasics=true;
+   let graphRefreshFailed=false;
    if(dependencyChanged){
     if(result.cloudListRefreshed===false)
      throw Error('基本信息已保存，刷新云端版本后才能安全修改先后关系');
-    await XiaoxuCloudTasks.setPrerequisites(cloudId,selected);
+    const graphResult=await XiaoxuCloudTasks.setPrerequisites(cloudId,selected);
+    graphRefreshFailed=graphResult.cloudListRefreshed===false;
    }
    $('editor').close();render();
-   toast(result.cloudListRefreshed===false?'已保存到云端，但列表刷新失败；请手动刷新':
+   toast(graphRefreshFailed?'先后关系已提交，但刷新失败；请手动刷新核对':
+    result.cloudListRefreshed===false?'已保存到云端，但列表刷新失败；请手动刷新':
     cloudId?'云端任务与先后关系已更新':'任务已保存到私人云端，其他设备可刷新查看');
   }catch(err){
    render();
@@ -1342,7 +1345,7 @@ function clickAction(action){
   const segments=action.split(':');if(segments.length!==3)return;
   const row=workspaceTasks('waiting').find(r=>r.origin==='cloud'&&r.id===segments[1]);
   if(row&&segments[2]==='done'){toast('请先完成云端前置任务');return;}
-  XiaoxuCloudTasks.toggle(segments[1],segments[2]).then(()=>{render();toast('云端个人完成状态已更新');}).catch(err=>{render();toast(String(err.message));});return;
+  XiaoxuCloudTasks.toggle(segments[1],segments[2]).then(result=>{render();toast(result.cloudListRefreshed===false?'云端写入已提交，但刷新失败；请手动刷新确认状态':'云端个人完成状态已更新');}).catch(err=>{render();toast(String(err.message));});return;
  }
  if(action==='reminder-refresh'){
   XiaoxuReminders.refresh().then(()=>{render();toast('个人提醒已从云端刷新');}).catch(e=>{render();toast(String(e.message));});return;
