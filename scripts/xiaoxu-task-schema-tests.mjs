@@ -59,6 +59,12 @@ assert.throws(()=>sqlite.exec(`INSERT INTO academic_task_dependencies
  (user_id,task_id,prerequisite_id,created_at) VALUES ('u','a','a','t')`),/CHECK constraint/);
 assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
 assert.equal(sqlite.prepare('PRAGMA quick_check').get().quick_check,'ok');
+const migrationGuard=readFileSync(new URL('./ensure-task-dependency-schema.mjs',import.meta.url),'utf8');
+assert.match(migrationGuard,/time_travel\/bookmark/,
+ 'production D1 migration must verify a restorable Time Travel checkpoint');
+assert.ok(migrationGuard.indexOf('validateRecoveryBookmark(checkpoint)')<
+ migrationGuard.indexOf("localWrangler(['d1','execute'"),
+ 'migration must fail closed if no recovery bookmark was obtained');
 const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
 const gate=workflow.indexOf('run: node scripts/ensure-task-dependency-schema.mjs');
 const publish=workflow.indexOf('name: Publish verified static website');
