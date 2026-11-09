@@ -110,4 +110,25 @@ await phone.refresh();
 await phone.setPrerequisites('cloud-b',[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/数据发生冲突/);
 assert.equal(desktop.graphSnapshot().revision,2);
-console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, 409 and owner disconnect PASS');
+// A background refresh during asynchronous hashing must invalidate the
+// receipt instead of pairing stale task bytes with the new graph revision.
+let signalDigest,releaseDigest;
+const digestEntered=new Promise(resolve=>{signalDigest=resolve;});
+const digestUnblocked=new Promise(resolve=>{releaseDigest=resolve;});
+const delayedCrypto={subtle:{digest:async(algorithm,bytes)=>{
+ signalDigest();await digestUnblocked;
+ return webcrypto.subtle.digest(algorithm,bytes);
+}}};
+const raceContext={fetch:async(url,options)=>server(url,options),Date,Intl,Response,
+ crypto:delayedCrypto,TextEncoder};
+runInNewContext(code,raceContext);
+const raceClient=raceContext.XiaoxuCloudTasks;
+await raceClient.connect();
+const inflightReceipt=raceClient.syncFingerprint();
+await digestEntered;
+await raceClient.refresh();
+releaseDigest();
+await assert.rejects(inflightReceipt,/核对期间任务数据已刷新/,
+ 'a concurrent refresh invalidates a stale sync receipt');
+
+console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, 409 and owner disconnect and fingerprint snapshot consistency PASS');
