@@ -18,8 +18,10 @@ assert.match(workflow,/XIAOXU_TASK_D1_0019_APPLY: APPLY-0019/);
 assert.match(workflow,/node scripts\/ensure-task-dependency-schema\.mjs/);
 assert.match(workflow,/group: dorm-os-pages/);
 assert.match(workflow,/cancel-in-progress: false/);
-assert.doesNotMatch(workflow,/(wrangler@4 pages|pages deploy|node scripts\/stamp-release\.mjs)/i,
- 'schema-only workflow must not publish Pages');
+assert.doesNotMatch(workflow,/^\s*(?:npx\s+--yes\s+)?wrangler(?:@\S+)?\s+pages\s+deploy\b/im,
+ 'schema-only workflow must not execute Pages deployment');
+assert.doesNotMatch(workflow,/\bnode\s+scripts\/stamp-release\.mjs\b/i,
+ 'schema-only workflow must not stamp a web release');
 assert.equal(requireTaskGraphMigrationApproval('workflow_dispatch','APPLY-0019'),true);
 for(const tuple of [['push','APPLY-0019'],['workflow_run','APPLY-0019'],
  ['workflow_dispatch','NO'],['workflow_dispatch',undefined]]){
