@@ -166,7 +166,11 @@ internal class ChaoxingLocalReader(
         }
         private fun stableStudyKey(url: String): String {
             val p=params(url)
-            val identity=listOf("encryTaskId","taskId","workId","workid","taskrefId","planId")
+            // Fallback work links without a complete course/class/work triple
+            // must still include their course and class namespace in the
+            // fingerprint. Exclude time-limited enc/t tokens for stability.
+            val identity=listOf("courseId","courseid","classId","clazzid","classid","cpi",
+                "encryTaskId","taskId","workId","workid","taskrefId","planId")
                 .mapNotNull {k->p[k]?.let {"$k=$it"}}.joinToString("&")
             if(identity.isBlank()) throw ChaoxingReadFailure("task_identity")
             return "study:"+hash(URI(url).host+URI(url).path+"?"+identity)
