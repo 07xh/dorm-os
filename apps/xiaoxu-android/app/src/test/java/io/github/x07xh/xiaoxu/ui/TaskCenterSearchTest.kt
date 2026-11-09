@@ -75,7 +75,9 @@ class TaskCenterSearchTest {
             facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
         assertEquals(listOf("cloud:course-1"),
             facetWorkspaceTasks(combined, "chaoxing", false, today).map { it.key })
-        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(listOf("cloud:course-1"),
+            searchWorkspaceTasks(combined, "verify", "", today).map { it.key })
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
         // WeChat's extracted date is not a confirmed personal due date.
         assertTrue(facetWorkspaceTasks(
@@ -157,9 +159,11 @@ class TaskCenterSearchTest {
             searchWorkspaceTasks(records, "done", "", today).map { it.key }.toSet()
         )
         assertEquals(
-            setOf("cloud:returned", "cloud:legacy", "cloud:wechat"),
+            setOf("cloud:returned", "cloud:wechat"),
             searchWorkspaceTasks(records, "pending", "", today).map { it.key }.toSet()
         )
+        assertEquals(listOf("cloud:legacy"),
+            searchWorkspaceTasks(records, "verify", "", today).map { it.key })
     }
 
     @Test
@@ -233,6 +237,56 @@ class TaskCenterSearchTest {
     }
 
 
+
+    @Test
+    fun unlinkedHistoricalNoticeIsKeptForReviewNotMistakenAsUnfinishedWork() {
+        val old = WorkspaceTask(
+            "cloud:old", "实验报告一", "学习通历史通知",
+            false, null, "历史快照", "cloud", "chaoxing",
+            provider = "chaoxing", sourceExternalId = "cxn:" + "a".repeat(40)
+        )
+        val verifiedDone = WorkspaceTask(
+            "native:done", "实验报告一", "学习通本机官网",
+            false, null, "本机官方页面观察", "native", "chaoxing",
+            provider = "chaoxing", sourceExternalId = "work:1:2:3",
+            officialStatus = "graded"
+        )
+        val confirmedTodo = WorkspaceTask(
+            "native:todo", "另一份未交作业", "学习通本机官网",
+            false, null, "本机官方页面观察", "native", "chaoxing",
+            provider = "chaoxing", sourceExternalId = "work:1:2:4",
+            officialStatus = "todo"
+        )
+        val records = listOf(old, verifiedDone, confirmedTodo)
+        assertEquals(listOf("native:todo"),
+            searchWorkspaceTasks(records, "pending", "", today).map { it.key })
+        assertEquals(listOf("native:done"),
+            searchWorkspaceTasks(records, "done", "", today).map { it.key })
+        assertEquals(listOf("cloud:old"),
+            searchWorkspaceTasks(records, "verify", "", today).map { it.key })
+        assertEquals(3, searchWorkspaceTasks(records, "all", "", today).size)
+        assertTrue(requiresChaoxingVerification(old))
+        assertEquals(false, requiresChaoxingVerification(verifiedDone))
+        assertEquals(false, requiresChaoxingVerification(confirmedTodo))
+        assertEquals(false, old.done) // No unverified "completion" writes or deletes.
+    }
+
+    @Test
+    fun reviewClassificationDoesNotHideRealPersonalOrWeChatTasks() {
+        val personal = WorkspaceTask(
+            "local:1", "我的复习", "本机",
+            false, today, "本人填写", "local"
+        )
+        val wechat = WorkspaceTask(
+            "cloud:wechat", "群任务", "微信任务",
+            false, null, "云端", "cloud", "wechat", provider = "wechat"
+        )
+        val pending = searchWorkspaceTasks(listOf(personal, wechat),
+            "pending", "", today)
+        assertEquals(listOf("local:1", "cloud:wechat"), pending.map { it.key })
+        assertTrue(searchWorkspaceTasks(listOf(personal, wechat),
+            "verify", "", today).isEmpty())
+    }
 
     @Test
     fun nexttodoStyleFocusSortsOnlyVerifiedPersonalDeadlinesAndKeepsEveryRecord() {
