@@ -177,7 +177,8 @@ def validate_decisions(config: dict, secret: bytes, cursors: dict, snapshot: dic
         slot = decision["slot"]
         if (not isinstance(msg, str) or msg not in source
                 or type(slot) is not int or not 0 <= slot <= 2
-                or (msg, slot) in seen or decision["kind"] not in KINDS
+                or (msg, slot) in seen or not isinstance(decision["kind"], str)
+                or decision["kind"] not in KINDS
                 or not isinstance(decision["title"], str)):
             _error()
         seen.add((msg, slot))
