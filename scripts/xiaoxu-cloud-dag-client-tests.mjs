@@ -11,12 +11,16 @@ const initial=[
   revision:0,due_precision:'unknown',due_local_date:null,source_provider:'manual'}
 ];
 let tasks=initial.map(x=>({...x})),edges=[],revision=0,reads=0,writes=0,graphOffline=false;
+let tasksOffline=false,failNextTaskRead=false;
 const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
  status,headers:{'content-type':'application/json'}
 });
 function server(url,{method='GET',body}={}){
  if(url.startsWith('/api/v1/assignments?')){
-  reads++;return json({items:tasks.map(x=>({...x}))});
+  reads++;
+  if(tasksOffline)return json({error:'database_unavailable'},503);
+  if(failNextTaskRead){failNextTaskRead=false;return json({error:'read_after_write_failed'},503);}
+  return json({items:tasks.map(x=>({...x}))});
  }
  if(url==='/api/v1/sources')return json({connections:[],userSnapshots:[]});
  if(url==='/api/v1/assignments/dependencies'){
@@ -97,6 +101,8 @@ assert.equal(phone.dependenciesAvailable(),false,
  'a failed dependency fetch must fail closed without dropping existing tasks');
 assert.equal(phone.graphSnapshot().edges.length,0,
  'stale dependency edges must not be reused during an outage');
+await assert.rejects(()=>phone.toggle('cloud-a','done'),/先后关系尚未核实/,
+ 'client must not bypass graph verification even when action called directly');
 const outageTasks=projection.tasks({cloud:phone.displayRecords()});
 assert.equal(outageTasks.find(t=>t.id==='cloud-a').status,'sync_pending');
 assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'})),[],
@@ -109,7 +115,29 @@ assert.equal(phone.dependenciesAvailable(),true,'a successful refresh restores d
 assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'}),r=>r.id),
  ['cloud-a'],'ready list recovers using the authoritative graph after reconnect');
 
-await phone.toggle('cloud-a','done');
+// A task-ledger network failure invalidates the earlier graph, but must not
+// erase already fetched task cards or mistakenly declare them ready.
+tasksOffline=true;
+await assert.rejects(()=>phone.refresh(),/私有数据库或接口尚未配置/);
+assert.equal(phone.dependenciesAvailable(),false,'failed task GET invalidates a stale graph');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'})),[],
+ 'stale graph after a full refresh error cannot unlock a cloud task');
+assert.equal(projection.tasks({cloud:phone.displayRecords()},{filter:'open'}).length,2,
+ 'a network outage must preserve the previous personal task ledger');
+tasksOffline=false;await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),true);
+
+// A server PATCH may commit and then the new GET fail. It must not appear to
+// the user as a rejected write, or reuse the old graph to permit completion.
+failNextTaskRead=true;
+const completionReceipt=await phone.toggle('cloud-a','done');
+assert.equal(completionReceipt.cloudListRefreshed,false,
+ 'successful write followed by read failure reports pending reconciliation');
+assert.equal(phone.dependenciesAvailable(),false);
+await assert.rejects(()=>phone.toggle('cloud-b','done'),/先后关系尚未核实/);
+await phone.refresh();
+assert.equal(phone.displayRecords().find(t=>t.id==='cloud-a').local_status,'done',
+ 'manual recovery fetch observes the earlier committed completion');
 await desktop.refresh();
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_waiting.length,0);
 await desktop.toggle('cloud-b','done');
@@ -130,6 +158,15 @@ await phone.refresh();
 await phone.setPrerequisites('cloud-b',[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/数据发生冲突/);
 assert.equal(desktop.graphSnapshot().revision,2);
+// The dependency PUT may also commit while its follow-up ledger read fails.
+failNextTaskRead=true;
+const graphWriteReceipt=await phone.setPrerequisites('cloud-b',['cloud-a']);
+assert.equal(graphWriteReceipt.cloudListRefreshed,false,
+ 'graph write receipt separates committed change from failed follow-up read');
+assert.equal(phone.dependenciesAvailable(),false);
+await phone.refresh();
+assert.deepEqual(Array.from(phone.displayRecords().find(t=>t.id==='cloud-b').prerequisite_ids),
+ ['cloud-a'],'manual refresh must reconcile the committed dependency');
 // A background refresh during asynchronous hashing must invalidate the
 // receipt instead of pairing stale task bytes with the new graph revision.
 let signalDigest,releaseDigest;
@@ -156,4 +193,4 @@ await assert.rejects(inflightReceipt,/核对期间任务数据已刷新/,
  'a newer cloud revision and task edit invalidate the stale receipt');
 tasks[0].title=beforeRaceTitle;revision=beforeRaceRevision;
 
-console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, 409 and owner disconnect and fingerprint snapshot consistency PASS');
+console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, refresh outage, committed writes awaiting reconciliation, 409, disconnect and fingerprint consistency PASS');
