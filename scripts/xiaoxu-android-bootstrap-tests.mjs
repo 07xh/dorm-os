@@ -268,7 +268,8 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(localTasks, dao, onEditTask =/);
+assert.match(workspace, /LocalTaskEditor\(\s*tasks = localTasks,\s*dao = dao,\s*onEditTask =/,
+  '本机管理仍接入原有任务数据库及编辑器');
 
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 assert.match(localEditorSource, /fun LocalTaskEditor\(/);
@@ -1871,8 +1872,8 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '高频任务列表之前不得默认展开管理面板');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(localTasks, dao, onEditTask =/,
-  '本机管理复用已发布版本的独立浮层');
+assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(\s*tasks = localTasks,[\s\S]*?onCreateTask =/,
+  '本机管理复用既有编辑流程，新增转入独立简洁表单');
 assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
   '云端新建使用独立浮层');
 assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
