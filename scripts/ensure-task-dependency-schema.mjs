@@ -4,6 +4,7 @@
  */
 import {api,remoteRows,localWrangler} from './bootstrap-academic-d1-production.mjs';
 import {exactProductionDatabase} from './audit-academic-d1-production.mjs';
+import {findPagesBoundD1} from './bootstrap-academic-d1-production.mjs';
 
 const TABLES={
  academic_task_dependencies:['user_id','task_id','prerequisite_id','created_at'],
@@ -11,6 +12,17 @@ const TABLES={
  academic_task_graph_guards:['id','user_id','task_id','expected_graph_revision','expected_task_revision']
 };
 const GUARD='trg_academic_task_graph_guard';
+const COMPLETION_GUARD='trg_academic_task_done_prerequisites';
+
+// D1 Time Travel is supported by the production storage backend. Refuse an
+// incremental write unless a pre-migration recovery bookmark is obtainable.
+// Do NOT print, persist or upload its value; a UTC time remains in CI logs.
+export function validateRecoveryBookmark(result){
+ const value=result?.bookmark;
+ if(typeof value!=='string'||!/^[a-fA-F0-9-]{32,100}$/.test(value))
+  throw Error('d1_time_travel_bookmark_unavailable');
+ return true;
+}
 
 export function classifyTaskGraphSchema(tableRows,columnRows={},triggerRows=[]){
  if(!Array.isArray(tableRows)||!Array.isArray(triggerRows))throw Error('invalid_schema');
@@ -25,7 +37,7 @@ export function classifyTaskGraphSchema(tableRows,columnRows={},triggerRows=[]){
   if(columns.some(column=>!existing.has(column)))return 'partial';
  }
  const triggers=new Set(triggerRows.map(x=>typeof x==='string'?x:x?.name));
- return triggers.has(GUARD)?'ready':'partial';
+ return triggers.has(GUARD)&&triggers.has(COMPLETION_GUARD)?'ready':'partial';
 }
 function inspect(database){
  const tables=remoteRows(database,
@@ -41,7 +53,7 @@ function inspect(database){
   if(existing.has(name))columns[name]=remoteRows(database,'PRAGMA table_info('+name+')');
  }
  const triggers=remoteRows(database,
-  "SELECT name FROM sqlite_master WHERE type='trigger' AND name='trg_academic_task_graph_guard'");
+  "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN ('trg_academic_task_graph_guard','trg_academic_task_done_prerequisites')");
  return classifyTaskGraphSchema(tables,columns,triggers);
 }
 function integrity(database){
@@ -64,7 +76,16 @@ export async function ensureTaskGraphSchema(){
  if(before==='partial')throw Error('task_graph_schema_partial_manual_review_required');
  integrity(db);
  if(before==='missing'){
-  // Additive migration creates only namespaced tables and a guard trigger.
+  // A Time Travel checkpoint is a non-destructive recovery point; exporting
+  // the full private database into an ephemeral CI runner is unnecessary.
+  const boundId=findPagesBoundD1(project);
+  const checkpoint=await api('accounts/'+account+'/d1/database/'+boundId+
+   '/time_travel/bookmark',token);
+  validateRecoveryBookmark(checkpoint);
+  const checkpointTime=new Date().toISOString();
+  console.log('✅ 已核验 D1 Time Travel 迁移前恢复点，UTC：'+checkpointTime+
+   '（不输出恢复书签）');
+  // Additive migration creates only namespaced tables and guard triggers.
   // Existing task data, sessions and source attribution are unchanged.
   localWrangler(['d1','execute',db,'--remote','--yes','--json',
    '--file=./migrations/0019_academic_task_dependencies.sql']);
