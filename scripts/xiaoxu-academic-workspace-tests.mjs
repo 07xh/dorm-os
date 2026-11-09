@@ -23,6 +23,8 @@ sqlite.exec(readFileSync(new URL(
  '../migrations/0017_academic_wechat_candidates.sql',import.meta.url),'utf8'));
 sqlite.exec(readFileSync(new URL(
  '../migrations/0018_academic_wechat_candidate_links.sql',import.meta.url),'utf8'));
+sqlite.exec(readFileSync(new URL(
+ '../migrations/0019_academic_task_dependencies.sql',import.meta.url),'utf8'));
 const db={
  prepare(sql){let params=[];return{
    bind(...values){params=values;return this;},
