@@ -6,6 +6,80 @@ import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
 
+    @Test fun signedOfficialCourseWorkListUsesFreshSignatureAndTableMode() {
+        val middle="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val homework="https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=901234"
+        val queried=mutableListOf<String>()
+        val before=System.currentTimeMillis()
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val uri=java.net.URI(request.url)
+            val body=when(uri.path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$middle'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<input id='courseid' value='123'><input id='clazzid' value='456'>" +
+                    "<input id='cpi' value='789'><input id='workEnc' value='signedWork'>" +
+                    "<input id='openc' value='openKey'><input id='enc' value='courseEnc'>" +
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456&amp;t=100&amp;enc=old'>作业</a>"
+                "/mooc2/work/list" -> {
+                    queried.add(request.url)
+                    assertEquals("mooc1.chaoxing.com",uri.host)
+                    assertEquals("GET",request.method)
+                    val values=uri.rawQuery.split('&').associate {
+                        val pair=it.split('=',limit=2)
+                        java.net.URLDecoder.decode(pair[0],"UTF-8") to
+                            java.net.URLDecoder.decode(pair.getOrElse(1){""},"UTF-8")
+                    }
+                    assertEquals("signedWork",values["enc"])
+                    assertEquals("openKey",values["openc"])
+                    assertEquals("courseEnc",values["stuenc"])
+                    assertEquals("2",values["isdisplaytable"])
+                    assertEquals("s",values["ut"])
+                    assertEquals("123",values["courseId"])
+                    assertEquals("456",values["classId"])
+                    assertEquals("789",values["cpi"])
+                    assertTrue(values["t"]!!.toLong() >= before)
+                    "<ul class='bottomList'><li data='$homework'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                }
+                else -> error("unexpected official path: " + uri.path)
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(1,queried.size)
+        assertEquals("已完成",read.items.single {it.kind=="homework"}.status)
+        assertFalse(read.toString().contains("signedWork"))
+        assertFalse(read.toString().contains("courseEnc"))
+    }
+
+    @Test fun signedOfficialWorkListWorksWithoutVisibleMenuAnchor() {
+        val middle="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val homework="https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val uri=java.net.URI(request.url)
+            val body=when(uri.path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$middle'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<input id='courseid' value='123'><input id='clazzid' value='456'>" +
+                    "<input id='cpi' value='789'><input id='workEnc' value='signedWork'>"
+                "/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$homework'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                else -> error("unexpected official path: " + uri.path)
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals("待批阅",read.items.single {it.kind=="homework"}.status)
+    }
+
+
     @Test fun oldPeerAliasCollisionCannotBorrowOnlyRemainingOfficialWork() {
         val course = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
         val current = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
