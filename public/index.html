@@ -419,7 +419,7 @@ function workspaceTasks(filter='all',source=page==='tasks'?taskSource:'all'){
 function workspaceTaskRow(row,actions=true){
  if(row.origin==='local'){
   let markup=taskRow(row.officialDone?{...row.raw,done:true}:row.raw,actions);
-  if(row.officialDone)markup=markup.replace('data-task-toggle=', 'disabled data-task-toggle=');
+  if(row.officialDone||row.status==='waiting')markup=markup.replace('data-task-toggle=', 'disabled data-task-toggle=');
   if(row.status==='waiting')markup=markup.replace('<div class="entry-title">'+esc(row.title)+'</div>',
    '<div class="entry-title">'+esc(row.title)+'</div><small class="muted">等待：'+esc(row.waitingOn.join('、'))+'</small>');
   return actions?markup:markup.replace('class="task-item"','class="task-item x-v7-task-preview"').replace('<div class="entry-title">'+esc(row.title)+'</div>','<button type="button" class="entry-title xu-task-title" data-task-edit="'+esc(row.id)+'">'+esc(row.title)+'</button>');
@@ -537,7 +537,7 @@ function saveSceneLinkForm(d) {
 function sceneButtons(){return `<div class="scene-row v4-scene-grid">${sceneDefs.map(x=>`<button type="button" class="scene-btn ${state.scene===x.id?'selected':''}" data-scene="${x.id}" aria-pressed="${state.scene===x.id}"><b aria-hidden="true">${x.icon}</b><span>${esc(x.label.replace('模式',''))}</span></button>`).join('')}</div>`;}
 function studyPage(){
  const p=now(),today=classForDay(state.classes,p.day),next=upcomingClass(state.classes,p.day,p.time);
- const pending=state.tasks.filter(item=>!item.done).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+ const pending=workspaceTasks('ready').filter(row=>row.origin==='local');
  return `<div class="v41-study-head"><div><h1>学习中心</h1><p>今天的课程与任务</p></div><button type="button" class="primary" data-action="add-task">＋ 新增任务</button></div>
  <div class="v41-study-grid">
   <section class="card v41-study-panel"><div class="card-header"><span class="card-title">今日课程</span><button type="button" class="action-link" data-page="timetable">完整课表 ›</button></div>
@@ -545,7 +545,7 @@ function studyPage(){
    ${next?`<p class="v41-study-foot">下一节：${esc(next.subject)} · ${esc(next.start)}</p>`:''}
   </section>
   <section class="card v41-study-panel"><div class="card-header"><span class="card-title">待完成任务 <small>${pending.length} 项</small></span><button type="button" class="action-link" data-page="tasks">全部任务 ›</button></div>
-   ${pending.length?pending.slice(0,4).map(t=>taskRow(t,false)).join(''):'<div class="friendly-empty">待办已清空，可添加新的学习任务。</div>'}
+   ${pending.length?pending.slice(0,4).map(row=>taskRow(row.raw,false)).join(''):'<div class="friendly-empty">当前没有可执行的本机任务。</div>'}
   </section>
  </div>
  <section class="v41-study-more"><button type="button" class="v41-more-link" data-page="timetable"><span aria-hidden="true">▦</span><span><strong>课表管理</strong><small>课程编辑、CSV / ICS 导入</small></span><b aria-hidden="true">›</b></button>
