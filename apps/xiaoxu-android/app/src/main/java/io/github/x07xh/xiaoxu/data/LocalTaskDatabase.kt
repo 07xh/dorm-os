@@ -50,7 +50,7 @@ interface LocalTaskDao {
     suspend fun findById(id: Long): LocalTask?
 
     @Insert
-    suspend fun insert(task: LocalTask)
+    suspend fun insert(task: LocalTask): Long
 
     @Query("UPDATE local_tasks SET completed = :completed WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean)
