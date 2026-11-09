@@ -70,9 +70,15 @@
     snapshotVersion++;
     lastRefreshAt=Date.now();return true;
    }catch(e){
-    if(online&&epoch===connectionEpoch&&generation===refreshGeneration)
+    if(online&&epoch===connectionEpoch&&generation===refreshGeneration){
      error=String(e.message||'刷新失败');
-    throw e; // Existing tasks remain available if the network is temporarily down.
+     // A failed task read cannot certify the previously loaded dependency
+     // graph. Preserve existing rows, but never present stale "ready" results.
+     graphReady=false;graphRevision=0;graphEdges=[];
+     graphError='云端刷新失败，先后关系需重新核对';
+     snapshotVersion++;
+    }
+    throw e; // Keep the ledger visible without trusting stale readiness.
    }
   })();
   refreshPromise=running;
@@ -363,8 +369,8 @@
    const response=await api('/api/v1/assignments/dependencies','PUT',{
     taskId,taskRevision:item.revision,graphRevision,prerequisiteIds:requested
    });
-   await refreshAfterWrite();
-   return response.item;
+   const cloudListRefreshed=await refreshAfterWrite();
+   return {...response.item,cloudListRefreshed};
   }catch(e){
    if(e.status===409)await refresh().catch(()=>{});
    throw e;
@@ -391,17 +397,30 @@
  }
  function invalidatePendingReads(){
   refreshGeneration++;refreshPromise=null;lastRefreshAt=0;
+  // A write has changed the server, but we have not read one coherent
+  // task+graph snapshot. Invalidate in-flight receipts and "ready" controls.
+  snapshotVersion++;graphReady=false;graphRevision=0;graphEdges=[];
+  graphError='云端数据已变更，等待刷新确认先后关系';
  }
  async function toggle(id,target){
   if(!online)throw Error('请先连接云端任务');
   const found=items.find(x=>x.id===id);
   if(!found||!['todo','done'].includes(target))throw Error('任务已变化，请刷新');
+  if(target==='done'&&found.kind==='manual'){
+   if(!graphReady)throw Error('云端先后关系尚未核实，暂不能标记完成');
+   const waiting=recordsWithDependencies().find(r=>r.id===id)?.prerequisite_waiting||[];
+   if(waiting.length)throw Error('请先完成云端前置任务');
+  }
   try{
    await api('/api/v1/assignments/'+encodeURIComponent(id),'PATCH',{
     revision:found.revision,localStatus:target
    });
-   invalidatePendingReads();await refresh();return true;
-  }catch(e){if(e.status===409){invalidatePendingReads();await refresh().catch(()=>{});}throw e;}
+  }catch(e){
+   if(e.status===409){invalidatePendingReads();await refresh().catch(()=>{});}
+   throw e;
+  }
+  const cloudListRefreshed=await refreshAfterWrite();
+  return {cloudListRefreshed};
  }
  function reminderCandidates(localTasks=[]){
   if(!online)return [];
