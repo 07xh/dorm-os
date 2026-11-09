@@ -8,11 +8,11 @@
 
 ## 独立只读预检（部署之前）
 
-新增 `.github/workflows/audit-task-graph-d1.yml`，在 GitHub Actions 选择 **Audit NextTodo production D1 (read-only) → Run workflow → main**。该工作流使用现有 Cloudflare secrets，必须在原仓库 main 手动运行；不接受迁移批准输入，且不会触发 Pages 发布。
+已在主分支通过 #436 安装 `.github/workflows/audit-nexttodo-d1.yml`，在 GitHub Actions 选择 **NextTodo production D1 audit (read-only) → Run workflow → main**。该工作流使用现有 Cloudflare secrets，必须在原仓库 main 手动运行；不接受迁移批准输入，且不会触发 Pages 发布。
 
 预检验证：生产 Pages 的 `ACADEMIC_DB` UUID 与 D1 数据库列表匹配；0019 状态明确分类为「尚缺失」或「已就绪」（部分结构直接失败）；执行 `PRAGMA foreign_key_check` 与 `PRAGMA quick_check`；用固定 UTC 时间只读查询 Time Travel 恢复书签，并只在日志写入 UTC 核验时间。**不打印书签、数据库名称、凭证或本人任务内容**。
 
-成功且显示「0019 尚未迁移」仅证明该时刻的前置条件可检查，不代表已经备份、已经迁移或已经完成真人跨设备验收。只有该工作流在默认分支发布后才能从 GitHub Actions 手动运行；PR 构建中的模拟/静态测试不具备生产访问能力。
+成功且显示「0019 尚未迁移」仅证明该时刻的前置条件可检查，不代表已经备份、已经迁移或已经完成真人跨设备验收。该只读工作流已经合入主分支并完成一次本人生产 D1 实际核验；PR 构建中的模拟/静态测试不能取代真实核验。
 
 ## 首次生产写入必须手动批准
 
@@ -44,7 +44,7 @@ Cloudflare 官方参考：
 ## 当前进展
 
 - 0019 迁移脚本及 SQLite 仿真回归：待以最新完整 CI 结果确认为准。
-- 生产恢复点的确实取得：未核验。
+- 2026-11-09 15:16:55 UTC 生产 D1 只读预检已成功取得 Time Travel 恢复点；记录：https://github.com/07xh/dorm-os/actions/runs/42643012419 。注意迁移前仍需获取新的恢复点，因为恢复能力有时效。
 - 生产 0019 迁移：未执行。
 - 本人旧数据逐项和跨设备：未核验。
 

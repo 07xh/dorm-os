@@ -2,20 +2,20 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-08T16:41:57.988Z",
+  "lastSuccessAt": "2026-11-09T09:52:40.450Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
       "count": 8
     },
     {
@@ -24,13 +24,6 @@
       "status": "error",
       "lastSuccessAt": "2026-11-08T09:03:42.248Z",
       "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
-      "status": "ok",
-      "lastSuccessAt": "2026-11-08T16:41:57.988Z",
-      "count": 29
     }
   ],
   "items": [
@@ -65,6 +58,15 @@
       "id": "ncwu-5329caad288db933",
       "title": "关于对2026-2027第一学期课程进行学生网上评教的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23285.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-a60186d9c1c88235",
+      "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
       "date": null,
       "sourceId": "jwc",
       "sourceName": "教务处通知",
@@ -431,15 +433,6 @@
       "category": "校园"
     },
     {
-      "id": "ncwu-a60186d9c1c88235",
-      "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
-      "date": null,
-      "sourceId": "school",
-      "sourceName": "学校通知",
-      "category": "校园"
-    },
-    {
       "id": "ncwu-322450993ef0c061",
       "title": "关于进行2026—2027学年第一学期期中教学检查的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23373.htm",
@@ -470,6 +463,24 @@
       "id": "ncwu-f1dd5273701a6e00",
       "title": "关于做好我校2026年度全员培训有关工作的通知",
       "url": "https://www.ncwu.edu.cn/info/1065/23366.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-cab9989ed13f12a5",
+      "title": "关于做好我校2026年度河南省高等学校特聘教授推荐工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1065/23387.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-b76252757a87d39c",
+      "title": "关于开展华北水利水电大学2026年消防宣传月系列活动的通知",
+      "url": "https://www.ncwu.edu.cn/info/1086/23386.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
