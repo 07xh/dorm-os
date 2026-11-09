@@ -6,14 +6,22 @@
 
 为网站本人的云端手动任务增加“先做 A、再做 B”的有向依赖。新增 `academic_task_dependencies`、`academic_task_graph_versions`、`academic_task_graph_guards` 与两个触发器，不更改学习通官方任务状态，也不另建用户数据库。
 
-## 自动执行顺序
+## 首次生产写入必须手动批准
+
+**默认状态：拒绝自动迁移。** 普通 `main` CI 成功后触发的 Pages 部署可以读取 D1 结构、完整性和恢复点，但如果生产仍缺少 0019，最终会以 `task_graph_migration_manual_approval_required` 停止发布；它不能自行升级数据库。已经完成且检查通过的 0019 不要求每次发布再次批准。
+
+仅在本人已核对目标 Cloudflare 项目、数据库 UUID、现有任务备份与恢复能力之后，才从 GitHub Actions 的 **Deploy DORM OS to Cloudflare Pages → Run workflow → main** 手动运行，并明确勾选 `approve_task_dependency_migration`。未勾选默认是 `false`。仅该次 `workflow_dispatch` 可为迁移脚本提供 `APPLY-0019`，脚本还检查事件类型，不能通过普通 push / workflow_run 绕过。
+
+这个勾选**只是授权继续执行所有安全检查，不是跳过检查**。Cloudflare 凭据、Pages 生产绑定、D1 结构与完整性、Time Travel bookmark、七张既有业务表计数中的任何一项不满足要求，均须中止。迁移后的账号、作业和跨设备操作需要本人再验收；不得把通过 CI 当成生产任务同步成功。
+
+## 发布前检查与获批迁移执行顺序
 
 部署工作流在 Pages 发布之前调用 `scripts/ensure-task-dependency-schema.mjs`，其行为必须是：
 
 1. 仅允许原仓库 `main` 的受保护生产部署调用；校验 Pages 项目 `dorm-os` 的生产 `ACADEMIC_DB` 与 D1 UUID。
 2. 只读检查 0019 是否缺失、完整、或部分损坏。部分状态直接中止；校验现有外键和 `PRAGMA quick_check`。
 3. 仅在确实需要迁移时，**只读**读取现有七张核心业务表的总记录数（不包含标题、内容、姓名、Cookie、学号，且不将计数写入日志）。
-4. 通过 Cloudflare D1 Time Travel **GET bookmark API**取得迁移前的恢复书签；无法取得则中止。日志仅记录 UTC 时间，不暴露凭据或书签。记录的 UTC 时间可供授权管理员在 30 天恢复窗口中找到相应恢复点。
+4. 将迁移前 UTC 时间作为 `timestamp` 参数，通过 Cloudflare D1 Time Travel **GET bookmark API** 取得该时间或之前最近的恢复书签；无法取得则中止。日志只记录本次查询使用的 UTC 时间，不暴露凭据或 bookmark。在 Cloudflare 保留期内，授权管理员可用该时间重新查询对应恢复点；不要把 UTC 时间误认为独立的永久备份。
 5. 执行仅追加的新表、索引和触发器迁移。
 6. 再次核对原有七张业务表记录数量与迁移前一致。若不一致（包括其他设备并发新增/删除造成的差异），为保护个人数据应停止部署并要求人工核验，**不能自动恢复**。
 7. 再次校验 0019 全部列与触发器、外键和 `PRAGMA quick_check`。任一失败则不执行 Pages 发布。

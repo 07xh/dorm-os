@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {classifyTaskGraphSchema,validateRecoveryBookmark,assertCoreCountsUnchanged} from './ensure-task-dependency-schema.mjs';
+import {classifyTaskGraphSchema,validateRecoveryBookmark,assertCoreCountsUnchanged,
+ requireTaskGraphMigrationApproval} from './ensure-task-dependency-schema.mjs';
 
 const names=['academic_task_dependencies','academic_task_graph_versions',
  'academic_task_graph_guards'];
@@ -10,6 +11,17 @@ assert.equal(classifyTaskGraphSchema([{name:names[0]}],{}),'partial');
 assert.throws(()=>classifyTaskGraphSchema('invalid'),/invalid_schema/);
 const bookmark='00000085-0000024c-00004c6d-8e61117bf38d7adb71b934ebbf891683';
 assert.equal(validateRecoveryBookmark({bookmark}),true);
+// A CI-triggered main deployment, missing input, and malformed input must
+// never silently perform a new schema migration.
+assert.equal(requireTaskGraphMigrationApproval('workflow_dispatch','APPLY-0019'),true);
+for(const [event,approval] of [
+ ['workflow_run','APPLY-0019'],['push','APPLY-0019'],
+ ['workflow_dispatch',undefined],['workflow_dispatch','NO'],
+ ['workflow_dispatch','true'],['workflow_dispatch','apply-0019']
+]){
+ assert.throws(()=>requireTaskGraphMigrationApproval(event,approval),
+  /task_graph_migration_manual_approval_required/);
+}
 for(const invalid of [null,{}, {bookmark:''},{bookmark:'bad'}, {bookmark:123},
  {bookmark:'../../private/token'}])
  assert.throws(()=>validateRecoveryBookmark(invalid),/bookmark_unavailable/);
@@ -76,9 +88,18 @@ assert.equal(sqlite.prepare('PRAGMA quick_check').get().quick_check,'ok');
 const migrationGuard=readFileSync(new URL('./ensure-task-dependency-schema.mjs',import.meta.url),'utf8');
 assert.match(migrationGuard,/time_travel\/bookmark/,
  'production D1 migration must verify a restorable Time Travel checkpoint');
+assert.ok(migrationGuard.includes("'/time_travel/bookmark?timestamp='"),
+ 'recovery point must be queried using the UTC time retained in logs');
+assert.ok(migrationGuard.indexOf('const checkpointTime=new Date().toISOString()')<
+ migrationGuard.indexOf("'/time_travel/bookmark?timestamp='"),
+ 'the logged UTC recovery time must be fixed before selecting its bookmark');
 assert.ok(migrationGuard.indexOf('validateRecoveryBookmark(checkpoint)')<
  migrationGuard.indexOf("localWrangler(['d1','execute'"),
  'migration must fail closed if no recovery bookmark was obtained');
+const approvalGuard=migrationGuard.indexOf('requireTaskGraphMigrationApproval(process.env.GITHUB_EVENT_NAME');
+assert.ok(approvalGuard>migrationGuard.indexOf('validateRecoveryBookmark(checkpoint)')&&
+ approvalGuard<migrationGuard.indexOf("localWrangler(['d1','execute'"),
+ 'an explicit manual approval must be checked before any remote D1 write');
 assert.ok(migrationGuard.indexOf('const countsBefore=coreCounts(db)')<
  migrationGuard.indexOf("localWrangler(['d1','execute'"),
  'collect all existing core table counts before migration');
@@ -92,6 +113,12 @@ const gate=workflow.indexOf('run: node scripts/ensure-task-dependency-schema.mjs
 const publish=workflow.indexOf('name: Publish verified static website');
 assert.ok(gate>0&&publish>gate,'task graph migration must precede public release');
 assert.ok(workflow.includes("steps.publish_guard.outputs.fresh == 'true'"));
+assert.match(workflow,/approve_task_dependency_migration:/,
+ 'workflow must expose an explicit migration approval input');
+assert.match(workflow,/default: false/,
+ 'a manual dispatch must default to read-only / no migration approval');
+assert.match(workflow,/XIAOXU_TASK_D1_0019_APPLY:/,
+ 'the approval input must be passed only to the migration step');
 assert.equal(workflow.includes('continue-on-error: true\n        run: node scripts/ensure-task-dependency-schema.mjs'),false,
  'schema errors must block release');
 sqlite.close();
