@@ -210,6 +210,9 @@ internal class ChaoxingLocalReader(
     // official work key. Resolve them against a COMPLETE course-list scan only.
     private val detachedNoticeCandidates=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
     private val courseWorkKeys=linkedSetOf<String>()
+    // Transient first-party URLs are only used during this invocation. They
+    // must never be written into Room, D1, logs, or the return value.
+    private val courseWorkUrls=linkedMapOf<String,String>()
     private fun bindNotice(link: ChaoxingDiscoveredLink, work: String?) {
         if (work == null || !work.matches(Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}"))) return
         val aliases = link.aliases.filter {it.course == work.split(':')[1]}
@@ -240,7 +243,7 @@ internal class ChaoxingLocalReader(
     }
     fun scan(year:Int):ChaoxingLocalRead {
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
-        detachedNoticeCandidates.clear();courseWorkKeys.clear()
+        detachedNoticeCandidates.clear();courseWorkKeys.clear();courseWorkUrls.clear()
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
@@ -312,19 +315,36 @@ internal class ChaoxingLocalReader(
         progress("确认读取前后为同一账号…")
         if(account(fetch(HOME))!=owner) throw ChaoxingReadFailure("account_changed")
         if (failures.isEmpty()) {
-            // Resolve a detached historical notice only when the same official
-            // course/work ID occurs in exactly one fully scanned class. Never
-            // infer identity from matching titles or a partial read.
+            // Finish scanning all courses BEFORE resolving any linkless peer
+            // notice. A same-course work ID can occur in multiple classes.
+            // Reading either candidate prematurely would produce misleading
+            // evidence or turn an ambiguous notification into a scan error.
             val byCourseWork = courseWorkKeys.groupBy { key ->
                 val parts = key.split(':')
                 parts[1] + ":" + parts[3]
             }
-            for ((key, aliases) in detachedNoticeCandidates) {
-                val matches = byCourseWork[key].orEmpty()
-                if (matches.size == 1) noticeBindings.getOrPut(matches.single()) {
-                    linkedSetOf()
-                }.addAll(aliases)
+            val unique = detachedNoticeCandidates.mapNotNull { (key, aliases) ->
+                byCourseWork[key].orEmpty().singleOrNull()?.let { it to aliases }
             }
+            val peerCompleted = Regex(
+                "已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成"
+            )
+            for ((work, aliases) in unique) {
+                if (aliases.none { it.peer }) continue
+                val original = items[work] ?: continue
+                if (peerCompleted.containsMatchIn(original.status)) continue
+                val url = courseWorkUrls[work] ?: continue
+                recover("互评详情") {
+                    readWorkLink(ChaoxingDiscoveredLink(original.title,url),forceDetail=true)
+                    val detailed = items[work]?.status
+                    record("homework",work,original.title,
+                        reconcileWorkStatus(original.status,detailed),original.sourceHost)
+                }
+            }
+            // If a required detail failed, preserve all homework rows but
+            // withhold inferred linkless aliases. Partial != fully reconciled.
+            if (failures.isEmpty()) for ((work, aliases) in unique)
+                noticeBindings.getOrPut(work) {linkedSetOf()}.addAll(aliases)
         }
         val rows = items.values.map { item ->
             val bound = noticeBindings[item.sourceKey].orEmpty()
@@ -446,27 +466,14 @@ internal class ChaoxingLocalReader(
                 }
                 val stable=key?:stableStudyKey(url)
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
-                if (key != null) courseWorkKeys.add(key)
-                val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
-                // A detached peer-review notice can carry a numeric official
-                // work ID but no link. Only inspect the exact listed work's
-                // own official detail for an explicit peer-completed state.
-                // A generic submitted/graded state is never peer completion.
-                val detachedPeer = key?.let {
-                    val parts=it.split(':')
-                    detachedNoticeCandidates[parts[1]+":"+parts[3]]?.any { alias -> alias.peer }
-                } == true
-                val knownDetail=items[stable]?.status.orEmpty()
-                val peerComplete=Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成")
-                if (detachedPeer && !peerComplete.containsMatchIn(knownDetail)) {
-                    // An optional peer-detail page may be unavailable even if
-                    // the official course list is valid. Keep subsequent work
-                    // rows and mark the batch partial instead of dropping them.
-                    recover("互评详情") {
-                        readWorkLink(ChaoxingDiscoveredLink(
-                            row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
-                    }
+                if (key != null) {
+                    courseWorkKeys.add(key)
+                    courseWorkUrls[key]=url
                 }
+                val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
+                // Preserve any earlier official detail evidence; only after
+                // the complete course scan may a unique peer notice trigger a
+                // further detail lookup.
                 val detailedStatus=items[stable]?.status
                 // The course list may say merely "submitted" while the work
                 // detail already proves graded/peer-reviewed/completed.
