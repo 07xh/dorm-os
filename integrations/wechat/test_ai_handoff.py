@@ -14,7 +14,7 @@ import collector
 class AiHandoffTests(TestCase):
     def setUp(self):
         self.ts = int(datetime(2026, 11, 9, 10, tzinfo=timezone.utc).timestamp())
-        self.now = datetime.fromtimestamp(self.ts, timezone.utc)
+        self.now = datetime.fromtimestamp(self.ts + 2, timezone.utc)
         self.cfg = {"deviceId": "wxd_" + "Z" * 24, "chats": ["课程群A"]}
         self.secret = b"local-test-hmac-secret"
         self.base = {"课程群A": self.ts - 100}
