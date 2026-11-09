@@ -323,8 +323,20 @@ internal class ChaoxingLocalReader(
                 val parts = key.split(':')
                 parts[1] + ":" + parts[3]
             }
+            // Peer-review cxn IDs in the existing cloud contract are based
+            // on course + title, not the precise work ID. Two same-title
+            // notices can therefore share one alias while naming different
+            // official work keys. This must remain ambiguous even if only
+            // one of the historical works is still in the live course list.
+            val candidatesByAlias = detachedNoticeCandidates.flatMap { (key, aliases) ->
+                aliases.map { alias -> alias.id to key }
+            }.groupBy({it.first},{it.second}).mapValues { (_, keys) -> keys.toSet() }
             val unique = detachedNoticeCandidates.mapNotNull { (key, aliases) ->
-                byCourseWork[key].orEmpty().singleOrNull()?.let { it to aliases }
+                val unambiguous = aliases.filterTo(linkedSetOf()) {
+                    candidatesByAlias[it.id]?.size == 1
+                }
+                if (unambiguous.isEmpty()) null
+                else byCourseWork[key].orEmpty().singleOrNull()?.let { it to unambiguous }
             }
             val peerCompleted = Regex(
                 "已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成"
