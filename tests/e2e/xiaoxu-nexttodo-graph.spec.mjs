@@ -84,9 +84,12 @@ test('missing cloud dependency endpoint fails closed on graph but does not hide 
  await page.route('**/api/v1/sources',route=>route.fulfill({
   status:200,contentType:'application/json',body:'{"connections":[],"userSnapshots":[]}'
  }));
- await page.route('**/api/v1/assignments/dependencies',route=>route.fulfill({
-  status:404,contentType:'application/json',body:'{"error":"not_found"}'
- }));
+ let graphUnavailable=true;
+ await page.route('**/api/v1/assignments/dependencies',route=>route.fulfill(
+  graphUnavailable?
+   {status:404,contentType:'application/json',body:'{"error":"not_found"}'}:
+   {status:200,contentType:'application/json',body:'{"revision":0,"edges":[]}'}
+ ));
  await page.goto('/#tasks');
  await page.evaluate(()=>window.XiaoxuCloudTasks.connect());
  await page.locator('[data-filter="graph"]').click();
@@ -100,6 +103,16 @@ test('missing cloud dependency endpoint fails closed on graph but does not hide 
  await expect(page.locator('.xu-cloud-task')).toHaveCount(0);
  await page.locator('[data-filter="open"]').click();
  await expect(page.locator('.xu-cloud-task')).toContainText('历史个人云端任务');
+ // When the real dependency endpoint recovers, re-fetch before treating the
+ // cloud task as actionable. The old outage status must not remain stuck.
+ graphUnavailable=false;
+ await page.evaluate(()=>window.XiaoxuCloudTasks.refresh());
+ await page.locator('[data-filter="ready"]').click();
+ await expect(page.locator('.xu-cloud-task')).toContainText('历史个人云端任务');
+ await expect(page.locator('.xu-cloud-task [data-action^="cloud-toggle:"]')).toHaveCount(1);
+ await page.locator('[data-filter="graph"]').click();
+ await expect(page.locator('.xu-graph-node')).toHaveCount(1);
+ await expect(page.locator('[data-task-graph-view]')).not.toContainText('暂不展示云端任务');
 });
 
 test('cloud sync receipt uses authenticated fetch only and does not expose private titles',async({page})=>{
