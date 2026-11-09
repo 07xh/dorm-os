@@ -360,6 +360,20 @@ internal fun searchWorkspaceTasks(
     }
 }
 
+/** Focus-mode ordering from NextTodo's next-list pattern (display only).
+ * No task dependency or unverified school due date is inferred. */
+internal fun orderWorkspaceTasksForFocus(tasks: List<WorkspaceTask>): List<WorkspaceTask> =
+    tasks.sortedWith(compareBy<WorkspaceTask> { task ->
+        when {
+            considerCompleteInTaskList(task) -> 2
+            task.provider == "chaoxing" && task.officialStatus !in
+                setOf("todo", "returned", "submitted", "graded") -> 1
+            else -> 0
+        }
+    }.thenBy { task ->
+        if (task.storage == "local") task.date ?: LocalDate.MAX else LocalDate.MAX
+    }.thenBy { it.key })
+
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
  * 不推断当前教学周、上课时间或学校提交状态；云端任务保留快照标识。
@@ -943,6 +957,8 @@ fun RealAcademicTaskHub(
     var showManager by rememberSaveable { mutableStateOf(false) }
     var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
+    // View choice never duplicates rows or creates another task data store.
+    var showSourceGroups by rememberSaveable { mutableStateOf(false) }
     // Default collapsed on first entry. Saveable state still restores a user's
     // subsequent expand/collapse choice when switching tabs or rotating.
     var showCourseTasks by rememberSaveable { mutableStateOf(false) }
@@ -987,6 +1003,44 @@ fun RealAcademicTaskHub(
     val localRows = remember(shown) { shown.filter { it.category == "local" } }
     val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
+    val focusRows = remember(shown) { orderWorkspaceTasksForFocus(shown) }
+
+    // Shared handlers: optimistic feedback is presentation-only until persistence confirms.
+    fun toggleWechat(row: WorkspaceTask, checked: Boolean) {
+        if (pendingWechatTaskUpdates.containsKey(row.key)) return
+        pendingWechatTaskUpdates[row.key] = checked
+        taskScope.launch {
+            try {
+                val confirmed = client.setWechatTaskCompleted(
+                    row.key.removePrefix("cloud:"), row.revision, checked)
+                if (!confirmed) {
+                    Toast.makeText(context, client.state.privateError
+                        ?: "微信任务保存未确认，请刷新后重试", Toast.LENGTH_SHORT).show()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                Toast.makeText(context, "微信任务保存失败，请重试", Toast.LENGTH_SHORT).show()
+            } finally {
+                pendingWechatTaskUpdates.remove(row.key)
+            }
+        }
+    }
+    fun toggleLocal(row: WorkspaceTask, checked: Boolean) {
+        val id = row.key.removePrefix("local:").toLongOrNull() ?: return
+        if (pendingLocalTaskUpdates.containsKey(row.key)) return
+        pendingLocalTaskUpdates[row.key] = checked
+        taskScope.launch {
+            try {
+                dao.setCompleted(id, checked)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                pendingLocalTaskUpdates.remove(row.key)
+                Toast.makeText(context, "本机任务保存失败，请重试", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
@@ -1153,6 +1207,18 @@ fun RealAcademicTaskHub(
                 }
             }
         }
+        item(key = "task:view-toggle") {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = !showSourceGroups,
+                    onClick = { showSourceGroups = false },
+                    label = { Text("接下来") })
+                FilterChip(selected = showSourceGroups,
+                    onClick = { showSourceGroups = true },
+                    label = { Text("按来源") })
+            }
+        }
         if (showAdvancedFilters) item {
             LazyRow(
                 modifier = Modifier.padding(top = 12.dp),
@@ -1213,6 +1279,48 @@ fun RealAcademicTaskHub(
                 ) { Text("恢复已清理 (${archivedRows.size})") }
             }
         }
+        if (!showSourceGroups) {
+            item(key = "focus:heading") {
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(when (filter) {
+                        "done" -> "已完成"
+                        "all" -> "全部任务"
+                        else -> "接下来"
+                    }, style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink,
+                        modifier = Modifier.weight(1f).semantics { heading() })
+                    Text("${focusRows.size} 项", style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2)
+                }
+            }
+            if (focusRows.isEmpty()) {
+                item(key = "focus:empty") {
+                    XiaoxuEmpty(modifier = Modifier.padding(top = 8.dp),
+                        title = "当前筛选暂无任务",
+                        message = "可切换状态或来源；未核验的学校任务不会被自动视为已完成。",
+                        actionLabel = "按来源查看",
+                        onAction = { showSourceGroups = true })
+                }
+            } else {
+                items(count = focusRows.size, key = { i -> "focus:" + focusRows[i].key }) { i ->
+                    val row = focusRows[i]
+                    ConnectedTaskShell(index = i, total = focusRows.size, standalone = true) {
+                        TaskRow(row, today,
+                            onOpen = { openedTaskKey = row.key },
+                            onToggleLocal = if (row.storage == "local")
+                                ({ checked -> toggleLocal(row, checked) }) else null,
+                            onToggleWechat = if (row.category == "wechat" &&
+                                state.tasksFresh && row.revision >= 0)
+                                ({ checked -> toggleWechat(row, checked) }) else null,
+                            pendingChecked = pendingLocalTaskUpdates[row.key]
+                                ?: pendingWechatTaskUpdates[row.key],
+                            actionEnabled = row.key !in pendingLocalTaskUpdates &&
+                                row.key !in pendingWechatTaskUpdates)
+                    }
+                }
+            }
+        } else {
         if (sourceFilter in setOf("all", "chaoxing")) {
             item(key = "group:chaoxing") {
                 TaskGroupHeader(
@@ -1287,7 +1395,7 @@ fun RealAcademicTaskHub(
             if (cloudRows.isNotEmpty()) {
                 item(key = "group:course") {
                     TaskGroupHeader(
-                        title = "课程任务",
+                        title = "其他云端待办",
                         count = cloudRows.size,
                         badge = "",
                         note = "",
@@ -1331,29 +1439,7 @@ fun RealAcademicTaskHub(
                                 row, today,
                                 onOpen = { openedTaskKey = row.key },
                                 onToggleWechat = if (state.tasksFresh && row.revision >= 0) {
-                                    { checked ->
-                                        if (!pendingWechatTaskUpdates.containsKey(row.key)) {
-                                            // Provisional, presentation-only state: the real
-                                            // task and counters change after confirmed POST.
-                                            pendingWechatTaskUpdates[row.key] = checked
-                                            taskScope.launch {
-                                                try {
-                                                    val confirmed = client.setWechatTaskCompleted(
-                                                        row.key.removePrefix("cloud:"),
-                                                        row.revision, checked
-                                                    )
-                                                    if (!confirmed) {
-                                                        Toast.makeText(context,
-                                                            client.state.privateError
-                                                                ?: "微信任务保存未确认，请刷新后重试",
-                                                            Toast.LENGTH_SHORT).show()
-                                                    }
-                                                } finally {
-                                                    pendingWechatTaskUpdates.remove(row.key)
-                                                }
-                                            }
-                                        }
-                                    }
+                                    { checked -> toggleWechat(row, checked) }
                                 } else null,
                                 pendingChecked = pendingWechatTaskUpdates[row.key],
                                 actionEnabled = !pendingWechatTaskUpdates.containsKey(row.key)
@@ -1381,24 +1467,7 @@ fun RealAcademicTaskHub(
                         ConnectedTaskShell(index = i, total = localRows.size) {
                             TaskRow(row, today,
                                 onOpen = { openedTaskKey = row.key },
-                                onToggleLocal = { checked ->
-                                    // Local-only preview; Room remains the source of truth.
-                                    val id = row.key.removePrefix("local:").toLongOrNull()
-                                    if (id != null && !pendingLocalTaskUpdates.containsKey(row.key)) {
-                                        pendingLocalTaskUpdates[row.key] = checked
-                                        taskScope.launch {
-                                            try {
-                                                dao.setCompleted(id, checked)
-                                            } catch (cancelled: CancellationException) {
-                                                throw cancelled
-                                            } catch (_: Exception) {
-                                                pendingLocalTaskUpdates.remove(row.key)
-                                                Toast.makeText(context, "本机任务保存失败，请重试",
-                                                    Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    }
-                                },
+                                onToggleLocal = { checked -> toggleLocal(row, checked) },
                                 pendingChecked = pendingLocalTaskUpdates[row.key],
                                 actionEnabled = !pendingLocalTaskUpdates.containsKey(row.key)
                             )
@@ -1406,6 +1475,7 @@ fun RealAcademicTaskHub(
                     }
                 }
             }
+        }
         }
         if (state.privateError != null) {
             item {
@@ -1859,11 +1929,15 @@ private fun ConnectedTaskShell(
     index: Int,
     total: Int,
     modifier: Modifier = Modifier,
+    standalone: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val radius = XiaoxuRadius.card
-    // LazyColumn items remain individually keyed; group header forms the shared top edge.
+    // A focus list rounds its first row; grouped rows stay attached to the header.
     val corners = when {
+        standalone && total == 1 -> RoundedCornerShape(radius)
+        standalone && index == 0 -> RoundedCornerShape(
+            topStart = radius, topEnd = radius, bottomStart = 0.dp, bottomEnd = 0.dp)
         index == total - 1 -> RoundedCornerShape(
             topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
         else -> RoundedCornerShape(0.dp)
