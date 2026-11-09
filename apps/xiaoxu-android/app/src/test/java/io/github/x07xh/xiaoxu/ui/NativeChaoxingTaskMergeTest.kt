@@ -57,6 +57,57 @@ class NativeChaoxingTaskMergeTest {
         assertTrue(considerCompleteInTaskList(tasks.single()))
     }
 
+
+    private fun nativePlan(identity: String, status: String): NativeSchoolRecord {
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return NativeSchoolRecord("chaoxing", "study_task", hash, "第四次作业",
+            "学习计划状态：$status · 学习任务身份：$identity",
+            "task.chaoxing.com", 1720000000000L)
+    }
+
+    @Test fun exactCloudPlanAndNativePlanBecomeOneRowWithOfficialStatus() {
+        val planId = "plan:987654"
+        val cloudPlan = cloud(source = planId)
+        val combined = combineWorkspaceTasks(
+            emptyList(), listOf(cloudPlan), listOf(nativePlan(planId, "待批阅"))
+        )
+        assertEquals(1, combined.size)
+        val shown = combined.single()
+        assertEquals("cloud:cloud-1", shown.key)
+        assertEquals(planId, shown.sourceExternalId)
+        assertFalse("official completion does not write personal checkbox", shown.done)
+        assertEquals("submitted", shown.officialStatus)
+        assertEquals("待批阅", shown.officialStatusRaw)
+        assertTrue(considerCompleteInTaskList(shown))
+    }
+
+    @Test fun returnedCloudPlanStaysPendingAndDifferentSameTitlePlanStaysSeparate() {
+        val first = "plan:987654"
+        val other = "plan:987655"
+        val combined = combineWorkspaceTasks(
+            emptyList(), listOf(cloud(source = first)),
+            listOf(nativePlan(first, "未提交"), nativePlan(other, "已完成"))
+        )
+        assertEquals(2, combined.size)
+        val pending = combined.single { it.sourceExternalId == first }
+        val completed = combined.single { it.sourceExternalId == other }
+        assertEquals("todo", pending.officialStatus)
+        assertFalse(considerCompleteInTaskList(pending))
+        assertEquals("submitted", completed.officialStatus)
+        assertTrue(considerCompleteInTaskList(completed))
+    }
+
+    @Test fun unverifiedNativePlanCannotOverrideCloudPlan() {
+        val identity = "plan:987654"
+        val fake = nativePlan(identity, "已完成").copy(fingerprint = "invalid")
+        val combined = combineWorkspaceTasks(emptyList(), listOf(cloud(source = identity)), listOf(fake))
+        assertEquals(1, combined.size)
+        assertEquals(null, combined.single().officialStatus)
+        assertFalse(considerCompleteInTaskList(combined.single()))
+    }
+
     @Test fun realPlanIdCreatesOneLocalOfficialTaskWithCompletedState() {
         val identity = "plan:987654"
         val hash = MessageDigest.getInstance("SHA-256")
