@@ -73,7 +73,7 @@
   return {day:/^\d{4}-\d{2}-\d{2}$/.test(row.due)?row.due:'9999',instant:null};
  }
  function tasks({local=[],cloud=[],remote=[]}={}, {filter='all',source='all'}={}){
-  const rows=[],keys=new Map(),localIds=new Set(local.map(r=>r.id));
+  const rows=[],localIds=new Set(local.map(r=>r.id));
   const localCopy=sanitizePrerequisites(local);
   const localById=new Map(localCopy.map(t=>[t.id,t]));
   const add=(row,legacyId='')=>{
@@ -86,7 +86,6 @@
      rows[existingIndex]=row;
     return;
    }
-   if(key)keys.set(key,true);
    rows.push(row);
   };
   for(const r of localCopy)add({id:r.id,origin:'local',title:r.title,course:r.course||r.category||'',
