@@ -6,6 +6,37 @@ import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
 
+    @Test fun incompleteWorkUrlCannotOverwriteAnotherCoursesSameNumberedTask() {
+        val course1="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val course2="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=124&clazzid=457&cpi=789"
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val course = if (request.url.contains("courseid=124")) "124" else "123"
+            val body=when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true).put("notices",
+                    JSONObject().put("lastPage",1).put("list",org.json.JSONArray())).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$course1'><span class='course-name'>课程一</span></a>" +
+                    "<a href='$course2'><span class='course-name'>课程二</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=$course'>作业</a>"
+                "/mooc-ans/mooc2/work/list" -> {
+                    val url="https://mooc1.chaoxing.com/work/dowork?courseId=$course&workId=901234"
+                    "<ul class='bottomList'><li data='$url'><p class='overHidden2'>同名实验</p>" +
+                        "<p class='status'>状态未知</p></li></ul>"
+                }
+                else -> error("unexpected path")
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        val fallback=read.items.filter { it.kind == "study_task" }
+        assertEquals(2,fallback.size)
+        assertEquals(2,fallback.map {it.sourceKey}.toSet().size)
+        // Missing class identity is not promoted into an official work tuple.
+        assertTrue(fallback.all {it.sourceKey.startsWith("study:")})
+    }
+
     @Test fun equivalentCaseAliasesProduceOneOfficialWorkIdAndLinkNotification() {
         val workUrl = "https://mooc1.chaoxing.com/work/dowork?" +
             "courseId=123&courseid=123&classId=456&clazzid=456&workId=901234&taskrefId=901234"
