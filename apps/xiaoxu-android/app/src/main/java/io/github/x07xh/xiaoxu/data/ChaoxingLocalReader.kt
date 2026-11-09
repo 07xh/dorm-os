@@ -445,18 +445,34 @@ internal class ChaoxingLocalReader(
     private fun readCourse(course:ChaoxingDiscoveredLink) {
         var page=fetch(course.url);var doc=Jsoup.parse(page.text,page.url)
         val entry=doc.selectFirst("a[data-url*=work/list],iframe[src*=work/list],a[href*=work/list]")
-        if(entry!=null) {
-            val raw=entry.attr("data-url").ifBlank {entry.attr("src")}.ifBlank {entry.attr("href")}
-            var url=safeUrl(raw,page.url) ?: throw ChaoxingReadFailure("course_entry")
-            if(URI(url).path !in setOf("/mooc2/work/list","/mooc-ans/mooc2/work/list")) throw ChaoxingReadFailure("course_entry")
-            val hidden=listOf("courseid","clazzid","cpi","workEnc","enc","t").associateWith {doc.getElementById(it)?.`val`().orEmpty()}
-            if(listOf("courseid","clazzid","cpi").all {numeric.matches(hidden[it].orEmpty())}&&!hidden["workEnc"].isNullOrBlank()) {
+        val hidden=listOf("courseid","clazzid","cpi","workEnc","openc","enc")
+            .associateWith {doc.getElementById(it)?.`val`().orEmpty()}
+        // A validated first-party reader (xuexitong-cli, MIT) obtains the
+        // work-list signature from the course page, not the course-entry URL.
+        // The menu item can be absent while a signed work-list is available.
+        val signedWorkList=listOf("courseid","clazzid","cpi").all {
+            numeric.matches(hidden[it].orEmpty())
+        } && !hidden["workEnc"].isNullOrBlank()
+        if(entry!=null || signedWorkList) {
+            val raw=entry?.let {it.attr("data-url").ifBlank {it.attr("src")}.ifBlank {it.attr("href")}}
+            var url=raw?.let {safeUrl(it,page.url) ?: throw ChaoxingReadFailure("course_entry")}
+                ?: "https://mooc1.chaoxing.com/mooc2/work/list"
+            if(URI(url).path !in setOf("/mooc2/work/list","/mooc-ans/mooc2/work/list"))
+                throw ChaoxingReadFailure("course_entry")
+            if(signedWorkList) {
                 val old=params(url)
-                val ids=mapOf("courseId" to hidden.getValue("courseid"),"classId" to hidden.getValue("clazzid"),"cpi" to hidden.getValue("cpi"))
-                if(ids.any {(k,v)->old[k]!=null&&old[k]!=v}) throw ChaoxingReadFailure("course_identity")
-                val fields=ids+mapOf("ut" to "s","enc" to hidden.getValue("workEnc"))+
-                    mapOf("stuenc" to hidden.getValue("enc"),"t" to hidden.getValue("t")).filterValues {it.isNotBlank()}
-                url=query(url,fields)
+                val ids=mapOf("courseId" to hidden.getValue("courseid"),
+                    "classId" to hidden.getValue("clazzid"),"cpi" to hidden.getValue("cpi"))
+                if(ids.any {(k,v)->old[k]!=null&&old[k]!=v})
+                    throw ChaoxingReadFailure("course_identity")
+                // Never reuse a potentially expired t/enc from the menu link.
+                // Official read-only GET uses the work-specific workEnc and
+                // a fresh timestamp; no form submission or state changes.
+                val fields=ids+mapOf("ut" to "s","enc" to hidden.getValue("workEnc"),
+                    "t" to System.currentTimeMillis().toString(),"isdisplaytable" to "2")+
+                    mapOf("openc" to hidden.getValue("openc"),
+                        "stuenc" to hidden.getValue("enc")).filterValues {it.isNotBlank()}
+                url=query("https://mooc1.chaoxing.com/mooc2/work/list",fields)
             }
             page=fetch(url);doc=Jsoup.parse(page.text,page.url)
         }
