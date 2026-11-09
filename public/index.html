@@ -438,6 +438,7 @@ function workspaceTaskRow(row,actions=true){
    +(row.source==='chaoxing'&&row.raw.kind==='platform'?
     '<span class="pill">'+(row.officialDone?'官方已完成':row.status==='verify'?'待核对':'官方待处理')+'</span>':
     (manual&&row.status==='waiting'?'<span class="pill">等待前置</span>':
+     manual&&row.status==='sync_pending'?'<span class="pill" role="status">云端依赖待同步</span>':
      '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(row.id)+':'+(row.personalDone?'todo':'done')+'">'+(row.personalDone?'恢复待办':'标记完成')+'</button>')))+'</div>';
 }
 function homeWidgetContent(id){
