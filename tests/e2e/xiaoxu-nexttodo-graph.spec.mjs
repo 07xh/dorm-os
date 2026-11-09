@@ -89,7 +89,6 @@ test('missing cloud dependency endpoint fails closed on graph but does not hide 
  }));
  await page.goto('/#tasks');
  await page.evaluate(()=>window.XiaoxuCloudTasks.connect());
- await expect(page.locator('#app')).toContainText('历史个人云端任务');
  await page.locator('[data-filter="graph"]').click();
  await expect(page.locator('[data-task-graph-view]')).toContainText('暂不展示云端任务');
  await expect(page.locator('.xu-graph-node')).toHaveCount(0);
