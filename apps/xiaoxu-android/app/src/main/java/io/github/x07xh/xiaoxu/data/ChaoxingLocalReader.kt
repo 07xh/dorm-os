@@ -241,7 +241,9 @@ internal class ChaoxingLocalReader(
                 noticePages++
                 for(i in 0 until list.length()) {
                     val notice = list.getJSONObject(i)
-                    val aliases = noticeAliases(notice).filterNot { it.peer }
+                    val aliases = noticeAliases(notice)
+                    // Plain assignment and peer-review notifications have
+                    // distinct legacy cxn IDs. Retain their distinct peer flag.
                     // The server-side cxn hash uses this sourceTaskKey, too.
                     // No title-only match: require a numeric work ID and course.
                     val workKey = noticeSourceTaskKey(notice)
@@ -379,10 +381,10 @@ internal class ChaoxingLocalReader(
         if (!lockedGroup && assignmentCount == 1 && resolvedWorks.size == 1)
             bindNotice(link, resolvedWorks.single())
     }
-    private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="") {
+    private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false) {
         val key=workKey(link.url)
         bindNotice(link,key)
-        if(key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
+        if(!forceDetail&&key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
         val page=fetch(link.url);val doc=Jsoup.parse(page.text,page.url)
         val state=doc.selectFirst("p.status,.workStatus,.work-status")?.text().orEmpty().ifBlank {
             Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已评分|已完成此作业|已提交[，,、 ]*待批阅|待批阅|提交成功|已达标|已退回|未提交").find(doc.text())?.value.orEmpty()
@@ -426,6 +428,20 @@ internal class ChaoxingLocalReader(
                 if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
                 if (key != null) courseWorkKeys.add(key)
                 val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
+                // A detached peer-review notice can carry a numeric official
+                // work ID but no link. Only inspect the exact listed work's
+                // own official detail for an explicit peer-completed state.
+                // A generic submitted/graded state is never peer completion.
+                val detachedPeer = key?.let {
+                    val parts=it.split(':')
+                    detachedNoticeCandidates[parts[1]+":"+parts[3]]?.any { alias -> alias.peer }
+                } == true
+                val knownDetail=items[stable]?.status.orEmpty()
+                val peerComplete=Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成")
+                if (detachedPeer && !peerComplete.containsMatchIn(knownDetail)) {
+                    readWorkLink(ChaoxingDiscoveredLink(
+                        row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
+                }
                 val detailedStatus=items[stable]?.status
                 // The course list may say merely "submitted" while the work
                 // detail already proves graded/peer-reviewed/completed.
