@@ -106,6 +106,8 @@ fun localTaskGraphLayers(
     edges: List<LocalTaskDependency>
 ): List<List<LocalTaskGraphNode>> {
     val byId = tasks.associateBy { it.id }
+    // A persisted self-loop is corrupt, not a relation that can be silently dropped.
+    if (edges.any { it.taskId == it.prerequisiteId && it.taskId in byId }) return emptyList()
     val valid = edges.asSequence()
         .filter { it.taskId != it.prerequisiteId &&
             it.taskId in byId && it.prerequisiteId in byId }
@@ -150,4 +152,46 @@ fun localTaskGraphLayers(
         layer.sortedWith(compareBy<LocalTaskGraphNode> { it.task.completed }
             .thenBy { it.task.createdAt }.thenBy { it.task.id })
     }
+}
+
+/**
+ * Focus mode includes only genuine ancestors and descendants of one task,
+ * NOT sibling branches that merely share an ancestor. Search includes title
+ * matches and their ancestors, to keep the visible prerequisites explainable.
+ * Returns IDs from the supplied graph only; never fabricates a local task.
+ */
+fun localTaskGraphVisibleIds(
+    layers: List<List<LocalTaskGraphNode>>,
+    focusTaskId: Long? = null,
+    titleSearch: String = ""
+): Set<Long> {
+    val nodes = layers.flatten()
+    val byId = nodes.associateBy { it.task.id }
+    if (focusTaskId != null && focusTaskId !in byId) return emptySet()
+    val result = linkedSetOf<Long>()
+    fun visit(start: Collection<Long>, walkToDependents: Boolean) {
+        val queue = ArrayDeque<Long>()
+        start.forEach(queue::addLast)
+        val visited = hashSetOf<Long>()
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (!visited.add(id)) continue
+            val node = byId[id] ?: continue
+            result.add(id)
+            val adjacent = if (walkToDependents) node.unlocks else node.prerequisites
+            adjacent.forEach { if (it.id in byId && it.id !in visited) queue.addLast(it.id) }
+        }
+    }
+    if (focusTaskId != null) {
+        // Two independent traversals avoid pulling in unrelated sibling tasks.
+        visit(listOf(focusTaskId), walkToDependents = false)
+        visit(listOf(focusTaskId), walkToDependents = true)
+    } else {
+        val term = titleSearch.trim()
+        if (term.isEmpty()) return byId.keys
+        val matches = nodes.filter { it.task.title.contains(term, ignoreCase = true) }
+            .map { it.task.id }
+        visit(matches, walkToDependents = false)
+    }
+    return result
 }
