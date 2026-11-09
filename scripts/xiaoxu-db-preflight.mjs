@@ -10,7 +10,8 @@ const names=[
  '0005_academic_workspace.sql','0006_academic_scheduler.sql',
  '0007_academic_reminder_inbox.sql','0008_academic_second_class_source.sql','0009_ncwu_second_class_official_scores.sql',
  '0010_academic_owner_auth.sql','0011_academic_provider_sessions.sql',
- '0012_academic_second_class_sessions.sql','0015_academic_chaoxing_notices.sql'
+ '0012_academic_second_class_sessions.sql','0015_academic_chaoxing_notices.sql',
+ '0019_academic_task_dependencies.sql'
 ];
 const sql=names.map(n=>({name:n,content:readFileSync(new URL('../migrations/'+n,import.meta.url),'utf8')}));
 function fresh(){

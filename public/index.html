@@ -436,7 +436,8 @@ function workspaceTaskRow(row,actions=true){
    (manual&&actions?'<button type="button" class="secondary" data-action="cloud-edit:'+esc(row.id)+'">编辑</button>':'')
    +(row.source==='chaoxing'&&row.raw.kind==='platform'?
     '<span class="pill">'+(row.officialDone?'官方已完成':row.status==='verify'?'待核对':'官方待处理')+'</span>':
-    '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(row.id)+':'+(row.personalDone?'todo':'done')+'">'+(row.personalDone?'恢复待办':'标记完成')+'</button>'))+'</div>';
+    (manual&&row.status==='waiting'?'<span class="pill">等待前置</span>':
+     '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(row.id)+':'+(row.personalDone?'todo':'done')+'">'+(row.personalDone?'恢复待办':'标记完成')+'</button>')))+'</div>';
 }
 function homeWidgetContent(id){
  const p=now(),date=addDays(p.date,homeDayOffset),day=weekday(date);
@@ -779,7 +780,7 @@ function tasksPage(){
  return `${titleBlock('','我的任务')}
  <section class="v4-task-toolbar" aria-label="任务视图"><div class="list-controls v4-filters">${[['ready','接下来'],['open','待完成'],['waiting','等待中'],['done','已完成'],['all','全部'],['review','待确认']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}" aria-pressed="${taskFilter===k}">${l}</button>`).join('')}</div>
  <div class="button-row">${verifyCount||taskFilter==='verify'?'<button type="button" class="filter-btn '+(taskFilter==='verify'?'active':'')+'" data-filter="verify" aria-pressed="'+(taskFilter==='verify')+'">学习通待核对 · '+verifyCount+'</button>':''}<select data-task-source aria-label="任务来源" ${review?'hidden':''}>${[['all','全部来源'],['chaoxing','学习通'],['ncwu','青果教务'],['second_class','第二课堂'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button></div></details><button type="button" class="secondary v4-export" data-action="export-deadlines" ${review?'hidden':''}>添加到日历</button></div></section>
- <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录 · 学习通未连接自动同步时仅展示已有数据 · 前置关系仅作用于本机任务</span></div>
+ <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录 · 学习通未连接自动同步时仅展示已有数据 · 前置关系支持本机任务及已配置的云端个人任务</span></div>
  <section class="card v4-task-list">${rows.length?rows.map(r=>workspaceTaskRow(r)).join(''):'<div class="empty">当前筛选下暂无任务。</div>'}</section>
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div id="xuChaoxingWorkHost">${XiaoxuChaoxingHomework.panel()}</div></div>
@@ -1073,12 +1074,17 @@ function taskDialog(id,cloudId=''){
  const category=cloud?'':'<div class="form-field"><label for="taskCategory">本机类别</label><select name="category" id="taskCategory">'+
   CATEGORIES.map(c=>'<option '+(local?.category===c?'selected':'')+'>'+esc(c)+'</option>').join('')+
   '</select></div>';
- const candidates=cloud?[]:state.tasks.filter(t=>t.id!==local?.id&&(!t.source||t.source==='manual'));
+ const candidates=cloud?(cloud.graphReady?XiaoxuCloudTasks.displayRecords()
+   .filter(t=>t.kind==='manual'&&t.id!==cloudId):[]):
+   state.tasks.filter(t=>t.id!==local?.id&&(!t.source||t.source==='manual'));
+ const selectedBefore=cloud?cloud.prerequisiteIds||[]:local?.prerequisiteIds||[];
  const prerequisites=candidates.length&&(!local||!local.source||local.source==='manual')?
-  '<fieldset class="form-field xu-task-prerequisites"><legend>前置任务（可多选）</legend>'+
+  '<fieldset class="form-field xu-task-prerequisites" '+(newTask&&XiaoxuCloudTasks.isReady()?'hidden':'')+'><legend>前置任务（可多选）</legend>'+
   candidates.map(t=>'<label class="xu-task-prerequisite-option"><input type="checkbox" name="prerequisiteId" value="'+esc(t.id)+'" '+
-   ((local?.prerequisiteIds||[]).includes(t.id)?'checked':'')+'><span>'+esc(t.title)+'</span></label>').join('')+
-  '<small class="muted">仅本机任务支持先后关系；选择云端保存时不可添加前置任务。</small></fieldset>':'';
+   (selectedBefore.includes(t.id)?'checked':'')+'><span>'+esc(t.title)+'</span></label>').join('')+
+  '<small class="muted">'+(cloud?'仅限此账号的其他云端个人任务，保存后两端刷新生效。':
+  '仅本机先后关系，选择云端保存时不生效。')+'</small></fieldset>':
+  cloud&&!cloud.graphReady?'<p class="small muted">云端先后关系暂不可用；基本信息仍可编辑，需完成 D1 迁移后才能设置依赖。</p>':'';
  openDialog(formFrame(cloud?'编辑云端任务':local?'编辑任务':'新增任务',
   '<input name="id" type="hidden" value="'+esc(local?.id||'')+'">'+
   '<input name="cloudId" type="hidden" value="'+esc(cloudId)+'">'+
@@ -1119,16 +1125,32 @@ if(form.dataset.form==='task'&&(d.get('cloudId')||(!d.get('id')&&d.get('saveScop
   const title=String(d.get('title')||'').trim().slice(0,100);
   const dueDate=String(d.get('due')||''),cloudId=String(d.get('cloudId')||'');
   if(!title){toast('请输入任务名称');return;}
+  const selected=d.getAll('prerequisiteId').map(String);
+  const current=cloudId?XiaoxuCloudTasks.editable(cloudId):null;
+  const dependencyChanged=!!current&&current.graphReady&&
+   (selected.length!==current.prerequisiteIds.length||
+    selected.some(id=>!current.prerequisiteIds.includes(id)));
   const saveButton=form.querySelector('[type="submit"]');
   if(saveButton?.disabled)return;
   if(saveButton)saveButton.disabled=true;
+  let savedBasics=false;
   try{
    const result=cloudId?await XiaoxuCloudTasks.updatePersonal(cloudId,{title,dueDate}):
     await XiaoxuCloudTasks.createPersonal({title,dueDate});
+   savedBasics=true;
+   if(dependencyChanged){
+    if(result.cloudListRefreshed===false)
+     throw Error('基本信息已保存，刷新云端版本后才能安全修改先后关系');
+    await XiaoxuCloudTasks.setPrerequisites(cloudId,selected);
+   }
    $('editor').close();render();
-   toast(result.cloudListRefreshed===false?'已保存到云端，但列表刷新失败；请稍后手动刷新':
-    cloudId?'云端任务已更新':'任务已保存到私人云端，其他设备可刷新查看');
-  }catch(err){toast('云端保存失败：'+String(err.message||'请重试'));}
+   toast(result.cloudListRefreshed===false?'已保存到云端，但列表刷新失败；请手动刷新':
+    cloudId?'云端任务与先后关系已更新':'任务已保存到私人云端，其他设备可刷新查看');
+  }catch(err){
+   render();
+   toast((savedBasics?'基本信息可能已保存，但先后关系未确认：':'云端保存失败：')+
+    String(err.message||'请重试'));
+  }
   finally{if(saveButton)saveButton.disabled=false;}
   return;
  }
@@ -1298,6 +1320,8 @@ function clickAction(action){
  if(action.startsWith('cloud-edit:')){taskDialog('',action.slice('cloud-edit:'.length));return;}
  if(action.startsWith('cloud-toggle:')){
   const segments=action.split(':');if(segments.length!==3)return;
+  const row=workspaceTasks('waiting').find(r=>r.origin==='cloud'&&r.id===segments[1]);
+  if(row&&segments[2]==='done'){toast('请先完成云端前置任务');return;}
   XiaoxuCloudTasks.toggle(segments[1],segments[2]).then(()=>{render();toast('云端个人完成状态已更新');}).catch(err=>{render();toast(String(err.message));});return;
  }
  if(action==='reminder-refresh'){
@@ -1318,7 +1342,7 @@ function clickAction(action){
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
 document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-week], [data-timetable-day], [data-home-day], [data-academic-tab], [data-notice-filter], [data-notice-read], [data-notice-open], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
   if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeRead){markNoticeRead(target.dataset.noticeRead);}else if(target.dataset.noticeOpen){markNoticeRead(target.dataset.noticeOpen,true);}else if(target.dataset.noticeFilter){if(['all','unread','notice','exam'].includes(target.dataset.noticeFilter)){noticeFilter=target.dataset.noticeFilter;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableWeek!==undefined){const move=Number(target.dataset.timetableWeek);if(Number.isInteger(move)&&[-1,0,1].includes(move)){timetableWeekOffset=move===0?0:Math.max(-52,Math.min(52,timetableWeekOffset+move));render();}}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;history.replaceState(null,'',XiaoxuWebRouter.taskFilterHash(taskFilter));render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id).map(row=>({...row,prerequisiteIds:(row.prerequisiteIds||[]).filter(id=>id!==t.id)}));log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
-document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-task-source]')){taskSource=el.value;render();$('app').querySelector('[data-task-source]')?.focus({preventScroll:true});}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
+document.addEventListener('change',e=>{const el=e.target;if(el.id==='taskSaveScope'){const dependencyOptions=$('editor').querySelector('.xu-task-prerequisites');if(dependencyOptions)dependencyOptions.hidden=el.value==='cloud';}else if(el.matches('[data-task-source]')){taskSource=el.value;render();$('app').querySelector('[data-task-source]')?.focus({preventScroll:true});}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
 document.addEventListener('keydown', e=>{

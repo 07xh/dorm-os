@@ -110,9 +110,11 @@
   return rows.map(row=>{
    const done=row.personalDone||officialFinished(row);
    const needsVerification=row.source==='chaoxing'&&!done&&!officialUnfinished(row);
-   const prerequisites=row.origin==='local'?row.raw.prerequisiteIds:[];
-   const waitingOn=prerequisites.map(id=>localById.get(id)).filter(t=>!t||!t.done)
-    .map(t=>t?.title||'前置任务已丢失');
+   const waitingOn=row.origin==='local'?
+    (row.raw.prerequisiteIds||[]).map(id=>localById.get(id))
+     .filter(t=>!t||!t.done).map(t=>t?.title||'前置任务已丢失'):
+    row.origin==='cloud'&&row.raw.kind==='manual'&&
+      Array.isArray(row.raw.prerequisite_waiting)?[...row.raw.prerequisite_waiting]:[];
    const status=done?'done':needsVerification?'verify':waitingOn.length?'waiting':'ready';
    return {...row,done,status,waitingOn,officialDone:officialFinished(row)};
   }).filter(r=>{
