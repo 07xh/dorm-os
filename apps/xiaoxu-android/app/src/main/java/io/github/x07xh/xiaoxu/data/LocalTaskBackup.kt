@@ -14,9 +14,11 @@ import org.json.JSONObject
 
 private const val FORMAT_V1 = "xiaoxu/local-tasks-backup-v1"
 private const val FORMAT_V2 = "xiaoxu/local-tasks-backup-v2"
+private const val FORMAT_V3 = "xiaoxu/local-tasks-backup-v3"
 private val VALID_SOURCES = setOf("local", "course", "chaoxing", "second_class", "other")
 private const val MAX_BYTES = 1_048_576
 private const val MAX_TASKS = 3_000
+private const val MAX_LINKS = 10_000
 
 /**
  * Offline-only manual task backup via Android's user-selected document provider.
@@ -32,10 +34,20 @@ class LocalTaskBackup(
         val tasks = database.tasks().snapshot()
         require(tasks.size <= MAX_TASKS) { "too_many_local_tasks" }
         val records = JSONArray()
+        val ids = tasks.mapTo(hashSetOf()) { it.id }
+        val links = JSONArray()
+        for (edge in database.tasks().dependencySnapshot()) {
+            if (edge.taskId in ids && edge.prerequisiteId in ids) {
+                links.put(JSONObject().put("task", edge.taskId)
+                    .put("before", edge.prerequisiteId))
+            }
+        }
+        require(links.length() <= MAX_LINKS) { "too_many_dependencies" }
         for (task in tasks) {
             require(task.source == null || task.source in VALID_SOURCES)
             require(task.due == null || validDue(task.due))
             records.put(JSONObject()
+                .put("backupId", task.id)
                 .put("title", task.title)
                 .put("completed", task.completed)
                 .put("createdAt", task.createdAt)
@@ -43,9 +55,10 @@ class LocalTaskBackup(
                 .put("due", task.due ?: JSONObject.NULL))
         }
         val payload = JSONObject()
-            .put("schema", FORMAT_V2)
+            .put("schema", FORMAT_V3)
             .put("exportedAt", Instant.now().toString())
             .put("tasks", records)
+            .put("dependencies", links)
             .toString().toByteArray(Charsets.UTF_8)
         require(payload.size <= MAX_BYTES) { "backup_too_large" }
         val output = resolver.openOutputStream(uri, "wt")
@@ -80,19 +93,32 @@ class LocalTaskBackup(
             .onUnmappableCharacter(CodingErrorAction.REPORT)
             .decode(ByteBuffer.wrap(raw)).toString()
         val root = JSONObject(contents)
-        require(root.keys().asSequence().toSet() == setOf("schema", "exportedAt", "tasks"))
         val schema = root.getString("schema")
-        require(schema == FORMAT_V1 || schema == FORMAT_V2)
+        val expectedRootKeys = if (schema == FORMAT_V3)
+            setOf("schema", "exportedAt", "tasks", "dependencies")
+            else setOf("schema", "exportedAt", "tasks")
+        require(root.keys().asSequence().toSet() == expectedRootKeys)
+        require(schema == FORMAT_V1 || schema == FORMAT_V2 || schema == FORMAT_V3)
         require(Instant.parse(root.getString("exportedAt")).toEpochMilli() > 0L)
         val arr = root.getJSONArray("tasks")
         require(arr.length() <= MAX_TASKS) { "too_many_local_tasks" }
         val now = System.currentTimeMillis()
+        val backupIds = mutableListOf<Long>()
         val parsed = buildList {
             for (i in 0 until arr.length()) {
                 val item = arr.getJSONObject(i)
-                require(item.keys().asSequence().toSet() == if (schema == FORMAT_V1)
-                    setOf("title", "completed", "createdAt")
-                    else setOf("title", "completed", "createdAt", "source", "due"))
+                val expectedKeys = when (schema) {
+                    FORMAT_V1 -> setOf("title", "completed", "createdAt")
+                    FORMAT_V2 -> setOf("title", "completed", "createdAt", "source", "due")
+                    else -> setOf("backupId", "title", "completed", "createdAt", "source", "due")
+                }
+                require(item.keys().asSequence().toSet() == expectedKeys)
+                if (schema == FORMAT_V3) {
+                    val original = item.get("backupId")
+                    require(original is Number && original.toLong() > 0L &&
+                        original.toDouble() == original.toLong().toDouble())
+                    backupIds.add(original.toLong())
+                }
                 val title = item.opt("title")
                 val completed = item.opt("completed")
                 val timestamp = item.opt("createdAt")
@@ -101,12 +127,12 @@ class LocalTaskBackup(
                 val at = timestamp.toLong()
                 require(at > 0L && at <= now + 86_400_000L &&
                     timestamp.toDouble() == at.toDouble())
-                val source = if (schema == FORMAT_V2 && !item.isNull("source")) {
+                val source = if (schema != FORMAT_V1 && !item.isNull("source")) {
                     val value = item.getString("source")
                     require(value in VALID_SOURCES)
                     value
                 } else null
-                val due = if (schema == FORMAT_V2 && !item.isNull("due")) {
+                val due = if (schema != FORMAT_V1 && !item.isNull("due")) {
                     val value = item.getString("due")
                     require(validDue(value))
                     value
@@ -115,18 +141,65 @@ class LocalTaskBackup(
                     createdAt = at, source = source, due = due))
             }
         }
-        // A single Room transaction makes repeat imports idempotent even when
-        // a document contains duplicated records.
-        val added = database.withTransaction {
-            val existing = database.tasks().snapshot()
-            val seen = existing.mapTo(mutableSetOf()) {
-                Pair(it.title, it.createdAt)
+        // Validate all references and cycles before writing any task or edge.
+        require(backupIds.distinct().size == backupIds.size)
+        val parsedLinks = mutableListOf<LocalTaskDependency>()
+        if (schema == FORMAT_V3) {
+            val links = root.getJSONArray("dependencies")
+            require(links.length() <= MAX_LINKS) { "too_many_dependencies" }
+            val known = backupIds.toSet()
+            for (i in 0 until links.length()) {
+                val edge = links.getJSONObject(i)
+                require(edge.keys().asSequence().toSet() == setOf("task", "before"))
+                val task = edge.get("task")
+                val before = edge.get("before")
+                require(task is Number && before is Number &&
+                    task.toLong() > 0L && before.toLong() > 0L &&
+                    task.toDouble() == task.toLong().toDouble() &&
+                    before.toDouble() == before.toLong().toDouble())
+                val from = task.toLong()
+                val to = before.toLong()
+                require(from in known && to in known)
+                require(parsedLinks.none { it.taskId == from && it.prerequisiteId == to })
+                require(!wouldCreateDependencyCycle(parsedLinks, from, to))
+                parsedLinks.add(LocalTaskDependency(from, to))
             }
+        }
+        // One transaction remaps backup IDs to stored Room IDs and preserves all
+        // links; an incompatible existing graph rolls back the entire import.
+        val added = database.withTransaction {
+            val dao = database.tasks()
+            val existing = dao.snapshot()
+            val available = existing.groupBy { it.title to it.createdAt }
+                .mapValues { (_, rows) ->
+                    java.util.ArrayDeque(rows.map { it.id })
+                }.toMutableMap()
+            val seen = existing.mapTo(mutableSetOf()) {
+                it.title to it.createdAt
+            }
+            val idMap = mutableMapOf<Long, Long>()
             var count = 0
-            for (task in parsed) {
-                if (seen.add(Pair(task.title, task.createdAt))) {
-                    database.tasks().insert(task)
+            for ((index, task) in parsed.withIndex()) {
+                val key = task.title to task.createdAt
+                if (schema == FORMAT_V3) {
+                    // Pair matching with a queue also preserves two legitimately
+                    // distinct same-title / same-millisecond tasks.
+                    val matchingId = available[key]?.pollFirst()
+                    val stored = matchingId ?: dao.insert(task).also { count++ }
+                    idMap[backupIds[index]] = stored
+                } else if (seen.add(key)) {
+                    dao.insert(task)
                     count++
+                }
+            }
+            for (edge in parsedLinks) {
+                val from = requireNotNull(idMap[edge.taskId])
+                val to = requireNotNull(idMap[edge.prerequisiteId])
+                require(from != to) { "dependency_identity_conflict" }
+                if (dao.dependencySnapshot().none {
+                    it.taskId == from && it.prerequisiteId == to
+                }) {
+                    require(dao.tryAddDependency(from, to)) { "dependency_conflict" }
                 }
             }
             count
