@@ -52,6 +52,16 @@ export function validateRecoveryBookmark(result){
  return true;
 }
 
+// A new production schema must never be written by the normal CI-triggered
+// Pages deployment. Only an explicitly approved manual workflow dispatch can
+// apply the one-time migration. Once the schema is ready, ordinary deployments
+// remain unaffected.
+export function requireTaskGraphMigrationApproval(eventName,approval){
+ if(eventName!=='workflow_dispatch'||approval!=='APPLY-0019')
+  throw Error('task_graph_migration_manual_approval_required');
+ return true;
+}
+
 export function classifyTaskGraphSchema(tableRows,columnRows={},triggerRows=[]){
  if(!Array.isArray(tableRows)||!Array.isArray(triggerRows))throw Error('invalid_schema');
  const names=new Set(tableRows.map(x=>typeof x==='string'?x:x?.name));
@@ -111,6 +121,8 @@ export async function ensureTaskGraphSchema(){
   const checkpoint=await api('accounts/'+account+'/d1/database/'+boundId+
    '/time_travel/bookmark',token);
   validateRecoveryBookmark(checkpoint);
+  requireTaskGraphMigrationApproval(process.env.GITHUB_EVENT_NAME,
+   process.env.XIAOXU_TASK_D1_0019_APPLY);
   const checkpointTime=new Date().toISOString();
   console.log('✅ 已核验 D1 Time Travel 迁移前恢复点，UTC：'+checkpointTime+
    '（不输出恢复书签）');
