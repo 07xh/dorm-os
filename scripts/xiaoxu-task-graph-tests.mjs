@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 const input=readFileSync(new URL('../public/xiaoxu-task-graph.js',import.meta.url),'utf8');
 const root={};runInNewContext(input,root);
@@ -66,4 +66,20 @@ assert.match(checkCommand,/node scripts\/xiaoxu-task-graph-tests\.mjs/,
  'graph regression suite must remain registered after branch synchronization');
 assert.match(checkCommand,/node scripts\/xiaoxu-nexttodo-production-audit-tests\.mjs/,
  'D1 read-only preflight safety tests must survive branch synchronization');
+// Keep the production audit in one place after rebasing stacked PRs.
+for(const obsolete of [
+ '../.github/workflows/audit-task-graph-d1.yml',
+ './audit-task-graph-d1-production.mjs',
+ './xiaoxu-task-production-preflight-tests.mjs'
+]){
+ assert.equal(existsSync(new URL(obsolete,import.meta.url)),false,
+  'obsolete duplicate D1 audit must not return: '+obsolete);
+}
+const auditWorkflow=readFileSync(new URL('../.github/workflows/audit-nexttodo-d1.yml',import.meta.url),'utf8');
+assert.match(auditWorkflow,/workflow_dispatch:/);
+assert.doesNotMatch(auditWorkflow,/^  (?:push|pull_request|workflow_run):/m,
+ 'production audit must be manual-only');
+const deployWorkflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+assert.match(deployWorkflow,/approve_task_dependency_migration:/,
+ 'production 0019 write must retain explicit manual consent');
 console.log('NextTodo graph: redundant edge reduction, lineage, local/cloud isolation, XSS, cycle, offline and graph cap PASS');
