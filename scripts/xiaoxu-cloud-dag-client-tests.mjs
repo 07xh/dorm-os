@@ -10,7 +10,7 @@ const initial=[
  {id:'cloud-b',title:'后绘制视图',kind:'manual',local_status:'todo',
   revision:0,due_precision:'unknown',due_local_date:null,source_provider:'manual'}
 ];
-let tasks=initial.map(x=>({...x})),edges=[],revision=0,reads=0,writes=0;
+let tasks=initial.map(x=>({...x})),edges=[],revision=0,reads=0,writes=0,graphOffline=false;
 const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
  status,headers:{'content-type':'application/json'}
 });
@@ -20,7 +20,8 @@ function server(url,{method='GET',body}={}){
  }
  if(url==='/api/v1/sources')return json({connections:[],userSnapshots:[]});
  if(url==='/api/v1/assignments/dependencies'){
-  if(method==='GET')return json({revision,edges:edges.map(x=>({...x}))});
+  if(method==='GET')return graphOffline?json({error:'temporary_unavailable'},503):
+   json({revision,edges:edges.map(x=>({...x}))});
   if(method==='PUT'){
    const patch=JSON.parse(body),target=tasks.find(t=>t.id===patch.taskId);
    if(patch.graphRevision!==revision||patch.taskRevision!==target?.revision)
@@ -89,6 +90,25 @@ assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{f
  ['cloud-a'],'cloud successor cannot enter the ready list before predecessors');
 assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{filter:'waiting'}),r=>r.id),
  ['cloud-b'],'waiting cloud task remains visible and editable');
+
+graphOffline=true;
+await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),false,
+ 'a failed dependency fetch must fail closed without dropping existing tasks');
+assert.equal(phone.graphSnapshot().edges.length,0,
+ 'stale dependency edges must not be reused during an outage');
+const outageTasks=projection.tasks({cloud:phone.displayRecords()});
+assert.equal(outageTasks.find(t=>t.id==='cloud-a').status,'sync_pending');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'})),[],
+ 'unknown cloud blockers must never be promoted into the ready list');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'open'}),r=>r.id),
+ ['cloud-a','cloud-b'],'pending list preserves both tasks throughout the outage');
+graphOffline=false;
+await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),true,'a successful refresh restores dependency state');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'}),r=>r.id),
+ ['cloud-a'],'ready list recovers using the authoritative graph after reconnect');
+
 await phone.toggle('cloud-a','done');
 await desktop.refresh();
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_waiting.length,0);
