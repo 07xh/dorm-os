@@ -113,6 +113,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/ensure-wechat-candidates-schema.mjs
+      - name: Verify and safely migrate owner-scoped task dependency schema
+        if: steps.publish_guard.outputs.fresh == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/ensure-task-dependency-schema.mjs
       - name: Publish verified static website
         if: steps.publish_guard.outputs.fresh == 'true'
         env:
