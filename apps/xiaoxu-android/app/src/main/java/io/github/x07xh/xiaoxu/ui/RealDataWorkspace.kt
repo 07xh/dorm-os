@@ -286,6 +286,15 @@ internal fun considerCompleteInTaskList(task: WorkspaceTask): Boolean =
     task.done || (task.provider == "chaoxing" &&
         task.officialStatus in setOf("submitted", "graded"))
 
+/** Unknown school records are neither verified complete nor actionable.
+ * Retain them for user review without changing any stored status. */
+internal fun requiresChaoxingVerification(task: WorkspaceTask): Boolean =
+    task.provider == "chaoxing" && !considerCompleteInTaskList(task) &&
+        task.officialStatus !in setOf("todo", "returned")
+
+internal fun isActionableWorkspaceTask(task: WorkspaceTask): Boolean =
+    !considerCompleteInTaskList(task) && !requiresChaoxingVerification(task)
+
 /** Distinguish live homework identity from a legacy inbox identity in details.
  * Notice identity alone cannot prove an assignment still exists or was deleted.
  */
@@ -337,7 +346,8 @@ private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
 private fun selectTasks(list: List<WorkspaceTask>, filter: String, today: LocalDate) =
     list.filter { task ->
         when (filter) {
-            "pending", "now" -> !considerCompleteInTaskList(task)
+            "pending", "now" -> isActionableWorkspaceTask(task)
+            "verify" -> requiresChaoxingVerification(task)
             "done" -> considerCompleteInTaskList(task)
             "week" -> task.storage == "local" && !task.done && thisWeek(task.date, today)
             "local" -> task.storage == "local"
@@ -377,11 +387,7 @@ internal fun readyWorkspaceTasks(
 ): List<WorkspaceTask> {
     val readyLocalIds = readyLocalTaskIds(local, dependencies)
     return tasks.asSequence()
-        .filter { !considerCompleteInTaskList(it) }
-        // Unverified Chaoxing history has no trustworthy action state:
-        // retain it for manual review, but never label it executable.
-        .filter { it.provider != "chaoxing" ||
-            it.officialStatus in setOf("todo", "returned") }
+        .filter(::isActionableWorkspaceTask)
         .filter { it.storage != "local" ||
             it.key.removePrefix("local:").toLongOrNull() in readyLocalIds }
         .sortedWith(compareBy<WorkspaceTask>(
@@ -394,8 +400,7 @@ internal fun readyWorkspaceTasks(
 
 /** Unknown school records remain visible for review instead of resurfacing as to-dos. */
 internal fun unverifiedChaoxingWorkspaceTasks(tasks: List<WorkspaceTask>): List<WorkspaceTask> =
-    tasks.filter { !considerCompleteInTaskList(it) && it.provider == "chaoxing" &&
-        it.officialStatus !in setOf("todo", "returned") }
+    tasks.filter(::requiresChaoxingVerification)
 
 /** Waiting items remain discoverable without a second task store or status model. */
 internal fun waitingWorkspaceTasks(
@@ -453,7 +458,7 @@ fun RealAcademicHome(
     val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
         .sortedBy { it.startSection }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = all.count { !considerCompleteInTaskList(it) }
+    val pending = all.count(::isActionableWorkspaceTask)
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
     val attention = countUpcomingLocalDeadlines(all, today)
@@ -1046,11 +1051,12 @@ fun RealAcademicTaskHub(
     val nowCount = remember(all, localTasks, dependencies) {
         readyWorkspaceTasks(all, localTasks, dependencies).size
     }
+    val reviewCount = remember(all) { all.count(::requiresChaoxingVerification) }
     val needsVerificationRows = remember(all, filter, searchQuery, sourceFilter,
         onlyThisWeek, today) {
         if (filter != "now") emptyList()
         else unverifiedChaoxingWorkspaceTasks(
-            facetWorkspaceTasks(searchWorkspaceTasks(all, "pending", searchQuery, today),
+            facetWorkspaceTasks(searchWorkspaceTasks(all, "verify", searchQuery, today),
                 sourceFilter, onlyThisWeek, today))
     }
     val waitingRows = remember(all, filter, localTasks, dependencies, searchQuery,
@@ -1176,7 +1182,7 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "now" }
                 )
                 TaskStatusTab(
-                    label = "待完成", count = all.count { !considerCompleteInTaskList(it) },
+                    label = "待完成", count = all.count(::isActionableWorkspaceTask),
                     active = filter == "pending", modifier = Modifier.weight(1f),
                     onClick = { filter = "pending" }
                 )
@@ -1190,6 +1196,32 @@ fun RealAcademicTaskHub(
                     active = filter == "done", modifier = Modifier.weight(1f),
                     onClick = { filter = "done" }
                 )
+            }
+        }
+        if (reviewCount > 0 || filter == "verify") item(key = "task:review-entry") {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = filter == "verify",
+                    onClick = {
+                        if (filter == "verify") {
+                            filter = "now"
+                            sourceFilter = "all"
+                        } else {
+                            filter = "verify"
+                            sourceFilter = "chaoxing"
+                            onlyThisWeek = false
+                            showChaoxingTasks = true
+                        }
+                    },
+                    label = { Text("学习通待核对 ($reviewCount)") }
+                )
+                if (filter == "verify") {
+                    Text("历史通知及未知状态，未计入待完成",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2, modifier = Modifier.weight(1f))
+                }
             }
         }
         if (!state.tasksFresh && state.tasks.isNotEmpty()) item {
@@ -1527,7 +1559,7 @@ fun RealAcademicTaskHub(
             if (cloudRows.isNotEmpty()) {
                 item(key = "group:course") {
                     TaskGroupHeader(
-                        title = "课程任务",
+                        title = "其他云端待办",
                         count = cloudRows.size,
                         badge = "",
                         note = "",
@@ -1801,8 +1833,7 @@ internal fun WorkspaceTaskDetailSheet(
                     selectedTask.done -> "个人已完成"
                     waitingTitles.isNotEmpty() -> "等待前置"
                     considerCompleteInTaskList(selectedTask) -> "官方已提交"
-                    selectedTask.provider == "chaoxing" &&
-                        selectedTask.officialStatus in setOf(null, "unknown") -> "待核对"
+                    requiresChaoxingVerification(selectedTask) -> "待核对"
                     else -> "待完成"
                 },
                 if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
