@@ -1317,11 +1317,13 @@ fun RealAcademicTaskHub(
                     ConnectedTaskShell(index = i, total = shown.size, standalone = true) {
                         TaskRow(
                             row, today, onOpen = { openedTaskKey = row.key },
-                            onToggleLocal = if (row.storage == "local")
-                                { checked -> toggleLocal(row, checked) } else null,
+                            onToggleLocal = if (row.storage == "local") {
+                                { checked -> toggleLocal(row, checked) }
+                            } else null,
                             onToggleWechat = if (state.tasksFresh &&
-                                row.category == "wechat" && row.revision >= 0)
-                                { checked -> toggleWechat(row, checked) } else null,
+                                row.category == "wechat" && row.revision >= 0) {
+                                { checked -> toggleWechat(row, checked) }
+                            } else null,
                             pendingChecked = if (row.storage == "local")
                                 pendingLocalTaskUpdates[row.key]
                                 else pendingWechatTaskUpdates[row.key],
