@@ -60,6 +60,10 @@ db.prepare=originalPrepare;
 assert.equal(graphHasCycle([{taskId:'a',prerequisiteId:'b'},
  {taskId:'b',prerequisiteId:'a'}]),true);
 assert.equal(graphHasCycle([{taskId:'b',prerequisiteId:'a'}]),false);
+assert.equal(graphHasCycle([]),false,'empty graph is acyclic');
+assert.equal(graphHasCycle([{taskId:'self',prerequisiteId:'self'}]),true,
+ 'self-dependencies must be rejected');
+
 
 const deepChain=Array.from({length:12000},(_,i)=>({
  taskId:'chain-'+(i+1),prerequisiteId:'chain-'+i
