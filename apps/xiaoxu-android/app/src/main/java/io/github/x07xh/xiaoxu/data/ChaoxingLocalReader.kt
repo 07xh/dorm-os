@@ -152,11 +152,13 @@ internal class ChaoxingLocalReader(
          * conflicting aliases instead of demoting an actual homework item
          * to an unrelated study-task key.
          */
-        private fun numericIdentity(p: Map<String, String>, vararg keys: String): String? {
+        private fun consistentIdentity(p: Map<String, String>, vararg keys: String): String? {
             val values=keys.mapNotNull { p[it] }.distinct()
             if (values.size > 1) throw ChaoxingReadFailure("ambiguous_identity")
-            return values.singleOrNull()?.takeIf { numeric.matches(it) }
+            return values.singleOrNull()
         }
+        private fun numericIdentity(p: Map<String, String>, vararg keys: String): String? =
+            consistentIdentity(p, *keys)?.takeIf { numeric.matches(it) }
         private fun workKey(url: String): String? {
             val p=params(url)
             val course=numericIdentity(p,"courseId","courseid") ?: return null
@@ -169,9 +171,15 @@ internal class ChaoxingLocalReader(
             // Fallback work links without a complete course/class/work triple
             // must still include their course and class namespace in the
             // fingerprint. Exclude time-limited enc/t tokens for stability.
-            val identity=listOf("courseId","courseid","classId","clazzid","classid","cpi",
-                "encryTaskId","taskId","workId","workid","taskrefId","planId")
-                .mapNotNull {k->p[k]?.let {"$k=$it"}}.joinToString("&")
+            val identity=listOfNotNull(
+                consistentIdentity(p,"courseId","courseid")?.let {"course=$it"},
+                consistentIdentity(p,"classId","clazzid","classid")?.let {"class=$it"},
+                p["cpi"]?.let {"cpi=$it"},
+                p["encryTaskId"]?.let {"encryTaskId=$it"},
+                p["taskId"]?.let {"taskId=$it"},
+                consistentIdentity(p,"workId","workid","taskrefId")?.let {"work=$it"},
+                p["planId"]?.let {"planId=$it"}
+            ).joinToString("&")
             if(identity.isBlank()) throw ChaoxingReadFailure("task_identity")
             return "study:"+hash(URI(url).host+URI(url).path+"?"+identity)
         }
@@ -451,8 +459,13 @@ internal class ChaoxingLocalReader(
                 val knownDetail=items[stable]?.status.orEmpty()
                 val peerComplete=Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成")
                 if (detachedPeer && !peerComplete.containsMatchIn(knownDetail)) {
-                    readWorkLink(ChaoxingDiscoveredLink(
-                        row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
+                    // An optional peer-detail page may be unavailable even if
+                    // the official course list is valid. Keep subsequent work
+                    // rows and mark the batch partial instead of dropping them.
+                    recover("互评详情") {
+                        readWorkLink(ChaoxingDiscoveredLink(
+                            row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
+                    }
                 }
                 val detailedStatus=items[stable]?.status
                 // The course list may say merely "submitted" while the work
