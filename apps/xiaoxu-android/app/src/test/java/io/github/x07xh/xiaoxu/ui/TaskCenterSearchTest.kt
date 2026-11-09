@@ -235,6 +235,50 @@ class TaskCenterSearchTest {
 
 
     @Test
+    fun nexttodoStyleFocusSortsOnlyVerifiedPersonalDeadlinesAndKeepsEveryRecord() {
+        val input = listOf(
+            WorkspaceTask("cloud:unverified", "旧学习通通知", "学习通", false,
+                today.minusDays(9), "云端待核对", "cloud", provider = "chaoxing",
+                officialStatus = "unknown"),
+            WorkspaceTask("cloud:manual", "其他云端任务", "云端", false,
+                today.minusDays(10), "云端记录", "cloud"),
+            WorkspaceTask("local:later", "后天截止", "本机", false,
+                today.plusDays(2), "本人填写", "local"),
+            WorkspaceTask("local:overdue", "逾期本机任务", "本机", false,
+                today.minusDays(1), "本人填写", "local"),
+            WorkspaceTask("cloud:submitted", "已提交作业", "学习通", false,
+                null, "官方只读", "cloud", provider = "chaoxing",
+                officialStatus = "submitted"),
+            WorkspaceTask("local:done", "已完成的个人任务", "本机", true,
+                today.minusDays(3), "本人填写", "local")
+        )
+        val sorted = orderWorkspaceTasksForFocus(input)
+        assertEquals(
+            listOf("local:overdue", "local:later", "cloud:manual",
+                "cloud:unverified", "local:done", "cloud:submitted"),
+            sorted.map { it.key })
+        // A view switch cannot silently delete, merge, or create tasks.
+        assertEquals(input.map { it.key }.toSet(), sorted.map { it.key }.toSet())
+    }
+
+    @Test
+    fun nexttodoStyleFocusLeavesSchoolSubmissionAndPersonalCheckIndependent() {
+        val input = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("verified", "学校已经提交", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:1:2:3", officialStatus = "graded"),
+            CloudTask("unknown", "旧通知待核对", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "legacy-1", officialStatus = "unknown"),
+            CloudTask("returned", "学校退回作业", "todo", "platform", "chaoxing",
+                null, sourceExternalId = "work:4:5:6", officialStatus = "returned")
+        ))
+        val result = orderWorkspaceTasksForFocus(input)
+        assertEquals(listOf("cloud:returned", "cloud:unknown", "cloud:verified"),
+            result.map { it.key })
+        assertEquals(false, input.single { it.key == "cloud:verified" }.done)
+        assertTrue(considerCompleteInTaskList(input.single { it.key == "cloud:verified" }))
+    }
+
+    @Test
     fun whitespaceAndCaseInsensitiveSearchAreStable() {
         assertEquals(records, searchWorkspaceTasks(records, "all", "  ", today))
         assertEquals(listOf("cloud:1"),
