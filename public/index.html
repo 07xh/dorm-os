@@ -315,7 +315,7 @@ const fmtDate=date=>date?date.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$1/$2/$3'):'�
 let state;
 try {const raw=localStorage.getItem(STORAGE);state=raw?safeState(JSON.parse(raw)):structuredClone(DEFAULT_STATE);} catch {state=structuredClone(DEFAULT_STATE);}
 let taskSource='all';
-let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='ready',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
+let page='dashboard',academicTab='notices',homeDayOffset=0,taskFilter='all',weather=null,weatherLoading=false,weatherError='',toastTimer=null;
 let noticeFeed=null,noticeStatus='idle',noticeUpdatedAt='',noticeFilter='all',noticeQuery='',noticePartial=false,noticeFailure='';
 let noticeReading=XiaoxuNotices.normalizeReading(null),noticeArchiveTime='',noticeApiTime='',noticeArchiveUsed=false,noticeApiUsed=false;
 const NOTICE_ALERT_PREF='xiaoxu-notice-browser-alert-v1';
@@ -436,7 +436,7 @@ function workspaceTaskRow(row,actions=true){
    (manual&&actions?'<button type="button" class="secondary" data-action="cloud-edit:'+esc(row.id)+'">编辑</button>':'')
    +(row.source==='chaoxing'&&row.raw.kind==='platform'?
     '<span class="pill">'+(row.officialDone?'官方已完成':row.status==='verify'?'待核对':'官方待处理')+'</span>':
-    '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(row.id)+':'+(row.personalDone?'todo':'done')+'">'+(row.personalDone?'恢复待办':'个人标记完成')+'</button>'))+'</div>';
+    '<button type="button" class="secondary" data-action="cloud-toggle:'+esc(row.id)+':'+(row.personalDone?'todo':'done')+'">'+(row.personalDone?'恢复待办':'标记完成')+'</button>'))+'</div>';
 }
 function homeWidgetContent(id){
  const p=now(),date=addDays(p.date,homeDayOffset),day=weekday(date);
@@ -779,7 +779,7 @@ function tasksPage(){
  return `${titleBlock('','我的任务')}
  <section class="v4-task-toolbar" aria-label="任务视图"><div class="list-controls v4-filters">${[['ready','接下来'],['open','待完成'],['waiting','等待中'],['done','已完成'],['all','全部'],['review','待确认']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}" aria-pressed="${taskFilter===k}">${l}</button>`).join('')}</div>
  <div class="button-row">${verifyCount||taskFilter==='verify'?'<button type="button" class="filter-btn '+(taskFilter==='verify'?'active':'')+'" data-filter="verify" aria-pressed="'+(taskFilter==='verify')+'">学习通待核对 · '+verifyCount+'</button>':''}<select data-task-source aria-label="任务来源" ${review?'hidden':''}>${[['all','全部来源'],['chaoxing','学习通'],['ncwu','青果教务'],['second_class','第二课堂'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button></div></details><button type="button" class="secondary v4-export" data-action="export-deadlines" ${review?'hidden':''}>添加到日历</button></div></section>
- <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">学校提交状态以官方身份和原始状态为准 · 前置关系仅作用于本机任务</span></div>
+ <div ${review?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录 · 学习通未连接自动同步时仅展示已有数据 · 前置关系仅作用于本机任务</span></div>
  <section class="card v4-task-list">${rows.length?rows.map(r=>workspaceTaskRow(r)).join(''):'<div class="empty">当前筛选下暂无任务。</div>'}</section>
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
  <div id="xuChaoxingWorkHost">${XiaoxuChaoxingHomework.panel()}</div></div>
