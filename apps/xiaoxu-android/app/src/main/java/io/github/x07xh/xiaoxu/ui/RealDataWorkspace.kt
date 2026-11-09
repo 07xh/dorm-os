@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -377,6 +378,10 @@ internal fun readyWorkspaceTasks(
     val readyLocalIds = readyLocalTaskIds(local, dependencies)
     return tasks.asSequence()
         .filter { !considerCompleteInTaskList(it) }
+        // Unverified Chaoxing history has no trustworthy action state:
+        // retain it for manual review, but never label it executable.
+        .filter { it.provider != "chaoxing" ||
+            it.officialStatus in setOf("todo", "returned") }
         .filter { it.storage != "local" ||
             it.key.removePrefix("local:").toLongOrNull() in readyLocalIds }
         .sortedWith(compareBy<WorkspaceTask>(
@@ -386,6 +391,11 @@ internal fun readyWorkspaceTasks(
         ))
         .toList()
 }
+
+/** Unknown school records remain visible for review instead of resurfacing as to-dos. */
+internal fun unverifiedChaoxingWorkspaceTasks(tasks: List<WorkspaceTask>): List<WorkspaceTask> =
+    tasks.filter { !considerCompleteInTaskList(it) && it.provider == "chaoxing" &&
+        it.officialStatus !in setOf("todo", "returned") }
 
 /** Waiting items remain discoverable without a second task store or status model. */
 internal fun waitingWorkspaceTasks(
@@ -996,6 +1006,7 @@ fun RealAcademicTaskHub(
     var showWechatTasks by rememberSaveable { mutableStateOf(false) }
     var showPersonalTasks by rememberSaveable { mutableStateOf(false) }
     var showWaitingTasks by rememberSaveable { mutableStateOf(false) }
+    var showNeedsVerification by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
@@ -1034,6 +1045,13 @@ fun RealAcademicTaskHub(
     }
     val nowCount = remember(all, localTasks, dependencies) {
         readyWorkspaceTasks(all, localTasks, dependencies).size
+    }
+    val needsVerificationRows = remember(all, filter, searchQuery, sourceFilter,
+        onlyThisWeek, today) {
+        if (filter != "now") emptyList()
+        else unverifiedChaoxingWorkspaceTasks(
+            facetWorkspaceTasks(searchWorkspaceTasks(all, "pending", searchQuery, today),
+                sourceFilter, onlyThisWeek, today))
     }
     val waitingRows = remember(all, filter, localTasks, dependencies, searchQuery,
         sourceFilter, onlyThisWeek, today) {
@@ -1387,6 +1405,32 @@ fun RealAcademicTaskHub(
                                 row, today,
                                 onOpen = { openedTaskKey = row.key },
                                 dependencyHint = hint
+                            )
+                        }
+                    }
+                }
+            }
+            if (needsVerificationRows.isNotEmpty()) {
+                item(key = "next:unverified") {
+                    TaskGroupHeader(
+                        title = "学习通待核对",
+                        count = needsVerificationRows.size,
+                        badge = "",
+                        note = "历史或未知状态，不计入现在可做",
+                        icon = Icons.Outlined.HelpOutline,
+                        expanded = showNeedsVerification,
+                        joinedRows = true,
+                        onClick = { showNeedsVerification = !showNeedsVerification }
+                    )
+                }
+                if (showNeedsVerification) {
+                    items(count = needsVerificationRows.size,
+                        key = { i -> "unverified:" + needsVerificationRows[i].key }) { i ->
+                        val row = needsVerificationRows[i]
+                        ConnectedTaskShell(index = i, total = needsVerificationRows.size) {
+                            TaskRow(
+                                row, today, onOpen = { openedTaskKey = row.key },
+                                verificationHint = "来源状态未核实 · 点击查看"
                             )
                         }
                     }
@@ -2051,7 +2095,8 @@ private fun TaskRow(
     onToggleWechat: ((Boolean) -> Unit)? = null,
     pendingChecked: Boolean? = null,
     actionEnabled: Boolean = true,
-    dependencyHint: String? = null
+    dependencyHint: String? = null,
+    verificationHint: String? = null
 ) {
     val due = remember(task, today) { describeDue(task, today) }
     val dueTone = when (due.emphasis) {
@@ -2067,10 +2112,11 @@ private fun TaskRow(
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
     val statusText = if (isPending) "保存中…" else
-        dependencyHint ?: officialLabel ?: if (task.done) "个人已完成" else due.label
+        dependencyHint ?: verificationHint ?: officialLabel ?:
+            if (task.done) "个人已完成" else due.label
     val statusInk = when {
         isPending -> XiaoxuPalette.Brand
-        dependencyHint != null -> XiaoxuPalette.Ink2
+        dependencyHint != null || verificationHint != null -> XiaoxuPalette.Ink2
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2081,7 +2127,7 @@ private fun TaskRow(
     }
     val statusBackground = when {
         isPending -> XiaoxuPalette.BrandSoft
-        dependencyHint != null -> XiaoxuPalette.GlassTrack
+        dependencyHint != null || verificationHint != null -> XiaoxuPalette.GlassTrack
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2106,6 +2152,7 @@ private fun TaskRow(
                         else "待办") +
                     "；" + due.spoken +
                     (dependencyHint?.let { "；" + it } ?: "") +
+                    (verificationHint?.let { "；" + it } ?: "") +
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击查看任务详情"
             }
@@ -2141,6 +2188,7 @@ private fun TaskRow(
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 Icon(
                     if (dependencyHint != null) Icons.Outlined.Lock
+                    else if (verificationHint != null) Icons.Outlined.HelpOutline
                     else if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox
                     else Icons.Outlined.CheckBoxOutlineBlank,
                     contentDescription = null,
