@@ -133,6 +133,7 @@ assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
 const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+const taskWorkspaceForComposerGate = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
 assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
   'Two reminder toggles must share one Android permission gateway');
 assert.equal(profileSettings.split('ContextCompat.checkSelfPermission(').length - 1, 1,
@@ -175,9 +176,9 @@ assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/,
 assert.doesNotMatch(localTaskUi,
   /LazyRow\(horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\)\s*\{\s*items\(count = TASK_SOURCES\.size/,
   '新建和编辑任务禁止再出现横向截断的五项分类');
-assert.match(workspace, /showLocalComposer by rememberSaveable/,
+assert.match(taskWorkspaceForComposerGate, /showLocalComposer by rememberSaveable/,
   '顶栏新增任务必须独立于本机任务管理');
-assert.match(workspace, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
+assert.match(taskWorkspaceForComposerGate, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
   '新增按钮直接进入单用途新建页');
 assert.match(localTaskUi, /if \(tasks\.isEmpty\(\)\)/,
   '零条本机任务时不应该显示无意义的筛选器');
