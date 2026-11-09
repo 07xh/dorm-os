@@ -44,6 +44,26 @@ class TaskCenterSearchTest {
 
 
     @Test
+    fun unknownChaoxingHistoryMustNotBeOfferedAsActionableHomework() {
+        val rows = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("unverified", "历史通知残留", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "legacy-inbox-record"),
+            CloudTask("unknown", "待核对状态", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:1:2:3", officialStatus = "unknown"),
+            CloudTask("real-todo", "官方未提交", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:3:2:1", officialStatus = "todo"),
+            CloudTask("real-done", "已提交", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:4:2:1", officialStatus = "submitted")
+        ))
+        val ready = readyWorkspaceTasks(rows, emptyList(), emptyList()).map { it.key }
+        assertEquals(listOf("cloud:real-todo"), ready)
+        val review = unverifiedChaoxingWorkspaceTasks(rows).map { it.key }.toSet()
+        assertEquals(setOf("cloud:unverified", "cloud:unknown"), review)
+        assertEquals(4, rows.size) // no historical task is deleted or rewritten
+        assertEquals(3, searchWorkspaceTasks(rows, "pending", "", today).size)
+    }
+
+    @Test
     fun waitingSectionOnlyContainsBlockedLocalTasksAndRespectsSearchFilter() {
         val local = listOf(
             LocalTask(id = 1, title = "准备实验"),
