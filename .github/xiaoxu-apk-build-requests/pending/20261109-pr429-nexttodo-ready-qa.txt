@@ -1,4 +1,0 @@
-QA build requested by user for PR #429 on 2026-11-09.
-Scope: NextTodo-style ready list, editable local task prerequisites, Room v4 migration and backup v3.
-Build separate io.github.x07xh.xiaoxu.unifiedqa Android QA package.
-Do not promote to main or publish formal release without latest CI and device validation.
