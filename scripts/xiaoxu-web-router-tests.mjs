@@ -12,6 +12,9 @@ for(const name of ['dashboard','study','timetable','academic','campus','tasks','
  assert.equal(route.hash,'#'+name);
 }
 assert.equal(router.fromHash('#review').page,'tasks');
+assert.equal(router.fromHash('#task-graph').page,'tasks');
+assert.equal(router.fromHash('#task-graph').taskFilter,'graph');
+assert.equal(router.taskFilterHash('graph'),'#task-graph');
 assert.equal(router.fromHash('#review').taskFilter,'review');
 assert.equal(router.resolve('review').hash,'#review');
 assert.equal(router.fromHash('#tasks').taskFilter,'all');
