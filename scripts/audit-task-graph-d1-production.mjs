@@ -21,12 +21,16 @@ export function classifyD1Preflight(schema){
  if(schema==='ready')return 'already_ready';
  throw Error('task_graph_schema_partial_manual_review_required');
 }
+export function requireReadonlyPreflightContext(repo,ref,event){
+ if(repo!==REPO||ref!==BRANCH||event!=='workflow_dispatch')
+  throw Error('readonly_preflight_main_manual_only');
+ return true;
+}
 export async function auditTaskGraphD1Production(){
  // This workflow is manually dispatched from main only. Unlike deployment,
- // it never invokes ensureTaskGraphSchema() or Wrangler --file.
- if(process.env.GITHUB_REPOSITORY!==REPO||process.env.GITHUB_REF!==BRANCH||
-    process.env.GITHUB_EVENT_NAME!=='workflow_dispatch')
-  throw Error('readonly_preflight_main_manual_only');
+ // it never invokes ensureTaskGraphSchema() or Wrangler migration files.
+ requireReadonlyPreflightContext(process.env.GITHUB_REPOSITORY,
+  process.env.GITHUB_REF,process.env.GITHUB_EVENT_NAME);
  const account=process.env.CLOUDFLARE_ACCOUNT_ID;
  const token=process.env.CLOUDFLARE_API_TOKEN;
  if(!/^[a-f0-9]{32}$/i.test(account||'')||!token)
