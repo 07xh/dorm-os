@@ -1732,7 +1732,7 @@ internal fun WorkspaceTaskDetailSheet(
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
             ) { Text("打开学习通核对") }
             Text(
-                if (Regex("""work:\\d{1,24}:\\d{1,24}:\\d{1,24}""").matches(
+                if (Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""").matches(
                         selectedTask.sourceExternalId.orEmpty()))
                     "已识别官方作业身份，状态来自只读记录；若与官网不同，请重新读取。"
                 else "尚未确认当前官方作业身份；请在学习通重新读取，本条历史记录不会自动删除或标记完成。",
