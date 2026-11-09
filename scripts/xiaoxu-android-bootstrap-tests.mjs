@@ -118,13 +118,15 @@ assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
 assert.match(db, /val source: String\?/);
 assert.match(db, /val due: String\?/);
-assert.match(db, /version = 3/);
+assert.match(db, /version = 4/);
 assert.match(db, /Migration\(2, 3\)/);
 assert.match(db, /CREATE TABLE IF NOT EXISTS native_school_records/);
 assert.match(db, /Migration\(1, 2\)/);
 assert.match(db, /ADD COLUMN source TEXT/);
 assert.match(db, /ADD COLUMN due TEXT/);
-assert.match(db, /addMigrations\(MIGRATION_1_2, MIGRATION_2_3\)/);
+assert.match(db, /Migration\(3, 4\)/);
+assert.match(db, /CREATE TABLE IF NOT EXISTS local_task_dependencies/);
+assert.match(db, /addMigrations\(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4\)/);
 assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
@@ -1048,6 +1050,8 @@ assert.match(backupSource, /backup\.mergeFrom\(uri\)/,
 assert.match(db, /suspend fun snapshot\(\): List<LocalTask>/);
 assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v1/);
 assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v2/);
+assert.match(taskBackup, /xiaoxu\/local-tasks-backup-v3/);
+assert.match(taskBackup, /wouldCreateDependencyCycle/);
 assert.match(taskBackup, /schema == FORMAT_V1 \|\| schema == FORMAT_V2/);
 assert.match(taskBackup, /"source", "due"/);
 assert.match(taskBackup, /validDue/);
