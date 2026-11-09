@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import io.github.x07xh.xiaoxu.data.CloudTask
+import io.github.x07xh.xiaoxu.data.LocalTask
+import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,6 +19,28 @@ class TaskCenterSearchTest {
         WorkspaceTask("local:2", "复习高等数学", "本机待办",
             true, today.minusDays(1), "本人填写", "local")
     )
+
+    @Test
+    fun nextViewShowsOnlyReadyTasksAndNeverWritesOfficialState() {
+        val local = listOf(LocalTask(id = 1, title = "准备材料"),
+            LocalTask(id = 2, title = "完成报告"),
+            LocalTask(id = 3, title = "提交作业", completed = true))
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val rows = combineWorkspaceTasks(local, listOf(
+            CloudTask("wx-ready", "确认班级通知", "todo", "manual", "wechat", null),
+            CloudTask("cx-submitted", "官方已提交", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:4:5:6", officialStatus = "submitted")
+        ))
+        val ready = readyWorkspaceTasks(rows, local, edges)
+        assertEquals(setOf("local:1", "cloud:wx-ready"), ready.map { it.key }.toSet())
+        assertTrue("local:2" !in ready.map { it.key })
+        // Completing a prerequisite unlocks the next task without ever
+        // mutating an official Chaoxing submission.
+        val doneLocal = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        val after = readyWorkspaceTasks(combineWorkspaceTasks(doneLocal, emptyList()),
+            doneLocal, edges)
+        assertEquals(listOf("local:2"), after.map { it.key })
+    }
 
     @Test
     fun searchByTitleAndSourceKeepsStorageAndOriginalOrder() {
