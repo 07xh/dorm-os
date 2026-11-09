@@ -199,6 +199,18 @@ def validate_decisions(config: dict, secret: bytes, cursors: dict, snapshot: dic
     records.sort(key=lambda row: (row["sentAt"], row["candidateKey"]))
     return records, snapshot["nextCursors"]
 
+def check_ai(config: dict, secret: bytes, cursors: dict) -> None:
+    """Validate signed local AI decisions without reading WeChat or uploading."""
+    snapshot = _read_json(INPUT)
+    output = _read_json(DECISIONS)
+    records, _ = validate_decisions(config, secret, cursors, snapshot, output)
+    exact = sum(x["deadline"]["precision"] == "exact" for x in records)
+    date_only = sum(x["deadline"]["precision"] == "date" for x in records)
+    unknown = len(records) - exact - date_only
+    print(f"AI 结果校验通过：{len(records)} 条候选；精确时间 {exact} 条，仅日期 {date_only} 条，未知 {unknown} 条。")
+    print("尚未上传或推进游标；请在本机审阅 AI 输出后再手动执行 ai-submit。")
+
+
 
 def submit_ai(config: dict, secret: bytes, cursors: dict) -> None:
     snapshot = _read_json(INPUT)
