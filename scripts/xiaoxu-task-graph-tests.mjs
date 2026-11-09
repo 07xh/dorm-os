@@ -58,6 +58,7 @@ const aLot=Array.from({length:84},(_,i)=>row('T'+i));
 const limited=graph.scene(aLot);
 assert.equal(limited.nodes.length,72);
 assert.equal(limited.truncated,true);
+assert.ok(limited.height<=700,'wide plans should not produce a giant vertical graph');
 assert.ok(graph.render(aLot).includes('仅展示前 72 项'));
 assert.equal(graph.render([]).includes('暂无可绘制的个人任务关系'),true);
 console.log('NextTodo graph: redundant edge reduction, lineage, local/cloud isolation, XSS, cycle, offline and graph cap PASS');
