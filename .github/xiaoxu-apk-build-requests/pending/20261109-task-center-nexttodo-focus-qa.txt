@@ -1,0 +1,4 @@
+2026-11-09 task-center NextTodo-style focus-view isolated QA request
+PR #430; source branch feat/task-center-nexttodo-focus-20261109
+Build Android debug + Kotlin JVM + separate io.github.x07xh.xiaoxu.unifiedqa APK only.
+Do not merge/publish production until CI and Ace 6 visual/official-status acceptance.
