@@ -1104,6 +1104,11 @@ fun RealAcademicTaskHub(
                         Toast.makeText(context, client.state.privateError
                             ?: "微信任务保存未确认，请刷新后重试", Toast.LENGTH_SHORT).show()
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    Toast.makeText(context, "微信任务保存失败，未确认写入，请刷新重试",
+                        Toast.LENGTH_SHORT).show()
                 } finally {
                     pendingWechatTaskUpdates.remove(row.key)
                 }
