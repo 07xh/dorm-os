@@ -139,3 +139,7 @@ git pull
 - `DELETE /api/v1/wechat/devices/{id}` 需要校序本人登录和同源请求，随时撤销电脑同步权限。
 - **请不要手动调用以上接口或粘贴设备 token 到聊天中**。待 App 界面及电脑端一键配对完成后，通过校序已有登录界面操作。
 - CI 使用 SQLite 合成记录验证隔离、重放、去重与审批；**没有真实微信群内容参与 CI**。
+
+## 可选 AI Skill 试验（不同于现有规则同步）
+
+原版 `syskuku/wechat-todo` 已经包含 AI 分类/汇总的 Skill 指令，但不是可直接调用的 Python 处理函数。校序现有 `collector.py` 默认规则同步保持不变；新增的 `ai-prepare` / `ai-submit` 是**本机脱敏快照 → 已安装 Agent Skill → D1 候选审核** 的手动验收路径，绝不会自动访问所有微信会话、直接同步滴答或写入第二套待办数据库。使用前请阅读 [AI-HANDOFF.md](../integrations/wechat/AI-HANDOFF.md) 与 [AI-AGENT-PROMPT.md](../integrations/wechat/AI-AGENT-PROMPT.md)。目前仍未具备自动 AI 调度/日报，不可将此试验误判为已上线功能。
