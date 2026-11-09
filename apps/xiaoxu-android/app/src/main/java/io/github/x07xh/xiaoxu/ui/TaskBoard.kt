@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +66,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
+import io.github.x07xh.xiaoxu.data.LocalTaskDependency
+import io.github.x07xh.xiaoxu.data.wouldCreateDependencyCycle
 import io.github.x07xh.xiaoxu.data.TASK_SOURCE_LOCAL
 import java.time.DayOfWeek
 import java.time.Instant
@@ -392,6 +396,18 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     var pickerOpen by remember(task.id) { mutableStateOf(false) }
     var saving by remember(task.id) { mutableStateOf(false) }
     var error by remember(task.id) { mutableStateOf<String?>(null) }
+    val allLocal by dao.observe().collectAsState(initial = emptyList())
+    val allEdges by dao.observeDependencies().collectAsState(initial = emptyList())
+    // Null means no edit; it protects existing edges while Room loads.
+    var editedPrerequisites by remember(task.id) { mutableStateOf<Set<Long>?>(null) }
+    val chosen = editedPrerequisites ?: allEdges.asSequence()
+        .filter { it.taskId == task.id }.map { it.prerequisiteId }.toSet()
+    val otherTasks = remember(allLocal, task.id) {
+        allLocal.filter { it.id != task.id }.sortedWith(compareBy<LocalTask> { it.completed }
+            .thenBy { it.title }.thenBy { it.id })
+    }
+    val graphWithoutThis = allEdges.filter { it.taskId != task.id } +
+        chosen.map { LocalTaskDependency(task.id, it) }
 
     XiaoxuGlassDialog(title = "编辑本机任务", onDismiss = onDismiss, dismissLabel = "取消") {
         OutlinedTextField(
@@ -430,6 +446,46 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                 }
             }
         }
+        Text("前置任务 · 本人设置", style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink2)
+        if (otherTasks.isEmpty()) {
+            Text("先添加另一条本机任务，就能为当前事项设置前置关系。",
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        } else {
+            // Bound the editor height: a large task database stays lazy.
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 176.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                items(count = otherTasks.size, key = { otherTasks[it].id }) { index ->
+                    val candidate = otherTasks[index]
+                    val checked = candidate.id in chosen
+                    val wouldCycle = !checked && wouldCreateDependencyCycle(
+                        graphWithoutThis, task.id, candidate.id)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = checked,
+                            enabled = !saving && !wouldCycle,
+                            onCheckedChange = { isChecked ->
+                                editedPrerequisites = if (isChecked) chosen + candidate.id
+                                    else chosen - candidate.id
+                                error = null
+                            }
+                        )
+                        Text(candidate.title +
+                            if (candidate.completed) " · 已完成" else
+                                if (wouldCycle) " · 会形成循环" else "",
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+        Text("所选任务全部完成后，当前事项才会出现在“现在可做”；保存修改时一并生效。",
+            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
@@ -445,8 +501,14 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                     saving = true
                     scope.launch {
                         try {
-                            val changed = dao.updateDetails(task.id, cleanTitle, source, due)
-                            if (changed > 0) onDismiss() else error = "任务已删除，请返回任务中心"
+                            val changed = if (editedPrerequisites == null) {
+                                dao.updateDetails(task.id, cleanTitle, source, due) > 0
+                            } else {
+                                dao.updateDetailsWithDependencies(task.id, cleanTitle, source,
+                                    due, editedPrerequisites!!)
+                            }
+                            if (changed) onDismiss()
+                            else error = "保存失败：任务已删除或前置关系有冲突"
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
