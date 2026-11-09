@@ -115,17 +115,22 @@
      .filter(t=>!t||!t.done).map(t=>t?.title||'前置任务已丢失'):
     row.origin==='cloud'&&row.raw.kind==='manual'&&
       Array.isArray(row.raw.prerequisite_waiting)?[...row.raw.prerequisite_waiting]:[];
-   const status=done?'done':needsVerification?'verify':waitingOn.length?'waiting':'ready';
+   // A failed cloud graph read is NOT proof that a cloud task has no blockers.
+   // Keep it in Pending/All, but never silently promote it into "Next".
+   const cloudGraphUnknown=!done&&row.origin==='cloud'&&
+    row.raw.kind==='manual'&&row.raw.dependency_ready===false;
+   const status=done?'done':needsVerification?'verify':
+    cloudGraphUnknown?'sync_pending':waitingOn.length?'waiting':'ready';
    return {...row,done,status,waitingOn,officialDone:officialFinished(row)};
   }).filter(r=>{
-   const accepted=filter==='all'||filter==='open'&&['ready','waiting'].includes(r.status)||
+   const accepted=filter==='all'||filter==='open'&&['ready','waiting','sync_pending'].includes(r.status)||
     filter==='ready'&&r.status==='ready'||filter==='waiting'&&r.status==='waiting'||
     filter==='done'&&r.status==='done'||filter==='verify'&&r.status==='verify';
    return accepted&&(source==='all'||r.source===source);
   }).map(row=>({row,deadline:deadlineOrder(row)}))
    .sort((a,b)=>Number(a.row.done)-Number(b.row.done)||
-     ({ready:0,waiting:1,verify:2,done:3}[a.row.status]-
-      {ready:0,waiting:1,verify:2,done:3}[b.row.status])||
+     ({ready:0,waiting:1,sync_pending:2,verify:3,done:4}[a.row.status]-
+      {ready:0,waiting:1,sync_pending:2,verify:3,done:4}[b.row.status])||
      a.deadline.day.localeCompare(b.deadline.day)||
      (a.deadline.instant===null?b.deadline.instant===null?0:-1:
       b.deadline.instant===null?1:a.deadline.instant-b.deadline.instant)||

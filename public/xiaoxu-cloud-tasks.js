@@ -7,7 +7,7 @@
  let online=false,items=[],health=null,error='',migration=null,busy=false;
  // A returning response from a previous login must never repopulate a disconnected
  // or newly connected owner's screen. Coalesce concurrent refreshes per session.
- let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0;
+ let connectionEpoch=0,refreshGeneration=0,refreshPromise=null,lastRefreshAt=0,snapshotVersion=0;
  let graphRevision=0,graphEdges=[],graphReady=false,graphError='';
  async function api(path,method='GET',data){
   const r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',
@@ -29,6 +29,7 @@
   connectionEpoch++;refreshGeneration++;online=false;items=[];health=null;error='';migration=null;
   busy=false;refreshPromise=null;lastRefreshAt=0;
   graphRevision=0;graphEdges=[];graphReady=false;graphError='';
+  snapshotVersion++;
  }
  function refresh(){
   if(!online)return Promise.reject(Error('请先连接本人的学业数据'));
@@ -66,11 +67,18 @@
       graphReady=false;graphRevision=0;graphEdges=[];
       graphError=graphResult.error||'云端先后关系数据格式无效';
     }
+    snapshotVersion++;
     lastRefreshAt=Date.now();return true;
    }catch(e){
-    if(online&&epoch===connectionEpoch&&generation===refreshGeneration)
+    if(online&&epoch===connectionEpoch&&generation===refreshGeneration){
      error=String(e.message||'刷新失败');
-    throw e; // Existing tasks remain available if the network is temporarily down.
+     // A failed task read cannot certify the previously loaded dependency
+     // graph. Preserve existing rows, but never present stale "ready" results.
+     graphReady=false;graphRevision=0;graphEdges=[];
+     graphError='云端刷新失败，先后关系需重新核对';
+     snapshotVersion++;
+    }
+    throw e; // Keep the ledger visible without trusting stale readiness.
    }
   })();
   refreshPromise=running;
@@ -110,6 +118,42 @@
    return {...r,prerequisite_ids:[...ids],prerequisite_waiting:waiting,
     dependency_ready:graphReady};
   });
+ }
+ // On-device comparison of the SAME authenticated cloud records on two
+ // devices. Never sends personal task content to a diagnostic service.
+ // No demo rows, no added assignments, no password/cookie handling.
+ async function syncFingerprint(){
+  if(!online)throw Error('请先连接本人的云端任务');
+  const epoch=connectionEpoch;
+  await refresh();
+  if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，请重新核对');
+  if(!graphReady)throw Error('云端依赖未就绪，暂不能出具同步核对码');
+  // Pin the receipt to one coherent client snapshot. Another refresh while
+  // SHA-256 is pending must not mix an old task hash with a new graph revision.
+  const snapshotAtStart=snapshotVersion,revisionAtStart=graphRevision;
+  const own=items.filter(r=>r.kind==='manual').map(r=>({
+   id:r.id,title:r.title,revision:r.revision,
+   status:r.local_status||'todo',
+   deadline:r.due_at_utc||r.due_local_date||null,
+   precision:r.due_precision||'unknown',
+   target:r.personal_target_at||null
+  })).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
+  if(!own.length)throw Error('云端尚无本人个人任务，无法使用真实任务核对');
+  const ids=new Set(own.map(t=>t.id));
+  const links=graphEdges.filter(e=>ids.has(e.taskId)&&ids.has(e.prerequisiteId))
+   .map(e=>[e.taskId,e.prerequisiteId])
+   .sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0);
+  if(!root.crypto?.subtle||!root.TextEncoder)
+   throw Error('当前浏览器不支持安全摘要计算');
+  const data=new root.TextEncoder().encode(JSON.stringify({v:1,tasks:own,links}));
+  const hash=await root.crypto.subtle.digest('SHA-256',data);
+  if(!online||connectionEpoch!==epoch)throw Error('账号连接已变化，核对码已作废');
+  if(snapshotVersion!==snapshotAtStart)
+   throw Error('核对期间任务数据已刷新，请重新核对');
+  const code=Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0'))
+   .join('').slice(0,20).toUpperCase();
+  return {code,taskCount:own.length,completed:own.filter(t=>t.status==='done').length,
+   edgeCount:links.length,graphRevision:revisionAtStart,checkedAt:new Date().toISOString()};
  }
  const taskCount=()=>items.length;
  function formatDue(r){
@@ -325,8 +369,8 @@
    const response=await api('/api/v1/assignments/dependencies','PUT',{
     taskId,taskRevision:item.revision,graphRevision,prerequisiteIds:requested
    });
-   await refreshAfterWrite();
-   return response.item;
+   const cloudListRefreshed=await refreshAfterWrite();
+   return {...response.item,cloudListRefreshed};
   }catch(e){
    if(e.status===409)await refresh().catch(()=>{});
    throw e;
@@ -353,17 +397,30 @@
  }
  function invalidatePendingReads(){
   refreshGeneration++;refreshPromise=null;lastRefreshAt=0;
+  // A write has changed the server, but we have not read one coherent
+  // task+graph snapshot. Invalidate in-flight receipts and "ready" controls.
+  snapshotVersion++;graphReady=false;graphRevision=0;graphEdges=[];
+  graphError='云端数据已变更，等待刷新确认先后关系';
  }
  async function toggle(id,target){
   if(!online)throw Error('请先连接云端任务');
   const found=items.find(x=>x.id===id);
   if(!found||!['todo','done'].includes(target))throw Error('任务已变化，请刷新');
+  if(target==='done'&&found.kind==='manual'){
+   if(!graphReady)throw Error('云端先后关系尚未核实，暂不能标记完成');
+   const waiting=recordsWithDependencies().find(r=>r.id===id)?.prerequisite_waiting||[];
+   if(waiting.length)throw Error('请先完成云端前置任务');
+  }
   try{
    await api('/api/v1/assignments/'+encodeURIComponent(id),'PATCH',{
     revision:found.revision,localStatus:target
    });
-   invalidatePendingReads();await refresh();return true;
-  }catch(e){if(e.status===409){invalidatePendingReads();await refresh().catch(()=>{});}throw e;}
+  }catch(e){
+   if(e.status===409){invalidatePendingReads();await refresh().catch(()=>{});}
+   throw e;
+  }
+  const cloudListRefreshed=await refreshAfterWrite();
+  return {cloudListRefreshed};
  }
  function reminderCandidates(localTasks=[]){
   if(!online)return [];
@@ -374,6 +431,6 @@
   }));
  }
  root.XiaoxuCloudTasks=Object.freeze({
-  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:recordsWithDependencies,snapshotKeys,dependenciesAvailable,graphSnapshot,setPrerequisites,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
+  connect,disconnect,refresh,refreshIfStale,isReady,taskCount,taskRows,displayRecords:recordsWithDependencies,snapshotKeys,dependenciesAvailable,graphSnapshot,setPrerequisites,syncFingerprint,deadlineSummary,reminderCandidates,panel,previewLegacy,commitLegacy,toggle,createPersonal,updatePersonal,editable
  });
 })(globalThis);

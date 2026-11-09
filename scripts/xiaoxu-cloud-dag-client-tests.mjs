@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {webcrypto} from 'node:crypto';
 
 const code=readFileSync(new URL('../public/xiaoxu-cloud-tasks.js',import.meta.url),'utf8');
 const initial=[
@@ -9,17 +10,22 @@ const initial=[
  {id:'cloud-b',title:'后绘制视图',kind:'manual',local_status:'todo',
   revision:0,due_precision:'unknown',due_local_date:null,source_provider:'manual'}
 ];
-let tasks=initial.map(x=>({...x})),edges=[],revision=0,reads=0,writes=0;
+let tasks=initial.map(x=>({...x})),edges=[],revision=0,reads=0,writes=0,graphOffline=false;
+let tasksOffline=false,failNextTaskRead=false;
 const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
  status,headers:{'content-type':'application/json'}
 });
 function server(url,{method='GET',body}={}){
  if(url.startsWith('/api/v1/assignments?')){
-  reads++;return json({items:tasks.map(x=>({...x}))});
+  reads++;
+  if(tasksOffline)return json({error:'database_unavailable'},503);
+  if(failNextTaskRead){failNextTaskRead=false;return json({error:'read_after_write_failed'},503);}
+  return json({items:tasks.map(x=>({...x}))});
  }
  if(url==='/api/v1/sources')return json({connections:[],userSnapshots:[]});
  if(url==='/api/v1/assignments/dependencies'){
-  if(method==='GET')return json({revision,edges:edges.map(x=>({...x}))});
+  if(method==='GET')return graphOffline?json({error:'temporary_unavailable'},503):
+   json({revision,edges:edges.map(x=>({...x}))});
   if(method==='PUT'){
    const patch=JSON.parse(body),target=tasks.find(t=>t.id===patch.taskId);
    if(patch.graphRevision!==revision||patch.taskRevision!==target?.revision)
@@ -46,7 +52,8 @@ function server(url,{method='GET',body}={}){
  throw Error('unexpected request '+method+' '+url);
 }
 const client=()=>{
- const ctx={fetch:async(url,options)=>server(url,options),Date,Intl,Response};
+ const ctx={fetch:async(url,options)=>server(url,options),Date,Intl,Response,
+ crypto:webcrypto,TextEncoder};
  runInNewContext(code,ctx);
  return ctx.XiaoxuCloudTasks;
 };
@@ -66,6 +73,19 @@ await desktop.refresh();
 assert.deepEqual(Array.from(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_ids),
  ['cloud-a']);
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').dependency_ready,true);
+const phoneProof=await phone.syncFingerprint();
+const deskProof=await desktop.syncFingerprint();
+assert.equal(phoneProof.code,deskProof.code,'same real API data produces same receipt');
+assert.equal(phoneProof.taskCount,2);
+assert.equal(phoneProof.edgeCount,1);
+assert.equal(phoneProof.graphRevision,1);
+const oldProof=phoneProof.code;
+tasks[0].title='先完成讲义（已改）';
+const updatedProof=await desktop.syncFingerprint();
+assert.notEqual(updatedProof.code,oldProof,'renamed task changes cross-device fingerprint');
+assert.equal((await phone.syncFingerprint()).code,updatedProof.code,
+ 'second device refresh must converge without fake local tasks');
+tasks[0].title='先完成讲义';
 const workspaceRoot={};
 runInNewContext(readFileSync(new URL('../public/xiaoxu-workspace.js',import.meta.url),'utf8'),
  workspaceRoot);
@@ -74,7 +94,50 @@ assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{f
  ['cloud-a'],'cloud successor cannot enter the ready list before predecessors');
 assert.deepEqual(Array.from(projection.tasks({cloud:desktop.displayRecords()},{filter:'waiting'}),r=>r.id),
  ['cloud-b'],'waiting cloud task remains visible and editable');
-await phone.toggle('cloud-a','done');
+
+graphOffline=true;
+await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),false,
+ 'a failed dependency fetch must fail closed without dropping existing tasks');
+assert.equal(phone.graphSnapshot().edges.length,0,
+ 'stale dependency edges must not be reused during an outage');
+await assert.rejects(()=>phone.toggle('cloud-a','done'),/先后关系尚未核实/,
+ 'client must not bypass graph verification even when action called directly');
+const outageTasks=projection.tasks({cloud:phone.displayRecords()});
+assert.equal(outageTasks.find(t=>t.id==='cloud-a').status,'sync_pending');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'})),[],
+ 'unknown cloud blockers must never be promoted into the ready list');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'open'}),r=>r.id),
+ ['cloud-a','cloud-b'],'pending list preserves both tasks throughout the outage');
+graphOffline=false;
+await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),true,'a successful refresh restores dependency state');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'}),r=>r.id),
+ ['cloud-a'],'ready list recovers using the authoritative graph after reconnect');
+
+// A task-ledger network failure invalidates the earlier graph, but must not
+// erase already fetched task cards or mistakenly declare them ready.
+tasksOffline=true;
+await assert.rejects(()=>phone.refresh(),/私有数据库或接口尚未配置/);
+assert.equal(phone.dependenciesAvailable(),false,'failed task GET invalidates a stale graph');
+assert.deepEqual(Array.from(projection.tasks({cloud:phone.displayRecords()},{filter:'ready'})),[],
+ 'stale graph after a full refresh error cannot unlock a cloud task');
+assert.equal(projection.tasks({cloud:phone.displayRecords()},{filter:'open'}).length,2,
+ 'a network outage must preserve the previous personal task ledger');
+tasksOffline=false;await phone.refresh();
+assert.equal(phone.dependenciesAvailable(),true);
+
+// A server PATCH may commit and then the new GET fail. It must not appear to
+// the user as a rejected write, or reuse the old graph to permit completion.
+failNextTaskRead=true;
+const completionReceipt=await phone.toggle('cloud-a','done');
+assert.equal(completionReceipt.cloudListRefreshed,false,
+ 'successful write followed by read failure reports pending reconciliation');
+assert.equal(phone.dependenciesAvailable(),false);
+await assert.rejects(()=>phone.toggle('cloud-b','done'),/先后关系尚未核实/);
+await phone.refresh();
+assert.equal(phone.displayRecords().find(t=>t.id==='cloud-a').local_status,'done',
+ 'manual recovery fetch observes the earlier committed completion');
 await desktop.refresh();
 assert.equal(desktop.displayRecords().find(t=>t.id==='cloud-b').prerequisite_waiting.length,0);
 await desktop.toggle('cloud-b','done');
@@ -88,10 +151,46 @@ assert.equal(desktop.graphSnapshot().ready,false);
 assert.deepEqual(Array.from(desktop.graphSnapshot().edges),[]);
 assert.deepEqual(Array.from(desktop.displayRecords()),[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/云端先后关系暂不可用/);
+await assert.rejects(()=>desktop.syncFingerprint(),/先连接/);
 // A stale browser gets a conflict, refreshes, and does not overwrite another edit.
 await desktop.connect();
 await phone.refresh();
 await phone.setPrerequisites('cloud-b',[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/数据发生冲突/);
 assert.equal(desktop.graphSnapshot().revision,2);
-console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, 409 and owner disconnect PASS');
+// The dependency PUT may also commit while its follow-up ledger read fails.
+failNextTaskRead=true;
+const graphWriteReceipt=await phone.setPrerequisites('cloud-b',['cloud-a']);
+assert.equal(graphWriteReceipt.cloudListRefreshed,false,
+ 'graph write receipt separates committed change from failed follow-up read');
+assert.equal(phone.dependenciesAvailable(),false);
+await phone.refresh();
+assert.deepEqual(Array.from(phone.displayRecords().find(t=>t.id==='cloud-b').prerequisite_ids),
+ ['cloud-a'],'manual refresh must reconcile the committed dependency');
+// A background refresh during asynchronous hashing must invalidate the
+// receipt instead of pairing stale task bytes with the new graph revision.
+let signalDigest,releaseDigest;
+const digestEntered=new Promise(resolve=>{signalDigest=resolve;});
+const digestUnblocked=new Promise(resolve=>{releaseDigest=resolve;});
+const delayedCrypto={subtle:{digest:async(algorithm,bytes)=>{
+ signalDigest();await digestUnblocked;
+ return webcrypto.subtle.digest(algorithm,bytes);
+}}};
+const raceContext={fetch:async(url,options)=>server(url,options),Date,Intl,Response,
+ crypto:delayedCrypto,TextEncoder};
+runInNewContext(code,raceContext);
+const raceClient=raceContext.XiaoxuCloudTasks;
+await raceClient.connect();
+const inflightReceipt=raceClient.syncFingerprint();
+await digestEntered;
+const beforeRaceTitle=tasks[0].title,beforeRaceRevision=revision;
+// Simulate a real second-device edit arriving between snapshot and digest.
+// The refreshed graph revision MUST NOT be paired with the old task hash.
+tasks[0].title='另一设备刚刚修改了任务';revision++;
+await raceClient.refresh();
+releaseDigest();
+await assert.rejects(inflightReceipt,/核对期间任务数据已刷新/,
+ 'a newer cloud revision and task edit invalidate the stale receipt');
+tasks[0].title=beforeRaceTitle;revision=beforeRaceRevision;
+
+console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, refresh outage, committed writes awaiting reconciliation, 409, disconnect and fingerprint consistency PASS');

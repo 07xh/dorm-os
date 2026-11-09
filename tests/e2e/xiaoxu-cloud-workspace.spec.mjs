@@ -96,6 +96,13 @@ test('mobile resume refreshes a previously authorized cloud session without chan
    records:[],lastSuccessAt:null})}));
  await page.route('**/api/v1/sources',route=>route.fulfill({status:200,
   contentType:'application/json',body:JSON.stringify({connections:[],userSnapshots:[]})}));
+ // This test verifies normal completion after a confirmed dependency snapshot.
+ // Graph-endpoint outages have their own fail-closed regression in the
+ // NextTodo graph suite and must not enable an unverified completion button.
+ await page.route('**/api/v1/assignments/dependencies',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({revision:0,edges:[]})
+ }));
  await page.route('**/api/v1/assignments?*',route=>{
   reads++;
   return route.fulfill({status:200,contentType:'application/json',

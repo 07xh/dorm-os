@@ -17,6 +17,7 @@
   if(typeof target!=='string')return null;
   // #review is a view of the existing tasks page, not a second task backend.
   if(target==='review')return {page:'tasks',hash:'#review',taskFilter:'review'};
+  if(target==='task-graph')return {page:'tasks',hash:'#task-graph',taskFilter:'graph'};
   if(target==='devices')return {page:'profile',hash:'#profile',taskFilter:null};
   if(!Object.hasOwn(names,target))return null;
   return {page:target,hash:'#'+target,taskFilter:target==='tasks'?'all':null};
@@ -26,6 +27,6 @@
   return resolve(hash.slice(1));
  }
  function selected(page){return navOwners[page]||page;}
- function taskFilterHash(filter){return filter==='review'?'#review':'#tasks';}
+ function taskFilterHash(filter){return filter==='review'?'#review':filter==='graph'?'#task-graph':'#tasks';}
  root.XiaoxuWebRouter=Object.freeze({names,resolve,fromHash,selected,taskFilterHash});
 })(globalThis);
