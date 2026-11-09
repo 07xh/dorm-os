@@ -88,7 +88,7 @@ assert.equal(sqlite.prepare('PRAGMA quick_check').get().quick_check,'ok');
 const migrationGuard=readFileSync(new URL('./ensure-task-dependency-schema.mjs',import.meta.url),'utf8');
 assert.match(migrationGuard,/time_travel\/bookmark/,
  'production D1 migration must verify a restorable Time Travel checkpoint');
-assert.match(migrationGuard,/time_travel\\/bookmark\\?timestamp=/,
+assert.ok(migrationGuard.includes("'/time_travel/bookmark?timestamp='"),
  'recovery point must be queried using the UTC time retained in logs');
 assert.ok(migrationGuard.indexOf('const checkpointTime=new Date().toISOString()')<
  migrationGuard.indexOf("'/time_travel/bookmark?timestamp='"),
