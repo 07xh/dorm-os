@@ -1370,8 +1370,8 @@ fun RealAcademicTaskHub(
         if (filter == "now") {
             item(key = "next:hint") {
                 Text(
-                    "直接勾选可做任务；尚未完成的本机前置事项会暂时收起。" +
-                        "学校及微信任务只按已保存的完成状态判断。",
+                    "本机任务完成前置即可解锁后续事项；学习通只将明确未交或退回的作业算作待办。" +
+                        "历史通知和未知状态留在待核对。",
                     modifier = Modifier.padding(top = 12.dp, bottom = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2
@@ -1488,10 +1488,12 @@ fun RealAcademicTaskHub(
         if (sourceFilter in setOf("all", "chaoxing")) {
             item(key = "group:chaoxing") {
                 TaskGroupHeader(
-                    title = "学习通任务",
+                    title = if (filter == "verify") "学习通待核对" else "学习通任务",
                     count = chaoxingRows.size,
                     badge = "",
-                    note = if (chaoxingRows.isNotEmpty()) ""
+                    note = if (filter == "verify")
+                        "历史通知或状态未知，不是明确未交作业"
+                        else if (chaoxingRows.isNotEmpty()) ""
                         else if (allRecords.any { it.category == "chaoxing" })
                             "当前筛选没有匹配记录，可在全部或已完成中查看。"
                         else "尚无已保存的学习通任务，展开后可读取。",
@@ -1872,9 +1874,10 @@ internal fun WorkspaceTaskDetailSheet(
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
             ) { Text("打开学习通核对") }
             Text(
-                if (selectedTask.officialStatus != null)
-                    "已关联学习通官方作业 ID。云端与本机状态来源独立，不按标题合并或提交作业。"
-                else "本条记录尚无可关联的官方作业 ID，请在学习通读取本人作业。",
+                if (Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""").matches(
+                        selectedTask.sourceExternalId.orEmpty()))
+                    "已识别官方作业身份；状态仅供只读核对，不更改个人任务或学校提交。"
+                else "尚未确认当前官方作业身份；请在学习通重新读取，旧通知仍保留待核对。",
                 style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2
             )
@@ -2158,12 +2161,14 @@ private fun TaskRow(
     // A checked preview is not a confirmed cloud write. Make the pending phase explicit.
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
+    val needsReview = requiresChaoxingVerification(task)
     val statusText = if (isPending) "保存中…" else
-        dependencyHint ?: verificationHint ?: officialLabel ?:
-            if (task.done) "个人已完成" else due.label
+        dependencyHint ?: verificationHint ?:
+            if (needsReview) "学习通 · 待核对"
+            else officialLabel ?: if (task.done) "个人已完成" else due.label
     val statusInk = when {
         isPending -> XiaoxuPalette.Brand
-        dependencyHint != null || verificationHint != null -> XiaoxuPalette.Ink2
+        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.Ink2
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2174,7 +2179,7 @@ private fun TaskRow(
     }
     val statusBackground = when {
         isPending -> XiaoxuPalette.BrandSoft
-        dependencyHint != null || verificationHint != null -> XiaoxuPalette.GlassTrack
+        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.GlassTrack
         officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
         officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
         officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
@@ -2196,6 +2201,7 @@ private fun TaskRow(
                     "；" + (if (isPending) "个人状态保存中" else
                         if (task.done) "个人标记已完成"
                         else if (considerCompleteInTaskList(task)) "官方已提交，已移出待办"
+                        else if (needsReview) "官方状态待核对，未计入待完成"
                         else "待办") +
                     "；" + due.spoken +
                     (dependencyHint?.let { "；" + it } ?: "") +
@@ -2235,7 +2241,7 @@ private fun TaskRow(
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 Icon(
                     if (dependencyHint != null) Icons.Outlined.Lock
-                    else if (verificationHint != null) Icons.Outlined.HelpOutline
+                    else if (verificationHint != null || needsReview) Icons.Outlined.HelpOutline
                     else if (considerCompleteInTaskList(task)) Icons.Outlined.CheckBox
                     else Icons.Outlined.CheckBoxOutlineBlank,
                     contentDescription = null,
