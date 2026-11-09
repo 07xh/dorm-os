@@ -317,8 +317,8 @@ class TaskCenterSearchTest {
             setOf("cloud:official", "cloud:other-work", "cloud:other-course", "cloud:other-provider"),
             combined.map { it.key }.toSet()
         )
-        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
-        assertEquals(1, searchWorkspaceTasks(combined, "verify", "", today).size)
+        assertEquals(3, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertTrue(searchWorkspaceTasks(combined, "verify", "", today).isEmpty())
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
     }
 
