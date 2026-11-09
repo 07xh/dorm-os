@@ -74,6 +74,32 @@ interface LocalTaskDao {
     @Query("DELETE FROM local_task_dependencies WHERE taskId = :taskId AND prerequisiteId = :prerequisiteId")
     suspend fun deleteDependency(taskId: Long, prerequisiteId: Long)
 
+    @Query("DELETE FROM local_task_dependencies WHERE taskId = :taskId")
+    suspend fun clearDependencies(taskId: Long)
+
+    /**
+     * Saving edits and dependency changes is atomic, so "Cancel" never makes
+     * a partially saved link. School-origin records are not writable here.
+     */
+    @Transaction
+    suspend fun updateDetailsWithDependencies(
+        taskId: Long, title: String, source: String?, due: String?,
+        prerequisites: Set<Long>
+    ): Boolean {
+        if (findById(taskId) == null) return false
+        val knownIds = snapshot().mapTo(hashSetOf()) { it.id }
+        if (taskId in prerequisites || prerequisites.any { it !in knownIds }) return false
+        val edges = dependencySnapshot().filter { it.taskId != taskId }.toMutableList()
+        for (before in prerequisites.sorted()) {
+            if (wouldCreateDependencyCycle(edges, taskId, before)) return false
+            edges.add(LocalTaskDependency(taskId, before))
+        }
+        if (updateDetails(taskId, title, source, due) < 1) return false
+        clearDependencies(taskId)
+        for (before in prerequisites) insertDependency(LocalTaskDependency(taskId, before))
+        return true
+    }
+
     /** Validate the DAG and task existence in a single Room transaction. */
     @Transaction
     suspend fun tryAddDependency(taskId: Long, prerequisiteId: Long): Boolean {
