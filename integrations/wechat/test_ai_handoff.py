@@ -57,7 +57,7 @@ class AiHandoffTests(TestCase):
 
     def test_ai_can_handle_non_keyword_message_without_replacing_reader(self):
         self.assertEqual(len(self.snapshot["messages"]), 2)
-        self.assertIn("临时", self.snapshot["messages"][0]["text"])
+        self.assertIn("新教室", self.snapshot["messages"][0]["text"])
         self.assertNotIn("13812345678", json.dumps(self.snapshot, ensure_ascii=False))
         self.assertIn("[电话]", self.snapshot["messages"][1]["text"])
         self.assertNotIn("https://school.example", self.snapshot["messages"][1]["text"])
