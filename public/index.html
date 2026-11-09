@@ -428,7 +428,7 @@ function workspaceTaskRow(row,actions=true){
  const platform=({todo:'平台待交',submitted:'平台已提交',graded:'平台已批阅',returned:'平台已退回',unknown:'平台状态未核实'})[row.platformStatus]||'平台状态未核实';
  const due=row.dueAt?new Date(row.dueAt).toLocaleString('zh-CN',{timeZone:TZ}):row.due?fmtDate(row.due)+'（时间未知）':'截止时间未核实';
  const isRemote=row.origin==='remote',manual=row.raw.kind==='manual';
- const hint=row.status==='verify'?'学习通记录待核对':row.status==='waiting'?'等待：'+row.waitingOn.join('、'):'';
+ const hint=row.status==='verify'?'学习通记录待核对':row.status==='waiting'?'等待：'+row.waitingOn.join('、'):row.status==='sync_pending'?'云端先后关系读取失败，暂不能确认任务是否可做':'';
  return '<div class="task-item '+(isRemote?'xu-private-task':'xu-cloud-task')+'" data-origin="'+(isRemote?'remote-readonly':'cloud-workspace')+'">'
   +'<div class="task-main '+(row.done?'done':'')+'"><div class="entry-title">'+esc(row.title)+'</div><div class="entry-sub">'
   +esc([XiaoxuWorkspace.names[row.source]||row.source,row.course,due].filter(Boolean).join(' · '))
