@@ -60,6 +60,27 @@ db.prepare=originalPrepare;
 assert.equal(graphHasCycle([{taskId:'a',prerequisiteId:'b'},
  {taskId:'b',prerequisiteId:'a'}]),true);
 assert.equal(graphHasCycle([{taskId:'b',prerequisiteId:'a'}]),false);
+
+const deepChain=Array.from({length:12000},(_,i)=>({
+ taskId:'chain-'+(i+1),prerequisiteId:'chain-'+i
+}));
+assert.equal(graphHasCycle(deepChain),false,
+ 'a deep valid dependency chain must not overflow the JavaScript call stack');
+assert.equal(graphHasCycle([...deepChain,{
+ taskId:'chain-0',prerequisiteId:'chain-12000'
+}]),true,'an indirect cycle at the end of a deep chain must be detected');
+assert.equal(graphHasCycle([
+ {taskId:'branch-b',prerequisiteId:'branch-a'},
+ {taskId:'branch-c',prerequisiteId:'branch-a'},
+ {taskId:'branch-d',prerequisiteId:'branch-b'},
+ {taskId:'branch-d',prerequisiteId:'branch-c'}
+]),false,'a valid fork-and-join graph is not a cycle');
+assert.equal(graphHasCycle([
+ {taskId:'valid-b',prerequisiteId:'valid-a'},
+ {taskId:'cycle-x',prerequisiteId:'cycle-y'},
+ {taskId:'cycle-y',prerequisiteId:'cycle-x'}
+]),true,'a cycle in a disconnected component must not be overlooked');
+
 const set=(data)=>setCloudTaskPrerequisites(db,'owner-a',data,opts);
 const rejected=(error,code,status)=>error instanceof WorkspaceError&&
  error.code===code&&(!status||error.status===status);
