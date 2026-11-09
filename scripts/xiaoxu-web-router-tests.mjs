@@ -14,7 +14,7 @@ for(const name of ['dashboard','study','timetable','academic','campus','tasks','
 assert.equal(router.fromHash('#review').page,'tasks');
 assert.equal(router.fromHash('#review').taskFilter,'review');
 assert.equal(router.resolve('review').hash,'#review');
-assert.equal(router.fromHash('#tasks').taskFilter,'all');
+assert.equal(router.fromHash('#tasks').taskFilter,'ready');
 assert.equal(router.resolve('devices').hash,'#profile');
 assert.equal(router.fromHash('#devices').page,'profile');
 assert.equal(router.selected('nfc'),'profile');
