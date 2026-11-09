@@ -19,7 +19,7 @@
   if(target==='review')return {page:'tasks',hash:'#review',taskFilter:'review'};
   if(target==='devices')return {page:'profile',hash:'#profile',taskFilter:null};
   if(!Object.hasOwn(names,target))return null;
-  return {page:target,hash:'#'+target,taskFilter:target==='tasks'?'all':null};
+  return {page:target,hash:'#'+target,taskFilter:target==='tasks'?'ready':null};
  }
  function fromHash(hash){
   if(typeof hash!=='string'||!hash.startsWith('#'))return null;
