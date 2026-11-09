@@ -82,4 +82,11 @@ assert.doesNotMatch(auditWorkflow,/^  (?:push|pull_request|workflow_run):/m,
 const deployWorkflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
 assert.match(deployWorkflow,/approve_task_dependency_migration:/,
  'production 0019 write must retain explicit manual consent');
+const manualWorkflow=readFileSync(new URL('../.github/workflows/apply-nexttodo-d1-0019.yml',import.meta.url),'utf8');
+assert.match(manualWorkflow,/workflow_dispatch:/);
+assert.match(manualWorkflow,/approve_task_dependency_migration/);
+assert.doesNotMatch(manualWorkflow,/^  (?:push|pull_request|workflow_run):/m,
+ '0019 production writes must not run automatically');
+assert.match(checkCommand,/node scripts\/xiaoxu-nexttodo-manual-migration-tests\.mjs/,
+ 'manual 0019 migration guard tests must survive branch synchronization');
 console.log('NextTodo graph: redundant edge reduction, lineage, local/cloud isolation, XSS, cycle, offline and graph cap PASS');

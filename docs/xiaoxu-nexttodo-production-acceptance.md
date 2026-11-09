@@ -11,7 +11,7 @@
    - `academic_assignments`、`academic_users`、`academic_assignment_events` 的现有结构
    - `academic_task_dependencies`、`academic_task_graph_versions`、`academic_task_graph_guards`
    - `trg_academic_task_graph_guard`、`trg_academic_task_done_prerequisites`
-5. 确认没有意外的部分迁移。自动迁移脚本 `scripts/ensure-task-dependency-schema.mjs` 仅在 `main` 的成功部署链中运行：获取恢复书签失败/已有部分对象时必须 fail-closed；不能标记已通过。
+5. 确认没有意外的部分迁移。0019 脚本 `scripts/ensure-task-dependency-schema.mjs` 已独立安装在 `main`，仅经手动批准才执行首次写入：获取恢复书签失败/已有部分对象时必须 fail-closed；不能标记已通过。
 6. 迁移后再检查全部表、触发器、外键与 `quick_check`，并确认旧作业来源、学校授权、个人任务未被改变。若要完整的行级不丢数据证明，须在授权且保护隐私的条件下对比迁移前后数量或校验和；**不要**把私有行内容发至公共日志。
 
 官方文档：<https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/get_bookmark/>
@@ -44,7 +44,7 @@
 | --- | --- |
 | 0019 schema 静态/SQLite/CI | 已通过自动测试；非生产结果 |
 | 生产 D1 只读预检与恢复点 | 已通过，2026-11-09 15:16:55 UTC；[Actions #42643012419](https://github.com/07xh/dorm-os/actions/runs/42643012419)，迁移前需重新获取有效恢复点 |
-| 生产 D1 0019 迁移与完整性 | 未实际核验 |
+| 生产 D1 0019 迁移与完整性 | 工具已合入 [#437](https://github.com/07xh/dorm-os/pull/437)，但未找到成功迁移运行记录，仍待人工批准执行 |
 | 本人双设备读取对照码一致 | 未实际核验 |
 | 本人两端任务写入、解锁、恢复 | 未实际核验 |
 | Android Room 老用户升级/备份 | 未真机核验 |
