@@ -11,8 +11,8 @@
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
  })[c]);
  const MAX_VISIBLE=72;
- const MAX_EDGES=1500;
- const NODE_W=202,NODE_H=80,COL_GAP=92,ROW_GAP=26;
+ const MAX_EDGES=2500;
+ const NODE_W=202,NODE_H=80,COL_GAP=92,ROW_GAP=26,MAX_ROWS=6;
  const nodeKey=(origin,id)=>origin+':'+id;
 
  /** Return only direct, non-redundant edges of a DAG; direction: before -> after. */
@@ -132,17 +132,24 @@
    levels.get(d).push(node);
   }
   const layers=[...levels.keys()].sort((a,b)=>a-b);
-  // Staggered column layout: earlier tasks on the left, successors on the right.
+  // Keep at most six nodes vertically in a column. Wide, sparse plans
+  // should scroll horizontally rather than become thousands of pixels tall.
+  // Every new stage starts strictly after all predecessor columns.
+  const starts=new Map();let cursor=24;
+  for(const stage of layers){
+   starts.set(stage,cursor);
+   cursor+=Math.ceil(levels.get(stage).length/MAX_ROWS)*(NODE_W+COL_GAP);
+  }
   const positions=nodes.map(node=>{
    const stage=depths.get(node.key);
    const order=levels.get(stage).indexOf(node);
-   return {node,x:24+stage*(NODE_W+COL_GAP),y:26+order*(NODE_H+ROW_GAP)};
+   return {node,x:starts.get(stage)+Math.floor(order/MAX_ROWS)*(NODE_W+COL_GAP),
+    y:26+(order%MAX_ROWS)*(NODE_H+ROW_GAP)};
   });
-  const maxLevel=layers.length?layers[layers.length-1]:0;
-  const tallest=Math.max(1,...[...levels.values()].map(list=>list.length));
+  const tallest=Math.max(1,...[...levels.values()].map(list=>Math.min(MAX_ROWS,list.length)));
   const pos=new Map(positions.map(p=>[p.node.key,p]));
   return {nodes,edges:direct,allEdges:edges,positions,pos,truncated,cyclic:false,
-   total:all.length,width:Math.max(340,48+(maxLevel+1)*NODE_W+maxLevel*COL_GAP),
+   total:all.length,width:Math.max(340,cursor-COL_GAP+24),
    height:Math.max(230,50+tallest*NODE_H+(tallest-1)*ROW_GAP)};
  }
  const statusText=row=>row.done?'已完成':row.status==='waiting'?
