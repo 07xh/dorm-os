@@ -464,9 +464,10 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
+                        TaskCompletionCheckbox(
                             checked = checked,
                             enabled = !saving && !wouldCycle,
+                            description = "将“" + candidate.title + "”设为前置任务",
                             onCheckedChange = { isChecked ->
                                 editedPrerequisites = if (isChecked) chosen + candidate.id
                                     else chosen - candidate.id
