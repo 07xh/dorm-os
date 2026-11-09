@@ -9,9 +9,9 @@
  const sourceKey=(provider,id)=>provider&&id?provider+'|'+id:'';
  const chinaDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit'});
  const officialWorkId=id=>typeof id==='string'&&/^work:[^:]+:[^:]+:[^:]+$/.test(id);
- const officialFinished=row=>row.source==='chaoxing'&&officialWorkId(row.sourceId)&&
+ const officialFinished=row=>row.origin!=='local'&&row.source==='chaoxing'&&officialWorkId(row.sourceId)&&
    ['submitted','graded'].includes(row.platformStatus);
- const officialUnfinished=row=>row.source==='chaoxing'&&officialWorkId(row.sourceId)&&
+ const officialUnfinished=row=>row.origin!=='local'&&row.source==='chaoxing'&&officialWorkId(row.sourceId)&&
    ['todo','returned'].includes(row.platformStatus);
 
  // The edge A -> B means "A waits for B". Sanitize legacy backups by dropping
