@@ -158,10 +158,16 @@ internal fun LocalTaskDependencyGraphDialog(
                     }
                 }
             }
-            if (total > shown.size) {
+            if (scoped.size > shown.size) {
                 Text(
-                    "当前展示前 ${shown.size} 个关联任务，共 ${total} 个。" +
-                        "其余任务可在本机任务管理页编辑。",
+                    "当前链路/搜索找到 ${scoped.size} 个关联任务，已展示 ${shown.size} 个。" +
+                        "可以缩小搜索范围或选中任务追踪。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink2
+                )
+            } else if (search.isNotBlank() || focusTitle != null) {
+                Text(
+                    "当前显示 ${scoped.size} / 全图 ${total} 项关联任务。",
                     style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2
                 )
