@@ -204,11 +204,21 @@ internal fun combineWorkspaceTasks(
         // cloud row; preserve every underlying D1 record and personal flag.
         val dedupedCloud = distinctVerifiedChaoxingHomeworkRows(cloud)
         val linkedCloud = dedupedCloud.filter { aliases.containsKey(it.sourceExternalId) && it.provider == "chaoxing" }
-        val canonical = (linkedCloud + dedupedCloud.filter { it.provider == "chaoxing" &&
-            it.sourceExternalId in aliases.values }).groupBy {workId(it)}
-            .mapValues { (_, rows) -> rows.sortedWith(compareBy<CloudTask> {
-                if (it.sourceExternalId in aliases.values) 0 else 1
-            }.thenBy {it.id}).first().id }
+        val matchingOfficialRows = dedupedCloud.filter { it.provider == "chaoxing" &&
+            it.sourceExternalId in aliases.values }
+        // If multiple trusted cloud rows claim the SAME official work ID,
+        // choose none arbitrarily. A legacy notice alias must not make one
+        // contradictory submitted/returned record disappear.
+        val ambiguousOfficialIds = matchingOfficialRows.groupBy { it.sourceExternalId }
+            .filterValues { it.size > 1 }.keys
+        val canonical = (linkedCloud + matchingOfficialRows).groupBy {workId(it)}
+            .mapNotNull { (id, rows) ->
+                id?.takeIf { it !in ambiguousOfficialIds }?.let { sourceId ->
+                    sourceId to rows.sortedWith(compareBy<CloudTask> {
+                        if (it.sourceExternalId in aliases.values) 0 else 1
+                    }.thenBy {it.id}).first().id
+                }
+            }.toMap()
         val represented = cloudIds + linkedCloud.mapNotNull { workId(it) }
         local.forEach { task ->
             val source = when (task.source) {
