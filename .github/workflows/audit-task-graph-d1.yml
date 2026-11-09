@@ -1,0 +1,26 @@
+name: Audit NextTodo production D1 (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dorm-os-readonly-task-graph-preflight
+  cancel-in-progress: false
+jobs:
+  audit:
+    if: ${{ github.repository == '07xh/dorm-os' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only D1 schema, integrity and Time Travel verification
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/audit-task-graph-d1-production.mjs
+      - name: Confirm scope
+        if: success()
+        run: |
+          echo 'This workflow performs SELECT/PRAGMA and GET only. No D1 migration or Pages deployment was requested.' >> "$GITHUB_STEP_SUMMARY"
