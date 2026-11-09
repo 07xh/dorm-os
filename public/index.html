@@ -782,7 +782,7 @@ function tasksPage(){
   cloudConnected:XiaoxuCloudTasks.isReady(),cloudGraphReady:XiaoxuCloudTasks.dependenciesAvailable()}):'';
  return `${titleBlock('','我的任务')}
  <section class="v4-task-toolbar" aria-label="任务视图"><div class="list-controls v4-filters">${[['ready','接下来'],['open','待完成'],['waiting','等待中'],['done','已完成'],['all','全部'],['graph','关系图'],['review','待确认']].map(([k,l])=>`<button type="button" class="filter-btn ${taskFilter===k?'active':''}" data-filter="${k}" aria-pressed="${taskFilter===k}">${l}</button>`).join('')}</div>
- <div class="button-row">${verifyCount||taskFilter==='verify'?'<button type="button" class="filter-btn '+(taskFilter==='verify'?'active':'')+'" data-filter="verify" aria-pressed="'+(taskFilter==='verify')+'">学习通待核对 · '+verifyCount+'</button>':''}<select data-task-source aria-label="任务来源" ${review||graph?'hidden':''}>${[['all','全部来源'],['chaoxing','学习通'],['ncwu','青果教务'],['second_class','第二课堂'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button></div></details><button type="button" class="secondary v4-export" data-action="export-deadlines" ${review||graph?'hidden':''}>添加到日历</button></div></section>
+ <div class="button-row">${verifyCount||taskFilter==='verify'?'<button type="button" class="filter-btn '+(taskFilter==='verify'?'active':'')+'" data-filter="verify" aria-pressed="'+(taskFilter==='verify')+'">学习通待核对 · '+verifyCount+'</button>':''}<select data-task-source aria-label="任务来源" ${review||graph?'hidden':''}>${[['all','全部来源'],['chaoxing','学习通'],['ncwu','青果教务'],['second_class','第二课堂'],['wechat','微信'],['manual','个人']].map(([id,label])=>`<option value="${id}" ${taskSource===id?'selected':''}>${label}</option>`).join('')}</select><details class="xu-task-tools"><summary>任务工具</summary><div class="xu-task-menu"><button type="button" class="action-link" data-page="settings">管理数据连接</button><button type="button" class="action-link" data-action="cloud-sync-evidence">跨设备同步核对</button></div></details><button type="button" class="secondary v4-export" data-action="export-deadlines" ${review||graph?'hidden':''}>添加到日历</button></div></section>
  <div ${review||graph?'hidden':''} data-task-list-view><div class="task-context"><span data-workspace-count>${rows.length} 项任务</span><span class="muted">个人完成与平台提交分别记录 · 学习通未连接自动同步时仅展示已有数据 · 前置关系支持本机任务及已配置的云端个人任务</span></div>
  <section class="card v4-task-list">${rows.length?rows.map(r=>workspaceTaskRow(r)).join(''):'<div class="empty">当前筛选下暂无任务。</div>'}</section>
  ${XiaoxuDeadlineReminders.panel([...state.tasks,...XiaoxuCloudTasks.reminderCandidates(state.tasks)])}
@@ -1299,6 +1299,21 @@ function chooseQuickAdd(kind){
  else if(kind==='nfc')tagDialog();
 }
 function clickAction(action){
+ if(action==='cloud-sync-evidence'){
+  XiaoxuCloudTasks.syncFingerprint().then(proof=>{
+   const message='<section class="dorm-form" aria-label="云端任务同步核对">'+
+    '<h2>云端任务 · 两设备同步核对</h2>'+
+    '<p class="small muted">本次仅使用当前登录账号真实云端任务，在本机计算摘要；不发送任务标题、账号、登录信息。</p>'+
+    '<p>核对码：<strong style="letter-spacing:.07em;overflow-wrap:anywhere">'+esc(proof.code)+'</strong></p>'+
+    '<p class="small">个人任务 '+proof.taskCount+' 项 · 已完成 '+proof.completed+
+    ' 项 · 依赖 '+proof.edgeCount+' 条 · 图修订 '+proof.graphRevision+'</p>'+
+    '<p class="small muted">另一台设备也需登录同一账号，在任务工具中点击“跨设备同步核对”。确认两端核对码与数量一致，且期间没有修改任务。此结果不等同于双向写入成功。</p>'+
+    '<p class="small muted">本机核对时间：'+esc(new Date(proof.checkedAt).toLocaleString('zh-CN'))+'</p>'+
+    '<div class="modal-actions"><button class="secondary" type="button" data-action="close-modal">关闭</button></div></section>';
+   openDialog(message);
+  }).catch(e=>toast('跨设备核对未完成：'+String(e?.message||'刷新失败')));
+  return;
+ }
  if(action.startsWith('deadline-ack:')){if(XiaoxuDeadlineReminders.ack(action.slice(13))){render();toast('已知道：不会改变任务完成状态');}return;}
  if(action==='academic-connect'){
   // A deliberate first connection opts this device into restoring the same
