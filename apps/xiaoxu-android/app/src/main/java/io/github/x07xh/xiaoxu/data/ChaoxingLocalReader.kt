@@ -147,15 +147,21 @@ internal class ChaoxingLocalReader(
             if(!numeric.matches(numericUid) || numericUid.all {it == '0'}) throw ChaoxingReadFailure("login_required")
             return hash("chaoxing-owner:"+numericUid)
         }
+        /** The official page may include both camelCase and lower-case
+         * spellings of the SAME ID. Accept equivalent values but reject
+         * conflicting aliases instead of demoting an actual homework item
+         * to an unrelated study-task key.
+         */
+        private fun numericIdentity(p: Map<String, String>, vararg keys: String): String? {
+            val values=keys.mapNotNull { p[it] }.distinct()
+            if (values.size > 1) throw ChaoxingReadFailure("ambiguous_identity")
+            return values.singleOrNull()?.takeIf { numeric.matches(it) }
+        }
         private fun workKey(url: String): String? {
             val p=params(url)
-            fun value(vararg keys:String):String? {
-                val found=keys.mapNotNull {p[it]}
-                return found.singleOrNull()?.takeIf {numeric.matches(it)}
-            }
-            val course=value("courseId","courseid") ?: return null
-            val clazz=value("classId","clazzid","classid") ?: return null
-            val work=value("workId","workid","taskrefId") ?: return null
+            val course=numericIdentity(p,"courseId","courseid") ?: return null
+            val clazz=numericIdentity(p,"classId","clazzid","classid") ?: return null
+            val work=numericIdentity(p,"workId","workid","taskrefId") ?: return null
             return "work:$course:$clazz:$work"
         }
         private fun stableStudyKey(url: String): String {
@@ -412,6 +418,8 @@ internal class ChaoxingLocalReader(
         }
         var pages=1;var current=1;val seen=mutableSetOf<String>()
         val expected=params(course.url)
+        val expectedCourse=numericIdentity(expected,"courseId","courseid")
+        val expectedClass=numericIdentity(expected,"classId","clazzid","classid")
         while(true) {
             val rows=doc.select(".bottomList li[data],li[data]").filter {it.selectFirst("p.overHidden2")!=null}
             if(rows.isEmpty()&&!doc.text().contains("暂无作业")&&!doc.text().contains("没有作业")) throw ChaoxingReadFailure("work_list_response")
@@ -421,7 +429,7 @@ internal class ChaoxingLocalReader(
                 val key=workKey(url)
                 if(key!=null) {
                     val triple=key.split(':')
-                    if(expected["courseid"]?.let {it!=triple[1]}==true || expected["clazzid"]?.let {it!=triple[2]}==true)
+                    if(expectedCourse?.let {it!=triple[1]}==true || expectedClass?.let {it!=triple[2]}==true)
                         throw ChaoxingReadFailure("course_identity")
                 }
                 val stable=key?:stableStudyKey(url)
