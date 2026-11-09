@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {classifyTaskGraphSchema,validateRecoveryBookmark} from './ensure-task-dependency-schema.mjs';
+import {classifyTaskGraphSchema,validateRecoveryBookmark,assertCoreCountsUnchanged} from './ensure-task-dependency-schema.mjs';
 
 const names=['academic_task_dependencies','academic_task_graph_versions',
  'academic_task_graph_guards'];
@@ -13,6 +13,20 @@ assert.equal(validateRecoveryBookmark({bookmark}),true);
 for(const invalid of [null,{}, {bookmark:''},{bookmark:'bad'}, {bookmark:123},
  {bookmark:'../../private/token'}])
  assert.throws(()=>validateRecoveryBookmark(invalid),/bookmark_unavailable/);
+// No private values are logged. A differing count blocks deployment for
+// manual review, including benign concurrent edits (fail closed).
+const coreTableNames=['academic_users','academic_connections','academic_courses',
+ 'academic_assignments','academic_assignment_sources','academic_assignment_events',
+ 'academic_verified_records'];
+const zeroSnapshot=Object.fromEntries(coreTableNames.map(x=>[x,0]));
+const oneSnapshot={...zeroSnapshot,academic_assignments:1};
+assert.equal(assertCoreCountsUnchanged(zeroSnapshot,{...zeroSnapshot}),true);
+assert.throws(()=>assertCoreCountsUnchanged(zeroSnapshot,oneSnapshot),
+ /core_data_changed_during_migration_manual_review/);
+assert.throws(()=>assertCoreCountsUnchanged({...zeroSnapshot,academic_users:-1},zeroSnapshot),
+ /core_count_snapshot_invalid/);
+assert.throws(()=>assertCoreCountsUnchanged(zeroSnapshot,{...zeroSnapshot,
+ academic_verified_records:'0'}),/core_count_snapshot_invalid/);
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
 const migration=name=>readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8');
@@ -65,6 +79,14 @@ assert.match(migrationGuard,/time_travel\/bookmark/,
 assert.ok(migrationGuard.indexOf('validateRecoveryBookmark(checkpoint)')<
  migrationGuard.indexOf("localWrangler(['d1','execute'"),
  'migration must fail closed if no recovery bookmark was obtained');
+assert.ok(migrationGuard.indexOf('const countsBefore=coreCounts(db)')<
+ migrationGuard.indexOf("localWrangler(['d1','execute'"),
+ 'collect all existing core table counts before migration');
+assert.ok(migrationGuard.indexOf('assertCoreCountsUnchanged(countsBefore,coreCounts(db))')>
+ migrationGuard.indexOf("localWrangler(['d1','execute'"),
+ 'verify legacy row counts before release');
+assert.doesNotMatch(migrationGuard,/console\.log\([^\n]*countsBefore/,
+ 'aggregate private record counts must not appear in CI logs');
 const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
 const gate=workflow.indexOf('run: node scripts/ensure-task-dependency-schema.mjs');
 const publish=workflow.indexOf('name: Publish verified static website');
