@@ -219,7 +219,7 @@ def submit_ai(config: dict, secret: bytes, cursors: dict) -> None:
     # An empty AI decision set still sends a verified zero-record heartbeat.
     # Uploading uses the same DPAPI token, idempotent batches and D1 review
     # queue as the established deterministic collector.
-    collector.upload_candidates(config, secret, records, next_state)
+    collector.upload_candidates(config, secret, records, next_state, mode="ai")
     for path in (INPUT, DECISIONS):
         try:
             path.unlink(missing_ok=True)
