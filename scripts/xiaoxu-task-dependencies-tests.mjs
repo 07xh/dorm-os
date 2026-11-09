@@ -48,6 +48,12 @@ for(const [id,owner,kind] of [
 }
 const read=()=>readCloudTaskGraph(db,'owner-a');
 assert.deepEqual(await read(),{revision:0,edges:[]});
+const originalPrepare=db.prepare;
+let graphQueryCount=0;
+db.prepare=(sql)=>{graphQueryCount++;return originalPrepare(sql);};
+await read();
+assert.equal(graphQueryCount,1,'graph revision and edges must use a single SQLite snapshot');
+db.prepare=originalPrepare;
 assert.equal(graphHasCycle([{taskId:'a',prerequisiteId:'b'},
  {taskId:'b',prerequisiteId:'a'}]),true);
 assert.equal(graphHasCycle([{taskId:'b',prerequisiteId:'a'}]),false);
