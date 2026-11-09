@@ -6,6 +6,54 @@ import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
 
+    @Test fun detachedPeerNoticeMustHaveOfficialPeerCompletionEvidence() {
+        val workUrl = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val peerNotice = JSONObject().put("title", "作业互评通知")
+            .put("tag", "courseId123").put("content", "作业名称：实验报告一")
+            .put("extendParam", JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        val peerId = ChaoxingLocalReader.noticeAliases(peerNotice).single().id
+        assertTrue(ChaoxingLocalReader.noticeLinks(peerNotice).isEmpty())
+        fun read(detail: String): Pair<ChaoxingLocalRead, Int> {
+            var detailReads=0
+            val result=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+                val body=when(java.net.URI(request.url).path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status", true).put("notices",
+                        JSONObject().put("lastPage", 1).put("list",
+                            org.json.JSONArray().put(peerNotice))).toString()
+                    "/mooc2-ans/visit/courselistdata" ->
+                        "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                    "/visit/stucoursemiddle" ->
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                    "/mooc-ans/mooc2/work/list" ->
+                        "<ul class='bottomList'><li data='$workUrl'>" +
+                            "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                    "/work/dowork" -> { detailReads++; "<p class='status'>$detail</p>" }
+                    else -> error("unexpected official path")
+                }
+                ChaoxingReadPage(request.url, body)
+            }).scan(2026)
+            return result to detailReads
+        }
+        val (complete, reads)=read("已互评")
+        assertTrue(complete.complete)
+        assertEquals(1, reads)
+        val completedWork=complete.items.single { it.kind == "homework" }
+        assertEquals(setOf(peerId), completedWork.peerAliases)
+        assertEquals("已互评", completedWork.status)
+
+        val (generic, genericReads)=read("待批阅")
+        assertTrue(generic.complete)
+        assertEquals(1, genericReads)
+        val genericWork=generic.items.single { it.kind == "homework" }
+        assertEquals(setOf(peerId), genericWork.peerAliases)
+        assertEquals("待批阅", genericWork.status)
+        // UI merge separately requires explicit peer completion; submitted
+        // coursework alone cannot remove the independent review notice.
+    }
+
     @Test fun detachedNoticeLinksOnlyOneVerifiedCourseWorkTuple() {
         val official = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
         val notice = JSONObject().put("title", "作业通知").put("tag", "courseId123")
