@@ -126,9 +126,14 @@ const raceClient=raceContext.XiaoxuCloudTasks;
 await raceClient.connect();
 const inflightReceipt=raceClient.syncFingerprint();
 await digestEntered;
+const beforeRaceTitle=tasks[0].title,beforeRaceRevision=revision;
+// Simulate a real second-device edit arriving between snapshot and digest.
+// The refreshed graph revision MUST NOT be paired with the old task hash.
+tasks[0].title='另一设备刚刚修改了任务';revision++;
 await raceClient.refresh();
 releaseDigest();
 await assert.rejects(inflightReceipt,/核对期间任务数据已刷新/,
- 'a concurrent refresh invalidates a stale sync receipt');
+ 'a newer cloud revision and task edit invalidate the stale receipt');
+tasks[0].title=beforeRaceTitle;revision=beforeRaceRevision;
 
 console.log('Cloud DAG browser client: consent, two-device refresh, blocked/unlocked tasks, 409 and owner disconnect and fingerprint snapshot consistency PASS');
