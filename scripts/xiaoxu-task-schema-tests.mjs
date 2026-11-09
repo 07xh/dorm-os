@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {classifyTaskGraphSchema} from './ensure-task-dependency-schema.mjs';
+import {classifyTaskGraphSchema,validateRecoveryBookmark} from './ensure-task-dependency-schema.mjs';
 
 const names=['academic_task_dependencies','academic_task_graph_versions',
  'academic_task_graph_guards'];
 assert.equal(classifyTaskGraphSchema([],{}),'missing');
 assert.equal(classifyTaskGraphSchema([{name:names[0]}],{}),'partial');
 assert.throws(()=>classifyTaskGraphSchema('invalid'),/invalid_schema/);
+const bookmark='00000085-0000024c-00004c6d-8e61117bf38d7adb71b934ebbf891683';
+assert.equal(validateRecoveryBookmark({bookmark}),true);
+for(const invalid of [null,{}, {bookmark:''},{bookmark:'bad'}, {bookmark:123},
+ {bookmark:'../../private/token'}])
+ assert.throws(()=>validateRecoveryBookmark(invalid),/bookmark_unavailable/);
 const sqlite=new DatabaseSync(':memory:');
 sqlite.exec('PRAGMA foreign_keys=ON');
 const migration=name=>readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8');
@@ -20,6 +25,9 @@ const triggers=()=>sqlite.prepare("SELECT name FROM sqlite_master WHERE type='tr
 assert.equal(classifyTaskGraphSchema(tables(),columns(),triggers()),'missing');
 sqlite.exec(migration('0019_academic_task_dependencies.sql'));
 assert.equal(classifyTaskGraphSchema(tables(),columns(),triggers()),'ready');
+assert.equal(classifyTaskGraphSchema(tables(),columns(),
+ [{name:'trg_academic_task_graph_guard'}]),'partial',
+ 'production schema must not be marked ready without the completion guard');
 sqlite.exec(migration('0019_academic_task_dependencies.sql'));
 assert.equal(classifyTaskGraphSchema(tables(),columns(),triggers()),'ready',
  'migration may be safely rechecked without deleting personal data');
@@ -37,6 +45,16 @@ sqlite.exec(`INSERT INTO academic_task_graph_guards
  (id,user_id,task_id,expected_graph_revision,expected_task_revision)
  VALUES ('valid','u','b',0,0)`);
 sqlite.exec("DELETE FROM academic_task_graph_guards WHERE id='valid'");
+sqlite.exec(`INSERT INTO academic_task_dependencies
+ (user_id,task_id,prerequisite_id,created_at) VALUES ('u','b','a','t')`);
+assert.throws(()=>sqlite.exec(`UPDATE academic_assignments
+ SET local_status='done' WHERE id='b' AND user_id='u'`),
+ /prerequisites_incomplete/,
+ 'direct database writes cannot bypass unfinished dependencies');
+sqlite.exec("UPDATE academic_assignments SET local_status='done' WHERE id='a'");
+sqlite.exec("UPDATE academic_assignments SET local_status='done' WHERE id='b'");
+assert.equal(sqlite.prepare("SELECT local_status FROM academic_assignments WHERE id='b'")
+ .get().local_status,'done');
 assert.throws(()=>sqlite.exec(`INSERT INTO academic_task_dependencies
  (user_id,task_id,prerequisite_id,created_at) VALUES ('u','a','a','t')`),/CHECK constraint/);
 assert.equal(sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
