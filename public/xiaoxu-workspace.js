@@ -45,11 +45,24 @@
   if(typeof id!=='string'||!Array.isArray(beforeIds)||beforeIds.length>30||
      new Set(beforeIds).size!==beforeIds.length||
      !beforeIds.every(x=>typeof x==='string'&&x!==id))return false;
-  const target=tasks.find(t=>t.id===id);
-  if(!target)return false;
-  const changed=tasks.map(t=>({...t,prerequisiteIds:t.id===id?beforeIds:t.prerequisiteIds}));
-  const clean=sanitizePrerequisites(changed).find(t=>t.id===id)?.prerequisiteIds||[];
-  return clean.length===beforeIds.length&&clean.every((x,i)=>x===beforeIds[i]);
+  const byId=new Map(tasks.map(t=>[t.id,t]));
+  if(!byId.has(id)||!beforeIds.every(before=>byId.has(before)))return false;
+  // Check against the entire proposed graph, not a partially sanitized graph:
+  // an edge order must never determine whether a cycle is accepted.
+  const graph=new Map(tasks.map(t=>[t.id,t.id===id?beforeIds:
+   Array.isArray(t.prerequisiteIds)?t.prerequisiteIds:[]]));
+  const reaches=(start,target)=>{
+   const seen=new Set(),stack=[start];
+   while(stack.length){
+    const current=stack.pop();
+    if(current===target)return true;
+    if(seen.has(current))continue;
+    seen.add(current);
+    for(const next of graph.get(current)||[])stack.push(next);
+   }
+   return false;
+  };
+  return beforeIds.every(before=>!reaches(before,id));
  }
  function deadlineOrder(row){
   const instant=row.dueAt?Date.parse(row.dueAt):NaN;
