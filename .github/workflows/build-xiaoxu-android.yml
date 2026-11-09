@@ -7,7 +7,7 @@ name: Build Xiaoxu Android
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
+    branches: [main]
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
   push:
