@@ -36,6 +36,8 @@ assert.doesNotMatch(script,/\b(localWrangler|spawnSync|writeFileSync|updateRef)\
 assert.doesNotMatch(script,/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE TABLE)\b/i,
  'the preflight must not contain mutating SQL');
 assert.match(workflow,/workflow_dispatch:/);
+assert.doesNotMatch(workflow,/^  (?:push|pull_request|workflow_run|schedule):/m,
+ 'production preflight must remain manually invoked and never run on push');
 assert.match(workflow,/github\.repository == '07xh\/dorm-os'/);
 assert.match(workflow,/github\.ref == 'refs\/heads\/main'/);
 assert.match(workflow,/node scripts\/audit-task-graph-d1-production\.mjs/);
