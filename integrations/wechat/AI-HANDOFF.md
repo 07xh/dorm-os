@@ -28,7 +28,12 @@
    [AI Agent 指令模板](./AI-AGENT-PROMPT.md) 处理这份本地快照。
    Agent 只写 `%USERPROFILE%\.wechat-cli\xiaoxu-ai-decisions.json`。
    AI 是否走云端、处理政策、账号费用由你使用的 Agent/模型决定。运行前确认只处理本人有权使用的消息。
-5. 本机检查 AI 生成的文件。不要把群消息、消息快照、密钥或任务输入复制到 GitHub Issue 或对话中。
+5. 本机检查 AI 生成的文件；先执行无网络、无游标变化的验收命令：
+   ```powershell
+   & .\integrations\wechat\run.ps1 ai-check
+   ```
+   只有确认签名、范围、任务计数和截止时间都合理，再继续上传。
+   不要把群消息、消息快照、密钥或任务输入复制到 GitHub Issue 或对话中。
 6. 执行：
    ```powershell
    & .\integrations\wechat\run.ps1 ai-submit
