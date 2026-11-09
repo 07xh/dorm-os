@@ -1350,9 +1350,25 @@ fun RealAcademicTaskHub(
                     XiaoxuEmpty(
                         modifier = Modifier.padding(top = 12.dp),
                         title = "当前没有可做任务",
-                        message = "可检查“待完成”中的等待事项，或新增本机任务。",
-                        actionLabel = "查看全部待完成",
-                        onAction = { filter = "pending" }
+                        message = when {
+                            waitingRows.isNotEmpty() ->
+                                "有 ${waitingRows.size} 条本机任务正在等待前置完成。"
+                            needsVerificationRows.isNotEmpty() ->
+                                "有 ${needsVerificationRows.size} 条学习通历史记录需要核对状态。"
+                            else -> "可新增本机任务，或切换到全部查看历史记录。"
+                        },
+                        actionLabel = when {
+                            waitingRows.isNotEmpty() -> "查看等待任务"
+                            needsVerificationRows.isNotEmpty() -> "查看待核对"
+                            else -> "新增本机任务"
+                        },
+                        onAction = {
+                            when {
+                                waitingRows.isNotEmpty() -> showWaitingTasks = true
+                                needsVerificationRows.isNotEmpty() -> showNeedsVerification = true
+                                else -> showLocalEditor = true
+                            }
+                        }
                     )
                 }
             } else {
