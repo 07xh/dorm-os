@@ -118,12 +118,15 @@ export async function ensureTaskGraphSchema(){
   // A Time Travel checkpoint is a non-destructive recovery point; exporting
   // the full private database into an ephemeral CI runner is unnecessary.
   const boundId=findPagesBoundD1(project);
+  // Select the bookmark at/before a FIXED timestamp, not the current bookmark
+  // followed by an unrelated log timestamp. An operator can later request
+  // the same historical point using this UTC timestamp while D1 retains it.
+  const checkpointTime=new Date().toISOString();
   const checkpoint=await api('accounts/'+account+'/d1/database/'+boundId+
-   '/time_travel/bookmark',token);
+   '/time_travel/bookmark?timestamp='+encodeURIComponent(checkpointTime),token);
   validateRecoveryBookmark(checkpoint);
   requireTaskGraphMigrationApproval(process.env.GITHUB_EVENT_NAME,
    process.env.XIAOXU_TASK_D1_0019_APPLY);
-  const checkpointTime=new Date().toISOString();
   console.log('✅ 已核验 D1 Time Travel 迁移前恢复点，UTC：'+checkpointTime+
    '（不输出恢复书签）');
   // Additive migration creates only namespaced tables and guard triggers.
