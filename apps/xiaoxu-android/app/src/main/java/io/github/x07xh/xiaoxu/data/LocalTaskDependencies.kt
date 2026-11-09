@@ -68,3 +68,19 @@ fun readyLocalTaskIds(
     return tasks.asSequence().filter { !it.completed && it.id !in waiting }
         .map { it.id }.toSet()
 }
+
+
+/** Real, unfinished local prerequisites to display in the waiting section. */
+fun unfinishedLocalPrerequisites(
+    taskId: Long,
+    tasks: List<LocalTask>,
+    edges: List<LocalTaskDependency>
+): List<LocalTask> {
+    val byId = tasks.associateBy { it.id }
+    return edges.asSequence()
+        .filter { it.taskId == taskId }
+        .mapNotNull { byId[it.prerequisiteId] }
+        .filterNot { it.completed }
+        .distinctBy { it.id }
+        .toList()
+}
