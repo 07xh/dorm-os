@@ -28,7 +28,7 @@ export function requireReadonlyPreflightContext(repo,ref,event){
 }
 export async function auditTaskGraphD1Production(){
  // This workflow is manually dispatched from main only. Unlike deployment,
- // it never invokes ensureTaskGraphSchema() or Wrangler migration files.
+ // it never invokes the schema migration operation or Wrangler migration files.
  requireReadonlyPreflightContext(process.env.GITHUB_REPOSITORY,
   process.env.GITHUB_REF,process.env.GITHUB_EVENT_NAME);
  const account=process.env.CLOUDFLARE_ACCOUNT_ID;
