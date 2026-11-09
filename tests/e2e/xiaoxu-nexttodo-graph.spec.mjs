@@ -182,6 +182,9 @@ test('successful cloud PATCH followed by a failed read keeps task visible but no
  await page.locator('[data-filter="ready"]').click();
  await expect(page.locator('.xu-cloud-task')).toContainText('真实接口状态演练');
  await page.locator('[data-action="cloud-toggle:cloud-z:done"]').click();
+ // The item must leave "ready" immediately when reconciliation becomes
+ // uncertain; inspect it in "all", not in the now-ineligible ready filter.
+ await page.locator('[data-filter="all"]').click();
  await expect(page.locator('.xu-cloud-task')).toContainText('云端依赖待同步');
  await expect(page.locator('.xu-cloud-task [data-action^="cloud-toggle:"]')).toHaveCount(0);
  expect(writes).toBe(1,'PATCH succeeded exactly once despite the read failure');
