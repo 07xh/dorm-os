@@ -65,3 +65,31 @@ body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,Blink
 /* Six task filters must remain usable on phone widths. */
 #app .v4-task-toolbar .v4-filters{display:flex;flex-wrap:wrap;min-width:0;row-gap:4px}
 @media(max-width:560px){#app .v4-task-toolbar .filter-btn{padding:8px 11px;font-size:12px}}
+
+/* NextTodo-inspired graph lives inside the existing task center, not a new SPA. */
+.xu-graph-shell{padding:14px 12px;min-width:0}
+.xu-graph-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+.xu-graph-actions .small{margin-right:auto}
+.xu-graph-scroll{overflow:auto;overscroll-behavior:contain;max-width:100%;border:1px solid var(--xu-line);border-radius:12px;background:radial-gradient(circle at 1px 1px,var(--xu-line) 1px,transparent 1.2px) 0 0 / 22px 22px,var(--xu-bg);scrollbar-gutter:stable;touch-action:pan-x pan-y}
+.xu-graph-scroll:focus-visible{outline:2px solid var(--xu-ring);outline-offset:2px}
+.xu-graph-canvas{position:relative;min-height:230px}
+.xu-graph-svg{pointer-events:none;position:absolute;inset:0;overflow:visible}
+.xu-graph-line{stroke:var(--xu-brand);stroke-width:2;fill:none;opacity:.68;transition:opacity 140ms ease}
+.xu-graph-line.is-dim{opacity:.1}
+#xu-graph-arrow path{fill:none;stroke:var(--xu-brand);stroke-width:1.8}
+.xu-graph-node{position:absolute;box-sizing:border-box;width:202px;height:80px;padding:0;box-shadow:0 4px 14px #18263d12;border:1px solid var(--xu-line);border-radius:12px;background:var(--xu-surface);color:var(--xu-ink);display:flex;flex-direction:column;overflow:hidden;transition:opacity 130ms ease,border-color 130ms ease,box-shadow 130ms ease}
+.xu-graph-node.is-ready{border-color:var(--xu-brand)}
+.xu-graph-node.is-waiting{border-style:dashed}
+.xu-graph-node.is-done{opacity:.66}
+.xu-graph-node.is-selected{box-shadow:0 0 0 3px var(--xu-ring),0 6px 22px #18263d16}
+.xu-graph-node.is-dim{opacity:.3}
+.xu-graph-select{display:block;width:100%;flex:1;min-height:0;padding:7px 9px 3px;text-align:left;border:0;background:transparent;color:inherit;cursor:pointer}
+.xu-graph-select:focus-visible,.xu-graph-edit:focus-visible{outline:2px solid var(--xu-ring);outline-offset:-2px}
+.xu-graph-node-top{display:flex;justify-content:space-between;align-items:center;gap:4px;min-width:0;color:var(--xu-muted);font-size:11px;line-height:1.2}
+.xu-graph-node-top small{font-size:11px;white-space:nowrap}
+.xu-graph-state{font-size:11px;white-space:nowrap}
+.xu-graph-title{display:block;font-size:13px;line-height:1.3;font-weight:600;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xu-graph-edit{display:block;align-self:flex-end;border:0;background:transparent;color:var(--xu-brand);font-size:12px;min-height:23px;padding:0 10px;cursor:pointer}
+.xu-graph-chain,.xu-graph-explain{margin:11px 0 0;line-height:1.5}
+@media(max-width:560px){.xu-graph-shell{padding:10px 8px}.xu-graph-actions{gap:6px}.xu-graph-actions .secondary{min-height:38px}.xu-graph-scroll{scrollbar-gutter:auto}}
+@media(prefers-reduced-motion:reduce){.xu-graph-node,.xu-graph-line{transition:none}}
