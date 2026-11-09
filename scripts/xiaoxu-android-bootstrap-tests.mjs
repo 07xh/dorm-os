@@ -166,6 +166,24 @@ assert.match(reminder, /LocalTaskDatabase\.open\(applicationContext\)\.tasks\(\)
   'Reminder worker must only read local tasks, not school snapshots');
 assert.doesNotMatch(reminder, /CloudClient|NativeSchoolRecord|CookieManager|SCHOOL_SESSION_KEY/,
   'Local notifications may not use school accounts, credentials or cached homework');
+// Screenshot regression 2026-11-09: creating one local task must not show
+// the large management list and truncated horizontal source selector.
+assert.match(localTaskUi, /internal fun LocalTaskCreateSheet\(/,
+  '本机新建独立紧凑表单，不再嵌套筛选和空任务列表');
+assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/,
+  '分类使用统一完整下拉选择器，避免横向截断');
+assert.doesNotMatch(localTaskUi,
+  /LazyRow\(horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\)\s*\{\s*items\(count = TASK_SOURCES\.size/,
+  '新建和编辑任务禁止再出现横向截断的五项分类');
+assert.match(workspace, /showLocalComposer by rememberSaveable/,
+  '顶栏新增任务必须独立于本机任务管理');
+assert.match(workspace, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
+  '新增按钮直接进入单用途新建页');
+assert.match(localTaskUi, /if \(tasks\.isEmpty\(\)\)/,
+  '零条本机任务时不应该显示无意义的筛选器');
+assert.match(localTaskUi, /if \(downstreamCount > 0\)/,
+  '删除前置节点前应提示被解除的后续依赖');
+
 assert.match(localTaskUi, /var visibleLimit by rememberSaveable\(filterKey\) \{ mutableStateOf\(30\) \}/,
   '本机任务编辑器只组合首30条，切换筛选重置显示进度');
 assert.match(localTaskUi, /visible\.take\(visibleLimit\)/,
