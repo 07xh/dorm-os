@@ -489,7 +489,7 @@ def setup() -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（复用 Wechat-Todo，不上传原文）")
-    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify", "ai-prepare", "ai-submit"))
+    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify", "ai-prepare", "ai-check", "ai-submit"))
     args = parser.parse_args(argv)
     if args.command == "setup":
         setup()
@@ -517,10 +517,12 @@ def main(argv=None) -> int:
         return 0
     secret = opened(config["hmacDpapi"])
     cursors = read_state()
-    if args.command in ("ai-prepare", "ai-submit"):
-        from ai_handoff import prepare_ai, submit_ai
+    if args.command in ("ai-prepare", "ai-check", "ai-submit"):
+        from ai_handoff import prepare_ai, check_ai, submit_ai
         if args.command == "ai-prepare":
             prepare_ai(config, secret, cursors)
+        elif args.command == "ai-check":
+            check_ai(config, secret, cursors)
         else:
             submit_ai(config, secret, cursors)
         return 0
