@@ -383,6 +383,7 @@ internal class ChaoxingLocalReader(
         }
         val base=mapOf("encryTaskUserId" to user)
         val groups=data("/userStudyPlan/getGroupData",base)
+        val failureCountBeforePlan=failures.size
         val resolvedWorks=mutableSetOf<String>()
         var assignmentCount=0
         var lockedGroup=false
@@ -395,40 +396,48 @@ internal class ChaoxingLocalReader(
                     link.title+" · "+group.optString("name","未解锁分组"),"未解锁",URI(page.url).host)
                 continue
             }
-            if(encrypted.isBlank()) throw ChaoxingReadFailure("group_identity")
-            val plans=data("/userStudyPlan/getPlanDataByGroupId",base+mapOf("encryGroupId" to encrypted))
-            if(plans.length()>2000) throw ChaoxingReadFailure("plan_limit")
-            for(j in 0 until plans.length()) {
-                val plan=plans.getJSONObject(j)
-                if (plan.optInt("planType",-1)==4) assignmentCount++
-                val id=plan.optString("planId")
-                val key=if(numeric.matches(id)) "plan:$id" else "study:"+hash(user+encrypted+plan.optString("encryptPlanId"))
-                val accessible=plan.optBoolean("planAllowStudy")||plan.optBoolean("chooseStudy")
-                val finished=plan.opt("isFinish").let {it==true||it.toString() in setOf("1","true")}
-                val status=sequenceOf("statusText","stateText","statusName").map {plan.optString(it)}.firstOrNull {it.isNotBlank()}
-                    ?: if(!accessible) "未解锁" else if(finished) "已完成" else "未完成"
-                val title=plan.optString("name",link.title)
-                record("study_task",key,title,status,URI(page.url).host)
-                // getToStudyUrl resolves the official assignment destination;
-                // it does not start reading progress or submit an assignment.
-                if(plan.optInt("planType",-1)==4&&accessible&&plan.optString("encryptPlanId").isNotBlank()) {
-                    val args=base+mapOf("encryptPlanId" to plan.optString("encryptPlanId"),"studyJumpType" to "0","isInterface" to "false")
-                    val reply=JSONObject(fetch(query(origin+"/userStudyPlan/getToStudyUrl",args),"POST").text)
-                    if(!reply.optBoolean("result")) throw ChaoxingReadFailure("work_destination")
-                    val url=safeUrl(reply.optJSONObject("data")?.optString("url").orEmpty(),page.url)
-                        ?: throw ChaoxingReadFailure("work_destination")
-                    if(!supported(url)) throw ChaoxingReadFailure("work_destination")
-                    readWorkLink(ChaoxingDiscoveredLink(title,url),status)
-                    workKey(url)?.let { resolvedWorks.add(it) }
-                    // An actual work identity replaces the plan child in the
-                    // task center, preventing two copies of the same assignment.
-                    if(workKey(url)!=null) {items.remove(key);superseded.add(key)}
+            recover("学习计划分组 ${i+1}") {
+                if(encrypted.isBlank()) throw ChaoxingReadFailure("group_identity")
+                val plans=data("/userStudyPlan/getPlanDataByGroupId",base+mapOf("encryGroupId" to encrypted))
+                if(plans.length()>2000) throw ChaoxingReadFailure("plan_limit")
+                for(j in 0 until plans.length()) {
+                    recover("学习计划项目 ${i+1}/${j+1}") {
+                        val plan=plans.getJSONObject(j)
+                        if (plan.optInt("planType",-1)==4) assignmentCount++
+                        val id=plan.optString("planId")
+                        val key=if(numeric.matches(id)) "plan:$id" else "study:"+hash(user+encrypted+plan.optString("encryptPlanId"))
+                        val accessible=plan.optBoolean("planAllowStudy")||plan.optBoolean("chooseStudy")
+                        val finished=when(plan.opt("isFinish")?.toString()?.lowercase()) {
+                            "1", "true" -> true
+                            "0", "false" -> false
+                            else -> null
+                        }
+                        val status=sequenceOf("statusText","stateText","statusName").map {plan.optString(it)}.firstOrNull {it.isNotBlank()}
+                            ?: if(!accessible) "未解锁" else when(finished) {true -> "已完成";false -> "未完成";null -> "状态未知"}
+                        val title=plan.optString("name",link.title)
+                        record("study_task",key,title,status,URI(page.url).host)
+                        // getToStudyUrl resolves the official assignment destination;
+                        // it does not start reading progress or submit an assignment.
+                        if(plan.optInt("planType",-1)==4&&accessible&&plan.optString("encryptPlanId").isNotBlank()) {
+                            val args=base+mapOf("encryptPlanId" to plan.optString("encryptPlanId"),"studyJumpType" to "0","isInterface" to "false")
+                            val reply=JSONObject(fetch(query(origin+"/userStudyPlan/getToStudyUrl",args),"POST").text)
+                            if(!reply.optBoolean("result")) throw ChaoxingReadFailure("work_destination")
+                            val url=safeUrl(reply.optJSONObject("data")?.optString("url").orEmpty(),page.url)
+                                ?: throw ChaoxingReadFailure("work_destination")
+                            if(!supported(url)) throw ChaoxingReadFailure("work_destination")
+                            readWorkLink(ChaoxingDiscoveredLink(title,url),status)
+                            workKey(url)?.let { resolvedWorks.add(it) }
+                            // An actual work identity replaces the plan child in the
+                            // task center, preventing two copies of the same assignment.
+                            if(workKey(url)!=null) {items.remove(key);superseded.add(key)}
+                        }
+                    }
                 }
             }
         }
         // A notification can wrap a whole plan. Bind its legacy identity only
         // if the complete response proves it contains exactly one assignment.
-        if (!lockedGroup && assignmentCount == 1 && resolvedWorks.size == 1)
+        if (failures.size == failureCountBeforePlan && !lockedGroup && assignmentCount == 1 && resolvedWorks.size == 1)
             bindNotice(link, resolvedWorks.single())
     }
     private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false) {
