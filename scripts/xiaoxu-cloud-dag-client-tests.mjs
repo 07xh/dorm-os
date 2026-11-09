@@ -82,6 +82,7 @@ assert.deepEqual(Array.from(desktop.displayRecords()),[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/云端先后关系暂不可用/);
 // A stale browser gets a conflict, refreshes, and does not overwrite another edit.
 await desktop.connect();
+await phone.refresh();
 await phone.setPrerequisites('cloud-b',[]);
 await assert.rejects(()=>desktop.setPrerequisites('cloud-b',[]),/数据发生冲突/);
 assert.equal(desktop.graphSnapshot().revision,2);
