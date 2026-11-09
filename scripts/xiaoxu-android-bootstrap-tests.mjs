@@ -1928,10 +1928,10 @@ assert.match(workspace, /onVerifyChaoxing = \{ openLocalSchool\("chaoxing"\) \}/
   '学习通相关云端任务详情必须可以打开官方页面进行人工核对');
 assert.match(workspace, /selectedTask.provider == "chaoxing"/,
   '只有学习通相关任务显示学习通核对入口');
-assert.match(workspace, /本条记录尚无可关联的官方作业 ID/,
+assert.match(workspace, /尚未确认当前官方作业身份/,
   '没有可信来源 ID 的旧记录必须提供人工核对入口');
-assert.match(workspace, /已关联学习通官方作业 ID/,
-  '具有可信来源 ID 的任务必须明确显示已关联状态');
+assert.match(workspace, /已识别官方作业身份/,
+  '具有可信 work 元组的任务方可提示已识别官方身份');
 assert.match(workspace, /trustedChaoxingPlatformStatus\(/,
   '学习通状态必须通过后端受信任来源元数据校验，不按标题猜测');
 assert.match(workspace, /上次官方同步：/,
