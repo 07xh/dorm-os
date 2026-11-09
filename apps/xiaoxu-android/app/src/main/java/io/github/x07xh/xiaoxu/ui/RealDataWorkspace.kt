@@ -1651,6 +1651,10 @@ fun RealAcademicTaskHub(
                 }
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
+            waitingTitles = selectedTask.key.removePrefix("local:").toLongOrNull()
+                ?.takeIf { selectedTask.storage == "local" && !selectedTask.done }
+                ?.let { unfinishedLocalPrerequisites(it, localTasks, dependencies) }
+                ?.map { it.title }.orEmpty(),
             onManage = {
                 if (selectedTask.storage == "local") {
                     editingLocalId = selectedTask.key.removePrefix("local:").toLongOrNull()
@@ -1714,7 +1718,8 @@ internal fun WorkspaceTaskDetailSheet(
     onManage: () -> Unit,
     manageLabel: String = "编辑本机任务",
     onVerifyChaoxing: (() -> Unit)? = null,
-    onArchive: (() -> Unit)? = null
+    onArchive: (() -> Unit)? = null,
+    waitingTitles: List<String> = emptyList()
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
@@ -1734,6 +1739,7 @@ internal fun WorkspaceTaskDetailSheet(
             StatusChip(
                 when {
                     selectedTask.done -> "个人已完成"
+                    waitingTitles.isNotEmpty() -> "等待前置"
                     considerCompleteInTaskList(selectedTask) -> "官方已提交"
                     selectedTask.provider == "chaoxing" &&
                         selectedTask.officialStatus in setOf(null, "unknown") -> "待核对"
@@ -1742,6 +1748,10 @@ internal fun WorkspaceTaskDetailSheet(
                 if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
                 else XiaoxuTone.Neutral
             )
+        }
+        if (waitingTitles.isNotEmpty()) {
+            Text("还需先完成：" + waitingTitles.joinToString("、"),
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         }
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
         chaoxingTaskIdentityHint(selectedTask)?.let { identity ->
