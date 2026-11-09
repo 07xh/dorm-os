@@ -186,6 +186,9 @@ fun localTaskGraphVisibleIds(
         // Two independent traversals avoid pulling in unrelated sibling tasks.
         visit(listOf(focusTaskId), walkToDependents = false)
         visit(listOf(focusTaskId), walkToDependents = true)
+        // A downstream task may ALSO require another branch; show those
+        // prerequisites without including unrelated sibling-only branches.
+        visit(result.toList(), walkToDependents = false)
     } else {
         val term = titleSearch.trim()
         if (term.isEmpty()) return byId.keys
