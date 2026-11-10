@@ -191,7 +191,7 @@ assert.match(localTaskUi, /visible\.take\(visibleLimit\)/,
   '本机任务必须按需显示更多，而非一次构造200张卡');
 assert.match(localTaskUi, /XiaoxuGroupSurface\s*\{/,
   '本机任务列表复用唯一玻璃连续分组外壳');
-assert.match(localTaskUi, /dao\.setCompleted\(task\.id, checked\)/,
+assert.match(localTaskUi, /dao\.trySetCompleted\(task\.id, checked\)/,
   '本机任务完成操作必须仍写原Room记录');
 assert.match(localTaskUi, /onDelete = \{ pendingDelete = task \}/,
   '本机任务删除仍需原确认流程');
@@ -280,7 +280,7 @@ assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
 assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
 assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
   '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
-assert.match(localEditorSource, /dao\.setCompleted\(task\.id, checked\)/,
+assert.match(localEditorSource, /dao\.trySetCompleted\(task\.id, checked\)/,
   '本机任务完成/取消完成操作不能丢失');
 assert.match(localEditorSource, /dao\.remove\(task\.id\)/,
   '本机删除确认功能不能丢失');
@@ -518,7 +518,7 @@ assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机
  '官方截止文字无法解析时，旧云端日期不能冒充已核实截止');
 assert.match(workspace, /item\(key = "task:undo-last"\)/,
  '个人任务完成后需要保留一键撤销操作');
-assert.match(workspace, /dao\.setCompleted\(id, checked\)[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
+assert.match(workspace, /if \(!dao\.trySetCompleted\(id, checked\)\)[\s\S]*?else \{[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
  '必须在 Room 成功保存之后才展示刚完成任务');
 assert.match(workspace, /toggleLocal\(row, false\)/,
  '撤销必须复用本机任务完成状态写入流程');
