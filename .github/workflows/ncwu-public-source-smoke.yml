@@ -29,7 +29,7 @@ jobs:
           path: _third_party/ncwu-crawler
           persist-credentials: false
       - name: Install pinned Node parser dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Verify public list data (no school credentials)
         run: |
           python3 scripts/ncwu-upstream-notices.py "$RUNNER_TEMP/ncwu-upstream.json"
