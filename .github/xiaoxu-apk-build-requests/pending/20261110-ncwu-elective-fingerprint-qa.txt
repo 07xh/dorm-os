@@ -1,0 +1,5 @@
+Owner-approved NCWU elective read-only development QA for PR #439.
+Build from the exact PR source commit after running existing Android JVM and full app checks.
+Verify the isolated QA APK opens existing LocalQingguoImportActivity with a manually triggered "检查选课页面结构" action.
+No real account tests, credentials, school write requests, automatic enrollment, source HTML export, Cloudflare production changes, or official APK replacement.
+An unsigned release artifact is not the production app. The isolated QA artifact is for opt-in device testing only.
