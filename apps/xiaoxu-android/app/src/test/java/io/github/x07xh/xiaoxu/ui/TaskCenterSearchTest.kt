@@ -355,6 +355,42 @@ class TaskCenterSearchTest {
 
 
     @Test
+    fun readyViewRanksVerifiedOfficialAndPersonalDueDatesWithoutTrustingCloudSnapshots() {
+        val local = listOf(
+            LocalTask(id = 1, title = "个人作业"),
+            LocalTask(id = 2, title = "没有日期的任务")
+        )
+        val rows = listOf(
+            WorkspaceTask("cloud:unverified-date", "未知来源截止", "学习通", false,
+                today.minusDays(3), "云端记录，需核对来源", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo"),
+            WorkspaceTask("local:1", "个人作业", "本机待办", false,
+                today.plusDays(3), "本人填写", "local"),
+            WorkspaceTask("cloud:verified", "官方截止", "学习通", false,
+                today.plusDays(1), "学习通本机官方截止", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "2026-11-07"),
+            WorkspaceTask("local:2", "没有日期的任务", "本机待办", false,
+                null, "本人填写", "local"),
+            WorkspaceTask("native:verified", "官方退回", "学习通", false,
+                today.minusDays(1), "本机官方页面观察", "native",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "returned",
+                officialDeadline = "2026-11-05"),
+            WorkspaceTask("cloud:submitted", "已交作业", "学习通", false,
+                today.minusDays(2), "学习通本机官方截止", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "submitted",
+                officialDeadline = "2026-11-04")
+        )
+        assertEquals(
+            listOf("native:verified", "cloud:verified", "local:1",
+                "cloud:unverified-date", "local:2"),
+            readyWorkspaceTasks(rows, local, emptyList()).map { it.key }
+        )
+        assertEquals("todo", rows.single { it.key == "cloud:verified" }.officialStatus)
+        assertTrue(rows.none { it.done })
+    }
+
+    @Test
     fun whitespaceAndCaseInsensitiveSearchAreStable() {
         assertEquals(records, searchWorkspaceTasks(records, "all", "  ", today))
         assertEquals(listOf("cloud:1"),
