@@ -1,5 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
+import android.widget.Toast
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -194,6 +196,7 @@ fun LocalTaskEditor(
     onCreateTask: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val today = LocalDate.now()
     var filterKey by rememberSaveable { mutableStateOf(TASK_FILTER_ALL) }
     var visibleLimit by rememberSaveable(filterKey) { mutableStateOf(30) }
@@ -273,7 +276,19 @@ fun LocalTaskEditor(
                                 task = task,
                                 today = today,
                                 onToggle = { checked ->
-                                    scope.launch { dao.setCompleted(task.id, checked) }
+                                    scope.launch {
+                                        try {
+                                            if (!dao.trySetCompleted(task.id, checked)) {
+                                                Toast.makeText(context, "请先完成前置任务，或刷新已变更的任务",
+                                                    Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "本机任务保存失败，请重试",
+                                                Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 },
                                 onEdit = { onEditTask(task) },
                                 onDelete = { pendingDelete = task }
