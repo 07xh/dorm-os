@@ -1184,10 +1184,15 @@ fun RealAcademicTaskHub(
             pendingLocalTaskUpdates[row.key] = checked
             taskScope.launch {
                 try {
-                    dao.setCompleted(id, checked)
-                    // Never offer Undo before a successful Room write.
-                    if (checked) lastCompletedLocalId = id
-                    else if (lastCompletedLocalId == id) lastCompletedLocalId = null
+                    if (!dao.trySetCompleted(id, checked)) {
+                        pendingLocalTaskUpdates.remove(row.key)
+                        Toast.makeText(context, "请先完成前置任务，或重新打开已变更的任务",
+                            Toast.LENGTH_SHORT).show()
+                    } else {
+                        // Never offer Undo before a successful Room write.
+                        if (checked) lastCompletedLocalId = id
+                        else if (lastCompletedLocalId == id) lastCompletedLocalId = null
+                    }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
