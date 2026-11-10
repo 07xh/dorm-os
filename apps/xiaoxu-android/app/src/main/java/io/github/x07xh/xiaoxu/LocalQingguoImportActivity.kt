@@ -36,6 +36,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var status: TextView
     private lateinit var extractButton: Button
+    private lateinit var inspectButton: Button
     private var extracting = false
     private var pageFailed = false
     private var pageLoaded = false
@@ -62,8 +63,13 @@ class LocalQingguoImportActivity : ComponentActivity() {
             text = "提取本页课表"
             isEnabled = false
         }
+        inspectButton = Button(this).apply {
+            text = "检查选课页面结构"
+            isEnabled = false
+        }
         controls.addView(back, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         controls.addView(extractButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f))
+        controls.addView(inspectButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f))
         status = TextView(this).apply {
             text = "请在华水官方页面本人登录，打开个人课表，再点击提取。课程仅保存在本机。"
             setTextColor(Color.DKGRAY)
@@ -95,11 +101,13 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     pageFailed = false
                     pageLoaded = false
                     extractButton.isEnabled = false
+                    inspectButton.isEnabled = false
                     status.text = "学校官方页面加载中…"
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     pageLoaded = !pageFailed && isOfficialPage(url)
                     extractButton.isEnabled = pageLoaded && !extracting
+                    inspectButton.isEnabled = pageLoaded && !extracting
                     if (!pageFailed) {
                         status.text = if (pageLoaded)
                             "请先在华水官方页面打开个人课表，再点击提取；本机导入不需要云端登录。"
@@ -111,6 +119,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     pageFailed = true
                     pageLoaded = false
                     extractButton.isEnabled = false
+                    inspectButton.isEnabled = false
                     status.text = "学校 HTTPS 证书验证失败，已禁止在此页面读取课程。"
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -118,6 +127,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                         pageFailed = true
                         pageLoaded = false
                         extractButton.isEnabled = false
+                        inspectButton.isEnabled = false
                         status.text = "学校页面加载失败，请检查网络或稍后重新打开教务网站。"
                     }
                 }
@@ -126,6 +136,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                         pageFailed = true
                         pageLoaded = false
                         extractButton.isEnabled = false
+                        inspectButton.isEnabled = false
                         status.text = "学校页面返回 HTTP " + response.statusCode + "，未读取任何课程。"
                     }
                 }
@@ -138,6 +149,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
         setContentView(root)
         back.setOnClickListener { if (browser.canGoBack()) browser.goBack() else finish() }
         extractButton.setOnClickListener { extractVisibleTimetable() }
+        inspectButton.setOnClickListener { inspectVisibleElectiveSource() }
         browser.loadUrl("https://jwmis.ncwu.edu.cn/")
     }
 
@@ -151,6 +163,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
         val epoch = pageEpoch
         extracting = true
         extractButton.isEnabled = false
+        inspectButton.isEnabled = false
         status.text = "正在本机读取当前页面的课表网格…"
         try {
             val script = assets.open("ncwu_qingguo_local.js").bufferedReader().use { it.readText() }
@@ -161,6 +174,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     return@evaluateJavascript
                 }
                 extractButton.isEnabled = pageLoaded && !pageFailed
+                inspectButton.isEnabled = pageLoaded && !pageFailed
                 try {
                     val jsonText = JSONTokener(encoded).nextValue() as? String
                         ?: throw IllegalArgumentException("页面没有返回课表")
@@ -213,7 +227,94 @@ class LocalQingguoImportActivity : ComponentActivity() {
         } catch (e: Exception) {
             extracting = false
             extractButton.isEnabled = pageLoaded && !pageFailed
+            inspectButton.isEnabled = pageLoaded && !pageFailed
             status.text = "课表提取组件加载失败，旧课表保持不变。"
+        }
+    }
+
+
+    /**
+     * Inspect only the *structure* of the already-open official elective page.
+     * No school request, session transfer, personal record or timetable write.
+     */
+    private fun inspectVisibleElectiveSource() {
+        if (extracting) return
+        val currentUrl = browser.url
+        if (!pageLoaded || pageFailed || !isOfficialPage(currentUrl)) {
+            status.text = "请先通过华水官网进入本人选课页面，再检查页面结构。"
+            return
+        }
+        val epoch = pageEpoch
+        extracting = true
+        extractButton.isEnabled = false
+        inspectButton.isEnabled = false
+        status.text = "正在本机识别表格列名与数量，不读取具体课程。"
+        try {
+            val script = assets.open("ncwu_elective_source_probe.js")
+                .bufferedReader().use { it.readText() }
+            browser.evaluateJavascript(
+                script + "\nJSON.stringify(window.__xiaoxuInspectElectiveSource())"
+            ) { encoded ->
+                extracting = false
+                if (epoch != pageEpoch || browser.url != currentUrl || isFinishing) {
+                    status.text = "检查时学校页面已切换，请回到选课页重新检查。"
+                    return@evaluateJavascript
+                }
+                extractButton.isEnabled = pageLoaded && !pageFailed
+                inspectButton.isEnabled = pageLoaded && !pageFailed
+                try {
+                    val jsonText = JSONTokener(encoded).nextValue() as? String
+                        ?: throw IllegalArgumentException("未识别到页面表格结构")
+                    val result = JSONObject(jsonText)
+                    if (result.optString("schema") !=
+                        "xiaoxu/ncwu-elective-source-fingerprint-v1")
+                        throw IllegalArgumentException("页面结构结果版本不匹配")
+                    val tables = result.optJSONArray("candidateTables")
+                        ?: throw IllegalArgumentException("页面结构结果不完整")
+                    val columns = mapOf(
+                        "courseName" to "课程名称", "courseCode" to "课程代码",
+                        "classCode" to "教学班", "teacher" to "任课教师",
+                        "campus" to "校区", "capacity" to "容量",
+                        "remaining" to "剩余名额", "meeting" to "上课时间",
+                        "status" to "选课状态", "courseType" to "课程类别",
+                        "credit" to "学分"
+                    )
+                    val recognized = linkedSetOf<String>()
+                    var likely = 0
+                    for (i in 0 until minOf(tables.length(), 20)) {
+                        val item = tables.optJSONObject(i) ?: continue
+                        if (item.optBoolean("likelyCatalog")) likely++
+                        val labels = item.optJSONArray("columns") ?: continue
+                        for (j in 0 until minOf(labels.length(), 20)) {
+                            val name = columns[labels.optString(j)]
+                            if (name != null) recognized += name
+                        }
+                    }
+                    val details = if (recognized.isEmpty()) "未匹配到标准课程列名"
+                        else recognized.joinToString("、")
+                    val message = "只读结构检查：识别到 " + tables.length() +
+                        " 个含课程字段的表格，其中 " + likely +
+                        " 个可能是教学班列表。\n识别列：$details\n\n" +
+                        "本次没有读取任何课程行、个人信息或实时余量，" +
+                        "也没有向学校发送新请求。仅凭列名不能证明选课接口兼容，" +
+                        "正式课程读取仍需要本人按官网页面逐项核验。"
+                    AlertDialog.Builder(this)
+                        .setTitle("选课页面结构检查")
+                        .setMessage(message)
+                        .setPositiveButton("知道了", null)
+                        .show()
+                    status.text = if (likely > 0)
+                        "已识别教学班列表结构候选；尚未接入课程读取。"
+                    else "尚未识别教学班列表。可在官网进入选课列表后再检查。"
+                } catch (_: Exception) {
+                    status.text = "当前页面结构无法确认；未读取或保存任何课程。"
+                }
+            }
+        } catch (_: Exception) {
+            extracting = false
+            extractButton.isEnabled = pageLoaded && !pageFailed
+            inspectButton.isEnabled = pageLoaded && !pageFailed
+            status.text = "只读选课结构检查组件未安装，原有课表保持不变。"
         }
     }
 
