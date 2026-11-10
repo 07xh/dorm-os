@@ -512,8 +512,10 @@ assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
  '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
 assert.match(workspace, /val openLabel = if \(task\.storage == "local"\) "编辑本机任务" else "查看任务详情"/,
  '本机行应明确说明点击是直接编辑，云端行仍是详情');
-assert.match(workspace, /row\.provider == "chaoxing" && row\.officialDeadline != null/,
- '仅有真实官方截止证据的学习通条目参与可做列表日期排序');
+assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/,
+ '只有已解析的学习通官方截止日期可用于排序');
+assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/,
+ '官方截止文字无法解析时，旧云端日期不能冒充已核实截止');
 assert.match(workspace, /item\(key = "task:undo-last"\)/,
  '个人任务完成后需要保留一键撤销操作');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
