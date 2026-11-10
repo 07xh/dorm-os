@@ -82,6 +82,7 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
+import io.github.x07xh.xiaoxu.data.NcwuHtmlXlsTimetableParser
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
@@ -296,8 +297,14 @@ class MainActivity : ComponentActivity() {
                             LocalTimetableBackup.parse(text)
                         lowered.endsWith(".json") ->
                             LocalTimetableBackup.Imported(LocalScheduleStore.parseCourses(text))
+                        lowered.endsWith(".xls") || lowered.endsWith(".html") ||
+                            lowered.endsWith(".htm") ->
+                            LocalTimetableBackup.Imported(
+                                NcwuHtmlXlsTimetableParser.parse(bytes.toByteArray()))
+                        lowered.endsWith(".xlsx") -> throw IllegalArgumentException(
+                            "二进制 .xlsx 暂不支持直接导入，请使用原教务系统 HTML 表格导出或 ICS/JSON")
                         else -> throw IllegalArgumentException(
-                            "请选择已转换的 .ics、标准课表 .json 或校序课表备份；原始 .sleepdown 备份暂不支持直接读取")
+                            "支持 .ics、标准课表 .json 或华水 HTML 表格 .xls/.html；二进制 Excel 和原始 .sleepdown 暂不支持")
                     }
                     fileName to imported
                 }
