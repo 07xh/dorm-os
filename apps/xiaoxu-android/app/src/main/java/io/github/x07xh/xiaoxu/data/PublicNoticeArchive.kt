@@ -2,6 +2,7 @@ package io.github.x07xh.xiaoxu.data
 
 import org.json.JSONObject
 import java.net.URL
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 
@@ -25,7 +26,11 @@ internal object PublicNoticeArchive {
     private val articlePath = Regex(
         """^/(?:(?:xsc|jiaowu|dianqi|gcxlzx|qysy)/)?info/\d{3,6}/\d{1,8}\.htm$"""
     )
-    private val archiveId = Regex("""^ncwu-[0-9a-f]{16}$""")
+    private val departmentPaths = mapOf(
+        "dianqi" to "/dianqi/info/",
+        "gcxlzx" to "/gcxlzx/info/",
+        "qysy" to "/qysy/info/"
+    )
     private val dateFormat = Regex("""^20\d{2}-\d{2}-\d{2}$""")
 
     fun parse(json: JSONObject): PublicNoticeArchiveRead {
@@ -50,11 +55,14 @@ internal object PublicNoticeArchive {
             // Unverified manual seed entries are never promoted merely because
             // the later archive was collected successfully.
             if (id.startsWith("seed-") || id.startsWith("seed:")) continue
-            require(sourceId in allowedSources && archiveId.matches(id)) {
-                "公告来源或记录标识不可信"
-            }
+            require(sourceId in allowedSources) { "公告来源不可信" }
             val url = trustedPublicArticleUrl(row.optString("url"))
                 ?: throw IllegalArgumentException("公告文章链接不属于学校官方白名单")
+            val prefix = departmentPaths[sourceId]
+            require((prefix == null || (URL(url).host == "www2.ncwu.edu.cn" &&
+                URL(url).path.startsWith(prefix))) && id == stableId(url)) {
+                "公告来源与文章路径或稳定标识不一致"
+            }
             val title = row.optString("title").trim()
             require(title.length in 8..220) { "公告标题不完整" }
             val type = when (row.optString("category")) {
@@ -71,6 +79,14 @@ internal object PublicNoticeArchive {
         }
         require(distinct.size >= 2) { "有效官方公告不足两条" }
         return PublicNoticeArchiveRead(distinct.values.toList(), fetchedAt)
+    }
+
+    private fun stableId(url: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(url.toByteArray(Charsets.UTF_8))
+        return "ncwu-" + digest.joinToString("") {
+            (it.toInt() and 255).toString(16).padStart(2, '0')
+        }.take(16)
     }
 
     private fun trustedPublicArticleUrl(candidate: String): String? = try {
