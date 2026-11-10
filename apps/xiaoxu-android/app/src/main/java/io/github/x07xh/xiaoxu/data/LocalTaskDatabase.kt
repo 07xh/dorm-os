@@ -55,6 +55,25 @@ interface LocalTaskDao {
     @Query("UPDATE local_tasks SET completed = :completed WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean)
 
+    @Query("""
+        SELECT COUNT(*) FROM local_task_dependencies AS link
+        LEFT JOIN local_tasks AS prerequisite ON prerequisite.id = link.prerequisiteId
+        WHERE link.taskId = :taskId
+          AND (prerequisite.id IS NULL OR prerequisite.completed = 0)
+    """)
+    suspend fun unfinishedDependencyCount(taskId: Long): Int
+
+    /** One Room transaction enforces NextTodo prerequisites on every UI entry.
+     * Unchecking is always permitted. No school/cloud completion is written here.
+     */
+    @Transaction
+    suspend fun trySetCompleted(taskId: Long, completed: Boolean): Boolean {
+        if (findById(taskId) == null) return false
+        if (completed && unfinishedDependencyCount(taskId) != 0) return false
+        setCompleted(taskId, completed)
+        return true
+    }
+
     /** Edit only personal metadata; completion, creation time and school records remain unchanged. */
     @Query("UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id")
     suspend fun updateDetails(id: Long, title: String, source: String?, due: String?): Int
