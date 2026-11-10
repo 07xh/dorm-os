@@ -1209,7 +1209,11 @@ fun RealAcademicTaskHub(
                 XiaoxuToolbarAction(
                     icon = Icons.Outlined.Search,
                     label = "搜索任务",
-                    onClick = { showSearch = !showSearch }
+                    onClick = {
+                        // A collapsed search must never leave an invisible filter.
+                        if (showSearch) searchQuery = ""
+                        showSearch = !showSearch
+                    }
                 )
                 XiaoxuToolbarAction(
                     icon = Icons.Outlined.Add,
@@ -2261,6 +2265,7 @@ private fun TaskRow(
     verificationHint: String? = null
 ) {
     val due = remember(task, today) { describeDue(task, today) }
+    val openLabel = if (task.storage == "local") "编辑本机任务" else "查看任务详情"
     val dueTone = when (due.emphasis) {
         DUE_OVERDUE -> XiaoxuPalette.Danger
         DUE_TODAY -> XiaoxuPalette.Warning
@@ -2307,7 +2312,7 @@ private fun TaskRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = XiaoxuSpacing.listRowMin)
-            .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
+            .clickable(onClickLabel = openLabel, onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 contentDescription = task.title + "；来源：" + task.origin +
                     "；" + (if (isPending) "个人状态保存中" else
@@ -2319,7 +2324,7 @@ private fun TaskRow(
                     (dependencyHint?.let { "；" + it } ?: "") +
                     (verificationHint?.let { "；" + it } ?: "") +
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
-                    "；点击查看任务详情"
+                    "；点击" + openLabel
             }
             .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
