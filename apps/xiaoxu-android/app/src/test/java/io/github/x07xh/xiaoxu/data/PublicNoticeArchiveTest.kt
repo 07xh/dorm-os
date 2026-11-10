@@ -6,16 +6,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Instant
+import java.security.MessageDigest
 
 class PublicNoticeArchiveTest {
     private fun notice(n: Int, source: String, category: String, host: String = "www2.ncwu.edu.cn",
-                       prefix: String = "/dianqi"): JSONObject = JSONObject()
-        .put("id", "ncwu-" + n.toString(16).padStart(16, '0'))
-        .put("sourceId", source)
-        .put("title", "关于开展2026年度校园学业活动的通知" + n)
-        .put("url", "https://" + host + prefix + "/info/1001/" + n + ".htm")
-        .put("category", category)
-        .put("date", JSONObject.NULL)
+                       prefix: String = "/dianqi"): JSONObject {
+        val url = "https://" + host + prefix + "/info/1001/" + n + ".htm"
+        val digest = MessageDigest.getInstance("SHA-256").digest(url.toByteArray(Charsets.UTF_8))
+        val id = "ncwu-" + digest.joinToString("") {
+            (it.toInt() and 255).toString(16).padStart(2, '0')
+        }.take(16)
+        return JSONObject()
+            .put("id", id)
+            .put("sourceId", source)
+            .put("title", "关于开展2026年度校园学业活动的通知" + n)
+            .put("url", url)
+            .put("category", category)
+            .put("date", JSONObject.NULL)
+    }
 
     private fun archive(items: JSONArray): JSONObject = JSONObject()
         .put("schema", "xiaoxu/notices-v1")
@@ -53,6 +61,14 @@ class PublicNoticeArchiveTest {
             PublicNoticeArchive.parse(archive(JSONArray()
                 .put(notice(1001, "dianqi", "伪造分类"))
                 .put(notice(1002, "dianqi", "校园"))))
+        }
+    }
+
+    @Test fun rejectsCrossDepartmentArticle() {
+        assertThrows(IllegalArgumentException::class.java) {
+            PublicNoticeArchive.parse(archive(JSONArray()
+                .put(notice(1001, "dianqi", "教学", prefix = "/gcxlzx"))
+                .put(notice(1002, "gcxlzx", "校园", prefix = "/gcxlzx"))))
         }
     }
 
