@@ -183,4 +183,28 @@ class ChaoxingWorkResolutionTest {
         assertEquals(setOf("cxn:"+ChaoxingLocalReader.hash("exam|123|考试：期末考试|unknown").take(40)),exam.noticeAliases)
     }
 
+    @Test fun explicitOfficialDeletedOrMissingWorkPageIsRetainedAsUnavailableEvidence() {
+        for((body,status) in listOf(
+            "该作业已被老师删除。" to "已删除",
+            "您访问的作业不存在或已删除！" to "作业不存在",
+            "该作业已撤回" to "已撤回")) {
+            val result=scan(work) {ChaoxingReadPage(it.url,"<div>$body</div>")}
+            assertTrue(result.failures.toString(),result.complete)
+            assertEquals(status,result.items.single().status)
+            assertEquals("work:123:456:901234",result.items.single().sourceKey)
+        }
+    }
+    @Test fun questionOrGeneralErrorCannotPretendThatTheTeacherDeletedWork() {
+        for(body in listOf("<form id='submitForm'>该作业已被老师删除。</form>",
+            "<div class='questionLi'>该作业已被老师删除。</div>",
+            "<p>题目：作业已删除后如何恢复？</p>",
+            "<p>网络异常，请稍后重试</p>","<p>暂无作业</p>",
+            "<p>链接已失效，请重新登录</p>",
+            "<p class='status' hidden>已删除</p><p>读取失败</p>")) {
+            val result=scan(work) {ChaoxingReadPage(it.url,body)}
+            assertTrue(result.complete)
+            assertEquals("状态未知",result.items.single().status)
+        }
+    }
+
 }

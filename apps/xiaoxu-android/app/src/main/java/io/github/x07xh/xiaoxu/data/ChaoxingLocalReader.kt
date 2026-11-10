@@ -196,15 +196,18 @@ internal class ChaoxingLocalReader(
         val detail = detailed?.trim().orEmpty().takeUnless { it.isBlank() || it == "状态未知" }
         if (list.isBlank()) return detail ?: "状态未知"
         if (detail == null) return list
+        if (ChaoxingWorkAvailability.isRemovedStatus(list)) return list
         if (statusClass(list) == 0) return detail
         val negative = Regex("未提交|未完成|待提交|待完成|未交|退回|重做|重新提交|驳回")
         if (negative.containsMatchIn(list)) return list
+        if (ChaoxingWorkAvailability.isRemovedStatus(detail)) return detail
         if (negative.containsMatchIn(detail)) return detail
         val positive = Regex("已完成|已提交|已交|提交成功|待批阅|待批改|待评阅|已批阅|已评分|已评阅|已互评|已互評|互评完成|互評完成")
         return if (positive.containsMatchIn(list) && positive.containsMatchIn(detail)) detail else list
     }
 
     private fun statusClass(value: String): Int = when {
+        ChaoxingWorkAvailability.isRemovedStatus(value) -> 2
         Regex("未提交|未完成|待提交|待完成|未交|退回|重做|重新提交|驳回").containsMatchIn(value) -> -1
         Regex("已完成|已提交|已交|提交成功|待批阅|待批改|待评阅|已批阅|已批改|已评分|已评阅|已互评|已互評|互评完成|互評完成|已达标").containsMatchIn(value) -> 1
         else -> 0
@@ -544,8 +547,11 @@ internal class ChaoxingLocalReader(
     }
     private fun workStatus(doc: Document): String {
         val explicit=doc.select("p.status,.workStatus,.work-status")
-            .firstOrNull {it.closest("#submitForm")==null}?.text().orEmpty()
+            .firstOrNull {it.closest("#submitForm")==null &&
+                (!ChaoxingWorkAvailability.isRemovedStatus(it.text()) || !ChaoxingWorkAvailability.hidden(it))}
+            ?.text().orEmpty()
         if(explicit.isNotBlank()) return explicit
+        ChaoxingWorkAvailability.fromDetail(doc)?.let {return it}
         // An editable question/form can contain any status words. They are not
         // evidence of submission. Follow the reference client's form boundary.
         if(doc.selectFirst("#submitForm")!=null) return ""
@@ -708,7 +714,10 @@ internal class ChaoxingLocalReader(
                     courseWorkKeys.add(key)
                     courseWorkUrls[key]=url
                 }
-                val listedStatus=row.selectFirst("p.status")?.text().orEmpty()
+                val listedElement=row.selectFirst("p.status")
+                val listedStatus=listedElement?.text().orEmpty().takeUnless {
+                    ChaoxingWorkAvailability.isRemovedStatus(it) && listedElement?.let(ChaoxingWorkAvailability::hidden)==true
+                }.orEmpty()
                 // Preserve any earlier official detail evidence; only after
                 // the complete course scan may a unique peer notice trigger a
                 // further detail lookup.

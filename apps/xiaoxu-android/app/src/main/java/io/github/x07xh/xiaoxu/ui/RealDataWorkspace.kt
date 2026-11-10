@@ -98,6 +98,7 @@ import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingRemovedWorkIds
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkCoverage
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingExamNoticeAliases
@@ -179,6 +180,7 @@ internal fun combineWorkspaceTasks(
         // An official work tuple, not a title, allows local official-page evidence
         // to appear in the SAME task list without duplicating cloud records.
         val coverage=nativeChaoxingWorkCoverage(native)
+        val removedWorkIds=nativeChaoxingRemovedWorkIds(native)
         val examAliases=native.flatMap(::nativeChaoxingExamNoticeAliases).toSet()
         val localEvidence = native.mapNotNull { record ->
             val id = nativeChaoxingWorkSourceId(record)
@@ -246,7 +248,8 @@ internal fun combineWorkspaceTasks(
             // Preserve every D1 record and personal completion flag. A complete
             // current class list can withdraw an absent pending work from this
             // display without asserting that the teacher deleted it.
-            if(task.provider=="chaoxing" && task.status!="done" && coverage.excludes(effectiveId))
+            if(task.provider=="chaoxing" && task.status!="done" &&
+                (coverage.excludes(effectiveId) || effectiveId in removedWorkIds))
                 return@forEach
             if (task.provider == "chaoxing" && canonical[effectiveId]?.let {it != task.id} == true)
                 return@forEach
@@ -369,6 +372,7 @@ internal fun officialTaskStatusLabel(status: String?): String? = when (status) {
     "submitted" -> "官方已提交"
     "graded" -> "官方已批阅"
     "returned" -> "官方已退回"
+    "removed" -> "官网显示作业已删除或失效"
     "unknown" -> "官方状态未知"
     else -> null
 }

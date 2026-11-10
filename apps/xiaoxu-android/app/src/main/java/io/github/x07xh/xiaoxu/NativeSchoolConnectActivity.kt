@@ -564,10 +564,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 val observed=rows.filter {it.kind in setOf("homework","study_task")}
                 val completed=observed.count {nativeChaoxingVisibleStatus(it) in setOf("submitted","graded")}
                 val unknown=observed.count {nativeChaoxingVisibleStatus(it) == "unknown"}
+                val removed=observed.count {nativeChaoxingVisibleStatus(it) == "removed"}
                 tell("已读取通知 " + result.noticePages + " 页、课程 " + result.courseCount +
                     " 门，保存记录 " + count + " 条。\n" +
                     "本次作业 ${rows.count {it.kind == "homework"}} 条，考试通知 ${rows.count {it.kind == "exam_notice"}} 条，学习计划 ${rows.count {it.kind == "study_task"}} 条；" +
-                    "已提交/完成 $completed 条，状态待核对 $unknown 条。\n" +
+                    "已提交/完成 $completed 条，已删除/失效 $removed 条，状态待核对 $unknown 条。\n" +
                     if (result.complete) "请返回任务中心核对。"
                     else "部分来源未完成：\n" + result.failures.take(8).joinToString("\n"))
             } catch (_: CancellationException) {

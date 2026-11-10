@@ -185,4 +185,24 @@ class NativeChaoxingTaskMergeTest {
         assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias)),listOf(exam.copy(fingerprint="wrong"))).size)
     }
 
+    @Test fun officialRemovalEvidenceWithdrawsOnlyThatPendingWorkAndIsReversible() {
+        val removed=record("已删除")
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(binding(),removed)).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="work:123:456:988")),listOf(binding(),removed)).size)
+        val done=combineWorkspaceTasks(emptyList(),listOf(cloud().copy(status="done")),listOf(binding(),removed)).single()
+        assertTrue(done.done)
+        val restored=combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(binding(),record("未提交"))).single()
+        assertEquals("todo",restored.officialStatus)
+        assertFalse(considerCompleteInTaskList(restored))
+    }
+    @Test fun oldForgedOrUnknownObservationsCannotWithdrawACloudWork() {
+        for(rows in listOf(
+            listOf(binding(),record("状态未知")),
+            listOf(binding(1720000000001L),record("已删除")),
+            listOf(binding(),record("已删除").copy(fingerprint="wrong")),
+            listOf(record("已删除")))) {
+            assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+        }
+    }
+
 }

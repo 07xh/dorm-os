@@ -54,6 +54,7 @@ fun nativeChaoxingVisibleStatusText(record: NativeSchoolRecord): String? {
 fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
     val raw = nativeChaoxingVisibleStatusText(record) ?: return null
     return when {
+        ChaoxingWorkAvailability.isRemovedStatus(raw) -> "removed"
         Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
         Regex("""退回|重做|重新提交|驳回""").containsMatchIn(raw) -> "returned"
         Regex("""已批阅|已批閱|已评分|已評分|已评阅|已評閱|已批改""").containsMatchIn(raw) -> "graded"
@@ -126,6 +127,18 @@ internal fun nativeChaoxingWorkCoverage(records:List<NativeSchoolRecord>):Native
     val present=records.filter {it.capturedAt==binding.capturedAt}
         .mapNotNull(::nativeChaoxingWorkSourceId).toSet()
     return NativeChaoxingWorkCoverage(scopes,present)
+}
+
+/** Only latest saved, identity-bound source withdrawal may hide a pending cloud row. */
+internal fun nativeChaoxingRemovedWorkIds(records:List<NativeSchoolRecord>):Set<String> {
+    val binding=records.singleOrNull {it.provider=="chaoxing" && it.kind=="account_binding" &&
+        it.fingerprint=="current" && it.sourceHost=="i.chaoxing.com" &&
+        it.details.matches(Regex("[a-f0-9]{64}"))} ?: return emptySet()
+    return records.filter {it.capturedAt==binding.capturedAt}
+        .mapNotNull {row -> nativeChaoxingWorkSourceId(row)?.let {it to row}}
+        .groupBy({it.first},{it.second})
+        .filterValues {rows -> rows.all {nativeChaoxingVisibleStatus(it)=="removed"}}
+        .keys
 }
 
 /** A dated official-page observation, separate from the user's personal due. */
