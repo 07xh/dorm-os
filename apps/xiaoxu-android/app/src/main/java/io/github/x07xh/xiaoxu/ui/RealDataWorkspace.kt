@@ -1457,7 +1457,9 @@ fun RealAcademicTaskHub(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "已完成 · " + lastCompletedLocalTask.title,
+                            (if (pendingLocalTaskUpdates[
+                                    "local:" + lastCompletedLocalTask.id] == false)
+                                "正在撤销 · " else "已完成 · ") + lastCompletedLocalTask.title,
                             style = MaterialTheme.typography.labelMedium,
                             color = XiaoxuPalette.Ink2,
                             maxLines = 1,
@@ -1469,8 +1471,9 @@ fun RealAcademicTaskHub(
                                 val row = all.firstOrNull {
                                     it.key == "local:" + lastCompletedLocalTask.id
                                 }
+                                // Keep the undo banner until Room confirms the
+                                // reversal; on failure the user can retry.
                                 if (row != null) toggleLocal(row, false)
-                                lastCompletedLocalId = null
                             },
                             enabled = !pendingLocalTaskUpdates.containsKey(
                                 "local:" + lastCompletedLocalTask.id
