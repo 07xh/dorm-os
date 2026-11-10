@@ -101,4 +101,13 @@ class ChaoxingPaginationTest {
         assertEquals("已提交",result.items.single {it.kind=="homework"}.status)
     }
 
+    @Test fun unresolvedGatewayRowsCannotProveOldWorkAbsent() {
+        val html=row(901).replace(
+            "https://mooc1.chaoxing.com/work/dowork?courseId=123&amp;classId=456&amp;workId=901",
+            "https://mooc1.chaoxing.com/examapi/intoexamorwork?taskId=55")
+        val result=read {page(1,html)}
+        assertTrue(result.failures.toString(),result.complete)
+        assertFalse(result.items.any {it.sourceKey=="scope:123:456"})
+    }
+
 }

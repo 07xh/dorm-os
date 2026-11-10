@@ -347,11 +347,12 @@ internal class ChaoxingLocalReader(
                 val numericClass=numericIdentity(params(course.url),"classId","clazzid","classid")
                 val scope=if(numericCourse!=null && numericClass!=null) "scope:$numericCourse:$numericClass" else null
                 val before=failures.size
-                recover(course.title) {readCourse(course)}
+                var identitiesComplete=false
+                recover(course.title) {identitiesComplete=readCourse(course)}
                 if(failures.size!=before) {
                     if(numericCourse!=null) failedCourses.add(numericCourse)
                     if(scope!=null) failedScopes.add(scope)
-                } else if(scope!=null) verifiedScopes[scope]=course.title
+                } else if(scope!=null && identitiesComplete) verifiedScopes[scope]=course.title
                 if(numericCourse==null) throw ChaoxingReadFailure("course_identity")
             }
             catalogComplete=true
@@ -571,7 +572,8 @@ internal class ChaoxingLocalReader(
         } else record("study_task",stableStudyKey(link.url),link.title,status,URI(page.url).host)
         return key
     }
-    private fun readCourse(course:ChaoxingDiscoveredLink) {
+    private fun readCourse(course:ChaoxingDiscoveredLink):Boolean {
+        var identitiesComplete=true
         var page=fetch(course.url);var doc=Jsoup.parse(page.text,page.url)
         var paginationUrl=course.url
         val entry=doc.selectFirst("a[data-url*=work/list],iframe[src*=work/list],a[href*=work/list]")
@@ -632,6 +634,7 @@ internal class ChaoxingLocalReader(
                     if(expectedCourse?.let {it!=triple[1]}==true || expectedClass?.let {it!=triple[2]}==true)
                         throw ChaoxingReadFailure("course_identity")
                 }
+                if(key==null) identitiesComplete=false
                 val stable=key?:stableStudyKey(url)
                 val signature=clean(row.selectFirst("p.overHidden2")!!.text()) to
                     clean(row.selectFirst("p.status")?.text().orEmpty(),60)
@@ -693,5 +696,6 @@ internal class ChaoxingLocalReader(
             page=fetch(query(paginationUrl,mapOf("pageNum" to current.toString())))
             doc=Jsoup.parse(page.text,page.url)
         }
+        return identitiesComplete
     }
 }
