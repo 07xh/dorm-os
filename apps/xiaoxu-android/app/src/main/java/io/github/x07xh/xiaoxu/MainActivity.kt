@@ -85,6 +85,7 @@ import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.NcwuElectivePlannerPage
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
@@ -654,6 +655,7 @@ private fun NativeShell(
                                 onSettingsOpenChanged = { scheduleSettingsOpen = it })
                             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
+                                openLocalSchool = openLocalSchool,
                                 cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 openLocalSchool = openLocalSchool,
@@ -791,6 +793,7 @@ private fun AcademicPage(
     select: (AcademicDestination) -> Unit,
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
+    openLocalSchool: (String) -> Unit,
     cloud: CloudClient,
     onMessages: () -> Unit
 ) {
@@ -831,6 +834,7 @@ private fun AcademicPage(
                         AcademicDestination.EXAMS -> "考试"
                         AcademicDestination.SECOND_CLASS -> "第二课堂"
                         AcademicDestination.SERVICES -> "校园服务"
+                        AcademicDestination.ELECTIVES -> "选课助手"
                     },
                     onMessages = onMessages
                 )
@@ -882,10 +886,16 @@ private fun AcademicPage(
                     )
                 }
             }
+            AcademicDestination.ELECTIVES ->
+                NcwuElectivePlannerPage(onOpenOfficial = { openLocalSchool("ncwu") })
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
                     XiaoxuGroupedSection {
+                        AcademicActionRow("选课助手", Icons.Outlined.DateRange,
+                            status = "本机计划", onClick = { select(AcademicDestination.ELECTIVES) })
+                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp))
                         AcademicActionRow("数据连接", Icons.Outlined.School,
                                 onClick = openProfile)
                             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
