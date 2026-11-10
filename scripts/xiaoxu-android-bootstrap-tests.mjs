@@ -512,6 +512,16 @@ assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
  '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
 assert.match(workspace, /val openLabel = if \(task\.storage == "local"\) "编辑本机任务" else "查看任务详情"/,
  '本机行应明确说明点击是直接编辑，云端行仍是详情');
+assert.match(workspace, /row\.provider == "chaoxing" && row\.officialDeadline != null/,
+ '仅有真实官方截止证据的学习通条目参与可做列表日期排序');
+assert.match(workspace, /item\(key = "task:undo-last"\)/,
+ '个人任务完成后需要保留一键撤销操作');
+assert.match(workspace, /dao\.setCompleted\(id, checked\)[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
+ '必须在 Room 成功保存之后才展示刚完成任务');
+assert.match(workspace, /toggleLocal\(row, false\)/,
+ '撤销必须复用本机任务完成状态写入流程');
+assert.match(workspace, /enabled = !pendingLocalTaskUpdates\.containsKey\(/,
+ '前一笔本机状态更新未确认时不得执行撤销');
 assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
