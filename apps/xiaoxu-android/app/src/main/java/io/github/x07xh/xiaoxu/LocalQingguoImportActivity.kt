@@ -253,7 +253,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
             val script = assets.open("ncwu_elective_source_probe.js")
                 .bufferedReader().use { it.readText() }
             browser.evaluateJavascript(
-                script + "\\nJSON.stringify(window.__xiaoxuInspectElectiveSource())"
+                script + "\nJSON.stringify(window.__xiaoxuInspectElectiveSource())"
             ) { encoded ->
                 extracting = false
                 if (epoch != pageEpoch || browser.url != currentUrl || isFinishing) {
