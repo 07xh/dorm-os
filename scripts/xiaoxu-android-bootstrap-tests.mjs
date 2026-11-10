@@ -490,8 +490,18 @@ assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
 assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
  '共享工具按钮必须具有统一42dp几何尺寸');
-assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 4,
- '任务中心顶部恰好使用四个统一工具按钮');
+assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 3,
+ '任务中心只保留搜索、新建和更多三个统一工具按钮');
+assert.match(workspace, /label = "更多任务操作"/,
+ '低频操作必须收进可发现的更多菜单');
+assert.match(workspace, /expanded = taskMenuOpen/,
+ '更多菜单必须有明确展开与关闭状态');
+assert.match(workspace, /onClick = \{ onlyThisWeek = !onlyThisWeek \}/,
+ '本周本机筛选必须支持一次点击切换');
+assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/,
+ '不应回退为多层筛选和冗余管理栏');
+assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
+ '本机任务需支持直接进入已有编辑页');
 assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
