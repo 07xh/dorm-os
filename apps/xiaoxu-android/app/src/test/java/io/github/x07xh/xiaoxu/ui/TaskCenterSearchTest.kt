@@ -403,4 +403,55 @@ class TaskCenterSearchTest {
             searchWorkspaceTasks(records, "cloud", "  学习通  ", today).map { it.key })
         assertEquals(emptyList<WorkspaceTask>(), searchWorkspaceTasks(records, "all", "无关内容", today))
     }
+
+    @Test
+    fun focusViewHighlightsOnlyRealActionableTodayDeadlines() {
+        val rows = listOf(
+            WorkspaceTask("local:overdue", "逾期的本机任务", "本机待办",
+                false, today.minusDays(2), "本人填写", "local"),
+            WorkspaceTask("local:today", "今天的本机任务", "本机待办",
+                false, today, "本人填写", "local"),
+            WorkspaceTask("local:tomorrow", "明天", "本机待办",
+                false, today.plusDays(1), "本人填写", "local"),
+            WorkspaceTask("local:undated", "无截止", "本机待办",
+                false, null, "本人填写", "local"),
+            WorkspaceTask("local:done", "已经完成", "本机待办",
+                true, today, "本人填写", "local"),
+            // A cloud timestamp is NOT official deadline evidence.
+            WorkspaceTask("cloud:untrusted", "历史云端日期", "云端记录",
+                false, today, "云端记录，需核对来源", "cloud"),
+            WorkspaceTask("native:official", "本机官网核实", "学习通",
+                false, today, "本机官方页面观察", "native", "chaoxing",
+                provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "2026-11-06 19:00"),
+            WorkspaceTask("cloud:official", "已关联官网截止", "学习通",
+                false, today, "学习通本机官方截止", "cloud", "chaoxing",
+                provider = "chaoxing", officialStatus = "returned",
+                officialDeadline = "2026-11-06 19:00"),
+            WorkspaceTask("native:unknown", "来源未知不能当待办", "学习通",
+                false, today, "本机官方页面观察", "native", "chaoxing",
+                provider = "chaoxing", officialStatus = "unknown",
+                officialDeadline = "2026-11-06 19:00")
+        )
+        assertEquals(
+            setOf("local:overdue", "local:today", "native:official", "cloud:official"),
+            rows.filter { isTodayPriorityWorkspaceTask(it, today) }.map { it.key }.toSet()
+        )
+        assertTrue(!isTodayPriorityWorkspaceTask(rows[5], today))
+        assertTrue(!isTodayPriorityWorkspaceTask(rows[8], today))
+    }
+
+    @Test
+    fun oldChaoxingNoticeNeverGainsTodayPriorityFromHistoricalTimestamp() {
+        val old = CloudTask("history", "老师已删除的作业？", "todo",
+            "homework", "chaoxing", today.toString(),
+            sourceExternalId = "cxn:" + "a".repeat(40))
+        val rows = combineWorkspaceTasks(emptyList(), listOf(old))
+        assertEquals(1, rows.size) // keep the evidence, do not delete by title
+        assertTrue(rows.none { isTodayPriorityWorkspaceTask(it, today) })
+        assertTrue(readyWorkspaceTasks(rows, emptyList(), emptyList()).isEmpty())
+        assertEquals(listOf("cloud:history"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key })
+    }
+
 }
