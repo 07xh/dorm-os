@@ -15,7 +15,8 @@ internal data class ChaoxingReadPage(val url: String, val text: String)
 internal fun interface ChaoxingReadTransport { fun request(request: ChaoxingReadRequest): ChaoxingReadPage }
 internal class ChaoxingReadFailure(val code: String) : Exception(code)
 internal data class ChaoxingReadItem(val kind: String, val sourceKey: String, val title: String, val status: String, val sourceHost: String,
-    val noticeAliases: Set<String> = emptySet(), val peerAliases: Set<String> = emptySet())
+    val noticeAliases: Set<String> = emptySet(), val peerAliases: Set<String> = emptySet(),
+    val deadline: ChaoxingDeadlineEvidence? = null)
 internal data class ChaoxingLocalRead(val items: List<ChaoxingReadItem>, val accountHash: String,
     val courseCount: Int, val noticePages: Int, val failures: List<String>,
     val supersededKeys: Set<String> = emptySet()) {
@@ -195,10 +196,14 @@ internal class ChaoxingLocalReader(
         checkCancelled()
         return page
     }
-    private fun record(kind:String,key:String,title:String,status:String,host:String) {
+    private fun record(kind:String,key:String,title:String,status:String,host:String,
+        deadline: ChaoxingDeadlineEvidence? = null) {
         if(items.size>=5000 && !items.containsKey(key)) throw ChaoxingReadFailure("record_limit")
         if(clean(title).isBlank()) throw ChaoxingReadFailure("record_title")
-        items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host)
+        // A later generic course-list row must not erase time read from the
+        // same official work detail during this scan.
+        items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host,
+            deadline=deadline ?: items[key]?.deadline)
     }
     private fun recover(label:String, block:()->Unit) {
         try {block()} catch(e:ChaoxingReadFailure) {
@@ -226,9 +231,21 @@ internal class ChaoxingLocalReader(
                 val notices=body.optJSONObject("notices")
                 val list=notices?.optJSONArray("list") ?: if(notices==null) JSONArray() else throw ChaoxingReadFailure("notice_response")
                 noticePages++
-                for(i in 0 until list.length()) for(link in noticeLinks(list.getJSONObject(i))) {
-                    if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
-                    links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
+                for(i in 0 until list.length()) {
+                    val notice = list.getJSONObject(i)
+                    // Exam actions remain blocked. Only a genuine official notice
+                    // with a stable source ID and an explicit time is preserved.
+                    val noticeId = sequenceOf("id","noticeId","noticeid")
+                        .map { notice.optString(it) }.firstOrNull { numeric.matches(it) }
+                    val examDue = ChaoxingDeadlineEvidenceReader.fromExamNotice(notice)
+                    if (noticeId != null && examDue != null) {
+                        record("exam_notice","examnotice:"+hash("chaoxing-exam-notice:"+noticeId),
+                            notice.optString("title"),"官网考试通知", "notice.chaoxing.com", examDue)
+                    }
+                    for(link in noticeLinks(notice)) {
+                        if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
+                        links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
+                    }
                 }
                 if(list.length()==0 || notices?.optInt("lastPage",1)==1) break
                 val cursor=notices?.optString("lastGetId").orEmpty()
@@ -341,13 +358,15 @@ internal class ChaoxingLocalReader(
     private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="") {
         val key=workKey(link.url)
         bindNotice(link,key)
-        if(key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
+        if(key!=null&&items[key]?.status?.let {it!="状态未知"}==true &&
+            items[key]?.deadline != null) return
         val page=fetch(link.url);val doc=Jsoup.parse(page.text,page.url)
         val state=doc.selectFirst("p.status,.workStatus,.work-status")?.text().orEmpty().ifBlank {
             Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已评分|已完成此作业|已提交[，,、 ]*待批阅|待批阅|提交成功|已达标|已退回|未提交").find(doc.text())?.value.orEmpty()
         }.ifBlank {knownStatus}.ifBlank {"状态未知"}
-        if(key!=null) record("homework",key,link.title,state,URI(link.url).host)
-        else record("study_task",stableStudyKey(link.url),link.title,state,URI(link.url).host)
+        val deadline = ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(page.text)
+        if(key!=null) record("homework",key,link.title,state,URI(link.url).host,deadline)
+        else record("study_task",stableStudyKey(link.url),link.title,state,URI(link.url).host,deadline)
     }
     private fun readCourse(course:ChaoxingDiscoveredLink) {
         var page=fetch(course.url);var doc=Jsoup.parse(page.text,page.url)
@@ -390,7 +409,8 @@ internal class ChaoxingLocalReader(
                 // A reopened or returned work in the current list still wins.
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
                 record(if(key==null) "study_task" else "homework",stable,
-                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
+                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host,
+                    ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml()))
             }
             val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)
