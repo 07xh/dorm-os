@@ -2,28 +2,35 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-09T20:48:02.521Z",
+  "lastSuccessAt": "2026-11-10T09:55:27.978Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 20
+    },
+    {
+      "id": "jwc-api",
+      "name": "教务处公开公告（代理兜底）",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-10T09:55:27.978Z",
+      "count": 29
     }
   ],
   "items": [
@@ -274,6 +281,15 @@
       "id": "ncwu-083e24afed765907",
       "title": "华北水利水电大学华水学堂网络在线教学平台项目单一来源采购结果公告 11-06",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3011.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-c38537e39d2501ee",
+      "title": "2027年新增学士学位授予专业授予资格审核公示 11-09",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3012.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
