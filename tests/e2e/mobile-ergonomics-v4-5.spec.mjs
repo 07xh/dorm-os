@@ -60,8 +60,18 @@ test('course edit overflow remains tappable without a bottom nav',async({page})=
  await page.locator('[data-timetable-day="1"]').click();
  const row=page.locator('.v42-day-content .v42-row-more').last();
  await row.locator('summary').click();
- await expect(row.locator('.v42-row-menu button')).toBeVisible();
- expect((await row.locator('.v42-row-menu button').boundingBox()).height).toBeGreaterThanOrEqual(44);
+ // Public data refresh can redraw the timetable between Playwright calls.
+ // Exercise that redraw, then measure visibility and size in one DOM sample;
+ // a detached ElementHandle from boundingBox() must not turn into a null crash.
+ await page.evaluate(()=>render());
+ const remove=row.getByRole('button',{name:'删除课程'});
+ await expect.poll(()=>remove.evaluate(button=>{
+  const box=button.getBoundingClientRect(),style=getComputedStyle(button);
+  return button.isConnected&&style.display!=='none'&&style.visibility!=='hidden'&&box.width>0?box.height:0;
+ })).toBeGreaterThanOrEqual(44);
+ page.once('dialog',dialog=>dialog.accept());
+ await remove.click();
+ await expect(page.locator('.v42-day-content')).not.toContainText('手机端课程菜单验收');
 });
 
 test('legacy life reminder toast and menu remain accessible',async({page})=>{

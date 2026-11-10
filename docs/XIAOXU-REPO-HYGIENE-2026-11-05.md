@@ -2,6 +2,17 @@
 
 基线 main：`4bb1805f8b896a7764b685fa654d889e10a09680`（2026-11-05）。本轮是仓库维护，不改变 Android UI、学校连接器、D1、Web 页面或生产数据。
 
+## 2026-11-11 更新：历史请求可以安全归档
+
+以下新规则覆盖本文旧的“删除会触发打包，因此暂不清退”限制。构建工作流已有只读请求方向门禁：仅 PR 合并基准之后 / main 本次 push 中**新增或修改**的 pending 顶层 `.txt` 才构建；归档和删除跳过编译、签名、发布。Git 范围不可核验则停止，不以失败回退成构建。
+
+- 新请求继续放原 pending 目录；普通代码改动不申请 APK，manual workflow_dispatch 继续可用。
+- 旧请求无损移动到带日期的 archive，保留 Git blob 和原说明，不放回 pending。
+- PR 用完整 merge-base 范围；落后于 main 的分支不会重新激活 main 已归档的旧请求。
+- 不新增自动发布路径。原有 main CI、签名与发布门禁保持有效。
+
+下方 2026-11-05 内容保留为当时的整理记录，涉及旧分支、工作流名称和删除触发行为的描述以本节及当前源码为准。
+
 ## APK 构建触发规则
 
 - 手动：GitHub Actions → **Build Xiaoxu Android Alpha** → `workflow_dispatch`。
