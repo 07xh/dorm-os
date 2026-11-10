@@ -2,8 +2,9 @@
 
 ## Scope
 
-The Android file picker in MainActivity now supports user-selected, local HTML
-timetable exports named .xls / .html / .htm, in addition to existing ICS and JSON.
+The Android file picker in MainActivity supports user-selected, local personal
+NCWU timetables exported as real OOXML .xlsx, HTML disguised as .xls (also
+.html / .htm), and the existing ICS / JSON formats.
 
 Some NCWU Qingguo exports contain HTML tables even when the extension is .xls.
 The new isolated parser reads only a uniquely identifiable detailed student table
