@@ -100,6 +100,9 @@ import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkCoverage
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingExamNoticeAliases
+import io.github.x07xh.xiaoxu.data.nativeChaoxingExamNoticeSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingDeadline
 import io.github.x07xh.xiaoxu.data.nativeChaoxingNoticeAliases
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatusText
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
@@ -133,7 +136,9 @@ internal data class WorkspaceTask(
     val sourceExternalId: String? = null,
     val officialStatus: String? = null,
     /** Exact status text on the signed-in local official page, if available. */
-    val officialStatusRaw: String? = null
+    val officialStatusRaw: String? = null,
+    /** From a validated on-device official work or exam-notice identity only. */
+    val officialDeadline: String? = null
 )
 
 internal fun parseWorkspaceDue(value: String?): LocalDate? {
@@ -174,6 +179,7 @@ internal fun combineWorkspaceTasks(
         // An official work tuple, not a title, allows local official-page evidence
         // to appear in the SAME task list without duplicating cloud records.
         val coverage=nativeChaoxingWorkCoverage(native)
+        val examAliases=native.flatMap(::nativeChaoxingExamNoticeAliases).toSet()
         val localEvidence = native.mapNotNull { record ->
             val id = nativeChaoxingWorkSourceId(record)
             val status = nativeChaoxingVisibleStatus(record)
@@ -235,6 +241,8 @@ internal fun combineWorkspaceTasks(
         }
         dedupedCloud.forEach { task ->
             val effectiveId = workId(task)
+            if(task.provider=="chaoxing" && task.status!="done" && task.sourceExternalId in examAliases)
+                return@forEach
             // Preserve every D1 record and personal completion flag. A complete
             // current class list can withdraw an absent pending work from this
             // display without asserting that the teacher deleted it.
@@ -273,10 +281,12 @@ internal fun combineWorkspaceTasks(
                 fromPlan -> planRecord
                 else -> null
             }
+            val observedDeadline=localRecord?.let(::nativeChaoxingDeadline)
             add(WorkspaceTask("cloud:" + task.id, task.title,
                 if (evidence != null) "$source · 本机官网状态" else source,
-                task.status == "done", parseWorkspaceDue(task.due),
-                if (evidence != null) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
+                task.status == "done", observedDeadline?.date ?: parseWorkspaceDue(task.due),
+                if(observedDeadline!=null) "学习通本机官方截止"
+                else if (evidence != null) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
                 when (task.provider) {
                     "wechat" -> "wechat"
                     "chaoxing" -> "chaoxing"
@@ -284,16 +294,19 @@ internal fun combineWorkspaceTasks(
                 },
                 task.revision, task.provider, task.links,
                 effectiveId ?: task.sourceExternalId, visibleStatus,
-                evidence?.let(::nativeChaoxingVisibleStatusText)))
+                evidence?.let(::nativeChaoxingVisibleStatusText),
+                officialDeadline=observedDeadline?.label))
         }
         localEvidence.filterKeys { it !in represented }.forEach { (id, record) ->
             val status = nativeChaoxingVisibleStatus(record)
             add(WorkspaceTask(
                 "native:" + record.fingerprint, record.title,
-                "学习通 · 本机官网", false, null, "本机官方页面观察",
+                "学习通 · 本机官网", false, nativeChaoxingDeadline(record)?.date,
+                "本机官方页面观察",
                 "native", "chaoxing", provider = "chaoxing",
                 sourceExternalId = id, officialStatus = status,
-                officialStatusRaw = nativeChaoxingVisibleStatusText(record)
+                officialStatusRaw = nativeChaoxingVisibleStatusText(record),
+                officialDeadline = nativeChaoxingDeadline(record)?.label
             ))
         }
         // A source-ID matched cloud row already represents this official plan;
@@ -1011,10 +1024,12 @@ fun RealAcademicTaskHub(
     val capturedStudyTasks = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "study_task" }
     }
-    val allRecords = remember(localTasks, state.tasks,
-        capturedHomework, capturedStudyTasks) {
-        combineWorkspaceTasks(localTasks, state.tasks,
-            capturedHomework + capturedStudyTasks)
+    val capturedExamNotices = remember(schoolRows) {
+        schoolRows.filter { it.provider == "chaoxing" && it.kind == "exam_notice" &&
+            nativeChaoxingExamNoticeSourceId(it) != null }
+    }
+    val allRecords = remember(localTasks, state.tasks, schoolRows) {
+        combineWorkspaceTasks(localTasks, state.tasks, schoolRows)
     }
     val all = remember(allRecords, archivedKeys) {
         visibleWorkspaceTasks(allRecords, archivedKeys)
@@ -1699,13 +1714,14 @@ fun RealAcademicTaskHub(
         item {
             TaskGroupHeader(
                 title = "本机读取",
-                count = capturedHomework.size + capturedStudyTasks.size,
+                count = capturedHomework.size + capturedStudyTasks.size + capturedExamNotices.size,
                 badge = "",
                 note = "",
                 icon = Icons.Outlined.School,
                 expanded = showSchoolRecords,
                 onClick = { showSchoolRecords = !showSchoolRecords },
-                showCount = capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty()
+                showCount = capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty() ||
+                    capturedExamNotices.isNotEmpty()
             )
         }
         if (showSchoolRecords) {
@@ -1753,6 +1769,21 @@ fun RealAcademicTaskHub(
                 key = { i -> "study:" + capturedStudyTasks[i].fingerprint }) { index ->
                 XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
                     contentPadding = 8.dp) { SnapshotRow(capturedStudyTasks[index]) }
+            }
+        }
+        if (capturedExamNotices.isNotEmpty()) {
+            item {
+                TaskSectionHeader(
+                    title = "学习通 · 考试通知",
+                    count = capturedExamNotices.size,
+                    badge = "官网通知（非考试状态）",
+                    note = "按官网通知记录考试与时间；未提供时间的通知保留待核对。"
+                )
+            }
+            items(count = minOf(capturedExamNotices.size, 5000),
+                key = { i -> "exam:" + capturedExamNotices[i].fingerprint }) { index ->
+                XiaoxuCard(modifier = Modifier.padding(top = 12.dp),
+                    contentPadding = 8.dp) { SnapshotRow(capturedExamNotices[index]) }
             }
         }
         item {
@@ -1929,7 +1960,8 @@ internal fun WorkspaceTaskDetailSheet(
             Text(identity, style = MaterialTheme.typography.bodySmall,
                 color = XiaoxuPalette.Ink2)
         }
-        Text((if (selectedTask.storage == "cloud") "日期记录：" else "截止：") +
+        Text((if (selectedTask.storage == "cloud" && selectedTask.officialDeadline == null)
+            "日期记录：" else "截止：") +
             selectedDue.label, style = MaterialTheme.typography.bodyMedium)
         Text(if (selectedTask.officialStatus != null) {
             (if (selectedTask.storage == "native" ||
@@ -2143,6 +2175,10 @@ private fun TaskSourceBadge(text: String, emphasized: Boolean = false) {
 private data class DueUi(val label: String, val spoken: String, val emphasis: Int)
 
 private fun describeDue(task: WorkspaceTask, today: LocalDate): DueUi {
+    task.officialDeadline?.let { observed ->
+        // Yearless dates may be displayed, but never drive overdue coloring.
+        return DueUi("官网显示 $observed", "本机登录的学习通页面显示截止 $observed", DUE_NORMAL)
+    }
     val date = task.date
     if (date == null) {
         return if (task.storage == "cloud") {
@@ -2428,12 +2464,24 @@ private fun SnapshotRow(work: NativeSchoolRecord) {
             if (work.details.isNotBlank()) {
                 Text(
                     text = work.details.substringBefore(" · 官方作业身份：")
+                        .substringBefore(" · 考试通知身份：")
+                        .substringBefore(" · 官网截止时间：")
+                        .substringBefore(" · 官网截止片段：")
                         .substringBefore(" · 旧通知身份：").substringBefore(" · 互评通知身份："),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            nativeChaoxingDeadline(work)?.let { deadline ->
+                Text("官网显示截止：" + deadline.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
+            }
+            if(work.kind=="exam_notice" && nativeChaoxingDeadline(work)==null) {
+                Text("官网通知未提供可核验的截止时间",
+                    style=MaterialTheme.typography.bodySmall,color=XiaoxuPalette.Ink2)
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,

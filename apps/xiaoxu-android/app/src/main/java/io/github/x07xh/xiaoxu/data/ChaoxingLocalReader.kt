@@ -15,7 +15,8 @@ internal data class ChaoxingReadPage(val url: String, val text: String)
 internal fun interface ChaoxingReadTransport { fun request(request: ChaoxingReadRequest): ChaoxingReadPage }
 internal class ChaoxingReadFailure(val code: String) : Exception(code)
 internal data class ChaoxingReadItem(val kind: String, val sourceKey: String, val title: String, val status: String, val sourceHost: String,
-    val noticeAliases: Set<String> = emptySet(), val peerAliases: Set<String> = emptySet())
+    val noticeAliases: Set<String> = emptySet(), val peerAliases: Set<String> = emptySet(),
+    val deadline: ChaoxingDeadlineEvidence? = null)
 internal data class ChaoxingLocalRead(val items: List<ChaoxingReadItem>, val accountHash: String,
     val courseCount: Int, val noticePages: Int, val failures: List<String>,
     val supersededKeys: Set<String> = emptySet()) {
@@ -209,6 +210,13 @@ internal class ChaoxingLocalReader(
         else -> 0
     }
 
+    private val examGatewayKeys=mutableSetOf<String>()
+    private val examGatewayUrls=mutableSetOf<String>()
+    private fun isKnownExamGateway(url:String):Boolean =
+        URI(url).path.contains("/examapi/intoexamorwork") &&
+            (url in examGatewayUrls || workKey(url)?.let {it in examGatewayKeys}==true)
+    private fun isExamUrl(url:String):Boolean =
+        URI(url).path.lowercase().contains("/exam/") || params(url)["workorexam"].equals("exam",true)
     private val items=linkedMapOf<String,ChaoxingReadItem>()
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
@@ -235,10 +243,20 @@ internal class ChaoxingLocalReader(
         checkCancelled()
         return page
     }
-    private fun record(kind:String,key:String,title:String,status:String,host:String) {
+    private fun record(kind:String,key:String,title:String,status:String,host:String,
+        deadline: ChaoxingDeadlineEvidence? = null) {
         if(items.size>=5000 && !items.containsKey(key)) throw ChaoxingReadFailure("record_limit")
         if(clean(title).isBlank()) throw ChaoxingReadFailure("record_title")
-        items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host)
+        // A generic list row cannot downgrade a full-year date from the
+        // same work's detail to a month/day-only fragment.
+        val previous = items[key]?.deadline
+        val bestDeadline = when {
+            deadline == null -> previous
+            previous?.hasYear == true && !deadline.hasYear -> previous
+            else -> deadline
+        }
+        items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host,
+            deadline=bestDeadline)
     }
     private fun reportFailure(label:String,code:String) {
         val reason=when(code) {
@@ -269,6 +287,7 @@ internal class ChaoxingLocalReader(
     }
     fun scan(year:Int):ChaoxingLocalRead {
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
+        examGatewayKeys.clear();examGatewayUrls.clear()
         detachedNoticeCandidates.clear();courseWorkKeys.clear();courseWorkUrls.clear()
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
@@ -289,6 +308,23 @@ internal class ChaoxingLocalReader(
                 noticePages++
                 for(i in 0 until list.length()) {
                     val notice = list.getJSONObject(i)
+                    val discovered=noticeLinks(notice)
+                    if(ChaoxingExamNoticeEvidenceReader.isExam(notice)) {
+                        val exam=ChaoxingExamNoticeEvidenceReader.fromNotice(notice)
+                        if(exam==null) reportFailure("考试通知","exam_notice_identity")
+                        else {
+                            record("exam_notice",exam.sourceKey,exam.title,"官网考试通知，提交状态未核实",
+                                "notice.chaoxing.com",ChaoxingDeadlineEvidenceReader.fromExamNotice(notice))
+                            items[exam.sourceKey]=items.getValue(exam.sourceKey).copy(noticeAliases=setOf(exam.alias))
+                            for(entry in discovered) {
+                                if(!URI(entry.url).path.contains("/examapi/intoexamorwork")) continue
+                                examGatewayUrls.add(entry.url)
+                                workKey(entry.url)?.takeIf {exam.courseId!=null && it.split(':')[1]==exam.courseId}
+                                    ?.let(examGatewayKeys::add)
+                            }
+                        }
+                        continue
+                    }
                     val aliases = noticeAliases(notice)
                     // Plain assignment and peer-review notifications have
                     // distinct legacy cxn IDs. Retain their distinct peer flag.
@@ -301,7 +337,7 @@ internal class ChaoxingLocalReader(
                             linkedSetOf()
                         }.add(alias)
                     }
-                    for(link in noticeLinks(notice)) {
+                    for(link in discovered) {
                         if(links.size>=1000) throw ChaoxingReadFailure("notice_limit")
                         links[link.url]=link.copy(aliases = link.aliases + links[link.url]?.aliases.orEmpty())
                     }
@@ -411,6 +447,7 @@ internal class ChaoxingLocalReader(
             }
         }
         val rows = items.values.map { item ->
+            if(item.kind=="exam_notice") return@map item
             val bound = noticeBindings[item.sourceKey].orEmpty()
             item.copy(noticeAliases = bound.filterNot {it.peer}.map {it.id}.toSet(),
                 peerAliases = bound.filter {it.peer}.map {it.id}.toSet())
@@ -527,8 +564,10 @@ internal class ChaoxingLocalReader(
         }
     }
     private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false): String? {
+        if(isKnownExamGateway(link.url)) return null
         val initialKey=workKey(link.url)
-        if(!forceDetail&&initialKey!=null&&items[initialKey]?.status?.let {it!="状态未知"}==true) {
+        if(!forceDetail&&initialKey!=null&&items[initialKey]?.status?.let {it!="状态未知"}==true &&
+            items[initialKey]?.deadline!=null) {
             bindNotice(link,initialKey)
             return initialKey
         }
@@ -559,8 +598,9 @@ internal class ChaoxingLocalReader(
         }
         val key=resolvedWorkKey(visited)
         val status=state.ifBlank {knownStatus}.ifBlank {"状态未知"}
+        val deadline=ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(page.text)
         if(key!=null) {
-            record("homework",key,link.title,status,URI(page.url).host)
+            record("homework",key,link.title,status,URI(page.url).host,deadline)
             bindNotice(link,key)
             if(initialKey==null) {
                 // Remove only the exact former gateway fingerprint, never a
@@ -569,7 +609,7 @@ internal class ChaoxingLocalReader(
                     items.remove(it);superseded.add(it)
                 }
             }
-        } else record("study_task",stableStudyKey(link.url),link.title,status,URI(page.url).host)
+        } else record("study_task",stableStudyKey(link.url),link.title,status,URI(page.url).host,deadline)
         return key
     }
     private fun readCourse(course:ChaoxingDiscoveredLink):Boolean {
@@ -624,9 +664,11 @@ internal class ChaoxingLocalReader(
             val priorKeys=seen.toSet()
             val pageRows=linkedMapOf<String,Pair<String,String>>()
             var overlap=false
+            var excludedExams=0
             if(rows.isEmpty()&&!doc.text().contains("暂无作业")&&!doc.text().contains("没有作业")) throw ChaoxingReadFailure("work_list_response")
             for(row in rows) {
                 val url=safeUrl(row.attr("data"),page.url) ?: throw ChaoxingReadFailure("work_identity")
+                if(isExamUrl(url) || isKnownExamGateway(url)) {excludedExams++;continue}
                 if(!supported(url)) throw ChaoxingReadFailure("work_identity")
                 val key=workKey(url)
                 if(key!=null) {
@@ -676,12 +718,13 @@ internal class ChaoxingLocalReader(
                 // A reopened or returned work in the current list still wins.
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
                 record(if(key==null) "study_task" else "homework",stable,
-                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
+                    row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host,
+                    ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml()))
                 if(statusClass(status) == 0) recover("作业详情") {
                     readWorkLink(ChaoxingDiscoveredLink(row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
                 }
             }
-            if(current>1 && pageRows.isEmpty()) throw ChaoxingReadFailure("work_page_empty")
+            if(current>1 && pageRows.isEmpty() && excludedExams==0) throw ChaoxingReadFailure("work_page_empty")
             if(overlap) {
                 if(pageRows.keys.all {it in priorKeys}) throw ChaoxingReadFailure("work_page_stalled")
                 // Retain newly discovered rows after an overlap, but do not

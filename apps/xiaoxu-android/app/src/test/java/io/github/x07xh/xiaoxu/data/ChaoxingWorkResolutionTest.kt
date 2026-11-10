@@ -142,4 +142,45 @@ class ChaoxingWorkResolutionTest {
         assertFalse(read.failures.toString().contains("privateSignature"))
     }
 
+    @Test fun typedExamNoticeWithRealMessageIdNeverEntersTheHomeworkGateway() {
+        val course="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val entry="https://mooc1.chaoxing.com/examapi/intoexamorwork?courseId=123&classId=456&workId=901234"
+        val notice=JSONObject().put("idCode","abc-123_message").put("title","考试通知")
+            .put("tag","courseId123")
+            .put("content","试卷名称：期末考试\n考试时间：2026-11-20 08:00 至 2026-11-21 23:59")
+            .put("attachment",org.json.JSONArray().put(JSONObject().put("title","课程").put("url",entry)))
+        val result=ChaoxingLocalReader(ChaoxingReadTransport { req ->
+            val body=when(URI(req.url).path) {
+                "/base" -> "<script>var uid=42;</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[$notice],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" -> "<a href='$course'><span class='course-name'>课程</span></a>"
+                "/visit/stucoursemiddle" -> "<ul class='bottomList'><li data='$entry'><p class='overHidden2'>期末考试</p></li></ul>"
+                else -> throw AssertionError("Must not enter an exam attempt: "+URI(req.url).path)
+            }
+            ChaoxingReadPage(req.url,body)
+        }).scan(2026)
+        assertTrue(result.failures.toString(),result.complete)
+        assertFalse(result.items.any {it.kind=="homework"})
+        val exam=result.items.single {it.kind=="exam_notice"}
+        assertEquals("examnotice:"+ChaoxingLocalReader.hash("chaoxing-exam-notice:abc-123_message"),exam.sourceKey)
+        assertEquals(setOf("cxn:"+ChaoxingLocalReader.hash("exam|123|考试：期末考试|2026-11-20").take(40)),exam.noticeAliases)
+        assertEquals("2026-11-21 23:59",exam.deadline?.displayed)
+    }
+    @Test fun realUuidExamNoticeWithoutTimeStillHasAnIdentity() {
+        val notice=JSONObject().put("uuid","message-uuid").put("title","考试通知")
+            .put("tag","courseId123").put("content","试卷名称：期末考试")
+        val result=ChaoxingLocalReader(ChaoxingReadTransport { req ->
+            ChaoxingReadPage(req.url,when(URI(req.url).path) {
+                "/base" -> "<script>var uid=42;</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[$notice],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" -> "暂无课程"
+                else -> throw AssertionError("unexpected request")
+            })
+        }).scan(2026)
+        assertTrue(result.complete)
+        val exam=result.items.single {it.kind=="exam_notice"}
+        assertNull(exam.deadline)
+        assertEquals(setOf("cxn:"+ChaoxingLocalReader.hash("exam|123|考试：期末考试|unknown").take(40)),exam.noticeAliases)
+    }
+
 }

@@ -172,4 +172,17 @@ class NativeChaoxingTaskMergeTest {
         assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(coverage(),binding(),old)).isEmpty())
     }
 
+    @Test fun exactExamNoticeReplacesOnlyItsMatchingLegacyCloudNotice() {
+        val alias="cxn:"+"a".repeat(40)
+        val key="examnotice:"+"b".repeat(64)
+        val exam=NativeSchoolRecord("chaoxing","exam_notice",
+            io.github.x07xh.xiaoxu.data.ChaoxingLocalReader.hash("chaoxing|exam_notice|"+key),
+            "考试通知","官网考试通知状态：官网考试通知 · 旧通知身份："+alias+" · 考试通知身份："+key,
+            "notice.chaoxing.com",1720000000000L)
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias)),listOf(exam)).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="cxn:"+"c".repeat(40))),listOf(exam)).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias).copy(status="done")),listOf(exam)).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias)),listOf(exam.copy(fingerprint="wrong"))).size)
+    }
+
 }
