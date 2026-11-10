@@ -46,3 +46,13 @@
 - 测试：`scripts/xiaoxu-ncwu-elective-view-tests.mjs` 已加入 `npm run check`，使用虚构教学班和个人时间段，无真实学校数据。
 
 这只是可供后续原生 Compose 界面复用的业务逻辑层，**并未接入当前 App UI、学校课程接口或 Room**，也不会自动修改用户课表。未来如接入真实来源，必须明确数据完整性、观察时间、本人授权与请求限频，并由本人在官方选课页面执行最后确认。
+
+## M3：本人官网页面结构验证入口
+
+- **复用现有** `LocalQingguoImportActivity` 的华水教务 WebView、正常学校登录、HTTPS 阻断和页面切换检测，不新增登录器。
+- 原有“提取本页课表”不变；增加手动按钮 **“检查选课页面结构”**。只能在 `jwmis.ncwu.edu.cn` 已加载且无错误的页面点击，不自动进入选课或发送任何额外的网络请求。
+- `apps/xiaoxu-android/app/src/main/assets/ncwu_elective_source_probe.js` 只列出课程相关标准**表头类别**、表格数量和行数，可以查看同源 iframe；不输出实际单元格值、姓名、学号、原始 HTML、地址、Cookie 或 Token。跨域 iframe 直接跳过。
+- 检查结果仅由 App 本机弹窗展示，不上传 Cloudflare/D1、不更新现有个人课表，也不生成被视为真实的教学班数据。
+- `scripts/xiaoxu-ncwu-elective-source-probe-tests.mjs`（已纳入 `npm run check`）用虚构页面测试标准表头识别、跨源 iframe 处理、私密列值不得泄漏、不得发出新请求、WebView HTTPS 门禁与导航期间中断。
+
+此操作只能判断当前可访问网页是否出现了可能的选课列表结构，**不证明**实际课程记录、实时余量、可选资格、选课时段或身份已经核验。不能从当前个人课表页面自动推断课程目录。要完成下一阶段的真正教学班列表读取，还需要本人在官方允许的选课页面点击检查，取得不含隐私的结构证据，并对照当前学校规则验收。开关和任何正式来源标签在此之前继续保持关闭。
