@@ -25,7 +25,7 @@ object NcwuHtmlXlsTimetableParser {
     private val htmlBreaks = Regex("""(?i)<br\s*/?>|</(?:p|div|li)>""")
     private val classCode = Regex("""^\[[^\]]{1,40}]\s*""")
     private val sessionPattern = Regex(
-        """^([0-9,\s，\-—–~～至]+?)\s*([单双])?周\s*(?:星期|周)?([一二三四五六日天])\s*[\[【](\d{1,2})(?:\s*[-~～至]\s*(\d{1,2}))?[\]】]\s*(.+)$"""
+        """^([0-9,\s，\-—–~～至]+?)\s*([单双])?周\s*(?:星期|周)?([一二三四五六日天])\s*[\[【](\d{1,2})(?:\s*[-~～至]\s*(\d{1,2}))?[\]】]\s*(.*)$"""
     )
     private val weekPart = Regex("""^(\d{1,2})(?:-(\d{1,2}))?$""")
     private val weekday = mapOf('一' to 1, '二' to 2, '三' to 3, '四' to 4,
@@ -103,7 +103,6 @@ object NcwuHtmlXlsTimetableParser {
                 val start = match.groupValues[4].toInt()
                 val end = match.groupValues[5].toIntOrNull() ?: start
                 val location = match.groupValues[6].trim()
-                require(location.isNotBlank()) { "课程“" + title + "”缺少上课地点，未导入" }
                 result.put(JSONObject()
                     .put("name", title)
                     .put("teacher", teacher)
