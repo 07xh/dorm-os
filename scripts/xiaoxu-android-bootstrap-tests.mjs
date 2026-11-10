@@ -496,8 +496,14 @@ assert.match(workspace, /label = "更多任务操作"/,
  '低频操作必须收进可发现的更多菜单');
 assert.match(workspace, /expanded = taskMenuOpen/,
  '更多菜单必须有明确展开与关闭状态');
-assert.match(workspace, /onClick = \{ onlyThisWeek = !onlyThisWeek \}/,
- '本周本机筛选必须支持一次点击切换');
+assert.match(workspace, /if \(onlyThisWeek\) \{[\s\S]*?onlyThisWeek = false[\s\S]*?sourceFilter = "local"[\s\S]*?onlyThisWeek = true/,
+ '本周本机筛选必须直达本机任务，避免来源条件冲突');
+assert.match(workspace, /if \(source != "local"\) onlyThisWeek = false/,
+ '切换到其他来源时必须清除本周仅本机筛选');
+assert.match(workspace, /本周暂无可做的本机任务/,
+ '本周无数据必须明确说明，而非误报任务消失');
+assert.match(workspace, /onlyThisWeek -> "查看全部待办"/,
+ '本周无任务时必须提供一次点击恢复入口');
 assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/,
  '不应回退为多层筛选和冗余管理栏');
 assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
