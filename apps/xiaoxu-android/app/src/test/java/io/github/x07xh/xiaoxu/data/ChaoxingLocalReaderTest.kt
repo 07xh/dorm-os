@@ -84,7 +84,8 @@ class ChaoxingLocalReaderTest {
                     assertTrue(request.url.contains("t=1700000000123"))
                     "<ul class='bottomList'><li data='$workUrl'><p class='overHidden2'>Python未交</p><p class='status'>待批阅</p></li></ul>"
                 }
-                "/mooc-ans/mooc2/work/task" -> "<p class='status'>待批阅</p>"
+                "/mooc-ans/mooc2/work/task" ->
+                    "<p class='status'>待批阅</p><p>作答时间：11-08 08:00 至 11-15 23:59</p>"
                 else -> error("unexpected first-party read: "+u.path)
             }
             ChaoxingReadPage(request.url,body)
@@ -99,6 +100,11 @@ class ChaoxingLocalReaderTest {
         assertEquals(1,read.courseCount)
         assertTrue(read.items.any {it.sourceKey=="plan:700"&&it.status=="已完成"})
         assertTrue(read.items.any {it.sourceKey=="work:123:456:901"&&it.status=="待批阅"})
+        // The later generic course list must preserve the same scan's
+        // detail-page deadline without inventing the missing year.
+        val work=read.items.single {it.sourceKey=="work:123:456:901"}
+        assertEquals("11-15 23:59",work.deadline?.displayed)
+        assertFalse(work.deadline!!.hasYear)
         assertTrue(read.items.any {it.status=="未解锁"})
         assertEquals(64,read.accountHash.length)
         for(secret in listOf("privateWork","privateTask","privateUser","privateGroup","privatePlan","privateEntry"))
