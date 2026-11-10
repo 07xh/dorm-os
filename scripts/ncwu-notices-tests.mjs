@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, collectFromPublishedApi, isVerifiedArchiveItem, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
+import { canonicalLink, dateFromText, stableId, parseHtmlList, mergeArchive, collect, collectFromPublishedApi, normalizeUpstreamSnapshot, isVerifiedArchiveItem, SCHEMA, SCHOOL_ID } from './ncwu-notices.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../config/ncwu-notices.json', import.meta.url), 'utf8'));
 const seed = JSON.parse(readFileSync(new URL('../public/data/notices.json', import.meta.url), 'utf8'));
@@ -78,6 +78,46 @@ const malicious={...officialApi,items:[{...officialApi.items[0],url:'https://att
 await assert.rejects(collectFromPublishedApi(async()=>apiReply(malicious)),/来源/);
 await assert.rejects(collectFromPublishedApi(async()=>apiReply(officialApi,{header:'0'})),/未命中/);
 await assert.rejects(collectFromPublishedApi(async()=>apiReply({...officialApi,success:false})),/没有通过/);
+
+
+// Pinned upstream provides only candidates: our existing collector must validate
+// each official source prefix and preserve history when a source fails.
+const collegeSnapshot={sources:{
+  dianqi:{items:[
+    {url:'https://www2.ncwu.edu.cn/dianqi/info/1001/5001.htm',title:'关于电气工程学院2026年度实验安排的通知',date:'2026-11-09'},
+    {url:'https://www2.ncwu.edu.cn/dianqi/info/1001/5002.htm',title:'关于组织电气工程学院学业讲座的通知',date:null}
+  ]},
+  gcxlzx:{items:[
+    {url:'https://www2.ncwu.edu.cn/gcxlzx/info/1001/6001.htm',title:'关于2026年度学生创新实践项目的通知',date:'11-02'},
+    {url:'https://www2.ncwu.edu.cn/gcxlzx/info/1001/6002.htm',title:'关于实践创新中心课程训练的通知',date:null}
+  ]},
+  qysy:{error:'official list temporarily unavailable'}
+}};
+const collegeBatches=normalizeUpstreamSnapshot(collegeSnapshot);
+assert.equal(collegeBatches.length,3);
+assert.equal(collegeBatches[0].items.length,2);
+assert.equal(collegeBatches[0].items[0].id,stableId(collegeBatches[0].items[0].url));
+assert.equal(collegeBatches[1].items[0].date,null,'Month and day without year must stay null');
+assert.equal(collegeBatches[2].error,'source_unavailable');
+const maliciousCollege={sources:{...collegeSnapshot.sources,dianqi:{items:[
+  {...collegeSnapshot.sources.dianqi.items[0],url:'https://www2.ncwu.edu.cn.evil.example/dianqi/info/1001/5001.htm'},
+  collegeSnapshot.sources.dianqi.items[1]
+]}}};
+assert.ok(normalizeUpstreamSnapshot(maliciousCollege)[0].error,'Reject fake official domain');
+const incorrectSection={sources:{...collegeSnapshot.sources,dianqi:{items:[
+  {...collegeSnapshot.sources.dianqi.items[0],url:'https://www2.ncwu.edu.cn/qysy/info/1001/5001.htm'},
+  collegeSnapshot.sources.dianqi.items[1]
+]}}};
+assert.ok(normalizeUpstreamSnapshot(incorrectSection)[0].error,'Reject cross-department article reuse');
+const supplemented=await collect({config:{sources:[source]},previous:seed,
+  fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),
+  upstreamSnapshot:collegeSnapshot,at:'2026-11-10T10:00:00.000Z'});
+assert.equal(supplemented.sources.length,4,'Existing source and three optional sources share ONE archive');
+assert.equal(supplemented.sources.find(x=>x.id==='qysy').status,'error');
+assert.ok(supplemented.items.some(x=>x.sourceId==='dianqi'));
+assert.ok(supplemented.items.some(x=>x.sourceId==='gcxlzx'));
+assert.ok(supplemented.items.some(x=>x.url===preserved.url),
+  'Existing verified history must survive optional-source failures');
 
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 assert.ok(html.includes('function loadPublicNotices('),'preserve existing /api/notices functionality');
