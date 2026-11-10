@@ -178,6 +178,38 @@ class ChaoxingLocalReaderTest {
         assertNull(record.deadline)
     }
 
+
+    @Test fun optionalDeadlineLookupNeverGetsAnActionLikeUrl() {
+        val unsafe = "https://mooc1.chaoxing.com/work/submit?courseId=123&classId=456&workId=903"
+        var actionFetches = 0
+        val transport = ChaoxingReadTransport { request ->
+            val path=java.net.URI(request.url).path
+            val response=when(path) {
+                "/base" -> profile
+                "/pc/notice/getNoticeList" ->
+                    """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<div class='learnCourse'><a href='$courseUrl'><span class='course-name'>Python</span></a></div>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$unsafe'><p class='overHidden2'>平台作业</p><p class='status'>未提交</p></li></ul>"
+                "/work/submit" -> {
+                    actionFetches++
+                    error("must not visit an action endpoint")
+                }
+                else -> error("unexpected source: $path")
+            }
+            ChaoxingReadPage(request.url,response)
+        }
+        val read=ChaoxingLocalReader(transport).scan(2026)
+        assertTrue(read.complete)
+        val record=read.items.single {it.sourceKey=="work:123:456:903"}
+        assertEquals("未提交", record.status)
+        assertNull(record.deadline)
+        assertEquals(0,actionFetches)
+    }
+
     @Test fun externalAttachmentsAndExamActionsAreNotRead() {
         val links=ChaoxingLocalReader.noticeLinks(JSONObject("""{"attachment":[{"url":"https://evil.example/work/task"},{"url":"https://mooc1.chaoxing.com/examapi/intoexamorwork?workorexam=exam"},{"url":"$workUrl"}]}"""))
         assertEquals(1,links.size)
