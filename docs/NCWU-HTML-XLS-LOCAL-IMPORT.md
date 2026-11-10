@@ -39,8 +39,10 @@ credentials, and does not turn local files into school-verified records.
 
 ## Validation
 
-Unit tests: NcwuHtmlXlsTimetableParserTest, including HTML exports, odd/even
-weeks, duplicates, malformed rows, binary Excel rejection, GB18030 encoding.
+Unit tests: NcwuHtmlXlsTimetableParserTest and NcwuXlsxTimetableParserTest;
+cover HTML exports, OOXML XLSX, shared/inline strings, odd/even weeks,
+duplicates, unknown rooms, school-wide spreadsheet refusal, malformed rows,
+XML entity rejection, ZIP expansion bounds, legacy OLE Excel refusal, GB18030.
 
 Before release: run :app:testDebugUnitTest and :app:assembleDebug on the same
 commit; then import an actual *personal* HTML-as-XLS export on the user's Android
