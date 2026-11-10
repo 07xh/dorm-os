@@ -45,7 +45,9 @@ object NcwuElectiveWishPlan {
         val name = wish.courseName.trim()
         val teacher = wish.teacher.trim()
         require(name.isNotEmpty() && name.length <= 120 && teacher.length <= 90 &&
-            listOf(name, teacher).none { it.any { ch -> ch.isISOControl() || ch == '<' || ch == '>' } }) {
+            listOf(wish.courseName, wish.teacher).none {
+                it.any { ch -> ch.isISOControl() || ch == '<' || ch == '>' }
+            }) {
             "课程名称或教师信息无效"
         }
         val parts = listOf(wish.weekday, wish.startSection, wish.endSection)
