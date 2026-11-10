@@ -294,7 +294,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                         else recognized.joinToString("、")
                     val message = "只读结构检查：识别到 " + tables.length() +
                         " 个含课程字段的表格，其中 " + likely +
-                        " 个可能是教学班列表。\\n识别列：$details\\n\\n" +
+                        " 个可能是教学班列表。\n识别列：$details\n\n" +
                         "本次没有读取任何课程行、个人信息或实时余量，" +
                         "也没有向学校发送新请求。仅凭列名不能证明选课接口兼容，" +
                         "正式课程读取仍需要本人按官网页面逐项核验。"
