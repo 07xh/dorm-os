@@ -1305,7 +1305,7 @@ fun RealAcademicTaskHub(
                 TaskStatusTab(
                     label = "已完成", count = all.count { considerCompleteInTaskList(it) },
                     active = filter == "done", modifier = Modifier.weight(1f),
-                    onClick = { filter = "done" }
+                    onClick = { filter = "done"; onlyThisWeek = false }
                 )
             }
         }
@@ -1400,14 +1400,28 @@ fun RealAcademicTaskHub(
                         ).forEach { (source, label) ->
                             DropdownMenuItem(
                                 text = { Text(label) },
-                                onClick = { sourceFilter = source; sourceMenuOpen = false }
+                                onClick = {
+                                    sourceFilter = source
+                                    // The week-only facet contains personal Room tasks.
+                                    // Switching to any other source must clear it.
+                                    if (source != "local") onlyThisWeek = false
+                                    sourceMenuOpen = false
+                                }
                             )
                         }
                     }
                 }
                 FilterChip(
                     selected = onlyThisWeek,
-                    onClick = { onlyThisWeek = !onlyThisWeek },
+                    onClick = {
+                        if (onlyThisWeek) {
+                            onlyThisWeek = false
+                        } else {
+                            sourceFilter = "local"
+                            if (filter == "done" || filter == "verify") filter = "now"
+                            onlyThisWeek = true
+                        }
+                    },
                     label = { Text("本周·本机") }
                 )
             }
@@ -1417,8 +1431,11 @@ fun RealAcademicTaskHub(
                 item(key = "next:empty") {
                     XiaoxuEmpty(
                         modifier = Modifier.padding(top = 12.dp),
-                        title = "当前没有可做任务",
+                        title = if (onlyThisWeek) "本周暂无可做的本机任务"
+                            else "当前没有可做任务",
                         message = when {
+                            onlyThisWeek ->
+                                "已保存的本机任务中暂无符合条件的事项，可取消本周筛选查看其他待办。"
                             waitingRows.isNotEmpty() ->
                                 "有 ${waitingRows.size} 条本机任务正在等待前置完成。"
                             needsVerificationRows.isNotEmpty() ->
@@ -1426,12 +1443,17 @@ fun RealAcademicTaskHub(
                             else -> "可新增本机任务，或切换到全部查看历史记录。"
                         },
                         actionLabel = when {
+                            onlyThisWeek -> "查看全部待办"
                             waitingRows.isNotEmpty() -> "查看等待任务"
                             needsVerificationRows.isNotEmpty() -> "查看待核对"
                             else -> "新增本机任务"
                         },
                         onAction = {
                             when {
+                                onlyThisWeek -> {
+                                    onlyThisWeek = false
+                                    sourceFilter = "all"
+                                }
                                 waitingRows.isNotEmpty() -> showWaitingTasks = true
                                 needsVerificationRows.isNotEmpty() -> showNeedsVerification = true
                                 else -> showLocalComposer = true
