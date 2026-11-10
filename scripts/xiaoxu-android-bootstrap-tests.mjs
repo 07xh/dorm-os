@@ -508,6 +508,10 @@ assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/,
  '不应回退为多层筛选和冗余管理栏');
 assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
  '本机任务需支持直接进入已有编辑页');
+assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
+ '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
+assert.match(workspace, /val openLabel = if \(task\.storage == "local"\) "编辑本机任务" else "查看任务详情"/,
+ '本机行应明确说明点击是直接编辑，云端行仍是详情');
 assert.match(secondClassMain, /refreshPersonalRecords\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
