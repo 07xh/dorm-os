@@ -81,6 +81,16 @@ for(const name of ['check.yml','xiaoxu-campus-run-jvm.yml','xiaoxu-secondclass-w
  assert.match(workflow,/pull_request:\n\s{4}branches: \[main\]/,
   name+' must validate PRs targeting main');
 }
+// Deleting/archiving a pending marker still starts the workflow, but must not
+// reach expensive compilation or signing. The event range guard is tested with Git.
+assert.match(androidBuild,/request-gate:[\s\S]*?fetch-depth: 0/,
+ 'Request direction needs the complete PR/push Git range');
+assert.match(androidBuild,/id: request\n\s*run: node scripts\/xiaoxu-apk-build-request[.]mjs/);
+assert.match(androidBuild,/requested: \$\{\{ steps[.]request[.]outputs[.]requested \}\}/);
+assert.match(androidBuild,/build-android:\n\s*needs: request-gate\n\s*if: needs[.]request-gate[.]outputs[.]requested == 'true'/,
+ 'No APK compilation without an explicit request or manual recovery');
+assert.match(androidBuild,/publish-release:\n\s*needs: build-android/,
+ 'Signing/publication depends on the gated build');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');

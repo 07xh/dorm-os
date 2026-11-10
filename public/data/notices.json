@@ -2,28 +2,35 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+  "lastSuccessAt": "2026-11-10T09:55:27.978Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "ok",
-      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+      "status": "error",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "ok",
-      "lastSuccessAt": "2026-11-09T09:52:40.450Z",
+      "status": "error",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
       "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 20
+    },
+    {
+      "id": "jwc-api",
+      "name": "教务处公开公告（代理兜底）",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-10T09:55:27.978Z",
+      "count": 29
     }
   ],
   "items": [
@@ -274,6 +281,15 @@
       "id": "ncwu-083e24afed765907",
       "title": "华北水利水电大学华水学堂网络在线教学平台项目单一来源采购结果公告 11-06",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3011.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-c38537e39d2501ee",
+      "title": "2027年新增学士学位授予专业授予资格审核公示 11-09",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3012.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
@@ -742,6 +758,15 @@
       "id": "ncwu-1ba7236cba791d6c",
       "title": "关于我校2025-2026学年本科学生奖学金审核结果及公示的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4156.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-358e55c30c5c315a",
+      "title": "关于开展2026年11月大学生思政主题教育活动的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4158.htm",
       "date": null,
       "sourceId": "student",
       "sourceName": "学生工作处",

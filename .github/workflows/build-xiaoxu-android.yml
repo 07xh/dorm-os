@@ -24,9 +24,26 @@ permissions:
   contents: read
 
 jobs:
-  build-android:
+  request-gate:
     # A fork must not turn a marker into an unreviewed cross-repo build request.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      requested: ${{ steps.request.outputs.requested }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require an added or modified explicit APK request
+        id: request
+        run: node scripts/xiaoxu-apk-build-request.mjs
+
+  build-android:
+    needs: request-gate
+    if: needs.request-gate.outputs.requested == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

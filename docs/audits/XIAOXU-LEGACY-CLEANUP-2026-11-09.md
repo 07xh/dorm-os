@@ -59,3 +59,14 @@
 2. CloudClient、RealDataWorkspace、public/index.html 与 bootstrap 静态门禁较大；拆分必须按数据/状态职责与行为测试分批进行。本轮不混入导航、认证或数据库重构。
 3. 学习通真实任务重复/老师删除/互评后状态、本人跨设备读写、Room 升级备份、一加 Ace 6 帧表现和授权持久化仍须实测。没有把旧代码清理说成这些问题已经修复。
 4. 旧文档作为历史证据保留。后续依据 AGENTS、最新 main 和真实验收，避免从历史说明重新恢复旧云端课表/二课密码路径。
+
+## 2026-11-11 续轮：同步主线、退役历史构建请求
+
+- 核实 #434 仍 open/Draft、未合并。其原 HEAD `5380ec66` 的 Android JVM、DORM OS CI 与二课 WebView Runtime 均 success；这不是最新改动的 CI 结果。
+- 已将最新 main `ff87406d` 合入同一清理分支，保留新加的手动 D1 审计/0019 迁移脚本与通知数据；未执行这些生产工作流，未变更学习通/课表/微信正在开发的功能线。
+- 发现 pending 下仍保留 0.8.13、0.8.14、0.8.15 与 #428 的四份历史构建请求。它们没有运行时代码消费者，但直接删除也会匹配 GitHub Actions paths 条件，因而不能直接删掉。
+- 修复构建请求方向判断：既有构建工作流添加一个只读 request-gate，使用 Git 实际范围、`--no-renames --diff-filter=AM`，仅新增或修改 pending 顶层 `.txt` 才进入构建。纯归档/删除跳过 APK 编译、签名和发布；manual workflow_dispatch 保留。PR 使用 base...head 合并基准，避免主线已归档的请求在旧分支里被当作新请求重新激活。fork 在 job 与脚本拒绝；范围缺失/无效/对象不可读时失败关闭。
+- 四文件移动到 `docs/archive/xiaoxu-apk-build-requests/2026-11-11/`，逐份比对 Git blob SHA 一致；不删除历史安装包、Release、用户记录、Room/D1 迁移或数据兼容代码。
+- 新增真实临时 Git 仓库行为测试覆盖归档/删除、新增/修改、普通代码变更、PR 早期提交请求、旧 PR、fork、手动构建、非 main push、无效/缺失对象及 CLI 输出。归档/删除与旧 PR 误触发均观察到断言失败，再实现修复并通过；工作流接线测试确认 build 依赖 gate、publish 依赖 build。
+- 本轮 `npm run check` 全量通过；行为测试、工作流接线测试、归档内容校验、`git diff --check` 通过。独立只读复审未发现可证实问题。
+- 本地已尝试系统 Chromium 浏览器回归，浏览器在启动业务测试前因 `socket() failed: Operation not permitted` 退出。不能称本地 E2E 通过，需用更新后的 PR 远端 CI 验证；未本地编译 APK、未进行学校本人数据或 Ace 6 真机验收。
