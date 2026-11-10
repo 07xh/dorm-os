@@ -1221,16 +1221,14 @@ fun RealAcademicTaskHub(
             }
         }
     }
-    // Re-read the latest Room row before changing its due date, so a quick
-    // date edit never overwrites an intervening title/source edit.
+    // A targeted Room UPDATE changes only the due column; simultaneous
+    // edits of title/source or the dependency graph are not overwritten.
     val saveQuickDate: (Long, String?) -> Unit = { id, due ->
         if (!quickDateSaving) {
             quickDateSaving = true
             taskScope.launch {
                 try {
-                    val current = dao.findById(id)
-                    if (current == null ||
-                        dao.updateDetails(id, current.title, current.source, due) != 1) {
+                    if (dao.updateDue(id, due) != 1) {
                         Toast.makeText(context, "任务已变更，请重新打开", Toast.LENGTH_SHORT).show()
                     } else {
                         quickDateTaskId = null
