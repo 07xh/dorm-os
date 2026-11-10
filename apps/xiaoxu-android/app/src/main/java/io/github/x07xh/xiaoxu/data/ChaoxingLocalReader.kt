@@ -233,10 +233,29 @@ internal class ChaoxingLocalReader(
         if(clean(title).isBlank()) throw ChaoxingReadFailure("record_title")
         items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host)
     }
+    private fun reportFailure(label:String,code:String) {
+        val reason=when(code) {
+            "work_row_conflict" -> "同页同一作业状态冲突，已保留待核对"
+            "work_page_overlap" -> "分页有重叠，已继续保留新作业"
+            "work_page_mismatch" -> "返回页码与请求不符"
+            "work_page_stalled" -> "翻页仍返回同一批作业"
+            "work_page_empty" -> "后续分页未返回作业"
+            "work_page_limit" -> "分页数量超过读取上限"
+            "plan_destination_rejected" -> "学习计划未提供作业入口"
+            "plan_destination_url" -> "学习计划返回的入口地址无效"
+            "plan_destination_type" -> "学习计划入口不是支持的任务类型"
+            "work_redirect_exam" -> "作业入口跳到了考试页面"
+            "work_redirect_course" -> "作业入口跳回了课程页面"
+            "work_redirect_login" -> "作业入口跳到了登录页面"
+            "work_redirect_other" -> "作业入口跳到了无法识别的页面"
+            else -> null
+        }
+        failures.add(clean(label,60)+"："+(reason?.let {"$it（$code）"} ?: code))
+    }
     private fun recover(label:String, block:()->Unit) {
         try {block()} catch(e:ChaoxingReadFailure) {
             if(e.code in setOf("account_changed","login_required")) throw e
-            failures.add(clean(label,60)+"："+e.code)
+            reportFailure(label,e.code)
         } catch(_:org.json.JSONException) {
             failures.add(clean(label,60)+"：invalid_response")
         }
@@ -421,10 +440,10 @@ internal class ChaoxingLocalReader(
                         if(plan.optInt("planType",-1)==4&&accessible&&plan.optString("encryptPlanId").isNotBlank()) {
                             val args=base+mapOf("encryptPlanId" to plan.optString("encryptPlanId"),"studyJumpType" to "0","isInterface" to "false")
                             val reply=JSONObject(fetch(query(origin+"/userStudyPlan/getToStudyUrl",args),"POST").text)
-                            if(!reply.optBoolean("result")) throw ChaoxingReadFailure("work_destination")
+                            if(!reply.optBoolean("result")) throw ChaoxingReadFailure("plan_destination_rejected")
                             val url=safeUrl(reply.optJSONObject("data")?.optString("url").orEmpty(),page.url)
-                                ?: throw ChaoxingReadFailure("work_destination")
-                            if(!supported(url)) throw ChaoxingReadFailure("work_destination")
+                                ?: throw ChaoxingReadFailure("plan_destination_url")
+                            if(!supported(url)) throw ChaoxingReadFailure("plan_destination_type")
                             val resolved=readWorkLink(ChaoxingDiscoveredLink(title,url),status)
                             resolved?.let { resolvedWorks.add(it) }
                             // An actual work identity replaces the plan child in the
@@ -463,6 +482,17 @@ internal class ChaoxingLocalReader(
         return Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已批改|已评分|已完成此作业|已提交[，,、 ]*待批阅|已提交|已完成|待批阅|提交成功|已达标|已退回|未提交")
             .find(doc.text())?.value.orEmpty()
     }
+    private fun unsupportedWorkDestination(url:String):String {
+        // Only emit fixed categories: never expose signed URLs, query values,
+        // response bodies, or cookies in the user-copyable read report.
+        val path=URI(url).path.lowercase()
+        return when {
+            path.contains("/exam/") || params(url)["workorexam"].equals("exam",true) -> "work_redirect_exam"
+            path.contains("/mycourse/") || path.contains("/visit/") -> "work_redirect_course"
+            path.contains("login") -> "work_redirect_login"
+            else -> "work_redirect_other"
+        }
+    }
     private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false): String? {
         val initialKey=workKey(link.url)
         if(!forceDetail&&initialKey!=null&&items[initialKey]?.status?.let {it!="状态未知"}==true) {
@@ -471,7 +501,7 @@ internal class ChaoxingLocalReader(
         }
         val visited=mutableListOf(link.url)
         var page=fetch(link.url)
-        if(!supported(page.url)) throw ChaoxingReadFailure("work_destination")
+        if(!supported(page.url)) throw ChaoxingReadFailure(unsupportedWorkDestination(page.url))
         visited.add(page.url)
         resolvedWorkKey(visited)
         var doc=Jsoup.parse(page.text,page.url)
@@ -487,7 +517,7 @@ internal class ChaoxingLocalReader(
                 visited.add(target)
                 resolvedWorkKey(visited)
                 page=fetch(target)
-                if(!supported(page.url)) throw ChaoxingReadFailure("work_destination")
+                if(!supported(page.url)) throw ChaoxingReadFailure(unsupportedWorkDestination(page.url))
                 visited.add(page.url)
                 resolvedWorkKey(visited)
                 doc=Jsoup.parse(page.text,page.url)
@@ -511,6 +541,7 @@ internal class ChaoxingLocalReader(
     }
     private fun readCourse(course:ChaoxingDiscoveredLink) {
         var page=fetch(course.url);var doc=Jsoup.parse(page.text,page.url)
+        var paginationUrl=course.url
         val entry=doc.selectFirst("a[data-url*=work/list],iframe[src*=work/list],a[href*=work/list]")
         val hidden=listOf("courseid","clazzid","cpi","workEnc","openc","enc","t")
             .associateWith {doc.getElementById(it)?.`val`().orEmpty()}
@@ -541,14 +572,24 @@ internal class ChaoxingLocalReader(
                         "stuenc" to hidden.getValue("enc")).filterValues {it.isNotBlank()}
                 url=query(url,fields)
             }
-            page=fetch(url);doc=Jsoup.parse(page.text,page.url)
+            paginationUrl=query(url,mapOf("pageNum" to "1"))
+            page=fetch(paginationUrl);doc=Jsoup.parse(page.text,page.url)
         }
         var pages=1;var current=1;val seen=mutableSetOf<String>()
         val expected=params(course.url)
         val expectedCourse=numericIdentity(expected,"courseId","courseid")
         val expectedClass=numericIdentity(expected,"classId","clazzid","classid")
         while(true) {
-            val rows=doc.select(".bottomList li[data],li[data]").filter {it.selectFirst("p.overHidden2")!=null}
+            val active=doc.select("#page li.xl-active")
+            if(active.size>1 || (active.size==1 && active.first()!!.text().trim().toIntOrNull()!=current))
+                throw ChaoxingReadFailure("work_page_mismatch")
+            // Prefer the actual homework panel, as the reference client does;
+            // alternate hidden layouts are not an additional page of work.
+            val selector=if(doc.selectFirst(".bottomList")!=null) ".bottomList li[data]" else "li[data]"
+            val rows=doc.select(selector).filter {it.selectFirst("p.overHidden2")!=null}
+            val priorKeys=seen.toSet()
+            val pageRows=linkedMapOf<String,Pair<String,String>>()
+            var overlap=false
             if(rows.isEmpty()&&!doc.text().contains("暂无作业")&&!doc.text().contains("没有作业")) throw ChaoxingReadFailure("work_list_response")
             for(row in rows) {
                 val url=safeUrl(row.attr("data"),page.url) ?: throw ChaoxingReadFailure("work_identity")
@@ -560,7 +601,17 @@ internal class ChaoxingLocalReader(
                         throw ChaoxingReadFailure("course_identity")
                 }
                 val stable=key?:stableStudyKey(url)
-                if(!seen.add(stable)) throw ChaoxingReadFailure("work_pagination")
+                val signature=clean(row.selectFirst("p.overHidden2")!!.text()) to
+                    clean(row.selectFirst("p.status")?.text().orEmpty(),60)
+                val duplicate=pageRows.putIfAbsent(stable,signature)
+                if(duplicate!=null) {
+                    if(duplicate!=signature) {
+                        record(if(key==null) "study_task" else "homework",stable,signature.first,"状态未知",URI(url).host)
+                        reportFailure(course.title,"work_row_conflict")
+                    }
+                    continue
+                }
+                if(!seen.add(stable)) {overlap=true;continue}
                 if (key != null) {
                     courseWorkKeys.add(key)
                     courseWorkUrls[key]=url
@@ -580,12 +631,19 @@ internal class ChaoxingLocalReader(
                     readWorkLink(ChaoxingDiscoveredLink(row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
                 }
             }
-            val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
+            if(current>1 && pageRows.isEmpty()) throw ChaoxingReadFailure("work_page_empty")
+            if(overlap) {
+                if(pageRows.keys.all {it in priorKeys}) throw ChaoxingReadFailure("work_page_stalled")
+                // Retain newly discovered rows after an overlap, but do not
+                // claim a complete snapshot or delete unmatched older records.
+                reportFailure(course.title,"work_page_overlap")
+            }
+            val buttons=doc.select("#page li:not(.xl-prevPage):not(.xl-nextPage)").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)
-            if(pages>100) throw ChaoxingReadFailure("work_pagination")
+            if(pages>100) throw ChaoxingReadFailure("work_page_limit")
             if(current>=pages) break
             current++
-            page=fetch(query(page.url,mapOf("pageNum" to current.toString())))
+            page=fetch(query(paginationUrl,mapOf("pageNum" to current.toString())))
             doc=Jsoup.parse(page.text,page.url)
         }
     }

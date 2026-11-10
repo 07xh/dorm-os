@@ -131,6 +131,15 @@ class ChaoxingWorkResolutionTest {
         val read=scan(work) { ChaoxingReadPage("https://mooc1.chaoxing.com/exam/test?courseId=123&classId=456&workId=901234", "<div>已完成</div>") }
         assertFalse(read.complete)
         assertTrue(read.items.isEmpty())
+        assertTrue(read.failures.any {it.contains("work_redirect_exam")})
+        assertFalse(read.failures.toString().contains("courseId"))
+    }
+
+    @Test fun courseLandingIsDistinguishedFromAnExamRedirect() {
+        val read=scan(work) { ChaoxingReadPage("https://mooc1.chaoxing.com/mycourse/studentcourse?enc=privateSignature", "课程首页") }
+        assertFalse(read.complete)
+        assertTrue(read.failures.any {it.contains("work_redirect_course")})
+        assertFalse(read.failures.toString().contains("privateSignature"))
     }
 
 }

@@ -41,6 +41,7 @@ class ChaoxingPlanContinuationTest {
         assertEquals(setOf("plan:701", "plan:702"), read.supersededKeys)
         assertFalse(read.complete)
         assertEquals(1, read.failures.size)
+        assertTrue(read.failures.single().contains("plan_destination_rejected"))
     }
 
     @Test fun failedGroupDoesNotSkipNextGroup() {
