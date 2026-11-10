@@ -1,0 +1,5 @@
+Explicit user request: test the #429 task-center usability pass on an isolated Android QA package.
+Features: today's trusted-due focus, compact rows, one-tap personal date picker, collapsed prerequisite editor, history notice separation.
+Run actual Kotlin/JVM, Android APK build and repository gates; do not publish or deploy.
+Source branch: feat/task-center-nexttodo-ready-20261109.
+Keep existing formal app storage and signing untouched. No merge or release until Ace 6 Room migration and personal Chaoxing record checks.
