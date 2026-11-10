@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -132,9 +131,11 @@ fun NcwuElectivePlannerPage(onOpenOfficial: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         onClick = {
                             try {
-                                fun optionalInt(input: String): Int? =
-                                    if (input.isBlank()) null else input.trim().toIntOrNull()
+                                fun optionalInt(input: String): Int? {
+                                    if (input.isBlank()) return null
+                                    return input.trim().toIntOrNull()
                                         ?: throw IllegalArgumentException("星期和节次必须是整数")
+                                }
                                 val newWish = NcwuElectiveWish(
                                     term = term, courseCode = courseCode, classCode = classCode,
                                     courseName = courseName, teacher = teacher,
