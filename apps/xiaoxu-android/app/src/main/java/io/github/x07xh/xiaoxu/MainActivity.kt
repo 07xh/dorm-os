@@ -83,6 +83,7 @@ import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.NcwuHtmlXlsTimetableParser
+import io.github.x07xh.xiaoxu.data.NcwuXlsxTimetableParser
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
@@ -297,14 +298,17 @@ class MainActivity : ComponentActivity() {
                             LocalTimetableBackup.parse(text)
                         lowered.endsWith(".json") ->
                             LocalTimetableBackup.Imported(LocalScheduleStore.parseCourses(text))
+                        lowered.endsWith(".xlsx") || (lowered.endsWith(".xls") &&
+                            bytes.size() >= 2 && bytes.toByteArray()[0] == 0x50.toByte() &&
+                            bytes.toByteArray()[1] == 0x4b.toByte()) ->
+                            LocalTimetableBackup.Imported(
+                                NcwuXlsxTimetableParser.parse(bytes.toByteArray()))
                         lowered.endsWith(".xls") || lowered.endsWith(".html") ||
                             lowered.endsWith(".htm") ->
                             LocalTimetableBackup.Imported(
                                 NcwuHtmlXlsTimetableParser.parse(bytes.toByteArray()))
-                        lowered.endsWith(".xlsx") -> throw IllegalArgumentException(
-                            "二进制 .xlsx 暂不支持直接导入，请使用原教务系统 HTML 表格导出或 ICS/JSON")
                         else -> throw IllegalArgumentException(
-                            "支持 .ics、标准课表 .json 或华水 HTML 表格 .xls/.html；二进制 Excel 和原始 .sleepdown 暂不支持")
+                            "支持 .ics、标准课表 .json、华水个人课表 .xlsx 和 HTML 格式 .xls；旧式二进制 .xls 暂不支持")
                     }
                     fileName to imported
                 }
