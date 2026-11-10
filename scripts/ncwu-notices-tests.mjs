@@ -112,6 +112,10 @@ assert.ok(normalizeUpstreamSnapshot(incorrectSection)[0].error,'Reject cross-dep
 const supplemented=await collect({config:{sources:[source]},previous:seed,
   fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),
   upstreamSnapshot:collegeSnapshot,at:'2026-11-10T10:00:00.000Z'});
+const badSupplement=await collect({config:{sources:[source]},previous:seed,
+  fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),
+  upstreamSnapshot:{corrupt:true},at:'2026-11-10T10:00:00.000Z'});
+assert.equal(badSupplement.sources.length,1,'Corrupt optional snapshot never blocks original collector');
 assert.equal(supplemented.sources.length,4,'Existing source and three optional sources share ONE archive');
 assert.equal(supplemented.sources.find(x=>x.id==='qysy').status,'error');
 assert.ok(supplemented.items.some(x=>x.sourceId==='dianqi'));
