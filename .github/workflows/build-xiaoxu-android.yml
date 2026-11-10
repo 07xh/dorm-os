@@ -15,10 +15,11 @@ on:
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 
-# New commits supersede older PR jobs; published main builds never cancel.
+# Finish an already requested APK so it can be installed and verified.
+# GitHub keeps only the newest pending build while the current build finishes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
