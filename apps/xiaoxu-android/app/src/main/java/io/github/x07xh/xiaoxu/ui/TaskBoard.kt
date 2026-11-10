@@ -520,6 +520,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     val allEdges by dao.observeDependencies().collectAsState(initial = emptyList())
     // Null means no edit; it protects existing edges while Room loads.
     var editedPrerequisites by remember(task.id) { mutableStateOf<Set<Long>?>(null) }
+    var prerequisitesExpanded by rememberSaveable(task.id) { mutableStateOf(false) }
     val chosen = editedPrerequisites ?: allEdges.asSequence()
         .filter { it.taskId == task.id }.map { it.prerequisiteId }.toSet()
     val otherTasks = remember(allLocal, task.id) {
@@ -557,47 +558,58 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                 }
             }
         }
-        Text("前置任务 · 本人设置", style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink2)
-        if (otherTasks.isEmpty()) {
-            Text("先添加另一条本机任务，就能为当前事项设置前置关系。",
-                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-        } else {
-            // Bound the editor height: a large task database stays lazy.
-            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 176.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                items(count = otherTasks.size, key = { otherTasks[it].id }) { index ->
-                    val candidate = otherTasks[index]
-                    val checked = candidate.id in chosen
-                    val wouldCycle = !checked && wouldCreateDependencyCycle(
-                        graphWithoutThis, task.id, candidate.id)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TaskCompletionCheckbox(
-                            checked = checked,
-                            enabled = !saving && !wouldCycle,
-                            description = "将“" + candidate.title + "”设为前置任务",
-                            onCheckedChange = { isChecked ->
-                                editedPrerequisites = if (isChecked) chosen + candidate.id
-                                    else chosen - candidate.id
-                                error = null
-                            }
-                        )
-                        Text(candidate.title +
-                            if (candidate.completed) " · 已完成" else
-                                if (wouldCycle) " · 会形成循环" else "",
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+        // Keep the common title/date edit short; the optional dependency editor
+        // is available on demand and never changes the saved DAG unless edited.
+        TextButton(
+            onClick = { prerequisitesExpanded = !prerequisitesExpanded },
+            modifier = Modifier.heightIn(min = 48.dp)
+        ) {
+            Text(if (prerequisitesExpanded) "收起前置关系（${chosen.size}）"
+                else "前置关系（${chosen.size}）")
+        }
+        if (prerequisitesExpanded) {
+            Text("前置任务 · 本人设置", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+            if (otherTasks.isEmpty()) {
+                Text("先添加另一条本机任务，就能为当前事项设置前置关系。",
+                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            } else {
+                // Bound the editor height: a large task database stays lazy.
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 176.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    items(count = otherTasks.size, key = { otherTasks[it].id }) { index ->
+                        val candidate = otherTasks[index]
+                        val checked = candidate.id in chosen
+                        val wouldCycle = !checked && wouldCreateDependencyCycle(
+                            graphWithoutThis, task.id, candidate.id)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TaskCompletionCheckbox(
+                                checked = checked,
+                                enabled = !saving && !wouldCycle,
+                                description = "将“" + candidate.title + "”设为前置任务",
+                                onCheckedChange = { isChecked ->
+                                    editedPrerequisites = if (isChecked) chosen + candidate.id
+                                        else chosen - candidate.id
+                                    error = null
+                                }
+                            )
+                            Text(candidate.title +
+                                if (candidate.completed) " · 已完成" else
+                                    if (wouldCycle) " · 会形成循环" else "",
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }
+            Text("所选任务全部完成后，当前事项才会出现在“现在可做”；保存修改时一并生效。",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         }
-        Text("所选任务全部完成后，当前事项才会出现在“现在可做”；保存修改时一并生效。",
-            style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
