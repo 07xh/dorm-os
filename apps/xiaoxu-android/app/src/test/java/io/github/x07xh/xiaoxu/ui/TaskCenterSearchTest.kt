@@ -372,6 +372,12 @@ class TaskCenterSearchTest {
                 officialDeadline = "2026-11-07"),
             WorkspaceTask("local:2", "没有日期的任务", "本机待办", false,
                 null, "本人填写", "local"),
+            // A visible official deadline label is not enough if its date
+            // could not be parsed: an unrelated cloud date must not take priority.
+            WorkspaceTask("cloud:unparsed", "官网只展示文字截止", "学习通", false,
+                today.minusDays(5), "本机官方页面观察", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "见课程页面"),
             WorkspaceTask("native:verified", "官方退回", "学习通", false,
                 today.minusDays(1), "本机官方页面观察", "native",
                 category = "chaoxing", provider = "chaoxing", officialStatus = "returned",
@@ -383,7 +389,7 @@ class TaskCenterSearchTest {
         )
         assertEquals(
             listOf("native:verified", "cloud:verified", "local:1",
-                "cloud:unverified-date", "local:2"),
+                "cloud:unparsed", "cloud:unverified-date", "local:2"),
             readyWorkspaceTasks(rows, local, emptyList()).map { it.key }
         )
         assertEquals("todo", rows.single { it.key == "cloud:verified" }.officialStatus)
