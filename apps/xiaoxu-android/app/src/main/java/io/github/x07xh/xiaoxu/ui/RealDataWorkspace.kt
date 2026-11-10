@@ -288,7 +288,7 @@ internal fun combineWorkspaceTasks(
             add(WorkspaceTask("cloud:" + task.id, task.title,
                 if (evidence != null) "$source · 本机官网状态" else source,
                 task.status == "done", observedDeadline?.date ?: parseWorkspaceDue(task.due),
-                if(observedDeadline!=null) "学习通本机官方截止"
+                if(observedDeadline?.date != null) "学习通本机官方截止"
                 else if (evidence != null) "本机官方页面观察" else "云端记录，需核对来源", "cloud",
                 when (task.provider) {
                     "wechat" -> "wechat"
@@ -439,7 +439,10 @@ internal fun readyWorkspaceTasks(
     // determine priority; imported/cloud snapshot dates never pose as deadlines.
     fun trustedDue(row: WorkspaceTask): LocalDate? = when {
         row.storage == "local" -> row.date
-        row.provider == "chaoxing" && row.officialDeadline != null -> row.date
+        row.provider == "chaoxing" &&
+            (row.storage == "native" && row.officialDeadline != null ||
+                row.storage == "cloud" && row.dateSource == "学习通本机官方截止") ->
+            row.date
         else -> null
     }
     return tasks.asSequence()
