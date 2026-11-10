@@ -9,7 +9,6 @@ import json
 import pathlib
 import re
 import sys
-from datetime import date
 from urllib.parse import urlparse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -23,17 +22,6 @@ SOURCES = {
     "qysy": "qysy",
 }
 ARTICLE_RE = re.compile(r"^/([a-z0-9]+)/info/\d{3,6}/\d{1,8}\.htm$")
-
-
-def safe_date(value):
-    raw = str(value or "").strip()
-    if not re.fullmatch(r"20\d{2}-\d{2}-\d{2}", raw):
-        return None  # Never infer publication year from MM-DD or neighbors.
-    try:
-        date.fromisoformat(raw)
-    except ValueError:
-        return None
-    return raw
 
 
 def capture(site_key, article_prefix, crawler):
@@ -54,7 +42,10 @@ def capture(site_key, article_prefix, crawler):
             if url in seen:
                 continue
             seen.add(url)
-            items.append({"url": url, "title": title, "date": safe_date(notice.date)})
+            # Upstream list dates may be inferred from adjacent items or today's
+            # year. Preserve only the independently verifiable title and URL;
+            # never silently certify a guessed publication year.
+            items.append({"url": url, "title": title, "date": None})
         if len(items) < 2:
             return {"error": "官方列表解析不足两条有效公告，不更新此来源"}
         return {"items": items[:40]}
