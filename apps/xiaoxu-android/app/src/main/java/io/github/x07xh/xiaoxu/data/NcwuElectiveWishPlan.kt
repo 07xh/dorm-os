@@ -55,7 +55,7 @@ object NcwuElectiveWishPlan {
         if (wish.weekday != null) {
             require(wish.weekday in 1..7 &&
                 wish.startSection!! in 1..24 &&
-                wish.endSection!! in wish.startSection..24) { "上课星期或节次无效" }
+                wish.endSection!! in wish.startSection!!..24) { "上课星期或节次无效" }
         }
         require(wish.weeks.size <= 35 && wish.weeks.all { it in 1..35 } &&
             wish.weeks.distinct().size == wish.weeks.size) { "上课周次无效" }
@@ -97,7 +97,7 @@ object NcwuElectiveWishPlan {
         if (compared.any { other -> other.hasFullMeeting &&
             other.weekday == target.weekday &&
             other.startSection!! <= target.endSection!! &&
-            target.startSection <= other.endSection!! &&
+            target.startSection!! <= other.endSection!! &&
             other.weeks.any { it in target.weeks } }) return NcwuWishConflict.OVERLAP
         return if (compared.any { !it.hasFullMeeting }) NcwuWishConflict.INSUFFICIENT_DATA
             else NcwuWishConflict.NO_KNOWN_CONFLICT
