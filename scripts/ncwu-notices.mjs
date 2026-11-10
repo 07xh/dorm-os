@@ -18,7 +18,7 @@ const archivePath = resolve(root, 'public/data/notices.json');
 export const SCHEMA = 'xiaoxu/notices-v1';
 export const SCHOOL_ID = '4141010078';
 const ALLOWED = new Set(['www.ncwu.edu.cn', 'www2.ncwu.edu.cn']);
-const ARTICLE_PATH = /^\/(?:xsc\/|jiaowu\/)?info\/\d+\/\d+\.htm$/i;
+const ARTICLE_PATH = /^\/(?:(?:xsc|jiaowu|dianqi|gcxlzx|qysy)\/)?info\/\d+\/\d+\.htm$/i;
 const MAX_ITEMS = 240;
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_BYTES = 1024 * 1024;
@@ -92,6 +92,52 @@ export function isVerifiedArchiveItem(item) {
     typeof item.sourceId === 'string' && !item.sourceId.startsWith('seed') &&
     !!canonicalLink(item.url,item.url);
 }
+/**
+ * A pinned, optional Python parser supplies read-only public list candidates.
+ * Always revalidate each candidate here before allowing it into our sole archive.
+ * The JSON snapshot is not a second notification API or state store.
+ */
+export const UPSTREAM_SOURCES = Object.freeze({
+  dianqi: {id:'dianqi',name:'电气工程学院通知',category:'教学',
+    url:'https://www2.ncwu.edu.cn/dianqi/xydt/tzgg.htm',prefix:'/dianqi/info/'},
+  gcxlzx: {id:'gcxlzx',name:'工程实践与创新中心通知',category:'校园',
+    url:'https://www2.ncwu.edu.cn/gcxlzx/zxdt/tzgg.htm',prefix:'/gcxlzx/info/'},
+  qysy: {id:'qysy',name:'清源书院通知',category:'校园',
+    url:'https://www2.ncwu.edu.cn/qysy/sydt/tzgg.htm',prefix:'/qysy/info/'},
+});
+
+export function normalizeUpstreamSnapshot(snapshot) {
+  if (!snapshot || !snapshot.sources || typeof snapshot.sources !== 'object' ||
+      Array.isArray(snapshot.sources)) throw new Error('上游公开通知快照格式不正确');
+  return Object.values(UPSTREAM_SOURCES).map(source => {
+    const data = snapshot.sources[source.id];
+    if (!data || typeof data.error === 'string')
+      return {source,error:'source_unavailable'};
+    try {
+      if (!Array.isArray(data.items) || data.items.length < 2 || data.items.length > 40)
+        throw new Error('invalid_source_count');
+      const output = new Map();
+      for (const raw of data.items) {
+        if (!raw || typeof raw.url !== 'string') throw new Error('invalid_url');
+        const url = canonicalLink(raw.url, source.url);
+        if (!url || raw.url !== url || !url.startsWith('https://www2.ncwu.edu.cn'+source.prefix))
+          throw new Error('unapproved_official_article');
+        const title = normalizeTitle(raw.title);
+        if (title.length < 8 || title.length > 160 || !/[\u4e00-\u9fa5]/.test(title))
+          throw new Error('invalid_title');
+        const date = typeof raw.date === 'string' && dateFromText(raw.date) === raw.date
+          ? raw.date : null; // Unknown year must remain unknown.
+        output.set(url,{id:stableId(url),title,url,date,
+          sourceId:source.id,sourceName:source.name,category:source.category});
+      }
+      if (output.size < 2) throw new Error('insufficient_distinct_articles');
+      return {source,items:[...output.values()]};
+    } catch (error) {
+      return {source,error:String(error.message||error)};
+    }
+  });
+}
+
 export function mergeArchive(previous, batches, at = new Date().toISOString()) {
   const prior = previous && previous.schema === SCHEMA && Array.isArray(previous.items)
     ? previous : { items: [], sources: [] };
@@ -198,7 +244,7 @@ export async function collectFromPublishedApi(fetcher=fetch, at=new Date().toISO
   return {source,items};
 }
 
-export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = null, previous = null, at = new Date().toISOString() } = {}) {
+export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = null, previous = null, upstreamSnapshot = null, at = new Date().toISOString() } = {}) {
   const cfg = config || JSON.parse(await readFile(configPath, 'utf8'));
   const old = previous || JSON.parse(await readFile(archivePath, 'utf8'));
   const batches = [];
@@ -218,6 +264,7 @@ export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = 
       console.warn(source.id + ': 抓取失败（保留旧记录）' + String(error.message || error) + (error?.cause?.code ? ' [' + error.cause.code + ']' : ''));
     }
   }
+  if (upstreamSnapshot) batches.push(...normalizeUpstreamSnapshot(upstreamSnapshot));
   if (!batches.some(b => b.items?.length >= 2)) {
     try {
       // 海外 GitHub Runner 偶发全部 ETIMEDOUT：利用已验证的 Cloudflare
@@ -231,7 +278,17 @@ export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = 
   return mergeArchive(old, batches, at);
 }
 async function main() {
-  const next = await collect();
+  let upstreamSnapshot = null;
+  if (process.env.NCWU_UPSTREAM_SNAPSHOT) {
+    try {
+      const raw = await readFile(process.env.NCWU_UPSTREAM_SNAPSHOT,'utf8');
+      if (raw.length > 160000) throw new Error('公开通知快照过大');
+      upstreamSnapshot = JSON.parse(raw);
+    } catch (error) {
+      console.warn('固定版本外部公开来源暂不可用，保留现有采集：' + String(error.message||error));
+    }
+  }
+  const next = await collect({upstreamSnapshot});
   const publicData = {
     schema: next.schema, school: next.school, mode: next.mode,
     lastSuccessAt: next.lastSuccessAt, sources: next.sources, items: next.items,
