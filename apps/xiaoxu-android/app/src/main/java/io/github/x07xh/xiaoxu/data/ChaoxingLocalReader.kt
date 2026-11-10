@@ -200,10 +200,16 @@ internal class ChaoxingLocalReader(
         deadline: ChaoxingDeadlineEvidence? = null) {
         if(items.size>=5000 && !items.containsKey(key)) throw ChaoxingReadFailure("record_limit")
         if(clean(title).isBlank()) throw ChaoxingReadFailure("record_title")
-        // A later generic course-list row must not erase time read from the
-        // same official work detail during this scan.
+        // A generic list row cannot downgrade a full-year date from the
+        // same work's detail to a month/day-only fragment.
+        val previous = items[key]?.deadline
+        val bestDeadline = when {
+            deadline == null -> previous
+            previous?.hasYear == true && !deadline.hasYear -> previous
+            else -> deadline
+        }
         items[key]=ChaoxingReadItem(kind,key,clean(title),clean(status,60).ifBlank {"状态未知"},host,
-            deadline=deadline ?: items[key]?.deadline)
+            deadline=bestDeadline)
     }
     private fun recover(label:String, block:()->Unit) {
         try {block()} catch(e:ChaoxingReadFailure) {
