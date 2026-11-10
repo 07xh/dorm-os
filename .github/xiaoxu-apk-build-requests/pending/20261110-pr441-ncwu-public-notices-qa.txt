@@ -1,0 +1,4 @@
+Owner-approved development continuation: produce isolated Android QA APK for PR #441 NCWU public departments notice integration.
+Source branch only. Do not merge, sign, promote or replace installed production APK.
+Run Kotlin/JVM tests, assembleDebug, assembleRelease, and full contract tests on this exact PR SHA.
+Check in the native existing Message Center that dynamic /api/notices and verified archive show the same official source records with URL dedup, and that unavailable sources are marked partial rather than fabricated.
