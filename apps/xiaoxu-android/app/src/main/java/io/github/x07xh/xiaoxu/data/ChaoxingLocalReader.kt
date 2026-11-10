@@ -181,6 +181,32 @@ internal class ChaoxingLocalReader(
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
     private val noticeBindings=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
+    // Optional owner-authorized GETs, bounded separately from course pagination.
+    private var deadlineDetailReads = 0
+    private val maxDeadlineDetailReads = 120
+
+    /**
+     * Some official course lists show a work ID and status but no deadline.
+     * Follow only a work URL whose tuple matches the verified course entry.
+     * A failed optional date read must not discard the proven list/status.
+     */
+    private fun readDeadlineFromOfficialWork(url: String, sourceId: String): ChaoxingDeadlineEvidence? {
+        if (deadlineDetailReads >= maxDeadlineDetailReads || workKey(url) != sourceId ||
+            !supported(url)) return null
+        deadlineDetailReads++
+        return try {
+            val detail = fetch(url)
+            // A redirect to another task, a login wall or a generic HTML shell
+            // must never be accepted as this work's deadline evidence.
+            if (workKey(detail.url) == sourceId)
+                ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(detail.text)
+            else null
+        } catch (e: ChaoxingReadFailure) {
+            if (e.code in setOf("login_required", "account_changed",
+                    "interactive_login_required", "session_persistence")) throw e
+            null
+        }
+    }
     private fun bindNotice(link: ChaoxingDiscoveredLink, work: String?) {
         if (work == null || !work.matches(Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}"))) return
         val aliases = link.aliases.filter {it.course == work.split(':')[1]}
@@ -221,6 +247,7 @@ internal class ChaoxingLocalReader(
     }
     fun scan(year:Int):ChaoxingLocalRead {
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
+        deadlineDetailReads = 0
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
@@ -414,9 +441,19 @@ internal class ChaoxingLocalReader(
                 // detail already proves graded/peer-reviewed/completed.
                 // A reopened or returned work in the current list still wins.
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
+                val listDeadline = ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml())
+                // Keep the list's official completed/returned status as the
+                // authority; the optional detail page only enriches its due.
+                val matchesCourse = key != null &&
+                    expected["courseid"] == key.split(':')[1] &&
+                    expected["clazzid"] == key.split(':')[2]
+                val detailDeadline = if (matchesCourse && listDeadline == null &&
+                    items[stable]?.deadline == null)
+                    readDeadlineFromOfficialWork(url,key!!)
+                else null
                 record(if(key==null) "study_task" else "homework",stable,
                     row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host,
-                    ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml()))
+                    listDeadline ?: detailDeadline)
             }
             val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)
