@@ -1912,8 +1912,12 @@ assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
   '移除已淘汰的内联编辑器与固定索引跳转');
 assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ onTaskTap\(row\) \}/,
   '本机任务使用来源 key 直达编辑弹层，不需要先进入详情');
-assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
-  '首页任务中心勾选必须真实更新本机 Room 状态');
+assert.match(workspace, /dao\.trySetCompleted\(id, checked\)/,
+  '首页任务中心勾选必须在 Room 事务里核对前置依赖');
+assert.match(db, /suspend fun trySetCompleted\(taskId: Long, completed: Boolean\): Boolean[\s\S]*?unfinishedDependencyCount\(taskId\)[\s\S]*?setCompleted\(taskId, completed\)/,
+  '所有本机任务视图共享单事务的前置依赖完成门禁');
+assert.match(db, /UPDATE local_tasks SET due = :due WHERE id = :id/,
+  '快捷设置日期仅更新 due，不覆盖任务标题与来源');
 assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
   '本机任务仅即时预览状态，Room 仍是事实来源');
 assert.match(workspace, /LaunchedEffect\(localTasks\) \{[\s\S]*?pendingLocalTaskUpdates\.remove\(key\)/,
