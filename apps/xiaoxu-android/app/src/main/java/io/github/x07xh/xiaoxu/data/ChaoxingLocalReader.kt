@@ -548,7 +548,8 @@ internal class ChaoxingLocalReader(
     private fun workStatus(doc: Document): String {
         val explicit=doc.select("p.status,.workStatus,.work-status")
             .firstOrNull {it.closest("#submitForm")==null &&
-                (!ChaoxingWorkAvailability.isRemovedStatus(it.text()) || !ChaoxingWorkAvailability.hidden(it))}
+                (!ChaoxingWorkAvailability.isRemovedStatus(it.text()) ||
+                    (!ChaoxingWorkAvailability.hidden(it) && it.closest(".questionLi,.question,.TiMu,.answerList")==null))}
             ?.text().orEmpty()
         if(explicit.isNotBlank()) return explicit
         ChaoxingWorkAvailability.fromDetail(doc)?.let {return it}

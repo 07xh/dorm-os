@@ -197,6 +197,7 @@ class ChaoxingWorkResolutionTest {
     @Test fun questionOrGeneralErrorCannotPretendThatTheTeacherDeletedWork() {
         for(body in listOf("<form id='submitForm'>该作业已被老师删除。</form>",
             "<div class='questionLi'>该作业已被老师删除。</div>",
+            "<div class='questionLi'><p class='status'>已删除</p></div>",
             "<p>题目：作业已删除后如何恢复？</p>",
             "<p>网络异常，请稍后重试</p>","<p>暂无作业</p>",
             "<p>链接已失效，请重新登录</p>",
