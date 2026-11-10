@@ -183,6 +183,7 @@ internal class ChaoxingLocalReader(
     private val noticeBindings=linkedMapOf<String,MutableSet<ChaoxingNoticeAlias>>()
     // Optional owner-authorized GETs, bounded separately from course pagination.
     private var deadlineDetailReads = 0
+    private var deadlineNetworkUnavailable = false
     private val maxDeadlineDetailReads = 120
 
     /**
@@ -191,8 +192,14 @@ internal class ChaoxingLocalReader(
      * A failed optional date read must not discard the proven list/status.
      */
     private fun readDeadlineFromOfficialWork(url: String, sourceId: String): ChaoxingDeadlineEvidence? {
-        if (deadlineDetailReads >= maxDeadlineDetailReads || workKey(url) != sourceId ||
-            !supported(url)) return null
+        // Do not turn a path that looks like /work/submit into a GET.
+        // Only already-established official *reading* entry points qualify.
+        val path = URI(url).path.lowercase()
+        val readOnlyDetail = path.endsWith("/work/task") ||
+            path.endsWith("/work/dowork") ||
+            path == "/examapi/intoexamorwork"
+        if (deadlineDetailReads >= maxDeadlineDetailReads || deadlineNetworkUnavailable ||
+            !readOnlyDetail || workKey(url) != sourceId || !supported(url)) return null
         deadlineDetailReads++
         return try {
             val detail = fetch(url)
@@ -204,6 +211,11 @@ internal class ChaoxingLocalReader(
         } catch (e: ChaoxingReadFailure) {
             if (e.code in setOf("login_required", "account_changed",
                     "interactive_login_required", "session_persistence")) throw e
+            // Do not spend minutes retrying the same unavailable host for
+            // dozens of other tasks. The proven list/status stays visible.
+            if (e.code in setOf("network_failed", "upstream_http_429",
+                    "upstream_http_502", "upstream_http_503", "upstream_http_504"))
+                deadlineNetworkUnavailable = true
             null
         }
     }
@@ -248,6 +260,7 @@ internal class ChaoxingLocalReader(
     fun scan(year:Int):ChaoxingLocalRead {
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
         deadlineDetailReads = 0
+        deadlineNetworkUnavailable = false
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
