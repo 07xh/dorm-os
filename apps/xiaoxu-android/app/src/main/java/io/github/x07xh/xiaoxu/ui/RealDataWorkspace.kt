@@ -98,6 +98,7 @@ import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
+import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkCoverage
 import io.github.x07xh.xiaoxu.data.nativeChaoxingWorkSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingNoticeAliases
 import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatusText
@@ -172,10 +173,12 @@ internal fun combineWorkspaceTasks(
     buildList {
         // An official work tuple, not a title, allows local official-page evidence
         // to appear in the SAME task list without duplicating cloud records.
+        val coverage=nativeChaoxingWorkCoverage(native)
         val localEvidence = native.mapNotNull { record ->
             val id = nativeChaoxingWorkSourceId(record)
             val status = nativeChaoxingVisibleStatus(record)
-            if (id != null && status in setOf("todo", "returned", "submitted", "graded", "unknown"))
+            if (id != null && !coverage.excludes(id) &&
+                status in setOf("todo", "returned", "submitted", "graded", "unknown"))
                 id to record else null
         }.groupBy({ it.first }, { it.second })
             .mapValues { (_, records) -> records.maxByOrNull { it.capturedAt }!! }
@@ -232,6 +235,11 @@ internal fun combineWorkspaceTasks(
         }
         dedupedCloud.forEach { task ->
             val effectiveId = workId(task)
+            // Preserve every D1 record and personal completion flag. A complete
+            // current class list can withdraw an absent pending work from this
+            // display without asserting that the teacher deleted it.
+            if(task.provider=="chaoxing" && task.status!="done" && coverage.excludes(effectiveId))
+                return@forEach
             if (task.provider == "chaoxing" && canonical[effectiveId]?.let {it != task.id} == true)
                 return@forEach
             val source = when (task.provider) {

@@ -195,6 +195,7 @@ internal class ChaoxingLocalReader(
         val detail = detailed?.trim().orEmpty().takeUnless { it.isBlank() || it == "状态未知" }
         if (list.isBlank()) return detail ?: "状态未知"
         if (detail == null) return list
+        if (statusClass(list) == 0) return detail
         val negative = Regex("未提交|未完成|待提交|待完成|未交|退回|重做|重新提交|驳回")
         if (negative.containsMatchIn(list)) return list
         if (negative.containsMatchIn(detail)) return detail
@@ -320,6 +321,8 @@ internal class ChaoxingLocalReader(
         var catalogComplete=false
         val listedCourses=mutableSetOf<String>()
         val failedCourses=mutableSetOf<String>()
+        val verifiedScopes=linkedMapOf<String,String>()
+        val failedScopes=mutableSetOf<String>()
         recover("课程目录") {
             progress("补查本人课程作业…")
             val form=mapOf("courseType" to "1","courseFolderId" to "0","query" to "","pageHeader" to "0",
@@ -341,12 +344,21 @@ internal class ChaoxingLocalReader(
                 record("course","course:$courseId",course.title,"课程列表","mooc2-ans.chaoxing.com")
                 val numericCourse=numericIdentity(params(course.url),"courseId","courseid")
                 if(numericCourse!=null) listedCourses.add(numericCourse)
+                val numericClass=numericIdentity(params(course.url),"classId","clazzid","classid")
+                val scope=if(numericCourse!=null && numericClass!=null) "scope:$numericCourse:$numericClass" else null
                 val before=failures.size
                 recover(course.title) {readCourse(course)}
-                if(failures.size!=before && numericCourse!=null) failedCourses.add(numericCourse)
+                if(failures.size!=before) {
+                    if(numericCourse!=null) failedCourses.add(numericCourse)
+                    if(scope!=null) failedScopes.add(scope)
+                } else if(scope!=null) verifiedScopes[scope]=course.title
                 if(numericCourse==null) throw ChaoxingReadFailure("course_identity")
             }
             catalogComplete=true
+        }
+        if(catalogComplete) for((scope,title) in verifiedScopes) {
+            if(scope !in failedScopes)
+                record("course",scope,title,"作业列表已完整核对","mooc1.chaoxing.com")
         }
         progress("确认读取前后为同一账号…")
         if(account(fetch(HOME))!=owner) throw ChaoxingReadFailure("account_changed")
@@ -662,7 +674,7 @@ internal class ChaoxingLocalReader(
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
                 record(if(key==null) "study_task" else "homework",stable,
                     row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
-                if(status == "状态未知") recover("作业详情") {
+                if(statusClass(status) == 0) recover("作业详情") {
                     readWorkLink(ChaoxingDiscoveredLink(row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
                 }
             }

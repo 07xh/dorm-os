@@ -88,4 +88,17 @@ class ChaoxingPaginationTest {
         assertEquals("已完成",result.items.single {it.sourceKey=="work:123:456:901"}.status)
     }
 
+    @Test fun completeClassListProducesCoverageButPartialListDoesNot() {
+        val full=read {page(1,row(901))}
+        assertTrue(full.items.any {it.kind=="course" && it.sourceKey=="scope:123:456"})
+        val partial=read {page(1,row(901),2)}
+        assertFalse(partial.complete)
+        assertFalse(partial.items.any {it.sourceKey=="scope:123:456"})
+    }
+    @Test fun unrecognizedListLabelIsCheckedAgainstTheOfficialDetail() {
+        val result=read(detail="<p class='status'>已提交</p>") {page(1,row(901,"已结束"))}
+        assertTrue(result.failures.toString(),result.complete)
+        assertEquals("已提交",result.items.single {it.kind=="homework"}.status)
+    }
+
 }

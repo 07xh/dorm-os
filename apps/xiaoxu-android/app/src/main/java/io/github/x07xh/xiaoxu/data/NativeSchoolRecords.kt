@@ -97,6 +97,35 @@ fun nativeChaoxingNoticeAliases(record: NativeSchoolRecord, peer: Boolean = fals
         ids.toSet() else emptySet()
 }
 
+/** A complete class list proves absence only for the latest saved owner scan.
+ * Older proofs expire after any new (including partial) scan. Presence uses
+ * exact official IDs captured in that same scan, never names or dates. */
+internal data class NativeChaoxingWorkCoverage(val scopes:Set<String>, val present:Set<String>) {
+    fun excludes(id:String?):Boolean {
+        if(id==null || !id.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))) return false
+        return id.substringAfter("work:").substringBeforeLast(':') in scopes && id !in present
+    }
+}
+internal fun nativeChaoxingWorkCoverage(records:List<NativeSchoolRecord>):NativeChaoxingWorkCoverage {
+    val binding=records.singleOrNull {it.provider=="chaoxing" && it.kind=="account_binding" &&
+        it.fingerprint=="current" && it.sourceHost=="i.chaoxing.com" &&
+        it.details.matches(Regex("[a-f0-9]{64}"))}
+        ?: return NativeChaoxingWorkCoverage(emptySet(),emptySet())
+    val scopes=records.mapNotNull { row ->
+        if(row.provider!="chaoxing" || row.kind!="course" || row.capturedAt!=binding.capturedAt ||
+            !nativeChaoxingOfficialHost(row.sourceHost)) return@mapNotNull null
+        val identity=Regex("""完整作业列表身份：(scope:\d{1,24}:\d{1,24})""")
+            .matchEntire(row.details)?.groupValues?.get(1) ?: return@mapNotNull null
+        val expected=MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|course|"+identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") {"%02x".format(it)}
+        identity.removePrefix("scope:").takeIf {row.fingerprint==expected}
+    }.toSet()
+    val present=records.filter {it.capturedAt==binding.capturedAt}
+        .mapNotNull(::nativeChaoxingWorkSourceId).toSet()
+    return NativeChaoxingWorkCoverage(scopes,present)
+}
+
 @Dao
 interface NativeSchoolRecordDao {
     /** Atomically replace a complete score+activity read, including verified zero activities. */

@@ -148,4 +148,28 @@ class NativeChaoxingTaskMergeTest {
         assertEquals("submitted",tasks.single().officialStatus)
         assertTrue(considerCompleteInTaskList(tasks.single()))
     }
+    private fun coverage() = NativeSchoolRecord("chaoxing","course",
+        io.github.x07xh.xiaoxu.data.ChaoxingLocalReader.hash("chaoxing|course|scope:123:456"),
+        "Python","完整作业列表身份：scope:123:456","mooc1.chaoxing.com",1720000000000L)
+    private fun binding(time:Long=1720000000000L)=NativeSchoolRecord("chaoxing","account_binding",
+        "current","","a".repeat(64),"i.chaoxing.com",time)
+    @Test fun cloudWorkAbsentFromACompleteCurrentClassListStopsAppearingAsCurrentTask() {
+        val rows=listOf(coverage(),binding())
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="work:123:457:987")),rows).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud().copy(status="done")),rows).size)
+    }
+    @Test fun incompleteStaleOrForgedCoverageCannotHideWork() {
+        val oldProof=listOf(coverage(),binding(1720000000001L))
+        val forged=listOf(coverage().copy(fingerprint="wrong"),binding())
+        for(rows in listOf(emptyList(),oldProof,forged,listOf(coverage())))
+            assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+    }
+    @Test fun currentUnknownWorkAndReappearingWorkAreRetainedByIdentity() {
+        val rows=listOf(coverage(),binding(),record("状态未知"))
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+        val old=record("状态未知").copy(capturedAt=1710000000000L)
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(coverage(),binding(),old)).isEmpty())
+    }
+
 }

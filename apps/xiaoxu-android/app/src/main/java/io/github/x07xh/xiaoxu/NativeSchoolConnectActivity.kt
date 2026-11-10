@@ -537,7 +537,11 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         " · 旧通知身份：" + item.noticeAliases.sorted().joinToString(",")) +
                         (if (item.peerAliases.isEmpty()) "" else
                         " · 互评通知身份：" + item.peerAliases.sorted().joinToString(","))
-                    val detail = if (item.kind == "course") "课程列表" else status + item.status + aliases + " · " + label + item.sourceKey
+                    val detail = if (item.kind == "course") {
+                        if(item.sourceKey.matches(Regex("""scope:\d{1,24}:\d{1,24}""")) &&
+                            item.status=="作业列表已完整核对") "完整作业列表身份："+item.sourceKey
+                        else "课程列表"
+                    } else status + item.status + aliases + " · " + label + item.sourceKey
                     val fingerprint = MessageDigest.getInstance("SHA-256")
                         .digest(("chaoxing|" + item.kind + "|" + item.sourceKey).toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
