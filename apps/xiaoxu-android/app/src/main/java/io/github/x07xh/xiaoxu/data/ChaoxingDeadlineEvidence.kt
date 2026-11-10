@@ -17,7 +17,9 @@ internal object ChaoxingDeadlineEvidenceReader {
     private val shortDate = Regex("""^(\d{1,2})[-/月](\d{1,2})日?\s+(\d{1,2}):(\d{2})$""")
     private val dateValue = """(?:20\d{2}[-/年])?\d{1,2}[-/月]\d{1,2}日?\s+\d{1,2}:\d{2}"""
     private val workLabel = Regex("""(?:作业截止时间|提交截止时间|截止时间|结束时间)\s*[：:]\s*($dateValue)""")
-    private val examLabel = Regex("""(?:考试截止时间|考试结束时间|测验截止时间|测验结束时间|截止时间|结束时间)\s*[：:]\s*($dateValue)""")
+    // Generic "报名截止时间" or "活动结束时间" in an exam-themed
+    // announcement is NOT necessarily the actual exam deadline.
+    private val examLabel = Regex("""(?:考试截止时间|考试结束时间|考试作答截止时间|考试作答结束时间|测验截止时间|测验结束时间|测验作答截止时间|测验作答结束时间)\s*[：:]\s*($dateValue)""")
     private val range = Regex("""作答时间\s*[：:]\s*\d{1,2}[-/]\d{1,2}\s+\d{1,2}:\d{2}\s*至\s*($dateValue)""")
 
     private fun pad(value: Int) = value.toString().padStart(2, '0')
