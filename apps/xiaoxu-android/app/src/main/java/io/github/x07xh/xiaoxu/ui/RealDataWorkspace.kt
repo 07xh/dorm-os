@@ -435,13 +435,19 @@ internal fun readyWorkspaceTasks(
     dependencies: List<LocalTaskDependency>
 ): List<WorkspaceTask> {
     val readyLocalIds = readyLocalTaskIds(local, dependencies)
+    // Only personally entered dates or verified official-page deadlines may
+    // determine priority; imported/cloud snapshot dates never pose as deadlines.
+    fun trustedDue(row: WorkspaceTask): LocalDate? = when {
+        row.storage == "local" -> row.date
+        row.provider == "chaoxing" && row.officialDeadline != null -> row.date
+        else -> null
+    }
     return tasks.asSequence()
         .filter(::isActionableWorkspaceTask)
         .filter { it.storage != "local" ||
             it.key.removePrefix("local:").toLongOrNull() in readyLocalIds }
         .sortedWith(compareBy<WorkspaceTask>(
-            { if (it.storage == "local" && it.date != null) 0 else 1 },
-            { if (it.storage == "local") it.date ?: LocalDate.MAX else LocalDate.MAX },
+            { trustedDue(it) ?: LocalDate.MAX },
             { it.key }
         ))
         .toList()
@@ -1085,6 +1091,12 @@ fun RealAcademicTaskHub(
     var showLocalEditor by rememberSaveable { mutableStateOf(false) }
     var showLocalComposer by rememberSaveable { mutableStateOf(false) }
     var showCloudEditor by rememberSaveable { mutableStateOf(false) }
+    // One recoverable action, visible only after Room confirms a completion.
+    // This is presentation state; task completion still belongs to the existing DAO.
+    var lastCompletedLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val lastCompletedLocalTask = localTasks.firstOrNull {
+        it.id == lastCompletedLocalId && it.completed
+    }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1143,6 +1155,9 @@ fun RealAcademicTaskHub(
             taskScope.launch {
                 try {
                     dao.setCompleted(id, checked)
+                    // Never offer Undo before a successful Room write.
+                    if (checked) lastCompletedLocalId = id
+                    else if (lastCompletedLocalId == id) lastCompletedLocalId = null
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -1431,6 +1446,37 @@ fun RealAcademicTaskHub(
             }
         }
         if (filter == "now") {
+            if (lastCompletedLocalTask != null) {
+                item(key = "task:undo-last") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(top = 8.dp, bottom = 4.dp)
+                            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+                            .background(XiaoxuPalette.GlassTrack)
+                            .padding(start = 12.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "已完成 · " + lastCompletedLocalTask.title,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = {
+                                val row = all.firstOrNull {
+                                    it.key == "local:" + lastCompletedLocalTask.id
+                                }
+                                if (row != null) toggleLocal(row, false)
+                                lastCompletedLocalId = null
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) { Text("撤销") }
+                    }
+                }
+            }
             if (shown.isEmpty()) {
                 item(key = "next:empty") {
                     XiaoxuEmpty(
