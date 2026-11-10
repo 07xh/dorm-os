@@ -33,6 +33,14 @@ class NcwuHtmlXlsTimetableParserTest {
         assertEquals(1, NcwuHtmlXlsTimetableParser.parseHtml(html).size)
     }
 
+    @Test fun classroomMayBeUnknownWhileExplicitMeetingsRemainValid() {
+        val items = NcwuHtmlXlsTimetableParser.parseHtml(sample("6-18周五[6-7]"))
+        assertEquals(1, items.size)
+        assertEquals("", items.single().location)
+        assertEquals((6..18).toList(), items.single().weeks)
+        assertEquals(5, items.single().weekday)
+    }
+
     @Test fun incompleteTimeFailsInsteadOfInventingWeeks() {
         val failure = assertThrows(IllegalArgumentException::class.java) {
             NcwuHtmlXlsTimetableParser.parseHtml(sample("待安排"))
