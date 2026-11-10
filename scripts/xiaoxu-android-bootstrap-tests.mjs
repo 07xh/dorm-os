@@ -1781,7 +1781,7 @@ assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Ali
   '三项统计应采用上下标签和数量而非横排大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
-assert.match(workspace, /Text\("本周截止"\)/, '本周截止在筛选器中可见');
+assert.match(workspace, /Text\("本周·本机"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
@@ -1879,8 +1879,8 @@ assert.match(messageCenter, /WechatReviewPanel\(/,
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不得恢复重复微信审核器');
 assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
-assert.match(workspace, /showManager by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '高频任务列表之前不得默认展开管理面板');
+assert.match(workspace, /taskMenuOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
+  '低频任务管理收进默认关闭的更多菜单');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
 assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(\s*tasks = localTasks,[\s\S]*?onCreateTask =/,
   '本机管理复用既有编辑流程，新增转入独立简洁表单');
@@ -1888,8 +1888,8 @@ assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(clien
   '云端新建使用独立浮层');
 assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
   '移除已淘汰的内联编辑器与固定索引跳转');
-assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ openedTaskKey = row\.key \}/,
-  '本机任务仍从稳定来源 key 打开详情');
+assert.match(workspace, /val row = localRows\[i\][\s\S]*?TaskRow\(row, today,[\s\S]*?onOpen = \{ onTaskTap\(row\) \}/,
+  '本机任务使用来源 key 直达编辑弹层，不需要先进入详情');
 assert.match(workspace, /dao\.setCompleted\(id, checked\)/,
   '首页任务中心勾选必须真实更新本机 Room 状态');
 assert.match(workspace, /val pendingLocalTaskUpdates = remember \{ mutableStateMapOf<String, Boolean>\(\) \}/,
