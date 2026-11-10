@@ -625,8 +625,11 @@ internal class ChaoxingLocalReader(
                     clean(row.selectFirst("p.status")?.text().orEmpty(),60)
                 val duplicate=pageRows.putIfAbsent(stable,signature)
                 if(duplicate!=null) {
-                    val priorClass=statusClass(duplicate.second)
+                    val listedClass=statusClass(duplicate.second)
+                    val priorClass=if(listedClass!=0) listedClass else statusClass(items[stable]?.status.orEmpty())
                     val nextClass=statusClass(signature.second)
+                    if(listedClass==0 && nextClass!=0)
+                        pageRows[stable]=duplicate.first to signature.second
                     if(priorClass!=0 && nextClass!=0 && priorClass!=nextClass) {
                         // Different labels (or titles) are not conflicting
                         // evidence. Opposite submission states need the actual

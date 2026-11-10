@@ -80,4 +80,12 @@ class ChaoxingPaginationTest {
         assertEquals("已完成",result.items.single {it.kind=="homework"}.status)
     }
 
+    @Test fun blankDuplicateCannotHideLaterOppositeStates() {
+        val result=read(detail="<p class='status'>已完成</p>") {
+            page(1,row(901,"")+row(901,"未提交")+row(901,"已完成"))
+        }
+        assertTrue(result.failures.toString(),result.complete)
+        assertEquals("已完成",result.items.single {it.sourceKey=="work:123:456:901"}.status)
+    }
+
 }
