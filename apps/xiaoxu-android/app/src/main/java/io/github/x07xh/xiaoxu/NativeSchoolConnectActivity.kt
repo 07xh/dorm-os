@@ -33,6 +33,7 @@ import io.github.x07xh.xiaoxu.data.ChaoxingLocalReader
 import io.github.x07xh.xiaoxu.data.ChaoxingReadFailure
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 import io.github.x07xh.xiaoxu.data.SecondClassAutoReadPolicy
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
@@ -177,6 +178,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         status = TextView(this).apply {
             textSize = 13f
+            setTextIsSelectable(true)
             text = "学习通正常登录后点「读取全部」，读取通知、学习计划和课程作业。"
             setPadding(8, 4, 8, 8)
             if (provider == "second_class") text =
@@ -551,8 +553,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 savedCount = rows.count {it.kind == savedKind}
                 finishAndReturn.isEnabled = true
                 finishAndReturn.visibility = View.VISIBLE
+                val observed=rows.filter {it.kind in setOf("homework","study_task")}
+                val completed=observed.count {nativeChaoxingVisibleStatus(it) in setOf("submitted","graded")}
+                val unknown=observed.count {nativeChaoxingVisibleStatus(it) == "unknown"}
                 tell("已读取通知 " + result.noticePages + " 页、课程 " + result.courseCount +
-                    " 门，保存任务 " + count + " 条。" +
+                    " 门，保存任务 " + count + " 条。\n" +
+                    "本次作业 ${rows.count {it.kind == "homework"}} 条，学习计划 ${rows.count {it.kind == "study_task"}} 条；" +
+                    "已提交/完成 $completed 条，状态待核对 $unknown 条。\n" +
                     if (result.complete) "请返回任务中心核对。"
                     else "部分来源未完成：\n" + result.failures.take(8).joinToString("\n"))
             } catch (_: CancellationException) {

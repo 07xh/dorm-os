@@ -23,7 +23,7 @@ class ChaoxingLocalReaderTest {
                     "<input id='cpi' value='789'><input id='workEnc' value='signedWork'>" +
                     "<input id='openc' value='openKey'><input id='enc' value='courseEnc'>" +
                     "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456&amp;t=100&amp;enc=old'>作业</a>"
-                "/mooc2/work/list" -> {
+                "/mooc-ans/mooc2/work/list" -> {
                     queried.add(request.url)
                     assertEquals("mooc1.chaoxing.com",uri.host)
                     assertEquals("GET",request.method)
@@ -242,6 +242,7 @@ class ChaoxingLocalReaderTest {
                     "<ul class='bottomList'><li data='$url'><p class='overHidden2'>同名实验</p>" +
                         "<p class='status'>状态未知</p></li></ul>"
                 }
+                "/work/dowork" -> "<div>状态未知</div>"
                 else -> error("unexpected path")
             }
             ChaoxingReadPage(request.url,body)

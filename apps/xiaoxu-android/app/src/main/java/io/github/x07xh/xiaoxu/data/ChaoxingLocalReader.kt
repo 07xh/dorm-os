@@ -425,11 +425,11 @@ internal class ChaoxingLocalReader(
                             val url=safeUrl(reply.optJSONObject("data")?.optString("url").orEmpty(),page.url)
                                 ?: throw ChaoxingReadFailure("work_destination")
                             if(!supported(url)) throw ChaoxingReadFailure("work_destination")
-                            readWorkLink(ChaoxingDiscoveredLink(title,url),status)
-                            workKey(url)?.let { resolvedWorks.add(it) }
+                            val resolved=readWorkLink(ChaoxingDiscoveredLink(title,url),status)
+                            resolved?.let { resolvedWorks.add(it) }
                             // An actual work identity replaces the plan child in the
                             // task center, preventing two copies of the same assignment.
-                            if(workKey(url)!=null) {items.remove(key);superseded.add(key)}
+                            if(resolved!=null) {items.remove(key);superseded.add(key)}
                         }
                     }
                 }
@@ -440,21 +440,79 @@ internal class ChaoxingLocalReader(
         if (failures.size == failureCountBeforePlan && !lockedGroup && assignmentCount == 1 && resolvedWorks.size == 1)
             bindNotice(link, resolvedWorks.single())
     }
-    private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false) {
-        val key=workKey(link.url)
-        bindNotice(link,key)
-        if(!forceDetail&&key!=null&&items[key]?.status?.let {it!="状态未知"}==true) return
-        val page=fetch(link.url);val doc=Jsoup.parse(page.text,page.url)
-        val state=doc.selectFirst("p.status,.workStatus,.work-status")?.text().orEmpty().ifBlank {
-            Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已评分|已完成此作业|已提交[，,、 ]*待批阅|待批阅|提交成功|已达标|已退回|未提交").find(doc.text())?.value.orEmpty()
-        }.ifBlank {knownStatus}.ifBlank {"状态未知"}
-        if(key!=null) record("homework",key,link.title,state,URI(link.url).host)
-        else record("study_task",stableStudyKey(link.url),link.title,state,URI(link.url).host)
+    /** Reconcile every observed navigation identity before accepting status.
+     * A gateway may omit IDs, but a redirect must never change a known ID.
+     */
+    private fun resolvedWorkKey(urls: List<String>): String? {
+        val fields=listOf(arrayOf("courseId","courseid"), arrayOf("classId","clazzid","classid"),
+            arrayOf("workId","workid","taskrefId"))
+        val values=fields.map { names ->
+            val ids=urls.mapNotNull {numericIdentity(params(it),*names)}.distinct()
+            if(ids.size>1) throw ChaoxingReadFailure("work_identity_conflict")
+            ids.singleOrNull()
+        }
+        return if(values.all {it!=null}) "work:"+values.joinToString(":") else null
+    }
+    private fun workStatus(doc: Document): String {
+        val explicit=doc.select("p.status,.workStatus,.work-status")
+            .firstOrNull {it.closest("#submitForm")==null}?.text().orEmpty()
+        if(explicit.isNotBlank()) return explicit
+        // An editable question/form can contain any status words. They are not
+        // evidence of submission. Follow the reference client's form boundary.
+        if(doc.selectFirst("#submitForm")!=null) return ""
+        return Regex("已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成|已批阅|已批閱|已批改|已评分|已完成此作业|已提交[，,、 ]*待批阅|已提交|已完成|待批阅|提交成功|已达标|已退回|未提交")
+            .find(doc.text())?.value.orEmpty()
+    }
+    private fun readWorkLink(link:ChaoxingDiscoveredLink,knownStatus:String="",forceDetail:Boolean=false): String? {
+        val initialKey=workKey(link.url)
+        if(!forceDetail&&initialKey!=null&&items[initialKey]?.status?.let {it!="状态未知"}==true) {
+            bindNotice(link,initialKey)
+            return initialKey
+        }
+        val visited=mutableListOf(link.url)
+        var page=fetch(link.url)
+        if(!supported(page.url)) throw ChaoxingReadFailure("work_destination")
+        visited.add(page.url)
+        resolvedWorkKey(visited)
+        var doc=Jsoup.parse(page.text,page.url)
+        var state=workStatus(doc)
+        // The official gateway can render an entry anchor instead of issuing
+        // an HTTP redirect. Follow only one unambiguous, read-only work entry.
+        if(state.isBlank()&&doc.selectFirst("#submitForm")==null) {
+            val targets=doc.select("a[href*=/work/dowork],a[href*=intoexamorwork]")
+                .mapNotNull {safeUrl(it.attr("href"),page.url)}
+                .filter {supported(it)&&it !in visited}.distinct()
+            if(targets.size>1) throw ChaoxingReadFailure("ambiguous_work_entry")
+            targets.singleOrNull()?.let { target ->
+                visited.add(target)
+                resolvedWorkKey(visited)
+                page=fetch(target)
+                if(!supported(page.url)) throw ChaoxingReadFailure("work_destination")
+                visited.add(page.url)
+                resolvedWorkKey(visited)
+                doc=Jsoup.parse(page.text,page.url)
+                state=workStatus(doc)
+            }
+        }
+        val key=resolvedWorkKey(visited)
+        val status=state.ifBlank {knownStatus}.ifBlank {"状态未知"}
+        if(key!=null) {
+            record("homework",key,link.title,status,URI(page.url).host)
+            bindNotice(link,key)
+            if(initialKey==null) {
+                // Remove only the exact former gateway fingerprint, never a
+                // same-title task or an unrelated historic notification.
+                runCatching {stableStudyKey(link.url)}.getOrNull()?.let {
+                    items.remove(it);superseded.add(it)
+                }
+            }
+        } else record("study_task",stableStudyKey(link.url),link.title,status,URI(page.url).host)
+        return key
     }
     private fun readCourse(course:ChaoxingDiscoveredLink) {
         var page=fetch(course.url);var doc=Jsoup.parse(page.text,page.url)
         val entry=doc.selectFirst("a[data-url*=work/list],iframe[src*=work/list],a[href*=work/list]")
-        val hidden=listOf("courseid","clazzid","cpi","workEnc","openc","enc")
+        val hidden=listOf("courseid","clazzid","cpi","workEnc","openc","enc","t")
             .associateWith {doc.getElementById(it)?.`val`().orEmpty()}
         // A validated first-party reader (xuexitong-cli, MIT) obtains the
         // work-list signature from the course page, not the course-entry URL.
@@ -474,14 +532,14 @@ internal class ChaoxingLocalReader(
                     "classId" to hidden.getValue("clazzid"),"cpi" to hidden.getValue("cpi"))
                 if(ids.any {(k,v)->old[k]!=null&&old[k]!=v})
                     throw ChaoxingReadFailure("course_identity")
-                // Never reuse a potentially expired t/enc from the menu link.
-                // Official read-only GET uses the work-specific workEnc and
-                // a fresh timestamp; no form submission or state changes.
+                // Preserve the first-party entry route and query parameters.
+                // A page-provided t belongs with its workEnc; only synthesize
+                // a timestamp when the page did not supply one.
                 val fields=ids+mapOf("ut" to "s","enc" to hidden.getValue("workEnc"),
-                    "t" to System.currentTimeMillis().toString(),"isdisplaytable" to "2")+
+                    "t" to hidden.getValue("t").ifBlank {System.currentTimeMillis().toString()},"isdisplaytable" to "2")+
                     mapOf("openc" to hidden.getValue("openc"),
                         "stuenc" to hidden.getValue("enc")).filterValues {it.isNotBlank()}
-                url=query("https://mooc1.chaoxing.com/mooc2/work/list",fields)
+                url=query(url,fields)
             }
             page=fetch(url);doc=Jsoup.parse(page.text,page.url)
         }
@@ -518,6 +576,9 @@ internal class ChaoxingLocalReader(
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
                 record(if(key==null) "study_task" else "homework",stable,
                     row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host)
+                if(status == "状态未知") recover("作业详情") {
+                    readWorkLink(ChaoxingDiscoveredLink(row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
+                }
             }
             val buttons=doc.select("#page li").mapNotNull {it.text().toIntOrNull()}
             pages=maxOf(pages,buttons.maxOrNull()?:1)
