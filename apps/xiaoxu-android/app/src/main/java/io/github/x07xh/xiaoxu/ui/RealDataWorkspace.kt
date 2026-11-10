@@ -2457,6 +2457,8 @@ private fun TaskRow(
         isPending -> "保存中…"
         dependencyHint != null || verificationHint != null -> statusText
         task.officialStatus == "returned" -> "官方退回"
+        isTodayPriorityWorkspaceTask(task, today) && task.officialDeadline != null ->
+            due.label
         due.emphasis in setOf(DUE_TODAY, DUE_OVERDUE) &&
             (task.storage == "local" || task.officialDeadline != null) -> due.label
         else -> null
