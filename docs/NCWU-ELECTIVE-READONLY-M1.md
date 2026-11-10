@@ -35,3 +35,14 @@
 3. 未提供前端选课 UI 或任何自动提交功能；后续如加入只读入口，仍须由本人正常官方授权，并独立核验源站、身份、字段与请求频率。
 4. 原青果可信会话即使开关明确启用，也不能仅凭单测宣称真实登录、课表核验或生产部署完成。
 5. 不主动修改 Cloudflare 生产环境变量；只有完成本人实测后才可考虑人工启用。
+
+## M2：只读筛选与时间冲突提示
+
+新增 `lib/academic-ncwu-elective-view.mjs`，调用现有候选契约的严格校验，不添加学校 API 请求。
+
+- `filterNcwuElectiveClasses(candidate, filters)` 支持课程名/代码/教学班、教师、校区匹配，并按 `all`、`known_available`、`known_full`、`unknown` 过滤余量；`null`（未知）绝不当作 0 或大于 0。
+- `compareNcwuElectiveTimetables(candidate, personalMeetings, {personalScheduleComplete})` 支持星期、节次区间和具体教学周交叉比较。只有确实发现重叠才返回 `conflict_detected`，缺少课程时间或个人课表数据则返回 `insufficient_data`，其余仅返回 `no_known_conflict`（并不代表可选）。
+- 所有输出仍保持 `verified=false`、`readOnly=true` 和 `eligibility=unknown`，不能绕过学籍、校区、课程资格或学校正式结果查询。
+- 测试：`scripts/xiaoxu-ncwu-elective-view-tests.mjs` 已加入 `npm run check`，使用虚构教学班和个人时间段，无真实学校数据。
+
+这只是可供后续原生 Compose 界面复用的业务逻辑层，**并未接入当前 App UI、学校课程接口或 Room**，也不会自动修改用户课表。未来如接入真实来源，必须明确数据完整性、观察时间、本人授权与请求限频，并由本人在官方选课页面执行最后确认。
