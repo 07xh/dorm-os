@@ -296,7 +296,7 @@ private fun LocalTimetableEmptyState(
         OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             Text("手动添加第一门课程")
         }
-        Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
+        Text("支持 .ics、.json、华水 HTML 导出的 .xls；二进制 Excel 暂不支持。文件仅在本机解析。",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
