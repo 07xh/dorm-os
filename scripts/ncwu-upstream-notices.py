@@ -18,9 +18,9 @@ sys.path.insert(0, str(UPSTREAM))
 
 # Scoped to public notification columns with verified source definitions.
 SOURCES = {
-    "dianqi": "电气工程学院",
-    "gcxlzx": "工程实践与创新中心",
-    "qysy": "清源书院",
+    "dianqi": "dianqi",
+    "cxcy": "gcxlzx",  # Upstream source key differs from its official URL path.
+    "qysy": "qysy",
 }
 ARTICLE_RE = re.compile(r"^/([a-z0-9]+)/info/\d{3,6}/\d{1,8}\.htm$")
 
@@ -36,9 +36,9 @@ def safe_date(value):
     return raw
 
 
-def capture(key, crawler):
+def capture(site_key, article_prefix, crawler):
     try:
-        notices = crawler.list_notices(site=key, column="tzgg", page=1)
+        notices = crawler.list_notices(site=site_key, column="tzgg", page=1)
         items = []
         seen = set()
         for notice in notices[:60]:
@@ -48,7 +48,7 @@ def capture(key, crawler):
             if (link.scheme != "https" or link.hostname != "www2.ncwu.edu.cn" or
                     link.port is not None or link.username or link.password or
                     link.query or link.fragment or match is None or
-                    match.group(1) != key or len(title) < 8 or len(title) > 160):
+                    match.group(1) != article_prefix or len(title) < 8 or len(title) > 160):
                 continue
             url = link._replace(params="", query="", fragment="").geturl()
             if url in seen:
@@ -68,7 +68,8 @@ def main():
         raise SystemExit("Usage: ncwu-upstream-notices.py <output-json>")
     from ncwu_crawler import Crawler
     crawler = Crawler(sleep=1.0, timeout=15, retries=1)
-    results = {key: capture(key, crawler) for key in SOURCES}
+    results = {prefix: capture(site_key, prefix, crawler)
+               for site_key, prefix in SOURCES.items()}
     target = pathlib.Path(sys.argv[1])
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps({"sources": results}, ensure_ascii=False), encoding="utf-8")
