@@ -8,6 +8,9 @@ Existing system is the owner of truth:
 - Archive: public/data/notices.json (xiaoxu/notices-v1)
 - Cloudflare Pages API: /api/notices
 - Public notice inbox: public/xiaoxu-notices.js
+- Android native inbox: CloudClient.refreshNotices and PublicNoticeArchive.kt
+  read the same verified API and existing published archive into AcademicNotice
+  without a second notification model or page.
 
 An **optional** read-only subprocess runs the pinned MIT-licensed public
 awecsfgvs/ncwu-crawler at commit 31c505b74bcf40c47aa720c2e282afe081a3609b
@@ -46,6 +49,9 @@ restrictions.
 ## Verification
 
 - npm run notices:test (fixtures and explicit allowlist / fail-closed tests)
+- Android JVM tests: PublicNoticeArchiveTest, plus existing :app:testDebugUnitTest
+- Native messages: test live API + archive merge, duplicate URL deduplication,
+  stale/failure labels and the actual published archive on an Android device
 - node scripts/xiaoxu-notice-inbox-tests.cjs
 - GitHub Actions scheduled/dispatch run with authenticated live source status
 - Verify actual new official article URLs, missing-year behavior, and no
