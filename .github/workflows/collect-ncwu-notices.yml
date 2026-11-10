@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/ncwu-notices.mjs'
+      - 'scripts/ncwu-upstream-notices.py'
+      - 'public/xiaoxu-notices.js'
       - 'config/ncwu-notices.json'
       - '.github/workflows/collect-ncwu-notices.yml'
   workflow_dispatch:
@@ -28,11 +30,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check out pinned NCWU public-source parser (optional)
+        uses: actions/checkout@v4
+        with:
+          repository: awecsfgvs/ncwu-crawler
+          ref: 31c505b74bcf40c47aa720c2e282afe081a3609b
+          path: _third_party/ncwu-crawler
+          persist-credentials: false
+        continue-on-error: true
       - name: Install public HTML parsing dependency
         run: npm install --no-audit --no-fund --ignore-scripts
       - name: Verify offline parser and safety checks
         run: npm run notices:test
+      - name: Collect optional department notices from pinned upstream
+        continue-on-error: true
+        run: |
+          if [ -f _third_party/ncwu-crawler/ncwu_crawler/__init__.py ]; then
+            python3 scripts/ncwu-upstream-notices.py "$RUNNER_TEMP/ncwu-upstream.json"
+          else
+            echo 'Pinned upstream unavailable; retaining built-in collector'
+          fi
       - name: Collect real official notice pages and merge archival JSON
+        env:
+          NCWU_UPSTREAM_SNAPSHOT: ${{ runner.temp }}/ncwu-upstream.json
         run: npm run notices:collect
       - name: Verify verified live data file
         run: |
