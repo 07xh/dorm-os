@@ -1472,6 +1472,9 @@ fun RealAcademicTaskHub(
                                 if (row != null) toggleLocal(row, false)
                                 lastCompletedLocalId = null
                             },
+                            enabled = !pendingLocalTaskUpdates.containsKey(
+                                "local:" + lastCompletedLocalTask.id
+                            ),
                             modifier = Modifier.heightIn(min = 48.dp)
                         ) { Text("撤销") }
                     }
