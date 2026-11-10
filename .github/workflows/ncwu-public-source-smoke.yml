@@ -1,0 +1,37 @@
+name: NCWU public source smoke (read-only)
+on:
+  push:
+    paths:
+      - 'scripts/ncwu-upstream-notices.py'
+      - 'scripts/ncwu-public-source-smoke.mjs'
+      - '.github/workflows/ncwu-public-source-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ncwu-source-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: Verify official department list sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout candidate without write token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned MIT NCWU source parser
+        uses: actions/checkout@v4
+        with:
+          repository: awecsfgvs/ncwu-crawler
+          ref: 31c505b74bcf40c47aa720c2e282afe081a3609b
+          path: _third_party/ncwu-crawler
+          persist-credentials: false
+      - name: Verify public list data (no school credentials)
+        run: |
+          python3 scripts/ncwu-upstream-notices.py "$RUNNER_TEMP/ncwu-upstream.json"
+          node scripts/ncwu-public-source-smoke.mjs "$RUNNER_TEMP/ncwu-upstream.json"
+      - name: Summary
+        if: always()
+        run: echo "Read-only check; never updates public/data/notices.json or app data" >> "$GITHUB_STEP_SUMMARY"
