@@ -23,8 +23,12 @@ credentials, and does not turn local files into school-verified records.
 
 ## Explicit non-goals
 
-- Binary OLE .xls and ZIP-based .xlsx are intentionally rejected with actionable
-  errors. They are not HTML-as-XLS; do not claim binary Excel support.
+- The old OLE2 binary .xls format is intentionally rejected. Real OOXML .xlsx
+  personal tables are accepted using a bounded ZIP/XML adapter.
+- A university-wide classroom timetable (Course Auditor's 按教室 export) is
+  explicitly rejected as a personal import; it is not proof of enrollment.
+- Advanced/merged-grid Excel sheets and formulas without text results are not
+  accepted as verified personal lesson data.
 - No new Room database, timetable Repository, Compose screen, school login or
   cloud auto-sync is introduced.
 - The parser does not invent unknown weeks, days, teacher, location or academic
