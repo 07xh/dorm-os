@@ -264,7 +264,14 @@ export async function collect({ fetcher = fetch, apiFetcher = fetcher, config = 
       console.warn(source.id + ': 抓取失败（保留旧记录）' + String(error.message || error) + (error?.cause?.code ? ' [' + error.cause.code + ']' : ''));
     }
   }
-  if (upstreamSnapshot) batches.push(...normalizeUpstreamSnapshot(upstreamSnapshot));
+  if (upstreamSnapshot) {
+    try {
+      batches.push(...normalizeUpstreamSnapshot(upstreamSnapshot));
+    } catch (error) {
+      // Optional read-only adapter must never block the existing public collector.
+      console.warn('补充来源数据无效，保留原采集器：' + String(error.message||error));
+    }
+  }
   if (!batches.some(b => b.items?.length >= 2)) {
     try {
       // 海外 GitHub Runner 偶发全部 ETIMEDOUT：利用已验证的 Cloudflare
