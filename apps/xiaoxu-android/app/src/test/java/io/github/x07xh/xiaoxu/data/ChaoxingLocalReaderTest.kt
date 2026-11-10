@@ -382,16 +382,16 @@ class ChaoxingLocalReaderTest {
         // identity exists but cannot be connected by following a link.
         assertTrue(ChaoxingLocalReader.noticeLinks(notice).isEmpty())
         val expectedAlias = ChaoxingLocalReader.noticeAliases(notice).single().id
-        fun read(twoClasses: Boolean, failSecond: Boolean = false): ChaoxingLocalRead {
+        fun read(twoClasses: Boolean, failSecond: Boolean = false, unrelated: Boolean = false, incompleteNotice: Boolean = false): ChaoxingLocalRead {
             val first = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
-            val second = first.replace("clazzid=456", "clazzid=457")
+            val second = first.replace("clazzid=456", "clazzid=457").let {if(unrelated) it.replace("courseid=123","courseid=999") else it}
             return ChaoxingLocalReader(ChaoxingReadTransport { r ->
                 val url = java.net.URI(r.url)
                 val clazz = if (r.url.contains("457")) "457" else "456"
                 val content = when (url.path) {
                     "/base" -> "<script>var uid='42';</script>"
                     "/pc/notice/getNoticeList" -> JSONObject().put("status", true)
-                        .put("notices", JSONObject().put("lastPage", 1)
+                        .put("notices", JSONObject().put("lastPage", if(incompleteNotice) 0 else 1)
                             .put("list", org.json.JSONArray().put(notice))).toString()
                     "/mooc2-ans/visit/courselistdata" -> {
                         "<a href='$first'><span class='course-name'>Python 1</span></a>" +
@@ -414,12 +414,18 @@ class ChaoxingLocalReaderTest {
         val unique = read(twoClasses = false)
         assertTrue(unique.complete)
         assertEquals(setOf(expectedAlias), unique.items.single { it.kind == "homework" }.noticeAliases)
+        val incompleteInbox = read(twoClasses = false, incompleteNotice = true)
+        assertFalse(incompleteInbox.complete)
+        assertTrue(incompleteInbox.items.single {it.kind == "homework"}.noticeAliases.isEmpty())
         val ambiguous = read(twoClasses = true)
         assertTrue(ambiguous.complete)
         assertTrue(ambiguous.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
         val partial = read(twoClasses = true, failSecond = true)
         assertFalse(partial.complete)
         assertTrue(partial.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
+        val otherCourseFailed = read(twoClasses = true, failSecond = true, unrelated = true)
+        assertFalse(otherCourseFailed.complete)
+        assertEquals(setOf(expectedAlias), otherCourseFailed.items.single {it.kind == "homework"}.noticeAliases)
     }
     @Test fun detailStatusSurvivesGenericListButReopenedWorkStaysPending() {
         val reader = ChaoxingLocalReader(ChaoxingReadTransport { error("no network needed") })

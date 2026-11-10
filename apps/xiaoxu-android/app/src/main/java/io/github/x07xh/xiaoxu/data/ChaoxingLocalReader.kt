@@ -202,6 +202,12 @@ internal class ChaoxingLocalReader(
         return if (positive.containsMatchIn(list) && positive.containsMatchIn(detail)) detail else list
     }
 
+    private fun statusClass(value: String): Int = when {
+        Regex("未提交|未完成|待提交|待完成|未交|退回|重做|重新提交|驳回").containsMatchIn(value) -> -1
+        Regex("已完成|已提交|已交|提交成功|待批阅|待批改|待评阅|已批阅|已批改|已评分|已评阅|已互评|已互評|互评完成|互評完成|已达标").containsMatchIn(value) -> 1
+        else -> 0
+    }
+
     private val items=linkedMapOf<String,ChaoxingReadItem>()
     private val failures=mutableListOf<String>()
     private val superseded=mutableSetOf<String>()
@@ -235,7 +241,7 @@ internal class ChaoxingLocalReader(
     }
     private fun reportFailure(label:String,code:String) {
         val reason=when(code) {
-            "work_row_conflict" -> "同页同一作业状态冲突，已保留待核对"
+            "work_row_conflict" -> "同一作业有不同状态，详情仍未能核实"
             "work_page_overlap" -> "分页有重叠，已继续保留新作业"
             "work_page_mismatch" -> "返回页码与请求不符"
             "work_page_stalled" -> "翻页仍返回同一批作业"
@@ -267,6 +273,7 @@ internal class ChaoxingLocalReader(
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
         var noticePages=0
+        var noticesComplete=false
         recover("通知读取") {
             val fields=listOf("notice_type","lastValue","sort","folderUUID","kw","startTime","endTime",
                 "gKw","gName","tag","fidsCode","filterSenderPuids","filterTags").associateWith {""}.toMutableMap()
@@ -303,12 +310,16 @@ internal class ChaoxingLocalReader(
                 if(cursor.isBlank()||!cursors.add(cursor)||pageNumber==100) throw ChaoxingReadFailure("notice_pagination")
                 fields["lastValue"]=cursor
             }
+            noticesComplete=true
         }
         for(link in links.values.filter {URI(it.url).path.contains("/userStudyPlan/")}) recover(link.title) {readStudyPlan(link)}
         // Direct assignment links in notices supplement plan children; they are
         // not assumed submitted merely because a notification exists.
         for(link in links.values.filterNot {URI(it.url).path.contains("/userStudyPlan/")}) recover(link.title) {readWorkLink(link)}
         var courseCount=0
+        var catalogComplete=false
+        val listedCourses=mutableSetOf<String>()
+        val failedCourses=mutableSetOf<String>()
         recover("课程目录") {
             progress("补查本人课程作业…")
             val form=mapOf("courseType" to "1","courseFolderId" to "0","query" to "","pageHeader" to "0",
@@ -328,12 +339,20 @@ internal class ChaoxingLocalReader(
                 progress("读取课程 ${index+1}/$courseCount："+clean(course.title))
                 val courseId=hash(URI(course.url).path+"?"+params(course.url).filterKeys {it in setOf("courseid","clazzid","cpi","enc")}.toString())
                 record("course","course:$courseId",course.title,"课程列表","mooc2-ans.chaoxing.com")
+                val numericCourse=numericIdentity(params(course.url),"courseId","courseid")
+                if(numericCourse!=null) listedCourses.add(numericCourse)
+                val before=failures.size
                 recover(course.title) {readCourse(course)}
+                if(failures.size!=before && numericCourse!=null) failedCourses.add(numericCourse)
+                if(numericCourse==null) throw ChaoxingReadFailure("course_identity")
             }
+            catalogComplete=true
         }
         progress("确认读取前后为同一账号…")
         if(account(fetch(HOME))!=owner) throw ChaoxingReadFailure("account_changed")
-        if (failures.isEmpty()) {
+        if (catalogComplete && noticesComplete) {
+            // Completeness is scoped to a course, including every listed class.
+            // An unrelated failed course must not block proven notice aliases.
             // Finish scanning all courses BEFORE resolving any linkless peer
             // notice. A same-course work ID can occur in multiple classes.
             // Reading either candidate prematurely would produce misleading
@@ -355,27 +374,28 @@ internal class ChaoxingLocalReader(
                     candidatesByAlias[it.id]?.size == 1
                 }
                 if (unambiguous.isEmpty()) null
-                else byCourseWork[key].orEmpty().singleOrNull()?.let { it to unambiguous }
+                else byCourseWork[key].orEmpty().singleOrNull()
+                    ?.takeIf {it.split(':')[1] in (listedCourses - failedCourses)}
+                    ?.let { it to unambiguous }
             }
             val peerCompleted = Regex(
                 "已互评|已互評|互评已完成|互評已完成|已完成互评|已完成互評|互评完成|互評完成"
             )
             for ((work, aliases) in unique) {
-                if (aliases.none { it.peer }) continue
+                val before=failures.size
                 val original = items[work] ?: continue
-                if (peerCompleted.containsMatchIn(original.status)) continue
-                val url = courseWorkUrls[work] ?: continue
-                recover("互评详情") {
-                    readWorkLink(ChaoxingDiscoveredLink(original.title,url),forceDetail=true)
-                    val detailed = items[work]?.status
-                    record("homework",work,original.title,
-                        reconcileWorkStatus(original.status,detailed),original.sourceHost)
+                if (aliases.any { it.peer } && !peerCompleted.containsMatchIn(original.status)) {
+                    val url = courseWorkUrls[work] ?: continue
+                    recover("互评详情") {
+                        readWorkLink(ChaoxingDiscoveredLink(original.title,url),forceDetail=true)
+                        val detailed = items[work]?.status
+                        record("homework",work,original.title,
+                            reconcileWorkStatus(original.status,detailed),original.sourceHost)
+                    }
                 }
+                if(failures.size==before)
+                    noticeBindings.getOrPut(work) {linkedSetOf()}.addAll(aliases)
             }
-            // If a required detail failed, preserve all homework rows but
-            // withhold inferred linkless aliases. Partial != fully reconciled.
-            if (failures.isEmpty()) for ((work, aliases) in unique)
-                noticeBindings.getOrPut(work) {linkedSetOf()}.addAll(aliases)
         }
         val rows = items.values.map { item ->
             val bound = noticeBindings[item.sourceKey].orEmpty()
@@ -605,9 +625,21 @@ internal class ChaoxingLocalReader(
                     clean(row.selectFirst("p.status")?.text().orEmpty(),60)
                 val duplicate=pageRows.putIfAbsent(stable,signature)
                 if(duplicate!=null) {
-                    if(duplicate!=signature) {
-                        record(if(key==null) "study_task" else "homework",stable,signature.first,"状态未知",URI(url).host)
-                        reportFailure(course.title,"work_row_conflict")
+                    val priorClass=statusClass(duplicate.second)
+                    val nextClass=statusClass(signature.second)
+                    if(priorClass!=0 && nextClass!=0 && priorClass!=nextClass) {
+                        // Different labels (or titles) are not conflicting
+                        // evidence. Opposite submission states need the actual
+                        // official detail; never erase a known status by fiat.
+                        record(if(key==null) "study_task" else "homework",stable,duplicate.first,"状态未知",URI(url).host)
+                        recover(course.title) {
+                            readWorkLink(ChaoxingDiscoveredLink(duplicate.first,url),forceDetail=true)
+                        }
+                        if(statusClass(items[stable]?.status.orEmpty())==0)
+                            reportFailure(course.title,"work_row_conflict")
+                    } else if(nextClass!=0 && priorClass==0) {
+                        record(if(key==null) "study_task" else "homework",stable,duplicate.first,
+                            reconcileWorkStatus(signature.second,items[stable]?.status),URI(url).host)
                     }
                     continue
                 }
