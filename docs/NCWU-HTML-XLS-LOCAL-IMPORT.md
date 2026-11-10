@@ -11,6 +11,10 @@ with the exact columns: 课程 / 任课教师 / 上课时间地点 (or equivalen
 It parses multiple meeting segments, weekday, explicit teaching weeks (including
 odd/even weeks), period range and actual room string.
 
+Unknown classroom text is retained as an empty location (never fabricated); an
+explicitly scheduled class must not be dropped merely because its room has not
+been assigned. Weekdays, periods and explicit teaching weeks remain mandatory.
+
 It converts *only* observed values into the existing LocalScheduleStore/VerifiedLesson
 schema. The existing import preview, lower-count confirmation, backup and local
 persistence paths remain unchanged. It makes no HTTP requests, never obtains
