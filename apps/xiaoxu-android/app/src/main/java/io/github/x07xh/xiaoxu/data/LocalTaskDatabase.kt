@@ -59,6 +59,10 @@ interface LocalTaskDao {
     @Query("UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id")
     suspend fun updateDetails(id: Long, title: String, source: String?, due: String?): Int
 
+    /** Date-only fast edit must never overwrite a concurrent title/source or DAG edit. */
+    @Query("UPDATE local_tasks SET due = :due WHERE id = :id")
+    suspend fun updateDue(id: Long, due: String?): Int
+
     @Query("DELETE FROM local_tasks WHERE id = :id")
     suspend fun remove(id: Long)
 
