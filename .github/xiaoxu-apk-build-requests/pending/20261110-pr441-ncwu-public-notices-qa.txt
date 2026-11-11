@@ -1,4 +1,5 @@
-Owner-approved development continuation: produce isolated Android QA APK for PR #441 NCWU public departments notice integration.
-Source branch only. Do not merge, sign, promote or replace installed production APK.
-Run Kotlin/JVM tests, assembleDebug, assembleRelease, and full contract tests on this exact PR SHA.
-Check in the native existing Message Center that dynamic /api/notices and verified archive show the same official source records with URL dedup, and that unavailable sources are marked partial rather than fabricated.
+User authorized on 2026-11-11: validate and publish latest ready Xiaoxu changes.
+PR #441: public department notices through the existing collector and native inbox.
+Run exact-SHA JVM, repository CI and APK build before merge.
+After merge build canonical 0.8.15 (36), preserve existing release certificate.
+Does not include unverified Room/task-center, timetable or school-account feature branches.

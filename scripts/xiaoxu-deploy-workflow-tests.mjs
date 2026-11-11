@@ -62,7 +62,7 @@ const regularCI=readFileSync(new URL('../.github/workflows/check.yml',import.met
 assert.match(androidBuild,/on:\s*\n\s*workflow_dispatch:/);
 assert.doesNotMatch(androidBuild,/^\s{2}schedule:/m,
  'APK packaging must never run on a schedule');
-assert.match(androidBuild, /^\s{2}pull_request:\n\s{4}branches: \[main, 'feat\/xiaoxu-unified-native-mainline-20261106'\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
+assert.match(androidBuild, /^\s{2}pull_request:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'PR compilation must require an explicit pending request marker');
 assert.match(androidBuild, /^\s{2}push:\n\s{4}branches: \[main\]\n\s{4}paths:\n\s{6}- '[.]github\/xiaoxu-apk-build-requests\/pending\/\*\.txt'/m,
  'Main APK build must also be triggered only by a reviewed request marker');
@@ -74,13 +74,23 @@ assert.doesNotMatch(androidBuild,/xiaoxu-apk-build-requests\/\*\*/,
  'Build requests must match pending files only, never the whole archive directory');
 assert.match(androidBuild,/xiaoxu-apk-build-requests\/pending\/\*\.txt/,
  'Reviewed pending markers must remain an allowed APK build trigger');
-// Nested changes to the sole UI integration branch must receive the same
-// read-only validation without opening a duplicate QA PR against main.
+// #351 was superseded by #410. Current changes target main and retain
+// the same read-only validation; the retired integration branch is not a target.
 for(const name of ['check.yml','xiaoxu-campus-run-jvm.yml','xiaoxu-secondclass-webview.yml']){
  const workflow=readFileSync(new URL('../.github/workflows/'+name,import.meta.url),'utf8');
- assert.match(workflow,/pull_request:\n\s{4}branches: \[main, 'feat\/xiaoxu-unified-native-mainline-20261106'\]/,
-  name+' must validate PRs targeting the integration branch');
+ assert.match(workflow,/pull_request:\n\s{4}branches: \[main\]/,
+  name+' must validate PRs targeting main');
 }
+// Deleting/archiving a pending marker still starts the workflow, but must not
+// reach expensive compilation or signing. The event range guard is tested with Git.
+assert.match(androidBuild,/request-gate:[\s\S]*?fetch-depth: 0/,
+ 'Request direction needs the complete PR/push Git range');
+assert.match(androidBuild,/id: request\n\s*run: node scripts\/xiaoxu-apk-build-request[.]mjs/);
+assert.match(androidBuild,/requested: \$\{\{ steps[.]request[.]outputs[.]requested \}\}/);
+assert.match(androidBuild,/build-android:\n\s*needs: request-gate\n\s*if: needs[.]request-gate[.]outputs[.]requested == 'true'/,
+ 'No APK compilation without an explicit request or manual recovery');
+assert.match(androidBuild,/publish-release:\n\s*needs: build-android/,
+ 'Signing/publication depends on the gated build');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');

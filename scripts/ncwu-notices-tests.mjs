@@ -112,6 +112,14 @@ assert.ok(normalizeUpstreamSnapshot(incorrectSection)[0].error,'Reject cross-dep
 const supplemented=await collect({config:{sources:[source]},previous:seed,
   fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),
   upstreamSnapshot:collegeSnapshot,at:'2026-11-10T10:00:00.000Z'});
+let coreFallbackCalls=0;
+const coreFallbackWithDepartments=await collect({config:{sources:[source]},previous:seed,
+  fetcher:brokenOfficial,apiFetcher:async url=>{coreFallbackCalls++;return apiFetcher(url);},
+  upstreamSnapshot:collegeSnapshot,at:'2026-11-10T10:00:00.000Z'});
+assert.equal(coreFallbackCalls,1,'Department success must not suppress failed core-source fallback');
+assert.equal(coreFallbackWithDepartments.sources.find(x=>x.id==='jwc-api')?.status,'ok');
+assert.ok(coreFallbackWithDepartments.items.some(x=>x.sourceId==='dianqi'));
+assert.ok(coreFallbackWithDepartments.items.some(x=>x.url.endsWith('/jiaowu/info/1008/3003.htm')));
 const badSupplement=await collect({config:{sources:[source]},previous:seed,
   fetcher:async()=>new Response(sample,{status:200,headers:{'content-type':'text/html; charset=utf-8'}}),
   upstreamSnapshot:{corrupt:true},at:'2026-11-10T10:00:00.000Z'});
