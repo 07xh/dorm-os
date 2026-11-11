@@ -333,7 +333,14 @@ assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun Conn
   '旧版工具弹窗和混合式连接入口应彻底退役');
 assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
   '设置按分类索引；业务内容应进入独立二级路由');
-assert.match(profileSettings, /"notifications" -> item \{ NotificationSettingsContent\(localTasks\) \}/);
+assert.match(profileSettings, /"notifications", "notifications-course", "notifications-task" -> item \{/,
+  '通知设置必须共用一套二级路由，而不是复制页面');
+assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animatedRoute, onRouteChange\)/,
+  '分类设置复用唯一提醒权限与调度网关');
+assert.match(profileSettings, /onRouteChange\("notifications-course"\)/);
+assert.match(profileSettings, /onRouteChange\("notifications-task"\)/);
+assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
+  '课程提前时间调整应写入唯一的本机提醒配置');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
 assert.match(profileSettings, /"licenses" -> item \{ OpenSourceCreditsPanel\(\) \}/);
 assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
