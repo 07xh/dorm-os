@@ -1,6 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.activity.compose.setContent
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import io.github.x07xh.xiaoxu.MainActivity
 import io.github.x07xh.xiaoxu.data.assertRuntimeIsolation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -26,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference
 /** Offline runtime check: opening UI controls must not restart Room-style cold queries. */
 @RunWith(AndroidJUnit4::class)
 class LocalRowsSubscriptionTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Before fun isolated() = assertRuntimeIsolation(compose.activity)
 
@@ -46,12 +45,10 @@ class LocalRowsSubscriptionTest {
         val control = mutableIntStateOf(0)
         val rendered = AtomicInteger(-1)
         val shown = AtomicReference<List<String>>(emptyList())
-        compose.runOnUiThread {
-            compose.activity.setContent {
+        compose.setContent {
                 val rows by rememberLocalRows(query) { query.observe() }
                 val value = control.intValue
                 SideEffect { rendered.set(value); shown.set(rows) }
-            }
         }
         compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("saved") }
         repeat(20) { index ->
@@ -67,11 +64,9 @@ class LocalRowsSubscriptionTest {
     @Test fun stoppedActivityReleasesQueryAndResumeReadsLatestRows() {
         val query = Query()
         val shown = AtomicReference<List<String>>(emptyList())
-        compose.runOnUiThread {
-            compose.activity.setContent {
+        compose.setContent {
                 val rows by rememberLocalRows(query) { query.observe() }
                 SideEffect { shown.set(rows) }
-            }
         }
         compose.waitUntil(timeoutMillis = 10_000L) { query.active.get() == 1 && shown.get().isNotEmpty() }
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
@@ -88,15 +83,13 @@ class LocalRowsSubscriptionTest {
         val owner = mutableStateOf(first)
         val shown = AtomicReference<List<String>>(emptyList())
         val leaked = AtomicBoolean(false)
-        compose.runOnUiThread {
-            compose.activity.setContent {
+        compose.setContent {
                 val current = owner.value
                 val rows by rememberLocalRows(current) { current.observe() }
                 SideEffect {
                     if (current === second && "saved" in rows) leaked.set(true)
                     shown.set(rows)
                 }
-            }
         }
         compose.waitUntil(timeoutMillis = 10_000L) { first.active.get() == 1 }
         compose.runOnUiThread { owner.value = second }
