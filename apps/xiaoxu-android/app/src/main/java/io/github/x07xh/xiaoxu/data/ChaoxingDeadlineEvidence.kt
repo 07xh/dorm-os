@@ -52,7 +52,7 @@ internal object ChaoxingDeadlineEvidenceReader {
         // A clearly labeled exam window can supply its explicit end.
         // Generic event and registration deadlines remain excluded.
         if (exam) {
-            val examRange = Regex("""考试时间\\s*[：:]\\s*$dateValue\\s*(?:至|~|～|—|到)\\s*($dateValue)""")
+            val examRange = Regex("""考试时间\s*[：:]\s*$dateValue\s*(?:至|~|～|—|到)\s*($dateValue)""")
             for (match in examRange.findAll(text)) checked(match.groupValues[1])?.let(found::add)
         }
         if (!exam) for (match in range.findAll(text)) checked(match.groupValues[1])?.let(found::add)
