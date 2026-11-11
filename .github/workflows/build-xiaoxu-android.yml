@@ -22,6 +22,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   request-gate:
@@ -66,9 +67,40 @@ jobs:
           gradle-version: '8.13'
       - name: Compile APK and run existing Android JVM unit tests
         run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest :app:assembleRelease --no-daemon
-      # The Android emulator validates Room v1-v4 migration with synthetic,
-      # isolated storage. The runtime-verification manifest has no INTERNET.
+      # For PRs, the separate exact-source runtime workflow already runs the
+      # complete 32-test suite, including Room v1-v4 upgrade and owner isolation.
+      # Wait for its actual result instead of booting a second emulator.
+      - name: Require same-head Android runtime and Room migration suite
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_HEAD_SHA"
+          for attempt in {1..120}; do
+            runs=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow xiaoxu-secondclass-webview.yml \
+              --commit "$PR_HEAD_SHA" --event pull_request --limit 15 \
+              --json databaseId,headSha,status,conclusion)
+            status=$(jq -r --arg sha "$PR_HEAD_SHA" '[.[] | select(.headSha == $sha)] | first | .status // empty' <<< "$runs")
+            conclusion=$(jq -r --arg sha "$PR_HEAD_SHA" '[.[] | select(.headSha == $sha)] | first | .conclusion // empty' <<< "$runs")
+            if [[ "$status" == completed ]]; then
+              if [[ "$conclusion" == success ]]; then
+                echo "Exact-source Android runtime suite passed: $PR_HEAD_SHA"
+                exit 0
+              fi
+              echo "Exact-source Android runtime suite did not pass: $conclusion" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "No successful exact-source Android instrumentation result." >&2
+          exit 1
+      # Explicit main/release or manually dispatched builds still run their own
+      # isolated migration test; the cross-workflow shortcut is PR-only.
       - name: Verify Room v1-v4 migration and dependency constraints on Android
+        if: github.event_name != 'pull_request'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
