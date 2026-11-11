@@ -1119,7 +1119,10 @@ assert.match(taskBackup, /withTransaction/);
 assert.match(taskBackup, /MAX_BYTES/);
 assert.match(taskBackup, /MAX_TASKS/);
 assert.match(taskBackup, /seen\.add\(key\)/);
-assert.match(taskBackup, /available\[key\]\?\.pollFirst\(\)/);
+assert.match(taskBackup, /data class BackupTaskMatch[\\s\\S]*?val completed: Boolean[\\s\\S]*?val source: String\\?[\\s\\S]*?val due: String\\?/,
+  'V3 备份身份不得仅依靠标题和创建时刻，还须包含完成状态、来源和日期');
+assert.match(taskBackup, /available\\[task\\.backupMatch\\(\\)\\]\\?\\.pollFirst\\(\\)/,
+  '恢复前置依赖必须优先匹配完整任务字段以避免同名同时间记录错链');
 assert.match(taskBackup, /tryAddDependency\(from, to\)/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.CreateDocument/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
