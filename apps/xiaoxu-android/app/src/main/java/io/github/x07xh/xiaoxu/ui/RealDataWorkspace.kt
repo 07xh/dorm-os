@@ -60,7 +60,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -388,7 +387,7 @@ fun RealAcademicHome(
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
+    val nativeRows by rememberLocalRows(nativeDao) { nativeDao.observe() }
     val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     val all = remember(localTasks, state.tasks, nativeRows, archivedKeys) {
         visibleWorkspaceTasks(combineWorkspaceTasks(localTasks,
@@ -911,7 +910,7 @@ fun RealAcademicTaskHub(
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
     val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val schoolRows by rememberLocalRows(schoolDao) { schoolDao.observe() }
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
