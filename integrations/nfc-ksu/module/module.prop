@@ -1,0 +1,6 @@
+id=dormos_nfc
+name=DORM OS NFC - Event Driven
+version=v0.1.0
+versionCode=100
+author=DORM OS
+description=NFC scene actions for KernelSU. Event-driven companion APK required; no background polling.
