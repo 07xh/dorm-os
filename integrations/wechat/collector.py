@@ -38,6 +38,7 @@ CONFIG = Path.home() / ".wechat-cli" / "xiaoxu-bridge.json"
 STATE = Path.home() / ".wechat-cli" / "xiaoxu-sync-state.json"
 MAX_CHAT = 36
 MAX_ROWS_PER_CHAT = 1500
+AI_MAX_MESSAGES = 5000  # Local-only bounded agent handoff; fail closed if exceeded.
 PAGE = 250
 OVERLAP_SECONDS = 24 * 3600
 BOOTSTRAP_SECONDS = 72 * 3600
@@ -260,17 +261,21 @@ def extract_https_links(text: str) -> list[str]:
     return links
 
 
-def classify(text: str, sent_ts: int) -> dict | None:
-    # Only task-like text messages are considered. Never upload full chat,
-    # attachments, sender names, phone numbers, cookies or external URLs.
-    if not TASK_WORDS.search(text):
-        return None
-    links = extract_https_links(text)
+def redact_message(text: str, max_units: int = 2000) -> str:
+    """Redact contact details, direct URLs and long IDs before local AI handoff."""
     cleaned = CLEAN_URL.sub("[链接]", text)
     cleaned = CLEAN_EMAIL.sub("[邮箱]", cleaned)
     cleaned = CLEAN_PHONE.sub("[电话]", cleaned)
     cleaned = CLEAN_LONG_ID.sub("[编号]", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return contract_text(cleaned, max_units)
+
+
+def classify(text: str, sent_ts: int) -> dict | None:
+    # Existing conservative classifier remains the default, without an AI dependency.
+    if not TASK_WORDS.search(text):
+        return None
+    links = extract_https_links(text)
+    cleaned = redact_message(text)
     if len(cleaned) < 4:
         return None
     if re.search(r"考试|测验|考核", text):
@@ -285,7 +290,7 @@ def classify(text: str, sent_ts: int) -> dict | None:
 
 
 def extract_groups(config: dict, secret: bytes, cursors: dict, *,
-                   reader=None, now_ts=None) -> tuple[list[dict], dict, list[str]]:
+                   reader=None, now_ts=None, ai_messages=None) -> tuple[list[dict], dict, list[str]]:
     now_ts = int(time.time()) if now_ts is None else int(now_ts)
     if reader is None:
         # Reuse wechat-cli-plus ONLY. It has already been installed and tested
@@ -336,11 +341,21 @@ def extract_groups(config: dict, secret: bytes, cursors: dict, *,
             if total > MAX_ROWS_PER_CHAT:
                 raise BridgeError("群消息量超过本轮上限；请缩小首次同步范围")
             max_ts = max(max_ts, ts)
+            group_key = fingerprint(secret, "chat", chat)
+            msg_key = fingerprint(secret, "msg", chat, table_name, local_id, ts)
+            if ai_messages is not None:
+                if len(ai_messages) >= AI_MAX_MESSAGES:
+                    raise BridgeError("本次 AI 候选消息超过本地安全上限；未上传或推进游标")
+                ai_messages.append({
+                    "messageKey": msg_key, "chatKey": group_key,
+                    "chatLabel": contract_text(chat, 80),
+                    "sentAt": datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "text": redact_message(text),
+                    "links": extract_https_links(text),
+                })
             task = classify(text, ts)
             if task is None:
                 continue
-            group_key = fingerprint(secret, "chat", chat)
-            msg_key = fingerprint(secret, "msg", chat, table_name, local_id, ts)
             candidate_key = fingerprint(secret, "candidate", msg_key, 0)
             candidates.append({
                 "messageKey": msg_key, "candidateKey": candidate_key,
@@ -474,7 +489,7 @@ def setup() -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="校序 · 微信消息候选同步（复用 Wechat-Todo，不上传原文）")
-    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify"))
+    parser.add_argument("command", choices=("setup", "preview", "sync", "status", "verify", "ai-prepare", "ai-check", "ai-submit"))
     args = parser.parse_args(argv)
     if args.command == "setup":
         setup()
@@ -502,6 +517,15 @@ def main(argv=None) -> int:
         return 0
     secret = opened(config["hmacDpapi"])
     cursors = read_state()
+    if args.command in ("ai-prepare", "ai-check", "ai-submit"):
+        from ai_handoff import prepare_ai, check_ai, submit_ai
+        if args.command == "ai-prepare":
+            prepare_ai(config, secret, cursors)
+        elif args.command == "ai-check":
+            check_ai(config, secret, cursors)
+        else:
+            submit_ai(config, secret, cursors)
+        return 0
     records, next_state, notes = extract_groups(config, secret, cursors)
     for note in notes:
         print(note)
@@ -511,6 +535,10 @@ def main(argv=None) -> int:
             print("· " + item["title"] + " [" + item["deadline"]["precision"] + "]")
         print("仅在本机预览，没有上传或推进游标。")
         return 0
+    upload_candidates(config, secret, records, next_state)
+    return 0
+
+def upload_candidates(config: dict, secret: bytes, records: list[dict], next_state: dict, *, mode: str = 'rules') -> None:
     token = opened(config["tokenDpapi"]).decode("utf-8")
     if not TOKEN.fullmatch(token):
         raise BridgeError("设备凭据无效")
@@ -535,9 +563,15 @@ def main(argv=None) -> int:
         submit(config["site"], token, payload)
     # Advance only when the server has acknowledged every batch (or heartbeat).
     save_json(STATE, next_state)
+    # Metadata-only local evidence; never undo a confirmed cloud upload due to
+    # log/digest filesystem trouble. No message bodies, titles or chat names.
+    try:
+        from sync_digest import record_success
+        record_success(records, mode)
+    except (OSError, ValueError):
+        print("已确认云端同步，但本机摘要写入失败；日报可能不完整。", file=sys.stderr)
     print("服务器已确认本次同步；请在校序「任务 → 微信待审核」中审核。"
           if records else "服务器已确认设备在线，本次没有待审核任务。")
-    return 0
 
 
 def read_state() -> dict:
