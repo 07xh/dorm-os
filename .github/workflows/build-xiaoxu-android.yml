@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       requested: ${{ steps.request.outputs.requested }}
+      release_requested: ${{ steps.request.outputs.release_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -129,8 +130,8 @@ jobs:
 
 
   publish-release:
-    needs: build-android
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [request-gate, build-android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.request-gate.outputs.release_requested == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

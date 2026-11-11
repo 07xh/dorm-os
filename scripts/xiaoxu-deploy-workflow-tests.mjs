@@ -87,10 +87,12 @@ assert.match(androidBuild,/request-gate:[\s\S]*?fetch-depth: 0/,
  'Request direction needs the complete PR/push Git range');
 assert.match(androidBuild,/id: request\n\s*run: node scripts\/xiaoxu-apk-build-request[.]mjs/);
 assert.match(androidBuild,/requested: \$\{\{ steps[.]request[.]outputs[.]requested \}\}/);
+assert.match(androidBuild,/release_requested: \$\{\{ steps[.]request[.]outputs[.]release_requested \}\}/,
+ 'the request gate must expose an explicit formal-release decision');
 assert.match(androidBuild,/build-android:\n\s*needs: request-gate\n\s*if: needs[.]request-gate[.]outputs[.]requested == 'true'/,
  'No APK compilation without an explicit request or manual recovery');
-assert.match(androidBuild,/publish-release:\n\s*needs: build-android/,
- 'Signing/publication depends on the gated build');
+assert.match(androidBuild,/publish-release:\n\s*needs: \[request-gate, build-android\]\n\s*if: github[.]event_name == 'push' && github[.]ref == 'refs\/heads\/main' && needs[.]request-gate[.]outputs[.]release_requested == 'true'/,
+ 'QA marker merges must never enter formal signing/publication');
 assert.match(androidBuild,/assembleDebug/,'Manual build remains available');
 assert.match(androidBuild,/assembleDebug :app:testDebugUnitTest/,
  'Explicit Android builds must also run JVM unit tests, not just compile');
