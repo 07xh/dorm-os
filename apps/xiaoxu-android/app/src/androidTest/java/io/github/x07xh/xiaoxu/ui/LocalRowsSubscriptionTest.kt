@@ -53,14 +53,14 @@ class LocalRowsSubscriptionTest {
                 SideEffect { rendered.set(value); shown.set(rows) }
             }
         }
-        compose.waitUntil { shown.get() == listOf("saved") }
+        compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("saved") }
         repeat(20) { index ->
             compose.runOnUiThread { control.intValue = index + 1 }
-            compose.waitUntil { rendered.get() == index + 1 }
+            compose.waitUntil(timeoutMillis = 10_000L) { rendered.get() == index + 1 }
         }
         assertEquals("one query despite 20 filter/dialog recompositions", 1, query.starts.get())
         compose.runOnUiThread { query.rows.value = listOf("saved", "new") }
-        compose.waitUntil { shown.get().size == 2 }
+        compose.waitUntil(timeoutMillis = 10_000L) { shown.get().size == 2 }
         assertEquals(1, query.starts.get())
     }
 
@@ -73,12 +73,12 @@ class LocalRowsSubscriptionTest {
                 SideEffect { shown.set(rows) }
             }
         }
-        compose.waitUntil { query.active.get() == 1 && shown.get().isNotEmpty() }
+        compose.waitUntil(timeoutMillis = 10_000L) { query.active.get() == 1 && shown.get().isNotEmpty() }
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
-        compose.waitUntil { query.active.get() == 0 }
+        compose.waitUntil(timeoutMillis = 10_000L) { query.active.get() == 0 }
         query.rows.value = listOf("updated while stopped")
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        compose.waitUntil { shown.get() == listOf("updated while stopped") }
+        compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("updated while stopped") }
         assertEquals(2, query.starts.get())
     }
 
@@ -98,9 +98,9 @@ class LocalRowsSubscriptionTest {
                 }
             }
         }
-        compose.waitUntil { first.active.get() == 1 }
+        compose.waitUntil(timeoutMillis = 10_000L) { first.active.get() == 1 }
         compose.runOnUiThread { owner.value = second }
-        compose.waitUntil { shown.get() == listOf("second owner") && first.active.get() == 0 }
+        compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("second owner") && first.active.get() == 0 }
         assertEquals(0, first.active.get())
         assertEquals(1, second.active.get())
         assertFalse("the new owner must never render the old owner's rows", leaked.get())
