@@ -460,6 +460,45 @@ function saveHomeLayout(){
  if(!persist()){state.settings.homeLayout=previous;return;}
  homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();render();toast('首页布局已保存到当前浏览器');
 }
+function desktopConsoleOverview(){
+ const owner=window.XiaoxuOwnerAuth?.connected?.()===true;
+ // Only read the existing in-memory caches. Never fetch private endpoints, open
+ // a school session or imply that Android Room/local timetable is cloud data.
+ const cloudReady=owner&&XiaoxuCloudTasks.isReady();
+ const schoolVerified=owner&&XiaoxuAcademic.hasVerifiedSchoolConnection();
+ const localCount=state.tasks.length;
+ const cloudCount=cloudReady?XiaoxuCloudTasks.taskCount():null;
+ return `<section class="xu-console-overview" aria-label="桌面工作台数据概览">
+  <div class="xu-console-overview-head"><div><span class="kicker">WEB MANAGEMENT CONSOLE</span>
+  <h2>学业管理工作台</h2><p>分别查看本浏览器和已读取的私人云端数据；不会读取或上传 Android 本机课表。</p></div></div>
+  <div class="xu-console-metrics">
+   <article class="xu-console-stat" data-xu-console-source="browser">
+    <span class="xu-console-source">当前浏览器</span><h3>个人本地任务</h3>
+    <div class="xu-console-value">${localCount} <small>项</small></div>
+    <p>仅统计本浏览器保存的任务，不代表 App 或云端任务总数。</p>
+    <a href="#tasks" class="xu-console-link">管理任务</a>
+   </article>
+   <article class="xu-console-stat" data-xu-console-source="cloud">
+    <span class="xu-console-source">私人云端</span><h3>已读取任务</h3>
+    <div class="xu-console-value">${cloudReady?cloudCount+' 项':'未读取'}</div>
+    <p>${cloudReady?'当前校序账号已读取的云端列表；不包含 App 本地数据。':'需要本人已验证登录与云端任务读取，不能将未知视为 0。'}</p>
+    <a href="#tasks" class="xu-console-link">查看任务来源</a>
+   </article>
+   <article class="xu-console-stat" data-xu-console-source="review">
+    <span class="xu-console-source">人工确认</span><h3>消息候选审核</h3>
+    <div class="xu-console-value">${owner?'按需读取':'未登录'}</div>
+    <p>${owner?'进入审核页读取候选；消息不会未经确认自动变成任务。':'登录校序后才能读取本人微信候选和学习通提醒。'}</p>
+    <a href="#review" class="xu-console-link">前往消息审核</a>
+   </article>
+   <article class="xu-console-stat" data-xu-console-source="school">
+    <span class="xu-console-source">学校数据源</span><h3>来源授权状态</h3>
+    <div class="xu-console-value">${schoolVerified?'会话已验证':'尚未核验'}</div>
+    <p>${schoolVerified?'已确认至少一项学校来源会话；各平台实际记录仍须分别核对。':'需进入数据连接中心查看各平台状态；此处不推断已断开。'}</p>
+    <a href="#settings" class="xu-console-link">检查数据连接</a>
+   </article>
+  </div>
+ </section>`;
+}
 function dashboard(){
  const p=now(),layout=normalizeHomeLayout(state.settings.homeLayout);
  const visible=layout.order.filter(id=>!layout.hidden.includes(id));
@@ -467,7 +506,7 @@ function dashboard(){
  const date=addDays(p.date,homeDayOffset),courses=XiaoxuWorkspace.courses(state,date,weekday(date));
  const next=courses.find(c=>homeDayOffset!==0||c.end>p.time);
  const tabs=[0,1,2].map(n=>'<button type="button" class="x-v7-day-chip '+(homeDayOffset===n?'selected':'')+'" data-home-day="'+n+'" aria-pressed="'+(homeDayOffset===n)+'">'+['今天','明天','后天'][n]+'</button>').join('');
- return '<section class="v4-hero x-v7-home-intro"><div class="xu-page-head"><div><h1>'+['今日安排','明天安排','后天安排'][homeDayOffset]+'</h1><p class="x-v7-home-date">'+esc(fmtDate(date))+' · '+WEEKDAYS[weekday(date)]+'</p></div><div class="x-v7-day-selector" role="group" aria-label="选择日程日期">'+tabs+'</div></div>'
+ return desktopConsoleOverview()+'<section class="v4-hero x-v7-home-intro"><div class="xu-page-head"><div><h1>'+['今日安排','明天安排','后天安排'][homeDayOffset]+'</h1><p class="x-v7-home-date">'+esc(fmtDate(date))+' · '+WEEKDAYS[weekday(date)]+'</p></div><div class="x-v7-day-selector" role="group" aria-label="选择日程日期">'+tabs+'</div></div>'
   +'<div class="x-v91-next-area">'+(next?'<button type="button" class="x-v91-next-summary" data-page="timetable"><span><small>下一节 · '+esc(next.start)+'</small><strong>'+esc(next.subject)+'</strong><span>'+esc(next.start)+'–'+esc(next.end)+' · '+esc(next.location||'教室未填写')+'</span></span><span aria-hidden="true">→</span></button>':'<div class="x-v91-next-empty"><span>'+(courses.length?'当日课程已结束':'暂无已登记课程')+'</span><button type="button" class="action-link" data-page="timetable">查看课表 →</button></div>')+'</div></section>'
   +'<div class="xu-section-toolbar"><h2>课程与待办</h2><button type="button" class="action-link" data-action="home-layout">调整布局</button></div>'
   +'<div class="home-widget-grid v4-main-widgets x-v7-home-grid">'+essentials.map(homeWidgetContent).join('')+'</div>'
