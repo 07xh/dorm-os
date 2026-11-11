@@ -9,6 +9,8 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const secondClassPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/SecondClassPage.kt');
+const localRowsState = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalRowsState.kt');
 const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 // RC1 retired these sources and superseded QA requests. Deleting them is not
 // enough: later UI branches must not silently restore obsolete containers.
@@ -1157,7 +1159,18 @@ assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
-assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
+assert.match(main, /val localTasks by rememberLocalRows\(dao\) \{ dao\.observe\(\) \}/, 'MainActivity must use the stable lifecycle-aware Room observer');
+assert.match(secondClassPage, /val all by rememberLocalRows\(dao\) \{ dao\.observe\(\) \}/, 'SecondClassPage must use the stable lifecycle-aware Room observer');
+assert.match(workspace, /val nativeRows by rememberLocalRows\(nativeDao\) \{ nativeDao\.observe\(\) \}/);
+assert.match(workspace, /val schoolRows by rememberLocalRows\(schoolDao\) \{ schoolDao\.observe\(\) \}/);
+assert.equal((localSchoolUi.match(/rememberLocalRows\(dao\) \{ dao\.observe\(\) \}/g) || []).length, 2,
+  'Both local school panels must use the same lifecycle-aware Room observer');
+assert.match(localRowsState, /distinctUntilChanged\(\)/, 'Room rows must suppress duplicate equal snapshots');
+assert.match(localRowsState, /collectAsStateWithLifecycle\(initialValue = emptyList\(\)\)/,
+  'Room subscriptions must pause below STARTED and resume with the latest snapshot');
+assert.doesNotMatch([main, secondClassPage, workspace, localSchoolUi].join('\n'),
+  /\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/,
+  'Old always-active Room collection must not return');
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机读取/);
