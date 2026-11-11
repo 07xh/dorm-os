@@ -17,6 +17,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HttpsURLConnection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -274,27 +275,55 @@ class CloudClient(context: Context) {
     }
 
     private suspend fun refreshNotices() {
-        try {
-            val r = withContext(Dispatchers.IO) { request("/api/notices") }
-            if (r.code != 200 || !r.json.optBoolean("success")) throw IllegalStateException()
-            val a = r.json.getJSONArray("items")
-            val rows = buildList {
-                for (i in 0 until minOf(a.length(), 45)) {
-                    val item = a.optJSONObject(i) ?: continue
+        // Read the existing live API and the already-published archive concurrently.
+        // Neither request uses school account credentials or adds a second UI.
+        val (liveResult, archiveResult) = coroutineScope {
+            val live = async(Dispatchers.IO) { runCatching { request("/api/notices") } }
+            val archive = async(Dispatchers.IO) { runCatching { request("/data/notices.json") } }
+            live.await() to archive.await()
+        }
+        val live = liveResult.getOrNull()?.takeIf {
+            it.code == 200 && it.json.optBoolean("success")
+        }
+        val archive = archiveResult.getOrNull()?.takeIf { it.code == 200 }?.let {
+            runCatching { PublicNoticeArchive.parse(it.json) }.getOrNull()
+        }
+        if (live == null && archive == null) {
+            state = state.copy(publicError = "通知获取失败；显示的旧内容不代表最新信息")
+            return
+        }
+        val byUrl = LinkedHashMap<String, AcademicNotice>()
+        if (live != null) {
+            val rows = live.json.optJSONArray("items")
+            if (rows != null) {
+                for (i in 0 until minOf(rows.length(), 45)) {
+                    val item = rows.optJSONObject(i) ?: continue
                     val url = item.optString("url")
                     val u = try { URL(url) } catch (_: Exception) { null }
                     if (u?.protocol != "https" || u.host != "www2.ncwu.edu.cn" ||
                         !u.path.startsWith("/jiaowu/info/")) continue
-                    add(AcademicNotice(item.optString("id"), item.optString("title").take(220),
-                        item.optString("category"), item.optString("dateLabel"), url))
+                    val title = item.optString("title").take(220)
+                    if (title.isBlank()) continue
+                    byUrl.putIfAbsent(url, AcademicNotice(item.optString("id"),
+                        title, item.optString("category"), item.optString("dateLabel"), url))
                 }
             }
-            state = state.copy(notices = rows,
-                noticeFetchedAt = r.json.optString("fetchedAt"),
-                noticesPartial = r.json.optBoolean("partial"), publicError = null)
-        } catch (_: Exception) {
-            state = state.copy(publicError = "通知获取失败；显示的旧内容不代表最新信息")
         }
+        // Live official notices take priority; archived sources fill historical and
+        // departmental gaps. Identical article URLs appear only once.
+        for (item in archive?.items.orEmpty()) byUrl.putIfAbsent(item.url, item)
+        val archiveOutdated = archive?.let {
+            runCatching { Instant.parse(it.fetchedAt).isBefore(Instant.now().minusSeconds(12 * 3600)) }
+                .getOrDefault(true)
+        } ?: true
+        state = state.copy(
+            notices = byUrl.values.take(240),
+            noticeFetchedAt = live?.json?.optString("fetchedAt")?.takeIf { it.isNotBlank() }
+                ?: archive?.fetchedAt,
+            noticesPartial = live == null || archive == null || archiveOutdated ||
+                live.json.optBoolean("partial"),
+            publicError = if (live == null) "实时通知暂不可用，显示最近一次有效归档" else null
+        )
     }
 
     suspend fun refreshPrivate() {

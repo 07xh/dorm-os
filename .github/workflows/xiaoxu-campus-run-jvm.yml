@@ -4,7 +4,7 @@ name: Xiaoxu Android JVM Regression
 # Compiles Compose and runs unit tests; does NOT assemble APKs or deploy.
 on:
   pull_request:
-    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
+    branches: [main]
     paths:
       - 'apps/xiaoxu-android/app/src/**/*.kt'
       - 'apps/xiaoxu-android/app/build.gradle'

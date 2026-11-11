@@ -198,6 +198,31 @@ assert.equal(emptyAgain.activityCount,0,
  'repeat verified zero-activity sync must not be blocked by an empty prior batch');
 await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-b',adapter({badPage:true}),opts));
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM academic_users WHERE id='owner-b'").get().n,0);
+// The live writer must isolate an independent owner's successful batch.
+const secondOwner=await runVerifiedNcwuSecondClassSync(db,'owner-b',adapter({
+ verifiedAccount:{...verified,principalBoundTo:'owner-b'}
+}),opts);
+assert.equal(secondOwner.activityCount,2);
+assert.equal(sql.prepare("SELECT batch_id FROM academic_verified_batches WHERE user_id='owner-a'").get().batch_id,previousBatch);
+assert.notEqual(sql.prepare("SELECT batch_id FROM academic_verified_batches WHERE user_id='owner-b'").get().batch_id,previousBatch);
+// Force a failure AFTER activity/batch writes to prove the entire current
+// activities+scores transaction rolls back; historical data stays untouched.
+const before={
+ records:sql.prepare('SELECT * FROM academic_verified_records ORDER BY user_id,external_id').all(),
+ batches:sql.prepare('SELECT * FROM academic_verified_batches ORDER BY user_id').all(),
+ scores:sql.prepare('SELECT * FROM academic_second_class_official_scores ORDER BY user_id').all(),
+ audits:sql.prepare('SELECT * FROM academic_second_class_sync_audit ORDER BY id').all()
+};
+sql.exec(`CREATE TRIGGER synthetic_score_write_failure BEFORE UPDATE ON academic_second_class_official_scores
+ BEGIN SELECT RAISE(ABORT,'synthetic write failure'); END`);
+await assert.rejects(()=>runVerifiedNcwuSecondClassSync(db,'owner-a',adapter(),opts),e=>e.code==='database_unavailable');
+assert.deepEqual({
+ records:sql.prepare('SELECT * FROM academic_verified_records ORDER BY user_id,external_id').all(),
+ batches:sql.prepare('SELECT * FROM academic_verified_batches ORDER BY user_id').all(),
+ scores:sql.prepare('SELECT * FROM academic_second_class_official_scores ORDER BY user_id').all(),
+ audits:sql.prepare('SELECT * FROM academic_second_class_sync_audit ORDER BY id').all()
+},before,'failed score write must roll back every activity, batch and audit mutation');
+assert.equal(sql.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
 assert.deepEqual(sql.prepare('PRAGMA foreign_key_check').all(),[]);
 sql.close();
 console.log('NCWU genuine HAR shape: read-only endpoint allowlist, settled points vs volunteer hours, 100=aggregate, identity, pagination, D1 atomicity passed');

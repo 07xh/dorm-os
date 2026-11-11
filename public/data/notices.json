@@ -2,38 +2,239 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-08T16:41:57.988Z",
+  "lastSuccessAt": "2026-11-11T04:06:40.676Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
       "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
       "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
       "status": "error",
-      "lastSuccessAt": "2026-11-08T09:03:42.248Z",
+      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
       "count": 20
     },
     {
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-08T16:41:57.988Z",
+      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
       "count": 29
+    },
+    {
+      "id": "dianqi",
+      "name": "电气工程学院通知",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "count": 10
+    },
+    {
+      "id": "gcxlzx",
+      "name": "工程实践与创新中心通知",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "count": 10
+    },
+    {
+      "id": "qysy",
+      "name": "清源书院通知",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "count": 10
     }
   ],
   "items": [
+    {
+      "id": "ncwu-6621fe26ee1ca620",
+      "title": "华北水利水电大学电气工程学院 2025年公开招聘博士方案",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3280.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-5be641ed35a8804e",
+      "title": "中共华北水利水电大学第二届委员会第二轮巡察第四巡察组结束现场巡察公告",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3461.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-c7dc86dc894e686d",
+      "title": "中国长江三峡集团有限公司华北水利水电大学2027届三峡班招聘结果公示",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3478.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-10ae6430813284b5",
+      "title": "电气工程学院2027年推荐免试攻读硕士研究生名单公示",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3518.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-0f48fa6376c0590f",
+      "title": "华北水利水电大学电气工程学院 2027年推荐免试攻读硕士学位研究生实施细则",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3519.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-08eeae834aac7135",
+      "title": "关于2026年电气工程学院研究生国家奖助学金评选结果的公示",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3527.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-05b82069cbd54fd5",
+      "title": "华北水利水电大学电气工程学院学科设备采购项目询价公告",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3529.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-b9f465fac568f722",
+      "title": "华北水利水电大学电气工程学院学科设备项目成交结果公告",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3531.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-f52c295b9adadb80",
+      "title": "2024级“电气拔尖创新人才班”考核及2025“电气拔尖创新人才班”选拔工作的通知",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3534.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-566211aab71c959d",
+      "title": "电气拔尖创新人才班名单公示",
+      "url": "https://www2.ncwu.edu.cn/dianqi/info/1008/3541.htm",
+      "date": null,
+      "sourceId": "dianqi",
+      "sourceName": "电气工程学院通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-769138e8cd995bd0",
+      "title": "华北水利水电大学工程实践与创新中心2026年博士招聘公告",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2153.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-32c0ee30c2eeaff7",
+      "title": "关于召开创新实践工作培训交流会的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2171.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-937d240dc8ab67a4",
+      "title": "关于开展2026年创新创业实践学分系统集中导入并赋分的通知（第二批）",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2172.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-50c4b2f62dca43a0",
+      "title": "关于面向2026级新生开展创新实践教育专题讲座的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2175.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-576c390de2ab076b",
+      "title": "关于开展本科生创新创业实践学分集中补录工作的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2176.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-4c3042ee0e47fcc6",
+      "title": "关于举办2026年全国企业竞争模拟大赛（河南赛区）华北水利水电大学校内选拔赛的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2177.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-5a19b371141152c4",
+      "title": "关于首批学生创新实践中心立项评审结果的公示",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2178.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-01d3c9cd1db8f487",
+      "title": "关于开展本科生学科竞赛成果集中补录工作的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2180.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-eb213d67bf349b95",
+      "title": "关于举办2026年华水电子设计竞赛电力电子方向组培训的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2184.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-b21fcef52e838087",
+      "title": "关于开展2027年第十届中国大学生工程实践与创新能力大赛校赛现场竞赛的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2187.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
     {
       "id": "ncwu-822d53c1ac2d41c7",
       "title": "关于2025-2026学年学业导师工作考核的通知",
@@ -65,6 +266,15 @@
       "id": "ncwu-5329caad288db933",
       "title": "关于对2026-2027第一学期课程进行学生网上评教的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23285.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-a60186d9c1c88235",
+      "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
       "date": null,
       "sourceId": "jwc",
       "sourceName": "教务处通知",
@@ -278,6 +488,15 @@
       "category": "教学"
     },
     {
+      "id": "ncwu-c38537e39d2501ee",
+      "title": "2027年新增学士学位授予专业授予资格审核公示 11-09",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3012.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
       "id": "ncwu-f0350827581cfc16",
       "title": "2025-2026学年第一学期期初补考 08-25",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1034/2633.htm",
@@ -413,6 +632,96 @@
       "category": "考试"
     },
     {
+      "id": "ncwu-214b780a8af209b6",
+      "title": "思政领航——“学·思·启”大讲堂（11）预告",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1546.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-748a0976514ed795",
+      "title": "“学·思·启”大讲堂第十期活动预告来了！",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1548.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-201381b2a860f0f0",
+      "title": "来了！清源书院“优良学风建设月”！",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1623.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-2627661d67d68a28",
+      "title": "@清源学子，文明宿舍评选启动！",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1624.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-41df46dd3e38ef51",
+      "title": "“学·思·启”大讲堂第十二期预告来了！",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1629.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-c8f85e0eb2047b85",
+      "title": "清源书院“学·思·启”大讲堂第十四期预告",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1630.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-dc33dd2bdd01947f",
+      "title": "清源书院“学·思·启”大讲堂第十五期预告",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1631.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-982f0fc8ae2a1447",
+      "title": "清源书院“清·新训练营”第三季招募令",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1682.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-8f7d8c54a4c57b82",
+      "title": "聚力清新，向光而行 | 第三季 “清・新训练营”名单公布",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1683.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-6d6a649f3bf371c4",
+      "title": "2026年清源书院暑期社会实践活动总结表彰",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1687.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
       "id": "ncwu-0b7c61a889ed8b92",
       "title": "关于征集到江淮校区工作意愿的通知",
       "url": "https://www.ncwu.edu.cn/info/1057/23352.htm",
@@ -425,15 +734,6 @@
       "id": "ncwu-45b5cc6c87917457",
       "title": "关于我校值班工作安排的通知",
       "url": "https://www.ncwu.edu.cn/info/1061/23346.htm",
-      "date": null,
-      "sourceId": "school",
-      "sourceName": "学校通知",
-      "category": "校园"
-    },
-    {
-      "id": "ncwu-a60186d9c1c88235",
-      "title": "关于2026-2027学年第二学期线上线下混合式课程申报的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23331.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
@@ -470,6 +770,24 @@
       "id": "ncwu-f1dd5273701a6e00",
       "title": "关于做好我校2026年度全员培训有关工作的通知",
       "url": "https://www.ncwu.edu.cn/info/1065/23366.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-cab9989ed13f12a5",
+      "title": "关于做好我校2026年度河南省高等学校特聘教授推荐工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1065/23387.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-b76252757a87d39c",
+      "title": "关于开展华北水利水电大学2026年消防宣传月系列活动的通知",
+      "url": "https://www.ncwu.edu.cn/info/1086/23386.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
@@ -731,6 +1049,15 @@
       "id": "ncwu-1ba7236cba791d6c",
       "title": "关于我校2025-2026学年本科学生奖学金审核结果及公示的通知",
       "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4156.htm",
+      "date": null,
+      "sourceId": "student",
+      "sourceName": "学生工作处",
+      "category": "学生事务"
+    },
+    {
+      "id": "ncwu-358e55c30c5c315a",
+      "title": "关于开展2026年11月大学生思政主题教育活动的通知",
+      "url": "https://www2.ncwu.edu.cn/xsc/info/1013/4158.htm",
       "date": null,
       "sourceId": "student",
       "sourceName": "学生工作处",

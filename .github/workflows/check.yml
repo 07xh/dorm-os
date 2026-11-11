@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, 'feat/xiaoxu-unified-native-mainline-20261106']
+    branches: [main]
 # New commits supersede older PR jobs; published main builds never cancel.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +19,7 @@ jobs:
       - name: Validate optional Windows schedule script without registering tasks
         shell: powershell
         run: |
-          foreach ($script in @(".\integrations\wechat\schedule.ps1", ".\integrations\wechat\run.ps1")) {
+          foreach ($script in @(".\integrations\wechat\schedule.ps1", ".\integrations\wechat\run.ps1", ".\integrations\wechat\scheduled-run.ps1", ".\integrations\wechat\scheduled-digest.ps1", ".\integrations\wechat\digest-schedule.ps1")) {
             $tokens=$null; $parseErrors=$null
             [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$parseErrors) | Out-Null
             if ($parseErrors.Count -ne 0) {
@@ -39,6 +39,43 @@ jobs:
           $repeat = New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="P1D";StopAtDurationEnd=$false}
           $trigger.Repetition = $repeat
           if ($trigger.Repetition.Interval -ne "PT15M" -or $trigger.Repetition.Duration -ne "P1D") { throw "Repetition pattern mismatch" }
+          # Fixed UTC test instants; no live chat, secret or scheduled-task writes.
+          $cases=@(
+            @("2026-11-08T22:59:00Z", "SKIP"), # Beijing 06:59
+            @("2026-11-08T23:00:00Z", "RUN"),  # Beijing 07:00
+            @("2026-11-09T14:59:00Z", "RUN"),  # Beijing 22:59
+            @("2026-11-09T15:00:00Z", "RUN"),  # Beijing 23:00
+            @("2026-11-09T15:01:00Z", "SKIP")  # Beijing 23:01
+          )
+          foreach($test in $cases) {
+            $got=& .\integrations\wechat\scheduled-run.ps1 check-time -AtUtc $test[0]
+            if ($got -ne $test[1]) { throw "Beijing gate mismatch: expected $($test[1]) at $($test[0]), got $got" }
+          }
+          $scheduler=Get-Content ".\integrations\wechat\schedule.ps1" -Raw
+          if ($scheduler -notmatch 'scheduled-run.ps1' -or
+              $scheduler -notmatch 'PT15M' -or
+              $scheduler -notmatch 'Interactive' -or
+              $scheduler -notmatch 'legacyArgsLine') {
+            throw "Scheduler must reuse collector with Beijing gate and support safe legacy upgrade"
+          }
+          # Verify 23:10 Beijing digest boundary without reading chat or installing tasks.
+          $digestCases=@(
+            @("2026-11-09T15:09:00Z", "SKIP"),
+            @("2026-11-09T15:10:00Z", "RUN"),
+            @("2026-11-09T15:59:00Z", "RUN"),
+            @("2026-11-09T16:00:00Z", "SKIP")
+          )
+          foreach($test in $digestCases) {
+            $got=& .\integrations\wechat\scheduled-digest.ps1 check-time -AtUtc $test[0]
+            if ($got -ne $test[1]) { throw "Digest UTC+8 gate mismatch at $($test[0]): $got" }
+          }
+          $digestSchedule=Get-Content ".\integrations\wechat\digest-schedule.ps1" -Raw
+          if ($digestSchedule -notmatch 'scheduled-digest.ps1' -or
+              $digestSchedule -notmatch 'PT5M' -or
+              $digestSchedule -notmatch 'Interactive') {
+            throw "Digest scheduler must be opt-in, 5-minute gate, logged-on user only"
+          }
+          & .\integrations\wechat\digest-schedule.ps1 status
           & .\integrations\wechat\schedule.ps1 status
   check:
     runs-on: ubuntu-latest

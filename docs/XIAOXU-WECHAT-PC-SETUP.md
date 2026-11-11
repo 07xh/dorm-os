@@ -64,7 +64,7 @@ $python="$env:USERPROFILE\.wechat-cli\py312-venv\Scripts\python.exe"
 
 ### 可选自动同步（首次手动验收成功后）
 
-每 15 分钟调用现有 `run.ps1 sync`，不另安装微信读取器。电脑不登录或关机时不会执行。Windows 计划任务不保存明文设备 token，凭据仍由现有 Windows DPAPI 保护。**安装不会立即上传消息**。
+Windows 计划任务每 15 分钟触发 `scheduled-run.ps1`，仅北京时间 **07:00–23:00**（含 23:00）才调用已有 `run.ps1 sync`，不另安装微信读取器。窗口判断统一以 UTC+8 计算，不依赖本机时区。电脑不登录或关机时不会执行；本机休眠时也不能保证触发。Windows 计划任务不保存明文设备 token，凭据仍由现有 Windows DPAPI 保护。**安装不会立即上传消息**。
 
 必须先成功运行 `run.ps1 preview`、`run.ps1 sync`，并在校序确认候选任务已到达，再手动启用：
 
@@ -79,7 +79,7 @@ $python="$env:USERPROFILE\.wechat-cli\py312-venv\Scripts\python.exe"
 & .\integrations\wechat\schedule.ps1 remove
 ```
 
-断网时原有游标保留，重新登录 Windows 后按计划重试。删除计划任务只停止本机同步，仍需通过校序设备管理撤销云端设备授权。睡眠或关机期间不会采集微信消息。
+断网时原有游标保留，重新登录 Windows 后在允许时段内按计划重试。`schedule.ps1 install` 可将本项目安装的旧全天版本升级为北京时间窗口版本，拒绝覆盖同名但动作不符的外部任务。删除计划任务只停止本机同步，仍需通过校序设备管理撤销云端设备授权。睡眠或关机期间不会采集微信消息。
 
 **当前限制：**第一版仅分析纯文本、使用保守关键词和明确日期；无法保证识别所有课程任务，不会猜测相对截止时间，也不能识别图片、语音、文件或其他媒体中的作业要求。`run.ps1` 可以手动同步；Windows 定时任务需本人明确运行 `schedule.ps1 install` 才启用。电脑关机后不能读取新消息；App 系统级推送仍需单独开发。
 
@@ -139,3 +139,7 @@ git pull
 - `DELETE /api/v1/wechat/devices/{id}` 需要校序本人登录和同源请求，随时撤销电脑同步权限。
 - **请不要手动调用以上接口或粘贴设备 token 到聊天中**。待 App 界面及电脑端一键配对完成后，通过校序已有登录界面操作。
 - CI 使用 SQLite 合成记录验证隔离、重放、去重与审批；**没有真实微信群内容参与 CI**。
+
+## 可选 AI Skill 试验（不同于现有规则同步）
+
+原版 `syskuku/wechat-todo` 已经包含 AI 分类/汇总的 Skill 指令，但不是可直接调用的 Python 处理函数。校序现有 `collector.py` 默认规则同步保持不变；新增的 `ai-prepare` / `ai-submit` 是**本机脱敏快照 → 已安装 Agent Skill → D1 候选审核** 的手动验收路径，绝不会自动访问所有微信会话、直接同步滴答或写入第二套待办数据库。使用前请阅读 [AI-HANDOFF.md](../integrations/wechat/AI-HANDOFF.md) 与 [AI-AGENT-PROMPT.md](../integrations/wechat/AI-AGENT-PROMPT.md)。规则同步现已具备 07:00–23:00 每15分钟窗口守卫；目前仍未具备自动 AI 调度/日报，不可将此试验误判为已上线功能。

@@ -1,0 +1,37 @@
+name: Apply NextTodo D1 0019 (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      approve_task_dependency_migration:
+        description: 'I verified the read-only production audit and approve one-time D1 0019 migration'
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+# Serializes against Pages deployments; never cancels an in-flight schema write.
+concurrency:
+  group: dorm-os-pages
+  cancel-in-progress: false
+jobs:
+  migrate:
+    if: ${{ github.repository == '07xh/dorm-os' && github.ref == 'refs/heads/main' && inputs.approve_task_dependency_migration }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact production D1 and safely apply migration 0019
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          XIAOXU_TASK_D1_0019_APPLY: APPLY-0019
+        run: node scripts/ensure-task-dependency-schema.mjs
+      - name: Confirm migration does not deploy a website
+        if: success()
+        run: |
+          echo 'D1 schema 0019 verified; this workflow never deploys Pages or modifies owner task rows.' >> "$GITHUB_STEP_SUMMARY"
