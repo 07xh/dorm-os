@@ -37,6 +37,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var extractButton: Button
     private lateinit var inspectButton: Button
+    private lateinit var previewButton: Button
     private var extracting = false
     private var pageFailed = false
     private var pageLoaded = false
@@ -65,6 +66,10 @@ class LocalQingguoImportActivity : ComponentActivity() {
         }
         inspectButton = Button(this).apply {
             text = "检查选课页面结构"
+            isEnabled = false
+        }
+        previewButton = Button(this).apply {
+            text = "预览本页选课课程（只读）"
             isEnabled = false
         }
         controls.addView(back, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -102,12 +107,14 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     pageLoaded = false
                     extractButton.isEnabled = false
                     inspectButton.isEnabled = false
+                    previewButton.isEnabled = false
                     status.text = "学校官方页面加载中…"
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     pageLoaded = !pageFailed && isOfficialPage(url)
                     extractButton.isEnabled = pageLoaded && !extracting
                     inspectButton.isEnabled = pageLoaded && !extracting
+                    previewButton.isEnabled = pageLoaded && !extracting
                     if (!pageFailed) {
                         status.text = if (pageLoaded)
                             "请先在华水官方页面打开个人课表，再点击提取；本机导入不需要云端登录。"
@@ -120,6 +127,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                     pageLoaded = false
                     extractButton.isEnabled = false
                     inspectButton.isEnabled = false
+                    previewButton.isEnabled = false
                     status.text = "学校 HTTPS 证书验证失败，已禁止在此页面读取课程。"
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -143,6 +151,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
+        root.addView(previewButton)
         root.addView(status)
         root.addView(browser, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -150,6 +159,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
         back.setOnClickListener { if (browser.canGoBack()) browser.goBack() else finish() }
         extractButton.setOnClickListener { extractVisibleTimetable() }
         inspectButton.setOnClickListener { inspectVisibleElectiveSource() }
+        previewButton.setOnClickListener { previewVisibleElectiveCatalog() }
         browser.loadUrl("https://jwmis.ncwu.edu.cn/")
     }
 
@@ -164,6 +174,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
         extracting = true
         extractButton.isEnabled = false
         inspectButton.isEnabled = false
+        previewButton.isEnabled = false
         status.text = "正在本机读取当前页面的课表网格…"
         try {
             val script = assets.open("ncwu_qingguo_local.js").bufferedReader().use { it.readText() }
@@ -175,6 +186,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                 }
                 extractButton.isEnabled = pageLoaded && !pageFailed
                 inspectButton.isEnabled = pageLoaded && !pageFailed
+                previewButton.isEnabled = pageLoaded && !pageFailed
                 try {
                     val jsonText = JSONTokener(encoded).nextValue() as? String
                         ?: throw IllegalArgumentException("页面没有返回课表")
@@ -228,6 +240,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
             extracting = false
             extractButton.isEnabled = pageLoaded && !pageFailed
             inspectButton.isEnabled = pageLoaded && !pageFailed
+            previewButton.isEnabled = pageLoaded && !pageFailed
             status.text = "课表提取组件加载失败，旧课表保持不变。"
         }
     }
@@ -248,6 +261,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
         extracting = true
         extractButton.isEnabled = false
         inspectButton.isEnabled = false
+        previewButton.isEnabled = false
         status.text = "正在本机识别表格列名与数量，不读取具体课程。"
         try {
             val script = assets.open("ncwu_elective_source_probe.js")
@@ -262,6 +276,7 @@ class LocalQingguoImportActivity : ComponentActivity() {
                 }
                 extractButton.isEnabled = pageLoaded && !pageFailed
                 inspectButton.isEnabled = pageLoaded && !pageFailed
+                previewButton.isEnabled = pageLoaded && !pageFailed
                 try {
                     val jsonText = JSONTokener(encoded).nextValue() as? String
                         ?: throw IllegalArgumentException("未识别到页面表格结构")
@@ -314,7 +329,95 @@ class LocalQingguoImportActivity : ComponentActivity() {
             extracting = false
             extractButton.isEnabled = pageLoaded && !pageFailed
             inspectButton.isEnabled = pageLoaded && !pageFailed
+            previewButton.isEnabled = pageLoaded && !pageFailed
             status.text = "只读选课结构检查组件未安装，原有课表保持不变。"
+        }
+    }
+
+
+    /**
+     * Preview already-rendered course rows only after a manual tap on the
+     * official WebView. This is NOT a catalog synchronization or enrollment.
+     */
+    private fun previewVisibleElectiveCatalog() {
+        if (extracting) return
+        val currentUrl = browser.url
+        if (!pageLoaded || pageFailed || !isOfficialPage(currentUrl)) {
+            status.text = "请先在华水官方教务页面打开选课列表。"
+            return
+        }
+        val epoch = pageEpoch
+        extracting = true
+        extractButton.isEnabled = false
+        inspectButton.isEnabled = false
+        previewButton.isEnabled = false
+        status.text = "正在本机预览已打开的课程表，不发起新请求…"
+        try {
+            val script = assets.open("ncwu_elective_source_probe.js")
+                .bufferedReader().use { it.readText() }
+            browser.evaluateJavascript(
+                script + "\nJSON.stringify(window.__xiaoxuPreviewElectiveCatalog())"
+            ) { encoded ->
+                extracting = false
+                if (epoch != pageEpoch || browser.url != currentUrl || isFinishing) {
+                    status.text = "预览期间网页已变化，结果已丢弃。"
+                    return@evaluateJavascript
+                }
+                extractButton.isEnabled = pageLoaded && !pageFailed
+                inspectButton.isEnabled = pageLoaded && !pageFailed
+                previewButton.isEnabled = pageLoaded && !pageFailed
+                try {
+                    val text = JSONTokener(encoded).nextValue() as? String
+                        ?: throw IllegalArgumentException("页面没有返回可识别的课程")
+                    val result = JSONObject(text)
+                    require(result.optString("schema") ==
+                        "xiaoxu/ncwu-elective-local-preview-v1" &&
+                        result.optString("sourceState") == "unverified" &&
+                        result.optBoolean("readOnly") &&
+                        !result.optBoolean("submissionAllowed")) {
+                        "课程预览数据格式不符合预期"
+                    }
+                    val classes = result.optJSONArray("classes")
+                        ?: throw IllegalArgumentException("没有找到规范的课程列表")
+                    require(classes.length() <= 100) { "课程预览超出安全数量限制" }
+                    val items = (0 until minOf(classes.length(), 15)).map { index ->
+                        val row = classes.getJSONObject(index)
+                        val code = row.getString("courseCode")
+                        val section = row.getString("classCode")
+                        val name = row.getString("courseName")
+                        require(code.matches(Regex("[A-Za-z0-9._:-]{1,96}")) &&
+                            section.matches(Regex("[A-Za-z0-9._:-]{1,96}")) &&
+                            name.isNotBlank() && name.length <= 120 &&
+                            name.none { it.isISOControl() || it == '<' || it == '>' }) {
+                            "发现无法核实的课程字段"
+                        }
+                        val teacher = row.optString("teacher")
+                        "${index + 1}. $name（$code / $section）" +
+                            if (teacher.isNotBlank()) " · ${teacher.take(60)}" else ""
+                    }
+                    val truncated = result.optBoolean("truncated") ||
+                        classes.length() > items.size
+                    val summary = if (classes.length() == 0)
+                        "当前页面未找到同时具有课程名称、课程代码、教学班代码列的表格。请先在官网进入正式课程目录。"
+                    else "本页识别 ${classes.length()} 个课程候选：\n" +
+                        items.joinToString("\n") +
+                        if (truncated) "\n…其他课程未展示或已达到预览上限。" else ""
+                    AlertDialog.Builder(this)
+                        .setTitle("本机课程预览 · 待核对")
+                        .setMessage(summary + "\n\n只读取当前已打开页面的白名单课程字段；不上传、不保存、不提交。列名匹配不代表完整课程目录、实时名额或本人有选课资格。")
+                        .setPositiveButton("知道了", null)
+                        .show()
+                    status.text = "已完成本机课程候选预览；未修改任何志愿或课表。"
+                } catch (_: Exception) {
+                    status.text = "课程表结构不匹配，未保存任何数据；请先检查本页列名。"
+                }
+            }
+        } catch (_: Exception) {
+            extracting = false
+            extractButton.isEnabled = pageLoaded && !pageFailed
+            inspectButton.isEnabled = pageLoaded && !pageFailed
+            previewButton.isEnabled = pageLoaded && !pageFailed
+            status.text = "本机课程预览组件加载失败。"
         }
     }
 
