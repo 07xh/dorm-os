@@ -1,0 +1,5 @@
+User explicitly authorized checking all unshipped changes, publishing validated changes, and cleaning obsolete code.
+Final canonical 0.8.15 (36) build after reviewed #435/#441 and the production notice archive update.
+Use the existing release certificate; do not create a new key or publish QA/debug as formal release.
+Require exact-source main CI, release APK content/signature verification and existing promotion workflow.
+Do not include unaccepted #429/#438/#440 or run D1 0019 implicitly.
