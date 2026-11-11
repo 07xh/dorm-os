@@ -58,6 +58,7 @@ test('school first login opts device into owner-verified restore and reloads rea
  await expect.poll(()=>Boolean(weatherRoute)).toBe(true);
  await weatherRoute.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
   current:{temperature_2m:20,apparent_temperature:20,weather_code:0},daily:{}})});
+ await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dorm-os-weather-jianghuai')||'null')?.temp)).toBe(20);
  // An unrelated weather response must not replace an in-progress school form.
  await expect(row.locator('input[name="username"]')).toHaveValue('SYNTHETIC_XUEXITONG_ACCOUNT');
  await expect(row.locator('input[name="password"]')).toHaveValue('SYNTHETIC_SECRET');
