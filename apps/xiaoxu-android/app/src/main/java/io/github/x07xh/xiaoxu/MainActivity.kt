@@ -61,7 +61,7 @@ import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import io.github.x07xh.xiaoxu.ui.rememberLocalRows
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -516,7 +516,7 @@ private fun NativeShell(
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
-    val localTasks by dao.observe().collectAsState(initial = emptyList())
+    val localTasks by rememberLocalRows(dao) { dao.observe() }
     val reminderContext = LocalContext.current
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.

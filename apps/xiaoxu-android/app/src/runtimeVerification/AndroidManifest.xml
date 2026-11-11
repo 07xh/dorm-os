@@ -3,4 +3,10 @@
     <!-- Runtime fixtures are offline. This overlay applies only with the
          xiaoxuRuntimeTest Gradle property and a separate applicationIdSuffix. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <!-- Neutral offline host for lifecycle-aware Compose observer tests only. -->
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false" />
+    </application>
 </manifest>
