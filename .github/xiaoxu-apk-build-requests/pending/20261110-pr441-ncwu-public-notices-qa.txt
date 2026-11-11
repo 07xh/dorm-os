@@ -1,0 +1,5 @@
+User authorized on 2026-11-11: validate and publish latest ready Xiaoxu changes.
+PR #441: public department notices through the existing collector and native inbox.
+Run exact-SHA JVM, repository CI and APK build before merge.
+After merge build canonical 0.8.15 (36), preserve existing release certificate.
+Does not include unverified Room/task-center, timetable or school-account feature branches.

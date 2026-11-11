@@ -11,7 +11,7 @@
   try{
    const u=new URL(value);
    if(u.protocol!=='https:'||!OFFICIAL.has(u.hostname)||u.port||u.username||u.password||u.search||u.hash)return '';
-   if(!/^\/(?:(?:xsc|jiaowu)\/)?info\/\d{3,6}\/\d{1,8}\.htm$/.test(u.pathname))return '';
+   if(!/^\/(?:(?:xsc|jiaowu|dianqi|gcxlzx|qysy)\/)?info\/\d{3,6}\/\d{1,8}\.htm$/.test(u.pathname))return '';
    return u.origin+u.pathname;
   }catch{return '';}
  }

@@ -32,6 +32,14 @@ assert.throws(()=>lib.fromArchive({...archive,mode:'seed'}),/验收/);
 assert.throws(()=>lib.fromArchive({...archive,lastSuccessAt:null}),/验收/);
 assert.throws(()=>lib.fromArchive({...archive,items:[archiveItems[0],{...archiveItems[1],url:'https://not-ncwu.example/info/1000/1.htm'}]}),/异常/);
 assert.throws(()=>lib.fromApi({...api,items:[article(2995),{...article(3003),url:'https://evil.example/jiaowu/info/1008/3003.htm'}]}),/非法/);
+assert.equal(lib.officialUrl('https://www2.ncwu.edu.cn/dianqi/info/1001/5001.htm'),
+ 'https://www2.ncwu.edu.cn/dianqi/info/1001/5001.htm','Approved department notices appear in existing inbox');
+assert.equal(lib.officialUrl('https://www2.ncwu.edu.cn/gcxlzx/info/1001/5002.htm'),
+ 'https://www2.ncwu.edu.cn/gcxlzx/info/1001/5002.htm');
+assert.equal(lib.officialUrl('https://www2.ncwu.edu.cn/qysy/info/1001/5003.htm'),
+ 'https://www2.ncwu.edu.cn/qysy/info/1001/5003.htm');
+assert.equal(lib.officialUrl('https://www2.ncwu.edu.cn/random/info/1001/5003.htm'),'',
+ 'Unapproved departmental article paths are rejected');
 assert.equal(lib.officialUrl('javascript:alert(1)'),'');
 assert.equal(lib.officialUrl('https://www.ncwu.edu.cn.evil.example/info/1063/23331.htm'),'');
 const items=lib.merge(lib.fromApi(api),lib.fromArchive(archive));
