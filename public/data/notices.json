@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+  "lastSuccessAt": "2026-11-11T09:29:36.115Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,28 +29,28 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "lastSuccessAt": "2026-11-11T09:29:36.115Z",
       "count": 29
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "lastSuccessAt": "2026-11-11T09:29:36.115Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "lastSuccessAt": "2026-11-11T09:29:36.115Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T04:06:40.676Z",
+      "lastSuccessAt": "2026-11-11T09:29:36.115Z",
       "count": 10
     }
   ],
@@ -491,6 +491,15 @@
       "id": "ncwu-c38537e39d2501ee",
       "title": "2027年新增学士学位授予专业授予资格审核公示 11-09",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3012.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-f8212f97dfd05c10",
+      "title": "关于组织申报第二批科教融汇协同育人项目的通知 11-11",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3013.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
