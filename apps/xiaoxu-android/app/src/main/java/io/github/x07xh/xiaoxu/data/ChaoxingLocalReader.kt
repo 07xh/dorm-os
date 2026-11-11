@@ -231,6 +231,31 @@ internal class ChaoxingLocalReader(
     // Transient first-party URLs are only used during this invocation. They
     // must never be written into Room, D1, logs, or the return value.
     private val courseWorkUrls=linkedMapOf<String,String>()
+    // Optional detail GETs only enrich a confirmed pending work's deadline.
+    // A failed enrichment cannot change official course-list status or completeness.
+    private var optionalDeadlineReads = 0
+    private var optionalDeadlineHostUnavailable = false
+    private val maxOptionalDeadlineReads = 120
+    private fun readOptionalPendingDeadline(url: String, work: String): ChaoxingDeadlineEvidence? {
+        if (optionalDeadlineHostUnavailable || optionalDeadlineReads >= maxOptionalDeadlineReads) return null
+        val safe = safeUrl(url) ?: return null
+        // No generic exam gateway, /work/submit, or action-looking endpoint.
+        if (URI(safe).path.lowercase() !in setOf("/mooc-ans/mooc2/work/task", "/work/task")) return null
+        if (workKey(safe) != work || !supported(safe)) return null
+        optionalDeadlineReads++
+        return try {
+            val detail = fetch(safe)
+            if (workKey(detail.url) == work) ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(detail.text)
+            else null
+        } catch (e: ChaoxingReadFailure) {
+            if (e.code in setOf("account_changed","login_required",
+                    "interactive_login_required","session_persistence")) throw e
+            if (e.code in setOf("network_failed","upstream_http_429",
+                    "upstream_http_502","upstream_http_503","upstream_http_504"))
+                optionalDeadlineHostUnavailable = true
+            null
+        }
+    }
     private fun bindNotice(link: ChaoxingDiscoveredLink, work: String?) {
         if (work == null || !work.matches(Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}"))) return
         val aliases = link.aliases.filter {it.course == work.split(':')[1]}
@@ -292,6 +317,7 @@ internal class ChaoxingLocalReader(
         items.clear();failures.clear();superseded.clear();noticeBindings.clear()
         examGatewayKeys.clear();examGatewayUrls.clear()
         detachedNoticeCandidates.clear();courseWorkKeys.clear();courseWorkUrls.clear()
+        optionalDeadlineReads = 0; optionalDeadlineHostUnavailable = false
         progress("核对本机学习通登录会话…")
         val owner=account(fetch(HOME))
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
@@ -727,9 +753,18 @@ internal class ChaoxingLocalReader(
                 // detail already proves graded/peer-reviewed/completed.
                 // A reopened or returned work in the current list still wins.
                 val status=reconcileWorkStatus(listedStatus,detailedStatus)
+                val listDue = ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml())
+                val verifiedTuple = key != null && expectedCourse != null && expectedClass != null &&
+                    key.split(':')[1] == expectedCourse && key.split(':')[2] == expectedClass
+                // Only pending, identity-bound rows with no date require optional enrichment.
+                // Do not re-enter completed/reviewed work or delete a verified list record.
+                val detailDue = if (verifiedTuple && statusClass(status) == -1 &&
+                    listDue == null && items[stable]?.deadline == null)
+                    readOptionalPendingDeadline(url, key!!)
+                else null
                 record(if(key==null) "study_task" else "homework",stable,
                     row.selectFirst("p.overHidden2")!!.text(),status,URI(url).host,
-                    ChaoxingDeadlineEvidenceReader.fromHomeworkHtml(row.outerHtml()))
+                    listDue ?: detailDue)
                 if(statusClass(status) == 0) recover("作业详情") {
                     readWorkLink(ChaoxingDiscoveredLink(row.selectFirst("p.overHidden2")!!.text(),url),forceDetail=true)
                 }
