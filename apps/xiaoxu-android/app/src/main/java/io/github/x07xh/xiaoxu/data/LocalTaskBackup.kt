@@ -20,6 +20,20 @@ private const val MAX_BYTES = 1_048_576
 private const val MAX_TASKS = 3_000
 private const val MAX_LINKS = 10_000
 
+/** A V3 backup ID may only bind to a truly identical stored personal task.
+ * A shared title/timestamp alone is not an identity: metadata may have changed.
+ */
+private data class BackupTaskMatch(
+    val title: String,
+    val createdAt: Long,
+    val completed: Boolean,
+    val source: String?,
+    val due: String?
+)
+
+private fun LocalTask.backupMatch() =
+    BackupTaskMatch(title, createdAt, completed, source, due)
+
 /**
  * Offline-only manual task backup via Android's user-selected document provider.
  *
@@ -174,7 +188,7 @@ class LocalTaskBackup(
         val added = database.withTransaction {
             val dao = database.tasks()
             val existing = dao.snapshot()
-            val available = existing.groupBy { it.title to it.createdAt }
+            val available = existing.groupBy { it.backupMatch() }
                 .mapValues { (_, rows) ->
                     java.util.ArrayDeque(rows.map { it.id })
                 }.toMutableMap()
@@ -188,7 +202,7 @@ class LocalTaskBackup(
                 if (schema == FORMAT_V3) {
                     // Pair matching with a queue also preserves two legitimately
                     // distinct same-title / same-millisecond tasks.
-                    val matchingId = available[key]?.pollFirst()
+                    val matchingId = available[task.backupMatch()]?.pollFirst()
                     val stored = matchingId ?: dao.insert(task).also { count++ }
                     idMap[backupIds[index]] = stored
                 } else if (seen.add(key)) {
