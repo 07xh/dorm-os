@@ -34,7 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import io.github.x07xh.xiaoxu.ui.rememberLocalRows
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +72,7 @@ fun SecondClassPage(
 ) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val all by dao.observe().collectAsState(initial = emptyList())
+    val all by rememberLocalRows(dao) { dao.observe() }
     val scores = all.filter { it.provider == "second_class" && it.kind == "credits" }
     val candidates = all.filter {
         it.provider == "second_class" && it.kind in setOf("activity", "activity_summary")
