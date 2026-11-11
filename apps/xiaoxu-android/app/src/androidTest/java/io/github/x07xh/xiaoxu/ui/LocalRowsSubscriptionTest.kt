@@ -2,6 +2,8 @@ package io.github.x07xh.xiaoxu.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.SideEffect
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,8 +50,13 @@ class LocalRowsSubscriptionTest {
         compose.setContent {
                 val rows by rememberLocalRows(query) { query.observe() }
                 val value = control.intValue
+                Column {
+                    Text("current UI: $value")
+                    Text("current rows: ${rows.joinToString()}")
+                }
                 SideEffect { rendered.set(value); shown.set(rows) }
         }
+        compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("saved") }
         repeat(20) { index ->
             compose.runOnUiThread { control.intValue = index + 1 }
@@ -66,8 +73,10 @@ class LocalRowsSubscriptionTest {
         val shown = AtomicReference<List<String>>(emptyList())
         compose.setContent {
                 val rows by rememberLocalRows(query) { query.observe() }
+                Text("current rows: ${rows.joinToString()}")
                 SideEffect { shown.set(rows) }
         }
+        compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 10_000L) { query.active.get() == 1 && shown.get().isNotEmpty() }
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         compose.waitUntil(timeoutMillis = 10_000L) { query.active.get() == 0 }
@@ -86,11 +95,13 @@ class LocalRowsSubscriptionTest {
         compose.setContent {
                 val current = owner.value
                 val rows by rememberLocalRows(current) { current.observe() }
+                Text("current rows: ${rows.joinToString()}")
                 SideEffect {
                     if (current === second && "saved" in rows) leaked.set(true)
                     shown.set(rows)
                 }
         }
+        compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 10_000L) { first.active.get() == 1 }
         compose.runOnUiThread { owner.value = second }
         compose.waitUntil(timeoutMillis = 10_000L) { shown.get() == listOf("second owner") && first.active.get() == 0 }
