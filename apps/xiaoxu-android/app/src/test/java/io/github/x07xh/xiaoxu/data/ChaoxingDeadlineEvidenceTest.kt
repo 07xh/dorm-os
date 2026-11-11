@@ -44,6 +44,16 @@ class ChaoxingDeadlineEvidenceTest {
             JSONObject(notice.toString()).put("title","普通作业通知")))
         assertNull(ChaoxingDeadlineEvidenceReader.fromExamNotice(
             JSONObject(notice.toString()).put("content","请于本周完成考试")))
+        assertNull(ChaoxingDeadlineEvidenceReader.fromExamNotice(
+            JSONObject(notice.toString()).put("content","报名截止时间：2026-11-15 23:59")))
+        assertNull(ChaoxingDeadlineEvidenceReader.fromExamNotice(
+            JSONObject(notice.toString()).put("content","活动结束时间：2026-11-15 23:59")))
+        assertNull(ChaoxingDeadlineEvidenceReader.fromExamNotice(
+            JSONObject(notice.toString()).put("content","截止时间：2026-11-15 23:59")))
+        assertNull(ChaoxingDeadlineEvidenceReader.fromExamNotice(
+            JSONObject(notice.toString()).put("content","考试时间：2026-11-14 10:00 至 2026-11-15 23:59")))
+        assertEquals("2026-11-15 23:59", ChaoxingDeadlineEvidenceReader.fromExamNotice(
+            JSONObject(notice.toString()).put("content","考试作答截止时间：2026-11-15 23:59"))?.displayed)
     }
 
     private fun fingerprint(kind: String, key: String): String =
