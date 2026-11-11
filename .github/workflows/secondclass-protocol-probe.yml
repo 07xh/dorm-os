@@ -1,0 +1,22 @@
+name: Second-class device protocol probe
+on:
+  pull_request:
+    paths:
+      - 'integrations/secondclass-probe/**'
+      - '.github/workflows/secondclass-protocol-probe.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate self-contained local probe
+        run: node integrations/secondclass-probe/build-bookmarklet.mjs
+      - name: Validate identity, score fields and safe failures (synthetic only)
+        run: node --test integrations/secondclass-probe/probe.test.mjs
+      - name: Verify committed bookmarklet matches source
+        run: git diff --exit-code -- integrations/secondclass-probe/probe-bookmarklet.txt
