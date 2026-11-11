@@ -87,4 +87,105 @@
     };
   }
   window.__xiaoxuInspectElectiveSource = () => inspect(document);
+
+  /**
+   * Explicit, local-only preview of existing table rows. No network action,
+   * no school write, no account data, and no automatic persistence.
+   * A row is accepted only when all three official-like headers are unique.
+   */
+  function preview(root) {
+    const classes = [];
+    const documents = new Set();
+    let scannedTables = 0;
+    let blockedFrames = 0;
+    let truncated = false;
+    const safeText = (value, max) => {
+      const valueText = String(value == null ? "" : value).trim();
+      return valueText.length <= max && !/[\u0000-\u001f\u007f<>]/.test(valueText)
+        ? valueText : "";
+    };
+    const count = value => {
+      const data = safeText(value, 8);
+      return /^\d{1,5}$/.test(data) ? Number(data) : null;
+    };
+    function traverse(doc, depth) {
+      if (!doc || documents.has(doc) || depth > 2 || documents.size >= 12) return;
+      documents.add(doc);
+      let tables = [];
+      try { tables = Array.from(doc.querySelectorAll("table")).slice(0, 60); }
+      catch (_) { return; }
+      for (const table of tables) {
+        if (scannedTables >= 80) { truncated = true; return; }
+        scannedTables++;
+        let rows = [];
+        try { rows = Array.from(table.querySelectorAll("tr")).slice(0, 501); }
+        catch (_) { continue; }
+        let columns = null;
+        let heading = -1;
+        for (let i = 0; i < Math.min(3, rows.length); i++) {
+          let cells = [];
+          try { cells = Array.from(rows[i].querySelectorAll("th,td")); }
+          catch (_) { continue; }
+          if (cells.length > 32) continue;
+          const labels = cells.map(cell => classify(cell.textContent));
+          if (["courseName", "courseCode", "classCode"].every(name =>
+            labels.filter(label => label === name).length === 1)) {
+            columns = labels;
+            heading = i;
+            break;
+          }
+        }
+        if (!columns) continue;
+        for (const row of rows.slice(heading + 1)) {
+          if (classes.length >= 100) { truncated = true; return; }
+          let cells = [];
+          try { cells = Array.from(row.querySelectorAll("th,td")); }
+          catch (_) { continue; }
+          // Do not guess cell positions in rowspan/colspan or nested layouts.
+          if (cells.length !== columns.length) continue;
+          const field = name => {
+            const index = columns.indexOf(name);
+            return index < 0 ? "" : cells[index].textContent;
+          };
+          const courseCode = safeText(field("courseCode"), 96);
+          const classCode = safeText(field("classCode"), 96);
+          const courseName = safeText(field("courseName"), 120);
+          if (!/^[A-Za-z0-9._:-]{1,96}$/.test(courseCode) ||
+              !/^[A-Za-z0-9._:-]{1,96}$/.test(classCode) ||
+              !courseName) continue;
+          const capacity = count(field("capacity"));
+          let remaining = count(field("remaining"));
+          if (capacity !== null && remaining !== null && remaining > capacity)
+            remaining = null;
+          const record = {
+            courseCode, classCode, courseName,
+            teacher: safeText(field("teacher"), 90),
+            campus: safeText(field("campus"), 90),
+            capacity, remaining
+          };
+          if (!classes.some(x => x.courseCode === courseCode &&
+                                 x.classCode === classCode)) classes.push(record);
+        }
+        if (rows.length >= 501) truncated = true;
+      }
+      if (depth >= 2) return;
+      let frames = [];
+      try { frames = Array.from(doc.querySelectorAll("iframe,frame")).slice(0, 12); }
+      catch (_) { return; }
+      for (const frame of frames) {
+        try {
+          if (frame.contentDocument) traverse(frame.contentDocument, depth + 1);
+          else blockedFrames++;
+        } catch (_) { blockedFrames++; }
+      }
+    }
+    traverse(root, 0);
+    return {
+      schema: "xiaoxu/ncwu-elective-local-preview-v1",
+      classes, scannedTables, blockedFrames, truncated,
+      sourceState: "unverified", readOnly: true,
+      submissionAllowed: false, officialAvailabilityVerified: false
+    };
+  }
+  window.__xiaoxuPreviewElectiveCatalog = () => preview(document);
 })();
