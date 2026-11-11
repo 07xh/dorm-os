@@ -49,6 +49,13 @@ jobs:
           gradle-version: '8.13'
       - name: Compile APK and run existing Android JVM unit tests
         run: gradle -p apps/xiaoxu-android :app:assembleDebug :app:testDebugUnitTest :app:assembleRelease --no-daemon
+      - name: Verify Room v1-v4 migration and dependency constraints on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest --no-daemon
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
