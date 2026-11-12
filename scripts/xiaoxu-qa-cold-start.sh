@@ -25,4 +25,5 @@ for pass in 1 2; do
     exit 1
   fi
 done
-echo "PASS: isolated QA app survived two cold launches on API 35 emulator"
+SDK=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
+echo "PASS: isolated QA app survived two cold launches on emulator API ${SDK}"
