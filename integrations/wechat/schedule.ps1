@@ -20,8 +20,8 @@ if ($Command -eq "status") {
     Write-Output "未启用自动同步；现有手动同步功能不受影响。"
   } else {
     $actionText=($existing.Actions | Select-Object -First 1).Arguments
-    $scope=if ($actionText -like "*scheduled-run.ps1*") { "北京时间 07:00–23:00" } else { "旧版全天时段或外部任务（需要核对）" }
-    Write-Output ("定时任务状态：" + $existing.State + "。每 15 分钟触发；采集时段：" + $scope + "。仅本人登录且电脑运行时生效。")
+    $scope=if ($actionText -like "*scheduled-run.ps1*") { "北京时间 07:00–23:00 采集 + 23:10 日报" } else { "旧版全天时段或外部任务（需要核对）" }
+    Write-Output ("定时任务状态：" + $existing.State + "。触发器数：" + @($existing.Triggers).Count + "；时段：" + $scope + "。仅本人登录且电脑运行时生效。")
     $info=Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
     if ($null -ne $info) {
       Write-Output ("最近计划任务结果：" + $info.LastTaskResult + "；上次运行：" + $info.LastRunTime + "；下次触发：" + $info.NextRunTime)
@@ -59,10 +59,14 @@ $exe=Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $argsLine='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $windowRunner + '" run'
 $legacyArgsLine='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $runner + '" sync'
 $action=New-ScheduledTaskAction -Execute $exe -Argument $argsLine -WorkingDirectory $PSScriptRoot
-$trigger=New-ScheduledTaskTrigger -Daily -At "00:00"
-$repeat=New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="P1D";StopAtDurationEnd=$false}
+# 一个任务、两个时间互斥的触发器：07:00 起每 15 分钟采集到 23:00，
+# 23:10 单次生成本地日报。深夜不再启动采集空转进程，也不存在第二个任务。
+$trigger=New-ScheduledTaskTrigger -Daily -At "07:00"
+$repeat=New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{Interval="PT15M";Duration="PT16H1M";StopAtDurationEnd=$false}
 $trigger.Repetition=$repeat
-$settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+$digestTrigger=New-ScheduledTaskTrigger -Daily -At "23:10"
+$triggers=@($trigger,$digestTrigger)
+$settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $currentUser=[Security.Principal.WindowsIdentity]::GetCurrent().Name
 $principal=New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
 if ($null -ne $existing) {
@@ -76,13 +80,13 @@ if ($null -ne $existing) {
 $registerArgs=@{
   TaskName=$taskName
   Action=$action
-  Trigger=$trigger
+  Trigger=$triggers
   Settings=$settings
   Principal=$principal
-  Description="北京时间07:00–23:00每15分钟尝试校序微信同步（仅在电脑登录时）"
+  Description="单任务：北京时间 07:00–23:00 每 15 分钟采集 + 23:10 本地日报（仅在电脑登录时）"
   Force=$true
 }
 Register-ScheduledTask @registerArgs | Out-Null
-Write-Output "已安装北京时间 07:00–23:00 每 15 分钟同步守卫。计划任务按本机时间每15分钟触发，窗口外不读取微信。"
+Write-Output "已安装单任务：07:00–23:00 每 15 分钟采集 + 23:10 本地日报；深夜无采集空转，无第二个任务。"
 Write-Output "只在当前 Windows 用户登录且电脑运行时读取；电脑关机/休眠期间不采集，醒来会按游标尝试补读。"
 Write-Output "停止命令：.\integrations\wechat\schedule.ps1 remove"

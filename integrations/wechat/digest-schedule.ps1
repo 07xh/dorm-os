@@ -1,5 +1,6 @@
-﻿# Explicit opt-in for the local, privacy-minimal Beijing 23:10 digest.
-# Independent from existing WeChat collection schedule. No AI or cloud service.
+﻿# Legacy digest-task helper. The 23:10 digest now runs as a second trigger of
+# the single "Xiaoxu WeChat Personal Tasks" task (see schedule.ps1). This script
+# never registers a second task again; install only removes a leftover.
 # .\integrations\wechat\digest-schedule.ps1 status|install|remove
 [CmdletBinding()]
 param(
@@ -13,20 +14,20 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
 }
 Import-Module ScheduledTasks -ErrorAction Stop
 $taskName="Xiaoxu WeChat Candidate Digest"
+$mainTaskName="Xiaoxu WeChat Personal Tasks"
 $task=Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($Command -eq "status") {
-  if ($null -eq $task) {
-    Write-Output "Local daily digest is not scheduled."
+  $main=Get-ScheduledTask -TaskName $mainTaskName -ErrorAction SilentlyContinue
+  if ($null -eq $main) {
+    Write-Output "Main WeChat task is not installed; no digest trigger."
   } else {
-    Write-Output ("Digest schedule state: " + $task.State)
-    $tr=$task.Triggers | Select-Object -First 1
-    if ($null -ne $tr) {
-      Write-Output ("Trigger: " + $tr.StartBoundary + " | every " + $tr.Repetition.Interval + " for " + $tr.Repetition.Duration)
-    }
-    $info=Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($null -ne $info) {
-      Write-Output ("Last task result: " + $info.LastTaskResult + "; last run: " + $info.LastRunTime)
-    }
+    $starts=@($main.Triggers | ForEach-Object { $_.StartBoundary })
+    Write-Output ("Main task state: " + $main.State + " | triggers: " + @($main.Triggers).Count + " | starts: " + ($starts -join ', '))
+  }
+  if ($null -ne $task) {
+    Write-Output ("WARNING: legacy separate digest task still present (State=" + $task.State + "); run install to remove it.")
+  } else {
+    Write-Output "No separate digest task: single-task mode is active."
   }
   exit 0
 }
@@ -34,44 +35,28 @@ if ($Command -eq "remove") {
   if ($null -ne $task) {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
   }
-  Write-Output "Digest task disabled. Existing reports and WeChat sync are untouched."
+  Write-Output "Legacy digest task removed. The 23:10 digest belongs to the main task; use schedule.ps1 remove to disable both. Existing reports are untouched."
   exit 0
 }
-$runner=Join-Path $PSScriptRoot "scheduled-digest.ps1"
-$python=Join-Path $env:USERPROFILE ".wechat-cli\py312-venv\Scripts\python.exe"
-if (-not (Test-Path -LiteralPath $runner -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $python -PathType Leaf)) {
-  throw "Install the verified Python 3.12 environment and scheduled-digest.ps1 first."
-}
-if ($runner.Contains('"')) { throw "Path contains unsupported quote." }
-$exe=Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-$argsLine='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $runner + '" run'
-$action=New-ScheduledTaskAction -Execute $exe -Argument $argsLine -WorkingDirectory $PSScriptRoot
-# Only start a second process inside the 23:10-23:59 Beijing window. The old
-# all-day PT5M trigger launched a second PowerShell instance every five minutes
-# (and on every 15-minute tick alongside the collector), even though the runner
-# exited immediately. StartWhenAvailable still re-runs missed slots in this
-# window, and scheduled-digest.ps1 keeps its UTC+8 guard as a second check.
-$trigger=New-ScheduledTaskTrigger -Daily -At "23:10"
-$repeat=New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{
-  Interval="PT5M";Duration="PT50M";StopAtDurationEnd=$false
-}
-$trigger.Repetition=$repeat
-$settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-$user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
-$principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+# Two tasks sharing the same 15-minute ticks were the source of the duplicate
+# instances. The digest is now a 23:10 trigger on the main task, so install is
+# idempotent: it only removes a legacy task left by older versions.
 if ($null -ne $task) {
-  $oldAction=$task.Actions | Select-Object -First 1
-  if ($oldAction.Execute -ne $exe -or $oldAction.Arguments -ne $argsLine) {
-    throw "Same-named unrelated scheduled task detected; refusing overwrite."
-  }
+  Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
+  Write-Output "Removed legacy separate digest task."
+} else {
+  Write-Output "No legacy digest task to remove."
 }
-$registerArgs=@{
-  TaskName=$taskName;Action=$action;Trigger=$trigger;Settings=$settings
-  Principal=$principal
-  Description="Local-only candidate sync report at Beijing 23:10; no WeChat or Agent access"
-  Force=$true
+$main=Get-ScheduledTask -TaskName $mainTaskName -ErrorAction SilentlyContinue
+if ($null -eq $main) {
+  throw "Main WeChat task is missing. Run schedule.ps1 install first."
 }
-Register-ScheduledTask @registerArgs | Out-Null
-Write-Output "Enabled local candidate-sync digest: Beijing 23:10 (while signed in and PC is running)."
+$hasDigestSlot=$false
+foreach ($tr in $main.Triggers) {
+  if ($tr.StartBoundary -match 'T23:10:00') { $hasDigestSlot=$true }
+}
+if (-not $hasDigestSlot) {
+  throw "Main task has no 23:10 trigger. Run schedule.ps1 install to upgrade it."
+}
+Write-Output "Single-task mode active: 07:00-23:00 sync + 23:10 digest, no second task."
 Write-Output "This report contains upload evidence only, NOT reviewed or completed task statuses."
