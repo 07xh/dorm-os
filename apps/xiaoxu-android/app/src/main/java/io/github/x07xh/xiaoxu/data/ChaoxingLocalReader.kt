@@ -148,6 +148,18 @@ internal class ChaoxingLocalReader(
             if(!numeric.matches(numericUid) || numericUid.all {it == '0'}) throw ChaoxingReadFailure("login_required")
             return hash("chaoxing-owner:"+numericUid)
         }
+        /**
+         * The signed-in account page may expose its own school fid. The MIT
+         * xuexitong-cli reader documents a second, read-only course catalog GET
+         * using that fid. Never guess or hardcode another school's fid.
+         */
+        private fun accountCourseFid(page: ChaoxingReadPage): String? {
+            val scripts = Jsoup.parse(page.text, page.url).select("script")
+                .joinToString("\n") { it.data() }
+            val candidates = Regex("""(?:\b(?:var|let|const)\s+fid\s*=|["']fid["']\s*:)\s*["']?([0-9]{1,24})["']?""")
+                .findAll(scripts).map { it.groupValues[1] }.toSet()
+            return candidates.singleOrNull()?.takeIf { numeric.matches(it) && it.any { d -> d != '0' } }
+        }
         /** The official page may include both camelCase and lower-case
          * spellings of the SAME ID. Accept equivalent values but reject
          * conflicting aliases instead of demoting an actual homework item
@@ -319,7 +331,9 @@ internal class ChaoxingLocalReader(
         detachedNoticeCandidates.clear();courseWorkKeys.clear();courseWorkUrls.clear()
         optionalDeadlineReads = 0; optionalDeadlineHostUnavailable = false
         progress("核对本机学习通登录会话…")
-        val owner=account(fetch(HOME))
+        val accountPage=fetch(HOME)
+        val owner=account(accountPage)
+        val courseFid=accountCourseFid(accountPage)
         val links=linkedMapOf<String,ChaoxingDiscoveredLink>()
         var noticePages=0
         var noticesComplete=false
@@ -392,8 +406,24 @@ internal class ChaoxingLocalReader(
             progress("补查本人课程作业…")
             val form=mapOf("courseType" to "1","courseFolderId" to "0","query" to "","pageHeader" to "0",
                 "single" to "","superstarClass" to "","isFirefly" to "0","courseLevelLabelId" to "0","fid" to "","from" to "")
-            val page=fetch(COURSES,"POST",form)
-            val doc=Jsoup.parse(page.text,page.url)
+            var page=fetch(COURSES,"POST",form)
+            var doc=Jsoup.parse(page.text,page.url)
+            if (doc.select(".course-name").isEmpty() && courseFid != null) {
+                // Some first-party course views respond to the POST layout with
+                // no cards. Try the separately documented GET form with the
+                // current account's fid, never a copied example's fid.
+                val alternative=query(COURSES,mapOf(
+                    "courseType" to "1", "courseFid" to courseFid,
+                    "courseTeacherid" to "0", "courseOrderBy" to "0"))
+                val response=fetch(alternative)
+                val fallback=Jsoup.parse(response.text,response.url)
+                if (fallback.select(".course-name").isNotEmpty()) {
+                    page=response
+                    doc=fallback
+                } else if (!fallback.text().contains("暂无课程")) {
+                    throw ChaoxingReadFailure("course_response")
+                }
+            }
             val courses=linkedMapOf<String,ChaoxingDiscoveredLink>()
             for(name in doc.select(".course-name")) {
                 val a=name.closest("a[href]") ?: name.parent()?.selectFirst("a[href]") ?: continue
