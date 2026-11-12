@@ -27,6 +27,12 @@ private const val BASE = "https://dorm-os-dk9.pages.dev"
 private const val COOKIE_NAME = "__Host-xiaoxu_session"
 private const val KEY_ALIAS = "xiaoxu_owner_cookie_aes_v1"
 
+/** AI output is an unsaved suggestion, never an official assignment or completion. */
+data class TaskBreakdownAiSuggestion(
+    val steps: List<String> = emptyList(),
+    val error: String? = null
+)
+
 data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?,
@@ -847,6 +853,56 @@ class CloudClient(context: Context) {
             if (epoch == sessionEpoch)
                 state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")
             false
+        }
+    }
+
+    /**
+     * Explicit button only. Send just the selected personal task title and
+     * user-entered notes to the first-party, owner-authenticated Pages endpoint.
+     * No school credentials, task database, cloud task list or cookies in body.
+     */
+    suspend fun suggestLocalTaskBreakdown(
+        title: String, notes: String
+    ): TaskBreakdownAiSuggestion {
+        if (title.isBlank() || title.trim().length > 120 || notes.length > 600)
+            return TaskBreakdownAiSuggestion(error = "任务描述过长，请精简后再试")
+        if (!state.authenticated)
+            return TaskBreakdownAiSuggestion(error = "AI 建议需要先连接校序云端；手动拆解仍可离线使用")
+        val epoch = sessionEpoch
+        return try {
+            val body = JSONObject().put("title", title.trim()).put("notes", notes.trim())
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/task-breakdown-ai", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch || !state.authenticated)
+                return TaskBreakdownAiSuggestion(error = "账号已切换，请重新打开任务")
+            when (response.code) {
+                200 -> {
+                    if (response.json.optBoolean("saved", true))
+                        return TaskBreakdownAiSuggestion(error = "AI 响应无效，未写入任何任务")
+                    val array = response.json.optJSONArray("steps")
+                        ?: return TaskBreakdownAiSuggestion(error = "AI 返回内容无法解析")
+                    if (array.length() !in 2..12)
+                        return TaskBreakdownAiSuggestion(error = "AI 返回步骤数量不符合要求")
+                    val values = (0 until array.length()).map { index ->
+                        array.optString(index, "").trim()
+                    }
+                    // Reuse the exact same validator as the local Room write gate.
+                    if (parseLocalTaskBreakdown(values.joinToString("\n")) != values)
+                        TaskBreakdownAiSuggestion(error = "AI 建议内容不符合要求，请重试")
+                    else TaskBreakdownAiSuggestion(steps = values)
+                }
+                401 -> TaskBreakdownAiSuggestion(error = "校序云端登录已失效，请重新连接")
+                403 -> TaskBreakdownAiSuggestion(error = "当前账号无权使用该功能")
+                503 -> TaskBreakdownAiSuggestion(
+                    error = if (response.json.optString("error") == "ai_not_configured")
+                        "AI 服务尚未配置；手动分解功能仍可使用"
+                    else "AI 服务暂时不可用，请稍后再试"
+                )
+                else -> TaskBreakdownAiSuggestion(error = "AI 请求未成功（${response.code}）")
+            }
+        } catch (_: Exception) {
+            TaskBreakdownAiSuggestion(error = "网络连接失败，未生成或保存任何任务")
         }
     }
 
