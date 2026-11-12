@@ -12,8 +12,26 @@ spec = importlib.util.spec_from_file_location("xiaoxu_bridge_test_target", path)
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 
+# collector.sync imports record_success lazily, so a module-level patch keeps
+# synthetic sync tests from appending to the real ~\.wechat-cli audit journal.
+import sync_digest as digest_module
+
+_REAL_RECORD_SUCCESS = digest_module.record_success
+
 
 class CollectorTests(TestCase):
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        target = Path(self._tmp.name) / "audit.json"
+        audit_patch = patch.object(
+            digest_module, "record_success",
+            side_effect=lambda records, mode, **kw: _REAL_RECORD_SUCCESS(
+                records, mode, path=target),
+        )
+        audit_patch.start()
+        self.addCleanup(audit_patch.stop)
+
     def test_classify_and_date(self):
         ts = int(datetime(2026, 11, 4, 4, tzinfo=timezone.utc).timestamp())
         task = bridge.classify("本周提交电工实验报告，11月6日截止", ts)

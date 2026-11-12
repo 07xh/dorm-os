@@ -435,6 +435,24 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise BridgeError("校序服务器返回跳转；为防止泄漏设备凭据，已停止同步")
 
 
+def http_timeout() -> float:
+    """Per-request timeout. 20s was too tight for the desktop proxy link:
+    a healthy Cloudflare round trip can take several seconds and a slow
+    tunnel then looks like a failed sync. Configurable, but fail closed on
+    malformed values instead of silently using an unsafe timeout.
+    """
+    raw = os.environ.get("XIAOXU_HTTP_TIMEOUT_SEC")
+    if raw is None or raw == "":
+        return 45.0
+    try:
+        value = float(raw)
+    except ValueError:
+        raise BridgeError("XIAOXU_HTTP_TIMEOUT_SEC 必须是 5–120 之间的数字") from None
+    if not 5.0 <= value <= 120.0:
+        raise BridgeError("XIAOXU_HTTP_TIMEOUT_SEC 必须是 5–120 之间的数字")
+    return value
+
+
 def submit(site: str, token: str, payload: dict) -> dict:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(body) > 60000:
@@ -447,7 +465,7 @@ def submit(site: str, token: str, payload: dict) -> dict:
                  "User-Agent": "Xiaoxu-Desktop-Connector/1.0"},
     )
     try:
-        with opener.open(req, timeout=20) as response:
+        with opener.open(req, timeout=http_timeout()) as response:
             if response.status != 202:
                 raise BridgeError("云端尚未接受本批数据")
             result = json.load(response)

@@ -15,6 +15,7 @@ import re
 CHINA = timezone(timedelta(hours=8))
 AUDIT_PATH = Path.home() / ".wechat-cli" / "xiaoxu-sync-audit.json"
 REPORT_DIR = Path.home() / ".wechat-cli" / "daily-reports"
+RUN_LOG_PATH = Path.home() / ".wechat-cli" / "xiaoxu-run-log.jsonl"
 SCHEMA = "xiaoxu/wechat-local-audit-v1"
 CANDIDATE = re.compile(r"^[A-Za-z0-9_-]{40,128}$")
 DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -132,7 +133,88 @@ def record_success(records: list[dict], mode: str, *, at: datetime | None = None
     _save(path, audit)
 
 
-def render_report(audit: dict, for_day: str, *, now: datetime | None = None) -> str:
+def read_failures(for_day: str, path: Path = RUN_LOG_PATH) -> list[dict] | None:
+    """Local-only run log entries for one Beijing day. None means unreadable,
+    which must be reported as unknown rather than as zero failures.
+    """
+    try:
+        raw = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    except (OSError, UnicodeError):
+        return None
+    out = []
+    for line in raw:
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(item, dict) and isinstance(item.get("at"), str) \
+                and item["at"].startswith(for_day) and isinstance(item.get("error"), str):
+            out.append(item)
+    return out
+
+
+def _sections(entry: dict | None, today: date, failures: list[dict] | None) -> list[str]:
+    """Six required daily-report sections. Cloud task status is not available
+    locally, so those sections state the absence of evidence instead of
+    inventing reviewed, completed, cancelled or rescheduled tasks.
+    """
+    lines = ["## 1. 今日新增候选"]
+    if entry:
+        data = entry["candidates"]
+        kinds = {kind: sum(x["kind"] == kind for x in data.values()) for kind in sorted(KINDS)}
+        lines += [
+            f"- 本机首次记录 **{len(data)}** 条候选（仅云端确认的上传证据，不代表已审核任务）。",
+            "- 类型统计：" + "；".join(f"{kind} {value}" for kind, value in kinds.items()) + "。",
+        ]
+    else:
+        lines.append("- 本机没有可用的同步证据；不能据此判断微信群是否有新任务。")
+    lines += [
+        "",
+        "## 2. 待审核任务",
+        "- 本机不读取校序云端审核状态，没有证据列出待审核清单；请在「任务 → 微信待审核」核对，本区不编造条目。",
+        "",
+        "## 3. 已确认完成的任务",
+        "- 本机没有完成状态证据，**不得判断任何任务已完成**；可确认完成 0 条。",
+        "",
+        "## 4. 已取消、改期任务",
+        "- 本机没有取消或改期状态证据；可确认 0 条，请勿用本地摘要推断。",
+        "",
+        "## 5. 最近三天截止任务",
+    ]
+    if entry:
+        per_date = {}
+        for item in entry["candidates"].values():
+            if item["due"] is not None and today <= _day(item["due"]) <= today + timedelta(days=3):
+                per_date[item["due"]] = per_date.get(item["due"], 0) + 1
+        lines.extend(f"- {day}：{number} 条待核对候选" for day, number in sorted(per_date.items()))
+        if not per_date:
+            lines.append("- 本机摘要中没有这段时间的截止候选；不代表没有未读通知。")
+    else:
+        lines.append("- 没有可用摘要；不能判断未来三天是否有截止任务。")
+    lines += ["", "## 6. 同步失败及漏读风险"]
+    if failures is None:
+        lines.append("- 本地运行日志不可读或未附带：无法统计失败次数，不能排除漏读。")
+    else:
+        by_collector = sum(1 for f in failures if f.get("source") != "scheduler")
+        by_scheduler = sum(1 for f in failures if f.get("source") == "scheduler")
+        last_at = max((f["at"] for f in failures), default=None)
+        lines.append(
+            f"- 当日本地失败记录 **{len(failures)}** 条（采集 {by_collector}，调度 {by_scheduler}）"
+            + (f"，最后一次 {last_at[11:19]}" if last_at else "") + "。"
+        )
+    lines += [
+        "- 失败不推进同步游标，已成功同步的消息不会被重复处理；但不能据此认定失败期间的微信消息都已采集。",
+        "- 连续失败时段存在漏读风险：这些消息要等下一次成功 sync 才进入候选，本机无法证明无漏读。",
+        "- 打开校序任务中心核对云端审核、完成、取消和改期状态；本日报不能替代任务中心。",
+        "",
+    ]
+    return lines
+
+
+def render_report(audit: dict, for_day: str, *, now: datetime | None = None,
+                  failures: list[dict] | None = None) -> str:
     today = _day(for_day)
     entry = audit["days"].get(for_day)
     lines = [
@@ -147,7 +229,7 @@ def render_report(audit: dict, for_day: str, *, now: datetime | None = None) -> 
             "## 当日同步证据",
             "本机没有可用的成功同步记录；不能据此判断微信群是否有新任务，也不能认定同步成功。",
             "",
-        ])
+        ] + _sections(None, today, failures))
     data = entry["candidates"]
     kinds = {kind: sum(x["kind"] == kind for x in data.values()) for kind in sorted(KINDS)}
     pending = [x for x in data.values() if x["due"] is not None and
@@ -176,14 +258,16 @@ def render_report(audit: dict, for_day: str, *, now: datetime | None = None) -> 
         "- 本报告无法读取云端审核、已完成、取消和改期状态；不要用这里的数量代替任务中心数量。",
         "",
     ])
-    return "\n".join(lines)
+    return "\n".join(lines + _sections(entry, today, failures))
 
 
 def write_report(*, at: datetime | None = None, path: Path = AUDIT_PATH,
-                 directory: Path = REPORT_DIR) -> Path:
+                 directory: Path = REPORT_DIR,
+                 run_log: Path = RUN_LOG_PATH) -> Path:
     now = at or datetime.now(timezone.utc)
     day = now.astimezone(CHINA).date().isoformat()
-    content = render_report(read_audit(path), day, now=now)
+    content = render_report(read_audit(path), day, now=now,
+                            failures=read_failures(day, run_log))
     target = directory / (day + ".md")
     directory.mkdir(parents=True, exist_ok=True)
     # Fail closed if one report already exists; Scheduler may re-trigger within
