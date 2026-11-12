@@ -7,6 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import java.security.MessageDigest
+import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -95,6 +97,48 @@ fun nativeChaoxingNoticeAliases(record: NativeSchoolRecord, peer: Boolean = fals
     val ids = value.split(',')
     return if (ids.size <= 100 && ids.all {it.matches(Regex("cxn:[a-f0-9]{40}"))})
         ids.toSet() else emptySet()
+}
+
+
+/** A dated official-page observation, separate from the user's personal due. */
+data class NativeChaoxingDeadline(val label: String, val date: LocalDate?)
+
+/** An exam notice is not an exam attempt or an official exam state. */
+fun nativeChaoxingExamNoticeSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "exam_notice" ||
+        record.sourceHost != "notice.chaoxing.com") return null
+    val identity = Regex("""(?:^| · )考试通知身份：(examnotice:[a-f0-9]{64})$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|exam_notice|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
+}
+
+/** Only an exact official work tuple or notice identity may carry a due.
+ * A month/day fragment is visible metadata, never a date for scheduling. */
+fun nativeChaoxingDeadline(record: NativeSchoolRecord): NativeChaoxingDeadline? {
+    val valid = when (record.kind) {
+        "homework" -> nativeChaoxingWorkSourceId(record) != null
+        "exam_notice" -> nativeChaoxingExamNoticeSourceId(record) != null
+        else -> false
+    }
+    if (!valid) return null
+    val full = Regex("""(?:^| · )官网截止时间：(20\d{2}-\d{2}-\d{2} \d{2}:\d{2})(?= · |$)""")
+        .find(record.details)?.groupValues?.get(1)
+    if (full != null) {
+        val date = runCatching { LocalDateTime.parse(full.replace(' ', 'T')).toLocalDate() }.getOrNull()
+        if (date != null) return NativeChaoxingDeadline(full, date)
+        return null
+    }
+    val partial = Regex("""(?:^| · )官网截止片段：(\d{2}-\d{2} \d{2}:\d{2})(?= · |$)""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val pattern = Regex("""(\d{2})-(\d{2}) (\d{2}):(\d{2})""").matchEntire(partial)
+        ?: return null
+    val (month, day, hour, minute) = pattern.destructured
+    if (runCatching { LocalDate.of(2024, month.toInt(), day.toInt()) }.isFailure ||
+        hour.toInt() !in 0..23 || minute.toInt() !in 0..59) return null
+    return NativeChaoxingDeadline(partial + "（年份未提供）", null)
 }
 
 @Dao
@@ -203,12 +247,12 @@ interface NativeSchoolRecordDao {
         require(accountHash.matches(Regex("^[a-f0-9]{64}$")))
         require(rows.isNotEmpty() || complete) { "failed_empty_scan" }
         require(rows.size <= 5000 && rows.all {
-            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task") &&
+            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task", "exam_notice") &&
                 it.sourceHost.endsWith(".chaoxing.com") && it.title.isNotBlank()
         })
         val old = snapshotKind("chaoxing", "account_binding").singleOrNull()?.details
         if (old != accountHash || complete) {
-            for (kind in listOf("course", "homework", "study_task")) deleteKind("chaoxing", kind)
+            for (kind in listOf("course", "homework", "study_task", "exam_notice")) deleteKind("chaoxing", kind)
         } else if (supersededKeys.isNotEmpty()) {
             require(supersededKeys.size <= 5000)
             val fingerprints = supersededKeys.map { key ->

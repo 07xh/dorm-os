@@ -84,7 +84,8 @@ class ChaoxingLocalReaderTest {
                     assertTrue(request.url.contains("t=1700000000123"))
                     "<ul class='bottomList'><li data='$workUrl'><p class='overHidden2'>Python未交</p><p class='status'>待批阅</p></li></ul>"
                 }
-                "/mooc-ans/mooc2/work/task" -> "<p class='status'>待批阅</p>"
+                "/mooc-ans/mooc2/work/task" ->
+                    "<p class='status'>待批阅</p><p>作答时间：11-08 08:00 至 11-15 23:59</p>"
                 else -> error("unexpected first-party read: "+u.path)
             }
             ChaoxingReadPage(request.url,body)
@@ -99,6 +100,11 @@ class ChaoxingLocalReaderTest {
         assertEquals(1,read.courseCount)
         assertTrue(read.items.any {it.sourceKey=="plan:700"&&it.status=="已完成"})
         assertTrue(read.items.any {it.sourceKey=="work:123:456:901"&&it.status=="待批阅"})
+        // The later generic course list must preserve the same scan's
+        // detail-page deadline without inventing the missing year.
+        val work=read.items.single {it.sourceKey=="work:123:456:901"}
+        assertEquals("11-15 23:59",work.deadline?.displayed)
+        assertFalse(work.deadline!!.hasYear)
         assertTrue(read.items.any {it.status=="未解锁"})
         assertEquals(64,read.accountHash.length)
         for(secret in listOf("privateWork","privateTask","privateUser","privateGroup","privatePlan","privateEntry"))
@@ -114,6 +120,96 @@ class ChaoxingLocalReaderTest {
         try {fixture(changeOwner=true);fail("account change must fail before Room write")}
         catch(e:ChaoxingReadFailure){assertEquals("account_changed",e.code)}
     }
+
+    @Test fun courseListWorkWithNoDateMayReadOnlyFetchItsOfficialDetail() {
+        val work = "https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=902"
+        val requested = mutableListOf<String>()
+        val transport = ChaoxingReadTransport { request ->
+            val path = java.net.URI(request.url).path
+            requested.add(path)
+            val response = when(path) {
+                "/base" -> profile
+                "/pc/notice/getNoticeList" ->
+                    """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<div class='learnCourse'><a href='$courseUrl'><span class='course-name'>Python</span></a></div>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$work'><p class='overHidden2'>期末作业</p><p class='status'>未提交</p></li></ul>"
+                "/mooc-ans/mooc2/work/task" ->
+                    "<p class='status'>已提交</p><div>截止时间：2026-11-19 23:59</div>"
+                else -> error("unexpected source: $path")
+            }
+            ChaoxingReadPage(request.url,response)
+        }
+        val read=ChaoxingLocalReader(transport).scan(2026)
+        val record=read.items.single { it.sourceKey=="work:123:456:902" }
+        assertTrue(read.complete)
+        assertEquals("未提交",record.status)
+        assertEquals("2026-11-19 23:59",record.deadline?.displayed)
+        assertTrue(record.deadline!!.hasYear)
+        assertEquals(1,requested.count {it=="/mooc-ans/mooc2/work/task"})
+    }
+
+    @Test fun optionalDeadlineDetailFailureNeverInventsADeadlineOrDropsWork() {
+        val work = "https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=902"
+        val transport = ChaoxingReadTransport { request ->
+            val path = java.net.URI(request.url).path
+            val response = when(path) {
+                "/base" -> profile
+                "/pc/notice/getNoticeList" ->
+                    """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<div class='learnCourse'><a href='$courseUrl'><span class='course-name'>Python</span></a></div>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$work'><p class='overHidden2'>期末作业</p><p class='status'>已提交</p></li></ul>"
+                "/mooc-ans/mooc2/work/task" -> throw ChaoxingReadFailure("upstream_http_404")
+                else -> error("unexpected source: $path")
+            }
+            ChaoxingReadPage(request.url,response)
+        }
+        val read=ChaoxingLocalReader(transport).scan(2026)
+        assertTrue(read.complete)
+        val record=read.items.single { it.sourceKey=="work:123:456:902" }
+        assertEquals("已提交",record.status)
+        assertNull(record.deadline)
+    }
+
+
+    @Test fun optionalDeadlineLookupNeverGetsAnActionLikeUrl() {
+        val unsafe = "https://mooc1.chaoxing.com/work/submit?courseId=123&classId=456&workId=903"
+        var actionFetches = 0
+        val transport = ChaoxingReadTransport { request ->
+            val path=java.net.URI(request.url).path
+            val response=when(path) {
+                "/base" -> profile
+                "/pc/notice/getNoticeList" ->
+                    """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<div class='learnCourse'><a href='$courseUrl'><span class='course-name'>Python</span></a></div>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$unsafe'><p class='overHidden2'>平台作业</p><p class='status'>未提交</p></li></ul>"
+                "/work/submit" -> {
+                    actionFetches++
+                    error("must not visit an action endpoint")
+                }
+                else -> error("unexpected source: $path")
+            }
+            ChaoxingReadPage(request.url,response)
+        }
+        val read=ChaoxingLocalReader(transport).scan(2026)
+        assertTrue(read.complete)
+        val record=read.items.single {it.sourceKey=="work:123:456:903"}
+        assertEquals("未提交", record.status)
+        assertNull(record.deadline)
+        assertEquals(0,actionFetches)
+    }
+
     @Test fun externalAttachmentsAndExamActionsAreNotRead() {
         val links=ChaoxingLocalReader.noticeLinks(JSONObject("""{"attachment":[{"url":"https://evil.example/work/task"},{"url":"https://mooc1.chaoxing.com/examapi/intoexamorwork?workorexam=exam"},{"url":"$workUrl"}]}"""))
         assertEquals(1,links.size)

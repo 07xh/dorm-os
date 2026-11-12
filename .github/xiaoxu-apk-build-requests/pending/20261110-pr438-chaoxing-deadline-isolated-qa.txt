@@ -1,0 +1,6 @@
+User requested continuing the school Chaoxing deadline feature and an installable Android update.
+Source PR: #438. Build from this PR head only after JVM and Node CI pass.
+Scope: owner-authenticated on-device read-only work deadlines and dated exam notices; do not claim complete official exam list or auto-scheduling.
+Build separately installable io.github.x07xh.xiaoxu.unifiedqa for OnePlus Ace 6 Android 16 side-by-side validation; also produce unsigned Release for provenance only.
+Never change or recreate the formal release signing key. Preserve existing formal app, Room data and school authorization. Do not auto-publish or merge before genuine owner verification.
+Acceptance: exact source SHA, Gradle assembleDebug/testDebugUnitTest/assembleRelease, full npm check, ZIP integrity, QA package name and SHA256.
