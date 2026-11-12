@@ -57,6 +57,57 @@ class NativeChaoxingTaskMergeTest {
         assertTrue(considerCompleteInTaskList(tasks.single()))
     }
 
+
+    private fun nativePlan(identity: String, status: String): NativeSchoolRecord {
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|study_task|" + identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return NativeSchoolRecord("chaoxing", "study_task", hash, "第四次作业",
+            "学习计划状态：$status · 学习任务身份：$identity",
+            "task.chaoxing.com", 1720000000000L)
+    }
+
+    @Test fun exactCloudPlanAndNativePlanBecomeOneRowWithOfficialStatus() {
+        val planId = "plan:987654"
+        val cloudPlan = cloud(source = planId)
+        val combined = combineWorkspaceTasks(
+            emptyList(), listOf(cloudPlan), listOf(nativePlan(planId, "待批阅"))
+        )
+        assertEquals(1, combined.size)
+        val shown = combined.single()
+        assertEquals("cloud:cloud-1", shown.key)
+        assertEquals(planId, shown.sourceExternalId)
+        assertFalse("official completion does not write personal checkbox", shown.done)
+        assertEquals("submitted", shown.officialStatus)
+        assertEquals("待批阅", shown.officialStatusRaw)
+        assertTrue(considerCompleteInTaskList(shown))
+    }
+
+    @Test fun returnedCloudPlanStaysPendingAndDifferentSameTitlePlanStaysSeparate() {
+        val first = "plan:987654"
+        val other = "plan:987655"
+        val combined = combineWorkspaceTasks(
+            emptyList(), listOf(cloud(source = first)),
+            listOf(nativePlan(first, "未提交"), nativePlan(other, "已完成"))
+        )
+        assertEquals(2, combined.size)
+        val pending = combined.single { it.sourceExternalId == first }
+        val completed = combined.single { it.sourceExternalId == other }
+        assertEquals("todo", pending.officialStatus)
+        assertFalse(considerCompleteInTaskList(pending))
+        assertEquals("submitted", completed.officialStatus)
+        assertTrue(considerCompleteInTaskList(completed))
+    }
+
+    @Test fun unverifiedNativePlanCannotOverrideCloudPlan() {
+        val identity = "plan:987654"
+        val fake = nativePlan(identity, "已完成").copy(fingerprint = "invalid")
+        val combined = combineWorkspaceTasks(emptyList(), listOf(cloud(source = identity)), listOf(fake))
+        assertEquals(1, combined.size)
+        assertEquals(null, combined.single().officialStatus)
+        assertFalse(considerCompleteInTaskList(combined.single()))
+    }
+
     @Test fun realPlanIdCreatesOneLocalOfficialTaskWithCompletedState() {
         val identity = "plan:987654"
         val hash = MessageDigest.getInstance("SHA-256")
@@ -97,4 +148,61 @@ class NativeChaoxingTaskMergeTest {
         assertEquals("submitted",tasks.single().officialStatus)
         assertTrue(considerCompleteInTaskList(tasks.single()))
     }
+    private fun coverage() = NativeSchoolRecord("chaoxing","course",
+        io.github.x07xh.xiaoxu.data.ChaoxingLocalReader.hash("chaoxing|course|scope:123:456"),
+        "Python","完整作业列表身份：scope:123:456","mooc1.chaoxing.com",1720000000000L)
+    private fun binding(time:Long=1720000000000L)=NativeSchoolRecord("chaoxing","account_binding",
+        "current","","a".repeat(64),"i.chaoxing.com",time)
+    @Test fun cloudWorkAbsentFromACompleteCurrentClassListStopsAppearingAsCurrentTask() {
+        val rows=listOf(coverage(),binding())
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="work:123:457:987")),rows).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud().copy(status="done")),rows).size)
+    }
+    @Test fun incompleteStaleOrForgedCoverageCannotHideWork() {
+        val oldProof=listOf(coverage(),binding(1720000000001L))
+        val forged=listOf(coverage().copy(fingerprint="wrong"),binding())
+        for(rows in listOf(emptyList(),oldProof,forged,listOf(coverage())))
+            assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+    }
+    @Test fun currentUnknownWorkAndReappearingWorkAreRetainedByIdentity() {
+        val rows=listOf(coverage(),binding(),record("状态未知"))
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+        val old=record("状态未知").copy(capturedAt=1710000000000L)
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(coverage(),binding(),old)).isEmpty())
+    }
+
+    @Test fun exactExamNoticeReplacesOnlyItsMatchingLegacyCloudNotice() {
+        val alias="cxn:"+"a".repeat(40)
+        val key="examnotice:"+"b".repeat(64)
+        val exam=NativeSchoolRecord("chaoxing","exam_notice",
+            io.github.x07xh.xiaoxu.data.ChaoxingLocalReader.hash("chaoxing|exam_notice|"+key),
+            "考试通知","官网考试通知状态：官网考试通知 · 旧通知身份："+alias+" · 考试通知身份："+key,
+            "notice.chaoxing.com",1720000000000L)
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias)),listOf(exam)).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="cxn:"+"c".repeat(40))),listOf(exam)).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias).copy(status="done")),listOf(exam)).size)
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source=alias)),listOf(exam.copy(fingerprint="wrong"))).size)
+    }
+
+    @Test fun officialRemovalEvidenceWithdrawsOnlyThatPendingWorkAndIsReversible() {
+        val removed=record("已删除")
+        assertTrue(combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(binding(),removed)).isEmpty())
+        assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud(source="work:123:456:988")),listOf(binding(),removed)).size)
+        val done=combineWorkspaceTasks(emptyList(),listOf(cloud().copy(status="done")),listOf(binding(),removed)).single()
+        assertTrue(done.done)
+        val restored=combineWorkspaceTasks(emptyList(),listOf(cloud()),listOf(binding(),record("未提交"))).single()
+        assertEquals("todo",restored.officialStatus)
+        assertFalse(considerCompleteInTaskList(restored))
+    }
+    @Test fun oldForgedOrUnknownObservationsCannotWithdrawACloudWork() {
+        for(rows in listOf(
+            listOf(binding(),record("状态未知")),
+            listOf(binding(1720000000001L),record("已删除")),
+            listOf(binding(),record("已删除").copy(fingerprint="wrong")),
+            listOf(record("已删除")))) {
+            assertEquals(1,combineWorkspaceTasks(emptyList(),listOf(cloud()),rows).size)
+        }
+    }
+
 }

@@ -27,6 +27,12 @@ private const val BASE = "https://dorm-os-dk9.pages.dev"
 private const val COOKIE_NAME = "__Host-xiaoxu_session"
 private const val KEY_ALIAS = "xiaoxu_owner_cookie_aes_v1"
 
+/** AI output is an unsaved suggestion, never an official assignment or completion. */
+data class TaskBreakdownAiSuggestion(
+    val steps: List<String> = emptyList(),
+    val error: String? = null
+)
+
 data class CloudTask(
     val id: String, val title: String, val status: String,
     val kind: String, val provider: String?, val due: String?,
@@ -110,6 +116,7 @@ data class PlatformConnection(
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
+    val ownerId: String? = null,
     val authMessage: String = "云端连接可选，本地任务无需登录",
     val privateError: String? = null, val publicError: String? = null,
     val notices: List<AcademicNotice> = emptyList(),
@@ -201,7 +208,8 @@ class CloudClient(context: Context) {
     }
 
     private fun request(path: String, method: String = "GET",
-                        body: JSONObject? = null, authenticated: Boolean = false): HttpResult {
+                        body: JSONObject? = null, authenticated: Boolean = false,
+                        boundSessionToken: String? = null): HttpResult {
         require(path.startsWith("/") && !path.startsWith("//") && !path.contains("://"))
         val conn = (URL(BASE + path).openConnection() as HttpsURLConnection).apply {
             connectTimeout = 12000
@@ -212,7 +220,7 @@ class CloudClient(context: Context) {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Cache-Control", "no-store")
             if (authenticated) {
-                val token = session.load()
+                val token = boundSessionToken ?: session.load()
                 if (token != null) setRequestProperty("Cookie", COOKIE_NAME + "=" + token)
             }
             if (body != null) {
@@ -366,6 +374,7 @@ class CloudClient(context: Context) {
                 )
                 return
             }
+            state = state.copy(ownerId = auth.json.optString("ownerId").takeIf { it.isNotBlank() })
         } catch (_: Exception) {
             if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
                 state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
@@ -736,6 +745,7 @@ class CloudClient(context: Context) {
     }
 
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
+        ownerId = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
@@ -781,7 +791,9 @@ class CloudClient(context: Context) {
     /** Only a personally approved WeChat task may change its own completion status.
      * Owner-scoped status-only POST accepts a revision and never touches school submissions.
      */
-    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean): Boolean {
+    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean,
+        expectedOwnerId: String): Boolean {
+        if (expectedOwnerId.isBlank() || state.ownerId != expectedOwnerId) return false
         if (!state.authenticated || !state.tasksFresh || revision < 0 ||
             !Regex("^[A-Za-z0-9_-]{1,100}$").matches(id)) return false
         val current = state.tasks.firstOrNull {
@@ -790,12 +802,18 @@ class CloudClient(context: Context) {
         if (current.status == "done" && completed ||
             current.status != "done" && !completed) return true
         val epoch = sessionEpoch
+        // Pin the existing encrypted session for this owner before asynchronous I/O.
+        // A later account switch may abort this operation, but can never substitute the new account's cookie.
+        val boundToken = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) return false
         return try {
             val body = JSONObject().put("revision", revision)
                 .put("localStatus", if (completed) "done" else "todo")
             val response = withContext(Dispatchers.IO) {
-                request("/api/v1/assignments/$id", "POST", body, authenticated = true)
-            }
+                if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) null
+                else request("/api/v1/assignments/$id", "POST", body, authenticated = true,
+                    boundSessionToken = boundToken)
+            } ?: return false
             if (epoch != sessionEpoch) return false
             if (response.code != 200 ||
                 response.json.optJSONObject("item")?.optString("id") != id) {
@@ -843,10 +861,64 @@ class CloudClient(context: Context) {
                 }
             )
             true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             if (epoch == sessionEpoch)
                 state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")
             false
+        }
+    }
+
+    /**
+     * Explicit button only. Send just the selected personal task title and
+     * user-entered notes to the first-party, owner-authenticated Pages endpoint.
+     * No school credentials, task database, cloud task list or cookies in body.
+     */
+    suspend fun suggestLocalTaskBreakdown(
+        title: String, notes: String
+    ): TaskBreakdownAiSuggestion {
+        if (title.isBlank() || title.trim().length > 120 || notes.length > 600)
+            return TaskBreakdownAiSuggestion(error = "任务描述过长，请精简后再试")
+        if (!state.authenticated)
+            return TaskBreakdownAiSuggestion(error = "AI 建议需要先连接校序云端；手动拆解仍可离线使用")
+        val epoch = sessionEpoch
+        return try {
+            val body = JSONObject().put("title", title.trim()).put("notes", notes.trim())
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/task-breakdown-ai", "POST", body, authenticated = true)
+            }
+            if (epoch != sessionEpoch || !state.authenticated)
+                return TaskBreakdownAiSuggestion(error = "账号已切换，请重新打开任务")
+            when (response.code) {
+                200 -> {
+                    if (response.json.optBoolean("saved", true))
+                        return TaskBreakdownAiSuggestion(error = "AI 响应无效，未写入任何任务")
+                    val array = response.json.optJSONArray("steps")
+                        ?: return TaskBreakdownAiSuggestion(error = "AI 返回内容无法解析")
+                    if (array.length() !in 2..12)
+                        return TaskBreakdownAiSuggestion(error = "AI 返回步骤数量不符合要求")
+                    val values = (0 until array.length()).map { index ->
+                        array.optString(index, "").trim()
+                    }
+                    // Reuse the exact same validator as the local Room write gate.
+                    if (parseLocalTaskBreakdown(values.joinToString("\n")) != values)
+                        TaskBreakdownAiSuggestion(error = "AI 建议内容不符合要求，请重试")
+                    else TaskBreakdownAiSuggestion(steps = values)
+                }
+                401 -> TaskBreakdownAiSuggestion(error = "校序云端登录已失效，请重新连接")
+                403 -> TaskBreakdownAiSuggestion(error = "当前账号无权使用该功能")
+                503 -> TaskBreakdownAiSuggestion(
+                    error = if (response.json.optString("error") == "ai_not_configured")
+                        "AI 服务尚未配置；手动分解功能仍可使用"
+                    else "AI 服务暂时不可用，请稍后再试"
+                )
+                else -> TaskBreakdownAiSuggestion(error = "AI 请求未成功（${response.code}）")
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            TaskBreakdownAiSuggestion(error = "网络连接失败，未生成或保存任何任务")
         }
     }
 

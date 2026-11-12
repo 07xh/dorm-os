@@ -5,6 +5,428 @@ import org.junit.Test
 import org.json.JSONObject
 
 class ChaoxingLocalReaderTest {
+
+    @Test fun signedOfficialCourseWorkListUsesFreshSignatureAndTableMode() {
+        val middle="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val homework="https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task?courseId=123&classId=456&workId=901234"
+        val queried=mutableListOf<String>()
+        val before=System.currentTimeMillis()
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val uri=java.net.URI(request.url)
+            val body=when(uri.path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$middle'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<input id='courseid' value='123'><input id='clazzid' value='456'>" +
+                    "<input id='cpi' value='789'><input id='workEnc' value='signedWork'>" +
+                    "<input id='openc' value='openKey'><input id='enc' value='courseEnc'>" +
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456&amp;t=100&amp;enc=old'>作业</a>"
+                "/mooc-ans/mooc2/work/list" -> {
+                    queried.add(request.url)
+                    assertEquals("mooc1.chaoxing.com",uri.host)
+                    assertEquals("GET",request.method)
+                    val values=uri.rawQuery.split('&').associate {
+                        val pair=it.split('=',limit=2)
+                        java.net.URLDecoder.decode(pair[0],"UTF-8") to
+                            java.net.URLDecoder.decode(pair.getOrElse(1){""},"UTF-8")
+                    }
+                    assertEquals("signedWork",values["enc"])
+                    assertEquals("openKey",values["openc"])
+                    assertEquals("courseEnc",values["stuenc"])
+                    assertEquals("2",values["isdisplaytable"])
+                    assertEquals("s",values["ut"])
+                    assertEquals("123",values["courseId"])
+                    assertEquals("456",values["classId"])
+                    assertEquals("789",values["cpi"])
+                    assertTrue(values["t"]!!.toLong() >= before)
+                    "<ul class='bottomList'><li data='$homework'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                }
+                else -> error("unexpected official path: " + uri.path)
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(1,queried.size)
+        assertEquals("已完成",read.items.single {it.kind=="homework"}.status)
+        assertFalse(read.toString().contains("signedWork"))
+        assertFalse(read.toString().contains("courseEnc"))
+    }
+
+    @Test fun signedOfficialWorkListWorksWithoutVisibleMenuAnchor() {
+        val middle="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val homework="https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val uri=java.net.URI(request.url)
+            val body=when(uri.path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> """{"status":true,"notices":{"list":[],"lastPage":1}}"""
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$middle'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<input id='courseid' value='123'><input id='clazzid' value='456'>" +
+                    "<input id='cpi' value='789'><input id='workEnc' value='signedWork'>"
+                "/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$homework'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                else -> error("unexpected official path: " + uri.path)
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals("待批阅",read.items.single {it.kind=="homework"}.status)
+    }
+
+
+    @Test fun oldPeerAliasCollisionCannotBorrowOnlyRemainingOfficialWork() {
+        val course = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val current = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        fun peer(key: String) = JSONObject().put("title", "作业互评通知")
+            .put("tag","courseId123").put("content","作业名称：实验报告一")
+            .put("extendParam",JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"$key"}}}"""))
+        val first = peer("901234")
+        val removed = peer("901235")
+        assertEquals(ChaoxingLocalReader.noticeAliases(first).single().id,
+            ChaoxingLocalReader.noticeAliases(removed).single().id)
+        var detailReads=0
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val body=when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1)
+                        .put("list",org.json.JSONArray().put(first).put(removed))).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$course'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$current'>" +
+                    "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                "/work/dowork" -> { detailReads++; throw ChaoxingReadFailure("unexpected_peer_detail") }
+                else -> error("unexpected request")
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(0,detailReads)
+        val work=read.items.single {it.kind=="homework"}
+        assertEquals("work:123:456:901234",work.sourceKey)
+        assertEquals("待批阅",work.status)
+        assertTrue(work.peerAliases.isEmpty())
+    }
+
+    @Test fun ambiguousDetachedPeerNoticeNeverFetchesAnyCandidateDetails() {
+        val one = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val two = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=457&cpi=789"
+        val peer = JSONObject().put("title","作业互评通知")
+            .put("tag","courseId123").put("content","作业名称：实验报告一")
+            .put("extendParam",JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        var workDetailRequests=0
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val clazz = if (request.url.contains("457")) "457" else "456"
+            val body = when (java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1)
+                        .put("list",org.json.JSONArray().put(peer))).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$one'><span class='course-name'>一班</span></a>" +
+                    "<a href='$two'><span class='course-name'>二班</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=$clazz'>作业</a>"
+                "/mooc-ans/mooc2/work/list" -> {
+                    val work="https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=$clazz&workId=901234"
+                    "<ul class='bottomList'><li data='$work'><p class='overHidden2'>实验报告一</p>" +
+                        "<p class='status'>待批阅</p></li></ul>"
+                }
+                "/work/dowork" -> {
+                    workDetailRequests++
+                    throw ChaoxingReadFailure("should_not_fetch_ambiguous_detail")
+                }
+                else -> error("unexpected request")
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(0,workDetailRequests)
+        val homework=read.items.filter {it.kind=="homework"}
+        assertEquals(2,homework.size)
+        assertTrue(homework.all {it.status=="待批阅" && it.peerAliases.isEmpty()})
+    }
+
+    @Test fun optionalPeerDetailFailureKeepsLaterOfficialHomeworkButScanIsPartial() {
+        val workA="https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val workB="https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901235"
+        val courseUrl="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val peer=JSONObject().put("title","作业互评通知").put("tag","courseId123")
+            .put("content","作业名称：实验报告一")
+            .put("extendParam",JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        val scan=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val content=when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1)
+                        .put("list",org.json.JSONArray().put(peer))).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'>" +
+                        "<li data='$workA'><p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li>" +
+                        "<li data='$workB'><p class='overHidden2'>实验报告二</p><p class='status'>已完成</p></li></ul>"
+                "/work/dowork" -> throw ChaoxingReadFailure("work_detail_unavailable")
+                else -> error("unexpected official path")
+            }
+            ChaoxingReadPage(request.url,content)
+        }).scan(2026)
+        assertFalse(scan.complete)
+        assertTrue(scan.failures.toString(),scan.failures.any {it.contains("work_detail_unavailable")})
+        val works=scan.items.filter {it.kind=="homework"}
+        assertEquals(2,works.size)
+        assertEquals("待批阅", works.single {it.sourceKey=="work:123:456:901234"}.status)
+        assertEquals("已完成", works.single {it.sourceKey=="work:123:456:901235"}.status)
+        assertTrue(works.all {it.peerAliases.isEmpty()})
+    }
+
+    @Test fun fallbackWorkIdentityNormalizesEquivalentParameterNames() {
+        val first="https://mooc1.chaoxing.com/work/dowork?courseId=123&workId=901234"
+        val second="https://mooc1.chaoxing.com/work/dowork?courseid=123&taskrefId=901234"
+        val courseUrl="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val content=when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1).put("list",
+                        org.json.JSONArray().put(JSONObject().put("title","任务")
+                            .put("attachment",org.json.JSONArray().put(JSONObject().put("url",first)))))).toString()
+                "/work/dowork" -> "<p class='status'>待批阅</p>"
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$second'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                else -> error("unexpected official path")
+            }
+            ChaoxingReadPage(request.url,content)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        val rows=read.items.filter {it.kind=="study_task"}
+        assertEquals(1,rows.size)
+        assertTrue(rows.single().sourceKey.startsWith("study:"))
+    }
+
+    @Test fun incompleteWorkUrlCannotOverwriteAnotherCoursesSameNumberedTask() {
+        val course1="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val course2="https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=124&clazzid=457&cpi=789"
+        val read=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val course = if (Regex("(?i)courseid=124").containsMatchIn(request.url)) "124" else "123"
+            val body=when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true).put("notices",
+                    JSONObject().put("lastPage",1).put("list",org.json.JSONArray())).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$course1'><span class='course-name'>课程一</span></a>" +
+                    "<a href='$course2'><span class='course-name'>课程二</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=$course'>作业</a>"
+                "/mooc-ans/mooc2/work/list" -> {
+                    val url="https://mooc1.chaoxing.com/work/dowork?courseId=$course&workId=901234"
+                    "<ul class='bottomList'><li data='$url'><p class='overHidden2'>同名实验</p>" +
+                        "<p class='status'>状态未知</p></li></ul>"
+                }
+                "/work/dowork" -> "<div>状态未知</div>"
+                else -> error("unexpected path")
+            }
+            ChaoxingReadPage(request.url,body)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        val fallback=read.items.filter { it.kind == "study_task" }
+        assertEquals(2,fallback.size)
+        assertEquals(2,fallback.map {it.sourceKey}.toSet().size)
+        // Missing class identity is not promoted into an official work tuple.
+        assertTrue(fallback.all {it.sourceKey.startsWith("study:")})
+    }
+
+    @Test fun equivalentCaseAliasesProduceOneOfficialWorkIdAndLinkNotification() {
+        val workUrl = "https://mooc1.chaoxing.com/work/dowork?" +
+            "courseId=123&courseid=123&classId=456&clazzid=456&workId=901234&taskrefId=901234"
+        val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?" +
+            "courseId=123&courseid=123&classId=456&clazzid=456&cpi=789"
+        val notice = JSONObject().put("title", "作业通知").put("tag", "courseId123")
+            .put("content", "作业名称：实验报告一")
+            .put("extendParam",JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        val alias = ChaoxingLocalReader.noticeAliases(notice).single().id
+        val read = ChaoxingLocalReader(ChaoxingReadTransport { request ->
+            val content = when(java.net.URI(request.url).path) {
+                "/base" -> "<script>var uid='42';</script>"
+                "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                    .put("notices",JSONObject().put("lastPage",1).put("list",
+                        org.json.JSONArray().put(notice))).toString()
+                "/mooc2-ans/visit/courselistdata" ->
+                    "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                "/visit/stucoursemiddle" ->
+                    "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                "/mooc-ans/mooc2/work/list" ->
+                    "<ul class='bottomList'><li data='$workUrl'>" +
+                        "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                else -> error("unexpected path")
+            }
+            ChaoxingReadPage(request.url, content)
+        }).scan(2026)
+        assertTrue(read.failures.toString(),read.complete)
+        assertEquals(1,read.items.count { it.kind == "homework" })
+        val work=read.items.single { it.kind == "homework" }
+        assertEquals("work:123:456:901234", work.sourceKey)
+        assertEquals(setOf(alias),work.noticeAliases)
+    }
+
+    @Test fun conflictingAliasesQuarantineWorkAndUppercaseCourseScopeIsEnforced() {
+        fun fixture(work: String, course: String): ChaoxingLocalRead {
+            val courseUrl="https://mooc1.chaoxing.com/visit/stucoursemiddle?" +
+                "courseId=$course&classId=456&cpi=789"
+            val workUrl="https://mooc1.chaoxing.com/work/dowork?" + work
+            return ChaoxingLocalReader(ChaoxingReadTransport { r ->
+                val body=when(java.net.URI(r.url).path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status",true)
+                        .put("notices",JSONObject().put("lastPage",1)
+                            .put("list",org.json.JSONArray())).toString()
+                    "/mooc2-ans/visit/courselistdata" ->
+                        "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                    "/visit/stucoursemiddle" ->
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=$course&amp;classId=456'>作业</a>"
+                    "/mooc-ans/mooc2/work/list" ->
+                        "<ul class='bottomList'><li data='$workUrl'><p class='overHidden2'>实验报告</p>" +
+                            "<p class='status'>待批阅</p></li></ul>"
+                    else -> error("unexpected path")
+                }
+                ChaoxingReadPage(r.url,body)
+            }).scan(2026)
+        }
+        val conflict=fixture("courseId=123&classId=456&workId=901234&taskrefId=901235", "123")
+        assertFalse(conflict.complete)
+        assertTrue(conflict.failures.toString(),
+            conflict.failures.any { it.contains("ambiguous_identity") })
+        assertFalse(conflict.items.any { it.kind == "homework" })
+
+        val scope=fixture("courseId=124&classId=456&workId=901234", "123")
+        assertFalse(scope.complete)
+        assertTrue(scope.failures.toString(), scope.failures.any {it.contains("course_identity")})
+        assertFalse(scope.items.any {it.kind == "homework"})
+    }
+
+    @Test fun detachedPeerNoticeMustHaveOfficialPeerCompletionEvidence() {
+        val workUrl = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val courseUrl = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+        val peerNotice = JSONObject().put("title", "作业互评通知")
+            .put("tag", "courseId123").put("content", "作业名称：实验报告一")
+            .put("extendParam", JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        val peerId = ChaoxingLocalReader.noticeAliases(peerNotice).single().id
+        assertTrue(ChaoxingLocalReader.noticeLinks(peerNotice).isEmpty())
+        fun read(detail: String): Pair<ChaoxingLocalRead, Int> {
+            var detailReads=0
+            val result=ChaoxingLocalReader(ChaoxingReadTransport { request ->
+                val body=when(java.net.URI(request.url).path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status", true).put("notices",
+                        JSONObject().put("lastPage", 1).put("list",
+                            org.json.JSONArray().put(peerNotice))).toString()
+                    "/mooc2-ans/visit/courselistdata" ->
+                        "<a href='$courseUrl'><span class='course-name'>Python</span></a>"
+                    "/visit/stucoursemiddle" ->
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=456'>作业</a>"
+                    "/mooc-ans/mooc2/work/list" ->
+                        "<ul class='bottomList'><li data='$workUrl'>" +
+                            "<p class='overHidden2'>实验报告一</p><p class='status'>待批阅</p></li></ul>"
+                    "/work/dowork" -> { detailReads++; "<p class='status'>$detail</p>" }
+                    else -> error("unexpected official path")
+                }
+                ChaoxingReadPage(request.url, body)
+            }).scan(2026)
+            return result to detailReads
+        }
+        val (complete, reads)=read("已互评")
+        assertTrue(complete.complete)
+        assertEquals(1, reads)
+        val completedWork=complete.items.single { it.kind == "homework" }
+        assertEquals(setOf(peerId), completedWork.peerAliases)
+        assertEquals("已互评", completedWork.status)
+
+        val (generic, genericReads)=read("待批阅")
+        assertTrue(generic.complete)
+        assertEquals(1, genericReads)
+        val genericWork=generic.items.single { it.kind == "homework" }
+        assertEquals(setOf(peerId), genericWork.peerAliases)
+        assertEquals("待批阅", genericWork.status)
+        // UI merge separately requires explicit peer completion; submitted
+        // coursework alone cannot remove the independent review notice.
+    }
+
+    @Test fun detachedNoticeLinksOnlyOneVerifiedCourseWorkTuple() {
+        val official = "https://mooc1.chaoxing.com/work/dowork?courseId=123&classId=456&workId=901234"
+        val notice = JSONObject().put("title", "作业通知").put("tag", "courseId123")
+            .put("content", "作业名称：实验报告一")
+            .put("extendParam", JSONObject().put("cparams",
+                """{"funConfig":{"content":{"key":"901234"}}}"""))
+        // There is deliberately no notification attachment: the cloud cxn
+        // identity exists but cannot be connected by following a link.
+        assertTrue(ChaoxingLocalReader.noticeLinks(notice).isEmpty())
+        val expectedAlias = ChaoxingLocalReader.noticeAliases(notice).single().id
+        fun read(twoClasses: Boolean, failSecond: Boolean = false, unrelated: Boolean = false, incompleteNotice: Boolean = false): ChaoxingLocalRead {
+            val first = "https://mooc1.chaoxing.com/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"
+            val second = first.replace("clazzid=456", "clazzid=457").let {if(unrelated) it.replace("courseid=123","courseid=999") else it}
+            return ChaoxingLocalReader(ChaoxingReadTransport { r ->
+                val url = java.net.URI(r.url)
+                val clazz = if (r.url.contains("457")) "457" else "456"
+                val content = when (url.path) {
+                    "/base" -> "<script>var uid='42';</script>"
+                    "/pc/notice/getNoticeList" -> JSONObject().put("status", true)
+                        .put("notices", JSONObject().put("lastPage", if(incompleteNotice) 0 else 1)
+                            .put("list", org.json.JSONArray().put(notice))).toString()
+                    "/mooc2-ans/visit/courselistdata" -> {
+                        "<a href='$first'><span class='course-name'>Python 1</span></a>" +
+                            if (twoClasses) "<a href='$second'><span class='course-name'>Python 2</span></a>" else ""
+                    }
+                    "/visit/stucoursemiddle" -> {
+                        if (clazz == "457" && failSecond) throw ChaoxingReadFailure("course_http")
+                        "<a data-url='/mooc-ans/mooc2/work/list?courseId=123&amp;classId=$clazz'>作业</a>"
+                    }
+                    "/mooc-ans/mooc2/work/list" -> {
+                        val workUrl = official.replace("classId=456", "classId=$clazz")
+                        "<ul class='bottomList'><li data='$workUrl'>" +
+                            "<p class='overHidden2'>实验报告一</p><p class='status'>已完成</p></li></ul>"
+                    }
+                    else -> error("unexpected request: " + url.path)
+                }
+                ChaoxingReadPage(r.url, content)
+            }).scan(2026)
+        }
+        val unique = read(twoClasses = false)
+        assertTrue(unique.complete)
+        assertEquals(setOf(expectedAlias), unique.items.single { it.kind == "homework" }.noticeAliases)
+        val incompleteInbox = read(twoClasses = false, incompleteNotice = true)
+        assertFalse(incompleteInbox.complete)
+        assertTrue(incompleteInbox.items.single {it.kind == "homework"}.noticeAliases.isEmpty())
+        val ambiguous = read(twoClasses = true)
+        assertTrue(ambiguous.complete)
+        assertTrue(ambiguous.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
+        val partial = read(twoClasses = true, failSecond = true)
+        assertFalse(partial.complete)
+        assertTrue(partial.items.filter { it.kind == "homework" }.all { it.noticeAliases.isEmpty() })
+        val otherCourseFailed = read(twoClasses = true, failSecond = true, unrelated = true)
+        assertFalse(otherCourseFailed.complete)
+        assertEquals(setOf(expectedAlias), otherCourseFailed.items.single {it.kind == "homework"}.noticeAliases)
+    }
     @Test fun detailStatusSurvivesGenericListButReopenedWorkStaysPending() {
         val reader = ChaoxingLocalReader(ChaoxingReadTransport { error("no network needed") })
         assertEquals("已互评", reader.reconcileWorkStatus("待批阅", "已互评"))
@@ -84,7 +506,8 @@ class ChaoxingLocalReaderTest {
                     assertTrue(request.url.contains("t=1700000000123"))
                     "<ul class='bottomList'><li data='$workUrl'><p class='overHidden2'>Python未交</p><p class='status'>待批阅</p></li></ul>"
                 }
-                "/mooc-ans/mooc2/work/task" -> "<p class='status'>待批阅</p>"
+                "/mooc-ans/mooc2/work/task" ->
+                    "<p class='status'>待批阅</p><p>作答时间：11-08 08:00 至 11-15 23:59</p>"
                 else -> error("unexpected first-party read: "+u.path)
             }
             ChaoxingReadPage(request.url,body)
@@ -99,6 +522,11 @@ class ChaoxingLocalReaderTest {
         assertEquals(1,read.courseCount)
         assertTrue(read.items.any {it.sourceKey=="plan:700"&&it.status=="已完成"})
         assertTrue(read.items.any {it.sourceKey=="work:123:456:901"&&it.status=="待批阅"})
+        // The later generic course list must preserve the same scan's
+        // detail-page deadline without inventing the missing year.
+        val work=read.items.single {it.sourceKey=="work:123:456:901"}
+        assertEquals("11-15 23:59",work.deadline?.displayed)
+        assertFalse(work.deadline!!.hasYear)
         assertTrue(read.items.any {it.status=="未解锁"})
         assertEquals(64,read.accountHash.length)
         for(secret in listOf("privateWork","privateTask","privateUser","privateGroup","privatePlan","privateEntry"))

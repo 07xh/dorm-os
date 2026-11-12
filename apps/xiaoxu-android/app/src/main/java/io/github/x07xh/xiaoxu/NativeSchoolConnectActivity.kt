@@ -33,6 +33,7 @@ import io.github.x07xh.xiaoxu.data.ChaoxingLocalReader
 import io.github.x07xh.xiaoxu.data.ChaoxingReadFailure
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+import io.github.x07xh.xiaoxu.data.nativeChaoxingVisibleStatus
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 import io.github.x07xh.xiaoxu.data.SecondClassAutoReadPolicy
 import io.github.x07xh.xiaoxu.data.parseLocalSecondClassScores
@@ -177,6 +178,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         status = TextView(this).apply {
             textSize = 13f
+            setTextIsSelectable(true)
             text = "学习通正常登录后点「读取全部」，读取通知、学习计划和课程作业。"
             setPadding(8, 4, 8, 8)
             if (provider == "second_class") text =
@@ -535,7 +537,15 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         " · 旧通知身份：" + item.noticeAliases.sorted().joinToString(",")) +
                         (if (item.peerAliases.isEmpty()) "" else
                         " · 互评通知身份：" + item.peerAliases.sorted().joinToString(","))
-                    val detail = if (item.kind == "course") "课程列表" else status + item.status + aliases + " · " + label + item.sourceKey
+                    val due = item.deadline?.let {
+                        " · " + (if (it.hasYear) "官网截止时间：" else "官网截止片段：") + it.displayed
+                    }.orEmpty()
+                    val detail = if (item.kind == "course") {
+                        if(item.sourceKey.matches(Regex("""scope:\d{1,24}:\d{1,24}""")) &&
+                            item.status=="作业列表已完整核对") "完整作业列表身份："+item.sourceKey
+                        else "课程列表"
+                    } else if(item.kind=="exam_notice") "官网考试通知状态："+item.status+aliases+due+" · 考试通知身份："+item.sourceKey
+                    else status + item.status + aliases + due + " · " + label + item.sourceKey
                     val fingerprint = MessageDigest.getInstance("SHA-256")
                         .digest(("chaoxing|" + item.kind + "|" + item.sourceKey).toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
@@ -547,12 +557,18 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         .mergeChaoxingRead(rows, result.accountHash, result.complete, result.supersededKeys)
                 }
                 context.ensureActive()
-                savedKind = listOf("homework", "study_task", "course").firstOrNull {kind -> rows.any {it.kind == kind}} ?: "homework"
+                savedKind = listOf("homework", "study_task", "exam_notice", "course").firstOrNull {kind -> rows.any {it.kind == kind}} ?: "homework"
                 savedCount = rows.count {it.kind == savedKind}
                 finishAndReturn.isEnabled = true
                 finishAndReturn.visibility = View.VISIBLE
+                val observed=rows.filter {it.kind in setOf("homework","study_task")}
+                val completed=observed.count {nativeChaoxingVisibleStatus(it) in setOf("submitted","graded")}
+                val unknown=observed.count {nativeChaoxingVisibleStatus(it) == "unknown"}
+                val removed=observed.count {nativeChaoxingVisibleStatus(it) == "removed"}
                 tell("已读取通知 " + result.noticePages + " 页、课程 " + result.courseCount +
-                    " 门，保存任务 " + count + " 条。" +
+                    " 门，保存记录 " + count + " 条。\n" +
+                    "本次作业 ${rows.count {it.kind == "homework"}} 条，考试通知 ${rows.count {it.kind == "exam_notice"}} 条，学习计划 ${rows.count {it.kind == "study_task"}} 条；" +
+                    "已提交/完成 $completed 条，已删除/失效 $removed 条，状态待核对 $unknown 条。\n" +
                     if (result.complete) "请返回任务中心核对。"
                     else "部分来源未完成：\n" + result.failures.take(8).joinToString("\n"))
             } catch (_: CancellationException) {

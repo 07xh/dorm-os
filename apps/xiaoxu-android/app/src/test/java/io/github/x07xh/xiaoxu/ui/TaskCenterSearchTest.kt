@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import io.github.x07xh.xiaoxu.data.CloudTask
+import io.github.x07xh.xiaoxu.data.LocalTask
+import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,6 +19,119 @@ class TaskCenterSearchTest {
         WorkspaceTask("local:2", "复习高等数学", "本机待办",
             true, today.minusDays(1), "本人填写", "local")
     )
+
+    @Test
+    fun sameTitleHistoricNoticeMustNotReturnAsPendingAfterOfficialHomeworkCompleted() {
+        val rows = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("old", "实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "cxn:" + "a".repeat(40)),
+            CloudTask("completed", "实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:123:456:901", officialStatus = "graded"),
+            CloudTask("unfinished", "另一门课的实验报告一", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:999:456:901", officialStatus = "todo")
+        ))
+        assertEquals(3, rows.size)
+        assertEquals(listOf("cloud:unfinished"),
+            searchWorkspaceTasks(rows, "pending", "", today).map { it.key })
+        assertEquals(listOf("cloud:old"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key })
+        assertEquals(listOf("cloud:completed"),
+            searchWorkspaceTasks(rows, "done", "", today).map { it.key })
+        assertEquals(3, searchWorkspaceTasks(rows, "all", "", today).size)
+        assertEquals(listOf("cloud:unfinished"),
+            readyWorkspaceTasks(rows, emptyList(), emptyList()).map { it.key })
+        assertTrue(requiresChaoxingVerification(rows.single {it.key == "cloud:old"}))
+        assertTrue(rows.none { it.done })
+    }
+
+    @Test
+    fun dependencyUnlockDoesNotAccidentallyRestoreAnUnknownChaoxingNotice() {
+        val local = listOf(LocalTask(id = 1, title = "前置任务"),
+            LocalTask(id = 2, title = "后续任务"))
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val unknown = CloudTask("history", "已完成但尚未关联的旧通知", "todo",
+            "homework", "chaoxing", null, sourceExternalId = "cxn:" + "f".repeat(40))
+        val before = combineWorkspaceTasks(local, listOf(unknown))
+        assertEquals(listOf("local:1"),
+            readyWorkspaceTasks(before, local, edges).map { it.key })
+        val completed = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        val after = combineWorkspaceTasks(completed, listOf(unknown))
+        assertEquals(listOf("local:2"),
+            readyWorkspaceTasks(after, completed, edges).map { it.key })
+        assertEquals(listOf("cloud:history"),
+            searchWorkspaceTasks(after, "verify", "", today).map { it.key })
+        assertEquals(listOf("local:2"),
+            searchWorkspaceTasks(after, "pending", "", today).map { it.key })
+    }
+
+    @Test
+    fun nextViewShowsOnlyReadyTasksAndNeverWritesOfficialState() {
+        val local = listOf(LocalTask(id = 1, title = "准备材料"),
+            LocalTask(id = 2, title = "完成报告"),
+            LocalTask(id = 3, title = "提交作业", completed = true))
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val rows = combineWorkspaceTasks(local, listOf(
+            CloudTask("wx-ready", "确认班级通知", "todo", "manual", "wechat", null),
+            CloudTask("cx-submitted", "官方已提交", "todo", "homework", "chaoxing",
+                null, sourceExternalId = "work:4:5:6", officialStatus = "submitted")
+        ))
+        val ready = readyWorkspaceTasks(rows, local, edges)
+        assertEquals(setOf("local:1", "cloud:wx-ready"), ready.map { it.key }.toSet())
+        assertTrue("local:2" !in ready.map { it.key })
+        // Completing a prerequisite unlocks the next task without ever
+        // mutating an official Chaoxing submission.
+        val doneLocal = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        val after = readyWorkspaceTasks(combineWorkspaceTasks(doneLocal, emptyList()),
+            doneLocal, edges)
+        assertEquals(listOf("local:2"), after.map { it.key })
+    }
+
+
+    @Test
+    fun unknownChaoxingHistoryMustNotBeOfferedAsActionableHomework() {
+        val rows = combineWorkspaceTasks(emptyList(), listOf(
+            CloudTask("unverified", "历史通知残留", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "legacy-inbox-record"),
+            CloudTask("unknown", "待核对状态", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:1:2:3", officialStatus = "unknown"),
+            CloudTask("real-todo", "官方未提交", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:3:2:1", officialStatus = "todo"),
+            CloudTask("real-done", "已提交", "todo", "homework",
+                "chaoxing", null, sourceExternalId = "work:4:2:1", officialStatus = "submitted")
+        ))
+        val ready = readyWorkspaceTasks(rows, emptyList(), emptyList()).map { it.key }
+        assertEquals(listOf("cloud:real-todo"), ready)
+        val review = unverifiedChaoxingWorkspaceTasks(rows).map { it.key }.toSet()
+        assertEquals(setOf("cloud:unverified", "cloud:unknown"), review)
+        assertEquals(4, rows.size) // no historical task is deleted or rewritten
+        assertEquals(1, searchWorkspaceTasks(rows, "pending", "", today).size)
+        assertEquals(setOf("cloud:unverified", "cloud:unknown"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key }.toSet())
+    }
+
+    @Test
+    fun waitingSectionOnlyContainsBlockedLocalTasksAndRespectsSearchFilter() {
+        val local = listOf(
+            LocalTask(id = 1, title = "准备实验"),
+            LocalTask(id = 2, title = "写报告"),
+            LocalTask(id = 3, title = "独立任务")
+        )
+        val edges = listOf(LocalTaskDependency(2, 1))
+        val rows = combineWorkspaceTasks(local, listOf(
+            CloudTask("school", "课程待办", "todo", "manual", "chaoxing", null)
+        ))
+        val waiting = waitingWorkspaceTasks(rows, local, edges)
+        assertEquals(listOf("local:2"), waiting.map { it.key })
+        assertEquals(listOf("local:2"), waitingWorkspaceTasks(
+            searchWorkspaceTasks(rows, "pending", "报告", today), local, edges
+        ).map { it.key })
+        assertTrue(waitingWorkspaceTasks(
+            facetWorkspaceTasks(rows, "chaoxing", false, today), local, edges
+        ).isEmpty())
+        val unlocked = local.map { if (it.id == 1L) it.copy(completed = true) else it }
+        assertTrue(waitingWorkspaceTasks(combineWorkspaceTasks(unlocked, emptyList()),
+            unlocked, edges).isEmpty())
+    }
 
     @Test
     fun searchByTitleAndSourceKeepsStorageAndOriginalOrder() {
@@ -50,9 +165,9 @@ class TaskCenterSearchTest {
         assertEquals(listOf("local:2"),
             facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
                 "all", false, today).map { it.key })
-        // Completed items must not appear in the this-week deadline subset.
-        assertTrue(facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
-            "all", true, today).isEmpty())
+        // Date is independent from status: a completed task can still have a date this week.
+        assertEquals(listOf("local:2"), facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
+            "all", true, today).map { it.key })
     }
 
     @Test
@@ -75,7 +190,9 @@ class TaskCenterSearchTest {
             facetWorkspaceTasks(combined, "cloud", false, today).map { it.key }.toSet())
         assertEquals(listOf("cloud:course-1"),
             facetWorkspaceTasks(combined, "chaoxing", false, today).map { it.key })
-        assertEquals(2, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(1, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertEquals(listOf("cloud:course-1"),
+            searchWorkspaceTasks(combined, "verify", "", today).map { it.key })
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
         // WeChat's extracted date is not a confirmed personal due date.
         assertTrue(facetWorkspaceTasks(
@@ -105,7 +222,7 @@ class TaskCenterSearchTest {
         assertEquals(2, countUpcomingLocalDeadlines(rows, today))
         // "本周截止" uses the calendar week (Mon–Sun): an overdue task from
         // Thursday still belongs to this week; the Monday +3-day task does not.
-        assertEquals(listOf("local:today", "local:past"),
+        assertEquals(listOf("local:today", "local:past", "local:done"),
             facetWorkspaceTasks(rows, "all", true, today).map { it.key })
     }
 
@@ -157,9 +274,11 @@ class TaskCenterSearchTest {
             searchWorkspaceTasks(records, "done", "", today).map { it.key }.toSet()
         )
         assertEquals(
-            setOf("cloud:returned", "cloud:legacy", "cloud:wechat"),
+            setOf("cloud:returned", "cloud:wechat"),
             searchWorkspaceTasks(records, "pending", "", today).map { it.key }.toSet()
         )
+        assertEquals(listOf("cloud:legacy"),
+            searchWorkspaceTasks(records, "verify", "", today).map { it.key })
     }
 
     @Test
@@ -199,6 +318,7 @@ class TaskCenterSearchTest {
             combined.map { it.key }.toSet()
         )
         assertEquals(3, searchWorkspaceTasks(combined, "pending", "", today).size)
+        assertTrue(searchWorkspaceTasks(combined, "verify", "", today).isEmpty())
         assertEquals(1, searchWorkspaceTasks(combined, "done", "", today).size)
     }
 
@@ -235,10 +355,103 @@ class TaskCenterSearchTest {
 
 
     @Test
+    fun readyViewRanksVerifiedOfficialAndPersonalDueDatesWithoutTrustingCloudSnapshots() {
+        val local = listOf(
+            LocalTask(id = 1, title = "个人作业"),
+            LocalTask(id = 2, title = "没有日期的任务")
+        )
+        val rows = listOf(
+            WorkspaceTask("cloud:unverified-date", "未知来源截止", "学习通", false,
+                today.minusDays(3), "云端记录，需核对来源", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo"),
+            WorkspaceTask("local:1", "个人作业", "本机待办", false,
+                today.plusDays(3), "本人填写", "local"),
+            WorkspaceTask("cloud:verified", "官方截止", "学习通", false,
+                today.plusDays(1), "学习通本机官方截止", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "2026-11-07"),
+            WorkspaceTask("local:2", "没有日期的任务", "本机待办", false,
+                null, "本人填写", "local"),
+            // A visible official deadline label is not enough if its date
+            // could not be parsed: an unrelated cloud date must not take priority.
+            WorkspaceTask("cloud:unparsed", "官网只展示文字截止", "学习通", false,
+                today.minusDays(5), "本机官方页面观察", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "见课程页面"),
+            WorkspaceTask("native:verified", "官方退回", "学习通", false,
+                today.minusDays(1), "本机官方页面观察", "native",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "returned",
+                officialDeadline = "2026-11-05"),
+            WorkspaceTask("cloud:submitted", "已交作业", "学习通", false,
+                today.minusDays(2), "学习通本机官方截止", "cloud",
+                category = "chaoxing", provider = "chaoxing", officialStatus = "submitted",
+                officialDeadline = "2026-11-04")
+        )
+        assertEquals(
+            listOf("native:verified", "cloud:verified", "local:1",
+                "cloud:unparsed", "cloud:unverified-date", "local:2"),
+            readyWorkspaceTasks(rows, local, emptyList()).map { it.key }
+        )
+        assertEquals("todo", rows.single { it.key == "cloud:verified" }.officialStatus)
+        assertTrue(rows.none { it.done })
+    }
+
+    @Test
     fun whitespaceAndCaseInsensitiveSearchAreStable() {
         assertEquals(records, searchWorkspaceTasks(records, "all", "  ", today))
         assertEquals(listOf("cloud:1"),
             searchWorkspaceTasks(records, "cloud", "  学习通  ", today).map { it.key })
         assertEquals(emptyList<WorkspaceTask>(), searchWorkspaceTasks(records, "all", "无关内容", today))
     }
+
+    @Test
+    fun focusViewHighlightsOnlyRealActionableTodayDeadlines() {
+        val rows = listOf(
+            WorkspaceTask("local:overdue", "逾期的本机任务", "本机待办",
+                false, today.minusDays(2), "本人填写", "local"),
+            WorkspaceTask("local:today", "今天的本机任务", "本机待办",
+                false, today, "本人填写", "local"),
+            WorkspaceTask("local:tomorrow", "明天", "本机待办",
+                false, today.plusDays(1), "本人填写", "local"),
+            WorkspaceTask("local:undated", "无截止", "本机待办",
+                false, null, "本人填写", "local"),
+            WorkspaceTask("local:done", "已经完成", "本机待办",
+                true, today, "本人填写", "local"),
+            // A cloud timestamp is NOT official deadline evidence.
+            WorkspaceTask("cloud:untrusted", "历史云端日期", "云端记录",
+                false, today, "云端记录，需核对来源", "cloud"),
+            WorkspaceTask("native:official", "本机官网核实", "学习通",
+                false, today, "本机官方页面观察", "native", "chaoxing",
+                provider = "chaoxing", officialStatus = "todo",
+                officialDeadline = "2026-11-06 19:00"),
+            WorkspaceTask("cloud:official", "已关联官网截止", "学习通",
+                false, today, "学习通本机官方截止", "cloud", "chaoxing",
+                provider = "chaoxing", officialStatus = "returned",
+                officialDeadline = "2026-11-06 19:00"),
+            WorkspaceTask("native:unknown", "来源未知不能当待办", "学习通",
+                false, today, "本机官方页面观察", "native", "chaoxing",
+                provider = "chaoxing", officialStatus = "unknown",
+                officialDeadline = "2026-11-06 19:00")
+        )
+        assertEquals(
+            setOf("local:overdue", "local:today", "native:official", "cloud:official"),
+            rows.filter { isTodayPriorityWorkspaceTask(it, today) }.map { it.key }.toSet()
+        )
+        assertTrue(!isTodayPriorityWorkspaceTask(rows[5], today))
+        assertTrue(!isTodayPriorityWorkspaceTask(rows[8], today))
+    }
+
+    @Test
+    fun oldChaoxingNoticeNeverGainsTodayPriorityFromHistoricalTimestamp() {
+        val old = CloudTask("history", "老师已删除的作业？", "todo",
+            "homework", "chaoxing", today.toString(),
+            sourceExternalId = "cxn:" + "a".repeat(40))
+        val rows = combineWorkspaceTasks(emptyList(), listOf(old))
+        assertEquals(1, rows.size) // keep the evidence, do not delete by title
+        assertTrue(rows.none { isTodayPriorityWorkspaceTask(it, today) })
+        assertTrue(readyWorkspaceTasks(rows, emptyList(), emptyList()).isEmpty())
+        assertEquals(listOf("cloud:history"),
+            searchWorkspaceTasks(rows, "verify", "", today).map { it.key })
+    }
+
 }

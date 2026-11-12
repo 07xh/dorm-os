@@ -5,6 +5,8 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Transaction
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -23,7 +25,7 @@ const val TASK_SOURCE_LOCAL = "local"
  * source / due 都是本人填写：source 是自选标签，due 是本地提醒日期（yyyy-MM-dd）。
  * 它们不是学校平台的官方字段，任何界面都必须按"本人标注"表述。
  */
-@Entity(tableName = "local_tasks")
+@Entity(tableName = "local_tasks", indices = [androidx.room.Index(value = ["stableId"], unique = true)])
 data class LocalTask(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -32,7 +34,8 @@ data class LocalTask(
     /** null = 升级前的旧任务确实没有来源标注，不推断、不补默认值。 */
     val source: String? = null,
     /** null = 本人没有填写截止日期。 */
-    val due: String? = null
+    val due: String? = null,
+    val stableId: String? = java.util.UUID.randomUUID().toString()
 )
 
 @Dao
@@ -48,17 +51,100 @@ interface LocalTaskDao {
     suspend fun findById(id: Long): LocalTask?
 
     @Insert
-    suspend fun insert(task: LocalTask)
+    suspend fun insert(task: LocalTask): Long
 
     @Query("UPDATE local_tasks SET completed = :completed WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean)
+
+    @Query("""
+        SELECT COUNT(*) FROM local_task_dependencies AS link
+        LEFT JOIN local_tasks AS prerequisite ON prerequisite.id = link.prerequisiteId
+        WHERE link.taskId = :taskId
+          AND (prerequisite.id IS NULL OR prerequisite.completed = 0)
+    """)
+    suspend fun unfinishedDependencyCount(taskId: Long): Int
+
+    /** One Room transaction enforces NextTodo prerequisites on every UI entry.
+     * Unchecking is always permitted. No school/cloud completion is written here.
+     */
+    @Transaction
+    suspend fun trySetCompleted(taskId: Long, completed: Boolean): Boolean {
+        if (findById(taskId) == null) return false
+        if (completed && (unfinishedDependencyCount(taskId) != 0 || unfinishedStepCount(taskId) != 0)) return false
+        setCompleted(taskId, completed)
+        return true
+    }
+
+    @Query("SELECT COUNT(*) FROM task_steps WHERE scope='device' AND rootKey='local:' || :taskId AND completed=0")
+    suspend fun unfinishedStepCount(taskId: Long): Int
 
     /** Edit only personal metadata; completion, creation time and school records remain unchanged. */
     @Query("UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id")
     suspend fun updateDetails(id: Long, title: String, source: String?, due: String?): Int
 
+    /** Date-only fast edit must never overwrite a concurrent title/source or DAG edit. */
+    @Query("UPDATE local_tasks SET due = :due WHERE id = :id")
+    suspend fun updateDue(id: Long, due: String?): Int
+
     @Query("DELETE FROM local_tasks WHERE id = :id")
-    suspend fun remove(id: Long)
+    suspend fun removeStored(id: Long)
+
+    @Query("DELETE FROM task_executions WHERE scope='device' AND rootKey='local:' || :id")
+    suspend fun removeExecution(id: Long)
+
+    @Transaction
+    suspend fun remove(id: Long) {
+        removeExecution(id)
+        removeStored(id)
+    }
+
+    @Query("SELECT * FROM local_task_dependencies ORDER BY taskId, prerequisiteId")
+    fun observeDependencies(): Flow<List<LocalTaskDependency>>
+
+    @Query("SELECT * FROM local_task_dependencies ORDER BY taskId, prerequisiteId")
+    suspend fun dependencySnapshot(): List<LocalTaskDependency>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertDependency(edge: LocalTaskDependency): Long
+
+    @Query("DELETE FROM local_task_dependencies WHERE taskId = :taskId AND prerequisiteId = :prerequisiteId")
+    suspend fun deleteDependency(taskId: Long, prerequisiteId: Long)
+
+    @Query("DELETE FROM local_task_dependencies WHERE taskId = :taskId")
+    suspend fun clearDependencies(taskId: Long)
+
+    /**
+     * Saving edits and dependency changes is atomic, so "Cancel" never makes
+     * a partially saved link. School-origin records are not writable here.
+     */
+    @Transaction
+    suspend fun updateDetailsWithDependencies(
+        taskId: Long, title: String, source: String?, due: String?,
+        prerequisites: Set<Long>
+    ): Boolean {
+        if (findById(taskId) == null) return false
+        val knownIds = snapshot().mapTo(hashSetOf()) { it.id }
+        if (taskId in prerequisites || prerequisites.any { it !in knownIds }) return false
+        val edges = dependencySnapshot().filter { it.taskId != taskId }.toMutableList()
+        for (before in prerequisites.sorted()) {
+            if (wouldCreateDependencyCycle(edges, taskId, before)) return false
+            edges.add(LocalTaskDependency(taskId, before))
+        }
+        if (updateDetails(taskId, title, source, due) < 1) return false
+        clearDependencies(taskId)
+        for (before in prerequisites) insertDependency(LocalTaskDependency(taskId, before))
+        return true
+    }
+
+    /** Validate the DAG and task existence in a single Room transaction. */
+    @Transaction
+    suspend fun tryAddDependency(taskId: Long, prerequisiteId: Long): Boolean {
+        if (taskId == prerequisiteId || findById(taskId) == null ||
+            findById(prerequisiteId) == null) return false
+        val edges = dependencySnapshot()
+        if (wouldCreateDependencyCycle(edges, taskId, prerequisiteId)) return false
+        return insertDependency(LocalTaskDependency(taskId, prerequisiteId)) != -1L
+    }
 }
 
 /**
@@ -96,9 +182,40 @@ internal val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [LocalTask::class, NativeSchoolRecord::class], version = 3, exportSchema = false)
+/** Preserve existing records; local dependencies share the same Room database. */
+internal val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS local_task_dependencies (
+                taskId INTEGER NOT NULL,
+                prerequisiteId INTEGER NOT NULL,
+                PRIMARY KEY(taskId, prerequisiteId),
+                FOREIGN KEY(taskId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(prerequisiteId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_local_task_dependencies_prerequisiteId ON local_task_dependencies(prerequisiteId)")
+    }
+}
+
+/** Additive v5: personal execution steps, source/owner scoped, in the SAME database. */
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE local_tasks ADD COLUMN stableId TEXT")
+        db.execSQL("UPDATE local_tasks SET stableId=lower(hex(randomblob(16))) WHERE stableId IS NULL")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_local_tasks_stableId ON local_tasks(stableId)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_executions (scope TEXT NOT NULL, rootKey TEXT NOT NULL, ended INTEGER NOT NULL, PRIMARY KEY(scope, rootKey))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_steps (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, scope TEXT NOT NULL, rootKey TEXT NOT NULL, title TEXT NOT NULL, completed INTEGER NOT NULL, position INTEGER NOT NULL, due TEXT, FOREIGN KEY(scope,rootKey) REFERENCES task_executions(scope,rootKey) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_task_steps_scope_rootKey ON task_steps(scope,rootKey)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_step_edges (stepId INTEGER NOT NULL, prerequisiteId INTEGER NOT NULL, PRIMARY KEY(stepId,prerequisiteId), FOREIGN KEY(stepId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(prerequisiteId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_task_step_edges_prerequisiteId ON task_step_edges(prerequisiteId)")
+    }
+}
+
+@Database(entities = [LocalTask::class, NativeSchoolRecord::class, LocalTaskDependency::class, TaskExecution::class, TaskStep::class, TaskStepEdge::class], version = 5, exportSchema = false)
 abstract class LocalTaskDatabase : RoomDatabase() {
     abstract fun tasks(): LocalTaskDao
+    abstract fun executions(): TaskExecutionDao
     abstract fun nativeSchoolRecords(): NativeSchoolRecordDao
 
     companion object {
@@ -110,7 +227,7 @@ abstract class LocalTaskDatabase : RoomDatabase() {
                     context.applicationContext,
                     LocalTaskDatabase::class.java,
                     "xiaoxu-local-tasks.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
             }
     }
 }

@@ -1,0 +1,5 @@
+Explicit user-authorized independent QA build for PR #429.
+Changes: native Compose dependency relation graph, topological layering, node-to-existing-edit navigation.
+Source branch: feat/task-center-nexttodo-ready-20261109.
+Build: isolated package io.github.x07xh.xiaoxu.unifiedqa and preserve formal app storage.
+No automatic merge or release until real-device migration and Chaoxing status acceptance.

@@ -52,6 +52,27 @@ class ChaoxingNoticeAliasTest {
         assertEquals(3,tasks.size)
         assertFalse(considerCompleteInTaskList(tasks.single {it.key=="cloud:old"}))
     }
+    @Test fun conflictingOfficialCloudStatesCannotBeHiddenByLegacyNoticeAlias() {
+        val id="work:123:456:901"
+        val historic=cloud().copy(id="legacy")
+        val submitted=cloud().copy(id="submitted",sourceExternalId=id,
+            officialStatus="submitted")
+        val returned=cloud().copy(id="returned",sourceExternalId=id,
+            officialStatus="returned")
+        // The local reader supplies the exact work identity and notice alias,
+        // but its own status is unknown. It cannot decide which cloud state wins.
+        val rows=combineWorkspaceTasks(emptyList(),
+            listOf(historic,submitted,returned),listOf(work(state="状态未知")))
+        assertEquals(3,rows.size)
+        assertEquals(setOf("cloud:legacy","cloud:submitted","cloud:returned"),
+            rows.map {it.key}.toSet())
+        assertEquals("submitted", rows.single {it.key=="cloud:submitted"}.officialStatus)
+        assertEquals("returned", rows.single {it.key=="cloud:returned"}.officialStatus)
+        assertTrue(considerCompleteInTaskList(rows.single {it.key=="cloud:submitted"}))
+        assertFalse(considerCompleteInTaskList(rows.single {it.key=="cloud:returned"}))
+        assertTrue(requiresChaoxingVerification(rows.single {it.key=="cloud:legacy"}))
+    }
+
     @Test fun existingTrustedCanonicalCannotDisappearDuringAliasMerge() {
         val unverified=cloud().copy(id="a",sourceExternalId="work:123:456:901")
         val verified=unverified.copy(id="z",officialStatus="submitted")

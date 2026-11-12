@@ -7,6 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import java.security.MessageDigest
+import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -52,6 +54,7 @@ fun nativeChaoxingVisibleStatusText(record: NativeSchoolRecord): String? {
 fun nativeChaoxingVisibleStatus(record: NativeSchoolRecord): String? {
     val raw = nativeChaoxingVisibleStatusText(record) ?: return null
     return when {
+        ChaoxingWorkAvailability.isRemovedStatus(raw) -> "removed"
         Regex("""未提交|未完成|待提交|未交|未达标|未开始|待完成""").containsMatchIn(raw) -> "todo"
         Regex("""退回|重做|重新提交|驳回""").containsMatchIn(raw) -> "returned"
         Regex("""已批阅|已批閱|已评分|已評分|已评阅|已評閱|已批改""").containsMatchIn(raw) -> "graded"
@@ -95,6 +98,97 @@ fun nativeChaoxingNoticeAliases(record: NativeSchoolRecord, peer: Boolean = fals
     val ids = value.split(',')
     return if (ids.size <= 100 && ids.all {it.matches(Regex("cxn:[a-f0-9]{40}"))})
         ids.toSet() else emptySet()
+}
+
+/** A complete class list proves absence only for the latest saved owner scan.
+ * Older proofs expire after any new (including partial) scan. Presence uses
+ * exact official IDs captured in that same scan, never names or dates. */
+internal data class NativeChaoxingWorkCoverage(val scopes:Set<String>, val present:Set<String>) {
+    fun excludes(id:String?):Boolean {
+        if(id==null || !id.matches(Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}"""))) return false
+        return id.substringAfter("work:").substringBeforeLast(':') in scopes && id !in present
+    }
+}
+internal fun nativeChaoxingWorkCoverage(records:List<NativeSchoolRecord>):NativeChaoxingWorkCoverage {
+    val binding=records.singleOrNull {it.provider=="chaoxing" && it.kind=="account_binding" &&
+        it.fingerprint=="current" && it.sourceHost=="i.chaoxing.com" &&
+        it.details.matches(Regex("[a-f0-9]{64}"))}
+        ?: return NativeChaoxingWorkCoverage(emptySet(),emptySet())
+    val scopes=records.mapNotNull { row ->
+        if(row.provider!="chaoxing" || row.kind!="course" || row.capturedAt!=binding.capturedAt ||
+            !nativeChaoxingOfficialHost(row.sourceHost)) return@mapNotNull null
+        val identity=Regex("""完整作业列表身份：(scope:\d{1,24}:\d{1,24})""")
+            .matchEntire(row.details)?.groupValues?.get(1) ?: return@mapNotNull null
+        val expected=MessageDigest.getInstance("SHA-256")
+            .digest(("chaoxing|course|"+identity).toByteArray(Charsets.UTF_8))
+            .joinToString("") {"%02x".format(it)}
+        identity.removePrefix("scope:").takeIf {row.fingerprint==expected}
+    }.toSet()
+    val present=records.filter {it.capturedAt==binding.capturedAt}
+        .mapNotNull(::nativeChaoxingWorkSourceId).toSet()
+    return NativeChaoxingWorkCoverage(scopes,present)
+}
+
+/** Only latest saved, identity-bound source withdrawal may hide a pending cloud row. */
+internal fun nativeChaoxingRemovedWorkIds(records:List<NativeSchoolRecord>):Set<String> {
+    val binding=records.singleOrNull {it.provider=="chaoxing" && it.kind=="account_binding" &&
+        it.fingerprint=="current" && it.sourceHost=="i.chaoxing.com" &&
+        it.details.matches(Regex("[a-f0-9]{64}"))} ?: return emptySet()
+    return records.filter {it.capturedAt==binding.capturedAt}
+        .mapNotNull {row -> nativeChaoxingWorkSourceId(row)?.let {it to row}}
+        .groupBy({it.first},{it.second})
+        .filterValues {rows -> rows.all {nativeChaoxingVisibleStatus(it)=="removed"}}
+        .keys
+}
+
+/** A dated official-page observation, separate from the user's personal due. */
+data class NativeChaoxingDeadline(val label: String, val date: LocalDate?)
+
+/** An exam notice is not an exam attempt or an official exam state. */
+fun nativeChaoxingExamNoticeSourceId(record: NativeSchoolRecord): String? {
+    if (record.provider != "chaoxing" || record.kind != "exam_notice" ||
+        record.sourceHost != "notice.chaoxing.com") return null
+    val identity = Regex("""(?:^| · )考试通知身份：(examnotice:[a-f0-9]{64})$""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val expected = MessageDigest.getInstance("SHA-256")
+        .digest(("chaoxing|exam_notice|" + identity).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return identity.takeIf { record.fingerprint == expected }
+}
+
+/** Only the notice's rebuilt legacy identity may replace a cloud notice row. */
+fun nativeChaoxingExamNoticeAliases(record:NativeSchoolRecord):Set<String> {
+    if(nativeChaoxingExamNoticeSourceId(record)==null) return emptySet()
+    val value=Regex("(?:^| · )旧通知身份：([^·]+) · ").find(record.details)?.groupValues?.get(1)?.trim()
+        ?: return emptySet()
+    val ids=value.split(',')
+    return if(ids.size<=100 && ids.all {it.matches(Regex("cxn:[a-f0-9]{40}"))}) ids.toSet() else emptySet()
+}
+
+/** Only an exact official work tuple or notice identity may carry a due.
+ * A month/day fragment is visible metadata, never a date for scheduling. */
+fun nativeChaoxingDeadline(record: NativeSchoolRecord): NativeChaoxingDeadline? {
+    val valid = when (record.kind) {
+        "homework" -> nativeChaoxingWorkSourceId(record) != null
+        "exam_notice" -> nativeChaoxingExamNoticeSourceId(record) != null
+        else -> false
+    }
+    if (!valid) return null
+    val full = Regex("""(?:^| · )官网截止时间：(20\d{2}-\d{2}-\d{2} \d{2}:\d{2})(?= · |$)""")
+        .find(record.details)?.groupValues?.get(1)
+    if (full != null) {
+        val date = runCatching { LocalDateTime.parse(full.replace(' ', 'T')).toLocalDate() }.getOrNull()
+        if (date != null) return NativeChaoxingDeadline(full, date)
+        return null
+    }
+    val partial = Regex("""(?:^| · )官网截止片段：(\d{2}-\d{2} \d{2}:\d{2})(?= · |$)""")
+        .find(record.details)?.groupValues?.get(1) ?: return null
+    val pattern = Regex("""(\d{2})-(\d{2}) (\d{2}):(\d{2})""").matchEntire(partial)
+        ?: return null
+    val (month, day, hour, minute) = pattern.destructured
+    if (runCatching { LocalDate.of(2024, month.toInt(), day.toInt()) }.isFailure ||
+        hour.toInt() !in 0..23 || minute.toInt() !in 0..59) return null
+    return NativeChaoxingDeadline(partial + "（年份未提供）", null)
 }
 
 @Dao
@@ -203,12 +297,12 @@ interface NativeSchoolRecordDao {
         require(accountHash.matches(Regex("^[a-f0-9]{64}$")))
         require(rows.isNotEmpty() || complete) { "failed_empty_scan" }
         require(rows.size <= 5000 && rows.all {
-            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task") &&
+            it.provider == "chaoxing" && it.kind in setOf("course", "homework", "study_task", "exam_notice") &&
                 it.sourceHost.endsWith(".chaoxing.com") && it.title.isNotBlank()
         })
         val old = snapshotKind("chaoxing", "account_binding").singleOrNull()?.details
         if (old != accountHash || complete) {
-            for (kind in listOf("course", "homework", "study_task")) deleteKind("chaoxing", kind)
+            for (kind in listOf("course", "homework", "study_task", "exam_notice")) deleteKind("chaoxing", kind)
         } else if (supersededKeys.isNotEmpty()) {
             require(supersededKeys.size <= 5000)
             val fingerprints = supersededKeys.map { key ->

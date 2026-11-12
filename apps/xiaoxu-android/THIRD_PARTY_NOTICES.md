@@ -83,3 +83,36 @@ PR #328 起，校序的悬浮底部导航复用以下两个文件，随后新增
 - 依赖：`io.github.kyant0:backdrop:2.0.0-alpha03`、`io.github.kyant0:shapes:1.2.0`，对应依赖项目的许可证也需在正式发布前完成清点。
 
 **许可证发布门禁**：GPL-3.0 对分发和相应源码有要求；现有 SleepDown 修改版采用非商业限制许可，不能直接假设其条款与 GPL-3.0 的整体组合发布义务兼容。当前只作为研发与设备 QA 验证，未经专门的许可兼容审查和相应源码/许可证准备，不发布对外正式 APK。构建成功不构成法律兼容性证明。
+
+---
+
+## NextTodo 任务依赖模型（MIT）
+
+- 项目：[JunieXD/NextTodo](https://github.com/JunieXD/NextTodo)
+- 原作者：JunieXD
+- 版权：Copyright (c) 2026 JunieXD
+- 许可证：MIT
+- 校序适配：参考 NextTodo `crates/core/src/dag.rs` / `board.rs` 的 DAG 循环检测与“前置完成才解锁”规则，在现有 Android Room / Compose 内以 Kotlin 实现；并未引入 NextTodo Rust/Axum 后端或新增学校任务库。
+- 作用范围：只有用户明确设置的本机任务关系；学校作业和微信任务的来源、身份与官方状态仍使用校序已有实现。
+
+MIT License
+
+Copyright (c) 2026 JunieXD
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

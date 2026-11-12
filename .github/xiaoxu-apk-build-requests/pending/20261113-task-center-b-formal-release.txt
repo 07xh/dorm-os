@@ -1,0 +1,5 @@
+User explicitly approved task center B design and requested implementation, production publication and duplicate code cleanup on 2026-11-13.
+Build 0.8.16 (37) from the reviewed #429 execution-first implementation only after exact-source Kotlin/JVM, complete app contracts and Room/Compose runtime tests pass.
+Use existing formal signing and promotion workflows and the existing release certificate. Never publish debug or isolated QA as formal.
+This authorization includes the reviewed #429 task-center branch; supersedes the earlier unaccepted status for that branch. Does not authorize D1 0019 or unrelated Draft merges.
+Physical Ace 6 and personal official-account verification must be reported as unperformed if unavailable, never claimed from emulator/CI results.

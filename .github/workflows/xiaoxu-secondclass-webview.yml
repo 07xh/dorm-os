@@ -9,6 +9,8 @@ on:
       - 'apps/xiaoxu-android/app/src/main/java/**/SecondClassAuto*.kt'
       - 'apps/xiaoxu-android/app/src/main/assets/ncwu_secondclass_local.js'
       - '.github/workflows/xiaoxu-secondclass-webview.yml'
+      - '.github/workflows/build-xiaoxu-android.yml'
+      - '.github/xiaoxu-apk-build-requests/pending/*.txt'
 permissions:
   contents: read
 jobs:

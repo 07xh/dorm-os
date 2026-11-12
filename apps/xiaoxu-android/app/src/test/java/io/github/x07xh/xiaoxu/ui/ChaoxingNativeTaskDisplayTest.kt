@@ -17,16 +17,18 @@ class ChaoxingNativeTaskDisplayTest {
             .joinToString("") {"%02x".format(it)}
         return NativeSchoolRecord("chaoxing",kind,hash,"学习通作业$id",label+status+" · "+keyLabel+identity,host,1000L)
     }
-    @Test fun successfulOfficialNodeReadsReachPendingChaoxingGroup() {
+    @Test fun officialKnownTodoAndUnknownPlanStaySeparateAndReadable() {
         val records=listOf(row("901","未提交","mooc1-1.chaoxing.com"),
             row("902","未完成","task.chaoxing.com"),
             row("903","状态未知","task.chaoxing.com",plan=true),row("904","待批阅"))
         val all=combineWorkspaceTasks(emptyList(),emptyList(),records)
         assertEquals("all newly-read tasks must survive the presentation adapter",4,all.size)
         val pending=searchWorkspaceTasks(all,"pending","",LocalDate.of(2026,11,8))
-        assertEquals(setOf("学习通作业901","学习通作业902","学习通作业903"),pending.map {it.title}.toSet())
+        assertEquals(setOf("学习通作业901","学习通作业902"),pending.map {it.title}.toSet())
         assertTrue(pending.all {it.category=="chaoxing"})
-        assertEquals(3,facetWorkspaceTasks(pending,"chaoxing",false,LocalDate.of(2026,11,8)).size)
+        assertEquals(2,facetWorkspaceTasks(pending,"chaoxing",false,LocalDate.of(2026,11,8)).size)
+        assertEquals(listOf("学习通作业903"),
+            searchWorkspaceTasks(all,"verify","",LocalDate.of(2026,11,8)).map {it.title})
         assertTrue(facetWorkspaceTasks(pending,"local",false,LocalDate.of(2026,11,8)).isEmpty())
         assertEquals(1,all.count {considerCompleteInTaskList(it)})
     }

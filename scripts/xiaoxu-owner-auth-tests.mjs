@@ -37,6 +37,7 @@ try {
  const cookie=setCookie.split(';')[0];
  const getReq=()=>new Request('https://xiaoxu.test/api/v1/auth/me',{headers:{cookie}});
  assert.equal((await me({request:getReq(),env})).status,200,'logged in');
+ assert.equal((await (await me({request:getReq(),env})).json()).ownerId,'local-owner-v1','verified stable owner scope survives session renewal');
  assert.equal((await verifyAcademicAccess(getReq(),env)).userId,'local-owner-v1','all existing private APIs use same gate');
  assert.equal((await me({request:new Request('https://xiaoxu.test/api/v1/auth/me'),env})).status,401);
  assert.equal((await me({request:new Request('https://xiaoxu.test/api/v1/auth/me',{headers:{cookie:cookie+'; '+cookie}}),env})).status,401);

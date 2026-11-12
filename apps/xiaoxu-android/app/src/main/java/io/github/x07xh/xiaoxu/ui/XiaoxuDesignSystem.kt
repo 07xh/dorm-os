@@ -791,6 +791,7 @@ fun XiaoxuGlassDialog(
     title: String,
     onDismiss: () -> Unit,
     dismissLabel: String = "完成",
+    showDismissButton: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(32.dp)
@@ -825,8 +826,10 @@ fun XiaoxuGlassDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
             )
-            XiaoxuDialogPrimaryButton(onClick = onDismiss) {
-                Text(dismissLabel)
+            if (showDismissButton) {
+                XiaoxuDialogPrimaryButton(onClick = onDismiss) {
+                    Text(dismissLabel)
+                }
             }
         }
     }
