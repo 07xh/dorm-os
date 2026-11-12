@@ -1110,6 +1110,7 @@ fun RealAcademicTaskHub(
     // Reading or refreshing official data never expands this group on its own.
     // Preserve a deliberate user toggle across ordinary UI recomposition.
     var editingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var breakingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
     var quickDateTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var quickDateSaving by remember { mutableStateOf(false) }
     var showLocalEditor by rememberSaveable { mutableStateOf(false) }
@@ -1973,6 +1974,12 @@ fun RealAcademicTaskHub(
                 }
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
+            onBreakdown = if (selectedTask.storage == "local") {
+                {
+                    breakingLocalId = selectedTask.key.removePrefix("local:").toLongOrNull()
+                    openedTaskKey = null
+                }
+            } else null,
             waitingTitles = selectedTask.key.removePrefix("local:").toLongOrNull()
                 ?.takeIf { selectedTask.storage == "local" && !selectedTask.done }
                 ?.let { unfinishedLocalPrerequisites(it, localTasks, dependencies) }
@@ -2022,6 +2029,11 @@ fun RealAcademicTaskHub(
     if (editingLocal != null) {
         LocalTaskEditSheet(task = editingLocal, dao = dao,
             onDismiss = { editingLocalId = null })
+    }
+    val breakingLocal = localTasks.firstOrNull { it.id == breakingLocalId }
+    if (breakingLocal != null) {
+        LocalTaskBreakdownSheet(task = breakingLocal, dao = dao,
+            onDismiss = { breakingLocalId = null })
     }
     if (showLocalComposer) {
         LocalTaskCreateSheet(
@@ -2093,7 +2105,8 @@ internal fun WorkspaceTaskDetailSheet(
     manageLabel: String = "编辑本机任务",
     onVerifyChaoxing: (() -> Unit)? = null,
     onArchive: (() -> Unit)? = null,
-    waitingTitles: List<String> = emptyList()
+    waitingTitles: List<String> = emptyList(),
+    onBreakdown: (() -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
@@ -2170,6 +2183,12 @@ internal fun WorkspaceTaskDetailSheet(
             }
         }
         if (selectedTask.storage == "local") {
+            if (onBreakdown != null && !selectedTask.done) {
+                OutlinedButton(onClick = onBreakdown,
+                    modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
+                    Text("分解成步骤")
+                }
+            }
             OutlinedButton(onClick = onManage,
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
                 Text(manageLabel)
