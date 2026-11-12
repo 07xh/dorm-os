@@ -15,13 +15,12 @@ test('only explicit title + notes are accepted, no model/key URL from caller',()
 });
 test('reject invalid, duplicated or fabricated result shapes',()=>{
  assert.deepEqual(validateTaskBreakdownOutput({steps:[' A ','B']}),['A','B']);
- for(const item of [{steps:['A']},{steps:['A','a']},{steps:['A','B\nC']},
+ for(const item of [{steps:['A']},{steps:['A','a']},{steps:['A','B\\nC']},
   {steps:['A',42]}, {steps:['A','B'],saved:true}, {steps:Array(13).fill('x')}])
-  if(item.steps.length!==2 || item.steps[0]==='A' && item.steps[1]==='B\nC' ||
-    typeof item.steps[1]!=='string' || item.steps[0]===item.steps[1] ||
-    item.steps[0]==='A' && item.steps[1]==='a')assert.equal(validateTaskBreakdownOutput(item),null);
- assert.equal(validateTaskBreakdownOutput({steps:['A','B']})?.length,2);
+  assert.equal(validateTaskBreakdownOutput(item),null);
+ assert.deepEqual(validateTaskBreakdownOutput({steps:['A','B']}),['A','B']);
 });
+
 test('binding outputs are validated before returning to app',async()=>{
  let calls=0;
  const ai={run:async(model,arg)=>{calls++;assert.equal(model,TASK_BREAKDOWN_MODEL);
