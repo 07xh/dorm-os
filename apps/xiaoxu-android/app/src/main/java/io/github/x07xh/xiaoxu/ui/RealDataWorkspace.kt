@@ -2032,7 +2032,7 @@ fun RealAcademicTaskHub(
     }
     val breakingLocal = localTasks.firstOrNull { it.id == breakingLocalId }
     if (breakingLocal != null) {
-        LocalTaskBreakdownSheet(task = breakingLocal, dao = dao,
+        LocalTaskBreakdownSheet(task = breakingLocal, dao = dao, client = client,
             onDismiss = { breakingLocalId = null })
     }
     if (showLocalComposer) {
