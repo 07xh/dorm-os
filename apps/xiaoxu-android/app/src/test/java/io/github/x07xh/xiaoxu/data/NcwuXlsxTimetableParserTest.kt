@@ -119,6 +119,18 @@ class NcwuXlsxTimetableParserTest {
         }
     }
 
+    @Test fun xlsxUsesSameQingguoParenthesizedParityNormalizerAsHtmlXls() {
+        val personal = worksheet(
+            row(1, inline("A1", "课程"), inline("B1", "教师"), inline("C1", "上课时间地点")),
+            row(2, inline("A2", "工程制图"), inline("B2", "李老师"),
+                inline("C2", "1-11周(单) 五[3-4] 三教楼106(172)"))
+        )
+        val result = NcwuXlsxTimetableParser.parse(zip(listOf(personal)))
+        assertEquals(listOf(1, 3, 5, 7, 9, 11), result.single().weeks)
+        assertEquals(5, result.single().weekday)
+        assertEquals("三教楼106(172)", result.single().location)
+    }
+
     @Test fun rejectMissingWeeksWithoutModifyingOldTimetable() {
         val personal = worksheet(
             row(1, inline("A1", "课程"), inline("B1", "教师"), inline("C1", "上课时间地点")),
