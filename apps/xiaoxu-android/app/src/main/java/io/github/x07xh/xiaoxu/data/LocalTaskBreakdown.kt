@@ -71,3 +71,30 @@ internal fun hasEquivalentLocalTaskBreakdown(
         }
     return matches(original.id, stepTitles.lastIndex)
 }
+
+/**
+ * Read-only progress view over existing personal DAG. This is labelled
+ * "前置任务" rather than implying every upstream task is a generated child.
+ * The graph algorithm fails closed on corruption and never touches school data.
+ */
+fun localTaskAncestors(
+    taskId: Long, tasks: List<LocalTask>, edges: List<LocalTaskDependency>
+): List<LocalTask> {
+    if(tasks.none { it.id == taskId } || edges.isEmpty()) return emptyList()
+    val layers = localTaskGraphLayers(tasks, edges)
+    if(layers.isEmpty()) return emptyList()
+    val byId = tasks.associateBy { it.id }
+    val before = edges.groupBy { it.taskId }
+    val queue = java.util.ArrayDeque<Long>()
+    before[taskId].orEmpty().forEach { queue.addLast(it.prerequisiteId) }
+    val ancestors = hashSetOf<Long>()
+    while(queue.isNotEmpty()) {
+        val id = queue.removeFirst()
+        if(id==taskId || id !in byId) return emptyList()
+        if(ancestors.add(id)) {
+            if(ancestors.size > 512) return emptyList()
+            before[id].orEmpty().forEach { queue.addLast(it.prerequisiteId) }
+        }
+    }
+    return layers.flatten().map { it.task }.filter { it.id in ancestors }
+}
