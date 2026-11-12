@@ -39,7 +39,12 @@ const request=(body,origin='https://dorm-os-dk9.pages.dev')=>new Request(
 });
 const owner=async()=>({ok:true,userId:'owner'});
 test('auth, origin and disabled binding all fail closed without inference',async()=>{
- let calls=0;const env={AI:{run:async()=>{calls++;return {response:{steps:['A','B']}}}}}};
+ let calls=0;
+ const fakeAI={run:async()=>{
+  calls++;
+  return {response:{steps:['A','B']}};
+ }};
+ const env={AI:fakeAI};
  const bad=await handleBreakdownPost({request:request({title:'x'}),env},{
   verify:async()=>({ok:false,error:'unauthorized',status:401})});
  assert.equal(bad.status,401);
