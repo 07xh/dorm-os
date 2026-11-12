@@ -114,11 +114,11 @@ assert.match(main, /PrimaryBottomNavigation\(selected = current, backdrop = navB
 assert.match(main, /PrimarySideNavigation\(selected = current\)/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
-assert.match(db, /@Entity\(tableName = "local_tasks"\)/);
+assert.match(db, /@Entity\(tableName = "local_tasks"/);
 // Room v1 -> v2：只增列、不做破坏性迁移，旧任务不得被清空。
 assert.match(db, /val source: String\?/);
 assert.match(db, /val due: String\?/);
-assert.match(db, /version = 4/);
+assert.match(db, /version = 5/);
 assert.match(db, /Migration\(2, 3\)/);
 assert.match(db, /CREATE TABLE IF NOT EXISTS native_school_records/);
 assert.match(db, /Migration\(1, 2\)/);
@@ -126,7 +126,7 @@ assert.match(db, /ADD COLUMN source TEXT/);
 assert.match(db, /ADD COLUMN due TEXT/);
 assert.match(db, /Migration\(3, 4\)/);
 assert.match(db, /CREATE TABLE IF NOT EXISTS local_task_dependencies/);
-assert.match(db, /addMigrations\(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4\)/);
+assert.match(db, /addMigrations\(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5\)/);
 assert.doesNotMatch(db, /fallbackToDestructiveMigration|DROP TABLE/);
 assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
@@ -144,8 +144,6 @@ assert.match(profileSettings, /requestNotificationAccess\("course"\)/,
   'Course reminder uses the shared permission gateway');
 assert.match(profileSettings, /requestNotificationAccess\("deadline"\)/,
   'Deadline reminder uses the shared permission gateway');
-assert.equal(localTaskUi.split('animationSpec = tween(XiaoxuMotion.SelectionMs)').length - 1, 2,
-  'Local task editor selection pills use the global motion setting');
 assert.doesNotMatch(localTaskUi, /tween\(180\)/,
   'Do not restore an independent hard-coded task pill animation duration');
 
@@ -180,23 +178,7 @@ assert.match(taskWorkspaceForComposerGate, /showLocalComposer by rememberSaveabl
   '顶栏新增任务必须独立于本机任务管理');
 assert.match(taskWorkspaceForComposerGate, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
   '新增按钮直接进入单用途新建页');
-assert.match(localTaskUi, /if \(tasks\.isEmpty\(\)\)/,
-  '零条本机任务时不应该显示无意义的筛选器');
-assert.match(localTaskUi, /if \(downstreamCount > 0\)/,
-  '删除前置节点前应提示被解除的后续依赖');
-
-assert.match(localTaskUi, /var visibleLimit by rememberSaveable\(filterKey\) \{ mutableStateOf\(30\) \}/,
-  '本机任务编辑器只组合首30条，切换筛选重置显示进度');
-assert.match(localTaskUi, /visible\.take\(visibleLimit\)/,
-  '本机任务必须按需显示更多，而非一次构造200张卡');
-assert.match(localTaskUi, /XiaoxuGroupSurface\s*\{/,
-  '本机任务列表复用唯一玻璃连续分组外壳');
-assert.match(localTaskUi, /dao\.trySetCompleted\(task\.id, checked\)/,
-  '本机任务完成操作必须仍写原Room记录');
-assert.match(localTaskUi, /onDelete = \{ pendingDelete = task \}/,
-  '本机任务删除仍需原确认流程');
-assert.doesNotMatch(localTaskUi, /visible\.take\(200\)/,
-  '旧式200行即时合成已清退');
+// The secondary local manager was retired; main hub and Room execution tests own this behavior.
 assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
   '通知权限只在用户开启提醒时申请');
 assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, value\)/,
@@ -268,22 +250,15 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-assert.match(workspace, /LocalTaskEditor\(\s*tasks = localTasks,\s*dao = dao,\s*onEditTask =/,
-  '本机管理仍接入原有任务数据库及编辑器');
-
 const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
-assert.match(localEditorSource, /fun LocalTaskEditor\(/);
-assert.match(localEditorSource, /XiaoxuCard\(/,
-  '本机任务编辑与列表必须使用唯一设计系统玻璃卡片');
+assert.match(localEditorSource, /fun LocalTaskEditSheet\(/);
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
   '禁止独立 Material3 Card 回流本机任务编辑器');
 assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
 assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
   '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
-assert.match(localEditorSource, /dao\.trySetCompleted\(task\.id, checked\)/,
-  '本机任务完成/取消完成操作不能丢失');
-assert.match(localEditorSource, /dao\.remove\(task\.id\)/,
-  '本机删除确认功能不能丢失');
+assert.match(workspace, /dao\.trySetCompleted\(id, checked\)/, '统一任务列表保留真实完成写入');
+assert.match(workspace, /dao\.remove\(deletingTask\.id\)/, '统一详情保留删除确认与真实 Room 写入');
 assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, value\)/,
   '本机截止提醒应由统一通知页面控制');
 assert.match(profileSettings, /LocalDeadlineReminders\.reconcile\(context, tasks\)/,
@@ -503,10 +478,6 @@ assert.match(workspace, /label = "更多任务操作"/,
  '低频操作必须收进可发现的更多菜单');
 assert.match(workspace, /expanded = taskMenuOpen/,
  '更多菜单必须有明确展开与关闭状态');
-assert.match(workspace, /if \(onlyThisWeek\) \{[\s\S]*?onlyThisWeek = false[\s\S]*?sourceFilter = "local"[\s\S]*?onlyThisWeek = true/,
- '本周本机筛选必须直达本机任务，避免来源条件冲突');
-assert.match(workspace, /if \(source != "local"\) onlyThisWeek = false/,
- '切换到其他来源时必须清除本周仅本机筛选');
 assert.match(workspace, /本周暂无可做的本机任务/,
  '本周无数据必须明确说明，而非误报任务消失');
 assert.match(workspace, /onlyThisWeek -> "查看全部待办"/,
@@ -517,8 +488,6 @@ assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
  '本机任务需支持直接进入已有编辑页');
 assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
  '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
-assert.match(workspace, /val openLabel = if \(task\.storage == "local"\) "编辑本机任务" else "查看任务详情"/,
- '本机行应明确说明点击是直接编辑，云端行仍是详情');
 assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/,
  '只有已解析的学习通官方截止日期可用于排序');
 assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/,
@@ -1231,9 +1200,9 @@ assert.match(workspace, /通知、学习计划和课程作业共用本机读取�
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies\)[\s\S]*?facetWorkspaceTasks\(/,
+assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies, taskSteps, state\.ownerId, schoolBinding\)[\s\S]*?facetWorkspaceTasks\(/,
   '任务中心按真实任务与当前筛选条件计算可见记录');
-assert.match(workspace, /searchWorkspaceTasks\(all, filter, searchQuery, today\)/, '任务仍使用真实搜索结果');
+assert.match(workspace, /searchExecutionRoots\(searchWorkspaceTasks\(all, filter, "", today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
   '待完成不能包含学习通未知或未关联的旧通知');
 assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
@@ -1339,8 +1308,8 @@ assert.match(db, /abstract fun nativeSchoolRecords\(\): NativeSchoolRecordDao/);
 assert.match(nativeRecords, /@Transaction/);
 assert.doesNotMatch(localNative + nativeRecords + localSchoolUi,
  /addJavascriptInterface|document\.cookie|CookieManager\.getCookie|OWNER_LOGIN_SECRET|SCHOOL_SESSION_KEY/);
-assert.match(appGradle, /versionName '0\.8\.15'/, '正式版本名必须明确');
-assert.match(appGradle, /versionCode 36\b/, '正式版版本码应高于已发布 RC');
+assert.match(appGradle, /versionName '0\.8\.16'/, '正式版本名必须明确');
+assert.match(appGradle, /versionCode 37\b/, '正式版版本码应高于已发布 RC');
 
 // The removed Chaoxing DOM parser has been replaced by Jsoup JVM fixtures.
 /* Local NCWU import: an actual DOM parsing smoke test, not an official account login. */
@@ -1813,7 +1782,7 @@ assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Ali
   '三项统计应采用上下标签和数量而非横排大卡');
 assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
-assert.match(workspace, /Text\("本周·本机"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
+assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
 assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
@@ -1914,8 +1883,6 @@ assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按�
 assert.match(workspace, /taskMenuOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '低频任务管理收进默认关闭的更多菜单');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
-assert.match(workspace, /if \(showLocalEditor\) \{[\s\S]*?LocalTaskEditor\(\s*tasks = localTasks,[\s\S]*?onCreateTask =/,
-  '本机管理复用既有编辑流程，新增转入独立简洁表单');
 assert.match(workspace, /if \(showCloudEditor\) \{[\s\S]*?CloudTaskEditor\(client\)/,
   '云端新建使用独立浮层');
 assert.doesNotMatch(workspace, /showManager && showLocal|jumpTo =/,
@@ -1946,7 +1913,7 @@ assert.match(cloud, /suspend fun setWechatTaskCompleted\(/,
   '微信审核任务必须复用本人云端任务写接口而不是只读装饰勾选框');
 assert.match(cloud, /it\.provider == "wechat" && it\.revision == revision/,
   '仅后端审核已确认微信来源、且版本匹配的任务允许个人勾选');
-assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "POST", body, authenticated = true\)/,
+assert.match(cloud, /request\("\/api\/v1\/assignments\/\$id", "POST", body, authenticated = true,[\s\S]*?boundSessionToken = boundToken\)/,
   '微信任务个人完成使用 Android 支持的 POST 且携带原有本人认证');
 assert.match(cloud, /put\("localStatus", if \(completed\) "done" else "todo"\)/,
   '微信任务勾选只操作个人状态，不更改学校官方提交状态');
@@ -2049,7 +2016,7 @@ assert.match(workspace, /filter = "pending"/,
   '待完成统计卡应真实切换过滤器');
 assert.match(workspace, /filter = "done"/,
   '已完成统计卡应真实切换过滤器');
-assert.match(workspace, /showLocalEditor = true/);
+
 assert.match(workspace, /showCloudEditor = true/);
 assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/,
   '窄屏任务分区标题必须给来源和条数预留空间');

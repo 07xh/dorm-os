@@ -72,7 +72,7 @@ class LocalTaskDatabaseMigrationTest {
 
     private fun open(name: String) =
         Room.databaseBuilder(context, LocalTaskDatabase::class.java, name)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     @Test
@@ -131,5 +131,26 @@ class LocalTaskDatabaseMigrationTest {
             db.close()
             context.deleteDatabase(name)
         }
+    }
+    @Test fun v4ToV5PreservesDagAndAssignsStableRootIdentity() = runBlocking {
+        val name=databaseName()
+        createV3(name)
+        val legacy=SQLiteDatabase.openDatabase(context.getDatabasePath(name).path,null,SQLiteDatabase.OPEN_READWRITE)
+        try {
+            legacy.execSQL("CREATE TABLE local_task_dependencies (taskId INTEGER NOT NULL, prerequisiteId INTEGER NOT NULL, PRIMARY KEY(taskId,prerequisiteId), FOREIGN KEY(taskId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(prerequisiteId) REFERENCES local_tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            legacy.execSQL("CREATE INDEX index_local_task_dependencies_prerequisiteId ON local_task_dependencies(prerequisiteId)")
+            legacy.execSQL("INSERT INTO local_tasks (id,title,completed,createdAt) VALUES (53,'前置',0,1700000000001)")
+            legacy.execSQL("INSERT INTO local_task_dependencies VALUES (52,53)")
+            legacy.version=4
+        } finally {legacy.close()}
+        val db=open(name)
+        try {
+            val tasks=db.tasks().snapshot()
+            assertEquals(2,tasks.size)
+            assertTrue(tasks.all {it.stableId?.matches(Regex("[a-f0-9]{32}"))==true})
+            assertEquals(2,tasks.map {it.stableId}.distinct().size)
+            assertEquals(listOf(LocalTaskDependency(52,53)),db.tasks().dependencySnapshot())
+            assertTrue(db.executions().stepSnapshot().isEmpty())
+        } finally {db.close();context.deleteDatabase(name)}
     }
 }

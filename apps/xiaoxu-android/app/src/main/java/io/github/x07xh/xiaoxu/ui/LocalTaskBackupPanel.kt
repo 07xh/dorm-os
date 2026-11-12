@@ -45,7 +45,7 @@ fun LocalTaskBackupPanel() {
             scope.launch {
                 message = try {
                     val count = withContext(Dispatchers.IO) { backup.exportTo(uri) }
-                    "导出完成：$count 条本机手动任务。请妥善保管此文件。"
+                    "导出完成：$count 条本机任务，含个人步骤及先后关系。请妥善保管此文件。"
                 } catch (_: Exception) {
                     "导出失败，备份文件可能不完整，请重新导出。"
                 }
@@ -94,7 +94,7 @@ fun LocalTaskBackupPanel() {
                 ) { Text("恢复备份") }
             }
             Text(
-                "仅包含本机手动任务的标题、完成状态和创建时间。JSON 文件未加密；不会导出账号、Cookie、学校作业或云端任务。请勿分享含个人信息的备份。",
+                "包含本机任务、个人步骤、先后关系及关联来源标识。JSON 文件未加密；不含登录凭据或学校原始记录。请勿分享含个人信息的备份。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -165,9 +165,9 @@ class TaskCenterSearchTest {
         assertEquals(listOf("local:2"),
             facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
                 "all", false, today).map { it.key })
-        // Completed items must not appear in the this-week deadline subset.
-        assertTrue(facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
-            "all", true, today).isEmpty())
+        // Date is independent from status: a completed task can still have a date this week.
+        assertEquals(listOf("local:2"), facetWorkspaceTasks(searchWorkspaceTasks(records, "done", "", today),
+            "all", true, today).map { it.key })
     }
 
     @Test
@@ -222,7 +222,7 @@ class TaskCenterSearchTest {
         assertEquals(2, countUpcomingLocalDeadlines(rows, today))
         // "本周截止" uses the calendar week (Mon–Sun): an overdue task from
         // Thursday still belongs to this week; the Monday +3-day task does not.
-        assertEquals(listOf("local:today", "local:past"),
+        assertEquals(listOf("local:today", "local:past", "local:done"),
             facetWorkspaceTasks(rows, "all", true, today).map { it.key })
     }
 

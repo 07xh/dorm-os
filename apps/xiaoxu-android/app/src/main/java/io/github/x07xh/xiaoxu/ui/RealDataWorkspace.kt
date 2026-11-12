@@ -1,6 +1,12 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.widget.Toast
+import io.github.x07xh.xiaoxu.data.withExecutionAction
+import io.github.x07xh.xiaoxu.data.withOwnerExecutionAction
+import io.github.x07xh.xiaoxu.data.TaskStep
+import io.github.x07xh.xiaoxu.data.TaskExecution
+import io.github.x07xh.xiaoxu.data.ExecutionRoot
+import io.github.x07xh.xiaoxu.data.readyTaskSteps
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +70,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
@@ -95,9 +102,9 @@ import io.github.x07xh.xiaoxu.data.CloudTask
 import io.github.x07xh.xiaoxu.data.trustedChaoxingPlatformStatus
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
+import io.github.x07xh.xiaoxu.data.localTaskAncestors
 import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import io.github.x07xh.xiaoxu.data.readyLocalTaskIds
-import io.github.x07xh.xiaoxu.data.localTaskAncestors
 import io.github.x07xh.xiaoxu.data.waitingLocalTaskIds
 import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -416,8 +423,7 @@ internal fun facetWorkspaceTasks(
     tasks: List<WorkspaceTask>, source: String, thisWeekOnly: Boolean, today: LocalDate
 ): List<WorkspaceTask> = tasks.filter { task ->
     (source == "all" || task.category == source) &&
-        (!thisWeekOnly || (task.storage == "local" && !considerCompleteInTaskList(task) &&
-            thisWeek(task.date, today)))
+        (!thisWeekOnly || thisWeek(trustedExecutionDate(task), today))
 }
 
 /** The search only filters already-read Room/D1 records; it never guesses school tasks. */
@@ -1051,6 +1057,19 @@ fun RealAcademicTaskHub(
     val dependencies by dao.observeDependencies().collectAsState(initial = emptyList())
     val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
+    val executionDao = remember(context) { LocalTaskDatabase.open(context).executions() }
+    val taskSteps by rememberLocalRows(executionDao) { executionDao.observeSteps() }
+    val stepEdges by rememberLocalRows(executionDao) { executionDao.observeEdges() }
+    val executions by rememberLocalRows(executionDao) { executionDao.observeExecutions() }
+    val schoolBinding = schoolRows.singleOrNull {
+        it.provider == "chaoxing" && it.kind == "account_binding" && it.fingerprint == "current"
+    }?.details?.takeIf { it.matches(Regex("[a-f0-9]{64}")) }
+    val resolveExecution: (WorkspaceTask) -> ExecutionRoot? = { row ->
+        taskExecutionRoot(row, state.ownerId.takeIf { state.authenticated }, schoolBinding)
+    }
+    val pendingStepUpdates = remember { mutableStateMapOf<Long, Boolean>() }
+    var lastCompletedStepId by rememberSaveable { mutableStateOf<Long?>(null) }
+
     val capturedHomework = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
@@ -1111,10 +1130,11 @@ fun RealAcademicTaskHub(
     // Reading or refreshing official data never expands this group on its own.
     // Preserve a deliberate user toggle across ordinary UI recomposition.
     var editingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var breakingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
     var quickDateTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var quickDateSaving by remember { mutableStateOf(false) }
-    var showLocalEditor by rememberSaveable { mutableStateOf(false) }
+    var showTaskBackup by rememberSaveable { mutableStateOf(false) }
+    var deletingLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deletingLocalBusy by remember { mutableStateOf(false) }
     var showLocalComposer by rememberSaveable { mutableStateOf(false) }
     var showCloudEditor by rememberSaveable { mutableStateOf(false) }
     // One recoverable action, visible only after Room confirms a completion.
@@ -1130,31 +1150,42 @@ fun RealAcademicTaskHub(
     // Personal tasks open the existing edit sheet directly; cloud tasks still
     // use the source-aware detail view. Checkbox completion is unchanged.
     val onTaskTap: (WorkspaceTask) -> Unit = { task ->
-        if (task.storage == "local") {
-            editingLocalId = task.key.removePrefix("local:").toLongOrNull()
-        } else {
-            openedTaskKey = task.key
-        }
+        openedTaskKey = task.key
     }
     // Checkbox previews, expansion toggles and sheet navigation do not need
     // another search + date-facet pass over every stored task.
     val shown = remember(all, filter, searchQuery, sourceFilter, onlyThisWeek,
-        today, localTasks, dependencies) {
+        today, localTasks, dependencies, taskSteps, state.ownerId, schoolBinding) {
         val filtered = facetWorkspaceTasks(
-            searchWorkspaceTasks(all, filter, searchQuery, today),
-            sourceFilter, onlyThisWeek, today
+            searchExecutionRoots(searchWorkspaceTasks(all, filter, "", today), taskSteps,
+                resolveExecution, if (filter == "now") "" else searchQuery),
+            sourceFilter, onlyThisWeek && filter != "now", today
         )
         if (filter == "now") readyWorkspaceTasks(filtered, localTasks, dependencies)
         else filtered
     }
-    val nowCount = remember(all, localTasks, dependencies) {
-        readyWorkspaceTasks(all, localTasks, dependencies).size
+    val executionRows = remember(shown, taskSteps, stepEdges, executions, searchQuery,
+        state.ownerId, schoolBinding, onlyThisWeek, today) {
+        executionReadyRows(shown, taskSteps, stepEdges, executions, resolveExecution, searchQuery)
+            .filter { row ->
+                if (!onlyThisWeek) true else row.date?.let { date ->
+                    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                    !date.isBefore(monday) && date.isBefore(monday.plusDays(7))
+                } == true
+            }
     }
-    val readySections = remember(shown, today) {
-        val urgent = shown.filter { isTodayPriorityWorkspaceTask(it, today) }
-        if (urgent.isEmpty()) listOf("" to shown)
-        else listOf("今天优先" to urgent,
-            "其他可做" to shown.filterNot { isTodayPriorityWorkspaceTask(it, today) })
+    val nowCount = remember(all, localTasks, dependencies, taskSteps, stepEdges, executions,
+        state.ownerId, schoolBinding) {
+        executionReadyRows(readyWorkspaceTasks(all, localTasks, dependencies), taskSteps,
+            stepEdges, executions, resolveExecution, "").map { it.parent.key }.distinct().size
+    }
+    val readySections = remember(executionRows, today) {
+        executionRows.groupBy { row -> when {
+            row.date == null -> "未设日期"
+            row.date!!.isBefore(today) -> "逾期"
+            row.date == today -> "今天"
+            else -> "接下来"
+        }}.entries.map { it.key to it.value }
     }
     val reviewCount = remember(all) { all.count(::requiresChaoxingVerification) }
     val needsVerificationRows = remember(all, filter, searchQuery, sourceFilter,
@@ -1177,6 +1208,13 @@ fun RealAcademicTaskHub(
     val localRows = remember(shown) { shown.filter { it.category == "local" } }
     val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
+
+    val executionProgress: (WorkspaceTask) -> String? = { row ->
+        resolveExecution(row)?.let { root ->
+            val children = taskSteps.filter { it.scope == root.scope && it.rootKey == root.key }
+            if (children.isEmpty()) null else "步骤 ${children.count { it.completed }}/${children.size}"
+        }
+    }
 
     // Reuse the same write paths in the flat "now" view and the grouped archive.
     // Optimistic state is presentation-only until Room / CloudClient confirms.
@@ -1206,13 +1244,25 @@ fun RealAcademicTaskHub(
         }
     }
     val toggleWechat: (WorkspaceTask, Boolean) -> Unit = { row, checked ->
-        if (!pendingWechatTaskUpdates.containsKey(row.key)) {
+        val root = resolveExecution(row)
+        val unfinished = root != null && taskSteps.any { it.scope == root.scope && it.rootKey == root.key && !it.completed }
+        if (checked && unfinished) {
+            openedTaskKey = row.key
+        } else if (!pendingWechatTaskUpdates.containsKey(row.key)) {
             pendingWechatTaskUpdates[row.key] = checked
             taskScope.launch {
                 try {
-                    val confirmed = client.setWechatTaskCompleted(
-                        row.key.removePrefix("cloud:"), row.revision, checked
-                    )
+                    val action: suspend () -> Boolean = {
+                        val storedSteps = root?.let { executionDao.stepsFor(it.scope, it.key) }.orEmpty()
+                        val saved = if (checked && storedSteps.any { !it.completed }) false else client.setWechatTaskCompleted(
+                            row.key.removePrefix("cloud:"), row.revision, checked, root?.scope?.removePrefix("wechat:").orEmpty())
+                        if (saved && root != null) {
+                            if (checked && storedSteps.isNotEmpty()) executionDao.finish(root)
+                            else if (!checked) executionDao.reopen(root)
+                        }
+                        saved
+                    }
+                    val confirmed = if (root != null) withOwnerExecutionAction(root, { client.state.ownerId }, action) else false
                     if (!confirmed) {
                         Toast.makeText(context, client.state.privateError
                             ?: "微信任务保存未确认，请刷新后重试", Toast.LENGTH_SHORT).show()
@@ -1225,6 +1275,20 @@ fun RealAcademicTaskHub(
                 } finally {
                     pendingWechatTaskUpdates.remove(row.key)
                 }
+            }
+        }
+    }
+    val toggleStep: (ExecutionRoot, TaskStep, Boolean) -> Unit = { root, step, checked ->
+        if (step.id !in pendingStepUpdates) {
+            pendingStepUpdates[step.id] = checked
+            taskScope.launch {
+                try {
+                    if (withExecutionAction(root) { executionDao.toggleStep(root, step.id, checked) }) {
+                        if (checked) lastCompletedStepId = step.id
+                    } else Toast.makeText(context, "步骤已变更或正在等待前置，请重新打开", Toast.LENGTH_SHORT).show()
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { Toast.makeText(context, "步骤保存失败，请重试", Toast.LENGTH_SHORT).show() }
+                finally { pendingStepUpdates.remove(step.id) }
             }
         }
     }
@@ -1319,12 +1383,13 @@ fun RealAcademicTaskHub(
                         )
                         DropdownMenuItem(
                             text = { Text("管理本机任务") },
-                            onClick = { taskMenuOpen = false; showLocalEditor = true }
+                            onClick = { taskMenuOpen = false; filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true }
                         )
                         DropdownMenuItem(
                             text = { Text("新增云端任务") },
                             onClick = { taskMenuOpen = false; showCloudEditor = true }
                         )
+                        DropdownMenuItem(text = { Text("备份与恢复") }, onClick = { taskMenuOpen = false; showTaskBackup = true })
                         DropdownMenuItem(
                             text = { Text("本机任务关系图") },
                             onClick = { taskMenuOpen = false; showDependencyGraph = true }
@@ -1482,9 +1547,6 @@ fun RealAcademicTaskHub(
                                 text = { Text(label) },
                                 onClick = {
                                     sourceFilter = source
-                                    // The week-only facet contains personal Room tasks.
-                                    // Switching to any other source must clear it.
-                                    if (source != "local") onlyThisWeek = false
                                     sourceMenuOpen = false
                                 }
                             )
@@ -1494,19 +1556,25 @@ fun RealAcademicTaskHub(
                 FilterChip(
                     selected = onlyThisWeek,
                     onClick = {
-                        if (onlyThisWeek) {
-                            onlyThisWeek = false
-                        } else {
-                            sourceFilter = "local"
-                            if (filter == "done" || filter == "verify") filter = "now"
-                            onlyThisWeek = true
-                        }
+                        onlyThisWeek = !onlyThisWeek
                     },
-                    label = { Text("本周·本机") }
+                    label = { Text("本周日期") }
                 )
             }
         }
+        if (sourceFilter != "all" || onlyThisWeek || searchQuery.isNotBlank()) item(key = "task:clear-facets") {
+            TextButton(onClick = { sourceFilter = "all"; onlyThisWeek = false; searchQuery = "" }) { Text("清除筛选") }
+        }
         if (filter == "now") {
+            val undoStep = taskSteps.firstOrNull { it.id == lastCompletedStepId && it.completed }
+            val undoParent = undoStep?.let { step -> all.firstOrNull {
+                resolveExecution(it) == ExecutionRoot(step.scope, step.rootKey)
+            } }
+            if (undoStep != null && undoParent != null) item(key = "task:undo-step") {
+                TextButton(enabled = undoStep.id !in pendingStepUpdates, onClick = {
+                    toggleStep(ExecutionRoot(undoStep.scope, undoStep.rootKey), undoStep, false)
+                }) { Text("撤销完成 · ${undoStep.title}") }
+            }
             if (lastCompletedLocalTask != null) {
                 item(key = "task:undo-last") {
                     Row(
@@ -1544,7 +1612,7 @@ fun RealAcademicTaskHub(
                     }
                 }
             }
-            if (shown.isEmpty()) {
+            if (executionRows.isEmpty()) {
                 item(key = "next:empty") {
                     XiaoxuEmpty(
                         modifier = Modifier.padding(top = 12.dp),
@@ -1598,27 +1666,39 @@ fun RealAcademicTaskHub(
                         }
                     }
                     items(count = rows.size, key = { i -> "next:" + rows[i].key }) { i ->
-                        val row = rows[i]
+                        val executionRow = rows[i]
+                        val row = executionRow.parent
+                        val step = executionRow.step
                         ConnectedTaskShell(index = i, total = rows.size, standalone = true) {
-                            TaskRow(
-                                row, today, onOpen = { onTaskTap(row) },
-                                compact = true,
+                            if (step != null && executionRow.root != null) {
+                                ExecutionStepListRow(
+                                    step = step, parentTitle = row.title,
+                                    progress = "${executionRow.completed}/${executionRow.total}",
+                                    inheritedDate = executionRow.date?.let { if (step.due == null) "随父任务 $it" else "个人日期 $it" },
+                                    saving = step.id in pendingStepUpdates,
+                                    pendingChecked = pendingStepUpdates[step.id],
+                                    onOpen = { onTaskTap(row) },
+                                    onToggle = { checked -> toggleStep(executionRow.root, step, checked) }
+                                )
+                            } else TaskRow(
+                                row, today, onOpen = { onTaskTap(row) }, compact = true,
+                                verificationHint = when {
+                                    executionRow.officialAction -> "前往学习通核对并提交"
+                                    executionRow.confirm -> "步骤已完成 · 待确认结束"
+                                    else -> null
+                                },
                                 onQuickDate = if (row.storage == "local") {
-                                    { quickDateTaskId =
-                                        row.key.removePrefix("local:").toLongOrNull() }
+                                    { quickDateTaskId = row.key.removePrefix("local:").toLongOrNull() }
                                 } else null,
                                 onToggleLocal = if (row.storage == "local") {
                                     { checked -> toggleLocal(row, checked) }
                                 } else null,
-                                onToggleWechat = if (state.tasksFresh &&
-                                    row.category == "wechat" && row.revision >= 0) {
+                                onToggleWechat = if (state.tasksFresh && row.category == "wechat" && row.revision >= 0) {
                                     { checked -> toggleWechat(row, checked) }
                                 } else null,
-                                pendingChecked = if (row.storage == "local")
-                                    pendingLocalTaskUpdates[row.key]
+                                pendingChecked = if (row.storage == "local") pendingLocalTaskUpdates[row.key]
                                     else pendingWechatTaskUpdates[row.key],
-                                actionEnabled = row.key !in pendingLocalTaskUpdates &&
-                                    row.key !in pendingWechatTaskUpdates
+                                actionEnabled = row.key !in pendingLocalTaskUpdates && row.key !in pendingWechatTaskUpdates
                             )
                         }
                     }
@@ -1649,7 +1729,7 @@ fun RealAcademicTaskHub(
                             prerequisites.take(2).joinToString(prefix = " · ") { it.title }
                         ConnectedTaskShell(index = i, total = waitingRows.size) {
                             TaskRow(
-                                row, today,
+                                row, today, executionHint = executionProgress(row),
                                 onOpen = { onTaskTap(row) },
                                 dependencyHint = hint
                             )
@@ -1801,7 +1881,7 @@ fun RealAcademicTaskHub(
                         ) {
                             val row = wechatRows[i]
                             TaskRow(
-                                row, today,
+                                row, today, executionHint = executionProgress(row),
                                 onOpen = { onTaskTap(row) },
                                 onToggleWechat = if (state.tasksFresh && row.revision >= 0) {
                                     { checked -> toggleWechat(row, checked) }
@@ -1830,7 +1910,7 @@ fun RealAcademicTaskHub(
                     items(count = localRows.size, key = { i -> localRows[i].key }) { i ->
                         val row = localRows[i]
                         ConnectedTaskShell(index = i, total = localRows.size) {
-                            TaskRow(row, today,
+                            TaskRow(row, today, executionHint = executionProgress(row),
                                 onOpen = { onTaskTap(row) },
                                 onToggleLocal = { checked -> toggleLocal(row, checked) },
                                 pendingChecked = pendingLocalTaskUpdates[row.key],
@@ -1960,7 +2040,7 @@ fun RealAcademicTaskHub(
             },
             onManageTasks = {
                 showDependencyGraph = false
-                showLocalEditor = true
+                filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true
             }
         )
     }
@@ -1975,12 +2055,36 @@ fun RealAcademicTaskHub(
                 }
             } else null,
             onVerifyChaoxing = { openLocalSchool("chaoxing") },
-            onBreakdown = if (selectedTask.storage == "local") {
+            onDelete = if (selectedTask.storage == "local") ({
+                deletingLocalId = selectedTask.key.removePrefix("local:").toLongOrNull()
+            }) else null,
+            executionContent = resolveExecution(selectedTask)?.let { root ->
                 {
-                    breakingLocalId = selectedTask.key.removePrefix("local:").toLongOrNull()
-                    openedTaskKey = null
+                    key(root.scope, root.key) {
+                        TaskExecutionPanel(
+                            root = root, rootDone = selectedTask.done, dao = executionDao,
+                            aiSuggest = if (selectedTask.storage == "local") ({ notes ->
+                                client.suggestLocalTaskBreakdown(selectedTask.title, notes)
+                            }) else null,
+                            rootBlocked = selectedTask.storage == "local" && unfinishedLocalPrerequisites(
+                                selectedTask.key.removePrefix("local:").toLongOrNull() ?: -1L, localTasks, dependencies).isNotEmpty(),
+                            onFinish = {
+                                when {
+                                    selectedTask.storage == "local" -> dao.trySetCompleted(
+                                        selectedTask.key.removePrefix("local:").toLongOrNull() ?: -1L, true)
+                                    selectedTask.category == "wechat" -> client.setWechatTaskCompleted(
+                                        selectedTask.key.removePrefix("cloud:"), selectedTask.revision, true, root.scope.removePrefix("wechat:"))
+                                    else -> true // only the on-device personal execution mark
+                                }
+                            },
+                            onReopen = if (selectedTask.category == "wechat") ({
+                                client.setWechatTaskCompleted(selectedTask.key.removePrefix("cloud:"),
+                                    selectedTask.revision, false, root.scope.removePrefix("wechat:"))
+                            }) else null
+                        )
+                    }
                 }
-            } else null,
+            },
             prerequisiteProgress = selectedTask.key.removePrefix("local:").toLongOrNull()
                 ?.takeIf { selectedTask.storage == "local" }
                 ?.let { localTaskAncestors(it, localTasks, dependencies) }.orEmpty(),
@@ -2034,36 +2138,34 @@ fun RealAcademicTaskHub(
         LocalTaskEditSheet(task = editingLocal, dao = dao,
             onDismiss = { editingLocalId = null })
     }
-    val breakingLocal = localTasks.firstOrNull { it.id == breakingLocalId }
-    if (breakingLocal != null) {
-        LocalTaskBreakdownSheet(task = breakingLocal, dao = dao, client = client,
-            onDismiss = { breakingLocalId = null })
-    }
     if (showLocalComposer) {
         LocalTaskCreateSheet(
             dao = dao,
             onDismiss = { showLocalComposer = false }
         )
     }
-    if (showLocalEditor) {
-        XiaoxuGlassDialog(
-            title = "本机任务",
-            dismissLabel = "关闭",
-            onDismiss = { showLocalEditor = false }
-        ) {
-            LocalTaskEditor(
-                tasks = localTasks,
-                dao = dao,
-                onEditTask = { task ->
-                    showLocalEditor = false
-                    editingLocalId = task.id
-                },
-                onCreateTask = {
-                    showLocalEditor = false
-                    showLocalComposer = true
+    if (showTaskBackup) {
+        XiaoxuGlassDialog(title = "备份与恢复", onDismiss = { showTaskBackup = false }) { LocalTaskBackupPanel() }
+    }
+    val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
+    if (deletingTask != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (!deletingLocalBusy) deletingLocalId = null },
+            title = { Text("删除本机任务？") },
+            text = { Text("删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。") },
+            confirmButton = { TextButton(enabled = !deletingLocalBusy, onClick = {
+                deletingLocalBusy = true
+                taskScope.launch {
+                    try {
+                        dao.remove(deletingTask.id)
+                        deletingLocalId = null; openedTaskKey = null
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { Toast.makeText(context, "删除失败，请重试", Toast.LENGTH_SHORT).show() }
+                    finally { deletingLocalBusy = false }
                 }
-            )
-        }
+            }) { Text("删除") } },
+            dismissButton = { TextButton(enabled = !deletingLocalBusy, onClick = { deletingLocalId = null }) { Text("取消") } }
+        )
     }
     if (showCloudEditor) {
         XiaoxuSheet(onDismiss = { showCloudEditor = false }, title = "新增云端任务") {
@@ -2111,12 +2213,14 @@ internal fun WorkspaceTaskDetailSheet(
     onArchive: (() -> Unit)? = null,
     waitingTitles: List<String> = emptyList(),
     prerequisiteProgress: List<LocalTask> = emptyList(),
-    onBreakdown: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    executionContent: (@Composable () -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
     XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
+        executionContent?.invoke()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SourceBadge(
                 when (selectedTask.category) {
@@ -2141,22 +2245,15 @@ internal fun WorkspaceTaskDetailSheet(
             )
         }
         if (prerequisiteProgress.isNotEmpty()) {
-            val finishedCount = prerequisiteProgress.count { it.completed }
-            Text("前置进度：$finishedCount / ${prerequisiteProgress.size} 项已完成",
+            Text("前置进度：${prerequisiteProgress.count { it.completed }} / ${prerequisiteProgress.size} 项已完成",
                 style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                prerequisiteProgress.take(7).forEach { step ->
-                    Text((if (step.completed) "✓ " else "○ ") + step.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = XiaoxuPalette.Ink2, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
-                }
-                if (prerequisiteProgress.size > 7) {
-                    Text("其余 ${prerequisiteProgress.size - 7} 项请在任务列表或关系图查看",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2)
-                }
+            prerequisiteProgress.take(7).forEach { before ->
+                Text((if (before.completed) "✓ " else "○ ") + before.title,
+                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
+            if (prerequisiteProgress.size > 7) Text("其余前置请在关系图查看",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         } else if (waitingTitles.isNotEmpty()) {
             Text("还需先完成：" + waitingTitles.joinToString("、"),
                 style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
@@ -2205,16 +2302,11 @@ internal fun WorkspaceTaskDetailSheet(
             }
         }
         if (selectedTask.storage == "local") {
-            if (onBreakdown != null && !selectedTask.done) {
-                OutlinedButton(onClick = onBreakdown,
-                    modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-                    Text("分解成步骤")
-                }
-            }
             OutlinedButton(onClick = onManage,
                 modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
                 Text(manageLabel)
             }
+            if (onDelete != null) TextButton(onClick = onDelete) { Text("删除本机任务") }
         }
     }
 }
@@ -2473,11 +2565,12 @@ private fun TaskRow(
     actionEnabled: Boolean = true,
     dependencyHint: String? = null,
     verificationHint: String? = null,
+    executionHint: String? = null,
     compact: Boolean = false,
     onQuickDate: (() -> Unit)? = null
 ) {
     val due = remember(task, today) { describeDue(task, today) }
-    val openLabel = if (task.storage == "local") "编辑本机任务" else "查看任务详情"
+    val openLabel = "查看任务详情"
     val dueTone = when (due.emphasis) {
         DUE_OVERDUE -> XiaoxuPalette.Danger
         DUE_TODAY -> XiaoxuPalette.Warning
@@ -2492,14 +2585,14 @@ private fun TaskRow(
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
     val needsReview = requiresChaoxingVerification(task)
     val statusText = if (isPending) "保存中…" else
-        dependencyHint ?: verificationHint ?:
+        dependencyHint ?: verificationHint ?: executionHint ?:
             if (needsReview) "学习通 · 待核对"
             else officialLabel ?: if (task.done) "个人已完成" else due.label
     // In the default focus view suppress routine source labels and missing-date
     // notices. Exceptions (today, overdue, returned, saving) stay visible.
     val compactStatusText = if (!compact) statusText else when {
         isPending -> "保存中…"
-        dependencyHint != null || verificationHint != null -> statusText
+        dependencyHint != null || verificationHint != null || executionHint != null -> statusText
         task.officialStatus == "returned" -> "官方退回"
         isTodayPriorityWorkspaceTask(task, today) && task.officialDeadline != null ->
             due.label

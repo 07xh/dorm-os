@@ -1,7 +1,7 @@
 package io.github.x07xh.xiaoxu.data
 
 /**
- * Manual, user-approved decomposition into real Room tasks.
+ * Shared AI-output validation and read-only progress for pre-existing local DAGs.
  * This is deliberately NOT AI generation, an official school task, or a separate task store.
  */
 private const val MAX_BREAKDOWN_STEPS = 12
@@ -19,57 +19,6 @@ fun parseLocalTaskBreakdown(raw: String): List<String>? {
         steps.map { it.lowercase() }.toSet().size != steps.size
     ) return null
     return steps
-}
-
-/**
- * A -> B -> original task: each newly created step waits for the previous one.
- * Step 1 additionally waits for the parent's EXISTING prerequisites; no shortcut
- * around an upstream gate. The original task retains all existing dependencies.
- * Child IDs here are newly allocated Room IDs, never synthetic preview IDs.
- */
-fun localTaskBreakdownEdges(
-    originalId: Long,
-    stepIds: List<Long>,
-    originalPrerequisites: List<Long>
-): List<LocalTaskDependency> {
-    require(originalId > 0 && stepIds.size in 2..MAX_BREAKDOWN_STEPS)
-    require(stepIds.all { it > 0 && it != originalId } && stepIds.distinct() == stepIds)
-    require(originalPrerequisites.all { it > 0 && it != originalId && it !in stepIds })
-    return buildList {
-        originalPrerequisites.distinct().forEach {
-            add(LocalTaskDependency(stepIds.first(), it))
-        }
-        for (i in 1 until stepIds.size) {
-            add(LocalTaskDependency(stepIds[i], stepIds[i - 1]))
-        }
-        add(LocalTaskDependency(originalId, stepIds.last()))
-    }
-}
-
-/**
- * An already approved chain must not be cloned when the same plan is submitted
- * again (for example after reopening the original task). Match only real,
- * linked Room tasks, never titles elsewhere in the list. This is a bounded,
- * side-effect-free check and does not require a second task table or migration.
- */
-internal fun hasEquivalentLocalTaskBreakdown(
-    original: LocalTask,
-    stepTitles: List<String>,
-    tasks: List<LocalTask>,
-    edges: List<LocalTaskDependency>
-): Boolean {
-    if (stepTitles.size !in 2..MAX_BREAKDOWN_STEPS) return false
-    val byId = tasks.associateBy { it.id }
-    val prerequisites = edges.groupBy { it.taskId }
-    fun matches(fromId: Long, stepIndex: Int): Boolean =
-        prerequisites[fromId].orEmpty().any { edge ->
-            val candidate = byId[edge.prerequisiteId] ?: return@any false
-            candidate.title == stepTitles[stepIndex] &&
-                candidate.source == original.source &&
-                candidate.due == null &&
-                (stepIndex == 0 || matches(candidate.id, stepIndex - 1))
-        }
-    return matches(original.id, stepTitles.lastIndex)
 }
 
 /**

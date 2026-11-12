@@ -23,7 +23,7 @@ class LocalTaskBackupIdentityTest {
         val name = "xiaoxu-backup-${UUID.randomUUID()}.db"
         val file = File(context.cacheDir, "xiaoxu-backup-${UUID.randomUUID()}.json")
         val db = Room.databaseBuilder(context, LocalTaskDatabase::class.java, name)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
         try {
             val createdAt = 1_700_000_000_000L

@@ -116,6 +116,7 @@ data class PlatformConnection(
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
+    val ownerId: String? = null,
     val authMessage: String = "云端连接可选，本地任务无需登录",
     val privateError: String? = null, val publicError: String? = null,
     val notices: List<AcademicNotice> = emptyList(),
@@ -207,7 +208,8 @@ class CloudClient(context: Context) {
     }
 
     private fun request(path: String, method: String = "GET",
-                        body: JSONObject? = null, authenticated: Boolean = false): HttpResult {
+                        body: JSONObject? = null, authenticated: Boolean = false,
+                        boundSessionToken: String? = null): HttpResult {
         require(path.startsWith("/") && !path.startsWith("//") && !path.contains("://"))
         val conn = (URL(BASE + path).openConnection() as HttpsURLConnection).apply {
             connectTimeout = 12000
@@ -218,7 +220,7 @@ class CloudClient(context: Context) {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Cache-Control", "no-store")
             if (authenticated) {
-                val token = session.load()
+                val token = boundSessionToken ?: session.load()
                 if (token != null) setRequestProperty("Cookie", COOKIE_NAME + "=" + token)
             }
             if (body != null) {
@@ -372,6 +374,7 @@ class CloudClient(context: Context) {
                 )
                 return
             }
+            state = state.copy(ownerId = auth.json.optString("ownerId").takeIf { it.isNotBlank() })
         } catch (_: Exception) {
             if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
                 state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
@@ -742,6 +745,7 @@ class CloudClient(context: Context) {
     }
 
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
+        ownerId = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
@@ -787,7 +791,9 @@ class CloudClient(context: Context) {
     /** Only a personally approved WeChat task may change its own completion status.
      * Owner-scoped status-only POST accepts a revision and never touches school submissions.
      */
-    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean): Boolean {
+    suspend fun setWechatTaskCompleted(id: String, revision: Int, completed: Boolean,
+        expectedOwnerId: String): Boolean {
+        if (expectedOwnerId.isBlank() || state.ownerId != expectedOwnerId) return false
         if (!state.authenticated || !state.tasksFresh || revision < 0 ||
             !Regex("^[A-Za-z0-9_-]{1,100}$").matches(id)) return false
         val current = state.tasks.firstOrNull {
@@ -796,12 +802,18 @@ class CloudClient(context: Context) {
         if (current.status == "done" && completed ||
             current.status != "done" && !completed) return true
         val epoch = sessionEpoch
+        // Pin the existing encrypted session for this owner before asynchronous I/O.
+        // A later account switch may abort this operation, but can never substitute the new account's cookie.
+        val boundToken = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) return false
         return try {
             val body = JSONObject().put("revision", revision)
                 .put("localStatus", if (completed) "done" else "todo")
             val response = withContext(Dispatchers.IO) {
-                request("/api/v1/assignments/$id", "POST", body, authenticated = true)
-            }
+                if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) null
+                else request("/api/v1/assignments/$id", "POST", body, authenticated = true,
+                    boundSessionToken = boundToken)
+            } ?: return false
             if (epoch != sessionEpoch) return false
             if (response.code != 200 ||
                 response.json.optJSONObject("item")?.optString("id") != id) {
@@ -849,6 +861,8 @@ class CloudClient(context: Context) {
                 }
             )
             true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             if (epoch == sessionEpoch)
                 state = state.copy(privateError = "微信任务状态更新失败，请刷新后重试")
@@ -901,6 +915,8 @@ class CloudClient(context: Context) {
                 )
                 else -> TaskBreakdownAiSuggestion(error = "AI 请求未成功（${response.code}）")
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             TaskBreakdownAiSuggestion(error = "网络连接失败，未生成或保存任何任务")
         }

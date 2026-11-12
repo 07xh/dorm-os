@@ -19,58 +19,6 @@ class LocalTaskBreakdownTest {
         assertNull(parseLocalTaskBreakdown("X".repeat(2401) + "\n下一步"))
     }
 
-    @Test fun breakdownPreservesUpstreamGateAndUnlocksOneStepAtATime() {
-        // Task 10 already requires task 1. Task 20 is downstream of task 10.
-        val originalEdges = listOf(LocalTaskDependency(10, 1),
-            LocalTaskDependency(20, 10))
-        val added = localTaskBreakdownEdges(10, listOf(11, 12, 13), listOf(1))
-        assertEquals(listOf(
-            LocalTaskDependency(11, 1),
-            LocalTaskDependency(12, 11),
-            LocalTaskDependency(13, 12),
-            LocalTaskDependency(10, 13)), added)
-        val graph = originalEdges + added
-        val all = listOf(1L, 10L, 11L, 12L, 13L, 20L)
-            .map { LocalTask(id = it, title = "任务 $it") }
-        assertEquals(setOf(1L), readyLocalTaskIds(all, graph))
-        var current = all.map { if (it.id == 1L) it.copy(completed = true) else it }
-        assertEquals(setOf(11L), readyLocalTaskIds(current, graph))
-        current = current.map { if (it.id == 11L) it.copy(completed = true) else it }
-        assertEquals(setOf(12L), readyLocalTaskIds(current, graph))
-        current = current.map { if (it.id in setOf(12L, 13L)) it.copy(completed = true) else it }
-        assertEquals(setOf(10L), readyLocalTaskIds(current, graph))
-        current = current.map { if (it.id == 10L) it.copy(completed = true) else it }
-        assertEquals(setOf(20L), readyLocalTaskIds(current, graph))
-        assertFalse(graph.any { wouldCreateDependencyCycle(graph.filterNot { edge -> edge == it },
-            it.taskId, it.prerequisiteId) })
-        assertTrue(added.all { it.taskId > 0 && it.prerequisiteId > 0 })
-    }
-
-    @Test fun identicalPlanRequiresARealLinkedChainAndRemainsRecognizedAfterCompletion() {
-        val original = LocalTask(id = 10, title = "实验报告", source = "personal")
-        val steps = listOf(
-            LocalTask(id = 11, title = "整理数据", source = "personal"),
-            LocalTask(id = 12, title = "写报告", source = "personal")
-        )
-        val unrelated = LocalTask(id = 20, title = "整理数据", source = "personal")
-        val titles = listOf("整理数据", "写报告")
-        val edges = listOf(LocalTaskDependency(12, 11), LocalTaskDependency(10, 12))
-        assertTrue(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original) + steps + unrelated, edges))
-        assertTrue(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original) + steps.map { it.copy(completed = true) }, edges))
-        assertFalse(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original) + steps, listOf(LocalTaskDependency(10, 12))))
-        assertFalse(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original) + steps, listOf(LocalTaskDependency(10, 20))))
-        assertFalse(hasEquivalentLocalTaskBreakdown(
-            original, titles.reversed(), listOf(original) + steps, edges))
-        assertFalse(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original, steps[0].copy(due = "2026-12-01"), steps[1]), edges))
-        assertFalse(hasEquivalentLocalTaskBreakdown(
-            original, titles, listOf(original, steps[0].copy(source = "other"), steps[1]), edges))
-    }
-
     @Test fun linkedProgressShowsOnlyTrueAncestorsAndRealCompletion() {
         val tasks = listOf(
             LocalTask(id = 1, title = "资料", completed = true),
@@ -90,8 +38,4 @@ class LocalTaskBreakdownTest {
             LocalTaskDependency(2, 4)).isEmpty())
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsInvalidPlanIds() {
-        localTaskBreakdownEdges(10, listOf(11, 11), listOf(1))
-    }
 }

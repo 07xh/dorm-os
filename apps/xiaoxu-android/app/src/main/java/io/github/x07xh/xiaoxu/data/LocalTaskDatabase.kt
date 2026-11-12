@@ -25,7 +25,7 @@ const val TASK_SOURCE_LOCAL = "local"
  * source / due 都是本人填写：source 是自选标签，due 是本地提醒日期（yyyy-MM-dd）。
  * 它们不是学校平台的官方字段，任何界面都必须按"本人标注"表述。
  */
-@Entity(tableName = "local_tasks")
+@Entity(tableName = "local_tasks", indices = [androidx.room.Index(value = ["stableId"], unique = true)])
 data class LocalTask(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -34,7 +34,8 @@ data class LocalTask(
     /** null = 升级前的旧任务确实没有来源标注，不推断、不补默认值。 */
     val source: String? = null,
     /** null = 本人没有填写截止日期。 */
-    val due: String? = null
+    val due: String? = null,
+    val stableId: String? = java.util.UUID.randomUUID().toString()
 )
 
 @Dao
@@ -69,10 +70,13 @@ interface LocalTaskDao {
     @Transaction
     suspend fun trySetCompleted(taskId: Long, completed: Boolean): Boolean {
         if (findById(taskId) == null) return false
-        if (completed && unfinishedDependencyCount(taskId) != 0) return false
+        if (completed && (unfinishedDependencyCount(taskId) != 0 || unfinishedStepCount(taskId) != 0)) return false
         setCompleted(taskId, completed)
         return true
     }
+
+    @Query("SELECT COUNT(*) FROM task_steps WHERE scope='device' AND rootKey='local:' || :taskId AND completed=0")
+    suspend fun unfinishedStepCount(taskId: Long): Int
 
     /** Edit only personal metadata; completion, creation time and school records remain unchanged. */
     @Query("UPDATE local_tasks SET title = :title, source = :source, due = :due WHERE id = :id")
@@ -83,7 +87,16 @@ interface LocalTaskDao {
     suspend fun updateDue(id: Long, due: String?): Int
 
     @Query("DELETE FROM local_tasks WHERE id = :id")
-    suspend fun remove(id: Long)
+    suspend fun removeStored(id: Long)
+
+    @Query("DELETE FROM task_executions WHERE scope='device' AND rootKey='local:' || :id")
+    suspend fun removeExecution(id: Long)
+
+    @Transaction
+    suspend fun remove(id: Long) {
+        removeExecution(id)
+        removeStored(id)
+    }
 
     @Query("SELECT * FROM local_task_dependencies ORDER BY taskId, prerequisiteId")
     fun observeDependencies(): Flow<List<LocalTaskDependency>>
@@ -120,41 +133,6 @@ interface LocalTaskDao {
         if (updateDetails(taskId, title, source, due) < 1) return false
         clearDependencies(taskId)
         for (before in prerequisites) insertDependency(LocalTaskDependency(taskId, before))
-        return true
-    }
-
-    /**
-     * Save an approved breakdown atomically using the EXISTING personal task table
-     * and DAG relation table. No new schema, account, server, or inferred AI output.
-     * If any insert/link fails, Room rolls back the entire operation.
-     */
-    @Transaction
-    suspend fun tryBreakDown(taskId: Long, rawSteps: String): Boolean {
-        val original = findById(taskId) ?: return false
-        if (original.completed) return false
-        val titles = parseLocalTaskBreakdown(rawSteps) ?: return false
-        val storedTasks = snapshot()
-        val knownTasks = storedTasks.mapTo(hashSetOf()) { it.id }
-        val currentEdges = dependencySnapshot()
-        val before = currentEdges.filter { it.taskId == taskId }
-            .map { it.prerequisiteId }
-        if (before.any { it !in knownTasks }) return false
-        // Replaying the same approved plan is a successful no-op. Do not add
-        // duplicate child tasks or another dependency chain.
-        if (hasEquivalentLocalTaskBreakdown(original, titles, storedTasks, currentEdges)) return true
-        // These new records have no school/platform status. Inherit only the
-        // person's own category; due dates remain on the original task.
-        val stepIds = titles.map { title ->
-            insert(LocalTask(title = title, source = original.source))
-        }
-        val allEdges = currentEdges.toMutableList()
-        for (edge in localTaskBreakdownEdges(taskId, stepIds, before)) {
-            if (wouldCreateDependencyCycle(allEdges, edge.taskId, edge.prerequisiteId) ||
-                insertDependency(edge) == -1L) {
-                error("任务拆解关系写入失败，已回滚")
-            }
-            allEdges.add(edge)
-        }
         return true
     }
 
@@ -220,9 +198,24 @@ internal val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-@Database(entities = [LocalTask::class, NativeSchoolRecord::class, LocalTaskDependency::class], version = 4, exportSchema = false)
+/** Additive v5: personal execution steps, source/owner scoped, in the SAME database. */
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE local_tasks ADD COLUMN stableId TEXT")
+        db.execSQL("UPDATE local_tasks SET stableId=lower(hex(randomblob(16))) WHERE stableId IS NULL")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_local_tasks_stableId ON local_tasks(stableId)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_executions (scope TEXT NOT NULL, rootKey TEXT NOT NULL, ended INTEGER NOT NULL, PRIMARY KEY(scope, rootKey))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_steps (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, scope TEXT NOT NULL, rootKey TEXT NOT NULL, title TEXT NOT NULL, completed INTEGER NOT NULL, position INTEGER NOT NULL, due TEXT, FOREIGN KEY(scope,rootKey) REFERENCES task_executions(scope,rootKey) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_task_steps_scope_rootKey ON task_steps(scope,rootKey)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS task_step_edges (stepId INTEGER NOT NULL, prerequisiteId INTEGER NOT NULL, PRIMARY KEY(stepId,prerequisiteId), FOREIGN KEY(stepId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(prerequisiteId) REFERENCES task_steps(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_task_step_edges_prerequisiteId ON task_step_edges(prerequisiteId)")
+    }
+}
+
+@Database(entities = [LocalTask::class, NativeSchoolRecord::class, LocalTaskDependency::class, TaskExecution::class, TaskStep::class, TaskStepEdge::class], version = 5, exportSchema = false)
 abstract class LocalTaskDatabase : RoomDatabase() {
     abstract fun tasks(): LocalTaskDao
+    abstract fun executions(): TaskExecutionDao
     abstract fun nativeSchoolRecords(): NativeSchoolRecordDao
 
     companion object {
@@ -234,7 +227,7 @@ abstract class LocalTaskDatabase : RoomDatabase() {
                     context.applicationContext,
                     LocalTaskDatabase::class.java,
                     "xiaoxu-local-tasks.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
             }
     }
 }
