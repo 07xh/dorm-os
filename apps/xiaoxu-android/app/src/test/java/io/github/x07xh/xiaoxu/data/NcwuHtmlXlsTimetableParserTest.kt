@@ -66,6 +66,36 @@ class NcwuHtmlXlsTimetableParserTest {
         }
     }
 
+    /** Real Qingguo HTML-as-XLS syntax documented in MIT LingNc/stnet_syllabus. */
+    @Test fun qingguoParenthesizedParityWithWhitespaceAndNumericWeekday() {
+        val input = sample("1-11周(单) 五[3-4] 三教楼106(172)；2-12周（双） 星期2[7-8] 实验楼201")
+        val courses = NcwuHtmlXlsTimetableParser.parseHtml(input)
+        assertEquals(2, courses.size)
+        assertEquals(listOf(1, 3, 5, 7, 9, 11), courses[0].weeks)
+        assertEquals(5, courses[0].weekday)
+        assertEquals(3, courses[0].startSection)
+        assertEquals(4, courses[0].endSection)
+        // Do not strip original room occupancy notation or silently invent room metadata.
+        assertEquals("三教楼106(172)", courses[0].location)
+        assertEquals(listOf(2, 4, 6, 8, 10, 12), courses[1].weeks)
+        assertEquals(2, courses[1].weekday)
+        assertEquals("实验楼201", courses[1].location)
+    }
+
+    @Test fun qingguoContradictoryParityMarkersAreRejectedBeforeSaving() {
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            NcwuHtmlXlsTimetableParser.parseHtml(sample("1-11单周（双）五[3-4] 教学楼"))
+        }
+        assertTrue(failure.message.orEmpty().contains("单双周标记"))
+    }
+
+    @Test fun qingguoWeekRangeWithoutParityStillIncludesEveryExplicitWeek() {
+        val courses = NcwuHtmlXlsTimetableParser.parseHtml(sample("1-4周 星期7[11-12]"))
+        assertEquals(listOf(1, 2, 3, 4), courses.single().weeks)
+        assertEquals(7, courses.single().weekday)
+        assertEquals("", courses.single().location)
+    }
+
     @Test fun gb18030EncodedHtmlExportKeepsChineseFields() {
         val bytes = sample("1-10周五[1-2]教学楼101")
             .replace("<html>", "<html><head><meta charset='GB18030'></head>")
