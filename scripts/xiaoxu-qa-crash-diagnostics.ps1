@@ -16,7 +16,7 @@ if ($devices.Count -ne 1) {
     throw '请只连接一台手机，并确认已授权 USB 调试。'
 }
 $installed = @(& adb shell pm path $package)
-if ($installed -notmatch '^package:') {
+if (-not (@($installed | Where-Object { $_ -like 'package:*' }).Count -gt 0)) {
     throw '手机没有安装独立 QA 包 io.github.x07xh.xiaoxu.unifiedqa。不会检查或修改正式版。'
 }
 $android = (& adb shell getprop ro.build.version.release | Out-String).Trim()
@@ -27,13 +27,14 @@ Write-Host '现在在手机上重现闪退（可在启动、切换页面或导�
 Write-Host '此脚本不会主动启动、停止、卸载 App，也不会清理日志。'
 [void](Read-Host '闪退发生后，请在电脑按 Enter 采集')
 
-function ADBText([string[]]$args) {
-    $result = & adb @args 2>&1 | Out-String
+function ADBText {
+    param([string[]]$Arguments)
+    $result = & adb @Arguments 2>&1 | Out-String
     return $result
 }
 # 读取 Android 原生 crash 环形缓冲区；不清除历史信息。若没有 FATAL，也保留退出原因。
-$crashes = (ADBText @('logcat', '-d', '-b', 'crash', '-v', 'threadtime')) -split '\r?\n'
-$system = (ADBText @('logcat', '-d', '-t', '3000', '-b', 'main', '-b', 'system', '-v', 'threadtime')) -split '\r?\n'
+$crashes = (ADBText -Arguments @('logcat', '-d', '-b', 'crash', '-v', 'threadtime')) -split '\r?\n'
+$system = (ADBText -Arguments @('logcat', '-d', '-t', '3000', '-b', 'main', '-b', 'system', '-v', 'threadtime')) -split '\r?\n'
 $anchors = New-Object System.Collections.Generic.List[int]
 for ($i = 0; $i -lt $crashes.Length; $i++) {
     if ($crashes[$i] -match ('(?:Process|Cmdline):\s*' + [regex]::Escape($package)) -or
@@ -64,10 +65,10 @@ $signals = @($system | Where-Object {
 } | Select-Object -Last 120)
 foreach ($line in $signals) { $lines.Add($line) }
 $lines.Add('--- Process and exit diagnostics ---')
-$pid = (ADBText @('shell', 'pidof', $package)).Trim()
-$lines.Add('Current process: ' + $(if ($pid) { $pid } else { 'not running' }))
+$qaProcessId = (ADBText -Arguments @('shell', 'pidof', $package)).Trim()
+$lines.Add('Current process: ' + $(if ($qaProcessId) { $qaProcessId } else { 'not running' }))
 try {
-    $exitInfo = ADBText @('shell', 'dumpsys', 'activity', 'exit-info', $package)
+    $exitInfo = ADBText -Arguments @('shell', 'dumpsys', 'activity', 'exit-info', $package)
     foreach ($line in (($exitInfo -split '\r?\n') | Select-Object -First 100)) {
         $lines.Add($line)
     }
