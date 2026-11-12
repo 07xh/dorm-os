@@ -1,6 +1,6 @@
 ﻿# 校序：北京时间窗口守卫。仅在 07:00–23:00 启动已有 Windows 微信同步器。
 # 计划任务本身每 15 分钟触发；该守卫以 UTC+8 判断，不依赖电脑时区。
-# run 在窗口内执行 sync，失败时本地安全重试（默认 3 次尝试 / 间隔 60 秒）并留痕。
+# run 在窗口内执行 sync，失败时本地安全重试（默认 3 次尝试 / 间隔 20 秒）并留痕。
 # check-time 只用于无副作用测试，绝不读取微信、设备凭据或云端。
 [CmdletBinding()]
 param(
@@ -47,7 +47,9 @@ $psExe=Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
 if (-not (Test-Path -LiteralPath $psExe -PathType Leaf)) { $psExe="powershell.exe" }
 $maxAttempts=3
 if ($env:XIAOXU_MAX_ATTEMPTS) { $maxAttempts=[int]$env:XIAOXU_MAX_ATTEMPTS }
-$delaySec=60
+# 短间隔：让整轮重试在网络超时场景下也能在 1-2 分钟内结束，
+# 避免长时间挂起的任务实例被电源/会话策略终止；长期补跑交给 15 分钟触发。
+$delaySec=20
 if ($env:XIAOXU_RETRY_DELAY_SEC) { $delaySec=[int]$env:XIAOXU_RETRY_DELAY_SEC }
 function Write-SchedulerLog([int]$Attempt,[int]$Code,[string]$Message) {
   try {
