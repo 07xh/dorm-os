@@ -71,6 +71,25 @@ class LocalTaskBreakdownTest {
             original, titles, listOf(original, steps[0].copy(source = "other"), steps[1]), edges))
     }
 
+    @Test fun linkedProgressShowsOnlyTrueAncestorsAndRealCompletion() {
+        val tasks = listOf(
+            LocalTask(id = 1, title = "资料", completed = true),
+            LocalTask(id = 2, title = "步骤一", completed = false),
+            LocalTask(id = 3, title = "步骤二", completed = false),
+            LocalTask(id = 4, title = "总任务"),
+            LocalTask(id = 5, title = "无关事项"))
+        val links = listOf(
+            LocalTaskDependency(2, 1),
+            LocalTaskDependency(3, 2),
+            LocalTaskDependency(4, 3))
+        val before = localTaskAncestors(4, tasks, links)
+        assertEquals(listOf(1L, 2L, 3L), before.map { it.id })
+        assertEquals(1, before.count { it.completed })
+        assertTrue(localTaskAncestors(5, tasks, links).isEmpty())
+        assertTrue(localTaskAncestors(4, tasks, links +
+            LocalTaskDependency(2, 4)).isEmpty())
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidPlanIds() {
         localTaskBreakdownEdges(10, listOf(11, 11), listOf(1))
