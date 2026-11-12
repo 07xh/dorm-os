@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-11T17:55:28.974Z",
+  "lastSuccessAt": "2026-11-12T09:53:21.403Z",
   "sources": [
     {
       "id": "jwc",
@@ -14,43 +14,36 @@
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
-      "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T17:55:28.974Z",
-      "count": 29
+      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
+      "count": 20
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T17:55:28.974Z",
+      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T17:55:28.974Z",
+      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-11T17:55:28.974Z",
+      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
       "count": 10
     }
   ],
@@ -752,6 +745,15 @@
       "id": "ncwu-322450993ef0c061",
       "title": "关于进行2026—2027学年第一学期期中教学检查的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23373.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-fa0019f476408af7",
+      "title": "关于组织申报第二批科教融汇协同育人项目的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23406.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
