@@ -25,7 +25,7 @@ object NcwuHtmlXlsTimetableParser {
     private val htmlBreaks = Regex("""(?i)<br\s*/?>|</(?:p|div|li)>""")
     private val classCode = Regex("""^\[[^\]]{1,40}]\s*""")
     private val sessionPattern = Regex(
-        """^([0-9,\s，\-—–~～至]+?)\s*([单双])?周\s*(?:星期|周)?([一二三四五六日天])\s*[\[【](\d{1,2})(?:\s*[-~～至]\s*(\d{1,2}))?[\]】]\s*(.*)$"""
+        """^([0-9,\s，\-—–~～至]+?)\s*([单双])?周\s*(?:[(（]\s*([单双])\s*[)）]|([单双]))?\s*(?:星期|周)?\s*([一二三四五六日天1-7])\s*[\[【](\d{1,2})(?:\s*[-~～至]\s*(\d{1,2}))?[\]】]\s*(.*)$"""
     )
     private val weekPart = Regex("""^(\d{1,2})(?:-(\d{1,2}))?$""")
     private val weekday = mapOf('一' to 1, '二' to 2, '三' to 3, '四' to 4,
@@ -97,12 +97,15 @@ object NcwuHtmlXlsTimetableParser {
             schedule.forEach { part ->
                 val match = sessionPattern.matchEntire(part)
                     ?: throw IllegalArgumentException("课程“" + title + "”存在无法识别的周次/节次，未导入")
-                val weeks = parseWeeks(match.groupValues[1], match.groupValues[2], title)
-                val day = weekday[match.groupValues[3].first()]
+                val parityMarkers = (2..4).map { match.groupValues[it] }.filter { it.isNotBlank() }
+                require(parityMarkers.size <= 1) { "课程“" + title + "”存在重复或冲突的单双周标记，未导入" }
+                val weeks = parseWeeks(match.groupValues[1], parityMarkers.singleOrNull().orEmpty(), title)
+                val dayChar = match.groupValues[5].first()
+                val day = weekday[dayChar] ?: dayChar.digitToIntOrNull()
                     ?: throw IllegalArgumentException("课程“" + title + "”星期无效")
-                val start = match.groupValues[4].toInt()
-                val end = match.groupValues[5].toIntOrNull() ?: start
-                val location = match.groupValues[6].trim()
+                val start = match.groupValues[6].toInt()
+                val end = match.groupValues[7].toIntOrNull() ?: start
+                val location = match.groupValues[8].trim()
                 result.put(JSONObject()
                     .put("name", title)
                     .put("teacher", teacher)
