@@ -5,7 +5,7 @@ package io.github.x07xh.xiaoxu.data
  * This is deliberately NOT AI generation, an official school task, or a separate task store.
  */
 private const val MAX_BREAKDOWN_STEPS = 12
-private val STEP_PREFIX = Regex("""^(?:[-*•]\\s+|\\d{1,2}[.)、]\\s*)""")
+private val STEP_PREFIX = Regex("""^(?:[-*•]\s+|\d{1,2}[.)、]\s*)""")
 
 /** Returns null instead of silently dropping malformed/duplicate steps. */
 fun parseLocalTaskBreakdown(raw: String): List<String>? {
