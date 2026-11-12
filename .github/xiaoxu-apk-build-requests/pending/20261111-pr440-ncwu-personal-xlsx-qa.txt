@@ -1,0 +1,6 @@
+Owner requested continued development of 校序.
+Build isolated native QA APK for PR #440 after adding bounded personal XLSX import.
+Must run Android JVM tests for NcwuXlsxTimetableParserTest, all existing tests,
+assembleDebug / assembleRelease and complete npm run check on the SAME head SHA.
+This build is strictly for private-device test. Do not merge, sign, publish,
+replace the existing production app, or fabricate school course data.

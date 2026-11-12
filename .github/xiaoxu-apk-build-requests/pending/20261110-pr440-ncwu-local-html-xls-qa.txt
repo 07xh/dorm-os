@@ -1,0 +1,4 @@
+Owner-approved development continuation: produce isolated Android QA APK for PR #440 NCWU HTML-as-XLS local timetable import.
+Source branch only. Do not merge, sign, promote or replace installed production APK.
+Run Kotlin/JVM tests, assembleDebug, assembleRelease, baseline benchmark and full contract tests on this exact PR SHA.
+On a real device manually import an owner-exported .xls (HTML table) and compare every weekday, week, section, teacher, location before acceptance.
