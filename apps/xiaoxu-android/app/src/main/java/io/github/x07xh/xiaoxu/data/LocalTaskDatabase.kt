@@ -123,6 +123,37 @@ interface LocalTaskDao {
         return true
     }
 
+    /**
+     * Save an approved breakdown atomically using the EXISTING personal task table
+     * and DAG relation table. No new schema, account, server, or inferred AI output.
+     * If any insert/link fails, Room rolls back the entire operation.
+     */
+    @Transaction
+    suspend fun tryBreakDown(taskId: Long, rawSteps: String): Boolean {
+        val original = findById(taskId) ?: return false
+        if (original.completed) return false
+        val titles = parseLocalTaskBreakdown(rawSteps) ?: return false
+        val knownTasks = snapshot().mapTo(hashSetOf()) { it.id }
+        val currentEdges = dependencySnapshot()
+        val before = currentEdges.filter { it.taskId == taskId }
+            .map { it.prerequisiteId }
+        if (before.any { it !in knownTasks }) return false
+        // These new records have no school/platform status. Inherit only the
+        // person's own category; due dates remain on the original task.
+        val stepIds = titles.map { title ->
+            insert(LocalTask(title = title, source = original.source))
+        }
+        val allEdges = currentEdges.toMutableList()
+        for (edge in localTaskBreakdownEdges(taskId, stepIds, before)) {
+            if (wouldCreateDependencyCycle(allEdges, edge.taskId, edge.prerequisiteId) ||
+                insertDependency(edge) == -1L) {
+                error("任务拆解关系写入失败，已回滚")
+            }
+            allEdges.add(edge)
+        }
+        return true
+    }
+
     /** Validate the DAG and task existence in a single Room transaction. */
     @Transaction
     suspend fun tryAddDependency(taskId: Long, prerequisiteId: Long): Boolean {
