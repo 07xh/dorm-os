@@ -408,28 +408,29 @@ internal class ChaoxingLocalReader(
                 "single" to "","superstarClass" to "","isFirefly" to "0","courseLevelLabelId" to "0","fid" to "","from" to "")
             var page=fetch(COURSES,"POST",form)
             var doc=Jsoup.parse(page.text,page.url)
-            if (doc.select(".course-name").isEmpty() && courseFid != null) {
-                // Some first-party course views respond to the POST layout with
-                // no cards. Try the separately documented GET form with the
-                // current account's fid, never a copied example's fid.
+            val courses=linkedMapOf<String,ChaoxingDiscoveredLink>()
+            fun collectCourseLinks(document: Document, baseUrl: String) {
+                for (name in document.select(".course-name")) {
+                    val anchor=name.closest("a[href]") ?: name.parent()?.selectFirst("a[href]") ?: continue
+                    val url=safeUrl(anchor.attr("href"),baseUrl) ?: continue
+                    if (courses.size >= 120 && url !in courses) throw ChaoxingReadFailure("course_limit")
+                    courses[url]=ChaoxingDiscoveredLink(name.attr("title").ifBlank {name.text()},url)
+                }
+            }
+            collectCourseLinks(doc,page.url)
+            if (courses.isEmpty() && courseFid != null) {
+                // A visible course label alone is not a usable course: require
+                // an actual first-party link before skipping the alternate GET.
                 val alternative=query(COURSES,mapOf(
                     "courseType" to "1", "courseFid" to courseFid,
                     "courseTeacherid" to "0", "courseOrderBy" to "0"))
                 val response=fetch(alternative)
                 val fallback=Jsoup.parse(response.text,response.url)
-                if (fallback.select(".course-name").isNotEmpty()) {
+                collectCourseLinks(fallback,response.url)
+                if (courses.isNotEmpty() || fallback.text().contains("暂无课程")) {
                     page=response
                     doc=fallback
-                } else if (!fallback.text().contains("暂无课程")) {
-                    throw ChaoxingReadFailure("course_response")
-                }
-            }
-            val courses=linkedMapOf<String,ChaoxingDiscoveredLink>()
-            for(name in doc.select(".course-name")) {
-                val a=name.closest("a[href]") ?: name.parent()?.selectFirst("a[href]") ?: continue
-                val url=safeUrl(a.attr("href"),page.url) ?: continue
-                if(courses.size>=120) throw ChaoxingReadFailure("course_limit")
-                courses[url]=ChaoxingDiscoveredLink(name.attr("title").ifBlank {name.text()},url)
+                } else throw ChaoxingReadFailure("course_response")
             }
             if(courses.isEmpty()&&!doc.text().contains("暂无课程")) throw ChaoxingReadFailure("course_response")
             courseCount=courses.size
