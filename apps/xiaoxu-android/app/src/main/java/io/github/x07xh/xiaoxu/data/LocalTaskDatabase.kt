@@ -133,11 +133,15 @@ interface LocalTaskDao {
         val original = findById(taskId) ?: return false
         if (original.completed) return false
         val titles = parseLocalTaskBreakdown(rawSteps) ?: return false
-        val knownTasks = snapshot().mapTo(hashSetOf()) { it.id }
+        val storedTasks = snapshot()
+        val knownTasks = storedTasks.mapTo(hashSetOf()) { it.id }
         val currentEdges = dependencySnapshot()
         val before = currentEdges.filter { it.taskId == taskId }
             .map { it.prerequisiteId }
         if (before.any { it !in knownTasks }) return false
+        // Replaying the same approved plan is a successful no-op. Do not add
+        // duplicate child tasks or another dependency chain.
+        if (hasEquivalentLocalTaskBreakdown(original, titles, storedTasks, currentEdges)) return true
         // These new records have no school/platform status. Inherit only the
         // person's own category; due dates remain on the original task.
         val stepIds = titles.map { title ->

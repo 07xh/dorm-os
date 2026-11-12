@@ -42,6 +42,13 @@ class LocalTaskBreakdownDatabaseTest {
                 LocalTaskDependency(ids[2], ids[1]),
                 LocalTaskDependency(original, ids[2])
             ), dao.dependencySnapshot().toSet())
+            // Re-entering the breakdown UI and approving an equivalent plan
+            // must not insert a second copy of the same tasks and links.
+            val savedEdges = dao.dependencySnapshot()
+            assertTrue(dao.tryBreakDown(original,
+                "1. 整理数据\n2. 编写报告\n3. 检查提交"))
+            assertEquals(5, dao.snapshot().size)
+            assertEquals(savedEdges, dao.dependencySnapshot())
             assertFalse(dao.trySetCompleted(original, true))
             assertFalse(dao.trySetCompleted(ids[0], true))
             assertTrue(dao.trySetCompleted(upstream, true))

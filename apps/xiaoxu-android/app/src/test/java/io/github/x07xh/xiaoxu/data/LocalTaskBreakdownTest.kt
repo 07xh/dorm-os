@@ -46,6 +46,31 @@ class LocalTaskBreakdownTest {
         assertTrue(added.all { it.taskId > 0 && it.prerequisiteId > 0 })
     }
 
+    @Test fun identicalPlanRequiresARealLinkedChainAndRemainsRecognizedAfterCompletion() {
+        val original = LocalTask(id = 10, title = "实验报告", source = "personal")
+        val steps = listOf(
+            LocalTask(id = 11, title = "整理数据", source = "personal"),
+            LocalTask(id = 12, title = "写报告", source = "personal")
+        )
+        val unrelated = LocalTask(id = 20, title = "整理数据", source = "personal")
+        val titles = listOf("整理数据", "写报告")
+        val edges = listOf(LocalTaskDependency(12, 11), LocalTaskDependency(10, 12))
+        assertTrue(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original) + steps + unrelated, edges))
+        assertTrue(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original) + steps.map { it.copy(completed = true) }, edges))
+        assertFalse(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original) + steps, listOf(LocalTaskDependency(10, 12))))
+        assertFalse(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original) + steps, listOf(LocalTaskDependency(10, 20))))
+        assertFalse(hasEquivalentLocalTaskBreakdown(
+            original, titles.reversed(), listOf(original) + steps, edges))
+        assertFalse(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original, steps[0].copy(due = "2026-12-01"), steps[1]), edges))
+        assertFalse(hasEquivalentLocalTaskBreakdown(
+            original, titles, listOf(original, steps[0].copy(source = "other"), steps[1]), edges))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidPlanIds() {
         localTaskBreakdownEdges(10, listOf(11, 11), listOf(1))

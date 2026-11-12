@@ -45,3 +45,29 @@ fun localTaskBreakdownEdges(
         add(LocalTaskDependency(originalId, stepIds.last()))
     }
 }
+
+/**
+ * An already approved chain must not be cloned when the same plan is submitted
+ * again (for example after reopening the original task). Match only real,
+ * linked Room tasks, never titles elsewhere in the list. This is a bounded,
+ * side-effect-free check and does not require a second task table or migration.
+ */
+internal fun hasEquivalentLocalTaskBreakdown(
+    original: LocalTask,
+    stepTitles: List<String>,
+    tasks: List<LocalTask>,
+    edges: List<LocalTaskDependency>
+): Boolean {
+    if (stepTitles.size !in 2..MAX_BREAKDOWN_STEPS) return false
+    val byId = tasks.associateBy { it.id }
+    val prerequisites = edges.groupBy { it.taskId }
+    fun matches(fromId: Long, stepIndex: Int): Boolean =
+        prerequisites[fromId].orEmpty().any { edge ->
+            val candidate = byId[edge.prerequisiteId] ?: return@any false
+            candidate.title == stepTitles[stepIndex] &&
+                candidate.source == original.source &&
+                candidate.due == null &&
+                (stepIndex == 0 || matches(candidate.id, stepIndex - 1))
+        }
+    return matches(original.id, stepTitles.lastIndex)
+}
