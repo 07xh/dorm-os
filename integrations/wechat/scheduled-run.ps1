@@ -1,5 +1,6 @@
 ﻿# 校序：北京时间窗口守卫。仅在 07:00–23:00 启动已有 Windows 微信同步器。
 # 计划任务本身每 15 分钟触发；该守卫以 UTC+8 判断，不依赖电脑时区。
+# run 在窗口内执行 sync，失败时本地安全重试（默认 3 次尝试 / 间隔 60 秒）并留痕。
 # check-time 只用于无副作用测试，绝不读取微信、设备凭据或云端。
 [CmdletBinding()]
 param(
@@ -39,5 +40,41 @@ $runner=Join-Path $PSScriptRoot "run.ps1"
 if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
   throw "未找到现有 Windows 微信采集启动脚本。"
 }
-& $runner sync
-exit $LASTEXITCODE
+# 每次尝试都在独立子进程里跑，否则 run.ps1 内的 exit 会终止当前宿主进程，
+# 调度层拿不到退出码也无法重试。重试只在失败后进行：成功的 sync 立即退出，
+# 不会重复处理；游标与候选去重仍由 collector 负责。
+$psExe=Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+if (-not (Test-Path -LiteralPath $psExe -PathType Leaf)) { $psExe="powershell.exe" }
+$maxAttempts=3
+if ($env:XIAOXU_MAX_ATTEMPTS) { $maxAttempts=[int]$env:XIAOXU_MAX_ATTEMPTS }
+$delaySec=60
+if ($env:XIAOXU_RETRY_DELAY_SEC) { $delaySec=[int]$env:XIAOXU_RETRY_DELAY_SEC }
+function Write-SchedulerLog([int]$Attempt,[int]$Code,[string]$Message) {
+  try {
+    $dir=Join-Path $env:USERPROFILE ".wechat-cli"
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+      New-Item -ItemType Directory -Path $dir | Out-Null
+    }
+    $entry=[ordered]@{
+      at=[datetimeoffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8)).ToString("yyyy-MM-ddTHH:mm:sszzz")
+      source="scheduler"
+      command="sync"
+      attempt=$Attempt
+      exitCode=$Code
+      error=$Message
+    }
+    Add-Content -LiteralPath (Join-Path $dir "xiaoxu-run-log.jsonl") `
+      -Value ($entry | ConvertTo-Json -Compress) -Encoding UTF8
+  } catch {
+    # 记录失败不得反过来阻断同步；collector 自身也写同类失败证据。
+  }
+}
+for ($attempt=1; $attempt -le $maxAttempts; $attempt++) {
+  & $psExe -NoLogo -NoProfile -NonInteractive -File $runner sync
+  $code=$LASTEXITCODE
+  if ($code -eq 0) { exit 0 }
+  Write-SchedulerLog $attempt $code "同步失败：准备安全重试（不推进游标、不重复处理已成功消息）"
+  if ($attempt -lt $maxAttempts -and $delaySec -gt 0) { Start-Sleep -Seconds $delaySec }
+}
+Write-SchedulerLog $maxAttempts 1 "同步连续失败：已用尽本地重试，等待下一次 15 分钟触发补跑"
+exit 1
