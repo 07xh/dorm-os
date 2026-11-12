@@ -27,7 +27,7 @@ jobs:
             $parseErrors | ForEach-Object { Write-Host ("Line " + $_.Extent.StartLineNumber + ": " + $_.Message) }
             throw 'QA crash diagnosis PowerShell syntax invalid'
           }
-          $source = Get-Content $path -Raw
+          $source = ((Get-Content $path) | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"
           foreach ($forbidden in @('adb uninstall', 'adb logcat -c', 'adb shell pm clear', 'adb shell reboot', 'Invoke-WebRequest')) {
             if ($source.Contains($forbidden)) { throw ("QA crash diagnosis includes unsafe command: " + $forbidden) }
           }
