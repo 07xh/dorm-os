@@ -77,6 +77,64 @@ class BridgeError(Exception):
     pass
 
 
+# --- cross-terminal single instance -------------------------------------
+# A Windows named mutex is owned by the kernel, so a crashed process cannot
+# leave a stale lock file behind. The 15-minute scheduled task and any manual
+# terminal both run as the same interactive user, so Local\ is shared by both.
+# The name can be overridden for isolated concurrency tests.
+LOCK_NAME = os.environ.get("XIAOXU_LOCK_NAME") or "Local\\XiaoxuWechatBridge-v1"
+LOCK_WAIT_MS = 60_000
+_ERROR_ALREADY_EXISTS = 183
+_WAIT_OBJECT_0 = 0x0
+_WAIT_ABANDONED = 0x80
+_WAIT_TIMEOUT = 0x102
+
+
+class SingleInstance:
+    """Serialize every collector command across terminals and the scheduler."""
+
+    def __init__(self, name: str = LOCK_NAME, wait_ms: int = LOCK_WAIT_MS):
+        self.name = name
+        self.wait_ms = wait_ms
+        self._handle = None
+        self._k32 = None
+
+    def __enter__(self):
+        if sys.platform != "win32":
+            return self
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        k32.CreateMutexW.restype = wintypes.HANDLE
+        k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k32.WaitForSingleObject.restype = wintypes.DWORD
+        k32.ReleaseMutex.argtypes = [wintypes.HANDLE]
+        k32.ReleaseMutex.restype = wintypes.BOOL
+        k32.CloseHandle.argtypes = [wintypes.HANDLE]
+        k32.CloseHandle.restype = wintypes.BOOL
+        ctypes.set_last_error(0)
+        handle = k32.CreateMutexW(None, True, self.name)
+        if not handle:
+            raise BridgeError("无法建立本机单实例锁；本次未读取、未上传、未推进游标")
+        if ctypes.get_last_error() == _ERROR_ALREADY_EXISTS:
+            rc = k32.WaitForSingleObject(handle, self.wait_ms)
+            if rc == _WAIT_TIMEOUT:
+                k32.CloseHandle(handle)
+                raise BridgeError("另一个校序微信终端仍在运行，等待超时；本次未读取、未上传、未推进游标")
+            if rc not in (_WAIT_OBJECT_0, _WAIT_ABANDONED):
+                k32.CloseHandle(handle)
+                raise BridgeError("等待另一个校序微信终端时出错；本次未做任何改动")
+        self._handle = handle
+        self._k32 = k32
+        return self
+
+    def __exit__(self, *exc_info):
+        if self._handle and self._k32:
+            self._k32.ReleaseMutex(self._handle)
+            self._k32.CloseHandle(self._handle)
+            self._handle = None
+        return False
+
+
 # Windows DPAPI: encrypt the pairing token and local HMAC key for the
 # current Windows user. No plaintext token or full chat database in config.
 class Blob(ctypes.Structure):
@@ -590,9 +648,27 @@ def read_state() -> dict:
 
 
 if __name__ == "__main__":
+    # ai_handoff.py does `import collector`; when this file is the entry point,
+    # register it under that name so both share one BridgeError class.
+    sys.modules.setdefault("collector", sys.modules["__main__"])
     try:
-        raise SystemExit(main())
+        with SingleInstance():
+            raise SystemExit(main())
     except BridgeError as exc:
         # Never print message bodies, tokens, internal account directories.
-        print("校序微信同步：" + str(exc), file=sys.stderr)
+        message = str(exc)
+        print("校序微信同步：" + message, file=sys.stderr)
+        # Local-only failure evidence, so a lock timeout or a rejected snapshot
+        # can be diagnosed later. Contains no chat text, token or URL.
+        try:
+            log = Path.home() / ".wechat-cli" / "xiaoxu-run-log.jsonl"
+            log.parent.mkdir(parents=True, exist_ok=True)
+            with log.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps({
+                    "at": datetime.now(CHINA).isoformat(timespec="seconds"),
+                    "command": sys.argv[1] if len(sys.argv) > 1 else "",
+                    "error": message,
+                }, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
         raise SystemExit(1)
