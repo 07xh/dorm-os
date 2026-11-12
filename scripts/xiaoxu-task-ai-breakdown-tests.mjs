@@ -15,7 +15,7 @@ test('only explicit title + notes are accepted, no model/key URL from caller',()
 });
 test('reject invalid, duplicated or fabricated result shapes',()=>{
  assert.deepEqual(validateTaskBreakdownOutput({steps:[' A ','B']}),['A','B']);
- for(const item of [{steps:['A']},{steps:['A','a']},{steps:['A','B\\nC']},
+ for(const item of [{steps:['A']},{steps:['A','a']},{steps:['A','B\nC']},
   {steps:['A',42]}, {steps:['A','B'],saved:true}, {steps:Array(13).fill('x')}])
   assert.equal(validateTaskBreakdownOutput(item),null);
  assert.deepEqual(validateTaskBreakdownOutput({steps:['A','B']}),['A','B']);
