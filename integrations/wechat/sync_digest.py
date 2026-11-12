@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 import os
 import re
+import sys
 
 CHINA = timezone(timedelta(hours=8))
 AUDIT_PATH = Path.home() / ".wechat-cli" / "xiaoxu-sync-audit.json"
@@ -285,5 +286,15 @@ if __name__ == "__main__":
     cli = argparse.ArgumentParser(description="校序微信同步证据日报（本地、无联网）")
     cli.add_argument("command", choices=("render",))
     args = cli.parse_args()
-    output = write_report()
+    # The digest is a second Python entry point. Share the collector's named
+    # mutex so a scheduled digest, a manual terminal and a running sync can
+    # never read the audit journal / run log while another process rewrites
+    # them, and never render two reports at the same instant.
+    from collector import BridgeError, SingleInstance
+    try:
+        with SingleInstance():
+            output = write_report()
+    except BridgeError as exc:
+        print("校序微信日报：" + str(exc), file=sys.stderr)
+        raise SystemExit(1)
     print("已生成或保留本地校序微信候选同步日报：" + str(output))

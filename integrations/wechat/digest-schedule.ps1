@@ -19,6 +19,10 @@ if ($Command -eq "status") {
     Write-Output "Local daily digest is not scheduled."
   } else {
     Write-Output ("Digest schedule state: " + $task.State)
+    $tr=$task.Triggers | Select-Object -First 1
+    if ($null -ne $tr) {
+      Write-Output ("Trigger: " + $tr.StartBoundary + " | every " + $tr.Repetition.Interval + " for " + $tr.Repetition.Duration)
+    }
     $info=Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
     if ($null -ne $info) {
       Write-Output ("Last task result: " + $info.LastTaskResult + "; last run: " + $info.LastRunTime)
@@ -43,9 +47,14 @@ if ($runner.Contains('"')) { throw "Path contains unsupported quote." }
 $exe=Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $argsLine='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $runner + '" run'
 $action=New-ScheduledTaskAction -Execute $exe -Argument $argsLine -WorkingDirectory $PSScriptRoot
-$trigger=New-ScheduledTaskTrigger -Daily -At "00:00"
+# Only start a second process inside the 23:10-23:59 Beijing window. The old
+# all-day PT5M trigger launched a second PowerShell instance every five minutes
+# (and on every 15-minute tick alongside the collector), even though the runner
+# exited immediately. StartWhenAvailable still re-runs missed slots in this
+# window, and scheduled-digest.ps1 keeps its UTC+8 guard as a second check.
+$trigger=New-ScheduledTaskTrigger -Daily -At "23:10"
 $repeat=New-CimInstance -ClientOnly -Namespace "root/Microsoft/Windows/TaskScheduler" -ClassName "MSFT_TaskRepetitionPattern" -Property @{
-  Interval="PT5M";Duration="P1D";StopAtDurationEnd=$false
+  Interval="PT5M";Duration="PT50M";StopAtDurationEnd=$false
 }
 $trigger.Repetition=$repeat
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
