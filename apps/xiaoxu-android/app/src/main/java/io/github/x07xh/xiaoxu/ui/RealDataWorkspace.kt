@@ -97,6 +97,7 @@ import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import io.github.x07xh.xiaoxu.data.readyLocalTaskIds
+import io.github.x07xh.xiaoxu.data.localTaskAncestors
 import io.github.x07xh.xiaoxu.data.waitingLocalTaskIds
 import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
@@ -1980,6 +1981,9 @@ fun RealAcademicTaskHub(
                     openedTaskKey = null
                 }
             } else null,
+            prerequisiteProgress = selectedTask.key.removePrefix("local:").toLongOrNull()
+                ?.takeIf { selectedTask.storage == "local" }
+                ?.let { localTaskAncestors(it, localTasks, dependencies) }.orEmpty(),
             waitingTitles = selectedTask.key.removePrefix("local:").toLongOrNull()
                 ?.takeIf { selectedTask.storage == "local" && !selectedTask.done }
                 ?.let { unfinishedLocalPrerequisites(it, localTasks, dependencies) }
@@ -2106,6 +2110,7 @@ internal fun WorkspaceTaskDetailSheet(
     onVerifyChaoxing: (() -> Unit)? = null,
     onArchive: (() -> Unit)? = null,
     waitingTitles: List<String> = emptyList(),
+    prerequisiteProgress: List<LocalTask> = emptyList(),
     onBreakdown: (() -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
@@ -2135,7 +2140,24 @@ internal fun WorkspaceTaskDetailSheet(
                 else XiaoxuTone.Neutral
             )
         }
-        if (waitingTitles.isNotEmpty()) {
+        if (prerequisiteProgress.isNotEmpty()) {
+            val finishedCount = prerequisiteProgress.count { it.completed }
+            Text("前置进度：$finishedCount / ${prerequisiteProgress.size} 项已完成",
+                style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                prerequisiteProgress.take(7).forEach { step ->
+                    Text((if (step.completed) "✓ " else "○ ") + step.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Ink2, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                }
+                if (prerequisiteProgress.size > 7) {
+                    Text("其余 ${prerequisiteProgress.size - 7} 项请在任务列表或关系图查看",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XiaoxuPalette.Ink2)
+                }
+            }
+        } else if (waitingTitles.isNotEmpty()) {
             Text("还需先完成：" + waitingTitles.joinToString("、"),
                 style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         }
