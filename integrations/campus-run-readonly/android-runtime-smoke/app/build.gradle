@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace 'io.github.x07xh.campusrun.smoke'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'io.github.x07xh.campusrun.smoke'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+        // Only the user's arm64 device is relevant to size estimates.
+        // CI can explicitly select x86_64 for emulator verification.
+        ndk {
+            if (project.hasProperty('campusRunSmokeEmulator')) {
+                abiFilters 'x86_64'
+            } else {
+                abiFilters 'arm64-v8a'
+            }
+        }
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = '3.13'
+    }
+}
+
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+}
+
+tasks.register('assertPinnedSourceIsProvided') {
+    doLast {
+        for (pkg in ['core', 'policy', 'history', 'profile']) {
+            if (!file("src/main/python/$pkg/client.py").isFile()) {
+                throw new GradleException(
+                    "Missing pinned upstream $pkg/client.py; CI provides MIT modules only"
+                )
+            }
+        }
+    }
+}
+tasks.matching { it.name.startsWith('generate') && it.name.contains('Python') }.configureEach {
+    dependsOn tasks.named('assertPinnedSourceIsProvided')
+}
