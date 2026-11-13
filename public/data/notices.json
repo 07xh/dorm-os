@@ -2,55 +2,48 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-13T09:36:08.986Z",
+  "lastSuccessAt": "2026-11-13T17:47:38.142Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-09T20:48:02.521Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-12T09:53:21.403Z",
-      "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
-      "count": 28
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
+      "count": 20
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
+      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
       "count": 10
     }
   ],
