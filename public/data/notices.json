@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-12T18:22:07.443Z",
+  "lastSuccessAt": "2026-11-13T09:36:08.986Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,28 +29,28 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-12T18:22:07.443Z",
-      "count": 29
+      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
+      "count": 28
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-12T18:22:07.443Z",
+      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-12T18:22:07.443Z",
+      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-12T18:22:07.443Z",
+      "lastSuccessAt": "2026-11-13T09:36:08.986Z",
       "count": 10
     }
   ],
@@ -506,6 +506,15 @@
       "category": "教学"
     },
     {
+      "id": "ncwu-16d411ce2897e5b1",
+      "title": "关于做好2027届本科毕业设计（论文）工作的通知 11-13",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3014.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
       "id": "ncwu-f0350827581cfc16",
       "title": "2025-2026学年第一学期期初补考 08-25",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1034/2633.htm",
@@ -725,6 +734,15 @@
       "id": "ncwu-6d6a649f3bf371c4",
       "title": "2026年清源书院暑期社会实践活动总结表彰",
       "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1687.htm",
+      "date": null,
+      "sourceId": "qysy",
+      "sourceName": "清源书院通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-a79b3a23a1cfd288",
+      "title": "普及水利知识，守护生命之源——水利科普进校园志愿活动预告",
+      "url": "https://www2.ncwu.edu.cn/qysy/info/1020/1705.htm",
       "date": null,
       "sourceId": "qysy",
       "sourceName": "清源书院通知",
