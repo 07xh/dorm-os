@@ -41,6 +41,8 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -470,6 +472,7 @@ private fun PlatformStatusCard(
         else -> XiaoxuTone.Neutral
     }
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    var showChaoxingAutoConfirmation by rememberSaveable(id) { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
@@ -597,6 +600,76 @@ private fun PlatformStatusCard(
                 subtitle = "在本机浏览器读取当前可见记录，不经过云端",
                 onClick = { openLocalSchool(id) }
             )
+        }
+
+        if (id == "chaoxing") {
+            Text(
+                text = when {
+                    !state.authenticated -> "云端任务需要校序账号授权；本机登录独立保存"
+                    !state.connectionsFresh -> "云端连接状态尚未刷新，不能确认定时读取状态"
+                    platform?.autoSyncEnabled == true -> "云端每 60 分钟只读同步：已启用"
+                    platform?.sessionState == "active" -> "云端会话有效，定时读取默认关闭"
+                    else -> "云端学习通未授权；手机本机读取不等于云端连接"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink3
+            )
+            if (state.connectionsFresh && platform?.autoSyncLastRunAt != null) {
+                val lastResult = when (platform.autoSyncLastResult) {
+                    "success" -> "成功"
+                    "partial" -> "部分成功"
+                    "failed" -> "失败"
+                    "expired" -> "会话过期"
+                    "idle" -> "无待处理课程"
+                    else -> "未核实"
+                }
+                Text(
+                    "上次云端运行：" + platform.autoSyncLastRunAt + " · " + lastResult,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3
+                )
+            }
+            Text(
+                "仅使用现有服务器授权的学习通会话；不上传手机 Cookie、不自动作答。" +
+                    "自动同步只保证发起只读任务，实际更新以服务器成功结果为准。",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            val enabled = state.connectionsFresh && platform?.autoSyncEnabled == true
+            val allowed = state.authenticated && state.connectionsFresh &&
+                !state.busy && state.schoolSyncBusyProvider == null &&
+                (enabled || (platform?.sessionState == "active" &&
+                    platform.autoSyncAvailable))
+            SecondaryAction(
+                label = if (enabled) "关闭每小时云端同步" else "开启每小时云端同步",
+                enabled = allowed,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (enabled) scope.launch { client.setChaoxingAutoSync(false) }
+                else showChaoxingAutoConfirmation = true
+            }
+            if (showChaoxingAutoConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { showChaoxingAutoConfirmation = false },
+                    title = { Text("开启学习通云端定时同步？") },
+                    text = {
+                        Text("确认后，服务器将使用已有的本人学习通授权，每小时尝试一次只读同步。" +
+                            "每轮最多检查三门课程，不会使用或上传手机登录凭据。" +
+                            "如果云端会话失效，仍须在校序网站重新授权。")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showChaoxingAutoConfirmation = false
+                            scope.launch { client.setChaoxingAutoSync(true) }
+                        }) { Text("确认开启") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showChaoxingAutoConfirmation = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
+            }
         }
 
         if (state.schoolSyncResultProvider == id && state.schoolSyncMessage != null) {
