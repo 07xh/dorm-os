@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
             val count = result.data?.getIntExtra(
                 NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
             val permitted = when (source) {
-                "chaoxing" -> kind in setOf("course", "homework")
+                "chaoxing" -> kind in setOf("course", "homework", "study_task", "exam_notice")
                 "second_class" -> kind in setOf("activity", "credits")
                 else -> false
             }
