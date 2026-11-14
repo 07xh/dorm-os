@@ -1,0 +1,4 @@
+QA-only: preserve ChaoxingLocalReader; test local import receipt for homework/study_task/exam_notice and explicit existing cloud auto-sync opt-in.
+Source: fix/chaoxing-owner-cloud-gates-20261115. Run same-head JVM + Android instrumentation + Node contracts, produce isolated io.github.x07xh.xiaoxu.unifiedqa with SHA256.
+Do NOT merge or formally publish until owner-authenticated Ace 6 real course/status review, separate server session/Worker evidence and original signing upgrade are accepted.
+This filename intentionally does NOT match a final/formal release marker. No signed production artifact may be produced from this request.
