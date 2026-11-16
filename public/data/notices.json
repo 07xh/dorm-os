@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-15T17:14:00.382Z",
+  "lastSuccessAt": "2026-11-16T09:49:31.417Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,28 +29,28 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-15T17:14:00.382Z",
+      "lastSuccessAt": "2026-11-16T09:49:31.417Z",
       "count": 28
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-15T17:14:00.382Z",
+      "lastSuccessAt": "2026-11-16T09:49:31.417Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-15T17:14:00.382Z",
+      "lastSuccessAt": "2026-11-16T09:49:31.417Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-15T17:14:00.382Z",
+      "lastSuccessAt": "2026-11-16T09:49:31.417Z",
       "count": 10
     }
   ],
@@ -230,6 +230,15 @@
       "id": "ncwu-b21fcef52e838087",
       "title": "关于开展2027年第十届中国大学生工程实践与创新能力大赛校赛现场竞赛的通知",
       "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2187.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-1a1584243de4c6fd",
+      "title": "关于自强奖学金拟推荐名单的公示",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2190.htm",
       "date": null,
       "sourceId": "gcxlzx",
       "sourceName": "工程实践与创新中心通知",
