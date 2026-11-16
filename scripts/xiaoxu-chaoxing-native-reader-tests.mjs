@@ -37,6 +37,33 @@ assert.match(panels,/id == "chaoxing"\) client\.refreshPrivate\(\)/,
 assert.doesNotMatch(reader+session,/api\/v1|CloudClient|addJavascriptInterface|readProgress|saveStatus|submitForm.*POST/);
 assert.match(storage,/if \(old != accountHash \|\| complete\) \{/);
 assert.match(storage,/@Transaction\s+suspend fun mergeChaoxingRead/);
+// The mobile data-connection view must acknowledge EVERY saved Chaoxing
+// record kind, including sessions with only study plans or exam notices.
+const main=readFileSync(base+'java/io/github/x07xh/xiaoxu/MainActivity.kt','utf8');
+const localPanels=readFileSync(base+'java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt','utf8');
+assert.match(main,/"chaoxing" -> kind in setOf\("course", "homework", "study_task", "exam_notice"\)/);
+assert.match(localPanels,/"study_task" -> "学习计划"/);
+assert.match(localPanels,/"exam_notice" -> "考试通知"/);
+
+// Cloud opt-in is a separate owner-authenticated controller, NOT an export of
+// the on-device CookieManager or a replacement for ChaoxingLocalReader.
+const optInMethod=cloud.slice(cloud.indexOf('suspend fun setChaoxingAutoSync('),
+ cloud.indexOf('suspend fun syncAuthorizedSchool('));
+assert.ok(optInMethod.startsWith('suspend fun setChaoxingAutoSync(enabled: Boolean): Boolean'));
+assert.match(optInMethod,/state\.authenticated/);
+assert.match(optInMethod,/state\.connectionsFresh/);
+assert.match(optInMethod,/linked\.sessionState != "active"/);
+assert.match(optInMethod,/boundSessionToken = boundToken/);
+assert.match(optInMethod,/JSONObject\(\)\.put\("enabled", enabled\)/);
+assert.match(optInMethod,/api\/v1\/connections\/chaoxing\/auto-sync/);
+assert.match(optInMethod,/refreshPrivate\(\)/);
+assert.match(optInMethod,/state\.platforms\.firstOrNull/);
+assert.doesNotMatch(optInMethod,/CookieManager|ChaoxingLocalReader|LocalTaskDatabase|courseId|workId|schoolPassword|SCHOOL_SESSION_KEY/);
+assert.match(panels,/client\.setChaoxingAutoSync\(true\)/);
+assert.match(panels,/client\.setChaoxingAutoSync\(false\)/);
+assert.match(panels,/showChaoxingAutoConfirmation/);
+assert.match(panels,/platform\.autoSyncLastRunAt/);
+
 console.log('Chaoxing single local reader, cookie scope, account boundary and legacy retirement passed; runtime protocol is covered by ChaoxingLocalReaderTest');
 // Native Chaoxing tasks must keep their own UI source after retiring cloud reads.
 assert.match(workspace,/"native", "chaoxing", provider = "chaoxing"/);

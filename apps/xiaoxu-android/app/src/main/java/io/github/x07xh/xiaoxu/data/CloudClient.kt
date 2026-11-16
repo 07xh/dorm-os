@@ -537,6 +537,76 @@ class CloudClient(context: Context) {
     }
 
     /**
+     * Explicit owner opt-in for the EXISTING server-side Chaoxing hourly job.
+     * This calls only our owner-scoped controller with {enabled}; it never
+     * sends WebView cookies, credentials, Room records, or signed work URLs.
+     * Local scan and the independent cloud school session remain separate.
+     */
+    suspend fun setChaoxingAutoSync(enabled: Boolean): Boolean {
+        val provider = "chaoxing"
+        val owner = state.ownerId
+        if (!state.authenticated || !state.connectionsFresh || owner.isNullOrBlank() ||
+            state.busy || state.schoolSyncBusyProvider != null) return false
+        val linked = state.platforms.firstOrNull { it.id == provider }
+        if (linked == null || (enabled &&
+                (linked.sessionState != "active" || !linked.autoSyncAvailable))) {
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "云端学习通会话或调度器未就绪；本机官方登录不能替代云端授权")
+            return false
+        }
+        val epoch = sessionEpoch
+        val boundToken = withContext(Dispatchers.IO) { session.load() }
+        if (boundToken == null || epoch != sessionEpoch || state.ownerId != owner) return false
+        state = state.copy(schoolSyncBusyProvider = provider,
+            schoolSyncResultProvider = provider,
+            schoolSyncMessage = if (enabled) "正在申请开启云端定时只读同步…"
+                else "正在关闭云端定时同步…")
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/auto-sync", "POST",
+                    JSONObject().put("enabled", enabled), authenticated = true,
+                    boundSessionToken = boundToken)
+            }
+            if (epoch != sessionEpoch || state.ownerId != owner) return false
+            if (response.code != 200 || !response.json.has("enabled") ||
+                response.json.optBoolean("enabled") != enabled ||
+                response.json.optInt("intervalMinutes", -1) != 60) {
+                val reason = when (response.json.optString("error")) {
+                    "autosync_not_ready" -> "服务器定时任务未就绪，未开启同步"
+                    "session_expired" -> "服务器端学习通会话已失效，需独立完成云端授权"
+                    "forbidden_origin_or_format" -> "云端请求未通过安全校验"
+                    "database_unavailable" -> "云端数据存储不可用"
+                    else -> "云端未确认设置更改（HTTP " + response.code + "）"
+                }
+                state = state.copy(schoolSyncMessage = reason)
+                return false
+            }
+            // An acknowledged POST is not yet a verified fresh connection
+            // snapshot. Re-read the existing owner-scoped connections endpoint.
+            refreshPrivate()
+            if (epoch != sessionEpoch || state.ownerId != owner) return false
+            val confirmed = state.connectionsFresh &&
+                state.platforms.firstOrNull { it.id == provider }?.autoSyncEnabled == enabled
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = if (!confirmed)
+                    "服务器已响应，但最新云端设置尚未核实；请刷新连接状态"
+                else if (enabled)
+                    "云端每小时只读同步已开启；是否实际读到作业以服务器运行结果为准"
+                else "云端自动同步已关闭；本机已保存的学习通记录不受影响")
+            return confirmed
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch && state.ownerId == owner)
+                state = state.copy(schoolSyncMessage = "云端请求异常，设置结果未知；请刷新状态核实")
+            return false
+        } finally {
+            if (epoch == sessionEpoch && state.ownerId == owner)
+                state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /**
      * Trigger the existing authenticated, owner-scoped readonly school refresh.
      * This is NOT a school login, CAS bridge or a browser Cookie extractor.
      * Never mark success until the server confirms refreshed=true.
