@@ -828,14 +828,14 @@ private fun AcademicPage(
             if (academicRoute != AcademicDestination.OVERVIEW) {
                 IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "返回教务",
+                        contentDescription = "返回校园",
                         tint = XiaoxuPalette.Ink2)
                 }
             }
             Box(Modifier.weight(1f)) {
                 CompactPageHeading(
                     title = when (academicRoute) {
-                        AcademicDestination.OVERVIEW -> "教务"
+                        AcademicDestination.OVERVIEW -> "校园"
                         AcademicDestination.GRADES -> "成绩"
                         AcademicDestination.EXAMS -> "考试"
                         AcademicDestination.SECOND_CLASS -> "第二课堂"
@@ -848,22 +848,26 @@ private fun AcademicPage(
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    // One continuous glass surface; no nested rectangle around the four rows.
-                    XiaoxuGroupedSection {
-                        AcademicActionRow("成绩", Icons.Outlined.School,
-                                onClick = { select(AcademicDestination.GRADES) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("考试", Icons.Outlined.DateRange,
-                                onClick = { select(AcademicDestination.EXAMS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle,
-                                onClick = { select(AcademicDestination.SECOND_CLASS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("校园服务", Icons.Outlined.Home,
-                            onClick = { select(AcademicDestination.SERVICES) })
+                    XiaoxuGroupedSection(title = "教务") {
+                        AcademicActionRow("成绩", Icons.Outlined.School) {
+                            select(AcademicDestination.GRADES)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
+                            select(AcademicDestination.EXAMS)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    XiaoxuGroupedSection(title = "校园生活") {
+                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
+                            select(AcademicDestination.SECOND_CLASS)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
+                            select(AcademicDestination.SERVICES)
+                        }
                     }
                 }
             }

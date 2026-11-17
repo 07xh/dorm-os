@@ -235,8 +235,8 @@ assert.doesNotMatch(workspace, /\bCheckbox\(/,
   'Unified task list must not maintain duplicate Material checkbox chrome');
 assert.match(profileSettings, /private fun ReminderToggleRow\(/,
   'Course and deadline reminders must share one settings row');
-assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 3,
-  'Two reminder settings must reuse one row implementation');
+assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 5,
+  'Course, deadline, and two date-phase toggles must share one row implementation');
 assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);

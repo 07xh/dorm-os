@@ -840,6 +840,7 @@ private fun HomeMetricsBlock(
 }
 
 /** 学业服务直达真实子导航；未接通的平台保留诚实的空态。 */
+/** Low-frequency services share one lightweight strip instead of four large cards. */
 @Composable
 private fun HomeQuickBlock(
     openAcademic: () -> Unit,
@@ -848,47 +849,39 @@ private fun HomeQuickBlock(
     openSecondClass: () -> Unit,
     openChaoxing: () -> Unit
 ) {
-    HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth < 420.dp) {
-                // Four single-line labels in a 320–400dp phone would become
-                // cramped. Keep native QuickEntry, arranged in two clear rows.
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
-                        QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
-                            Modifier.weight(1f), XiaoxuTone.Success)
-                        QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
-                            Modifier.weight(1f), XiaoxuTone.Warning)
-                    }
-                }
-            } else {
-                Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                    QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
-                    QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
-                    QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
-                        Modifier.weight(1f), XiaoxuTone.Success)
-                    QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
-                        Modifier.weight(1f), XiaoxuTone.Warning)
-                }
+    HomeSection(title = "快捷入口", actionLabel = "校园", onAction = openAcademic) {
+        XiaoxuCard(contentPadding = 8.dp) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
+                HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                    Modifier.weight(1f), openSecondClass)
+                HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                    Modifier.weight(1f), openChaoxing)
             }
         }
     }
 }
 
-/** 待办与提醒：截止状态复用任务中心判定，缺日期不猜。 */
+@Composable
+private fun HomeQuickAction(
+    title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier.clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .clickable(onClickLabel = "打开$title", onClick = onClick)
+            .heightIn(min = 70.dp).padding(horizontal = 2.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
+            tint = XiaoxuPalette.Ink2)
+        Text(title, style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
@@ -2469,12 +2462,15 @@ private fun TaskSectionHeader(
                 )
             }
         }
-        TaskSourceBadge(badge, emphasized = true)
-        Text(
-            text = note,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        val subtitle = note.ifBlank { badge }
+        if (subtitle.isNotBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -2580,12 +2576,6 @@ private fun TaskRow(
 ) {
     val due = remember(task, today) { describeDue(task, today) }
     val openLabel = "查看任务详情"
-    val dueTone = when (due.emphasis) {
-        DUE_OVERDUE -> XiaoxuPalette.Danger
-        DUE_TODAY -> XiaoxuPalette.Warning
-        DUE_WEEK -> XiaoxuPalette.Brand
-        else -> XiaoxuPalette.Ink2
-    }
     val officialLabel = if (task.provider == "chaoxing")
         task.officialStatusRaw?.let { "平台显示：" + it }
             ?: officialTaskStatusLabel(task.officialStatus) else null
@@ -2593,16 +2583,8 @@ private fun TaskRow(
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
     val needsReview = requiresChaoxingVerification(task)
-    val statusText = if (isPending) "保存中…" else
-        dependencyHint ?: verificationHint ?: executionHint ?:
-            if (needsReview) "学习通 · 待核对"
-            else officialLabel ?: if (task.done) "个人已完成" else due.label
-    // In the default focus view suppress routine source labels and missing-date
-    // notices. Exceptions (today, overdue, returned, saving) stay visible.
+    // One accessible task row; no duplicate surface or nested card.
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = XiaoxuSpacing.listRowMin)    Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = XiaoxuSpacing.listRowMin)

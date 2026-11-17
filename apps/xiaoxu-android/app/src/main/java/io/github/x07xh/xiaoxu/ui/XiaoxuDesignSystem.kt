@@ -894,7 +894,7 @@ private fun XiaoxuStatePanel(
                 )
             }
             Spacer(Modifier.width(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
