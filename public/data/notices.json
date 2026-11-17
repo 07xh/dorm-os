@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-16T20:31:35.790Z",
+  "lastSuccessAt": "2026-11-17T10:46:53.970Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,28 +29,28 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-16T20:31:35.790Z",
+      "lastSuccessAt": "2026-11-17T10:46:53.970Z",
       "count": 28
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-16T20:31:35.790Z",
+      "lastSuccessAt": "2026-11-17T10:46:53.970Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-16T20:31:35.790Z",
+      "lastSuccessAt": "2026-11-17T10:46:53.970Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-16T20:31:35.790Z",
+      "lastSuccessAt": "2026-11-17T10:46:53.970Z",
       "count": 10
     }
   ],
@@ -653,6 +653,15 @@
       "id": "ncwu-d659e229fb3e0213",
       "title": "2026-2027学年第一学期9-12周考试安排表 10-19",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1034/2990.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "考试"
+    },
+    {
+      "id": "ncwu-1259f440f5c4bebd",
+      "title": "2026-2027学年第一学期13-15周考试安排表 11-17",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1034/3018.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
