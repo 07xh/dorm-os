@@ -1058,8 +1058,13 @@ assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/,
   '本机备份与恢复只能由账户与数据二级页面打开');
 assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
   '本机备份仍可通过唯一入口进入');
-assert.match(profileSettings, /SettingsEntry\("开源许可", Icons\.Outlined\.Info\)/,
-  '开源许可从顶部应用信息进入，不在首页重复');
+const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
+assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
+  '关于校序应使用单独的品牌信息页面');
+assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\)/,
+  '开源许可从关于页进入，不在设置首页重复');
+assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
+  '关于页保留开源署名入口');
 assert.match(profileSettings, /XiaoxuGroupedSection\(title = "账户与数据"\)/,
   '用户信息与备份等项目应采用现有玻璃分组组件');
 assert.doesNotMatch(main, /if \(showLocalBackup\) item|CompactActionRow\("第二课堂记录"/,
