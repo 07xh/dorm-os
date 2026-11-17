@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "source": "喜鹊儿 2.6.457 APK assets/vendorJw.json — user-supplied static analysis",
+  "evidence": "static_only",
+  "validatedAgainstNcwu": false,
+  "modules": {
+    "getKb": [
+      {
+        "alias": "kbdetail_bz",
+        "action": "mycourseschedule",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "xnxq",
+        "action": "getxnxq_kb",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "detail",
+        "action": "mycourseschedule",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "bjlb",
+        "action": "getAllbj",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "kbjxl",
+        "action": "GetJxlbyXQ",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "kbjs",
+        "action": "getAllJs",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "add_bz",
+        "action": "kb_add_bz",
+        "classification": "mutation"
+      },
+      {
+        "alias": "getcontent_bz",
+        "action": "kb_getcontent_bz",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "kbdetail_bz_1",
+        "action": "kb_kbdetail_bz",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "delete_bz",
+        "action": "kb_delete_bz",
+        "classification": "mutation"
+      },
+      {
+        "alias": "skbjmc",
+        "action": "MySkbjxsmc",
+        "classification": "unverified_read_candidate"
+      }
+    ],
+    "oriKsap": [
+      {
+        "alias": "list",
+        "action": "GetXnXqKsLc",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userid": "loginbean.userid"
+        }
+      },
+      {
+        "alias": "detail",
+        "action": "MyExamArrange",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userid": "loginbean.userid"
+        }
+      },
+      {
+        "alias": "addCustomer",
+        "action": "ksap_addCustomer",
+        "classification": "mutation",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "usertype": "loginbean.usertype",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm"
+        }
+      },
+      {
+        "alias": "delCustomer",
+        "action": "ksap_delCustomer",
+        "classification": "mutation",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "usertype": "loginbean.usertype",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm"
+        }
+      },
+      {
+        "alias": "getSysCustomer_1",
+        "action": "getAllExam",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid"
+        }
+      },
+      {
+        "alias": "getSysCustomer",
+        "action": "ksap_getSysCustomer",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "usertype": "loginbean.usertype",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm"
+        }
+      }
+    ],
+    "getKaoshidjs": [
+      {
+        "alias": "lb",
+        "action": "getNotOverExam",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "userType": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "getSysCustomDjs",
+        "action": "getNotOverExam",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "userType": "loginbean.usertype"
+        }
+      }
+    ],
+    "oriJkap": [
+      {
+        "alias": "xnxq",
+        "action": "GetXnXqKsLc",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userid": "loginbean.xh"
+        }
+      },
+      {
+        "alias": "kc",
+        "action": "MyJkAp",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "loginId": "loginbean.xh"
+        }
+      },
+      {
+        "alias": "addCustomer",
+        "action": "jkap_addCustomer",
+        "classification": "mutation",
+        "extraParam": {
+          "userId": "loginbean.xh",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm",
+          "usertype": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "delCustomer",
+        "action": "jkap_delCustomer",
+        "classification": "mutation",
+        "extraParam": {
+          "userId": "loginbean.xh",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm",
+          "usertype": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "getSysCustomer_1",
+        "action": "getInvigilateNotOver",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.xh"
+        }
+      },
+      {
+        "alias": "getSysCustomerByXnxq_1",
+        "action": "getInvigilateByXnxq",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.xh"
+        }
+      },
+      {
+        "alias": "getSysCustomer",
+        "action": "jkap_getSysCustomer",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm",
+          "usertype": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "getSysCustomerByXnxq",
+        "action": "jkap_getSysCustomerByXnxq",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "uuid": "loginbean.userId",
+          "xxdm": "loginbean.xxdm",
+          "usertype": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "getXnxq_ks",
+        "action": "getXnxq_ks",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userid": "loginbean.userid"
+        }
+      }
+    ],
+    "oriKxjs": [
+      {
+        "alias": "jxl",
+        "action": "GetJxlbyXQ",
+        "classification": "unverified_read_candidate",
+        "extraParam": {
+          "userId": "loginbean.userid",
+          "userType": "loginbean.usertype"
+        }
+      },
+      {
+        "alias": "detail",
+        "action": "getJsxx",
+        "classification": "unverified_read_candidate"
+      }
+    ],
+    "oriCk": [
+      {
+        "alias": "xnxq",
+        "action": "getxnxq_kb",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "gethbbj",
+        "action": "gethbbj",
+        "classification": "unverified_read_candidate"
+      },
+      {
+        "alias": "kc",
+        "action": "getckkb",
+        "classification": "unverified_read_candidate"
+      }
+    ]
+  }
+}
