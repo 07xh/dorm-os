@@ -612,8 +612,8 @@ fun RealAcademicHome(
                         verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1.15f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            hero()
                             metrics()
+                            hero()
                         }
                         Column(Modifier.weight(1f)) { tasks() }
                     }
@@ -627,11 +627,11 @@ fun RealAcademicHome(
                     }
                 }
             } else {
+                item { metrics() }
                 item { hero() }
                 item { tasks() }
-                item { metrics() }
-                item { academic() }
                 item { notices() }
+                item { academic() }
                 item { homework() }
             }
         }
@@ -818,12 +818,24 @@ private fun HomeMetricsBlock(
     attention: Int,
     openTasks: () -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MetricCard(label = "待完成", value = pending.toString(),
-            modifier = Modifier.weight(1f), onClick = openTasks)
-        MetricCard(label = "近期截止", value = attention.toString(),
-            tone = XiaoxuTone.Warning,
-            modifier = Modifier.weight(1f), onClick = openTasks)
+    // A single quiet metrics strip: the numbers are live data, not decorative cards.
+    XiaoxuCard(onClick = openTasks, contentPadding = 14.dp) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(pending.toString(), style = MaterialTheme.typography.headlineSmall,
+                    color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                Text("待完成", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+            }
+            Box(Modifier.width(1.dp).height(36.dp).background(XiaoxuPalette.Line))
+            Column(Modifier.weight(1f).padding(start = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(attention.toString(), style = MaterialTheme.typography.headlineSmall,
+                    color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                Text("近期截止", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
     }
 }
 
@@ -999,37 +1011,29 @@ private fun HomeHomeworkBlock(
 @Composable
 private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     val due = remember(task, today) { describeDue(task, today) }
-    val tone = when (due.emphasis) {
-        DUE_OVERDUE -> XiaoxuTone.Danger
-        DUE_TODAY -> XiaoxuTone.Warning
-        DUE_WEEK -> XiaoxuTone.Brand
-        else -> XiaoxuTone.Neutral
+    val highlight = when (due.emphasis) {
+        DUE_OVERDUE -> XiaoxuPalette.Danger
+        DUE_TODAY -> XiaoxuPalette.Warning
+        else -> XiaoxuPalette.Ink3
     }
-    Column(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = task.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            StatusChip(due.label, tone)
+        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(highlight))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(task.title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium, color = XiaoxuPalette.Ink,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                text = task.origin,
+                if (due.emphasis == DUE_MISSING) task.origin
+                else task.origin + " · " + due.label,
                 style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                color = if (due.emphasis >= DUE_TODAY) highlight else XiaoxuPalette.Ink2,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1330,7 +1334,7 @@ fun RealAcademicTaskHub(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("任务中心",
+                    Text("任务",
                         style = MaterialTheme.typography.titleLarge,
                         color = XiaoxuPalette.Ink,
                         maxLines = 1,
@@ -1431,7 +1435,7 @@ fun RealAcademicTaskHub(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
-                    label = "现在可做", count = nowCount,
+                    label = "可执行", count = nowCount,
                     active = filter == "now", modifier = Modifier.weight(1f),
                     onClick = { filter = "now" }
                 )
@@ -2378,8 +2382,7 @@ private fun TaskGroupHeader(
             .padding(top = 8.dp)
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -2400,14 +2403,14 @@ private fun TaskGroupHeader(
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                title + if (showCount) " ($count)" else "",
+                title + if (showCount) " · $count" else "",
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
                 color = XiaoxuPalette.Ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics { heading() }
             )
-            if (badge.isNotBlank() || note.isNotBlank()) {
+            if (expanded && (badge.isNotBlank() || note.isNotBlank())) {
                 Text(
                     listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,
@@ -2540,7 +2543,6 @@ private fun ConnectedTaskShell(
         modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
     ) {
         if (index > 0) {
             HorizontalDivider(
@@ -2590,42 +2592,10 @@ private fun TaskRow(
             else officialLabel ?: if (task.done) "个人已完成" else due.label
     // In the default focus view suppress routine source labels and missing-date
     // notices. Exceptions (today, overdue, returned, saving) stay visible.
-    val compactStatusText = if (!compact) statusText else when {
-        isPending -> "保存中…"
-        dependencyHint != null || verificationHint != null || executionHint != null -> statusText
-        task.officialStatus == "returned" -> "官方退回"
-        isTodayPriorityWorkspaceTask(task, today) && task.officialDeadline != null ->
-            due.label
-        due.emphasis in setOf(DUE_TODAY, DUE_OVERDUE) &&
-            (task.storage == "local" || task.officialDeadline != null) -> due.label
-        else -> null
-    }
-    val statusInk = when {
-        isPending -> XiaoxuPalette.Brand
-        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.Ink2
-        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
-        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
-        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
-            XiaoxuPalette.Success
-        officialLabel != null -> XiaoxuPalette.Ink2
-        task.done -> XiaoxuPalette.Success
-        else -> dueTone
-    }
-    val statusBackground = when {
-        isPending -> XiaoxuPalette.BrandSoft
-        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.GlassTrack
-        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
-        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
-        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
-            XiaoxuPalette.SuccessSoft
-        officialLabel != null -> XiaoxuPalette.GlassTrack
-        task.done -> XiaoxuPalette.SuccessSoft
-        due.emphasis == DUE_OVERDUE -> XiaoxuPalette.DangerSoft
-        due.emphasis == DUE_TODAY -> XiaoxuPalette.WarningSoft
-        due.emphasis == DUE_WEEK -> XiaoxuPalette.BrandSoft
-        else -> XiaoxuPalette.GlassTrack
-    }
     Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = XiaoxuSpacing.listRowMin)    Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = XiaoxuSpacing.listRowMin)
@@ -2643,7 +2613,7 @@ private fun TaskRow(
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击" + openLabel
             }
-            .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
+            .padding(start = 10.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2686,7 +2656,7 @@ private fun TaskRow(
         }
         // 任务标题占满内容列；状态放第二行，不再挤在右侧 108dp 窄框中截断。
         Column(modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 task.title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -2696,37 +2666,28 @@ private fun TaskRow(
                 textDecoration = if (displayDone) TextDecoration.LineThrough else null,
                 color = if (displayDone) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
-            if (compactStatusText != null || !compact) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (compactStatusText != null) {
-                        Box(
-                            modifier = Modifier.widthIn(max = 162.dp)
-                                .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                                .background(statusBackground)
-                                .padding(horizontal = 7.dp, vertical = 4.dp)
-                        ) {
-                            Text(compactStatusText, color = statusInk,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2)
-                        }
-                    }
-                    // Full detail remains available by tapping the row.
-                    if (!compact && task.category != "wechat") {
-                        Text(
-                            task.origin,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+            // One secondary line replaces stacked status pills and repeated source tags.
+            val secondary = when {
+                isPending -> "保存中…"
+                dependencyHint != null -> dependencyHint
+                verificationHint != null -> verificationHint
+                executionHint != null -> executionHint
+                needsReview -> "学习通 · 待核验"
+                officialLabel != null -> officialLabel
+                due.emphasis == DUE_MISSING -> task.origin
+                else -> task.origin + " · " + due.label
             }
+            Text(
+                secondary,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isPending) XiaoxuPalette.Brand
+                    else if (due.emphasis == DUE_OVERDUE || task.officialStatus == "returned")
+                        XiaoxuPalette.Danger
+                    else if (due.emphasis == DUE_TODAY) XiaoxuPalette.Warning
+                    else XiaoxuPalette.Ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         if (compact && onQuickDate != null) {
             IconButton(onClick = onQuickDate, enabled = actionEnabled,

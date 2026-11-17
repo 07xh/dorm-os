@@ -113,7 +113,7 @@ object XiaoxuPalette {
     )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.85f)
+    val GlassCard = Color.White.copy(alpha = 0.95f)
     val GlassBorder = Color.White.copy(alpha = 0.74f)
     val GlassTrack = Color.White.copy(alpha = 0.48f)
     val GlassIndicator = Color.White.copy(alpha = 0.60f)
@@ -178,9 +178,9 @@ object XiaoxuPalette {
 
 /** 参考北化的大圆角几何，全 App 同源，不为各页面另建 CardShape。 */
 object XiaoxuRadius {
-    val card: Dp = 24.dp
+    val card: Dp = 18.dp
     val hero: Dp = 28.dp
-    val tile: Dp = 16.dp
+    val tile: Dp = 14.dp
     val pill: Dp = 999.dp
 }
 
@@ -192,7 +192,7 @@ object XiaoxuSpacing {
     val gap: Dp = 8.dp
 
     /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
-    val listRowMin: Dp = 76.dp
+    val listRowMin: Dp = 68.dp
     val glassStroke: Dp = 0.5.dp
 }
 
@@ -391,12 +391,9 @@ fun XiaoxuCard(
             .fillMaxWidth()
             .clip(shape)
             .background(container)
-            .then(if (container == XiaoxuPalette.GlassCard)
-                Modifier.background(XiaoxuPalette.GlassSheen) else Modifier)
             .border(
-                if (container == XiaoxuPalette.GlassCard) XiaoxuSpacing.glassStroke else 0.75.dp,
-                if (container == XiaoxuPalette.GlassCard) XiaoxuPalette.GlassBorder
-                else XiaoxuPalette.Line,
+                XiaoxuSpacing.glassStroke,
+                XiaoxuPalette.Line,
                 shape
             )
             .then(
@@ -515,8 +512,7 @@ internal fun XiaoxuGroupSurface(
     Column(
         modifier = modifier.fillMaxWidth().clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
             .padding(vertical = verticalPadding),
         content = content
     )

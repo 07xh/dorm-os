@@ -1013,77 +1013,40 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.985f else 1f,
         animationSpec = tween(XiaoxuMotion.FeedbackMs),
-        label = "card-press"
+        label = "course-press"
     )
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(XiaoxuRadius.card))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClickLabel = "查看课程详情",
-                role = Role.Button,
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onOpen()
-                }
+                onClickLabel = "查看课程详情", role = Role.Button,
+                onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onOpen() }
             ),
         shape = RoundedCornerShape(XiaoxuRadius.card),
-        colors = CardDefaults.cardColors(containerColor = courseColor.background)
+        colors = CardDefaults.cardColors(containerColor = XiaoxuPalette.GlassCard)
     ) {
-        Row(Modifier.fillMaxWidth()) {
-            Box(
-                Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
-                    .background(courseColor.accent)
-            )
-            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = lesson.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = courseColor.foreground,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
+                .background(courseColor.accent))
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(lesson.title, style = MaterialTheme.typography.titleMedium,
+                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f))
                     SectionBadge(lesson.sectionLabel)
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = XiaoxuPalette.Ink2
-                    )
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Room, contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = lesson.location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Icon(Icons.Outlined.PersonOutline, contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = lesson.teacher,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                val meta = listOf(lesson.location, lesson.teacher)
+                    .filter { it.isNotBlank() }.joinToString(" · ")
+                if (meta.isNotEmpty()) {
+                    Text(meta, style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Ink2, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
         }

@@ -662,95 +662,39 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val isExam = notice.category == "exam"
-    // 海报式横排公告卡：真实数据只有标题、分类、日期和官网链接，绝不假造摘要。
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(CardShape)
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(XiaoxuRadius.card))
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, CardShape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line,
+                RoundedCornerShape(XiaoxuRadius.card))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClickLabel = "查看这条公告的详情与官网链接",
-                role = Role.Button,
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                }
+                onClickLabel = "查看公告详情与官网链接", role = Role.Button,
+                onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
             )
-            .heightIn(min = XiaoxuSpacing.listRowMin)
-            .padding(14.dp)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 14.dp, vertical = 11.dp)
             .semantics(mergeDescendants = true) {
-                contentDescription = buildString {
-                    append(noticeCategoryLabel(notice.category))
-                    append("：")
-                    append(notice.title)
-                    if (notice.dateLabel.isNotBlank()) {
-                        append("，官网日期 ")
-                        append(notice.dateLabel)
-                    }
-                    append("。点击查看详情与原文链接")
-                }
+                contentDescription = noticeCategoryLabel(notice.category) + "：" +
+                    notice.title + "，" + notice.dateLabel + "；查看详情"
             },
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(if (isExam) ExamTile else NoticeTile),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (isExam) Icons.Outlined.DateRange else Icons.Outlined.MailOutline,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (isExam) ExamInk else NoticeInk
-            )
+        Box(Modifier.size(7.dp).clip(CircleShape).background(
+            if (isExam) XiaoxuPalette.Warning else XiaoxuPalette.Brand))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(notice.title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium, color = XiaoxuPalette.Ink,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val meta = listOf(noticeCategoryLabel(notice.category), notice.dateLabel)
+                .filter { it.isNotBlank() }.joinToString(" · ")
+            Text(meta, style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.width(11.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Text(
-                text = notice.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = XiaoxuPalette.Ink,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "华水教务官网",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                SourceBadge(
-                    text = noticeCategoryLabel(notice.category),
-                    tone = if (isExam) XiaoxuTone.Warning else XiaoxuTone.Brand
-                )
-            }
-            if (notice.dateLabel.isNotBlank()) {
-                Text(
-                    text = notice.dateLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3
-                )
-            }
-        }
-        Spacer(Modifier.width(7.dp))
-        Icon(
-            Icons.Outlined.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = XiaoxuPalette.Ink3
-        )
     }
 }
 
