@@ -284,10 +284,12 @@ object LocalCourseReminders {
             app, 17015, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val detail = "第" + lesson.startSection + "–" + lesson.endSection + "节" +
+            (lesson.location.takeIf { it.isNotBlank() }?.let { " · " + it } ?: "")
         val alert = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("即将上课 · ${lesson.title}")
-            .setContentText("来自本机课表，点此查看课程和教室；通知可能受省电策略延后。")
+            .setContentText(detail)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
