@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {makeNcwuQingguoServerAdapter,NcwuQingguoError} from '../lib/academic-ncwu-qingguo-server.mjs';
+import {parseNcwuLessonDetailHtml,NcwuLessonDetailError} from '../lib/academic-ncwu-lesson-detail.mjs';
 globalThis.crypto??=webcrypto;
 const CAMPUS='https://authserver.ncwu.edu.cn';
 const SCHOOL='https://jwmis.ncwu.edu.cn';
@@ -44,6 +45,37 @@ const splitGrid='<table id="mytable"><tr>'+Array.from({length:7},(_,i)=>
  '</td>').join('')+'</tr></table>';
 const splitPage='<html><input id="xn" value="2026"><input id="xq_m" value="1">'+
  splitGrid+detail('1-8周 一[1-2] '+room+'；9-16周 一[1-2] 虚构教室B202')+'</html>';
+// Synthetic HTML for the NEW /frame/desk/showLessonScheduleDetail.action route;
+// this is deliberately independent of the legacy /student/wsxk.* response.
+const mockPeriods=[
+ ['08:00','08:45'],['08:55','09:40'],['09:55','10:40'],
+ ['10:50','11:35'],['11:45','12:30'],['14:00','14:45'],
+ ['14:55','15:40'],['15:55','16:40'],['16:50','17:35'],
+ ['17:45','18:30'],['19:00','19:45'],['19:55','20:40']
+];
+const lessonGrid='<html><table><tr><th colspan="9">2026-2027学年第一学期</th></tr>'+
+ '<tr><th>时段</th><th>节次</th>'+
+ ['星期一','星期二','星期三','星期四','星期五','星期六','星期日']
+  .map(day=>'<th>'+day+'</th>').join('')+'</tr>'+
+ mockPeriods.map(([start,end],i)=>'<tr>'+
+  (i===0?'<td>上午</td>':'')+'<td>'+(i+1)+'('+start+'-'+end+')</td>'+
+  Array.from({length:7},(_,day)=>'<td>'+(i===0&&day===0?
+   '工程制图 测试教师(7-14 [江]测试楼101)':'')+'</td>').join('')+
+  '</tr>').join('')+'</table></html>';
+const preview=parseNcwuLessonDetailHtml(lessonGrid,{semester:'2026-2027-1'});
+assert.equal(preview.nonEmptyCells,1);
+assert.deepEqual(preview.cells[0],{weekday:1,section:1,
+ text:'工程制图 测试教师(7-14 [江]测试楼101)'});
+assert.equal(preview.sections[10].startTime,'19:00');
+assert.equal(preview.verified,false);
+assert.equal(preview.trustedSyncAllowed,false);
+assert.throws(()=>parseNcwuLessonDetailHtml(lessonGrid,{semester:'2026-2027-2'}),
+ NcwuLessonDetailError);
+assert.throws(()=>parseNcwuLessonDetailHtml(lessonGrid.replace('星期三','星期四'),
+ {semester:'2026-2027-1'}),NcwuLessonDetailError);
+assert.throws(()=>parseNcwuLessonDetailHtml(lessonGrid.replace('12(19:55-20:40)','13(19:55-20:40)'),
+ {semester:'2026-2027-1'}),NcwuLessonDetailError);
+
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
  redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,
  gbkLogin=false,optionalChallengeTab=false,principalHelpText=false,
@@ -114,6 +146,14 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
    return reply(200,principalHtml,rotateCookie&&principalReads===2?
     {'set-cookie':'QG_SESS=school-rotated; Path=/hsjw/; Secure'}:{});
   }
+  if(u.hostname==='jwmis.ncwu.edu.cn'&&
+     u.pathname==='/hsjw/frame/desk/showLessonScheduleDetail.action'){
+   assert.equal(method,'POST');
+   assert.equal(new URLSearchParams(options.body).get('xnxq'),'2026,0');
+   assert.equal(new URLSearchParams(options.body).get('weeks'),'');
+   assert.equal(options.headers?.referer,SCHOOL+'/hsjw/frame/homes.action');
+   return reply(200,lessonGrid);
+  }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp'){
    if(rotateCookie)assert.ok((options.headers?.cookie||options.headers?.Cookie||'')
     .includes('QG_SESS=school-rotated'),'timetable read must use renewed session cookie');
@@ -149,6 +189,10 @@ assert.equal(direct.calls.filter(c=>c.host==='authserver.ncwu.edu.cn').length,0,
  'no campus CAS password fallback when the native form is verified');
 const nativeReader=await native.forSession({session:nativeLogin.session,userId:'owner-direct'});
 const nativeProof=await nativeReader.verifySession();
+const ajax=await nativeReader.readScheduleDetailCandidate({session:nativeProof.session});
+assert.equal(ajax.nonEmptyCells,1);
+assert.equal(ajax.trustedSyncAllowed,false);
+assert.equal(direct.calls.filter(x=>x.path==='/hsjw/frame/desk/showLessonScheduleDetail.action').length,1);
 assert.equal((await nativeReader.readSection({kind:'schedule',session:nativeProof.session})).records.length,1);
 // Qingguo can serve GBK/GB2312 pages without setting the HTTP charset.
 // This exercises decoding actual non-UTF-8 bytes, not just a meta-string.
