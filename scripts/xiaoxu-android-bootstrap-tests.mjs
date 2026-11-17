@@ -690,8 +690,8 @@ const dayCardSource = schedulePanel.slice(
 );
 assert.match(dayCardSource, /onClickLabel = "查看课程详情"/,
   '点击日视图课程应打开与周视图共用的详情抽屉');
-assert.match(dayCardSource, /Icons\.Outlined\.ChevronRight/,
-  '日视图不要用向下箭头暗示不存在的卡内展开');
+assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ChevronRight|Icons\.Outlined\.ExpandMore/,
+  '紧凑课程卡整行点击打开详情，不再堆叠无用箭头');
 assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ExpandMore/,
   '不要误导用户课程卡向下展开');
 assert.match(schedulePanel, /color = XiaoxuPalette\.Ink2[\s\S]*?val openCourse:/,
