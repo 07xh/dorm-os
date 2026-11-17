@@ -175,24 +175,7 @@ fun ProfileSettingsPage(
                 }
                 "backup" -> item { LocalTaskBackupPanel() }
                 "about" -> item {
-                    val version = remember(context) {
-                        runCatching {
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                        }.getOrNull() ?: "未知"
-                    }
-                    XiaoxuGroupedSection {
-                        Column(Modifier.fillMaxWidth().padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("校序 Academic OS", style = MaterialTheme.typography.titleMedium,
-                                color = XiaoxuPalette.Ink)
-                            Text("版本 " + version, style = MaterialTheme.typography.bodySmall,
-                                color = XiaoxuPalette.Ink2)
-                        }
-                        SettingsDivider()
-                        SettingsEntry("开源许可", Icons.Outlined.Info) {
-                            onRouteChange("licenses")
-                        }
-                    }
+                    AboutPage(onOpenLicenses = { onRouteChange("licenses") })
                 }
                 "licenses" -> item { OpenSourceCreditsPanel() }
             }
@@ -394,50 +377,40 @@ private fun NotificationSettingsContent(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp))
 
     if (leadPickerOpen) {
-        AlertDialog(
-            onDismissRequest = { leadPickerOpen = false },
-            title = { Text("课前提醒时间") },
-            text = {
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
-                    items(listOf(0, 5, 10, 15, 20, 30, 45, 60)) { minutes ->
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .clickable {
-                                    leadPickerOpen = false
-                                    if (minutes != leadMinutes) {
-                                        scope.launch {
-                                            val success = withContext(Dispatchers.IO) {
-                                                LocalCourseReminders.setLeadMinutes(context, minutes) &&
-                                                    LocalCourseReminders.reconcileAfterSave(
-                                                        context,
-                                                        LocalScheduleStore.load(context),
-                                                        LocalSemesterConfigStore.load(context)
-                                                    )
-                                            }
-                                            leadMinutes = LocalCourseReminders.leadMinutes(context)
-                                            if (!success) Toast.makeText(context,
-                                                "课前提醒时间保存或调度失败，请重试", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(if (minutes == 0) "上课时" else "提前 ${minutes} 分钟",
-                                modifier = Modifier.weight(1f), color = XiaoxuPalette.Ink)
-                            if (minutes == leadMinutes) {
-                                Icon(Icons.Outlined.CheckCircle, contentDescription = "已选择",
-                                    tint = XiaoxuPalette.Brand)
+        XiaoxuBottomActionSheet(
+            title = "课前提醒时间",
+            subtitle = "选择上课前的通知时间",
+            onDismiss = { leadPickerOpen = false },
+            actions = listOf(0, 5, 10, 15, 20, 30, 45, 60).map { minutes ->
+                XiaoxuSheetAction(
+                    label = if (minutes == 0) "上课时" else "提前 ${minutes} 分钟",
+                    selected = minutes == leadMinutes,
+                    onClick = {
+                        leadPickerOpen = false
+                        if (minutes != leadMinutes) {
+                            scope.launch {
+                                val success = withContext(Dispatchers.IO) {
+                                    LocalCourseReminders.setLeadMinutes(context, minutes) &&
+                                        LocalCourseReminders.reconcileAfterSave(
+                                            context,
+                                            LocalScheduleStore.load(context),
+                                            LocalSemesterConfigStore.load(context)
+                                        )
+                                }
+                                leadMinutes = LocalCourseReminders.leadMinutes(context)
+                                if (!success) {
+                                    Toast.makeText(context,
+                                        "课前提醒时间保存或调度失败，请重试",
+                                        Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { leadPickerOpen = false }) { Text("关闭") }
+                )
             }
         )
     }
-    if (taskTimePickerOpen) {
+        if (taskTimePickerOpen) {
         AlertDialog(
             onDismissRequest = { taskTimePickerOpen = false },
             title = { Text("任务提醒时间") },

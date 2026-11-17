@@ -329,13 +329,13 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
 
 /** Keep dialog dimming uniform across content and system-bar regions. */
 @Composable
-internal fun XiaoxuDialogDim() {
+internal fun XiaoxuDialogDim(dimAmount: Float = 0.12f) {
     val view = LocalView.current
     DisposableEffect(view) {
         val window = (view.parent as? DialogWindowProvider)?.window
         val oldDim = window?.attributes?.dimAmount
         window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        window?.setDimAmount(0.12f)
+        window?.setDimAmount(dimAmount)
         onDispose { if (oldDim != null) window?.setDimAmount(oldDim) }
     }
 }
