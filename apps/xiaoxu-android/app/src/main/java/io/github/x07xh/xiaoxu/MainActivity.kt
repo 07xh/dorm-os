@@ -167,12 +167,15 @@ class MainActivity : ComponentActivity() {
     // Changes even when only semester settings are restored and course rows stay equal.
     private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var reminderTaskId by mutableStateOf<Long?>(null)
     private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
@@ -188,6 +191,7 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    reminderTaskId = reminderTaskId,
                     scheduleReminderOpenCount = scheduleReminderOpenCount,
                     localLessons = localLessons,
                     localScheduleRevision = localScheduleRevision,
@@ -389,6 +393,8 @@ class MainActivity : ComponentActivity() {
         receiveSchoolReturn(intent)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
@@ -449,6 +455,7 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    reminderTaskId: Long?,
     scheduleReminderOpenCount: Int,
     localLessons: List<VerifiedLesson>,
     localScheduleRevision: Int,
@@ -656,6 +663,8 @@ private fun NativeShell(
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                                reminderTaskId = reminderTaskId,
+                                reminderTaskToken = taskReminderOpenCount,
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {

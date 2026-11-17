@@ -1051,7 +1051,9 @@ fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
     openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit = {},
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    reminderTaskId: Long? = null,
+    reminderTaskToken: Int = 0
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -1150,6 +1152,11 @@ fun RealAcademicTaskHub(
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(reminderTaskId, reminderTaskToken) {
+        if (reminderTaskId != null && reminderTaskId > 0L) {
+            openedTaskKey = "local:" + reminderTaskId
+        }
+    }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     // Personal tasks open the existing edit sheet directly; cloud tasks still
     // use the source-aware detail view. Checkbox completion is unchanged.
