@@ -468,8 +468,8 @@ assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typograph
  '课表标题从统一主题取得字级');
 assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
  '消息标题从统一主题取得字级');
-assert.match(workspace, /Text\("任务中心",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '任务标题从统一主题取得字级');
+assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
+ '任务页使用简短标题与统一主题字级');
 assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
  '三态数字同卡保留内容且压缩多余高度');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
@@ -1696,14 +1696,15 @@ assert.doesNotMatch(workspace.slice(workspace.indexOf('val hero: @Composable'), 
   /HomeHero\(/, '首页不能继续调用旧轮播');
 assert.doesNotMatch(workspace, /resolveHomeCourseIndex|selectedHomeCourseKey|onSelectCourse\(/,
   '首页旧轮播状态须清退');
-assert.ok(workspace.includes('maxWidth < 420.dp'), '窄屏学业入口须自动调整为两行');
+assert.match(workspace, /private fun HomeQuickAction\(/,
+  '学业入口使用单个紧凑共享入口组件');
 const homeCourseSequence = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/HomeCourseSequenceTest.kt');
 assert.match(homeCourseSequence, /firstFourPreserveSequenceFromLongList/, '首页列表必须保持记录顺序');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
-assert.match(workspace, /QuickEntry\("成绩"/, '首页学业入口须指向真实子页面');
-assert.match(workspace, /QuickEntry\("考试"/);
-assert.match(workspace, /QuickEntry\("第二课堂"/);
-assert.match(workspace, /QuickEntry\("学习通"/);
+assert.match(workspace, /HomeQuickAction\("成绩"/, '首页学业入口须指向真实子页面');
+assert.match(workspace, /HomeQuickAction\("考试"/);
+assert.match(workspace, /HomeQuickAction\("第二课堂"/);
+assert.match(workspace, /HomeQuickAction\("学习通"/);
 assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
@@ -1834,14 +1835,14 @@ assert.match(workspace, /label = "task-group-chevron"/,
 assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRotation\)/,
   '分组状态改变时只旋转箭头，不重新绘制业务数据');
 
-assert.match(designSystem, /val listRowMin: Dp = 76\.dp/,
+assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,
   '任务与消息共用同一紧凑最小行高');
 assert.match(workspace, /val radius = XiaoxuRadius\.card/,
   '任务列表首尾圆角必须沿用唯一设计系统');
 assert.match(workspace, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
   '任务行仍由内容扩展且使用统一最小行高');
-assert.match(messageCenter, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
-  '官方消息行与任务行共用最小尺寸基准');
+assert.match(messageCenter, /heightIn\(min = 64\.dp\)/,
+  '公告紧凑行保持不低于64dp的触控区');
 assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.card\)/,
   '官方消息卡片圆角必须与其他页面统一');
 
@@ -2082,8 +2083,10 @@ const academicOverviewSource = main.slice(
     main.indexOf('AcademicDestination.OVERVIEW -> Content('),
     main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
 );
-assert.match(academicOverviewSource, /XiaoxuGroupedSection\s*\{/,
-  '四个教务入口只能使用一层连续玻璃分组');
+assert.match(academicOverviewSource, /XiaoxuGroupedSection\(title = "教务"\)/,
+  '成绩和考试须归入教务分类');
+assert.match(academicOverviewSource, /XiaoxuGroupedSection\(title = "校园生活"\)/,
+  '第二课堂和校园服务须归入校园生活分类');
 assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
   '教务连续分组内部不能再套第二层方形卡片');
 assert.doesNotMatch(academicOverviewSource, /"未读取"/,
@@ -2156,8 +2159,8 @@ assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
 // #286 修复：只能使用一套真实数据界面，移除 PosterDemo 与空操作。
 assert.doesNotMatch(main, /posterMode|onPosterMode|PosterHome|PosterTasks|PosterMessages|PosterSchedule/,
   '主导航不得重新出现演示版/真实版切换');
-assert.match(primaryNavigation, /PrimaryTabs = listOf\([\s\S]*MainDestination\.HOME,[\s\S]*MainDestination\.SCHEDULE,[\s\S]*MainDestination\.ACADEMIC,[\s\S]*MainDestination\.TASKS,[\s\S]*MainDestination\.PROFILE/,
-  '唯一导航配置保留今日、课表、教务、任务、我的顺序');
+assert.match(primaryNavigation, /PrimaryTabs = listOf\(\s*MainDestination\.HOME,\s*MainDestination\.SCHEDULE,\s*MainDestination\.TASKS,\s*MainDestination\.ACADEMIC,\s*MainDestination\.PROFILE/,
+  '唯一导航配置为今日、课表、任务、校园、我的');
 assert.doesNotMatch(main, /private val PrimaryTabs|NavigationRail\(/,
   '业务壳层不能重建第二套导航表或侧栏组件');
 assert.doesNotMatch(main, /MainDestination\.MESSAGES/, '消息不占底栏');
