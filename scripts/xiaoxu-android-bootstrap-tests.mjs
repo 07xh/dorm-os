@@ -2039,7 +2039,8 @@ assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无�
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
-assert.match(messageCenter, /size\(46\.dp\)/, '公告卡图标块放大至 46dp，提升 Ace 6 可读性');
+assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
+  'B2 公告使用紧凑状态圆点，避免重复大图标造成视觉拥挤');
 assert.match(messageCenter, /private fun SourceSectionHeader\(/,
   '保留列表内的来源标题与状态语义');
 assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
