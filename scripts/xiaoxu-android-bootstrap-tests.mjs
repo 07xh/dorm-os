@@ -903,8 +903,8 @@ assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
   '课表设置分组圆角必须与所有设置页同源');
 assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
   '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
-  '课表设置分组边界必须使用轻玻璃描边');
+assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.Line/,
+  '内容分组应使用轻量中性描边，不叠加玻璃高光');
 assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
   '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
 
@@ -1193,7 +1193,7 @@ assert.match(workspace, /val sameWeekday = localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
-assert.match(workspace, /QuickEntry\("第二课堂"/, '第二课堂由真实学业入口打开');
+assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机读取/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
@@ -1461,7 +1461,7 @@ assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色�
 assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
-assert.match(design, /val card: Dp = 24\.dp/, '基础玻璃卡圆角须统一为24dp');
+assert.match(design, /val card: Dp = 18\.dp/, '基础内容卡统一18dp圆角；底栏玻璃几何独立');
 assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
 assert.match(design, /fun XiaoxuGlassDialog\(/,
