@@ -230,22 +230,22 @@ internal fun CourseEditorDialog(
         }
     }
     if (confirmDelete && original != null) {
-        AlertDialog(
-            onDismissRequest = { if (!busy) confirmDelete = false },
-            title = { Text("确认删除课程") },
-            text = {
-                Text(if (weekOnly && canScope) "仅删除第$selectedWeek 周的这门课程？"
-                    else "删除此课程全部周次？")
-            },
-            confirmButton = {
-                TextButton(enabled = !busy, onClick = {
-                    confirmDelete = false
-                    onDelete(weekOnly && canScope)
-                }) { Text("确认删除", color = XiaoxuPalette.Danger) }
-            },
-            dismissButton = {
-                TextButton(enabled = !busy, onClick = { confirmDelete = false }) { Text("取消") }
-            }
+        XiaoxuBottomActionSheet(
+            title = "确认删除课程",
+            subtitle = if (weekOnly && canScope) "仅删除第${selectedWeek}周的这门课程？"
+                else "删除此课程全部周次？",
+            onDismiss = { if (!busy) confirmDelete = false },
+            actions = listOf(
+                XiaoxuSheetAction(
+                    label = "确认删除",
+                    destructive = true,
+                    enabled = !busy,
+                    onClick = {
+                        confirmDelete = false
+                        onDelete(weekOnly && canScope)
+                    }
+                )
+            )
         )
     }
 }
