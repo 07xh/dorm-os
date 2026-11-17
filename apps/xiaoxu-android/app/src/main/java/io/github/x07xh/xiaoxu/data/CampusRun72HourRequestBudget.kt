@@ -74,6 +74,17 @@ class CampusRun72HourReadCoordinator(
     private val budget: CampusRun72HourRequestBudget
 ) {
     private val mutex = Mutex()
+    private var currentSubject: String? = null
+
+    suspend fun clearOnSignOut() {
+        mutex.lock()
+        try {
+            query.clear()
+            currentSubject = null
+        } finally {
+            mutex.unlock()
+        }
+    }
 
     suspend fun refreshSummaryIfDue(
         expectedSubjectFingerprint: String, nowEpochMillis: Long
@@ -88,6 +99,12 @@ class CampusRun72HourReadCoordinator(
     ): CampusRunViewState {
         mutex.lock()
         try {
+            // A cached snapshot is never shown across accounts, including
+            // when the new account is still within its cooldown window.
+            if (currentSubject != fingerprint) {
+                query.clear()
+                currentSubject = fingerprint
+            }
             if (!budget.reserveIfDue(fingerprint, now)) return query.state(now)
             return if (history) query.refresh(fingerprint, now)
                 else query.refreshSummary(fingerprint, now)
