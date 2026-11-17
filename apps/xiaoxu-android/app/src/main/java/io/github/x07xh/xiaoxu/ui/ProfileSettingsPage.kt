@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -441,7 +442,14 @@ private fun NotificationSettingsContent(
             onDismissRequest = { taskTimePickerOpen = false },
             title = { Text("任务提醒时间") },
             text = {
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                val selectedSlot = reminderSchedule.hour * 2 + reminderSchedule.minute / 30
+                val listState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = (selectedSlot - 2).coerceAtLeast(0)
+                )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)
+                ) {
                     items((0..47).toList()) { slot ->
                         val hour = slot / 2
                         val minute = (slot % 2) * 30

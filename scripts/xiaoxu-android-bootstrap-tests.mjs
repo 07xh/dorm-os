@@ -312,8 +312,12 @@ assert.match(profileSettings, /"notifications", "notifications-course", "notific
   '通知设置必须共用一套二级路由，而不是复制页面');
 assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animatedRoute, onRouteChange\)/,
   '分类设置复用唯一提醒权限与调度网关');
-assert.match(profileSettings, /onRouteChange\("notifications-course"\)/);
-assert.match(profileSettings, /onRouteChange\("notifications-task"\)/);
+assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-course"\)/,
+  'Reminder settings must not require a second navigation hop');
+assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-task"\)/,
+  'Course and task toggles must share a single screen');
+assert.match(profileSettings, /XiaoxuGroupedSection\(title = "个人任务"\)/);
+assert.match(profileSettings, /updateReminderSchedule\(reminderSchedule\.copy\(/);
 assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
   '课程提前时间调整应写入唯一的本机提醒配置');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);

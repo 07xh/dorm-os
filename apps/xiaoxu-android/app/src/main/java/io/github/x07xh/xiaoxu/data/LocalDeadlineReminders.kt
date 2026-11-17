@@ -167,11 +167,17 @@ object LocalDeadlineReminders {
     private fun workName(taskId: Long, phase: String): String =
         "xiaoxu-local-reminder-$taskId-$phase"
 
-    internal fun canNotify(context: Context): Boolean =
-        (Build.VERSION.SDK_INT < 33 ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED) &&
-            NotificationManagerCompat.from(context).areNotificationsEnabled()
+    internal fun canNotify(context: Context): Boolean {
+        val app = context.applicationContext
+        val permission = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = if (Build.VERSION.SDK_INT >= 26)
+            manager.getNotificationChannel(CHANNEL) else null
+        return permission && NotificationManagerCompat.from(app).areNotificationsEnabled() &&
+            (channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE)
+    }
 
     internal fun deliver(context: Context, task: LocalTask, phase: String) {
         if (!enabled(context) || !canNotify(context)) return
