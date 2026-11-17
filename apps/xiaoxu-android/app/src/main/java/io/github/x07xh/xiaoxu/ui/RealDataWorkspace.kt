@@ -399,6 +399,16 @@ internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: Loca
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
+/** Seven-day histogram from user-entered dates only; never treat cloud snapshots as deadlines. */
+internal fun personalDeadlineHistogram(tasks: List<WorkspaceTask>, today: LocalDate): List<Int> {
+    val totals = tasks.asSequence()
+        .filter { it.storage == "local" && !it.done }
+        .mapNotNull { it.date }
+        .groupingBy { it }
+        .eachCount()
+    return List(7) { day -> totals[today.plusDays(day.toLong())] ?: 0 }
+}
+
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -545,6 +555,7 @@ fun RealAcademicHome(
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
     val attention = countUpcomingLocalDeadlines(all, today)
+    val deadlineHistogram = remember(all, today) { personalDeadlineHistogram(all, today) }
     val upcoming = remember(all, localTasks, homeDependencies) {
         readyWorkspaceTasks(all, localTasks, homeDependencies).take(3)
     }
@@ -581,7 +592,7 @@ fun RealAcademicHome(
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
     }
     val metrics: @Composable () -> Unit = {
-        HomeMetricsBlock(pending, attention, openTasks)
+        HomeMetricsBlock(pending, attention, deadlineHistogram, today, openTasks)
     }
     val academic: @Composable () -> Unit = {
         HomeQuickBlock(openAcademic, openGrades, openExams, openSecondClass,
@@ -811,11 +822,13 @@ private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
     }
 }
 
-/** 两张统计卡：数值与口径都来自已有记录，点击直达任务中心。 */
+/** One compact metrics group with real, local-only deadline distribution. */
 @Composable
 private fun HomeMetricsBlock(
     pending: Int,
     attention: Int,
+    deadlineHistogram: List<Int>,
+    today: LocalDate,
     openTasks: () -> Unit
 ) {
     // A single quiet metrics strip: the numbers are live data, not decorative cards.
@@ -836,10 +849,36 @@ private fun HomeMetricsBlock(
                     color = XiaoxuPalette.Ink2)
             }
         }
+        if (deadlineHistogram.any { it > 0 }) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            Text("未来七天", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+            val maximum = deadlineHistogram.maxOrNull()?.coerceAtLeast(1) ?: 1
+            val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom) {
+                deadlineHistogram.forEachIndexed { index, count ->
+                    val barHeight = if (count == 0) 2 else 8 + 24 * count / maximum
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(if (count > 0) count.toString() else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink2)
+                        Spacer(Modifier.height((32 - barHeight).dp))
+                        Box(Modifier.width(16.dp).height(barHeight.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(if (count == 0) XiaoxuPalette.Line
+                                else XiaoxuPalette.Brand))
+                        Text(weekdays[(today.dayOfWeek.value - 1 + index) % 7],
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
+            }
+        }
     }
 }
 
-/** 学业服务直达真实子导航；未接通的平台保留诚实的空态。 */
 /** Low-frequency services share one lightweight strip instead of four large cards. */
 @Composable
 private fun HomeQuickBlock(
