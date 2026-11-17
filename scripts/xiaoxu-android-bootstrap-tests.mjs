@@ -1862,8 +1862,8 @@ assert.match(compactTaskHeader, /background\(XiaoxuPalette\.GlassCard\)/,
   '展开分组必须使用与正文连续的玻璃材质');
 assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\)\) append\("，"\)\.append\(badge\)/,
   '有实际来源状态时保留无障碍描述，普通任务不追加无用小字');
-assert.match(compactTaskHeader, /if \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)/,
-  '没有必要说明的任务分组不应占第二行辅助文字');
+assert.match(compactTaskHeader, /if \(expanded && \(badge\.isNotBlank\(\) \|\| note\.isNotBlank\(\)\)\)/,
+  '仅在展开且有额外说明时占用第二行，默认保持紧凑');
 assert.doesNotMatch(workspace, /title = "群消息任务候选"|showCandidates/,
   '任务中心不得再展示待审核微信群消息区块或保存其折叠状态');
 assert.match(workspace, /title = "微信任务"/,
