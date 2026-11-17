@@ -1939,8 +1939,8 @@ assert.match(workspace, /pendingWechatTaskUpdates\[row\.key\] = checked/,
   '点击立即反馈，不等待网络返回才能勾选');
 assert.match(workspace, /pendingWechatTaskUpdates\.remove\(row\.key\)/,
   '成功确认与失败回滚均清理临时状态');
-assert.match(workspace, /val statusText = if \(isPending\) "保存中…"/,
-  '尚未收到云端回执时必须明确显示保存中');
+assert.match(workspace, /val secondary = when \{\s*isPending -> "保存中…"/,
+  '尚未收到云端回执时必须在唯一辅助行明确显示保存中');
 assert.doesNotMatch(workspace, /modifier = Modifier\.animateItem\(/,
   '展开课程任务时不能再让微信列表补间移动并产生跳跃');
 assert.match(cloud, /preferConfirmedWechatRevisions\(it, state\.tasks\)/,
