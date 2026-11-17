@@ -2149,22 +2149,33 @@ fun RealAcademicTaskHub(
     }
     val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
     if (deletingTask != null) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { if (!deletingLocalBusy) deletingLocalId = null },
-            title = { Text("删除本机任务？") },
-            text = { Text("删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。") },
-            confirmButton = { TextButton(enabled = !deletingLocalBusy, onClick = {
-                deletingLocalBusy = true
-                taskScope.launch {
-                    try {
-                        dao.remove(deletingTask.id)
-                        deletingLocalId = null; openedTaskKey = null
-                    } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { Toast.makeText(context, "删除失败，请重试", Toast.LENGTH_SHORT).show() }
-                    finally { deletingLocalBusy = false }
-                }
-            }) { Text("删除") } },
-            dismissButton = { TextButton(enabled = !deletingLocalBusy, onClick = { deletingLocalId = null }) { Text("取消") } }
+        XiaoxuBottomActionSheet(
+            title = "删除本机任务？",
+            subtitle = "删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。",
+            onDismiss = { if (!deletingLocalBusy) deletingLocalId = null },
+            actions = listOf(
+                XiaoxuSheetAction(
+                    label = "删除任务",
+                    destructive = true,
+                    enabled = !deletingLocalBusy,
+                    onClick = {
+                        deletingLocalBusy = true
+                        taskScope.launch {
+                            try {
+                                dao.remove(deletingTask.id)
+                                deletingLocalId = null
+                                openedTaskKey = null
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                Toast.makeText(context, "删除失败，请重试", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                deletingLocalBusy = false
+                            }
+                        }
+                    }
+                )
+            )
         )
     }
     if (showCloudEditor) {
