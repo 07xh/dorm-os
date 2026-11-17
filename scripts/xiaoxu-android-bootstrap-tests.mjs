@@ -1481,7 +1481,7 @@ assert.match(profileSettings, /"connections" -> item \{/,
   '数据连接详情独立成二级页面，而非旧版工具浮层');
 assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
   '云端同步详情不得顶开本机连接列表');
-assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.85f\)/,
+assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.95f\)/,
   '统一玻璃卡透明度，避免彩色底透出硬灰边');
 
 assert.match(design, /label = "glass-row-chevron"/,
