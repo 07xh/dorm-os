@@ -22,8 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -85,8 +83,9 @@ internal fun AboutPage(onOpenLicenses: () -> Unit) {
     val installed = remember(context) {
         runCatching {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            @Suppress("DEPRECATION")
             val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode
-                else @Suppress("DEPRECATION") info.versionCode.toLong()
+                else info.versionCode.toLong()
             (info.versionName ?: "未知") to code
         }.getOrElse { "未知" to 0L }
     }
@@ -110,13 +109,13 @@ internal fun AboutPage(onOpenLicenses: () -> Unit) {
             }
         }
         XiaoxuGroupedSection {
-            AboutInfoRow("官方网站", leading = false) {
+            AboutInfoRow("官方网站") {
                 openLink("https://dorm-os-dk9.pages.dev")
             }
             AboutLine()
-            AboutInfoRow("开源许可", leading = false, onClick = onOpenLicenses)
+            AboutInfoRow("开源许可", onClick = onOpenLicenses)
             AboutLine()
-            AboutInfoRow("版本信息", leading = false) { showVersion = true }
+            AboutInfoRow("版本信息") { showVersion = true }
         }
         XiaoxuGroupedSection(title = "项目致谢") {
             aboutUpstreams.forEachIndexed { index, upstream ->
@@ -258,7 +257,6 @@ private fun AboutInfoRow(
     title: String,
     subtitle: String? = null,
     icon: Boolean = false,
-    leading: Boolean = true,
     onClick: () -> Unit
 ) {
     Row(
