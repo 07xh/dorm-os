@@ -278,10 +278,12 @@ object LocalCourseReminders {
         )
         val intent = Intent(app, MainActivity::class.java).apply {
             putExtra("xiaoxu_open_schedule_from_reminder", true)
+            putExtra("xiaoxu_open_lesson_id", lesson.id)
+            putExtra("xiaoxu_open_lesson_weekday", lesson.weekday)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
-            app, 17015, intent,
+            app, ("class-" + lesson.id + "-" + lesson.weekday).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val detail = "第" + lesson.startSection + "–" + lesson.endSection + "节" +

@@ -1085,7 +1085,8 @@ fun RealAcademicTaskHub(
     openLocalSchool: (String) -> Unit = {},
     onMessages: () -> Unit,
     reminderTaskId: Long? = null,
-    reminderTaskToken: Int = 0
+    reminderTaskToken: Int = 0,
+    onReminderConsumed: () -> Unit = {}
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -1187,6 +1188,7 @@ fun RealAcademicTaskHub(
     LaunchedEffect(reminderTaskId, reminderTaskToken) {
         if (reminderTaskId != null && reminderTaskId > 0L) {
             openedTaskKey = "local:" + reminderTaskId
+            onReminderConsumed()
         }
     }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }

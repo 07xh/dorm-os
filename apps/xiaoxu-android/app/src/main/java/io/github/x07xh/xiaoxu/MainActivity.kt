@@ -169,6 +169,8 @@ class MainActivity : ComponentActivity() {
     private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
     private var reminderTaskId by mutableStateOf<Long?>(null)
+    private var reminderLessonId by mutableStateOf<String?>(null)
+    private var reminderLessonWeekday by mutableIntStateOf(0)
     private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,6 +182,9 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -193,7 +198,11 @@ class MainActivity : ComponentActivity() {
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
                     reminderTaskId = reminderTaskId,
+                    onReminderTaskConsumed = { reminderTaskId = null },
                     scheduleReminderOpenCount = scheduleReminderOpenCount,
+                    reminderLessonId = reminderLessonId,
+                    reminderLessonWeekday = reminderLessonWeekday,
+                    onReminderCourseConsumed = { reminderLessonId = null },
                     localLessons = localLessons,
                     localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = { saved ->
@@ -399,6 +408,9 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
     }
 
@@ -457,7 +469,11 @@ private fun NativeShell(
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
     reminderTaskId: Long?,
+    onReminderTaskConsumed: () -> Unit,
     scheduleReminderOpenCount: Int,
+    reminderLessonId: String?,
+    reminderLessonWeekday: Int,
+    onReminderCourseConsumed: () -> Unit,
     localLessons: List<VerifiedLesson>,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
@@ -653,6 +669,9 @@ private fun NativeShell(
                                 }
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
+                                focusLessonId = reminderLessonId,
+                                focusWeekday = reminderLessonWeekday,
+                                onFocusConsumed = onReminderCourseConsumed,
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
@@ -666,6 +685,7 @@ private fun NativeShell(
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                                 reminderTaskId = reminderTaskId,
                                 reminderTaskToken = taskReminderOpenCount,
+                                onReminderConsumed = onReminderTaskConsumed,
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {

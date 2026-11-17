@@ -200,7 +200,10 @@ fun CloudTimetablePanel(
     onSettingsOpenChanged: (Boolean) -> Unit = {},
     onSettingsClosed: () -> Unit = {},
     onSettingsFileAction: () -> Unit = {},
-    onEditorClosed: () -> Unit = {}
+    onEditorClosed: () -> Unit = {},
+    focusLessonId: String? = null,
+    focusWeekday: Int = 0,
+    onFocusConsumed: () -> Unit = {}
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -217,7 +220,10 @@ fun CloudTimetablePanel(
             onSettingsOpenChanged = onSettingsOpenChanged,
             onSettingsClosed = onSettingsClosed,
             onSettingsFileAction = onSettingsFileAction,
-            onEditorClosed = onEditorClosed
+            onEditorClosed = onEditorClosed,
+            focusLessonId = focusLessonId,
+            focusWeekday = focusWeekday,
+            onFocusConsumed = onFocusConsumed
         )
     }
 }
@@ -317,7 +323,10 @@ private fun ScheduleVerifiedContent(
     onSettingsOpenChanged: (Boolean) -> Unit,
     onSettingsClosed: () -> Unit,
     onSettingsFileAction: () -> Unit,
-    onEditorClosed: () -> Unit
+    onEditorClosed: () -> Unit,
+    focusLessonId: String?,
+    focusWeekday: Int,
+    onFocusConsumed: () -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
@@ -354,6 +363,17 @@ private fun ScheduleVerifiedContent(
     }
     var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
     var selectedCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(focusLessonId, focusWeekday, data.lessons, calendar) {
+        val identifier = focusLessonId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val target = data.lessons.firstOrNull { it.id == identifier &&
+            (focusWeekday !in 1..7 || it.weekday == focusWeekday) } ?: return@LaunchedEffect
+        val currentWeek = calendar?.currentWeek(LocalDate.now())
+        selectedWeek = currentWeek?.takeIf { it in target.weeks && it in weekNumbers }
+            ?: target.weeks.firstOrNull { it in weekNumbers } ?: selectedWeek
+        selectedWeekday = target.weekday
+        selectedCourseKey = target.toUi().key
+        onFocusConsumed()
+    }
 
     // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
     val allowedKeys = remember(data.lessons, selectedWeek) {
