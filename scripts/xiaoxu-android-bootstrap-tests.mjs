@@ -1164,7 +1164,7 @@ assert.match(workspace, /onBusyChange = \{ backupBusy = it \}/,
   '备份浮层关闭控制应与真实文件操作状态关联');
 assert.match(workspace, /LocalTaskBackupPanel\(\s*embedded = true,\s*onBusyChange = \{ backupBusy = it \}/,
   '任务中心备份应复用弹窗内的简洁版本，禁止套双层卡片');
-assert.match(workspace, /if \(showTaskBackup\) \{\s*XiaoxuBottomSheet\(/,
+assert.match(workspace, /if \(showTaskBackup\) \{\s*var backupBusy by remember \{ mutableStateOf\(false\) \}\s*XiaoxuBottomSheet\(/,
   '任务中心备份入口应使用统一底部弹窗');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
