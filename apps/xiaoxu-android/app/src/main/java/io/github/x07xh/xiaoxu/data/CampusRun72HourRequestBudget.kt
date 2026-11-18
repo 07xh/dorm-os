@@ -129,12 +129,18 @@ class CampusRun72HourReadCoordinator(
             if (currentSubject != fingerprint) {
                 query.clear()
                 currentSubject = fingerprint
+            }
+            // A transient Keystore failure may have prevented restoration
+            // earlier, while the 72-hour budget still prohibits another
+            // upstream read. Permit an offline retry on the next foreground
+            // visit; do NOT revalidate or promote cached data to Current.
+            if (query.state(now) is CampusRunViewState.NotConnected) {
                 try {
                     trustedCache?.load(fingerprint, now)?.let {
                         query.restoreTrustedSnapshot(fingerprint, it, now)
                     }
                 } catch (_: Exception) {
-                    // A broken or inaccessible cache is never authorization.
+                    // Unreadable ciphertext remains on disk for later recovery.
                     query.clear()
                 }
             }
