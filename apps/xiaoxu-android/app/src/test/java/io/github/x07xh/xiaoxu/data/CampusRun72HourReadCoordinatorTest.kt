@@ -29,8 +29,11 @@ class CampusRun72HourReadCoordinatorTest {
         var snapshot: CampusRunSnapshot? = null
         var savedCount = 0
         var cleared = false
-        override fun load(subjectFingerprint: String, nowEpochMillis: Long): CampusRunSnapshot? =
-            if (subject == subjectFingerprint) snapshot else null
+        var failKeystoreRead = false
+        override fun load(subjectFingerprint: String, nowEpochMillis: Long): CampusRunSnapshot? {
+            if (failKeystoreRead) throw SecurityException("synthetic Keystore error")
+            return if (subject == subjectFingerprint) snapshot else null
+        }
 
         override fun save(
             subjectFingerprint: String, snapshot: CampusRunSnapshot, nowEpochMillis: Long
@@ -134,6 +137,32 @@ class CampusRun72HourReadCoordinatorTest {
         assertEquals(now, resumed.snapshot.capturedAtEpochMillis)
         assertEquals(1, source.semesterReads)
         assertEquals(1, cache.savedCount)
+    }
+
+    @Test fun transientKeystoreFailureCanRestoreOfflineWithin72Hours() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val original = coordinator(source, checkpoints, cache)
+        assertTrue(original.refreshSummaryIfDue(alice, now)
+            is CampusRunViewState.Current)
+        assertEquals(1, source.semesterReads)
+
+        cache.failKeystoreRead = true
+        val restarted = coordinator(source, checkpoints, cache)
+        val unavailable = restarted.refreshSummaryIfDue(alice, now + 10_000L)
+        assertTrue(unavailable is CampusRunViewState.NotConnected)
+        assertEquals(1, source.semesterReads)
+        assertFalse(cache.cleared)
+
+        cache.failKeystoreRead = false
+        val recovered = restarted.refreshSummaryIfDue(alice, now + 20_000L)
+        assertTrue(recovered is CampusRunViewState.Stale)
+        assertEquals(now,
+            (recovered as CampusRunViewState.Stale).snapshot.capturedAtEpochMillis)
+        assertEquals(1, source.semesterReads)
+        assertEquals(1, checkpoints.attempts.size)
+        assertFalse(cache.cleared)
     }
 
     @Test fun at72HoursFailedReadLeavesCacheButDoesNotRetry() = runBlocking {
