@@ -54,6 +54,7 @@ internal fun XiaoxuBottomSheet(
     subtitle: String? = null,
     cancelLabel: String = "取消",
     showCancel: Boolean = true,
+    scrollContent: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.84f
@@ -104,7 +105,9 @@ internal fun XiaoxuBottomSheet(
                 }
                 Column(
                     modifier = Modifier.fillMaxWidth()
-                        .weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                        .weight(1f, fill = false)
+                        .then(if (scrollContent) Modifier.verticalScroll(rememberScrollState())
+                            else Modifier),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     content = content
                 )
