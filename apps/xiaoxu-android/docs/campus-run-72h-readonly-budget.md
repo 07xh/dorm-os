@@ -26,3 +26,6 @@
 **仍未接通的部分：** `CampusRunPanel` 仍为独立手动记录入口；正式 App 尚无当前可用的运动世界正常授权源、可信 Python/Android 运行时与 `verifiedFieldSemantics=true` 的本人实际字段证据。因此不能将缓存类、预算类、Python 研究桥作为真实自动同步功能上线。正式接线时才可以注入经本人实测的 `CampusRunReadOnlySource` 和上述缓存协调器，并同步处理连接中心的授权/撤销生命周期。不额外创建新的数据库、登录器、后台 Worker 或演示数据。
 
 安全边界：限制接口读取到 72 小时一次不保证多设备登录绝对不受影响；服务器仍可能按 DeviceId / 会话策略改变另一端登录状态。需要本人正常账号真机核验。
+
+- 缓存恢复和可信实时读取分开：即使缓存年龄不足 36 小时，跨进程恢复仍由 `CampusRunSnapshotGate.restoreCached` 标为 `Stale(reason=null)`；只有本人授权成功的新读取才会返回 `Current`。72 小时限额内不通过后台验证伪造“实时”。
+- 同 App 进程多个 `CampusRun72HourRequestBudget` 实例共享预留锁，避免同时打开面板时竞态重复查询；该锁不提供跨进程保证，正式适配必须只从单一 App 进程调用。
