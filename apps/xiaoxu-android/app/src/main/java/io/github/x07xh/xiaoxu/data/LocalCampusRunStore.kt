@@ -12,9 +12,11 @@ import javax.crypto.spec.GCMParameterSpec
 import org.json.JSONObject
 
 /**
- * An explicitly entered personal semester summary, encrypted on this device.
- * No campus credentials, HAR, Cookies, GPS tracks, or remote API requests.
- * The schema is deliberately separate from a future trusted school connector.
+ * Owner-confirmed manual inputs OR owner-selected offline score JSON imports.
+ * Both remain USER_IMPORT and are encrypted on this device. No credentials,
+ * HAR, Cookies, GPS tracks, or background school requests.
+ *
+ * Separate from the future truly authorized TRUSTED_READONLY cache.
  */
 class LocalCampusRunStore(context: Context, private val scope: String) {
     init {
