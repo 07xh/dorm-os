@@ -224,7 +224,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     Text(value.termLabel ?: "学期未注明",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium)
-                    Text("本机录入或文件导入 · 非实时 · " +
+                    Text("本机保存时间（非运动世界成绩查询时间）· " +
                         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
                             .format(Date(value.capturedAtEpochMillis)),
                         style = MaterialTheme.typography.labelSmall,
@@ -395,6 +395,9 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                         CampusRunMeasure("学期有效次数", "${candidate.effectiveRunCount} 次")
                     }
                     Text("仅导入工具包返回的明确字段；目标、历史详情和官方计分规则未验证，不猜测或补零。确认后会加密保存在当前校序账号对应的本机空间。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("提醒：无法核验所选 JSON 的生成时间。文件可能是旧学期或旧查询结果；保存时间只代表这次导入，不代表运动世界最新成绩。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (snapshot != null) {
