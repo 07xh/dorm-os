@@ -66,6 +66,8 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
             .put("semesterTotal", snapshot.rawMeters ?: JSONObject.NULL)
             .put("dashboardTotal", snapshot.dashboardAccumulatedMeters ?: JSONObject.NULL)
             .put("weekly", snapshot.weeklyMeters ?: JSONObject.NULL)
+            .put("semesterCount", snapshot.totalRunCount ?: JSONObject.NULL)
+            .put("semesterValidCount", snapshot.effectiveRunCount ?: JSONObject.NULL)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secret())
         cipher.updateAAD(associatedData)
@@ -103,6 +105,20 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
                         value.toDouble()) { "invalid_meter_field" }
                     value.toLong()
                 }
+            // Existing manual-v2 ciphertexts predate imported run counts.
+            // Missing fields mean UNKNOWN, not zero. Never infer counts.
+            fun nullableCount(name: String): Int? {
+                if (!json.has(name) || json.isNull(name)) return null
+                val value = json.get(name)
+                require(value is Number) { "invalid_count_field" }
+                val integer = try {
+                    java.math.BigDecimal(value.toString()).intValueExact()
+                } catch (_: ArithmeticException) {
+                    throw IllegalArgumentException("fractional_run_count")
+                }
+                require(integer in 0..1_000_000) { "invalid_count_range" }
+                return integer
+            }
             val snapshot = CampusRunSnapshot(
                 provenance = CampusRunProvenance.USER_IMPORT,
                 ownerMatched = false,
@@ -114,7 +130,9 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
                 historyComplete = false,
                 records = emptyList(),
                 dashboardAccumulatedMeters = nullableMeters("dashboardTotal"),
-                weeklyMeters = nullableMeters("weekly")
+                weeklyMeters = nullableMeters("weekly"),
+                totalRunCount = nullableCount("semesterCount"),
+                effectiveRunCount = nullableCount("semesterValidCount")
             )
             validateCampusRunSnapshot(snapshot, nowEpochMillis)
         } catch (_: Exception) {
