@@ -63,6 +63,26 @@ fun parseCampusRunToolkitJson(
         return value
     }
 
+    // The archived score_cli.py labels these as semester run count and
+    // effective run count. They are independent summary fields, NOT a
+    // substitute for paging through the owner's history.
+    fun count(name: String): Int? {
+        val raw = data.opt(name)
+        if (raw == null || raw === JSONObject.NULL) return null
+        require(raw is Number || raw is String) { "invalid_run_count_type" }
+        val string = raw.toString()
+        require(string.matches(Regex("^(0|[1-9][0-9]{0,6})(\\.0+)?$"))) {
+            "invalid_run_count_text"
+        }
+        return try {
+            BigDecimal(string).intValueExact().also {
+                require(it in 0..1_000_000) { "run_count_out_of_range" }
+            }
+        } catch (_: ArithmeticException) {
+            throw IllegalArgumentException("run_count_not_integer")
+        }
+    }
+
     val term = when (val value = data.opt("sname")) {
         null, JSONObject.NULL -> null
         is String -> value.trim().takeIf { it.isNotEmpty() }
@@ -77,7 +97,9 @@ fun parseCampusRunToolkitJson(
         effectiveMeters = meters("semesterValidDis"),
         rawMeters = meters("semesterDis"),
         historyComplete = false, // A score response cannot prove pagination.
-        records = emptyList()   // Do not invent history or status from counts.
+        records = emptyList(),  // Do not invent history or status from counts.
+        totalRunCount = count("semesterCount"),
+        effectiveRunCount = count("semesterValidCount")
     )
     return validateCampusRunSnapshot(snapshot, capturedAtEpochMillis)
 }
