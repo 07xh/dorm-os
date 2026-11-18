@@ -45,7 +45,10 @@ import kotlinx.coroutines.withContext
  * The compact variant avoids another glass card inside a floating dialog.
  */
 @Composable
-fun LocalTaskBackupPanel(embedded: Boolean = false) {
+fun LocalTaskBackupPanel(
+    embedded: Boolean = false,
+    onBusyChange: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val backup = remember(context) {
         LocalTaskBackup(LocalTaskDatabase.open(context), context.contentResolver)
@@ -60,6 +63,7 @@ fun LocalTaskBackupPanel(embedded: Boolean = false) {
     ) { uri ->
         if (uri != null && !busy) {
             busy = true
+            onBusyChange(true)
             message = null
             scope.launch {
                 message = try {
@@ -69,6 +73,7 @@ fun LocalTaskBackupPanel(embedded: Boolean = false) {
                     "导出失败，备份文件可能不完整，请重新导出。"
                 }
                 busy = false
+                onBusyChange(false)
             }
         }
     }
@@ -78,6 +83,7 @@ fun LocalTaskBackupPanel(embedded: Boolean = false) {
     ) { uri ->
         if (uri != null && !busy) {
             busy = true
+            onBusyChange(true)
             message = null
             scope.launch {
                 message = try {
@@ -89,6 +95,7 @@ fun LocalTaskBackupPanel(embedded: Boolean = false) {
                     "恢复失败：文件格式、内容或读取权限不符合要求。本机原有任务未更改。"
                 }
                 busy = false
+                onBusyChange(false)
             }
         }
     }
