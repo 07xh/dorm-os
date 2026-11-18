@@ -101,8 +101,8 @@ const currentTimetableEntry = screen.slice(
 );
 assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\([\s\S]*?localLessons = localLessons,\s*openFileImport = openFileImport,/,
   '课表仍只读取真实本机课程并沿用文件选择器');
-assert.match(main, /focusLessonId = reminderLessonId/,
-  '课程提醒只用于定位本机课程详情，不引入云端假课表');
+assert.match(main, /focusLessonId = inboxLessonId \?: reminderLessonId/,
+  '本机提醒与系统通知复用原课程详情入口，不引入云端假课表');
 assert.match(screen, /data\.lessons\.isEmpty\(\)/);
 assert.match(currentTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.match(screen, /LocalTimetableEmptyState\(/);
