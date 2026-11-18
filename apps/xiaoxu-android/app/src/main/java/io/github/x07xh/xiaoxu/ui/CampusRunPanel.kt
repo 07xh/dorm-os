@@ -376,7 +376,9 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     if (importUnit == null) {
                         error = "请先确认工具包输出的距离单位。"
                     } else {
-                        importPicker.launch(arrayOf("application/json", "text/plain"))
+                        // Some Android providers expose JSON as octet-stream; accept local
+                        // files by picker and enforce strict size/schema validation later.
+                        importPicker.launch(arrayOf("*/*"))
                     }
                 }, modifier = Modifier.fillMaxWidth()) { Text("选择本机 JSON 文件") }
 
