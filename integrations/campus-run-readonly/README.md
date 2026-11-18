@@ -105,3 +105,14 @@ python integrations/campus-run-readonly/offline_score_export.py \
 输出文件采用新文件名，禁止覆盖源文件。原始输入不会复制、上传、记录日志，导出文件中不包含 Token、排行榜、GPS 轨迹或历史原始记录。校序「教务 → 校园服务 → 校园跑 → 导入工具包 JSON」选择**米**和新文件，查看预览再确认；选择**公里**会因导出文件单位不匹配而被拒绝。
 
 这个工具**不**替代本人授权，不会联网刷新数据，也不会将导入结果标记为官方实时同步。仅校序预留的未来联网只读协调器遵守自身 72 小时预算；原工具包定时循环不受它管理，建议关闭自动循环。
+
+
+### 跨语言格式契约测试
+
+Android JVM 与 Python sanitizer 共用同一份**完全合成、无任何个人数据**的 `apps/xiaoxu-android/app/src/test/resources/campus-run-safe-score-fixture.json`：
+
+- Python 测试先把完整工具包 `all` 结构中的私有额外字段去掉，要求输出结构与共用 fixture 完全一致
+- Android Kotlin 测试在 JVM 读取同一 fixture，核对 `schema`、米单位、有效/总里程、有效/总次数与非可信 `USER_IMPORT` 属性
+- Android 本机文件选择器允许 `application/octet-stream` 等被文件管理器泛化的 JSON MIME 类型；通过 256KB 上限、严格 JSON 类型/业务码与明确单位校验拦截不合规文件。没有联网上传行为
+
+测试不涉及运动世界真实登录、跨平台凭证或服务端请求；CI 通过不代表自动同步已具备授权能力。
