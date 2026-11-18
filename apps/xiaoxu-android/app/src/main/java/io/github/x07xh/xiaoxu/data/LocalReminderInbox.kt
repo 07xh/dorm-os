@@ -11,7 +11,9 @@ internal data class LocalReminderPreview(
     val title: String,
     val detail: String,
     val fireAtMillis: Long,
-    val origin: LocalReminderOrigin
+    val origin: LocalReminderOrigin,
+    val targetId: String,
+    val weekday: Int = 0
 )
 
 /**
@@ -41,7 +43,7 @@ internal fun plannedLocalReminderInbox(
         val byId = tasks.associateBy { it.id }
         planLocalReminders(tasks, now, taskSchedule).mapNotNull { plan ->
             val local = byId[plan.taskId] ?: return@mapNotNull null
-            val at = now.plusNanos(plan.delayMillis * 1_000_000)
+            val at = now.toInstant().plusMillis(plan.delayMillis).atZone(now.zone)
             if (!visible(at)) return@mapNotNull null
             LocalReminderPreview(
                 key = "task:${plan.taskId}:${plan.phase}",
@@ -49,7 +51,8 @@ internal fun plannedLocalReminderInbox(
                 detail = "本机任务 · " + at.format(localFormatter) +
                     if (plan.phase == "before") " · 提前一天" else " · 截止当天",
                 fireAtMillis = at.toInstant().toEpochMilli(),
-                origin = LocalReminderOrigin.TASK
+                origin = LocalReminderOrigin.TASK,
+                targetId = plan.taskId.toString()
             )
         }
     } else emptyList()
@@ -58,14 +61,16 @@ internal fun plannedLocalReminderInbox(
     val projectedCourses = if (calendar != null && selected.isNotEmpty()) {
         planCourseReminders(selected, calendar, now, horizonDays = 7,
             leadMinutes = leadMinutes).mapNotNull { plan ->
-            val at = now.plusNanos(plan.delayMillis * 1_000_000)
+            val at = now.toInstant().plusMillis(plan.delayMillis).atZone(now.zone)
             if (!visible(at)) return@mapNotNull null
             LocalReminderPreview(
                 key = "course:${plan.id}:${plan.day}",
                 title = plan.title,
                 detail = "本机课表 · " + at.format(localFormatter),
                 fireAtMillis = at.toInstant().toEpochMilli(),
-                origin = LocalReminderOrigin.COURSE
+                origin = LocalReminderOrigin.COURSE,
+                targetId = plan.id,
+                weekday = plan.day.dayOfWeek.value
             )
         }
     } else emptyList()

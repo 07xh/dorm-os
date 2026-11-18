@@ -624,11 +624,16 @@ private fun NativeShell(
                             MessageCenterPanel(cloud, openWebsite, openArticle,
                                 useStatusBarInset = false, onBack = { messagesOpen = false },
                                 localTasks = localTasks, localLessons = localLessons,
-                                onOpenLocalTasks = {
+                                onOpenLocalTasks = { id ->
+                                    reminderTaskId = id
+                                    taskReminderOpenCount++
                                     messagesOpen = false
                                     current = MainDestination.TASKS
                                 },
-                                onOpenLocalSchedule = {
+                                onOpenLocalSchedule = { id, weekday ->
+                                    reminderLessonId = id
+                                    reminderLessonWeekday = weekday
+                                    scheduleReminderOpenCount++
                                     messagesOpen = false
                                     current = MainDestination.SCHEDULE
                                 },

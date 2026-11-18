@@ -228,8 +228,8 @@ fun MessageCenterPanel(
     onBack: (() -> Unit)? = null,
     localTasks: List<LocalTask>,
     localLessons: List<VerifiedLesson>,
-    onOpenLocalTasks: () -> Unit,
-    onOpenLocalSchedule: () -> Unit,
+    onOpenLocalTasks: (Long) -> Unit,
+    onOpenLocalSchedule: (String, Int) -> Unit,
     onOpenReminderSettings: () -> Unit
 ) {
     val state = client.state
@@ -472,8 +472,8 @@ private fun LocalReminderSummary(
     previews: List<LocalReminderPreview>?,
     expanded: Boolean,
     onExpand: () -> Unit,
-    onOpenTask: () -> Unit,
-    onOpenCourse: () -> Unit,
+    onOpenTask: (Long) -> Unit,
+    onOpenCourse: (String, Int) -> Unit,
     onSettings: () -> Unit
 ) {
     XiaoxuCard(contentPadding = 12.dp) {
@@ -505,8 +505,13 @@ private fun LocalReminderSummary(
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
                         .clickable(
                             role = Role.Button, onClickLabel = "查看" + preview.title,
-                            onClick = if (preview.origin == LocalReminderOrigin.TASK)
-                                onOpenTask else onOpenCourse
+                            onClick = {
+                                if (preview.origin == LocalReminderOrigin.TASK) {
+                                    preview.targetId.toLongOrNull()?.let(onOpenTask)
+                                } else {
+                                    onOpenCourse(preview.targetId, preview.weekday)
+                                }
+                            }
                         ).padding(vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f),
