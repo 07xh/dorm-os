@@ -322,7 +322,7 @@ internal fun SemesterSettingsPage(
             var pickedMinute by remember { mutableIntStateOf(initial.minute) }
             XiaoxuBottomSheet(
                 title = "第 " + editingSection + " 节" +
-                    if (editingEnd) " · 结束时间" else " · 开始时间",
+                    (if (editingEnd) " · 结束时间" else " · 开始时间"),
                 onDismiss = { editingSection = 0 },
                 showCancel = false
             ) {
@@ -334,12 +334,14 @@ internal fun SemesterSettingsPage(
                     color = XiaoxuPalette.BrandDeep,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
-                XiaoxuTimeWheel(
-                    hour = pickedHour,
-                    minute = pickedMinute,
-                    onHourChanged = { pickedHour = it; timeError = null },
-                    onMinuteChanged = { pickedMinute = it; timeError = null }
-                )
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    XiaoxuTimeWheel(
+                        hour = pickedHour,
+                        minute = pickedMinute,
+                        onHourChanged = { pickedHour = it; timeError = null },
+                        onMinuteChanged = { pickedMinute = it; timeError = null }
+                    )
+                }
                 if (timeError != null) {
                     Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
                 }
