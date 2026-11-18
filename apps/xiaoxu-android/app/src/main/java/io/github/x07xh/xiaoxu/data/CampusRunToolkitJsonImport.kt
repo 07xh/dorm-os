@@ -25,6 +25,21 @@ fun parseCampusRunToolkitJson(
     require(capturedAtEpochMillis > 0) { "invalid_import_timestamp" }
 
     val root = JSONObject(text)
+    // Sanitized local exports declare their source unit explicitly. Never
+    // silently interpret a meter-valued export as kilometers: the user still
+    // confirms the selection, and a mismatch must fail before overwriting.
+    if (root.has("schema")) {
+        require(root.optString("schema") ==
+            "xiaoxu/campus-run-toolkit-safe-v1") { "unsupported_import_schema" }
+        require(root.optString("unit") == "m") { "invalid_safe_export_unit" }
+    }
+    if (root.has("unit")) {
+        val declared = root.optString("unit")
+        require((declared == "m" && unit == CampusRunImportUnit.METERS) ||
+            (declared == "km" && unit == CampusRunImportUnit.KILOMETERS)) {
+            "import_unit_mismatch"
+        }
+    }
     // command: "all" -> { score: {semester_completed: ...}, ... }
     // command: "score" -> { semester_completed: ... }
     val score = when (val nested = root.opt("score")) {
