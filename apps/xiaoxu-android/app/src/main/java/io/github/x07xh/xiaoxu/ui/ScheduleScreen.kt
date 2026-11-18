@@ -1038,14 +1038,14 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth()
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
+            .clip(RoundedCornerShape(XiaoxuRadius.list))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
                 onClickLabel = "查看课程详情", role = Role.Button,
                 onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onOpen() }
             ),
-        shape = RoundedCornerShape(XiaoxuRadius.card),
+        shape = RoundedCornerShape(XiaoxuRadius.list),
         colors = CardDefaults.cardColors(containerColor = XiaoxuPalette.GlassCard)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1123,7 +1123,7 @@ private fun CourseDetailBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
+        shape = RoundedCornerShape(topStart = XiaoxuRadius.modal, topEnd = XiaoxuRadius.modal),
         containerColor = XiaoxuPalette.SheetSurface,
         scrimColor = XiaoxuPalette.ModalScrim,
         dragHandle = {

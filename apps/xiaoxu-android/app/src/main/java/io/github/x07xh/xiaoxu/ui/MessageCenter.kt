@@ -208,7 +208,7 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 // 视觉常量
 // ---------------------------------------------------------------------------
 
-private val CardShape = RoundedCornerShape(XiaoxuRadius.card)
+private val CardShape = RoundedCornerShape(XiaoxuRadius.list)
 
 private val ExamTile = XiaoxuPalette.WarningSoft
 private val ExamInk = XiaoxuPalette.Warning
@@ -833,10 +833,10 @@ private fun NoticeCard(notice: AcademicNotice, onClick: () -> Unit) {
     val isExam = notice.category == "exam"
     Row(
         modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
+            .clip(RoundedCornerShape(XiaoxuRadius.list))
             .background(XiaoxuPalette.GlassCard)
             .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line,
-                RoundedCornerShape(XiaoxuRadius.card))
+                RoundedCornerShape(XiaoxuRadius.list))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),

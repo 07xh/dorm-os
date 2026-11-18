@@ -901,7 +901,7 @@ assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
 const groupedGlassSource = designSystem.slice(
     designSystem.indexOf('internal fun XiaoxuGroupSurface('),
     designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
-assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.card\)/,
+assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.group\)/,
   '课表设置分组圆角必须与所有设置页同源');
 assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
   '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
@@ -1480,7 +1480,14 @@ assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色�
 assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
-assert.match(design, /val card: Dp = 18\.dp/, '基础内容卡统一18dp圆角；底栏玻璃几何独立');
+assert.match(design, /val card: Dp = 18\.dp/, '普通内容卡采用18dp圆角');
+assert.match(design, /val group: Dp = 20\.dp/, '外层分组采用20dp圆角');
+assert.match(design, /val list: Dp = 14\.dp/, '课程、公告和连续列表采用14dp行级圆角');
+assert.match(design, /val tile: Dp = 12\.dp/, '快捷小块使用12dp圆角');
+assert.match(design, /val modal: Dp = 28\.dp/, '弹层使用独立28dp圆角，不能跟随内容卡缩小');
+assert.match(workspace, /val rowRadius = XiaoxuRadius\.list/, '独立任务列表行不使用分组大圆角');
+assert.match(schedulePanel, /shape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '课程卡必须使用列表级圆角');
+assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '公告骨架与正式卡片圆角相同');
 assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
 assert.match(design, /fun XiaoxuGlassDialog\(/,
@@ -1856,13 +1863,13 @@ assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRot
 
 assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,
   '任务与消息共用同一紧凑最小行高');
-assert.match(workspace, /val radius = XiaoxuRadius\.card/,
+assert.match(workspace, /val groupRadius = XiaoxuRadius\.group/,
   '任务列表首尾圆角必须沿用唯一设计系统');
 assert.match(workspace, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
   '任务行仍由内容扩展且使用统一最小行高');
 assert.match(messageCenter, /heightIn\(min = 64\.dp\)/,
   '公告紧凑行保持不低于64dp的触控区');
-assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.card\)/,
+assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/,
   '官方消息卡片圆角必须与其他页面统一');
 
 

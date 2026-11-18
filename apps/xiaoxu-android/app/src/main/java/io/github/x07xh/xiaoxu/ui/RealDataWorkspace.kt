@@ -2421,9 +2421,9 @@ private fun TaskGroupHeader(
     modifier: Modifier = Modifier
 ) {
     val shape = if (joinedRows && expanded) RoundedCornerShape(
-        topStart = XiaoxuRadius.card, topEnd = XiaoxuRadius.card,
+        topStart = XiaoxuRadius.group, topEnd = XiaoxuRadius.group,
         bottomStart = 0.dp, bottomEnd = 0.dp
-    ) else RoundedCornerShape(XiaoxuRadius.card)
+    ) else RoundedCornerShape(XiaoxuRadius.group)
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
@@ -2584,14 +2584,17 @@ private fun ConnectedTaskShell(
     standalone: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val radius = XiaoxuRadius.card
-    // LazyColumn items remain individually keyed; group header forms the shared top edge.
+    val groupRadius = XiaoxuRadius.group
+    val rowRadius = XiaoxuRadius.list
+    // Only exposed outer edges are rounded; joined rows have no inter-row "bubbles".
     val corners = when {
-        standalone && total == 1 -> RoundedCornerShape(radius)
+        standalone && total == 1 -> RoundedCornerShape(rowRadius)
         standalone && index == 0 -> RoundedCornerShape(
-            topStart = radius, topEnd = radius, bottomStart = 0.dp, bottomEnd = 0.dp)
+            topStart = rowRadius, topEnd = rowRadius, bottomStart = 0.dp, bottomEnd = 0.dp)
         index == total - 1 -> RoundedCornerShape(
-            topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
+            topStart = 0.dp, topEnd = 0.dp,
+            bottomStart = if (standalone) rowRadius else groupRadius,
+            bottomEnd = if (standalone) rowRadius else groupRadius)
         else -> RoundedCornerShape(0.dp)
     }
     Column(

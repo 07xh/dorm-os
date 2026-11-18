@@ -60,7 +60,7 @@ internal fun XiaoxuBottomSheet(
     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.84f
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(32.dp)
+    val shape = RoundedCornerShape(XiaoxuRadius.modal)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
