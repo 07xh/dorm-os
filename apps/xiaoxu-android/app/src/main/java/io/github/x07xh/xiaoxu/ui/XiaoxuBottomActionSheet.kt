@@ -6,12 +6,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -32,12 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -54,28 +57,37 @@ internal fun XiaoxuBottomSheet(
     subtitle: String? = null,
     cancelLabel: String = "取消",
     showCancel: Boolean = true,
+    dismissEnabled: Boolean = true,
     scrollContent: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.84f
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(32.dp)
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (dismissEnabled) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         XiaoxuDialogDim(dimAmount = 0.26f)
-        Box(
-            modifier = Modifier.fillMaxSize().clickable(
-                interactionSource = outerInteraction, indication = null,
-                onClick = onDismiss
-            ).padding(horizontal = 16.dp, vertical = 16.dp),
+        // Size against the usable dialog window, not the full screen.
+        // The inset-aware surface stays above the soft keyboard.
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .clickable(
+                    enabled = dismissEnabled,
+                    interactionSource = outerInteraction,
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
+            val sheetMaxHeight = maxHeight * 0.88f
             Column(
                 modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
-                    .heightIn(max = maxHeight)
+                    .heightIn(max = sheetMaxHeight)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
@@ -100,6 +112,8 @@ internal fun XiaoxuBottomSheet(
                         subtitle, style = MaterialTheme.typography.bodyMedium,
                         color = XiaoxuPalette.Ink2,
                         textAlign = TextAlign.Center,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -112,7 +126,11 @@ internal fun XiaoxuBottomSheet(
                     content = content
                 )
                 if (showCancel) {
-                    XiaoxuSheetPill(label = cancelLabel, onClick = onDismiss)
+                    XiaoxuSheetPill(
+                        label = cancelLabel,
+                        onClick = onDismiss,
+                        enabled = dismissEnabled
+                    )
                 }
             }
         }
@@ -134,14 +152,16 @@ internal fun XiaoxuBottomActionSheet(
     actions: List<XiaoxuSheetAction>,
     subtitle: String? = null,
     cancelLabel: String = "取消",
-    showCancel: Boolean = true
+    showCancel: Boolean = true,
+    dismissEnabled: Boolean = true
 ) {
     XiaoxuBottomSheet(
         title = title,
         subtitle = subtitle,
         onDismiss = onDismiss,
         cancelLabel = cancelLabel,
-        showCancel = showCancel
+        showCancel = showCancel,
+        dismissEnabled = dismissEnabled
     ) {
         actions.forEach { action ->
             XiaoxuSheetPill(
