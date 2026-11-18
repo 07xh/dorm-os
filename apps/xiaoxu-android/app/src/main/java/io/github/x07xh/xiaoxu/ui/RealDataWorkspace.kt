@@ -2145,12 +2145,17 @@ fun RealAcademicTaskHub(
         )
     }
     if (showTaskBackup) {
+        var backupBusy by remember { mutableStateOf(false) }
         XiaoxuBottomSheet(
             title = "备份与恢复",
-            onDismiss = { showTaskBackup = false },
+            onDismiss = { if (!backupBusy) showTaskBackup = false },
+            dismissEnabled = !backupBusy,
             cancelLabel = "关闭"
         ) {
-            LocalTaskBackupPanel(embedded = true)
+            LocalTaskBackupPanel(
+                embedded = true,
+                onBusyChange = { backupBusy = it }
+            )
         }
     }
     val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
