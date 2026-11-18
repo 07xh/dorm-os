@@ -819,8 +819,8 @@ fun XiaoxuGlassDialog(
             val availableDialogHeight = maxHeight * 0.92f
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.88f)
                     .widthIn(max = 560.dp)
+                    .fillMaxWidth(0.92f)
                     .heightIn(max = availableDialogHeight)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
