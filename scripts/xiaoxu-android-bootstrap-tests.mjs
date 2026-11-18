@@ -610,8 +610,8 @@ assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
   '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
 assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
   '课表设置需要填满当前主导航内容窗口');
-assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?Dialog\(/,
-  '节次时间数字滚轮可使用独立居中弹窗，不能误判为全屏设置');
+assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?XiaoxuBottomSheet\(/,
+  '节次时间轮盘使用共享底部容器，不得回退为全屏设置');
 assert.match(timetableSettings, /XiaoxuBottomSheet\(/,
   '时间和周数轮盘必须使用统一的底部浮层容器');
 assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
