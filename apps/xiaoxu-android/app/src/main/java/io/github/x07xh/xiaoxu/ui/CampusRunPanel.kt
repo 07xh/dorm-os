@@ -182,11 +182,21 @@ private fun CampusRunScopedPanel(sessionScope: String) {
             }
             snapshot = loaded.first
             encryptedUnreadable = loaded.first == null && loaded.second
+            if (encryptedUnreadable) {
+                editing = false
+                showJsonImport = false
+                importPreview = null
+                confirmDelete = false
+            }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             snapshot = null
             encryptedUnreadable = true
+            editing = false
+            showJsonImport = false
+            importPreview = null
+            confirmDelete = false
         } finally {
             loading = false
         }
@@ -274,7 +284,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                 ) { Text(if (snapshot == null) "从官方页面手动录入" else "更新本机记录") }
             }
 
-            if (editing) {
+            if (editing && !encryptedUnreadable) {
                 HorizontalDivider()
                 Text("只填写官方页面确实显示的数字，未知字段留空；不要填个人 ID 或登录凭据。",
                     style = MaterialTheme.typography.bodySmall,
