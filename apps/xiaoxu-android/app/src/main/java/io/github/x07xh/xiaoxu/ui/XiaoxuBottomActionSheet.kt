@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
@@ -64,7 +67,6 @@ internal fun XiaoxuBottomSheet(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val outerInteraction = remember { MutableInteractionSource() }
-    val innerInteraction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(32.dp)
     Dialog(
         onDismissRequest = { if (dismissEnabled) onDismiss() },
@@ -77,24 +79,30 @@ internal fun XiaoxuBottomSheet(
             modifier = Modifier.fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .imePadding()
-                .clickable(
+                .imePadding(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            // Scrim is a sibling, never a clickable parent of the sheet.
+            // This preserves child semantics and scroll gestures.
+            Box(
+                Modifier.matchParentSize().clickable(
                     enabled = dismissEnabled,
                     interactionSource = outerInteraction,
                     indication = null,
                     onClick = onDismiss
                 )
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            val sheetMaxHeight = maxHeight * 0.88f
+            )
+            val sheetMaxHeight = (maxHeight - 32.dp) * 0.88f
             Column(
-                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                    .widthIn(max = 560.dp).fillMaxWidth()
                     .heightIn(max = sheetMaxHeight)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
-                    .clickable(interactionSource = innerInteraction, indication = null, onClick = {})
+                    // Intercept taps on empty sheet space without merging or
+                    // disabling semantics of scrollable descendants.
+                    .pointerInput(Unit) { detectTapGestures(onTap = {}) }
                     .padding(horizontal = 20.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
