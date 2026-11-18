@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 校序 · 一加 Ace 6 Android 16 本机视觉证据采集。
+ * 校序 · 一加 Ace 6 Android 16/17 本机视觉证据采集。
  * 只调用用户授权的 adb，不自动点选、登录、上传、清空数据或修改课程。
  * 截图可能包含私人课程/任务，请只保存在自己的电脑。
  */
@@ -23,7 +23,7 @@ if (help) {
     '  --reference-package <id>  可选：同一台 Ace 6 上北化课表原版包名，用于对照截图和帧数据',
     '  --out <folder>  输出目录（默认用户主目录 Xiaoxu-Visual-QA）',
     '说明：需已安装 Android Platform Tools，手机 USB 调试并授权电脑。',
-    '本程序只在本机采集屏幕；无设备、非一加 Ace 6、非 Android 16 时不出具证据。'
+    '本程序只在本机采集屏幕；无设备、非一加 Ace 6、Android 版本不匹配时不出具证据。'
   ].join('\n'));
   process.exit(0);
 }
@@ -86,8 +86,8 @@ if (isEmulator) {
 if (!/oneplus/i.test(brand) || !/PLQ110|Ace[\s_-]*6/i.test(model + ' ' + deviceCode)) {
   throw new Error('设备未确认为一加 Ace 6：' + brand + ' ' + model + ' (' + deviceCode + ')');
 }
-if (sdk !== 36 || release !== '16') {
-  throw new Error('设备不是 Android 16：API=' + sdk + ', release=' + release);
+if (!((sdk === 36 && release === '16') || (sdk === 37 && release === '17'))) {
+  throw new Error('当前支持 Ace 6 Android 16 / 17 真机，实际 API=' + sdk + ', release=' + release);
 }
 const referenceInstalled = referencePackage ? adb(['shell', 'pm', 'path', referencePackage], false, true) : '';
 if (referencePackage && !referenceInstalled.includes('package:')) {
@@ -162,7 +162,7 @@ const steps = [
   ['12-glass-rapid-tabs', '快速连续切换五个页面并回到今日：查看滑块跳位、闪白、页面状态丢失与连点卡顿；采集帧统计'],
   ['13-glass-drag-return', '从当前标签拖动到相邻标签再拖回并松手：检查回弹、轻触与拖动分离、没有重复切页或压感残留'],
   ['14-glass-course-content', '在有真实课程颜色的周课表上查看玻璃折射和文字采样；确认星期栏、课程色块与课程详情仍保持原状'],
-  ['15-glass-gesture-inset', 'Android 16 系统手势、底部安全区、横竖屏短屏切换：检查可点击区域、底栏遮挡和五项侧栏可达性'],
+  ['15-glass-gesture-inset', 'Android 16/17 系统手势、底部安全区、横竖屏短屏切换：检查可点击区域、底栏遮挡和五项侧栏可达性'],
   ['16-glass-dialog-gray-edge', '从我的打开任务备份与恢复和云端同步，再打开一条任务或公告：检查居中玻璃弹窗、灰边、双重卡片、页面滚动及关闭返回；课程详情仍应由底部弹出']
 ];
 // Screenshot validation must check which application is actually in the
