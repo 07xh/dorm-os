@@ -79,6 +79,13 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
         return snapshot
     }
 
+    /**
+     * Whether this owner scope still has ciphertext, even if today's Keystore
+     * read cannot decrypt it. Callers must not show this as a usable snapshot.
+     */
+    fun hasEncryptedRecord(): Boolean =
+        preferences.contains(cipherKey) || preferences.contains(ivKey)
+
     fun load(nowEpochMillis: Long): CampusRunSnapshot? {
         if (!preferences.contains(cipherKey)) return null
         return try {
@@ -136,9 +143,10 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
             )
             validateCampusRunSnapshot(snapshot, nowEpochMillis)
         } catch (_: Exception) {
-            // A corrupted or incompatible secret must not surface misleading
-            // cached personal data; never silently turn absent fields into 0.
-            clear()
+            // Never display unreadable bytes as a snapshot, but also never
+            // destroy owner data on a potentially transient Keystore failure
+            // (e.g. device security state, interrupted storage/key access).
+            // The UI can show a repair/clear option after explicit consent.
             null
         }
     }
