@@ -41,6 +41,14 @@ class CampusRunEncryptedStorageTest {
             assertNull(store.load(now + 1L))
             assertTrue(store.hasEncryptedRecord())
             assertTrue(prefs.contains(bodyKey))
+            val protectedBytes = prefs.getString(bodyKey, null)
+            try {
+                store.save(CampusRunManualInput(
+                    "replacement", "", "2", "3", "", "", "1", "1"), now + 1L)
+                throw AssertionError("corrupt ciphertext was overwritten")
+            } catch (_: IllegalStateException) {
+                assertEquals(protectedBytes, prefs.getString(bodyKey, null))
+            }
         } finally {
             store.clear()
             assertFalse(prefs.contains(bodyKey))
