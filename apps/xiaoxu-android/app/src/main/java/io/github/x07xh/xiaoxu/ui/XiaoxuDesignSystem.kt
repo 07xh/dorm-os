@@ -1058,7 +1058,7 @@ fun QuickEntry(
             .heightIn(min = 88.dp)
             .clip(RoundedCornerShape(XiaoxuRadius.tile))
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.tile))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, RoundedCornerShape(XiaoxuRadius.tile))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },
