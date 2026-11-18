@@ -91,9 +91,11 @@ class CampusRun72HourReadCoordinatorTest {
 
         val restarted = coordinator(source, checkpoints, cache)
         val resumed = restarted.refreshSummaryIfDue(alice, now + 3_600_000L)
-        assertTrue(resumed is CampusRunViewState.Current)
-        assertEquals(now, (resumed as CampusRunViewState.Current)
-            .snapshot.capturedAtEpochMillis)
+        // Encryption proves this is our old snapshot, not that the upstream
+        // account remains authorized today: never label it a live Current.
+        assertTrue(resumed is CampusRunViewState.Stale)
+        assertNull((resumed as CampusRunViewState.Stale).reason)
+        assertEquals(now, resumed.snapshot.capturedAtEpochMillis)
         assertEquals(1, source.semesterReads)
         assertEquals(1, cache.savedCount)
     }
@@ -145,4 +147,24 @@ class CampusRun72HourReadCoordinatorTest {
         assertFalse(CampusRun72HourRequestBudget(checkpoints)
             .reserveIfDue(alice, now + 1_000L))
     }
+    @Test fun cacheWithinOneHourStillStaysStaleUntilActualAuthorizedRefresh() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val one = coordinator(source, checkpoints, cache)
+        assertTrue(one.refreshSummaryIfDue(alice, now) is CampusRunViewState.Current)
+
+        val newProcess = coordinator(source, checkpoints, cache)
+        val cached = newProcess.refreshSummaryIfDue(alice, now + 60_000L)
+        assertTrue(cached is CampusRunViewState.Stale)
+        assertEquals(1, source.semesterReads)
+        val after72h = newProcess.refreshSummaryIfDue(
+            alice, now + CampusRun72HourRequestBudget.THREE_DAYS_MILLIS
+        )
+        assertTrue(after72h is CampusRunViewState.Current)
+        assertEquals(2, source.semesterReads)
+        assertEquals(now + CampusRun72HourRequestBudget.THREE_DAYS_MILLIS,
+            (after72h as CampusRunViewState.Current).snapshot.capturedAtEpochMillis)
+    }
+
 }
