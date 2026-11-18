@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -122,8 +123,12 @@ internal fun XiaoxuBottomSheet(
                 Column(
                     modifier = Modifier.fillMaxWidth()
                         .weight(1f, fill = false)
-                        .then(if (scrollContent) Modifier.verticalScroll(rememberScrollState())
-                            else Modifier),
+                        .then(
+                            if (scrollContent) Modifier
+                                .testTag("xiaoxu-bottom-scroll-content")
+                                .verticalScroll(rememberScrollState())
+                            else Modifier
+                        ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     content = content
                 )
