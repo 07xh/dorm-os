@@ -1,0 +1,4 @@
+QA-only Android APK build requested for the verified bottom-sheet safe-area and keyboard-layout changes of 2026-11-18.
+Compile from the exact PR head, run existing Kotlin/JVM/Android runtime and application contract checks, then upload debug and isolated UI QA APK artifacts for local Ace 6 and Pad 2 Pro visual testing.
+Do not sign, publish, tag, distribute, or promote any formal release from this request. Do not replace the user's existing installed APK or original signing key.
+Physical-device layout, keyboard, long-content scroll, and interaction validation remain unperformed until independently verified by the user.

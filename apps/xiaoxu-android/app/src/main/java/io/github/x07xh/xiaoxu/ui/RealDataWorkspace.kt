@@ -2145,12 +2145,17 @@ fun RealAcademicTaskHub(
         )
     }
     if (showTaskBackup) {
+        var backupBusy by remember { mutableStateOf(false) }
         XiaoxuBottomSheet(
             title = "备份与恢复",
-            onDismiss = { showTaskBackup = false },
+            onDismiss = { if (!backupBusy) showTaskBackup = false },
+            dismissEnabled = !backupBusy,
             cancelLabel = "关闭"
         ) {
-            LocalTaskBackupPanel(embedded = true)
+            LocalTaskBackupPanel(
+                embedded = true,
+                onBusyChange = { backupBusy = it }
+            )
         }
     }
     val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
@@ -2159,6 +2164,7 @@ fun RealAcademicTaskHub(
             title = "删除本机任务？",
             subtitle = "删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。",
             onDismiss = { if (!deletingLocalBusy) deletingLocalId = null },
+            dismissEnabled = !deletingLocalBusy,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = "删除任务",

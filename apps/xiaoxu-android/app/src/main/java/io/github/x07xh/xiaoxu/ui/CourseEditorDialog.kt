@@ -248,6 +248,7 @@ internal fun CourseEditorDialog(
             subtitle = if (weekOnly && canScope) "仅删除第${selectedWeek}周的这门课程？"
                 else "删除此课程全部周次？",
             onDismiss = { if (!busy) confirmDelete = false },
+            dismissEnabled = !busy,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = "确认删除",

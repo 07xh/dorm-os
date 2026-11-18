@@ -1079,6 +1079,19 @@ assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
   '长课程预览列表不应再套重复的玻璃卡片');
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
+assert.match(bottomActions, /BoxWithConstraints\(/,
+  '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
+assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
+  '底部浮层高度必须相对可用空间限制');
+assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
+  '底部浮层须避让状态栏、导航栏和键盘');
+assert.doesNotMatch(bottomActions, /LocalConfiguration\.current\.screenHeightDp/,
+  '键盘展开后不能沿用整屏静态高度');
+assert.match(bottomActions, /dismissEnabled: Boolean = true/,
+  '共享弹窗必须允许耗时操作禁用误关闭');
+assert.match(bottomActions, /enabled = dismissEnabled/,
+  '耗时操作时遮罩和取消按钮不能仍响应');
+
 assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
   '个人分类选择应改用统一的底部操作弹窗');
 assert.match(bottomActions, /stateDescription = "已选择"/,
@@ -1143,9 +1156,15 @@ assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "任务数据"\)/,
   '备份与恢复页面应使用操作优先的分组卡片');
 assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "安全与说明"\)/,
   '备份注意事项按需展开，避免长说明占满首屏');
-assert.match(workspace, /LocalTaskBackupPanel\(embedded = true\)/,
+assert.match(backupSource, /onBusyChange\(true\)/,
+  '本机备份开始时需向父页面通知繁忙状态');
+assert.match(backupSource, /onBusyChange\(false\)/,
+  '本机备份完成后需解除按钮锁定');
+assert.match(workspace, /onBusyChange = \{ backupBusy = it \}/,
+  '备份浮层关闭控制应与真实文件操作状态关联');
+assert.match(workspace, /LocalTaskBackupPanel\(\s*embedded = true,\s*onBusyChange = \{ backupBusy = it \}/,
   '任务中心备份应复用弹窗内的简洁版本，禁止套双层卡片');
-assert.match(workspace, /if \(showTaskBackup\) \{\s*XiaoxuBottomSheet\(/,
+assert.match(workspace, /if \(showTaskBackup\) \{\s*var backupBusy by remember \{ mutableStateOf\(false\) \}\s*XiaoxuBottomSheet\(/,
   '任务中心备份入口应使用统一底部弹窗');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
@@ -1513,6 +1532,10 @@ assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
 assert.match(design, /fun XiaoxuGlassDialog\(/,
   '必须存在同一居中玻璃详情容器');
+assert.match(design, /BoxWithConstraints\(/,
+  '居中玻璃表单必须按可见窗口高度布局');
+assert.match(design, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
+  '居中玻璃表单不能遮挡键盘或系统栏');
 const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
   design.indexOf('fun MetricCard('));
 assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
