@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +32,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CampusRunManualInput
 import io.github.x07xh.xiaoxu.data.CampusRunSnapshot
+import io.github.x07xh.xiaoxu.data.CampusRunImportUnit
+import io.github.x07xh.xiaoxu.data.parseCampusRunToolkitJson
 import io.github.x07xh.xiaoxu.data.LocalCampusRunStore
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.campusRunVisibleScope
@@ -113,6 +118,9 @@ private fun CampusRunScopedPanel(sessionScope: String) {
     var error by remember { mutableStateOf<String?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var showJsonImport by rememberSaveable { mutableStateOf(false) }
+    var importUnit by remember { mutableStateOf<CampusRunImportUnit?>(null) }
+    var importPreview by remember { mutableStateOf<CampusRunSnapshot?>(null) }
 
     var term by rememberSaveable { mutableStateOf("") }
     var target by rememberSaveable { mutableStateOf("") }
@@ -120,6 +128,41 @@ private fun CampusRunScopedPanel(sessionScope: String) {
     var semester by rememberSaveable { mutableStateOf("") }
     var dashboard by rememberSaveable { mutableStateOf("") }
     var weekly by rememberSaveable { mutableStateOf("") }
+
+    val importPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val selectedUnit = importUnit
+        if (uri != null && selectedUnit != null) {
+            scope.launch {
+                busy = true
+                error = null
+                importPreview = null
+                try {
+                    importPreview = withContext(Dispatchers.IO) {
+                        val text = context.contentResolver.openInputStream(uri)?.use { stream ->
+                            val bytes = java.io.ByteArrayOutputStream()
+                            val chunk = ByteArray(8_192)
+                            var total = 0
+                            while (true) {
+                                val read = stream.read(chunk)
+                                if (read < 0) break
+                                total += read
+                                require(total <= 256_000) { "import_file_too_large" }
+                                bytes.write(chunk, 0, read)
+                            }
+                            bytes.toString("UTF-8")
+                        } ?: throw IllegalArgumentException("unable_to_open_import")
+                        parseCampusRunToolkitJson(text, selectedUnit, System.currentTimeMillis())
+                    }
+                } catch (_: Exception) {
+                    error = "导入解析失败：请选择工具包的 score/all JSON 结果，并核对单位及接口返回状态。原本机记录没有改变。"
+                } finally {
+                    busy = false
+                }
+            }
+        }
+    }
 
     LaunchedEffect(store) {
         snapshot = withContext(Dispatchers.IO) {
@@ -145,7 +188,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     Text(value.termLabel ?: "学期未注明",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium)
-                    Text("本人手动录入 · 非实时 · " +
+                    Text("本机录入或文件导入 · 非实时 · " +
                         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
                             .format(Date(value.capturedAtEpochMillis)),
                         style = MaterialTheme.typography.labelSmall,
@@ -188,6 +231,8 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                         dashboard = inputKm(previous?.dashboardAccumulatedMeters)
                         weekly = inputKm(previous?.weeklyMeters)
                         editing = true
+                        showJsonImport = false
+                        importPreview = null
                         confirmDelete = false
                         error = null
                     },
@@ -231,6 +276,78 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     }) { Text(if (busy) "保存中…" else "加密保存到本机") }
                     TextButton(enabled = !busy, onClick = { editing = false; error = null }) {
                         Text("取消")
+                    }
+                }
+            }
+
+            // Local file import is intentionally separate from the official
+            // read-only source: it never upgrades USER_IMPORT to TRUSTED_READONLY.
+            // It accepts only a reviewed CLI score/all shape with known units.
+            if (!editing && !loading) {
+                TextButton(enabled = !busy, onClick = {
+                    showJsonImport = !showJsonImport
+                    importPreview = null
+                    error = null
+                }) {
+                    Text(if (showJsonImport) "收起 JSON 导入" else "导入工具包 JSON（仅本机）")
+                }
+            }
+            if (showJsonImport && !editing) {
+                HorizontalDivider()
+                Text("支持已保存的 json_client.py score/all 返回文件，只提取学期总里程与计入成绩里程。文件不上传，也不会读取运动世界账号或凭据。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("原始距离单位（需本人核对）",
+                    style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(enabled = !busy, onClick = {
+                        importUnit = CampusRunImportUnit.KILOMETERS
+                        importPreview = null
+                    }) { Text(if (importUnit == CampusRunImportUnit.KILOMETERS) "✓ 公里" else "公里") }
+                    OutlinedButton(enabled = !busy, onClick = {
+                        importUnit = CampusRunImportUnit.METERS
+                        importPreview = null
+                    }) { Text(if (importUnit == CampusRunImportUnit.METERS) "✓ 米" else "米") }
+                }
+                Button(enabled = !busy, onClick = {
+                    if (importUnit == null) {
+                        error = "请先确认工具包输出的距离单位。"
+                    } else {
+                        importPicker.launch(arrayOf("application/json", "text/plain"))
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text("选择本机 JSON 文件") }
+
+                importPreview?.let { candidate ->
+                    Text("导入预览 · 不代表官方实时同步",
+                        style = MaterialTheme.typography.titleMedium)
+                    CampusRunMeasure("学期", candidate.termLabel ?: "未注明")
+                    CampusRunMeasure("学期累计总里程", formatKm(candidate.rawMeters))
+                    CampusRunMeasure("计入成绩里程", formatKm(candidate.effectiveMeters))
+                    Text("目标、历史详情、跑步次数和官方计分规则未验证，不会猜测或补零。确认后将加密保存在当前校序账号对应的本机空间。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(enabled = !busy, onClick = {
+                            busy = true
+                            error = null
+                            scope.launch {
+                                try {
+                                    snapshot = withContext(Dispatchers.IO) {
+                                        store.saveSnapshot(candidate, System.currentTimeMillis())
+                                    }
+                                    importPreview = null
+                                    showJsonImport = false
+                                    confirmDelete = false
+                                } catch (_: Exception) {
+                                    error = "导入保存失败，原本机记录保持不变。"
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        }) { Text("确认并加密保存") }
+                        TextButton(enabled = !busy, onClick = {
+                            importPreview = null
+                        }) { Text("取消预览") }
                     }
                 }
             }
