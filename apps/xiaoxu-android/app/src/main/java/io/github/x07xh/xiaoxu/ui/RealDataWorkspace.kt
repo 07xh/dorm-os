@@ -2145,7 +2145,13 @@ fun RealAcademicTaskHub(
         )
     }
     if (showTaskBackup) {
-        XiaoxuGlassDialog(title = "备份与恢复", onDismiss = { showTaskBackup = false }) { LocalTaskBackupPanel() }
+        XiaoxuBottomSheet(
+            title = "备份与恢复",
+            onDismiss = { showTaskBackup = false },
+            cancelLabel = "关闭"
+        ) {
+            LocalTaskBackupPanel(embedded = true)
+        }
     }
     val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
     if (deletingTask != null) {
@@ -2228,10 +2234,13 @@ internal fun WorkspaceTaskDetailSheet(
     executionContent: (@Composable () -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
-    XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
+    XiaoxuBottomSheet(
+        title = "任务详情",
+        onDismiss = onDismiss,
+        cancelLabel = "关闭"
+    ) {
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
-        executionContent?.invoke()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SourceBadge(
                 when (selectedTask.category) {
@@ -2255,20 +2264,9 @@ internal fun WorkspaceTaskDetailSheet(
                 else XiaoxuTone.Neutral
             )
         }
-        if (prerequisiteProgress.isNotEmpty()) {
-            Text("前置进度：${prerequisiteProgress.count { it.completed }} / ${prerequisiteProgress.size} 项已完成",
-                style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
-            prerequisiteProgress.take(7).forEach { before ->
-                Text((if (before.completed) "✓ " else "○ ") + before.title,
-                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            if (prerequisiteProgress.size > 7) Text("其余前置请在关系图查看",
-                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
-        } else if (waitingTitles.isNotEmpty()) {
-            Text("还需先完成：" + waitingTitles.joinToString("、"),
-                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-        }
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+        Text("来源与日期", style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink2)
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
         chaoxingTaskIdentityHint(selectedTask)?.let { identity ->
             Text(identity, style = MaterialTheme.typography.bodySmall,
@@ -2289,6 +2287,35 @@ internal fun WorkspaceTaskDetailSheet(
             else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (prerequisiteProgress.isNotEmpty() || waitingTitles.isNotEmpty()) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            Text("前置关系", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+        }
+        if (prerequisiteProgress.isNotEmpty()) {
+            Text("前置进度：${prerequisiteProgress.count { it.completed }} / ${prerequisiteProgress.size} 项已完成",
+                style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+            prerequisiteProgress.take(7).forEach { before ->
+                Text((if (before.completed) "✓ " else "○ ") + before.title,
+                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (prerequisiteProgress.size > 7) Text("其余前置请在关系图查看",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+        } else if (waitingTitles.isNotEmpty()) {
+            Text("还需先完成：" + waitingTitles.joinToString("、"),
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        if (executionContent != null) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            executionContent.invoke()
+        }
+        if (onArchive != null || selectedTask.storage == "local" ||
+            (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null)) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            Text("操作", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+        }
         if (selectedTask.category == "wechat") {
             WechatTaskLinkActions(selectedTask.links)
         }
@@ -2321,8 +2348,6 @@ internal fun WorkspaceTaskDetailSheet(
         }
     }
 }
-
-
 
 
 /** Three real-data statuses in a single container, sized through the shared typography. */

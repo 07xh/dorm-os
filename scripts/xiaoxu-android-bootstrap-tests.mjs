@@ -1115,6 +1115,14 @@ assert.match(taskBackup, /tryAddDependency\(from, to\)/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.CreateDocument/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
+assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "任务数据"\)/,
+  '备份与恢复页面应使用操作优先的分组卡片');
+assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "安全与说明"\)/,
+  '备份注意事项按需展开，避免长说明占满首屏');
+assert.match(workspace, /LocalTaskBackupPanel\(embedded = true\)/,
+  '任务中心备份应复用弹窗内的简洁版本，禁止套双层卡片');
+assert.match(workspace, /if \(showTaskBackup\) \{\s*XiaoxuBottomSheet\(/,
+  '任务中心备份入口应使用统一底部弹窗');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 
@@ -1489,8 +1497,8 @@ assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
   '禁止在详情卡片内重新引入向下展开');
 assert.match(profileSettings, /"connections" -> item \{/,
   '数据连接详情独立成二级页面，而非旧版工具浮层');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
-  '云端同步详情不得顶开本机连接列表');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
+  '云端同步详情使用独立底部浮层，不顶开本机连接列表');
 assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.85f\)/,
   '统一玻璃卡透明度，避免彩色底透出硬灰边');
 
@@ -1975,8 +1983,12 @@ assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
   '待审核数量仍以消息中心真实读取结果为准');
 assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
 assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
-assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详情"\)/,
-  '任务详情必须使用共享原生底部抽屉');
+assert.match(workspace, /XiaoxuBottomSheet\(\s*title = "任务详情"/,
+  '任务详情必须使用共享原生底部浮层');
+assert.match(workspace, /Text\("来源与日期"/,
+  '任务详情须按来源和截止日期分组');
+assert.match(workspace, /Text\("前置关系"/,
+  '任务详情需分离前置关系信息');
 assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
   '任务卡片必须可以真实点击');
 assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
@@ -2022,8 +2034,8 @@ assert.doesNotMatch(panels, /SchoolReaderSection\(|SectionHeader\(title = "数�
   '二级数据连接已有页面标题，不得再叠加无效包装层及同名标题');
 assert.ok(panels.includes('LocalSchoolConnectionPanel('),
   '不得移除原生学校读取入口');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
-  '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
+  '云端授权仍是独立可选入口，底部浮层不顶开连接列表');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
