@@ -44,11 +44,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Keep two decimals for common entries, but never round away exact meters
+// from imported official-account results (e.g. 10,003 m = 10.003 km).
+private fun kilometerPrecision(value: Long): Int = if (value % 10L == 0L) 2 else 3
+
 private fun formatKm(value: Long?): String =
-    value?.let { String.format(Locale.ROOT, "%.2f km", it.toDouble() / 1_000.0) } ?: "—"
+    value?.let {
+        String.format(Locale.ROOT, "%.${kilometerPrecision(it)}f km", it.toDouble() / 1_000.0)
+    } ?: "—"
 
 private fun inputKm(value: Long?): String =
-    value?.let { String.format(Locale.ROOT, "%.2f", it.toDouble() / 1_000.0) } ?: ""
+    value?.let {
+        String.format(Locale.ROOT, "%.${kilometerPrecision(it)}f", it.toDouble() / 1_000.0)
+    } ?: ""
 
 @Composable
 private fun CampusRunMeasure(label: String, value: String) {
@@ -270,7 +278,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                                 }
                                 editing = false
                             } catch (_: Exception) {
-                                error = "保存失败。请检查公里数最多两位小数、计入成绩里程不大于学期总里程，并至少填写一个数值。旧记录未修改。"
+                                error = "保存失败。请检查公里数最多三位小数、计入成绩里程不大于学期总里程，并至少填写一个数值。旧记录未修改。"
                             } finally { busy = false }
                         }
                     }) { Text(if (busy) "保存中…" else "加密保存到本机") }
