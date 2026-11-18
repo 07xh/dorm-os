@@ -79,6 +79,42 @@ class CampusRun72HourReadCoordinatorTest {
         cache
     )
 
+    @Test fun invalidSubjectOrClockNeverTouchesCacheBudgetOrNetwork() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val coordinator = coordinator(source, checkpoints, cache)
+
+        val invalid = coordinator.refreshSummaryIfDue("not-a-fingerprint", now)
+        assertTrue(invalid is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.NOT_AUTHORIZED,
+            (invalid as CampusRunViewState.Unavailable).reason)
+
+        val clock = coordinator.refreshSummaryIfDue(alice, 0L)
+        assertTrue(clock is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.INVALID_DATA,
+            (clock as CampusRunViewState.Unavailable).reason)
+
+        assertEquals(0, source.semesterReads)
+        assertTrue(checkpoints.attempts.isEmpty())
+        assertEquals(0, cache.savedCount)
+        assertFalse(cache.cleared)
+
+        // After bad input, a valid first read must remain available.
+        assertTrue(coordinator.refreshSummaryIfDue(alice, now)
+            is CampusRunViewState.Current)
+        assertEquals(1, source.semesterReads)
+
+        // A malformed account supplied later must hide, not expose Alice.
+        val switched = coordinator.refreshHistoryIfDue("bad", now + 1L)
+        assertTrue(switched is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.NOT_AUTHORIZED,
+            (switched as CampusRunViewState.Unavailable).reason)
+        assertEquals(1, source.semesterReads)
+        assertEquals(1, checkpoints.attempts.size)
+        assertFalse(cache.cleared)
+    }
+
     @Test fun restartRestoresEncryptedCacheSeamWithoutAnotherRead() = runBlocking {
         val checkpoints = Checkpoints()
         val cache = MemoryCache()
