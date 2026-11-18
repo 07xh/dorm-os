@@ -18,7 +18,8 @@ class CampusRunToolkitJsonImportTest {
                   "error": 10000,
                   "data": {
                     "sname": "2026-autumn", "semesterDis": 12.45,
-                    "semesterValidDis": 9.38, "semesterCount": 5
+                    "semesterValidDis": 9.38,
+                    "semesterCount": 5, "semesterValidCount": 3
                   }
                 },
                 "semester_info": {"error": 10000, "data": {"targetDistance": 40}}
@@ -37,8 +38,8 @@ class CampusRunToolkitJsonImportTest {
         assertEquals("2026-autumn", result.termLabel)
         assertTrue(result.records.isEmpty())
         assertFalse(result.historyComplete)
-        assertNull(result.totalRunCount)
-        assertNull(result.effectiveRunCount)
+        assertEquals(5, result.totalRunCount)
+        assertEquals(3, result.effectiveRunCount)
         assertEquals(now, result.capturedAtEpochMillis)
     }
 
@@ -48,6 +49,8 @@ class CampusRunToolkitJsonImportTest {
         val meters = parseCampusRunToolkitJson(json, CampusRunImportUnit.METERS, now)
         assertEquals(12_345L, meters.rawMeters)
         assertEquals(10_003L, meters.effectiveMeters)
+        assertNull(meters.totalRunCount)
+        assertNull(meters.effectiveRunCount)
     }
 
     @Test fun malformedOrNonSuccessResponsesNeverBecomeImportedProgress() {
@@ -70,6 +73,36 @@ class CampusRunToolkitJsonImportTest {
             } catch (_: IllegalArgumentException) {
                 // Strict local import rejects bad status, overcredit and speculation.
             }
+        }
+    }
+
+    @Test fun countsAreLiteralFieldsNotSynthesizedFromHistory() {
+        val json = """{"semester_completed":{"error":10000,"data":{
+            "semesterCount":"7", "semesterValidCount":4,
+            "semesterDis":8000,"semesterValidDis":7000}}}"""
+        val snapshot = parseCampusRunToolkitJson(json, CampusRunImportUnit.METERS, now)
+        assertEquals(7, snapshot.totalRunCount)
+        assertEquals(4, snapshot.effectiveRunCount)
+        assertTrue(snapshot.records.isEmpty())
+        assertFalse(snapshot.historyComplete)
+    }
+
+    @Test fun invalidAndContradictoryRunCountsFailClosed() {
+        val scoreFields = listOf(
+            """"semesterCount":3,"semesterValidCount":4""",
+            """"semesterCount":-1""",
+            """"semesterCount":1.5""",
+            """"semesterCount":true""",
+            """"semesterCount":1000001""",
+            """"semesterCount":"a lot""""
+        )
+        for (fields in scoreFields) {
+            val json = """{"semester_completed":{"error":10000,
+                "data":{"semesterDis":100,"semesterValidDis":50,$fields}}}"""
+            try {
+                parseCampusRunToolkitJson(json, CampusRunImportUnit.METERS, now)
+                throw AssertionError("invalid count was accepted")
+            } catch (_: IllegalArgumentException) { }
         }
     }
 
