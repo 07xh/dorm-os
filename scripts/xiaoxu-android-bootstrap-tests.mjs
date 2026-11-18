@@ -610,8 +610,10 @@ assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
   '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
 assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
   '课表设置需要填满当前主导航内容窗口');
-assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?Dialog\(/,
-  '节次时间数字滚轮可使用独立居中弹窗，不能误判为全屏设置');
+assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?XiaoxuBottomSheet\(/,
+  '节次时间轮盘使用共享底部容器，不得回退为全屏设置');
+assert.match(timetableSettings, /XiaoxuBottomSheet\(/,
+  '时间和周数轮盘必须使用统一的底部浮层容器');
 assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
   '课表节次时间保留当前数字滚轮交互');
 assert.match(schedulePanel, /targetState = settingsOpen/,
@@ -1036,7 +1038,12 @@ assert.match(cloud, /JSONObject\(\)\.put\("decision", decision\)/);
 assert.match(cloud, /reviewWechatCandidate[\s\S]*?sessionEpoch/);
 assert.match(cloud, /clearAccountSnapshots\(/);
 assert.match(wechatReview, /ModalBottomSheet\(/);
-assert.match(wechatReview, /AlertDialog\(/);
+assert.match(wechatReview, /if \(pendingDecision != null\)/,
+  '微信候选必须在同一弹窗内二次确认，不叠加系统对话框');
+assert.doesNotMatch(wechatReview, /AlertDialog\(/,
+  '微信候选二次确认不应重复叠加弹窗');
+assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/,
+  '人工确认仍须调用原有授权审核接口');
 assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
 assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
 assert.match(wechatReview, /候选摘要 · 请核对原消息后确认/);
@@ -1047,6 +1054,13 @@ assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
 
 // 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
+assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
+  '个人分类选择应改用统一的底部操作弹窗');
+assert.match(bottomActions, /stateDescription = "已选择"/,
+  '选中状态必须对无障碍服务可见');
+assert.match(bottomActions, /indication = ripple\(/,
+  '底部弹窗按钮必须有清晰的触控反馈');
 assert.match(taskBoard, /TASK_SOURCES/);
 assert.match(taskBoard, /dao\.insert\(LocalTask\(/);
 assert.match(taskBoard, /本人标注/);

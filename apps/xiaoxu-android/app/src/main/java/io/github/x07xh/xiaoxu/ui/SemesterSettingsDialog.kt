@@ -55,8 +55,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -315,87 +313,74 @@ internal fun SemesterSettingsPage(
     }
 
     if (editingSection > 0) {
-        // The user's reference uses numeric scrolling wheels, not a clock dial.
-        // Keep the original two-step start/end workflow and local-only draft.
+        // Keep the existing two-step wheel workflow and draft semantics.
         androidx.compose.runtime.key(editingSection, editingEnd) {
             val existing = findSectionTime(times, editingSection)
             val initial = if (editingEnd) existing?.second ?: stagedStart.plusMinutes(45)
                 else stagedStart
             var pickedHour by remember { mutableIntStateOf(initial.hour) }
             var pickedMinute by remember { mutableIntStateOf(initial.minute) }
-            val shape = RoundedCornerShape(30.dp)
-            Dialog(
-                onDismissRequest = { editingSection = 0 },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
+            XiaoxuBottomSheet(
+                title = "第 " + editingSection + " 节" +
+                    (if (editingEnd) " · 结束时间" else " · 开始时间"),
+                onDismiss = { editingSection = 0 },
+                showCancel = false,
+                scrollContent = false
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(0.91f).widthIn(max = 440.dp)
-                        .clip(shape).background(XiaoxuPalette.PageGradient)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
-                        .padding(horizontal = 20.dp, vertical = 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text(
-                        "第 " + editingSection + " 节" +
-                            if (editingEnd) " · 结束时间" else " · 开始时间",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = XiaoxuPalette.Ink
-                    )
-                    Text(
-                        pickedHour.toString().padStart(2, '0') + ":" +
-                            pickedMinute.toString().padStart(2, '0'),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontSize = 38.sp,
-                        color = XiaoxuPalette.BrandDeep
-                    )
+                Text(
+                    pickedHour.toString().padStart(2, '0') + ":" +
+                        pickedMinute.toString().padStart(2, '0'),
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontSize = 38.sp,
+                    color = XiaoxuPalette.BrandDeep,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     XiaoxuTimeWheel(
                         hour = pickedHour,
                         minute = pickedMinute,
                         onHourChanged = { pickedHour = it; timeError = null },
                         onMinuteChanged = { pickedMinute = it; timeError = null }
                     )
-                    if (timeError != null) {
-                        Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { editingSection = 0 },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(999.dp)
-                        ) { Text("取消", color = XiaoxuPalette.Ink) }
-                        Button(
-                            onClick = {
-                                val chosen = LocalTime.of(pickedHour, pickedMinute)
-                                if (!editingEnd) {
-                                    stagedStart = chosen
-                                    editingEnd = true
-                                    timeError = null
-                                } else if (!chosen.isAfter(stagedStart)) {
-                                    timeError = "结束时间应晚于开始时间"
-                                } else {
-                                    times = replaceSectionTime(
-                                        times, editingSection, stagedStart, chosen
-                                    )
-                                    error = null
-                                    timeError = null
-                                    editingSection = 0
-                                }
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(999.dp)
-                        ) { Text(if (editingEnd) "保存时间" else "下一步") }
-                    }
+                }
+                if (timeError != null) {
+                    Text(timeError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { editingSection = 0 },
+                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                        shape = RoundedCornerShape(999.dp)
+                    ) { Text("取消", color = XiaoxuPalette.Ink) }
+                    Button(
+                        onClick = {
+                            val chosen = LocalTime.of(pickedHour, pickedMinute)
+                            if (!editingEnd) {
+                                stagedStart = chosen
+                                editingEnd = true
+                                timeError = null
+                            } else if (!chosen.isAfter(stagedStart)) {
+                                timeError = "结束时间应晚于开始时间"
+                            } else {
+                                times = replaceSectionTime(
+                                    times, editingSection, stagedStart, chosen
+                                )
+                                error = null
+                                timeError = null
+                                editingSection = 0
+                            }
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                        shape = RoundedCornerShape(999.dp)
+                    ) { Text(if (editingEnd) "保存时间" else "下一步") }
                 }
             }
         }
     }
 
-    // Week count and section count share the same mature native wheel as
-    // class-time editing. Remove the older eager 35-row scrolling dialog.
     if (sectionsMenu || weeksMenu) {
         val choosingSections = sectionsMenu
         val options = if (choosingSections)
@@ -406,52 +391,39 @@ internal fun SemesterSettingsPage(
         androidx.compose.runtime.key(choosingSections) {
             var selectedNumber by remember { mutableIntStateOf(initial) }
             val closeSelector = { sectionsMenu = false; weeksMenu = false }
-            val shape = RoundedCornerShape(30.dp)
-            Dialog(
-                onDismissRequest = closeSelector,
-                properties = DialogProperties(usePlatformDefaultWidth = false)
+            XiaoxuBottomSheet(
+                title = if (choosingSections) "每天节数" else "学期周数",
+                onDismiss = closeSelector,
+                showCancel = false,
+                scrollContent = false
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 440.dp)
-                        .clip(shape).background(XiaoxuPalette.PageGradient)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.8f), shape)
-                        .padding(horizontal = 20.dp, vertical = 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                XiaoxuNumberWheel(
+                    options = options,
+                    selected = selectedNumber,
+                    label = if (choosingSections) "每天节数" else "学期周数",
+                    onSelected = { selectedNumber = it },
+                    modifier = Modifier.width(150.dp).align(Alignment.CenterHorizontally),
+                    cyclic = false
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        if (choosingSections) "每天节数" else "学期周数",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = XiaoxuPalette.Ink
-                    )
-                    XiaoxuNumberWheel(
-                        options = options,
-                        selected = selectedNumber,
-                        label = if (choosingSections) "每天节数" else "学期周数",
-                        onSelected = { selectedNumber = it },
-                        modifier = Modifier.width(150.dp),
-                        cyclic = false
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = closeSelector,
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(999.dp)
-                        ) { Text("取消", color = XiaoxuPalette.Ink) }
-                        Button(
-                            onClick = {
-                                if (choosingSections) sections = selectedNumber
-                                else weeks = selectedNumber.toString()
-                                error = null
-                                closeSelector()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(999.dp)
-                        ) { Text("确定") }
-                    }
+                    OutlinedButton(
+                        onClick = closeSelector,
+                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                        shape = RoundedCornerShape(999.dp)
+                    ) { Text("取消", color = XiaoxuPalette.Ink) }
+                    Button(
+                        onClick = {
+                            if (choosingSections) sections = selectedNumber
+                            else weeks = selectedNumber.toString()
+                            error = null
+                            closeSelector()
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                        shape = RoundedCornerShape(999.dp)
+                    ) { Text("确定") }
                 }
             }
         }
