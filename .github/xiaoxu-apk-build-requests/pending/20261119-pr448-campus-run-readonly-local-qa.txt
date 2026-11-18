@@ -1,0 +1,13 @@
+QA-only build request for PR #448 campus-running local score import.
+Requested during continued development and verification on 2026-11-19.
+Do NOT merge or publish a formal APK from this marker.
+
+Acceptance before declaring usable:
+- Compile debug and release unsigned with exact PR head, run Android JVM tests.
+- Require same-head Android 36 instrumentation to pass: encrypted owner record,
+  trusted cache AAD isolation, ciphertext corruption and explicit clear.
+- Existing core DORM OS CI and Python read-only fixture suites must remain passing.
+- Produce isolated io.github.x07xh.xiaoxu.unifiedqa build for on-device QA,
+  preserving the production app, installation state, and signing keys.
+- Offline local import ONLY: do not claim official campus-running automatic sync.
+- No credential collection, network session hijacking or exercise result uploads.
