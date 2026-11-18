@@ -397,6 +397,13 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     Text("仅导入工具包返回的明确字段；目标、历史详情和官方计分规则未验证，不猜测或补零。确认后会加密保存在当前校序账号对应的本机空间。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (snapshot != null) {
+                        Text(
+                            "注意：当前仅保留一份本机汇总。本次确认会替换原记录；此前手动录入的目标、首页/本周里程及其他学期信息不会自动合并。若需要保留，请取消导入。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(enabled = !busy, onClick = {
                             busy = true
@@ -415,7 +422,8 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                                     busy = false
                                 }
                             }
-                        }) { Text("确认并加密保存") }
+                        }) { Text(if (snapshot == null)
+                            "确认并加密保存" else "确认覆盖本机记录") }
                         TextButton(enabled = !busy, onClick = {
                             importPreview = null
                         }) { Text("取消预览") }
