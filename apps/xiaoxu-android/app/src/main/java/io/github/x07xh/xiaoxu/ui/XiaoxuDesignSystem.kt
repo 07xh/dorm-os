@@ -10,12 +10,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -59,7 +63,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
@@ -795,40 +798,49 @@ fun XiaoxuGlassDialog(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(32.dp)
-    val maxDialogHeight = LocalConfiguration.current.screenHeightDp.dp * 0.82f
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         XiaoxuDialogDim()
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .widthIn(max = 560.dp)
-                .heightIn(max = maxDialogHeight)
-                .clip(shape)
-                .background(XiaoxuPalette.GlassModalFallback)
-                .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Center within the visible area: tall forms stay scrollable with IME open.
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = XiaoxuPalette.Ink,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().semantics { heading() }
-            )
+            val availableDialogHeight = maxHeight * 0.88f
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                content = content
-            )
-            if (showDismissButton) {
-                XiaoxuDialogPrimaryButton(onClick = onDismiss) {
-                    Text(dismissLabel)
+                modifier = Modifier
+                    .fillMaxWidth(0.88f)
+                    .widthIn(max = 560.dp)
+                    .heightIn(max = availableDialogHeight)
+                    .clip(shape)
+                    .background(XiaoxuPalette.GlassModalFallback)
+                    .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = XiaoxuPalette.Ink,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().semantics { heading() }
+                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content
+                )
+                if (showDismissButton) {
+                    XiaoxuDialogPrimaryButton(onClick = onDismiss) {
+                        Text(dismissLabel)
+                    }
                 }
             }
         }
