@@ -122,6 +122,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<CampusRunSnapshot?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var encryptedUnreadable by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
@@ -175,10 +176,20 @@ private fun CampusRunScopedPanel(sessionScope: String) {
     }
 
     LaunchedEffect(store) {
-        snapshot = withContext(Dispatchers.IO) {
-            store.load(System.currentTimeMillis())
+        try {
+            val loaded = withContext(Dispatchers.IO) {
+                store.load(System.currentTimeMillis()) to store.hasEncryptedRecord()
+            }
+            snapshot = loaded.first
+            encryptedUnreadable = loaded.first == null && loaded.second
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            snapshot = null
+            encryptedUnreadable = true
+        } finally {
+            loading = false
         }
-        loading = false
     }
 
     XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 0.dp) {
@@ -191,6 +202,11 @@ private fun CampusRunScopedPanel(sessionScope: String) {
 
             when {
                 loading -> Text("正在读取本机记录…")
+                encryptedUnreadable -> Text(
+                    "本机有加密校园跑记录，但目前无法解密。原记录仍然保留；建议解锁设备后重试，不会自动覆盖或删除。",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 snapshot == null -> Text("暂无本机校园跑记录。不会展示示例里程或假进度。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else -> {
@@ -235,7 +251,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                 }
             }
 
-            if (!editing && !loading) {
+            if (!editing && !loading && !encryptedUnreadable) {
                 Button(
                     enabled = !busy,
                     onClick = {
@@ -317,7 +333,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
             // Local file import is intentionally separate from the official
             // read-only source: it never upgrades USER_IMPORT to TRUSTED_READONLY.
             // It accepts only a reviewed CLI score/all shape with known units.
-            if (!editing && !loading) {
+            if (!editing && !loading && !encryptedUnreadable) {
                 TextButton(enabled = !busy, onClick = {
                     showJsonImport = !showJsonImport
                     importPreview = null
@@ -326,7 +342,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     Text(if (showJsonImport) "收起 JSON 导入" else "导入工具包 JSON（仅本机）")
                 }
             }
-            if (showJsonImport && !editing) {
+            if (showJsonImport && !editing && !encryptedUnreadable) {
                 HorizontalDivider()
                 Text("支持已保存的 json_client.py score/all 返回文件，只提取学期总里程、有效里程和对应次数。文件不上传，也不会读取运动世界账号或凭据。",
                     style = MaterialTheme.typography.bodySmall,
@@ -395,13 +411,32 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                 }
             }
 
-            if (snapshot != null && !editing) {
+            if (encryptedUnreadable && !loading && !busy) {
+                TextButton(onClick = {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            val loaded = withContext(Dispatchers.IO) {
+                                store.load(System.currentTimeMillis()) to store.hasEncryptedRecord()
+                            }
+                            snapshot = loaded.first
+                            encryptedUnreadable = loaded.first == null && loaded.second
+                        } catch (_: Exception) {
+                            error = "读取失败，加密记录仍保留。"
+                        } finally { busy = false }
+                    }
+                }) { Text("重试读取本机加密记录") }
+            }
+
+            if ((snapshot != null || encryptedUnreadable) && !editing) {
                 if (!confirmDelete) {
                     TextButton(enabled = !busy, onClick = { confirmDelete = true }) {
-                        Text("清除本机校园跑记录")
+                        Text(if (encryptedUnreadable)
+                            "删除不可读取的加密记录" else "清除本机校园跑记录")
                     }
                 } else {
-                    Text("确定删除这份本机汇总？其他校序任务与课表不受影响。",
+                    Text("确定永久删除这份本机加密记录？无法撤销，其他校序任务与课表不受影响。",
                         style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         TextButton(enabled = !busy, onClick = { confirmDelete = false }) {
@@ -414,6 +449,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                                 try {
                                     withContext(Dispatchers.IO) { store.clear() }
                                     snapshot = null
+                                    encryptedUnreadable = false
                                     confirmDelete = false
                                 } catch (_: Exception) {
                                     error = "删除失败，请重试。"
