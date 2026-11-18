@@ -106,6 +106,25 @@ class CampusRunToolkitJsonImportTest {
         }
     }
 
+    @Test fun sharedPythonAndroidGoldenFixtureParsesWithoutUnitDrift() {
+        val stream = javaClass.classLoader!!.getResourceAsStream(
+            "campus-run-safe-score-fixture.json"
+        ) ?: throw AssertionError("missing shared sanitized score fixture")
+        val json = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val result = parseCampusRunToolkitJson(
+            json, CampusRunImportUnit.METERS, now
+        )
+        assertEquals("synthetic-autumn", result.termLabel)
+        assertEquals(12_345L, result.rawMeters)
+        assertEquals(10_003L, result.effectiveMeters)
+        assertEquals(5, result.totalRunCount)
+        assertEquals(3, result.effectiveRunCount)
+        assertNull(result.targetMeters)
+        assertFalse(result.historyComplete)
+        assertTrue(result.records.isEmpty())
+        assertFalse(result.ownerMatched)
+    }
+
     @Test fun sanitizedExportRequiresExactDeclaredMeters() {
         val sanitized = """{"schema":"xiaoxu/campus-run-toolkit-safe-v1",
             "unit":"m","semester_completed":{"error":10000,"data":{
