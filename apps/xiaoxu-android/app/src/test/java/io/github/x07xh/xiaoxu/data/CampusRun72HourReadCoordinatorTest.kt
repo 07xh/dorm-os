@@ -1,0 +1,148 @@
+package io.github.x07xh.xiaoxu.data
+
+import java.io.IOException
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Synthetic identities and distances only; no upstream credentials or HTTP. */
+class CampusRun72HourReadCoordinatorTest {
+    private val alice = "a".repeat(64)
+    private val bob = "b".repeat(64)
+    private val now = 1_800_000_000_000L
+
+    private class Checkpoints : CampusRunRequestCheckpointStore {
+        val attempts = mutableMapOf<String, Long>()
+        override fun lastAttemptMillis(subjectFingerprint: String) =
+            attempts[subjectFingerprint]
+        override fun saveAttemptMillis(subjectFingerprint: String, epochMillis: Long): Boolean {
+            attempts[subjectFingerprint] = epochMillis
+            return true
+        }
+    }
+
+    private class MemoryCache : CampusRunTrustedSnapshotCache {
+        var subject: String? = null
+        var snapshot: CampusRunSnapshot? = null
+        var savedCount = 0
+        var cleared = false
+        override fun load(subjectFingerprint: String, nowEpochMillis: Long): CampusRunSnapshot? =
+            if (subject == subjectFingerprint) snapshot else null
+
+        override fun save(
+            subjectFingerprint: String, snapshot: CampusRunSnapshot, nowEpochMillis: Long
+        ): Boolean {
+            require(snapshot.provenance == CampusRunProvenance.TRUSTED_READONLY)
+            subject = subjectFingerprint
+            this.snapshot = snapshot
+            savedCount++
+            return true
+        }
+
+        override fun clear(): Boolean {
+            subject = null
+            snapshot = null
+            cleared = true
+            return true
+        }
+    }
+
+    private class ReadSource(var subject: String) : CampusRunReadOnlySource {
+        var semesterReads = 0
+        var failNetwork = false
+        override suspend fun authorizedSubjectFingerprint() = subject
+        override suspend fun readSemester(): CampusRunReadSummary {
+            semesterReads++
+            if (failNetwork) throw IOException("offline synthetic fixture")
+            return CampusRunReadSummary(
+                subjectFingerprint = subject,
+                termLabel = "term",
+                targetMeters = 20_000L,
+                effectiveMeters = 2_000L,
+                rawMeters = 3_000L
+            )
+        }
+        override suspend fun readHistoryPage(cursor: String?) =
+            CampusRunReadPage(subject, emptyList(), null, true)
+    }
+
+    private fun coordinator(
+        source: ReadSource,
+        checkpoints: Checkpoints,
+        cache: MemoryCache
+    ) = CampusRun72HourReadCoordinator(
+        CampusRunReadOnlyQuery(source),
+        CampusRun72HourRequestBudget(checkpoints),
+        cache
+    )
+
+    @Test fun restartRestoresEncryptedCacheSeamWithoutAnotherRead() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val first = coordinator(source, checkpoints, cache)
+        val current = first.refreshSummaryIfDue(alice, now)
+        assertTrue(current is CampusRunViewState.Current)
+        assertEquals(1, source.semesterReads)
+        assertEquals(1, cache.savedCount)
+
+        val restarted = coordinator(source, checkpoints, cache)
+        val resumed = restarted.refreshSummaryIfDue(alice, now + 3_600_000L)
+        assertTrue(resumed is CampusRunViewState.Current)
+        assertEquals(now, (resumed as CampusRunViewState.Current)
+            .snapshot.capturedAtEpochMillis)
+        assertEquals(1, source.semesterReads)
+        assertEquals(1, cache.savedCount)
+    }
+
+    @Test fun at72HoursFailedReadLeavesCacheButDoesNotRetry() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val coordinator = coordinator(source, checkpoints, cache)
+        coordinator.refreshSummaryIfDue(alice, now)
+        source.failNetwork = true
+        val due = now + CampusRun72HourRequestBudget.THREE_DAYS_MILLIS
+        val failed = coordinator.refreshSummaryIfDue(alice, due)
+        assertTrue(failed is CampusRunViewState.Stale)
+        assertEquals(CampusRunFailure.NETWORK, (failed as CampusRunViewState.Stale).reason)
+        assertEquals(1, cache.savedCount)
+        assertEquals(now, cache.snapshot?.capturedAtEpochMillis)
+        assertEquals(2, source.semesterReads)
+
+        coordinator.refreshSummaryIfDue(alice, due + 1_000L)
+        assertEquals(2, source.semesterReads)
+    }
+
+    @Test fun accountSwitchCannotExposePriorAccountAndRevocationClearsCache() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val coordinator = coordinator(source, checkpoints, cache)
+        assertTrue(coordinator.refreshSummaryIfDue(alice, now) is CampusRunViewState.Current)
+        // The source is still Alice, so a Bob lookup is not authorized.
+        val switched = coordinator.refreshSummaryIfDue(bob, now + 1_000L)
+        assertTrue(switched is CampusRunViewState.Unavailable)
+        assertEquals(CampusRunFailure.NOT_AUTHORIZED,
+            (switched as CampusRunViewState.Unavailable).reason)
+        assertNull(cache.snapshot)
+        assertTrue(cache.cleared)
+        assertEquals(1, source.semesterReads)
+    }
+
+    @Test fun signingOutClearsPrivateCacheButPreservesReadBudget() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val coordinator = coordinator(source, checkpoints, cache)
+        coordinator.refreshSummaryIfDue(alice, now)
+        coordinator.clearOnSignOut()
+        assertNull(cache.snapshot)
+        assertTrue(cache.cleared)
+        assertFalse(CampusRun72HourRequestBudget(checkpoints)
+            .reserveIfDue(alice, now + 1_000L))
+    }
+}
