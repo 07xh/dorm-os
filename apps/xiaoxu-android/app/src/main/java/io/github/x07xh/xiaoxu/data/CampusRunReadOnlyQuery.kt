@@ -81,7 +81,7 @@ class CampusRunReadOnlyQuery(
             gate.clear()
             boundSubject = expectedSubjectFingerprint
         }
-        return gate.accept(cached, nowEpochMillis)
+        return gate.restoreCached(cached, nowEpochMillis)
     }
 
     fun clear() {
