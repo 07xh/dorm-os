@@ -126,7 +126,8 @@ fun CloudTaskEditor(client: CloudClient) {
 fun ConnectionsPanel(
     client: CloudClient, openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit, startSchoolAuthorization: (String) -> Unit,
-    recentImport: LocalSchoolImportReceipt? = null
+    recentImport: LocalSchoolImportReceipt? = null,
+    onOpenCampusRun: () -> Unit
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
@@ -154,6 +155,24 @@ fun ConnectionsPanel(
             openLocal = openLocalSchool,
             recentImport = recentImport
         )
+        // Campus running is independent from NCWU school SSO. Do not
+        // misrepresent a locally imported score as a connected account.
+        XiaoxuGroupedSection(title = "校园跑") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("运动世界校园", style = MaterialTheme.typography.titleMedium)
+                    Text("自动同步未连接 · 可在校园服务导入本机 JSON",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = onOpenCampusRun) { Text("查看") }
+            }
+        }
     }
     val cloudConnections: @Composable () -> Unit = {
         CloudAuthorizationSection(
