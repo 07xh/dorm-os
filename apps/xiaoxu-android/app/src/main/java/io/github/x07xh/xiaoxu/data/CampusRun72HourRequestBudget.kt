@@ -81,6 +81,10 @@ class CampusRun72HourReadCoordinator(
     private val mutex = Mutex()
     private var currentSubject: String? = null
 
+    private companion object {
+        val SUBJECT_FINGERPRINT = Regex("^[a-f0-9]{64}$")
+    }
+
     suspend fun clearOnSignOut() {
         mutex.lock()
         try {
@@ -107,6 +111,19 @@ class CampusRun72HourReadCoordinator(
     ): CampusRunViewState {
         mutex.lock()
         try {
+            // This coordinator is an app-facing entry point. Malformed identity
+            // or device time is never an exception-driven read attempt: reject
+            // before disk-cache access, checkpoint reservation or network I/O.
+            // Hide any earlier in-memory snapshot without deleting encrypted
+            // data that might still be recoverable for the rightful owner.
+            if (now <= 0L || !SUBJECT_FINGERPRINT.matches(fingerprint)) {
+                query.clear()
+                currentSubject = null
+                return CampusRunViewState.Unavailable(
+                    if (now <= 0L) CampusRunFailure.INVALID_DATA
+                    else CampusRunFailure.NOT_AUTHORIZED
+                )
+            }
             // Switching accounts must not reveal in-memory data from a prior
             // source. AEAD in the cache independently enforces that binding.
             if (currentSubject != fingerprint) {
