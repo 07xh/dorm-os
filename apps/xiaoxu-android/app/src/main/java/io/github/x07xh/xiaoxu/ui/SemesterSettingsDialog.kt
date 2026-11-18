@@ -324,7 +324,8 @@ internal fun SemesterSettingsPage(
                 title = "第 " + editingSection + " 节" +
                     (if (editingEnd) " · 结束时间" else " · 开始时间"),
                 onDismiss = { editingSection = 0 },
-                showCancel = false
+                showCancel = false,
+                scrollContent = false
             ) {
                 Text(
                     pickedHour.toString().padStart(2, '0') + ":" +
@@ -393,7 +394,8 @@ internal fun SemesterSettingsPage(
             XiaoxuBottomSheet(
                 title = if (choosingSections) "每天节数" else "学期周数",
                 onDismiss = closeSelector,
-                showCancel = false
+                showCancel = false,
+                scrollContent = false
             ) {
                 XiaoxuNumberWheel(
                     options = options,
