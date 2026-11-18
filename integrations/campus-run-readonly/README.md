@@ -88,3 +88,20 @@ Python 桥接的候选字段始终明确标注 `verifiedFieldSemantics=false`；
 **尚未做的事：** 本次 ZIP 文档记载了假 Token 401 网关诊断，并没有附可复验的本人业务明文成功样本；尽管用户此前确认工具可读取，不能靠 ZIP 的静态代码断言真机已经同步成功。此外工具包的 `SportClient` 包含与只读目标无关的登录、设备标识与运动提交功能，因此不得整体嵌入校序，也不能通过模拟另一端的设备参数规避官方登录限制。只读、每 72 小时一次仍可能影响服务器端多端会话，须用本人正常授权方式实测。
 
 本阶段不增加后台同步进程、定时请求、自动凭据填充、排行榜模块或重复校园跑面板。只有真实只读身份、字段和分页验收完成后，才接 `CampusRunBridgeJsonReader` 和正式 UI。
+
+
+## 校序本机 JSON 导入：先离线最小化数据
+
+对于从归档工具包 `json_client.py score` 获得的**本人已授权成功响应**，推荐先用独立离线脚本生成最小化文件；不需要也不接受账号、密码、Token、UID、抓包数据或服务端地址：
+
+```bash
+python integrations/campus-run-readonly/offline_score_export.py \
+  --input score.json \
+  --output xiaoxu-safe-score.json
+```
+
+脚本纯本地读取源文件，只会输出 `schema=xiaoxu/campus-run-toolkit-safe-v1`、`unit=m` 和 `semester_completed.data` 中的 `sname`、`semesterDis`、`semesterValidDis`、`semesterCount`、`semesterValidCount`（有则保留，未知不补零）。归档 `score_cli.py` 的实际输出把距离明确标注为米；拒绝状态异常、无数值、非整数米、计入成绩大于总量、有效次数大于总次数、超过安全范围的输入。
+
+输出文件采用新文件名，禁止覆盖源文件。原始输入不会复制、上传、记录日志，导出文件中不包含 Token、排行榜、GPS 轨迹或历史原始记录。校序「教务 → 校园服务 → 校园跑 → 导入工具包 JSON」选择**米**和新文件，查看预览再确认；选择**公里**会因导出文件单位不匹配而被拒绝。
+
+这个工具**不**替代本人授权，不会联网刷新数据，也不会将导入结果标记为官方实时同步。仅校序预留的未来联网只读协调器遵守自身 72 小时预算；原工具包定时循环不受它管理，建议关闭自动循环。
