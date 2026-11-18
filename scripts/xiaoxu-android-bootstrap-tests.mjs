@@ -1081,7 +1081,7 @@ const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xi
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
 assert.match(bottomActions, /BoxWithConstraints\(/,
   '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
+assert.match(bottomActions, /val sheetMaxHeight = \(maxHeight - 32\.dp\) \* 0\.88f/,
   '底部浮层高度必须相对可用空间限制');
 assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
   '底部浮层须避让状态栏、导航栏和键盘');
