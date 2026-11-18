@@ -56,3 +56,13 @@ JSON 最大读取 256KB，采用有界流式读取；仅本机处理且不启用
 - 加密内容仍严格按现有 owner scope、Android Keystore AES-GCM 和本机存储管理；不上传云端，也不把解密失败当账号授权失败
 
 此防损坏机制尚需真机重启、设备解锁与模拟异常场景验收，不应被当作完整 Android Keystore 恢复能力。
+
+
+### Android 设备端回归（不使用真实账号）
+
+`app/src/androidTest/.../CampusRunEncryptedStorageTest.kt` 已加入两个真实 Keystore 仪器化用例，通过现有 `Xiaoxu Second-class WebView Runtime` 工作流的 Android 36 模拟器执行：
+
+- 本人手动及 JSON 等效汇总的 1 米精度与次数在 AES-GCM 加密后仍能读回；不同 owner scope 不会拿到这些数据；人为篡改 ciphertext 后拒绝读取但保留密文，只有主动调用 `clear()` 才删除
+- 可信只读缓存对相同 owner 和 subject 可以恢复；不同 subject 的 AAD 解密失败但不删除合法原快照；篡改 ciphertext 时也不展示或自动删除
+
+以上只有离线合成数据，没有运动世界会话、Token、真实 GPS 或运动结果提交。通过设备端 CI 之前不能称为已经验收。
