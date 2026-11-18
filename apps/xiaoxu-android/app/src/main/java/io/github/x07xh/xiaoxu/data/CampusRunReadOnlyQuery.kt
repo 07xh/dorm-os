@@ -63,6 +63,27 @@ class CampusRunReadOnlyQuery(
 
     fun state(nowEpochMillis: Long): CampusRunViewState = gate.state(nowEpochMillis)
 
+    /**
+     * Restore a Keystore-authenticated own-account snapshot before the 72h
+     * budget check. This does NOT perform a read or renew its capturedAt time.
+     * The cache implementation must first bind the ciphertext to the same
+     * authenticated owner scope and upstream subject fingerprint.
+     */
+    fun restoreTrustedSnapshot(
+        expectedSubjectFingerprint: String,
+        cached: CampusRunSnapshot,
+        nowEpochMillis: Long
+    ): CampusRunViewState {
+        require(Regex("^[a-f0-9]{64}$").matches(expectedSubjectFingerprint))
+        require(cached.provenance == CampusRunProvenance.TRUSTED_READONLY &&
+            cached.ownerMatched) { "unverified_cache_snapshot" }
+        if (boundSubject != expectedSubjectFingerprint) {
+            gate.clear()
+            boundSubject = expectedSubjectFingerprint
+        }
+        return gate.accept(cached, nowEpochMillis)
+    }
+
     fun clear() {
         boundSubject = null
         gate.clear()
