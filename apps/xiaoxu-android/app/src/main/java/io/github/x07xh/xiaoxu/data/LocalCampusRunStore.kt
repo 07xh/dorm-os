@@ -45,9 +45,15 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
             }.generateKey()
     }
 
-    fun save(input: CampusRunManualInput, nowEpochMillis: Long): CampusRunSnapshot {
-        val snapshot = input.toSnapshot(nowEpochMillis)
-        require(snapshot.provenance == CampusRunProvenance.USER_IMPORT)
+    fun save(input: CampusRunManualInput, nowEpochMillis: Long): CampusRunSnapshot =
+        saveSnapshot(input.toSnapshot(nowEpochMillis), nowEpochMillis)
+
+    /** Save only a confirmed local import; never promote it to an official read. */
+    fun saveSnapshot(snapshot: CampusRunSnapshot, nowEpochMillis: Long): CampusRunSnapshot {
+        validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        require(snapshot.provenance == CampusRunProvenance.USER_IMPORT &&
+            !snapshot.ownerMatched && !snapshot.historyComplete &&
+            snapshot.records.isEmpty()) { "import_cannot_claim_official_provenance" }
         val json = JSONObject()
             .put("schema", "xiaoxu/campus-run-manual-v2")
             .put("scope", scope)
