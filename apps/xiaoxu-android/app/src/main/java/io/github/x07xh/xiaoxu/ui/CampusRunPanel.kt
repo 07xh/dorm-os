@@ -331,7 +331,10 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                 Text("支持已保存的 json_client.py score/all 返回文件，只提取学期总里程、有效里程和对应次数。文件不上传，也不会读取运动世界账号或凭据。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("原始距离单位（需本人核对）",
+                Text("归档工具包 score_cli.py 标注的单位是米；如输出来自其他版本，请核对后再选。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("原始距离单位（需要确认）",
                     style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(enabled = !busy, onClick = {
