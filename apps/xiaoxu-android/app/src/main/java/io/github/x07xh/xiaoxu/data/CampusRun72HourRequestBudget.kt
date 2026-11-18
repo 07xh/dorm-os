@@ -23,20 +23,23 @@ class CampusRun72HourRequestBudget(
 ) {
     init { require(minIntervalMillis >= THREE_DAYS_MILLIS) }
 
-    @Synchronized
-    fun reserveIfDue(subjectFingerprint: String, nowEpochMillis: Long): Boolean {
-        require(Regex("^[a-f0-9]{64}$").matches(subjectFingerprint))
-        require(nowEpochMillis > 0L)
-        val previous = store.lastAttemptMillis(subjectFingerprint)
-        // A backwards clock or future checkpoint must NOT silently bypass the budget.
-        if (previous != null &&
-            (previous >= nowEpochMillis ||
-                nowEpochMillis - previous < minIntervalMillis)) return false
-        return store.saveAttemptMillis(subjectFingerprint, nowEpochMillis)
-    }
+    fun reserveIfDue(subjectFingerprint: String, nowEpochMillis: Long): Boolean =
+        synchronized(PROCESS_LOCK) {
+            require(Regex("^[a-f0-9]{64}$").matches(subjectFingerprint))
+            require(nowEpochMillis > 0L)
+            // The lock is shared between budget instances in this process:
+            // check + durable commit is one reservation, not two racing reads.
+            // This coordinator is deliberately single-process only.
+            val previous = store.lastAttemptMillis(subjectFingerprint)
+            if (previous != null &&
+                (previous >= nowEpochMillis ||
+                    nowEpochMillis - previous < minIntervalMillis)) return@synchronized false
+            store.saveAttemptMillis(subjectFingerprint, nowEpochMillis)
+        }
 
     companion object {
         const val THREE_DAYS_MILLIS: Long = 72L * 60L * 60L * 1_000L
+        private val PROCESS_LOCK = Any()
     }
 }
 
