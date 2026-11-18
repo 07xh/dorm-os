@@ -169,9 +169,10 @@ class AndroidCampusRunTrustedSnapshotCache(context: Context, private val ownerSc
             )
             validateCampusRunSnapshot(result, nowEpochMillis)
         } catch (_: Exception) {
-            // Invalid AEAD, moved credentials, damaged schema or account change:
-            // do not expose a previous owner's personal snapshot.
-            clear()
+            // Fail closed on AEAD/identity/schema/Keystore errors, but do not
+            // irreversibly delete ciphertext after a possibly transient error.
+            // A different subject never passes the AAD check. Explicit owner
+            // sign-out/revocation still calls clear() through the coordinator.
             null
         }
     }
