@@ -136,6 +136,8 @@ private fun CampusRunScopedPanel(sessionScope: String) {
     var semester by rememberSaveable { mutableStateOf("") }
     var dashboard by rememberSaveable { mutableStateOf("") }
     var weekly by rememberSaveable { mutableStateOf("") }
+    var totalRuns by rememberSaveable { mutableStateOf("") }
+    var validRuns by rememberSaveable { mutableStateOf("") }
 
     val importPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -207,6 +209,12 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     CampusRunMeasure("首页累计跑量（区间未核验）",
                         formatKm(value.dashboardAccumulatedMeters))
                     CampusRunMeasure("本周跑量", formatKm(value.weeklyMeters))
+                    if (value.totalRunCount != null) {
+                        CampusRunMeasure("学期跑步次数", "${value.totalRunCount} 次")
+                    }
+                    if (value.effectiveRunCount != null) {
+                        CampusRunMeasure("学期有效次数", "${value.effectiveRunCount} 次")
+                    }
                     val percent = value.progressPercent()
                     if (percent != null) {
                         LinearProgressIndicator(
@@ -221,7 +229,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                         Text("目标或计入成绩里程未知，不计算完成比例。",
                             style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("历史记录和跑步次数尚未导入；不能以汇总里程倒推有效跑步次数。",
+                    Text("跑步次数仅采用明确录入或 JSON 学期汇总字段；完整历史记录尚未导入，不能据此确认历史分页完整。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -238,6 +246,8 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                         semester = inputKm(previous?.rawMeters)
                         dashboard = inputKm(previous?.dashboardAccumulatedMeters)
                         weekly = inputKm(previous?.weeklyMeters)
+                        totalRuns = previous?.totalRunCount?.toString().orEmpty()
+                        validRuns = previous?.effectiveRunCount?.toString().orEmpty()
                         editing = true
                         showJsonImport = false
                         importPreview = null
@@ -265,12 +275,28 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                 CampusRunKmInput("学期累计总里程", semester) { semester = it }
                 CampusRunKmInput("首页累计跑量", dashboard) { dashboard = it }
                 CampusRunKmInput("本周跑量", weekly) { weekly = it }
+                OutlinedTextField(
+                    value = totalRuns,
+                    onValueChange = { totalRuns = it.take(7) },
+                    label = { Text("学期跑步次数（可选）") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = validRuns,
+                    onValueChange = { validRuns = it.take(7) },
+                    label = { Text("学期有效次数（可选）") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(enabled = !busy, onClick = {
                         busy = true
                         error = null
                         val input = CampusRunManualInput(term, target, credited,
-                            semester, dashboard, weekly)
+                            semester, dashboard, weekly, totalRuns, validRuns)
                         scope.launch {
                             try {
                                 snapshot = withContext(Dispatchers.IO) {
@@ -302,7 +328,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
             }
             if (showJsonImport && !editing) {
                 HorizontalDivider()
-                Text("支持已保存的 json_client.py score/all 返回文件，只提取学期总里程与计入成绩里程。文件不上传，也不会读取运动世界账号或凭据。",
+                Text("支持已保存的 json_client.py score/all 返回文件，只提取学期总里程、有效里程和对应次数。文件不上传，也不会读取运动世界账号或凭据。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("原始距离单位（需本人核对）",
@@ -331,7 +357,13 @@ private fun CampusRunScopedPanel(sessionScope: String) {
                     CampusRunMeasure("学期", candidate.termLabel ?: "未注明")
                     CampusRunMeasure("学期累计总里程", formatKm(candidate.rawMeters))
                     CampusRunMeasure("计入成绩里程", formatKm(candidate.effectiveMeters))
-                    Text("目标、历史详情、跑步次数和官方计分规则未验证，不会猜测或补零。确认后将加密保存在当前校序账号对应的本机空间。",
+                    if (candidate.totalRunCount != null) {
+                        CampusRunMeasure("学期跑步次数", "${candidate.totalRunCount} 次")
+                    }
+                    if (candidate.effectiveRunCount != null) {
+                        CampusRunMeasure("学期有效次数", "${candidate.effectiveRunCount} 次")
+                    }
+                    Text("仅导入工具包返回的明确字段；目标、历史详情和官方计分规则未验证，不猜测或补零。确认后会加密保存在当前校序账号对应的本机空间。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
