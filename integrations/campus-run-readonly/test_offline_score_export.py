@@ -34,6 +34,23 @@ class OfflineScoreExportTests(unittest.TestCase):
         for forbidden in ("synthetic-token", "hiddenLocation", "private", "somebody", "sensitive", "gps"):
             self.assertNotIn(forbidden, serialized)
 
+    def test_shared_kotlin_python_golden_fixture_matches_sanitizer(self):
+        repo_root = pathlib.Path(__file__).resolve().parents[2]
+        fixture = repo_root / (
+            "apps/xiaoxu-android/app/src/test/resources/"
+            "campus-run-safe-score-fixture.json"
+        )
+        expected = json.loads(fixture.read_text(encoding="utf-8"))
+        raw = {"score": {
+            "semester_completed": {"error": 10000, "data": {
+                "sname": "synthetic-autumn", "semesterDis": 12345,
+                "semesterValidDis": 10003, "semesterCount": 5,
+                "semesterValidCount": 3,
+                "unusedSensitiveField": "must-not-export",
+            }}
+        }, "token": "must-not-export", "history": {"data": ["secret"]}}
+        self.assertEqual(extract_score_only(json.dumps(raw)), expected)
+
     def test_handles_direct_score_without_hypothesized_history(self):
         data = {"semester_completed": {
             "error": 10000, "data": {"semesterDis": 0,
