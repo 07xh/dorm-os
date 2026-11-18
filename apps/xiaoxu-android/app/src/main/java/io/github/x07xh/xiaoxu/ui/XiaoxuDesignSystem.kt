@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -806,6 +807,7 @@ fun XiaoxuGlassDialog(
         // Center within the visible area: tall forms stay scrollable with IME open.
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
+                .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
