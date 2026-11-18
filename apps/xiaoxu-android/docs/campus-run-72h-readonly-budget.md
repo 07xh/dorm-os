@@ -37,9 +37,9 @@
 
 1. 本人在原有工具包中**合法读取本人数据**，将 `json_client.py score` 或 `all` 的 JSON 结果另存为 UTF-8 本机文件；不要将文件发送到 GitHub、公开 Issue 或云日志
 2. 在校序选择 **公里 / 米**（必须亲自核实原始结果单位，默认不选），选择本机 JSON 文件
-3. 仅从业务 `error=10000` 的 `semester_completed.data` 中提取 `sname`、`semesterDis`、`semesterValidDis`；其他包括 Token、排行榜、原始历史、完整请求信息均不保存
-4. 展示学期里程预览；用户确认后通过现有 `LocalCampusRunStore` Android Keystore 存为 `USER_IMPORT`，绝不变为 `TRUSTED_READONLY`
-5. 单位不明确、字段损坏、响应失败、数值过大、精度无法无损换算时拒绝导入，不覆盖已有本机成绩；一个学期汇总不是完整历史，不推算计分规则与目标
+3. 仅从业务 `error=10000` 的 `semester_completed.data` 中提取 `sname`、`semesterDis`、`semesterValidDis`、`semesterCount`、`semesterValidCount`。归档源码 `score_cli.py` 明确将前两项里程标为**米**，将后两项标为学期跑步次数/有效次数；导入仍强制用户核对实际输出单位。其他包括 Token、排行榜、原始历史、完整请求信息均不保存
+4. 展示学期里程及（存在时）次数预览；用户确认后通过现有 `LocalCampusRunStore` Android Keystore 存为 `USER_IMPORT`，绝不变为 `TRUSTED_READONLY`。旧 `manual-v2` 加密记录没有次数字段时仍能读取，保持为未知值
+5. 单位不明确、字段损坏、响应失败、数值过大、精度无法无损换算或次数不一致时拒绝导入，不覆盖已有本机成绩；一个学期汇总不是完整历史，不推算计分规则与目标。**外部工具 `json_client.py` 本身不受校序 72 小时限频器控制**，因此建议只按需单次运行 `score`，不要开启工具包原有 60 秒循环
 
 JSON 最大读取 256KB，采用有界流式读取；仅本机处理且不启用外部 HTTP。用户可在无可信实时授权来源时先更新个人记录，而不是面对无效的同步按钮。
 
