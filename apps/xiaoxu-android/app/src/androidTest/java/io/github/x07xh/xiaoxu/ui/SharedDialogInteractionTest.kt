@@ -4,12 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.x07xh.xiaoxu.data.assertRuntimeIsolation
@@ -115,7 +110,12 @@ class SharedDialogInteractionTest {
             }
         }
         compose.onNodeWithText("关闭").assertIsDisplayed()
-        compose.onNodeWithText("项目条目 39").performScrollTo()
+        // Real drag gestures verify that long content can move beneath the pinned
+        // close button, rather than relying on a text node's ancestor semantics.
+        repeat(6) {
+            compose.onNodeWithTag("xiaoxu-bottom-scroll-content")
+                .performTouchInput { swipeUp() }
+        }
         compose.onNodeWithText("项目条目 39").assertIsDisplayed()
         compose.onNodeWithText("关闭").performClick()
         compose.onNodeWithText("完整项目条目").assertDoesNotExist()
