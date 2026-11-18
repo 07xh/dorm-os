@@ -1,0 +1,7 @@
+校序 Android V4 B2 · PR #449
+QA-only build and test request, 2026-11-18.
+
+Purpose: assembleDebug, unsigned assembleRelease, isolated QA package,
+JVM + Android runtime regression, verify APK checksum and archive.
+Do not sign or publish a formal release before native-device acceptance.
+No production release authorization.

@@ -45,8 +45,8 @@ import io.github.x07xh.xiaoxu.MainDestination
 internal val PrimaryTabs = listOf(
     MainDestination.HOME,
     MainDestination.SCHEDULE,
-    MainDestination.ACADEMIC,
     MainDestination.TASKS,
+    MainDestination.ACADEMIC,
     MainDestination.PROFILE
 )
 
@@ -54,7 +54,7 @@ internal val MainDestination.primaryTabLabel: String
     get() = when (this) {
         MainDestination.HOME -> "今日"
         MainDestination.SCHEDULE -> "课表"
-        MainDestination.ACADEMIC -> "教务"
+        MainDestination.ACADEMIC -> "校园"
         MainDestination.TASKS -> "任务"
         MainDestination.PROFILE -> "我的"
     }

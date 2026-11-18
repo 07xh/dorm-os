@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -167,15 +168,23 @@ class MainActivity : ComponentActivity() {
     // Changes even when only semester settings are restored and course rows stay equal.
     private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var reminderTaskId by mutableStateOf<Long?>(null)
+    private var reminderLessonId by mutableStateOf<String?>(null)
+    private var reminderLessonWeekday by mutableIntStateOf(0)
     private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -188,7 +197,12 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    reminderTaskId = reminderTaskId,
+                    onReminderTaskConsumed = { reminderTaskId = null },
                     scheduleReminderOpenCount = scheduleReminderOpenCount,
+                    reminderLessonId = reminderLessonId,
+                    reminderLessonWeekday = reminderLessonWeekday,
+                    onReminderCourseConsumed = { reminderLessonId = null },
                     localLessons = localLessons,
                     localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = { saved ->
@@ -389,9 +403,14 @@ class MainActivity : ComponentActivity() {
         receiveSchoolReturn(intent)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
     }
 
@@ -449,7 +468,12 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    reminderTaskId: Long?,
+    onReminderTaskConsumed: () -> Unit,
     scheduleReminderOpenCount: Int,
+    reminderLessonId: String?,
+    reminderLessonWeekday: Int,
+    onReminderCourseConsumed: () -> Unit,
     localLessons: List<VerifiedLesson>,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
@@ -476,6 +500,12 @@ private fun NativeShell(
     // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
+    // Inbox selections are transient shell-owned state; Activity reminder arguments
+    // remain immutable and are consumed only by their original notification path.
+    var inboxTaskId by remember { mutableStateOf<Long?>(null) }
+    var inboxLessonId by remember { mutableStateOf<String?>(null) }
+    var inboxLessonWeekday by remember { mutableIntStateOf(0) }
+    var inboxTaskSerial by remember { mutableIntStateOf(0) }
     // One visibility rule for the bottom reserve, tablet rail and glass dock.
     // Child settings must not leave behind navigation chrome during page transitions.
     val showPrimaryNavigation = !messagesOpen &&
@@ -598,7 +628,25 @@ private fun NativeShell(
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = false, onBack = { messagesOpen = false })
+                                useStatusBarInset = false, onBack = { messagesOpen = false },
+                                localTasks = localTasks, localLessons = localLessons,
+                                onOpenLocalTasks = { id ->
+                                    inboxTaskId = id
+                                    inboxTaskSerial++
+                                    messagesOpen = false
+                                    current = MainDestination.TASKS
+                                },
+                                onOpenLocalSchedule = { id, weekday ->
+                                    inboxLessonId = id
+                                    inboxLessonWeekday = weekday
+                                    messagesOpen = false
+                                    current = MainDestination.SCHEDULE
+                                },
+                                onOpenReminderSettings = {
+                                    messagesOpen = false
+                                    current = MainDestination.PROFILE
+                                    profileSettingsRoute = "notifications"
+                                })
                         }
                     } else {
                     // Only one heavy tab is ever composed; no AnimatedContent overlap.
@@ -645,6 +693,13 @@ private fun NativeShell(
                                 }
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
+                                focusLessonId = inboxLessonId ?: reminderLessonId,
+                                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
+                                    else reminderLessonWeekday,
+                                onFocusConsumed = {
+                                    inboxLessonId = null
+                                    onReminderCourseConsumed()
+                                },
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
@@ -656,6 +711,12 @@ private fun NativeShell(
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                                reminderTaskId = inboxTaskId ?: reminderTaskId,
+                                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
+                                onReminderConsumed = {
+                                    inboxTaskId = null
+                                    onReminderTaskConsumed()
+                                },
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
@@ -819,14 +880,14 @@ private fun AcademicPage(
             if (academicRoute != AcademicDestination.OVERVIEW) {
                 IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "返回教务",
+                        contentDescription = "返回校园",
                         tint = XiaoxuPalette.Ink2)
                 }
             }
             Box(Modifier.weight(1f)) {
                 CompactPageHeading(
                     title = when (academicRoute) {
-                        AcademicDestination.OVERVIEW -> "教务"
+                        AcademicDestination.OVERVIEW -> "校园"
                         AcademicDestination.GRADES -> "成绩"
                         AcademicDestination.EXAMS -> "考试"
                         AcademicDestination.SECOND_CLASS -> "第二课堂"
@@ -839,22 +900,26 @@ private fun AcademicPage(
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    // One continuous glass surface; no nested rectangle around the four rows.
-                    XiaoxuGroupedSection {
-                        AcademicActionRow("成绩", Icons.Outlined.School,
-                                onClick = { select(AcademicDestination.GRADES) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("考试", Icons.Outlined.DateRange,
-                                onClick = { select(AcademicDestination.EXAMS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle,
-                                onClick = { select(AcademicDestination.SECOND_CLASS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("校园服务", Icons.Outlined.Home,
-                            onClick = { select(AcademicDestination.SERVICES) })
+                    XiaoxuGroupedSection(title = "教务") {
+                        AcademicActionRow("成绩", Icons.Outlined.School) {
+                            select(AcademicDestination.GRADES)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
+                            select(AcademicDestination.EXAMS)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    XiaoxuGroupedSection(title = "校园生活") {
+                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
+                            select(AcademicDestination.SECOND_CLASS)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
+                            select(AcademicDestination.SERVICES)
+                        }
                     }
                 }
             }

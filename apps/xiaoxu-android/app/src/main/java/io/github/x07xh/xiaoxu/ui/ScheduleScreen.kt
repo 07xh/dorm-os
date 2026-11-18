@@ -200,7 +200,10 @@ fun CloudTimetablePanel(
     onSettingsOpenChanged: (Boolean) -> Unit = {},
     onSettingsClosed: () -> Unit = {},
     onSettingsFileAction: () -> Unit = {},
-    onEditorClosed: () -> Unit = {}
+    onEditorClosed: () -> Unit = {},
+    focusLessonId: String? = null,
+    focusWeekday: Int = 0,
+    onFocusConsumed: () -> Unit = {}
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -217,7 +220,10 @@ fun CloudTimetablePanel(
             onSettingsOpenChanged = onSettingsOpenChanged,
             onSettingsClosed = onSettingsClosed,
             onSettingsFileAction = onSettingsFileAction,
-            onEditorClosed = onEditorClosed
+            onEditorClosed = onEditorClosed,
+            focusLessonId = focusLessonId,
+            focusWeekday = focusWeekday,
+            onFocusConsumed = onFocusConsumed
         )
     }
 }
@@ -317,7 +323,10 @@ private fun ScheduleVerifiedContent(
     onSettingsOpenChanged: (Boolean) -> Unit,
     onSettingsClosed: () -> Unit,
     onSettingsFileAction: () -> Unit,
-    onEditorClosed: () -> Unit
+    onEditorClosed: () -> Unit,
+    focusLessonId: String?,
+    focusWeekday: Int,
+    onFocusConsumed: () -> Unit
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
@@ -354,6 +363,17 @@ private fun ScheduleVerifiedContent(
     }
     var selectedWeekday by rememberSaveable { mutableStateOf(LocalDate.now().dayOfWeek.value) }
     var selectedCourseKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(focusLessonId, focusWeekday, data.lessons, calendar) {
+        val identifier = focusLessonId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val target = data.lessons.firstOrNull { it.id == identifier &&
+            (focusWeekday !in 1..7 || it.weekday == focusWeekday) } ?: return@LaunchedEffect
+        val currentWeek = calendar?.currentWeek(LocalDate.now())
+        selectedWeek = currentWeek?.takeIf { it in target.weeks && it in weekNumbers }
+            ?: target.weeks.firstOrNull { it in weekNumbers } ?: selectedWeek
+        selectedWeekday = target.weekday
+        selectedCourseKey = target.toUi().key
+        onFocusConsumed()
+    }
 
     // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
     val allowedKeys = remember(data.lessons, selectedWeek) {
@@ -1013,77 +1033,40 @@ private fun LessonCard(lesson: LessonUi, onOpen: () -> Unit) {
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.985f else 1f,
         animationSpec = tween(XiaoxuMotion.FeedbackMs),
-        label = "card-press"
+        label = "course-press"
     )
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
+            .clip(RoundedCornerShape(XiaoxuRadius.list))
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
-                onClickLabel = "查看课程详情",
-                role = Role.Button,
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onOpen()
-                }
+                onClickLabel = "查看课程详情", role = Role.Button,
+                onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onOpen() }
             ),
-        shape = RoundedCornerShape(XiaoxuRadius.card),
-        colors = CardDefaults.cardColors(containerColor = courseColor.background)
+        shape = RoundedCornerShape(XiaoxuRadius.list),
+        colors = CardDefaults.cardColors(containerColor = XiaoxuPalette.GlassCard)
     ) {
-        Row(Modifier.fillMaxWidth()) {
-            Box(
-                Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
-                    .background(courseColor.accent)
-            )
-            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = lesson.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = courseColor.foreground,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(4.dp).heightIn(min = XiaoxuSpacing.listRowMin)
+                .background(courseColor.accent))
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(lesson.title, style = MaterialTheme.typography.titleMedium,
+                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f))
                     SectionBadge(lesson.sectionLabel)
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = XiaoxuPalette.Ink2
-                    )
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Room, contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = lesson.location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Icon(Icons.Outlined.PersonOutline, contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = lesson.teacher,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                val meta = listOf(lesson.location, lesson.teacher)
+                    .filter { it.isNotBlank() }.joinToString(" · ")
+                if (meta.isNotEmpty()) {
+                    Text(meta, style = MaterialTheme.typography.bodySmall,
+                        color = XiaoxuPalette.Ink2, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -1140,7 +1123,7 @@ private fun CourseDetailBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
+        shape = RoundedCornerShape(topStart = XiaoxuRadius.modal, topEnd = XiaoxuRadius.modal),
         containerColor = XiaoxuPalette.SheetSurface,
         scrimColor = XiaoxuPalette.ModalScrim,
         dragHandle = {

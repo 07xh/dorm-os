@@ -113,7 +113,7 @@ object XiaoxuPalette {
     )
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.85f)
+    val GlassCard = Color.White.copy(alpha = 0.95f)
     val GlassBorder = Color.White.copy(alpha = 0.74f)
     val GlassTrack = Color.White.copy(alpha = 0.48f)
     val GlassIndicator = Color.White.copy(alpha = 0.60f)
@@ -176,11 +176,16 @@ object XiaoxuPalette {
     val NeutralSoft = Color(0xFFF1F4FA)
 }
 
-/** 参考北化的大圆角几何，全 App 同源，不为各页面另建 CardShape。 */
+/** B2 hierarchy: outer groups soften the boundary; inner rows stay visually quieter.
+ * Keep navigation-dock geometry independent of these content-only tokens.
+ */
 object XiaoxuRadius {
-    val card: Dp = 24.dp
+    val group: Dp = 20.dp
+    val card: Dp = 18.dp
+    val list: Dp = 14.dp
+    val tile: Dp = 12.dp
     val hero: Dp = 28.dp
-    val tile: Dp = 16.dp
+    val modal: Dp = 28.dp
     val pill: Dp = 999.dp
 }
 
@@ -192,7 +197,7 @@ object XiaoxuSpacing {
     val gap: Dp = 8.dp
 
     /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
-    val listRowMin: Dp = 76.dp
+    val listRowMin: Dp = 68.dp
     val glassStroke: Dp = 0.5.dp
 }
 
@@ -374,7 +379,7 @@ internal fun XiaoxuSoftIconButton(
 // ---------------------------------------------------------------------------
 
 /**
- * 通用柔和玻璃卡：与设置分组共享 24dp 圆角和 0.5dp 轻描边，不重复叠灰影。
+ * 普通内容卡使用18dp；设置外分组20dp、连续行14dp，不重复叠灰影。
  * 传 onClick 才可点，触控高度强制 ≥48dp；不传就是纯展示容器。
  */
 @Composable
@@ -391,12 +396,9 @@ fun XiaoxuCard(
             .fillMaxWidth()
             .clip(shape)
             .background(container)
-            .then(if (container == XiaoxuPalette.GlassCard)
-                Modifier.background(XiaoxuPalette.GlassSheen) else Modifier)
             .border(
-                if (container == XiaoxuPalette.GlassCard) XiaoxuSpacing.glassStroke else 0.75.dp,
-                if (container == XiaoxuPalette.GlassCard) XiaoxuPalette.GlassBorder
-                else XiaoxuPalette.Line,
+                XiaoxuSpacing.glassStroke,
+                XiaoxuPalette.Line,
                 shape
             )
             .then(
@@ -511,12 +513,11 @@ internal fun XiaoxuGroupSurface(
     verticalPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(XiaoxuRadius.card)
+    val shape = RoundedCornerShape(XiaoxuRadius.group)
     Column(
         modifier = modifier.fillMaxWidth().clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
             .padding(vertical = verticalPadding),
         content = content
     )
@@ -794,7 +795,7 @@ fun XiaoxuGlassDialog(
     showDismissButton: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(32.dp)
+    val shape = RoundedCornerShape(XiaoxuRadius.modal)
     val maxDialogHeight = LocalConfiguration.current.screenHeightDp.dp * 0.82f
     Dialog(
         onDismissRequest = onDismiss,
@@ -898,7 +899,7 @@ private fun XiaoxuStatePanel(
                 )
             }
             Spacer(Modifier.width(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
@@ -1055,9 +1056,9 @@ fun QuickEntry(
     Column(
         modifier = modifier
             .heightIn(min = 88.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
             .background(XiaoxuPalette.GlassCard)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, RoundedCornerShape(XiaoxuRadius.card))
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, RoundedCornerShape(XiaoxuRadius.tile))
             .clickable(onClick = onClick, role = Role.Button)
             .padding(vertical = 10.dp, horizontal = 4.dp)
             .semantics { contentDescription = label },
