@@ -331,6 +331,11 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
         if (now.toInstant().isBefore(plannedAt.minusSeconds(3 * 60L)) ||
             now.toInstant().isAfter(plannedAt.plusSeconds(10 * 60L)) ||
             !now.toInstant().isBefore(startAt.plusSeconds(5 * 60L))) return Result.success()
+        // WorkManager can run late: the originally intended time also honors quiet hours.
+        val plannedLocal = plannedAt.atZone(now.zone).toLocalTime()
+        val quiet = LocalReminderQuietHours.load(applicationContext)
+        if (isQuietMinute(plannedLocal.hour * 60 + plannedLocal.minute, quiet))
+            return Result.success()
         LocalCourseReminders.deliver(applicationContext, lesson)
         return Result.success()
     }

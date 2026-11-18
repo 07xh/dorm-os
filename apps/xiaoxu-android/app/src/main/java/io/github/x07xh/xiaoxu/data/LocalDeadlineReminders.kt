@@ -229,6 +229,10 @@ class LocalDeadlineReminderWorker(context: Context, params: WorkerParameters) : 
             (phase == "today" && !schedule.dueDay) ||
             inputData.getInt("schedule_hour", 9) != schedule.hour ||
             inputData.getInt("schedule_minute", 0) != schedule.minute) return Result.success()
+        // A job delayed past the end of quiet hours must still be skipped:
+        // check its *scheduled* local clock time as well as the current time.
+        val quiet = LocalReminderQuietHours.load(applicationContext)
+        if (isQuietMinute(schedule.hour * 60 + schedule.minute, quiet)) return Result.success()
         val task = runBlocking { LocalTaskDatabase.open(applicationContext).tasks().findById(id) }
             ?: return Result.success()
         if (task.completed || task.due != due) return Result.success()
