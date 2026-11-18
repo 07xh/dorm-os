@@ -80,7 +80,9 @@ data class CampusRunManualInput(
     val creditedKm: String,
     val semesterTotalKm: String,
     val dashboardTotalKm: String,
-    val weeklyKm: String
+    val weeklyKm: String,
+    val semesterCount: String = "",
+    val semesterValidCount: String = ""
 )
 
 fun parseCampusRunKilometers(raw: String): Long? {
@@ -91,6 +93,14 @@ fun parseCampusRunKilometers(raw: String): Long? {
     return java.math.BigDecimal(value)
         .multiply(java.math.BigDecimal(1_000))
         .longValueExact()
+}
+
+/** One direct semester summary count, never inferred from accumulated meters. */
+fun parseCampusRunCount(raw: String): Int? {
+    val value = raw.trim()
+    if (value.isEmpty()) return null
+    require(Regex("^(0|[1-9][0-9]{0,6})$").matches(value)) { "invalid_run_count" }
+    return value.toInt().also { require(it in 0..1_000_000) }
 }
 
 fun CampusRunManualInput.toSnapshot(nowEpochMillis: Long): CampusRunSnapshot =
@@ -105,7 +115,9 @@ fun CampusRunManualInput.toSnapshot(nowEpochMillis: Long): CampusRunSnapshot =
         historyComplete = false,
         records = emptyList(),
         dashboardAccumulatedMeters = parseCampusRunKilometers(dashboardTotalKm),
-        weeklyMeters = parseCampusRunKilometers(weeklyKm)
+        weeklyMeters = parseCampusRunKilometers(weeklyKm),
+        totalRunCount = parseCampusRunCount(semesterCount),
+        effectiveRunCount = parseCampusRunCount(semesterValidCount)
     ), nowEpochMillis)
 
 private const val MAX_TOTAL_METERS = 10_000_000L
