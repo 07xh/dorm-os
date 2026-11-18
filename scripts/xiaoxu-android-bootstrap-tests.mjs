@@ -1079,6 +1079,19 @@ assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
   '长课程预览列表不应再套重复的玻璃卡片');
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
+const ace6VisualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
+assert.match(bottomActions, /BoxWithConstraints\(/,
+  '底部浮层必须根据剩余可用空间布局');
+assert.match(bottomActions, /navigationBarsPadding\(\)/,
+  '底部浮层不得遮挡 Android 系统手势条');
+assert.match(bottomActions, /imePadding\(\)/,
+  '输入法唤出后必须给弹窗让出空间');
+assert.match(bottomActions, /availableSheetHeight = maxHeight \* 0\.94f/,
+  '弹窗高度必须按扣除 inset 的当前视口计算');
+assert.match(ace6VisualQa, /sdk === 37 && release === '17'/,
+  '验收工具必须兼容用户的 Ace 6 Android 17 系统');
+assert.match(ace6VisualQa, /18-keyboard-short-screen/,
+  '真机验收不能遗漏输入法遮挡和短屏');
 assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
   '个人分类选择应改用统一的底部操作弹窗');
 assert.match(bottomActions, /stateDescription = "已选择"/,
@@ -1513,6 +1526,10 @@ assert.match(design, /fun XiaoxuExpandableGlassRow\(/,
   '保留唯一原生玻璃展开控件');
 assert.match(design, /fun XiaoxuGlassDialog\(/,
   '必须存在同一居中玻璃详情容器');
+assert.match(design, /availableDialogHeight = maxHeight \* 0\.92f/,
+  '居中详情高度需按有效视口动态收缩');
+assert.match(design, /\.weight\(1f, fill = false\)[\s\S]*?\.verticalScroll\(rememberScrollState\(\)\)/,
+  '长正文应独立滚动，以免标题和关闭操作被卷走');
 const glassRowDialogSource = design.slice(design.indexOf('fun XiaoxuExpandableGlassRow('),
   design.indexOf('fun MetricCard('));
 assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
