@@ -202,18 +202,41 @@ class CampusRunSnapshotGate(
 
     private var previous: CampusRunSnapshot? = null
     private var lastFailure: CampusRunFailure? = null
+    /** A restored snapshot cannot prove that upstream authorization is still valid. */
+    private var restoredFromCache = false
 
     fun accept(snapshot: CampusRunSnapshot, nowEpochMillis: Long): CampusRunViewState {
         val verified = validateCampusRunSnapshot(snapshot, nowEpochMillis)
         previous = verified
         lastFailure = null
+        restoredFromCache = false
+        return state(nowEpochMillis)
+    }
+
+    /**
+     * Restoring a verified local ciphertext does not verify the live service
+     * again. Always render it as cached/stale, even when captured recently.
+     */
+    fun restoreCached(
+        snapshot: CampusRunSnapshot,
+        nowEpochMillis: Long
+    ): CampusRunViewState {
+        val verified = validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        require(verified.provenance == CampusRunProvenance.TRUSTED_READONLY &&
+            verified.ownerMatched) { "untrusted_cache_restore" }
+        previous = verified
+        lastFailure = null
+        restoredFromCache = true
         return state(nowEpochMillis)
     }
 
     fun refreshFailed(reason: CampusRunFailure, nowEpochMillis: Long): CampusRunViewState {
         // Revoked/expired authorization is not an ordinary network failure:
         // do not continue exposing the previous owner's personal snapshot.
-        if (reason == CampusRunFailure.NOT_AUTHORIZED) previous = null
+        if (reason == CampusRunFailure.NOT_AUTHORIZED) {
+            previous = null
+            restoredFromCache = false
+        }
         lastFailure = reason
         return state(nowEpochMillis)
     }
@@ -222,7 +245,7 @@ class CampusRunSnapshotGate(
         require(nowEpochMillis > 0)
         val value = previous ?: return lastFailure?.let(CampusRunViewState::Unavailable)
             ?: CampusRunViewState.NotConnected
-        val stale = lastFailure != null ||
+        val stale = restoredFromCache || lastFailure != null ||
             nowEpochMillis < value.capturedAtEpochMillis ||
             nowEpochMillis - value.capturedAtEpochMillis > maxAgeMillis
         return if (stale) CampusRunViewState.Stale(value, lastFailure)
@@ -232,5 +255,6 @@ class CampusRunSnapshotGate(
     fun clear() {
         previous = null
         lastFailure = null
+        restoredFromCache = false
     }
 }
