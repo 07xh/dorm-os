@@ -71,7 +71,9 @@ class AndroidCampusRunRequestCheckpointStore(context: Context) :
  */
 class CampusRun72HourReadCoordinator(
     private val query: CampusRunReadOnlyQuery,
-    private val budget: CampusRun72HourRequestBudget
+    private val budget: CampusRun72HourRequestBudget,
+    /** Optional, already owner-scoped Android Keystore cache. */
+    private val trustedCache: CampusRunTrustedSnapshotCache? = null
 ) {
     private val mutex = Mutex()
     private var currentSubject: String? = null
@@ -81,6 +83,9 @@ class CampusRun72HourReadCoordinator(
         try {
             query.clear()
             currentSubject = null
+            // Do not keep personally identified official running history after
+            // 校序 owner sign-out, even while the read budget persists.
+            trustedCache?.clear()
         } finally {
             mutex.unlock()
         }
@@ -99,15 +104,43 @@ class CampusRun72HourReadCoordinator(
     ): CampusRunViewState {
         mutex.lock()
         try {
-            // A cached snapshot is never shown across accounts, including
-            // when the new account is still within its cooldown window.
+            // Switching accounts must not reveal in-memory data from a prior
+            // source. AEAD in the cache independently enforces that binding.
             if (currentSubject != fingerprint) {
                 query.clear()
                 currentSubject = fingerprint
+                try {
+                    trustedCache?.load(fingerprint, now)?.let {
+                        query.restoreTrustedSnapshot(fingerprint, it, now)
+                    }
+                } catch (_: Exception) {
+                    // A broken or inaccessible cache is never authorization.
+                    query.clear()
+                }
             }
             if (!budget.reserveIfDue(fingerprint, now)) return query.state(now)
-            return if (history) query.refresh(fingerprint, now)
+
+            val result = if (history) query.refresh(fingerprint, now)
                 else query.refreshSummary(fingerprint, now)
+            when (result) {
+                is CampusRunViewState.Current -> {
+                    // The successful official read may still be shown if disk
+                    // persistence fails; a subsequent launch must never fake
+                    // a stored snapshot.
+                    try {
+                        trustedCache?.save(fingerprint, result.snapshot, now)
+                    } catch (_: Exception) {
+                        // No secret data is logged. The live result is valid.
+                    }
+                }
+                is CampusRunViewState.Unavailable -> {
+                    if (result.reason == CampusRunFailure.NOT_AUTHORIZED) {
+                        trustedCache?.clear()
+                    }
+                }
+                else -> Unit // A failed read must not replace a good cache.
+            }
+            return result
         } finally {
             mutex.unlock()
         }
