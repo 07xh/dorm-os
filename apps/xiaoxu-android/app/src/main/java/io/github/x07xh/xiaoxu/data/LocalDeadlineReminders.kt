@@ -180,7 +180,7 @@ object LocalDeadlineReminders {
     }
 
     internal fun deliver(context: Context, task: LocalTask, phase: String) {
-        if (!enabled(context) || !canNotify(context)) return
+        if (!enabled(context) || !canNotify(context) || LocalReminderQuietHours.suppressNow(context)) return
         val app = context.applicationContext
         val notifications = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {

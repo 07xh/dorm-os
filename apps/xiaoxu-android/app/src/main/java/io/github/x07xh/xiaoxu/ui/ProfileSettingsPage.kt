@@ -56,6 +56,8 @@ import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
 import io.github.x07xh.xiaoxu.data.DeadlineReminderSchedule
+import io.github.x07xh.xiaoxu.data.LocalQuietHours
+import io.github.x07xh.xiaoxu.data.LocalReminderQuietHours
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
@@ -241,6 +243,9 @@ private fun NotificationSettingsContent(
     var leadPickerOpen by remember { mutableStateOf(false) }
     var reminderSchedule by remember { mutableStateOf(LocalDeadlineReminders.schedule(context)) }
     var taskTimePickerOpen by remember { mutableStateOf(false) }
+    var quietHours by remember { mutableStateOf(LocalReminderQuietHours.load(context)) }
+    // 0 = closed, 1 = start, 2 = end; only one picker is ever composed.
+    var quietTimePicker by remember { mutableStateOf(0) }
     var permissionTarget by remember { mutableStateOf("course") }
 
     fun toggle(value: Boolean) {
@@ -286,6 +291,17 @@ private fun NotificationSettingsContent(
             reminderSchedule = LocalDeadlineReminders.schedule(context)
             if (!success) Toast.makeText(context,
                 "提醒配置未完全生效，请重试", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun updateQuietHours(value: LocalQuietHours) {
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                LocalReminderQuietHours.save(context, value)
+            }
+            quietHours = LocalReminderQuietHours.load(context)
+            if (!saved) Toast.makeText(context,
+                "免打扰设置保存失败，请重试", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -368,6 +384,27 @@ private fun NotificationSettingsContent(
         ) { taskTimePickerOpen = true }
     }
     Spacer(Modifier.height(14.dp))
+    XiaoxuGroupedSection(title = "免打扰") {
+        ReminderToggleRow(
+            title = "启用本机免打扰",
+            subtitle = "时段内跳过提醒，不补发；不修改系统免打扰",
+            checked = quietHours.enabled,
+            onCheckedChange = { updateQuietHours(quietHours.copy(enabled = it)) }
+        )
+        SettingsDivider()
+        SettingsEntry(
+            "开始 · " + "%02d:%02d".format(
+                quietHours.startMinutes / 60, quietHours.startMinutes % 60),
+            Icons.Outlined.DateRange
+        ) { quietTimePicker = 1 }
+        SettingsDivider()
+        SettingsEntry(
+            "结束 · " + "%02d:%02d".format(
+                quietHours.endMinutes / 60, quietHours.endMinutes % 60),
+            Icons.Outlined.DateRange
+        ) { quietTimePicker = 2 }
+    }
+    Spacer(Modifier.height(14.dp))
     XiaoxuGroupedSection(title = "系统") {
         SettingsEntry("通知权限与渠道", Icons.Outlined.NotificationsNone,
             onClick = ::openPermissionSettings)
@@ -375,6 +412,43 @@ private fun NotificationSettingsContent(
     Text("本机课程与个人任务 · 省电模式下可能延迟",
         style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp))
+
+    if (quietTimePicker != 0) {
+        val pickingStart = quietTimePicker == 1
+        val chosen = if (pickingStart) quietHours.startMinutes else quietHours.endMinutes
+        AlertDialog(
+            onDismissRequest = { quietTimePicker = 0 },
+            title = { Text(if (pickingStart) "免打扰开始时间" else "免打扰结束时间") },
+            text = {
+                val listState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = (chosen / 30 - 2).coerceAtLeast(0))
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                    state = listState
+                ) {
+                    items((0..47).toList()) { slot ->
+                        val minutes = slot * 30
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .clickable {
+                                quietTimePicker = 0
+                                if (chosen != minutes) {
+                                    updateQuietHours(if (pickingStart)
+                                        quietHours.copy(startMinutes = minutes)
+                                    else quietHours.copy(endMinutes = minutes))
+                                }
+                            }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("%02d:%02d".format(minutes / 60, minutes % 60),
+                                modifier = Modifier.weight(1f), color = XiaoxuPalette.Ink)
+                            if (minutes == chosen) Icon(Icons.Outlined.CheckCircle,
+                                contentDescription = "已选择", tint = XiaoxuPalette.Brand)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { quietTimePicker = 0 }) { Text("关闭") } }
+        )
+    }
 
     if (leadPickerOpen) {
         XiaoxuBottomActionSheet(

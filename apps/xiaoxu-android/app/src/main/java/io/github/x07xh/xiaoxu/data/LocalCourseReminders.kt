@@ -270,7 +270,7 @@ object LocalCourseReminders {
     }
 
     internal fun deliver(context: Context, lesson: VerifiedLesson) {
-        if (!enabledForCourse(context, lesson.id) || !canNotify(context)) return
+        if (!enabledForCourse(context, lesson.id) || !canNotify(context) || LocalReminderQuietHours.suppressNow(context)) return
         val app = context.applicationContext
         val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
