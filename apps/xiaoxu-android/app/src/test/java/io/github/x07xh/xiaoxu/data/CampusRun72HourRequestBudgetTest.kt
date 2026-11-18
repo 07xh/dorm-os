@@ -48,4 +48,22 @@ class CampusRun72HourRequestBudgetTest {
         assertFalse(CampusRun72HourRequestBudget(store).reserveIfDue(a, now))
         assertFalse(store.attempts.containsKey(a))
     }
+    @Test fun multipleBudgetInstancesCannotRaceAroundTheSameCheckpoint() {
+        val store = FakeStore()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(8)
+        val start = java.util.concurrent.CountDownLatch(1)
+        try {
+            val attempts = (1..8).map {
+                pool.submit<Boolean> {
+                    start.await()
+                    CampusRun72HourRequestBudget(store).reserveIfDue(a, now)
+                }
+            }
+            start.countDown()
+            assertTrue(attempts.count { it.get() } == 1)
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
 }
