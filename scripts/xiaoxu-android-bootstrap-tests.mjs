@@ -318,6 +318,10 @@ assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-task"\)/,
   'Course and task toggles must share a single screen');
 assert.match(profileSettings, /XiaoxuGroupedSection\(title = "个人任务"\)/);
 assert.match(profileSettings, /updateReminderSchedule\(reminderSchedule\.copy\(/);
+assert.match(profileSettings, /title = "上课提醒", subtitle = "", checked = enabled/,
+  '课程提醒状态直接来自本机真实开关，单页操作不再二次跳转');
+assert.match(profileSettings, /title = "截止提醒", subtitle = "", checked = deadlineEnabled/,
+  '本机截止提醒独立显示真实开关状态');
 assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
   '课程提前时间调整应写入唯一的本机提醒配置');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
@@ -677,9 +681,15 @@ assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
   '编辑课程星期须使用与课表设置同一套原生分段选择组件');
 assert.match(courseEditor, /selectedKey = weekday/,
   '星期选中态必须来自正在编辑的真实课程');
-assert.match(courseEditor, /onSelected = \{ weekday = it \}/,
+assert.match(courseEditor, /onSelected = \{ if \(!busy\) weekday = it \}/,
   '选择星期必须更新已有课程字段而非仅展示');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
+assert.match(courseEditor, /compact = true/,
+  '课程星期采用紧凑分段控件');
+assert.match(courseEditor, /enabled = !weekOnly && !busy/,
+  '保存中不允许修改课程周次');
+assert.match(courseEditor, /仅修改本机课表，不会提交到学校教务系统/,
+  '课程编辑须明确告知只改本机');
 assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
   '保留已确认的仅删除选中周次行为');
 assert.match(courseEditor, /onSave\(it, weekOnly\)/,
@@ -1056,6 +1066,21 @@ assert.match(reviewRoute, /authorize\(context\)/);
 assert.match(reviewRoute, /sec-fetch-site/);
 assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
 
+const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
+assert.match(stepEditor, /XiaoxuBottomActionSheet\(/,
+  '步骤删除采用统一确认组件');
+assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/,
+  '保留本机 Room 删除事务');
+assert.doesNotMatch(stepEditor, /AlertDialog\(/,
+  '步骤删除不应叠加第二层弹窗');
+assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/,
+  '课表导入记录减少必须二次确认');
+assert.match(importPreview, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
+  '长课程列表保留连续分隔线');
+assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
+  '预览列表不能重新嵌套大卡片');
+
 // 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
@@ -1119,6 +1144,14 @@ assert.match(taskBackup, /tryAddDependency\(from, to\)/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.CreateDocument/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
+assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "任务数据"\)/,
+  '备份数据分组须保持');
+assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "安全与说明"\)/,
+  '安全说明需分组呈现');
+assert.match(workspace, /LocalTaskBackupPanel\(embedded = true\)/,
+  '任务备份浮层不能嵌套全屏卡');
+assert.match(workspace, /if \(showTaskBackup\) \{\s*XiaoxuBottomSheet\(/,
+  '任务备份复用底部浮层');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 
@@ -1500,7 +1533,7 @@ assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
   '禁止在详情卡片内重新引入向下展开');
 assert.match(profileSettings, /"connections" -> item \{/,
   '数据连接详情独立成二级页面，而非旧版工具浮层');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
   '云端同步详情不得顶开本机连接列表');
 assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.95f\)/,
   '统一玻璃卡透明度，避免彩色底透出硬灰边');
@@ -1987,8 +2020,12 @@ assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/,
   '待审核数量仍以消息中心真实读取结果为准');
 assert.match(workspace, /var openedTaskKey by rememberSaveable/, '任务详情选中状态应可保存');
 assert.match(workspace, /val selectedTask = all\.firstOrNull/, '任务详情仅从已有真实记录回查');
-assert.match(workspace, /XiaoxuSheet\(onDismiss = onDismiss, title = "任务详情"\)/,
-  '任务详情必须使用共享原生底部抽屉');
+assert.match(workspace, /XiaoxuBottomSheet\(\s*title = "任务详情"/,
+  '任务详情必须使用共享原生底部浮层');
+assert.match(workspace, /Text\("来源与日期"/,
+  '任务详情须区分来源和时间');
+assert.match(workspace, /Text\("前置关系"/,
+  '任务详情区分前置条件');
 assert.match(workspace, /clickable\(onClickLabel = "查看任务详情", onClick = onOpen\)/,
   '任务卡片必须可以真实点击');
 assert.match(workspace, /task\.storage == "cloud"/, '任务来源必须区分云端与本机');
@@ -2034,7 +2071,7 @@ assert.doesNotMatch(panels, /SchoolReaderSection\(|SectionHeader\(title = "数�
   '二级数据连接已有页面标题，不得再叠加无效包装层及同名标题');
 assert.ok(panels.includes('LocalSchoolConnectionPanel('),
   '不得移除原生学校读取入口');
-assert.match(panels, /if \(cloudAdvanced\) XiaoxuGlassDialog\(/,
+assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
   '云端授权仍是独立可选入口，详情改为居中浮层而不向下展开');
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。

@@ -193,17 +193,32 @@ private fun SettingsDivider() {
 }
 
 @Composable
-private fun SettingsEntry(title: String, icon: ImageVector, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+private fun SettingsEntry(
+    title: String,
+    icon: ImageVector,
+    subtitle: String? = null,
+    statusLabel: String? = null,
+    onClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 58.dp else 70.dp)
         .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
         .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null,
             tint = XiaoxuPalette.Brand, modifier = Modifier.size(22.dp))
         Spacer(Modifier.size(16.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (!statusLabel.isNullOrBlank()) {
+            Text(statusLabel, style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(end = 8.dp))
+        }
         Icon(Icons.Outlined.ChevronRight, contentDescription = null,
             tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
     }

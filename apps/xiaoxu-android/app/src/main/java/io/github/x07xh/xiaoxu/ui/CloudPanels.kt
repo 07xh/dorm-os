@@ -307,12 +307,28 @@ private fun CloudAuthorizationSection(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(
             title = "云端同步",
-            actionLabel = "查看",
+            actionLabel = "管理",
             onAction = onToggleAdvanced
         )
-        if (cloudAdvanced) XiaoxuGlassDialog(
-            title = "云端同步",
-            onDismiss = onToggleAdvanced
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                if (state.authenticated) "校序云端已连接" else "校序云端未连接",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Ink2
+            )
+            SourceBadge(
+                text = if (state.authenticated) "已连接" else "未连接",
+                tone = if (state.authenticated) XiaoxuTone.Success else XiaoxuTone.Neutral
+            )
+        }
+        if (cloudAdvanced) XiaoxuBottomSheet(
+            title = "云端同步与授权",
+            onDismiss = onToggleAdvanced,
+            cancelLabel = "关闭"
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
