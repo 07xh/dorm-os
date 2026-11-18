@@ -55,7 +55,8 @@ class CampusRunContractTest {
         assertEquals(0L, parseCampusRunKilometers("0.00"))
         assertNull(parseCampusRunKilometers("  "))
         rejects { parseCampusRunKilometers("-1") }
-        rejects { parseCampusRunKilometers("1.999") }
+        assertEquals(1_999L, parseCampusRunKilometers("1.999"))
+        rejects { parseCampusRunKilometers("1.9999") }
         rejects { parseCampusRunKilometers("1e6") }
         rejects { parseCampusRunKilometers("1,000") }
     }
