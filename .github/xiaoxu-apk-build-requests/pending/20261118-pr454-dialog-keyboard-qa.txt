@@ -1,0 +1,6 @@
+Explicit user continuation: build a QA-only Android package to validate the fifth-round dialog-layout fixes.
+Scope: keyboard and gesture navigation insets; center-dialog title/footer anchoring; bottom-sheet height based on available screen; Android 17 OnePlus Ace 6 verification collector.
+This is NOT a final/formal release request. Do not sign a replacement key or publish a public release.
+Build debug and isolated unified native QA APK; run Kotlin/JVM checks, Android runtime instrumentation, Room migration and repository CI.
+Use real application logic only; do not generate mock school records. Physical Ace 6 / Pad 2 Pro screenshots require device-side evidence and are not claimed by automated tests.
+Source PR: ui/insets-responsive-dialog-v5-20261118.
