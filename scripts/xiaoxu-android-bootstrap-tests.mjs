@@ -314,6 +314,10 @@ assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animated
   '分类设置复用唯一提醒权限与调度网关');
 assert.match(profileSettings, /onRouteChange\("notifications-course"\)/);
 assert.match(profileSettings, /onRouteChange\("notifications-task"\)/);
+assert.match(profileSettings, /statusLabel = if \(enabled\) "开关已开"/,
+  '提醒总览须显示来自真实本机开关值的状态');
+assert.match(profileSettings, /statusLabel = if \(deadlineEnabled\) "开关已开"/,
+  '本机截止提醒应独立显示自身开关状态');
 assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
   '课程提前时间调整应写入唯一的本机提醒配置');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
@@ -673,11 +677,17 @@ assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
   '编辑课程星期须使用与课表设置同一套原生分段选择组件');
 assert.match(courseEditor, /selectedKey = weekday/,
   '星期选中态必须来自正在编辑的真实课程');
-assert.match(courseEditor, /onSelected = \{ weekday = it \}/,
+assert.match(courseEditor, /onSelected = \{ if \(!busy\) weekday = it \}/,
   '选择星期必须更新已有课程字段而非仅展示');
 assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
 assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
   '保留已确认的仅删除选中周次行为');
+assert.match(courseEditor, /compact = true/,
+  '课程星期分段选择器应使用紧凑统一外观');
+assert.match(courseEditor, /enabled = !weekOnly && !busy/,
+  '保存中禁止修改周次以免提交竞态');
+assert.match(courseEditor, /仅修改本机课表，不会提交到学校教务系统/,
+  '编辑课程须明确区分本机变更与学校提交');
 assert.match(courseEditor, /onSave\(it, weekOnly\)/,
   '表单仍须连接已有本机课程编辑回调');
 assert.doesNotMatch(courseEditor, /\n    AlertDialog\(\s*onDismissRequest = \{ if \(!busy\) onDismiss\(\) \}/,
@@ -1053,6 +1063,20 @@ assert.match(reviewRoute, /sec-fetch-site/);
 assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
 
 // 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
+const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
+assert.match(stepEditor, /XiaoxuBottomActionSheet\(/,
+  '步骤删除应使用统一底部确认，不叠加老旧 AlertDialog');
+assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/,
+  '步骤删除继续执行本机 Room 事务');
+assert.doesNotMatch(stepEditor, /AlertDialog\(/,
+  '步骤删除不得恢复另一个居中系统弹窗');
+assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/,
+  '课块减少时必须保留显式二次确认');
+assert.match(importPreview, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
+  '课表导入应使用紧凑连续条目和分隔线');
+assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
+  '长课程预览列表不应再套重复的玻璃卡片');
 const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
 assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,

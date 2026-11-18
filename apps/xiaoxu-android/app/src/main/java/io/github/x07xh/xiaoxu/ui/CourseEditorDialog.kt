@@ -160,9 +160,12 @@ internal fun CourseEditorDialog(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        EditorField(name, { name = it; localError = null }, "课程名称")
-                        EditorField(teacher, { teacher = it }, "任课教师（可选）")
-                        EditorField(location, { location = it }, "教室（可选）")
+                        EditorField(name, { name = it; localError = null }, "课程名称",
+                            enabled = !busy)
+                        EditorField(teacher, { teacher = it }, "任课教师（可选）",
+                            enabled = !busy)
+                        EditorField(location, { location = it }, "教室（可选）",
+                            enabled = !busy)
                     }
                 }
                 XiaoxuGroupedSection(title = "上课时间") {
@@ -180,12 +183,15 @@ internal fun CourseEditorDialog(
                                 XiaoxuSegmentOption("7", "日")
                             ),
                             selectedKey = weekday,
-                            onSelected = { weekday = it }
+                            onSelected = { if (!busy) weekday = it },
+                            compact = true
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            EditorField(start, { start = it }, "开始节", numeric = true,
+                            EditorField(start, { start = it }, "开始节", enabled = !busy,
+                                numeric = true,
                                 modifier = Modifier.weight(1f))
-                            EditorField(end, { end = it }, "结束节", numeric = true,
+                            EditorField(end, { end = it }, "结束节", enabled = !busy,
+                                numeric = true,
                                 modifier = Modifier.weight(1f))
                         }
                     }
@@ -195,7 +201,8 @@ internal fun CourseEditorDialog(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        EditorField(weeks, { weeks = it }, "周次（如1-16,18）", enabled = !weekOnly)
+                        EditorField(weeks, { weeks = it }, "周次（如1-16,18）",
+                            enabled = !weekOnly && !busy)
                         if (canScope) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
@@ -210,13 +217,19 @@ internal fun CourseEditorDialog(
                         }
                     }
                 }
+                Text(
+                    "仅修改本机课表，不会提交到学校教务系统。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2,
+                    modifier = Modifier.padding(horizontal = 14.dp)
+                )
                 if (externalError != null || localError != null) {
                     Text(externalError ?: localError.orEmpty(),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(horizontal = 14.dp))
                 }
                 if (original != null) {
-                    XiaoxuGroupedSection {
+                    XiaoxuGroupedSection(title = "危险操作") {
                         TextButton(
                             enabled = !busy,
                             onClick = { confirmDelete = true },

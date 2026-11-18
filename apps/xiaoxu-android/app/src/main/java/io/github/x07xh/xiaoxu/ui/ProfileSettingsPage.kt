@@ -189,17 +189,32 @@ private fun SettingsDivider() {
 }
 
 @Composable
-private fun SettingsEntry(title: String, icon: ImageVector, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+private fun SettingsEntry(
+    title: String,
+    icon: ImageVector,
+    subtitle: String? = null,
+    statusLabel: String? = null,
+    onClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 58.dp else 70.dp)
         .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
         .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null,
             tint = XiaoxuPalette.Brand, modifier = Modifier.size(22.dp))
         Spacer(Modifier.size(16.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (!statusLabel.isNullOrBlank()) {
+            Text(statusLabel, style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(end = 8.dp))
+        }
         Icon(Icons.Outlined.ChevronRight, contentDescription = null,
             tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
     }
@@ -305,11 +320,19 @@ private fun NotificationSettingsContent(
     when (route) {
         "notifications" -> {
             XiaoxuGroupedSection(title = "提醒类别") {
-                SettingsEntry("课程提醒", Icons.Outlined.DateRange) {
+                SettingsEntry(
+                    "课程提醒", Icons.Outlined.DateRange,
+                    subtitle = "本机课表 · 单门课程可独立设置",
+                    statusLabel = if (enabled) "开关已开" else "已关闭"
+                ) {
                     onRouteChange("notifications-course")
                 }
                 SettingsDivider()
-                SettingsEntry("任务提醒", Icons.Outlined.CheckCircle) {
+                SettingsEntry(
+                    "任务提醒", Icons.Outlined.CheckCircle,
+                    subtitle = "本人标注的本机待办日期",
+                    statusLabel = if (deadlineEnabled) "开关已开" else "已关闭"
+                ) {
                     onRouteChange("notifications-task")
                 }
             }
@@ -321,9 +344,9 @@ private fun NotificationSettingsContent(
             Spacer(Modifier.height(16.dp))
             XiaoxuGroupedSection(title = "其他学业来源") {
                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text("学习通作业、考试、第二课堂和微信任务",
+                    Text("学习通、考试、第二课堂与微信任务",
                         style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
-                    Text("待本人真实数据与状态核验后接入系统提醒；现阶段仍可在原有消息或任务页面查看，不提供无效开关。",
+                    Text("专用系统提醒仍待真实数据及状态核验。相关记录继续在消息或任务页面查看，不展示未接入的开关。",
                         style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
                 }
             }
@@ -343,7 +366,11 @@ private fun NotificationSettingsContent(
                     }
                 )
                 SettingsDivider()
-                SettingsEntry("提前提醒 · ${leadMinutes} 分钟", Icons.Outlined.DateRange) {
+                SettingsEntry(
+                    if (leadMinutes == 0) "上课时提醒" else "提前提醒 · ${leadMinutes} 分钟",
+                    Icons.Outlined.DateRange,
+                    subtitle = "选择提醒提前量"
+                ) {
                     leadPickerOpen = true
                 }
             }
