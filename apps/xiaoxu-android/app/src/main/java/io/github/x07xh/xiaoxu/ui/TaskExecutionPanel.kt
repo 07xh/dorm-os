@@ -191,6 +191,7 @@ internal fun TaskExecutionPanel(
             title = "删除个人步骤？",
             subtitle = "删除“${step.title}”也会解除其他步骤对它的前置要求。",
             onDismiss = { if (!busy) deleting = null },
+            dismissEnabled = !busy,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = if (busy) "正在删除…" else "确认删除步骤",
