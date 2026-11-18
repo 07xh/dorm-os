@@ -2159,6 +2159,7 @@ fun RealAcademicTaskHub(
             title = "删除本机任务？",
             subtitle = "删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。",
             onDismiss = { if (!deletingLocalBusy) deletingLocalId = null },
+            dismissEnabled = !deletingLocalBusy,
             actions = listOf(
                 XiaoxuSheetAction(
                     label = "删除任务",
