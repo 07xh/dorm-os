@@ -49,6 +49,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,19 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.AcademicNotice
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.CloudUiState
+import io.github.x07xh.xiaoxu.data.LocalTask
+import io.github.x07xh.xiaoxu.data.VerifiedLesson
+import io.github.x07xh.xiaoxu.data.LocalCourseReminders
+import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
+import io.github.x07xh.xiaoxu.data.LocalReminderQuietHours
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import io.github.x07xh.xiaoxu.data.LocalReminderPreview
+import io.github.x07xh.xiaoxu.data.LocalReminderOrigin
+import io.github.x07xh.xiaoxu.data.plannedLocalReminderInbox
+import java.time.ZonedDateTime
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 /*
@@ -211,16 +225,42 @@ fun MessageCenterPanel(
     openWebsite: () -> Unit,
     openArticle: (String) -> Unit,
     useStatusBarInset: Boolean = false,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    localTasks: List<LocalTask>,
+    localLessons: List<VerifiedLesson>,
+    onOpenLocalTasks: () -> Unit,
+    onOpenLocalSchedule: () -> Unit,
+    onOpenReminderSettings: () -> Unit
 ) {
     val state = client.state
     val scope = rememberCoroutineScope()
     val phase = remember(state) { deriveMessagePhase(state) }
+    val context = LocalContext.current
+    val upcomingLocal by produceState<List<LocalReminderPreview>?>(
+        initialValue = null, key1 = localTasks, key2 = localLessons
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val now = ZonedDateTime.now()
+            plannedLocalReminderInbox(
+                tasks = localTasks, lessons = localLessons,
+                calendar = LocalSemesterConfigStore.load(context),
+                now = now,
+                taskEnabled = LocalDeadlineReminders.enabled(context),
+                selectedCourseIds = localLessons.asSequence().filter {
+                    LocalCourseReminders.enabledForCourse(context, it.id)
+                }.map { it.id }.toSet(),
+                taskSchedule = LocalDeadlineReminders.schedule(context),
+                leadMinutes = LocalCourseReminders.leadMinutes(context),
+                quiet = LocalReminderQuietHours.load(context)
+            )
+        }
+    }
 
     var query by rememberSaveable { mutableStateOf("") }
     var sourceTab by rememberSaveable { mutableStateOf(MSG_FILTER_NOTICE) }
     var filterKey by rememberSaveable { mutableStateOf(MSG_FILTER_ALL) }
     var openedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var localSummaryExpanded by rememberSaveable { mutableStateOf(false) }
     // Each source retains its own scroll position; switching from a long official list
     // must never land mid-way through the much shorter WeChat review page.
     val officialListState = rememberLazyListState()
@@ -247,6 +287,7 @@ fun MessageCenterPanel(
         }
     }
     val showWechat = sourceTab == MSG_FILTER_WECHAT
+    val opened = state.notices.firstOrNull { (it.id.ifBlank { it.url }) == openedId }
 
     // The two sources never masquerade as one another in the visible list.
     val showOfficialSection = !showWechat &&
@@ -262,7 +303,11 @@ fun MessageCenterPanel(
             maxWidth < 380.dp -> 14.dp
             else -> 18.dp
         }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier.weight(1f).fillMaxHeight(),
+            contentAlignment = Alignment.TopCenter
+        ) {
             LazyColumn(
                 state = if (showWechat) wechatListState else officialListState,
                 modifier = Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth),
@@ -276,6 +321,16 @@ fun MessageCenterPanel(
             ) {
                 item {
                     MessageHeader(onRefresh = refresh, onBack = onBack)
+                }
+                item {
+                    LocalReminderSummary(
+                        previews = upcomingLocal,
+                        expanded = localSummaryExpanded,
+                        onExpand = { localSummaryExpanded = !localSummaryExpanded },
+                        onOpenTask = onOpenLocalTasks,
+                        onOpenCourse = onOpenLocalSchedule,
+                        onSettings = onOpenReminderSettings
+                    )
                 }
                 item {
                     // One shared glass selector for real message sources, not a
@@ -391,15 +446,124 @@ fun MessageCenterPanel(
 
             }
         }
+        if (wide && !showWechat) {
+            Column(Modifier.weight(1f).fillMaxHeight()
+                .padding(top = 10.dp, end = 22.dp)) {
+                NoticeTabletDetailPane(
+                    notice = opened,
+                    openArticle = openArticle
+                )
+            }
+        }
+        }
+        if (!wide && opened != null) {
+            NoticeDetailSheet(
+                notice = opened,
+                openArticle = openArticle,
+                onDismiss = { openedId = null }
+            )
+        }
     }
+}
 
-    val opened = state.notices.firstOrNull { (it.id.ifBlank { it.url }) == openedId }
-    if (opened != null) {
-        NoticeDetailSheet(
-            notice = opened,
-            openArticle = openArticle,
-            onDismiss = { openedId = null }
-        )
+/** Real local WorkManager plans, not a delivered-notification history. */
+@Composable
+private fun LocalReminderSummary(
+    previews: List<LocalReminderPreview>?,
+    expanded: Boolean,
+    onExpand: () -> Unit,
+    onOpenTask: () -> Unit,
+    onOpenCourse: () -> Unit,
+    onSettings: () -> Unit
+) {
+    XiaoxuCard(contentPadding = 12.dp) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 46.dp)
+            .clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .clickable(role = Role.Button, onClickLabel = "查看本机提醒计划",
+                onClick = onExpand),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.DateRange, contentDescription = null,
+                tint = XiaoxuPalette.Ink2, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("本机提醒" + (previews?.let { " · ${it.size}" } ?: ""),
+                    style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+                Text(if (previews == null) "正在读取本机计划"
+                     else "未来七天计划 · 非已送达记录",
+                    style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+            }
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                tint = XiaoxuPalette.Ink2)
+        }
+        if (expanded) {
+            if (previews.isNullOrEmpty()) {
+                Text(if (previews == null) "正在检查提醒配置"
+                     else "未来七天暂无已启用且未被免打扰跳过的本机提醒",
+                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            } else {
+                previews.forEach { preview ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                        .clickable(
+                            role = Role.Button, onClickLabel = "查看" + preview.title,
+                            onClick = if (preview.origin == LocalReminderOrigin.TASK)
+                                onOpenTask else onOpenCourse
+                        ).padding(vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(preview.title, style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            Text(preview.detail, style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                .clickable(role = Role.Button, onClickLabel = "打开提醒设置",
+                    onClick = onSettings),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("管理提醒设置", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Brand)
+            }
+        }
+    }
+}
+
+/** Wide screens retain the source list and detail at the same time, without extra dialogs. */
+@Composable
+private fun NoticeTabletDetailPane(
+    notice: AcademicNotice?,
+    openArticle: (String) -> Unit
+) {
+    XiaoxuCard {
+        if (notice == null) {
+            Text("公告详情", style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink)
+            Text("选择左侧公告查看来源、发布日期和官网链接。",
+                style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+        } else {
+            Text("公告详情", style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink)
+            SourceBadge(text = noticeCategoryLabel(notice.category),
+                tone = if (notice.category == "exam") XiaoxuTone.Warning else XiaoxuTone.Brand)
+            Text(notice.title, style = MaterialTheme.typography.titleMedium,
+                color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+            SheetMetaRow("来源", "华水教务官网")
+            SheetMetaRow("发布", notice.dateLabel.ifBlank { "未标注" })
+            Text("正文请在学校官网查看",
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            XiaoxuDialogPrimaryButton(onClick = { openArticle(notice.url) }) {
+                Icon(Icons.AutoMirrored.Outlined.OpenInNew,
+                    contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("在官网查看原文")
+            }
+        }
     }
 }
 

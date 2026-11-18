@@ -622,7 +622,21 @@ private fun NativeShell(
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = false, onBack = { messagesOpen = false })
+                                useStatusBarInset = false, onBack = { messagesOpen = false },
+                                localTasks = localTasks, localLessons = localLessons,
+                                onOpenLocalTasks = {
+                                    messagesOpen = false
+                                    current = MainDestination.TASKS
+                                },
+                                onOpenLocalSchedule = {
+                                    messagesOpen = false
+                                    current = MainDestination.SCHEDULE
+                                },
+                                onOpenReminderSettings = {
+                                    messagesOpen = false
+                                    current = MainDestination.PROFILE
+                                    profileSettingsRoute = "notifications"
+                                })
                         }
                     } else {
                     // Only one heavy tab is ever composed; no AnimatedContent overlap.
