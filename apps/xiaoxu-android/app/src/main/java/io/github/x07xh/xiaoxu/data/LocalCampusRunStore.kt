@@ -53,6 +53,12 @@ class LocalCampusRunStore(context: Context, private val scope: String) {
     /** Save only a confirmed local import; never promote it to an official read. */
     fun saveSnapshot(snapshot: CampusRunSnapshot, nowEpochMillis: Long): CampusRunSnapshot {
         validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        // A stale edit state or a future caller must not overwrite encrypted
+        // owner data while its Keystore key is temporarily unavailable.
+        // Only explicit owner clearing may resolve an unreadable ciphertext.
+        check(!hasEncryptedRecord() || load(nowEpochMillis) != null) {
+            "existing_encrypted_record_unreadable"
+        }
         require(snapshot.provenance == CampusRunProvenance.USER_IMPORT &&
             !snapshot.ownerMatched && !snapshot.historyComplete &&
             snapshot.records.isEmpty()) { "import_cannot_claim_official_provenance" }
