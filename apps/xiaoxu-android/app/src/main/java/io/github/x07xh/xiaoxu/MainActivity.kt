@@ -500,6 +500,12 @@ private fun NativeShell(
     // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
+    // Inbox selections are transient shell-owned state; Activity reminder arguments
+    // remain immutable and are consumed only by their original notification path.
+    var inboxTaskId by remember { mutableStateOf<Long?>(null) }
+    var inboxLessonId by remember { mutableStateOf<String?>(null) }
+    var inboxLessonWeekday by remember { mutableIntStateOf(0) }
+    var inboxTaskSerial by remember { mutableIntStateOf(0) }
     // One visibility rule for the bottom reserve, tablet rail and glass dock.
     // Child settings must not leave behind navigation chrome during page transitions.
     val showPrimaryNavigation = !messagesOpen &&
@@ -625,15 +631,14 @@ private fun NativeShell(
                                 useStatusBarInset = false, onBack = { messagesOpen = false },
                                 localTasks = localTasks, localLessons = localLessons,
                                 onOpenLocalTasks = { id ->
-                                    reminderTaskId = id
-                                    taskReminderOpenCount++
+                                    inboxTaskId = id
+                                    inboxTaskSerial++
                                     messagesOpen = false
                                     current = MainDestination.TASKS
                                 },
                                 onOpenLocalSchedule = { id, weekday ->
-                                    reminderLessonId = id
-                                    reminderLessonWeekday = weekday
-                                    scheduleReminderOpenCount++
+                                    inboxLessonId = id
+                                    inboxLessonWeekday = weekday
                                     messagesOpen = false
                                     current = MainDestination.SCHEDULE
                                 },
@@ -688,9 +693,13 @@ private fun NativeShell(
                                 }
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
-                                focusLessonId = reminderLessonId,
-                                focusWeekday = reminderLessonWeekday,
-                                onFocusConsumed = onReminderCourseConsumed,
+                                focusLessonId = inboxLessonId ?: reminderLessonId,
+                                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
+                                    else reminderLessonWeekday,
+                                onFocusConsumed = {
+                                    inboxLessonId = null
+                                    onReminderCourseConsumed()
+                                },
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
@@ -702,9 +711,12 @@ private fun NativeShell(
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
-                                reminderTaskId = reminderTaskId,
-                                reminderTaskToken = taskReminderOpenCount,
-                                onReminderConsumed = onReminderTaskConsumed,
+                                reminderTaskId = inboxTaskId ?: reminderTaskId,
+                                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
+                                onReminderConsumed = {
+                                    inboxTaskId = null
+                                    onReminderTaskConsumed()
+                                },
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
