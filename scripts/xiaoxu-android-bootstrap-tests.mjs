@@ -1162,7 +1162,7 @@ assert.match(backupSource, /onBusyChange\(false\)/,
   '本机备份完成后需解除按钮锁定');
 assert.match(workspace, /onBusyChange = \{ backupBusy = it \}/,
   '备份浮层关闭控制应与真实文件操作状态关联');
-assert.match(workspace, /LocalTaskBackupPanel\(embedded = true\)/,
+assert.match(workspace, /LocalTaskBackupPanel\(\s*embedded = true,\s*onBusyChange = \{ backupBusy = it \}/,
   '任务中心备份应复用弹窗内的简洁版本，禁止套双层卡片');
 assert.match(workspace, /if \(showTaskBackup\) \{\s*XiaoxuBottomSheet\(/,
   '任务中心备份入口应使用统一底部弹窗');
