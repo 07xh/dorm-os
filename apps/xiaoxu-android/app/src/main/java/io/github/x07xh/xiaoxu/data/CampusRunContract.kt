@@ -71,7 +71,7 @@ data class CampusRunSnapshot(
  * User reads these values from their own official app and explicitly enters
  * them in 校序. These are USER_IMPORT snapshots, never official synchronization.
  *
- * Decimal kilometers accept up to two digits after the decimal point. Blank
+ * Decimal kilometers accept up to three digits (whole-meter precision). Blank
  * means unknown; no implicit zero. This function has no Android dependencies.
  */
 data class CampusRunManualInput(
@@ -86,7 +86,7 @@ data class CampusRunManualInput(
 fun parseCampusRunKilometers(raw: String): Long? {
     val value = raw.trim()
     if (value.isEmpty()) return null
-    require(Regex("^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,2})?$")
+    require(Regex("^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,3})?$")
         .matches(value)) { "invalid_distance" }
     return java.math.BigDecimal(value)
         .multiply(java.math.BigDecimal(1_000))
