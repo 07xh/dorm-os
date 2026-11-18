@@ -183,7 +183,7 @@ private fun CampusRunScopedPanel(sessionScope: String) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("校园跑 · 运动世界校园", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold)
-            Text("当前尚未完成本人官方账号的自动读取授权。这里保存的是你从官方 App 页面亲自核对后录入的汇总数据；仅存本机，非实时官方同步。",
+            Text("运动世界自动读取尚未授权接通。这里展示你亲自录入或从本机 JSON 确认导入的学期数据；只存在本机，不代表实时官方同步。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
 
