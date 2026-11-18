@@ -171,7 +171,7 @@ internal fun LocalTaskCreateSheet(
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        LocalTaskSourcePicker(source = source, onSelect = { source = it })
+        LocalTaskSourcePicker(source = source, onSelect = { source = it }, enabled = !saving)
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(
                 onClick = { pickerOpen = true },
@@ -240,11 +240,12 @@ internal fun LocalTaskCreateSheet(
     }
 }
 
-/** One readable chooser rather than five truncated horizontal source chips. */
+/** Task classification uses the same readable bottom action sheet as settings. */
 @Composable
 private fun LocalTaskSourcePicker(
     source: String?,
-    onSelect: (String?) -> Unit
+    onSelect: (String?) -> Unit,
+    enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
     Text(
@@ -252,40 +253,49 @@ private fun LocalTaskSourcePicker(
         style = MaterialTheme.typography.labelMedium,
         color = XiaoxuPalette.Ink2
     )
-    Box(modifier = Modifier.fillMaxWidth()) {
-        OutlinedButton(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Text(
-                taskSourceLabel(source),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text("⌄")
-        }
-        androidx.compose.material3.DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            androidx.compose.material3.DropdownMenuItem(
-                text = { Text("不标注") },
+    OutlinedButton(
+        onClick = { expanded = true },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) {
+        Text(
+            taskSourceLabel(source),
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Icon(
+            Icons.Outlined.Edit,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+    if (expanded) {
+        val options = listOf(
+            XiaoxuSheetAction(
+                label = "不标注",
+                selected = source == null,
                 onClick = {
                     onSelect(null)
                     expanded = false
                 }
             )
-            TASK_SOURCES.forEach { option ->
-                androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(option.label) },
-                    onClick = {
-                        onSelect(option.code)
-                        expanded = false
-                    }
-                )
-            }
+        ) + TASK_SOURCES.map { option ->
+            XiaoxuSheetAction(
+                label = option.label,
+                selected = source == option.code,
+                onClick = {
+                    onSelect(option.code)
+                    expanded = false
+                }
+            )
         }
+        XiaoxuBottomActionSheet(
+            title = "选择个人分类",
+            subtitle = "仅用于本人整理任务，不代表学校官方来源",
+            onDismiss = { expanded = false },
+            actions = options
+        )
     }
 }
 
@@ -328,7 +338,8 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
         )
         LocalTaskSourcePicker(
             source = source,
-            onSelect = { selected -> source = selected; error = null }
+            onSelect = { selected -> source = selected; error = null },
+            enabled = !saving
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(
