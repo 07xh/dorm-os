@@ -192,7 +192,7 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                     WechatCandidateRow(
                         item = item,
                         enabled = !reviewing,
-                        onClick = { selectedId = item.id }
+                        onClick = { pendingDecision = null; selectedId = item.id }
                     )
                 }
                 if (pendingCount != null && pendingCount >= 30) {
@@ -228,7 +228,12 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
     if (selected != null && state.authenticated) {
         val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
-            onDismissRequest = { if (!reviewing) selectedId = null },
+            onDismissRequest = {
+                if (!reviewing) {
+                    pendingDecision = null
+                    selectedId = null
+                }
+            },
             sheetState = sheet,
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
             containerColor = XiaoxuPalette.SheetSurface,
