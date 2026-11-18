@@ -106,6 +106,30 @@ class CampusRunToolkitJsonImportTest {
         }
     }
 
+    @Test fun sanitizedExportRequiresExactDeclaredMeters() {
+        val sanitized = """{"schema":"xiaoxu/campus-run-toolkit-safe-v1",
+            "unit":"m","semester_completed":{"error":10000,"data":{
+                "semesterDis":12345,"semesterValidDis":10003,
+                "semesterCount":5,"semesterValidCount":3}}}"""
+        val imported = parseCampusRunToolkitJson(sanitized, CampusRunImportUnit.METERS, now)
+        assertEquals(12_345L, imported.rawMeters)
+        assertEquals(10_003L, imported.effectiveMeters)
+        assertEquals(5, imported.totalRunCount)
+        assertEquals(3, imported.effectiveRunCount)
+
+        try {
+            parseCampusRunToolkitJson(sanitized, CampusRunImportUnit.KILOMETERS, now)
+            throw AssertionError("declared meters must reject selected kilometers")
+        } catch (_: IllegalArgumentException) { }
+
+        try {
+            parseCampusRunToolkitJson(sanitized.replace(
+                "xiaoxu/campus-run-toolkit-safe-v1", "unknown/schema"),
+                CampusRunImportUnit.METERS, now)
+            throw AssertionError("unsupported schema must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsOversizedAndExcessPrecisionWithoutRounding() {
         val unsupported = """{"semester_completed":{"error":10000,"data":{
             "semesterDis":1.23456}}}"""
