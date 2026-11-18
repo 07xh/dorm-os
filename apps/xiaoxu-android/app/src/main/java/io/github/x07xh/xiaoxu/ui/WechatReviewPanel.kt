@@ -22,7 +22,6 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -231,8 +230,9 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
         ModalBottomSheet(
             onDismissRequest = { if (!reviewing) selectedId = null },
             sheetState = sheet,
-            containerColor = XiaoxuPalette.Surface,
-            scrimColor = XiaoxuPalette.ModalScrim
+            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+            containerColor = XiaoxuPalette.SheetSurface,
+            scrimColor = Color.Black.copy(alpha = 0.26f)
         ) {
             Column(
                 modifier = Modifier
@@ -295,69 +295,84 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionBox(
-                        label = "忽略",
-                        filled = false,
-                        enabled = !reviewing,
-                        modifier = Modifier.weight(1f)
-                    ) { pendingDecision = "dismiss" }
-                    ActionBox(
-                        label = if (reviewing) "正在提交" else "加入任务",
-                        filled = true,
-                        enabled = !reviewing,
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Outlined.CheckCircle
-                    ) { pendingDecision = "accept" }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(enabled = !reviewing, onClick = { selectedId = null }, role = Role.Button),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "稍后再审核",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = XiaoxuPalette.Ink2
-                    )
+                if (pendingDecision != null) {
+                    val decision = pendingDecision!!
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(XiaoxuPalette.SurfaceAlt)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Text(
+                            if (decision == "accept") "确认加入任务？" else "确认忽略候选？",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = XiaoxuPalette.Ink,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            if (decision == "accept")
+                                "将候选创建为一条普通云端任务，并标记为人工审核通过；不代表学校官方确认。"
+                            else "将这条候选标记为已忽略，之后不再出现在待审核列表。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = XiaoxuPalette.Ink2
+                        )
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ActionBox(
+                            label = "返回审核", filled = false, enabled = !reviewing,
+                            modifier = Modifier.weight(1f)
+                        ) { pendingDecision = null }
+                        ActionBox(
+                            label = if (reviewing) "正在提交" else "确认",
+                            filled = true, enabled = !reviewing,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            pendingDecision = null
+                            scope.launch {
+                                val ok = client.reviewWechatCandidate(selected.id, decision)
+                                if (ok) selectedId = null
+                            }
+                        }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ActionBox(
+                            label = "忽略",
+                            filled = false,
+                            enabled = !reviewing,
+                            modifier = Modifier.weight(1f)
+                        ) { pendingDecision = "dismiss" }
+                        ActionBox(
+                            label = if (reviewing) "正在提交" else "加入任务",
+                            filled = true,
+                            enabled = !reviewing,
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Outlined.CheckCircle
+                        ) { pendingDecision = "accept" }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(enabled = !reviewing, onClick = {
+                                selectedId = null
+                                pendingDecision = null
+                            }, role = Role.Button),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "稍后再审核",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = XiaoxuPalette.Ink2
+                        )
+                    }
                 }
             }
         }
     }
 
-    if (selected != null && pendingDecision != null) {
-        val decision = pendingDecision!!
-        AlertDialog(
-            onDismissRequest = { if (!reviewing) pendingDecision = null },
-            title = { Text(if (decision == "accept") "确认加入任务？" else "确认忽略候选？") },
-            text = {
-                Text(if (decision == "accept")
-                    "将候选创建为一条普通云端任务，并标记为人工审核通过；不代表学校官方确认。"
-                    else "将这条候选标记为已忽略，之后不再出现在待审核列表。")
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !reviewing,
-                    onClick = {
-                        pendingDecision = null
-                        scope.launch {
-                            val ok = client.reviewWechatCandidate(selected.id, decision)
-                            if (ok) selectedId = null
-                        }
-                    }
-                ) { Text("确认") }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !reviewing,
-                    onClick = { pendingDecision = null }
-                ) { Text("取消") }
-            }
-        )
-    }
 }
 
 /** 候选行：类型图标块 + 标题 + 群聊/时间 + 截止，右侧箭头。整行可点开详情。 */
