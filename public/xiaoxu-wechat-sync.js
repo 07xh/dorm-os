@@ -54,6 +54,7 @@
   return '截止时间未知';
  }
  function deviceText(dev){
+  if(dev.revokedAt)return '已撤销';
   const cloud=monitorDevices.get(dev.id);
   if(cloud){
    const labels={recent:'最近90分钟有云端确认',overdue:'同步时段超过90分钟未确认',
