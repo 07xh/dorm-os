@@ -58,7 +58,7 @@
   const cloud=monitorDevices.get(dev.id);
   if(cloud){
    const labels={recent:'最近90分钟有云端确认',overdue:'同步时段超过90分钟未确认',
-    outside_window:'当前不在采集时段',not_verified:'从未完成云端同步',revoked:'已撤销'};
+    outside_window:'当前不在采集时段',starting_window:'采集窗口刚开始，等待本轮同步',not_verified:'从未完成云端同步',revoked:'已撤销'};
    const state=labels[cloud.cloudState]||'状态未知';
    const batches=Number.isSafeInteger(cloud.confirmedBatches24h)&&cloud.confirmedBatches24h>=0?
     cloud.confirmedBatches24h:0;
