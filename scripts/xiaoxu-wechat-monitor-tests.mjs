@@ -61,6 +61,10 @@ const night=await listWechatCloudMonitor(db,'owner-a',{
  now:()=>new Date('2026-11-19T17:00:00.000Z')
 });
 assert.equal(night.devices.find(d=>d.id==='b').cloudState,'outside_window');
+const morning=await listWechatCloudMonitor(db,'owner-a',{
+ now:()=>new Date('2026-11-19T23:00:00.000Z') // next day 07:00 Beijing
+});
+assert.equal(morning.devices.find(d=>d.id==='b').cloudState,'starting_window');
 assert.equal((await listWechatCloudMonitor(db,'owner-b',{now})).devices.length,1);
 await assert.rejects(listWechatCloudMonitor(db,'owner/a',{now}),
  e=>e instanceof WechatMonitorError&&e.code==='not_configured');
