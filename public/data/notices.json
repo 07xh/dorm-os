@@ -2,7 +2,7 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-19T23:05:02.336Z",
+  "lastSuccessAt": "2026-11-20T10:05:49.088Z",
   "sources": [
     {
       "id": "jwc",
@@ -29,13 +29,13 @@
       "id": "jwc-api",
       "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-19T23:05:02.336Z",
+      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
       "count": 28
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-19T23:05:02.336Z",
       "count": 10
     },
@@ -43,14 +43,14 @@
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-19T23:05:02.336Z",
+      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-19T23:05:02.336Z",
+      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
       "count": 10
     }
   ],
@@ -239,6 +239,15 @@
       "id": "ncwu-1a1584243de4c6fd",
       "title": "关于自强奖学金拟推荐名单的公示",
       "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2190.htm",
+      "date": null,
+      "sourceId": "gcxlzx",
+      "sourceName": "工程实践与创新中心通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-4b5194194c764ae6",
+      "title": "关于举办第十二届国际大学生智能农业装备创新大赛的通知",
+      "url": "https://www2.ncwu.edu.cn/gcxlzx/info/1027/2202.htm",
       "date": null,
       "sourceId": "gcxlzx",
       "sourceName": "工程实践与创新中心通知",
@@ -518,6 +527,24 @@
       "id": "ncwu-16d411ce2897e5b1",
       "title": "关于做好2027届本科毕业设计（论文）工作的通知 11-13",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3014.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-89fbf64200aaf3a4",
+      "title": "关于2026年度河南省本科高校智慧课程申报工作的通知 11-20",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3022.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-8e71535a3d8c2b20",
+      "title": "教务处党支部关于巡察整改落实情况的报告 11-20",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3023.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
