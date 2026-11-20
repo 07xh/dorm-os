@@ -2,55 +2,48 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-20T10:05:49.088Z",
+  "lastSuccessAt": "2026-11-20T18:38:01.646Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-13T17:47:38.142Z",
-      "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
-      "count": 28
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
+      "count": 20
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-19T23:05:02.336Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-20T10:05:49.088Z",
+      "lastSuccessAt": "2026-11-20T18:38:01.646Z",
       "count": 10
     }
   ],
@@ -803,6 +796,15 @@
       "category": "校园"
     },
     {
+      "id": "ncwu-2f440c98e9bf4898",
+      "title": "关于申报2027年度弘扬科学家精神项目的通知",
+      "url": "https://www.ncwu.edu.cn/info/1058/23454.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
       "id": "ncwu-45b5cc6c87917457",
       "title": "关于我校值班工作安排的通知",
       "url": "https://www.ncwu.edu.cn/info/1061/23346.htm",
@@ -860,6 +862,24 @@
       "id": "ncwu-cab9989ed13f12a5",
       "title": "关于做好我校2026年度河南省高等学校特聘教授推荐工作的通知",
       "url": "https://www.ncwu.edu.cn/info/1065/23387.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-e43f846132ce6640",
+      "title": "关于做好2026年度河南省及学校青年骨干教师培养计划申报工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1065/23481.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-40f52be3a8533c68",
+      "title": "关于做好2027年来华留学生招收专业确认工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1084/23448.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
