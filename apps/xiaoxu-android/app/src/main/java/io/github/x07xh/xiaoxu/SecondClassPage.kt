@@ -147,7 +147,10 @@ fun SecondClassPage(
                     onRefreshResult?.invoke(true)
                 } else {
                     val state = SecondClassAutoRefresh.status(context.applicationContext)
-                    reconnectAction = state in setOf("needs_reconnect", "needs_confirmation")
+                    // Always preserve a user-invoked official authorization path if a
+                    // retained snapshot exists but its local binding is absent.
+                    // A quiet read failure must not strand the owner indefinitely.
+                    reconnectAction = state != "reading"
                     error = when (state) {
                         "needs_reconnect" -> "学校登录已失效，请重新登录后读取"
                         "needs_confirmation" -> "学校账号已变化，请重新确认本人账号"
@@ -159,6 +162,7 @@ fun SecondClassPage(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
+                reconnectAction = true
                 error = "本次读取失败，已保留上次数据"
                 onRefreshResult?.invoke(false)
             } finally {
