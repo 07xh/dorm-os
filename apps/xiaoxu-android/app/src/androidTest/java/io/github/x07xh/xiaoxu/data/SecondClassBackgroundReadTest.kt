@@ -165,6 +165,20 @@ class SecondClassBackgroundReadTest {
         assertEquals(hash, identity.getString("account", null))
         assertTrue(SecondClassAutoRefresh.background(c))
     }
+    @Test fun explicitRefreshWithoutAutoOptInUsesCachedIdentityAndHonorsCooldown() = runBlocking {
+        SecondClassAutoRefresh.configure(c, false, false)
+        val fresh = System.currentTimeMillis() - 1_000
+        dao.insertAll(dao.snapshot().map { it.copy(capturedAt = fresh) })
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true) { _, _ -> payload() })
+        val updated = SecondClassAutoRefresh.lastSuccess(c)
+        assertTrue(updated >= fresh)
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertFalse(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true) { _, _ ->
+            error("manual retry must respect the 60-second cooldown")
+        })
+        assertEquals(updated, SecondClassAutoRefresh.lastSuccess(c))
+        assertFalse(SecondClassAutoRefresh.background(c))
+    }
     @Test fun mixedCatalogMarksOnlyTheActuallyEmptyFilters() {
         val mixed = mixedCatalog()
         assertEquals(listOf("待验证", "即将开始报名"),
