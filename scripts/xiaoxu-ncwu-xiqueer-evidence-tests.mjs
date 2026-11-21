@@ -48,3 +48,31 @@ assert.equal(get('oriKsap','addCustomer').extraParam.userId,'loginbean.userid');
 // Do not promote vendor debug configuration or guessed encryption into application code.
 assert(!/192\.168\.|sysURL|encrptKey|https?:\/\//i.test(text));
 console.log('NCWU XiQueEr static route catalog: 33 aliases, 28 actions, 6 mutations; no live endpoint enabled.');
+
+const inventory=catalog.inventory20261121;
+assert.equal(inventory.evidence,'static_only');
+assert.equal(inventory.totalRecords,309);
+assert.deepEqual(inventory.categoryRows,{
+  'Hardcoded URL':169,'Hardcoded path':59,
+  'Vendor gateway':52,'REST(low-code)':29
+});
+assert.equal(Object.values(inventory.categoryRows).reduce((a,b)=>a+b,0),309);
+assert.deepEqual(inventory.vendorRowsBySource,{
+  'assets/vendorJw.json':30,'assets/vendorOt.json':18,'assets/vendorSx.json':4
+});
+assert.equal(Object.values(inventory.vendorRowsBySource).reduce((a,b)=>a+b,0),52);
+assert.equal(Object.values(inventory.lowcodeRowsBySource).reduce((a,b)=>a+b,0),29);
+assert.equal(inventory.lowcodeRowsBySource['assets/lowcode.json'],25);
+assert.equal(inventory.mainGatewayPath,'/wap/wapController.jsp');
+assert.deepEqual(inventory.candidatePaths.grades,['/wap/getxnxq_cjcx.aspx?']);
+assert.deepEqual(inventory.candidatePaths.exams,['/wap/GetKslc.aspx']);
+for(const path of Object.values(inventory.candidatePaths).flat()){
+  assert.match(path,/^\/wap\/[A-Za-z0-9_./?-]+$/);
+  assert(!path.includes('=') && !path.includes('://'));
+}
+for(const field of ['methodOfHardcodedPathsVerified','schoolServiceUrlVerified',
+  'liveRequestResponseSampleAvailable','serverReachabilityVerified','activeConnector']){
+  assert.equal(inventory[field],false);
+}
+assert(!/192\.168\.|sysURL|encrptKey|https?:\/\//i.test(text));
+console.log('XiQueEr extended inventory: 309 static records; school linkage remains unverified.');
