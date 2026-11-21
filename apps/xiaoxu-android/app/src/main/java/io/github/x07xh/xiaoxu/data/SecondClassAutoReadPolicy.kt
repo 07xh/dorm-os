@@ -5,9 +5,12 @@ object SecondClassAutoReadPolicy {
         httpStatus == 401 && stage != "activity_http"
 
     fun shouldRead(enabled: Boolean, backgroundAllowed: Boolean, background: Boolean,
-        bound: Boolean, interactive: Boolean, now: Long, savedAt: Long, attemptedAt: Long): Boolean =
-        enabled && (!background || backgroundAllowed) && bound && !interactive &&
-            savedAt > 0 && now >= savedAt && now - savedAt >= 600_000 &&
+        bound: Boolean, interactive: Boolean, now: Long, savedAt: Long, attemptedAt: Long,
+        userRequested: Boolean = false): Boolean =
+        (enabled || userRequested) && (!background || backgroundAllowed) &&
+            (!userRequested || !background) && bound && !interactive &&
+            savedAt > 0 && now >= savedAt &&
+            (userRequested || now - savedAt >= 600_000) &&
             (attemptedAt == 0L || now >= attemptedAt && now - attemptedAt >= 60_000)
 
     fun matchesConfirmedAccount(expected: String?, actual: String?): Boolean =

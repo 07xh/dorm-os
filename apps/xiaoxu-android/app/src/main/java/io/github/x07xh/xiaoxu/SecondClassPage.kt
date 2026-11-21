@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,6 +50,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
+import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
@@ -93,6 +97,8 @@ fun SecondClassPage(
 
     var refreshing by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var reconnectAction by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result ->
         refreshing = false
@@ -103,14 +109,16 @@ fun SecondClassPage(
         ) else null
         val succeeded = receipt != null
         error = if (succeeded) null else "本次未更新，可重新读取"
+        reconnectAction = false
 
         onRefreshResult?.invoke(succeeded)
         if (receipt != null) onSavedReceipt?.invoke(receipt)
     }
 
-    fun refreshPersonalRecords() {
+    fun openOfficialReader() {
         if (refreshing) return
         refreshing = true
+        reconnectAction = false
         error = null
         try {
             reader.launch(Intent(context, NativeSchoolConnectActivity::class.java)
@@ -120,6 +128,46 @@ fun SecondClassPage(
             refreshing = false
             error = "学校读取页面无法打开"
             onRefreshResult?.invoke(false)
+        }
+    }
+
+    fun refreshPersonalRecords() {
+        if (refreshing) return
+        // The first connection still uses the school's official login page.
+        // Existing owner-bound snapshots use the same fixed local reader silently.
+        if (scores.isEmpty()) { openOfficialReader(); return }
+        refreshing = true
+        reconnectAction = false
+        error = null
+        scope.launch {
+            try {
+                val updated = SecondClassAutoRefresh.refreshIfDue(
+                    context.applicationContext, userRequested = true)
+                if (updated) {
+                    onRefreshResult?.invoke(true)
+                } else {
+                    val state = SecondClassAutoRefresh.status(context.applicationContext)
+                    // Always preserve a user-invoked official authorization path if a
+                    // retained snapshot exists but its local binding is absent.
+                    // A quiet read failure must not strand the owner indefinitely.
+                    reconnectAction = state != "reading"
+                    error = when (state) {
+                        "needs_reconnect" -> "学校登录已失效，请重新登录后读取"
+                        "needs_confirmation" -> "学校账号已变化，请重新确认本人账号"
+                        "reading" -> "已有读取任务正在进行，请稍后再试"
+                        else -> "本次未更新，已保留上次数据；如需重新授权，可打开官方登录"
+                    }
+                    onRefreshResult?.invoke(false)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                reconnectAction = true
+                error = "本次读取失败，已保留上次数据"
+                onRefreshResult?.invoke(false)
+            } finally {
+                refreshing = false
+            }
         }
     }
 
@@ -135,7 +183,7 @@ fun SecondClassPage(
     LaunchedEffect(connectOnOpen) {
         if (connectOnOpen && !attempted) {
             attempted = true
-            refreshPersonalRecords()
+            openOfficialReader()
         }
 
     }
@@ -241,6 +289,13 @@ fun SecondClassPage(
             if (refreshing) {
                 Text("读取中…", style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2)
+            }
+            if (error != null) {
+                Text(error ?: "", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error)
+                if (reconnectAction) {
+                    TextButton(onClick = ::openOfficialReader) { Text("重新登录并读取") }
+                }
             }
         }
         item(key = "metrics") {
@@ -401,12 +456,6 @@ fun SecondClassPage(
                     }
                     TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                 }
-            }
-        }
-        if (error != null) {
-            item(key = "reader_error") {
-                Text(error ?: "", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error)
             }
         }
     }

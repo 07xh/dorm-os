@@ -1,0 +1,7 @@
+QA-only Android APK build request for PR #458: retained second-class official school WebView session, user-requested silent refresh, owner-bound score aggregate fixes and recovery to official authorization.
+
+Build from the exact PR head, run Android JVM/Room instrumentation and complete application contracts. Upload the independently installable package io.github.x07xh.xiaoxu.unifiedqa and its SHA-256 alongside the debug APK. This QA app uses separate Android app identity and storage and cannot silently import the installed app's personal session; initial official authorization may need to be done once in QA.
+
+No formal signing, production release, main deployment, replacement of the existing official APK, or upload of HAR, cookies, student identity or personal data.
+
+Real-device test gate: first school authorization, repeat read without opening interactive login while session remains valid, app cold-start, expiry handling, explicit official reconnect, disconnected/failed reads leave old snapshot intact. PR remains draft until verified.

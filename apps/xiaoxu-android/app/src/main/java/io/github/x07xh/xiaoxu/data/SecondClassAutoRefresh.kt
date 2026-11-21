@@ -53,11 +53,11 @@ object SecondClassAutoRefresh {
     }
 
     internal suspend fun refreshIfDue(
-        context: Context, backgroundRun: Boolean = false,
+        context: Context, backgroundRun: Boolean = false, userRequested: Boolean = false,
         reader: suspend (Context, String) -> JSONObject = { c, salt -> readSecondClassAutomatically(c, salt) }
-    ) {
+    ): Boolean {
         val c = context.applicationContext
-        if (!lock.tryLock()) return
+        if (!lock.tryLock()) return false
         activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun)
         val settings = prefs(c)
         fun state(value: String) { settings.edit().putString("status", value).apply() }
@@ -93,7 +93,8 @@ object SecondClassAutoRefresh {
                 credits.all { it.sourceHost == "dekt.ncwu.edu.cn" }
             val startedAt = System.currentTimeMillis()
             if (!SecondClassAutoReadPolicy.shouldRead(enabled(c), background(c), backgroundRun,
-                bound, manualUsers > 0, startedAt, saved, settings.getLong("attempt", 0))) return
+                bound, manualUsers > 0, startedAt, saved, settings.getLong("attempt", 0),
+                userRequested)) return false
             settings.edit().putLong("attempt", startedAt).apply()
             state("reading")
             val payload = reader(c, salt!!)
@@ -102,10 +103,10 @@ object SecondClassAutoRefresh {
                     payload.optInt("httpStatus"), payload.optString("stage"))) "needs_reconnect"
                     else if (payload.optString("stage") == "identity" &&
                         payload.optString("reason") != "visible_account_required") "needs_confirmation" else "failed")
-                return
+                return false
             }
             if (!SecondClassAutoReadPolicy.matchesConfirmedAccount(expected, payload.optString("accountHash"))) {
-                state("needs_confirmation"); return
+                state("needs_confirmation"); return false
             }
             val scores = parseLocalSecondClassScores(payload, startedAt)
             val activities = parseLocalSecondClassActivities(payload, startedAt)
@@ -117,10 +118,10 @@ object SecondClassAutoRefresh {
             val catalogVerified = payload.optString("catalogStatus") in
                 setOf("verified_empty", "verified_nonempty")
             currentCoroutineContext().ensureActive()
-            if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
-                identity.getString("salt", null) != salt) return
+            if ((!enabled(c) && !userRequested) || backgroundRun && !background(c) ||
+                manualUsers > 0 || identity.getString("salt", null) != salt) return false
             // A changed legacy confirmation must also invalidate this attempt.
-            if (bindings.isEmpty() && identity.getString("account", null) != expected) return
+            if (bindings.isEmpty() && identity.getString("account", null) != expected) return false
             withContext(Dispatchers.IO) {
                 currentCoroutineContext().ensureActive()
                 dao.replaceSecondClassSnapshot(scores, activities, catalog, catalogActivities,
@@ -131,12 +132,13 @@ object SecondClassAutoRefresh {
                 .putBoolean("success_background", backgroundRun)
                 .putString("catalog_status", payload.optString("catalogStatus"))
                 .putString("status", "updated").apply()
-        } catch (_: TimeoutCancellationException) { state("failed") }
+            return true
+        } catch (_: TimeoutCancellationException) { state("failed"); return false }
         catch (cancelled: CancellationException) {
             if (status(c) == "reading") state("idle")
             throw cancelled
-        } catch (failure: AutoReadFailure) { state(failure.status) }
-        catch (_: Exception) { state("failed") }
+        } catch (failure: AutoReadFailure) { state(failure.status); return false }
+        catch (_: Exception) { state("failed"); return false }
         finally {
             // Invalidation can return before Room without throwing (for
             // example a changed identity salt). Never leave a finished read busy.
