@@ -259,5 +259,52 @@
         "classification": "unverified_read_candidate"
       }
     ]
+  },
+  "inventory20261121": {
+    "evidence": "static_only",
+    "sourceArtifacts": [
+      "接口信息收集报告.md",
+      "接口清单.csv"
+    ],
+    "totalRecords": 309,
+    "categoryRows": {
+      "Hardcoded URL": 169,
+      "Hardcoded path": 59,
+      "Vendor gateway": 52,
+      "REST(low-code)": 29
+    },
+    "vendorRowsBySource": {
+      "assets/vendorJw.json": 30,
+      "assets/vendorOt.json": 18,
+      "assets/vendorSx.json": 4
+    },
+    "lowcodeRowsBySource": {
+      "assets/lowcode.json": 25,
+      "assets/lowcode_radio_test.json": 3,
+      "assets/lowcode_datepicker_simple_test.json": 1
+    },
+    "mainGatewayPath": "/wap/wapController.jsp",
+    "candidatePaths": {
+      "schedule": [
+        "/wap/MySdkc.aspx?",
+        "/wap/GetXnXq_XL.aspx",
+        "/wap/GetXnXq_JxRw.aspx"
+      ],
+      "grades": [
+        "/wap/getxnxq_cjcx.aspx?"
+      ],
+      "exams": [
+        "/wap/GetKslc.aspx"
+      ],
+      "identityAndCampus": [
+        "/wap/GetStxx.aspx",
+        "/wap/GetSchoolArea.aspx"
+      ]
+    },
+    "methodOfHardcodedPathsVerified": false,
+    "schoolServiceUrlVerified": false,
+    "liveRequestResponseSampleAvailable": false,
+    "serverReachabilityVerified": false,
+    "activeConnector": false
   }
 }
