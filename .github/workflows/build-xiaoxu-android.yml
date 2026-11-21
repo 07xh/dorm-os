@@ -97,8 +97,14 @@ jobs:
           done
           echo "No successful exact-source Android instrumentation result." >&2
           exit 1
-      # Explicit main/release or manually dispatched builds still run their own
-      # isolated migration test; the cross-workflow shortcut is PR-only.
+      # Match the already-successful detached runtime workflow: emulator
+      # startup requires hardware virtualization access on the Linux runner.
+      # Never skip the main-branch migration/instrumentation suite.
+      - name: Enable KVM access for main Android emulator
+        if: github.event_name != 'pull_request'
+        run: |
+          test -c /dev/kvm || { echo "Android KVM unavailable on this runner" >&2; exit 1; }
+          sudo chmod 666 /dev/kvm
       - name: Verify Room v1-v4 migration and dependency constraints on Android
         if: github.event_name != 'pull_request'
         uses: reactivecircus/android-emulator-runner@v2
@@ -107,6 +113,8 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 900
           script: gradle -p apps/xiaoxu-android :app:connectedDebugAndroidTest -PxiaoxuRuntimeTest=true --no-daemon
       - uses: actions/setup-node@v4
         with:

@@ -1,0 +1,3 @@
+QA-only build request for UI runtime verification and stable Android emulator setup.
+Compile this exact PR source and run JVM, Compose instrumentation, Room migration and end-to-end app checks. Produce debug and isolated QA APKs only after checks pass.
+This request does not authorize a formal release, a new signing key, production deployment changes or replacing installed user data. Physical Ace 6 and Pad 2 Pro verification remains outstanding.

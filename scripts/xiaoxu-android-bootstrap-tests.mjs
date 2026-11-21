@@ -1081,7 +1081,7 @@ const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xi
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
 assert.match(bottomActions, /BoxWithConstraints\(/,
   '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
+assert.match(bottomActions, /val sheetMaxHeight = \(maxHeight - 32\.dp\) \* 0\.88f/,
   '底部浮层高度必须相对可用空间限制');
 assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
   '底部浮层须避让状态栏、导航栏和键盘');
@@ -1094,6 +1094,12 @@ assert.match(bottomActions, /enabled = dismissEnabled/,
 
 assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
   '个人分类选择应改用统一的底部操作弹窗');
+assert.match(bottomActions, /Modifier\.matchParentSize\(\)\.clickable\(/,
+  '遮罩关闭只作用于弹窗背景，不应包住可滚动内容');
+assert.match(bottomActions, /\.pointerInput\(Unit\) \{ detectTapGestures\(onTap = \{\}\) \}/,
+  '弹窗空白区域只拦截点击，不合并内部按钮与滚动语义');
+assert.doesNotMatch(bottomActions, /clickable\(interactionSource = innerInteraction/,
+  '禁止恢复吞掉后代滚动语义的空点击容器');
 assert.match(bottomActions, /stateDescription = "已选择"/,
   '选中状态必须对无障碍服务可见');
 assert.match(bottomActions, /indication = ripple\(/,
