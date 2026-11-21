@@ -707,6 +707,12 @@ private fun NativeShell(
                                         onScheduleSettings = {
                                             profileSettingsRoute = "timetable-settings"
                                         },
+                                        onOpenCampusRun = {
+                                            profileSettingsRoute = "home"
+                                            academic = AcademicDestination.SERVICES
+                                            current = MainDestination.ACADEMIC
+                                            messagesOpen = false
+                                        },
                                         client = cloud,
                                         openWebsite = openWebsite,
                                         openLocalSchool = { provider ->

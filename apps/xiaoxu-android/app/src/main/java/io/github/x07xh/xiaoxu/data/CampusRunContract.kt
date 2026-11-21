@@ -71,7 +71,7 @@ data class CampusRunSnapshot(
  * User reads these values from their own official app and explicitly enters
  * them in 校序. These are USER_IMPORT snapshots, never official synchronization.
  *
- * Decimal kilometers accept up to two digits after the decimal point. Blank
+ * Decimal kilometers accept up to three digits (whole-meter precision). Blank
  * means unknown; no implicit zero. This function has no Android dependencies.
  */
 data class CampusRunManualInput(
@@ -80,17 +80,27 @@ data class CampusRunManualInput(
     val creditedKm: String,
     val semesterTotalKm: String,
     val dashboardTotalKm: String,
-    val weeklyKm: String
+    val weeklyKm: String,
+    val semesterCount: String = "",
+    val semesterValidCount: String = ""
 )
 
 fun parseCampusRunKilometers(raw: String): Long? {
     val value = raw.trim()
     if (value.isEmpty()) return null
-    require(Regex("^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,2})?$")
+    require(Regex("^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,3})?$")
         .matches(value)) { "invalid_distance" }
     return java.math.BigDecimal(value)
         .multiply(java.math.BigDecimal(1_000))
         .longValueExact()
+}
+
+/** One direct semester summary count, never inferred from accumulated meters. */
+fun parseCampusRunCount(raw: String): Int? {
+    val value = raw.trim()
+    if (value.isEmpty()) return null
+    require(Regex("^(0|[1-9][0-9]{0,6})$").matches(value)) { "invalid_run_count" }
+    return value.toInt().also { require(it in 0..1_000_000) }
 }
 
 fun CampusRunManualInput.toSnapshot(nowEpochMillis: Long): CampusRunSnapshot =
@@ -105,7 +115,9 @@ fun CampusRunManualInput.toSnapshot(nowEpochMillis: Long): CampusRunSnapshot =
         historyComplete = false,
         records = emptyList(),
         dashboardAccumulatedMeters = parseCampusRunKilometers(dashboardTotalKm),
-        weeklyMeters = parseCampusRunKilometers(weeklyKm)
+        weeklyMeters = parseCampusRunKilometers(weeklyKm),
+        totalRunCount = parseCampusRunCount(semesterCount),
+        effectiveRunCount = parseCampusRunCount(semesterValidCount)
     ), nowEpochMillis)
 
 private const val MAX_TOTAL_METERS = 10_000_000L
@@ -202,18 +214,41 @@ class CampusRunSnapshotGate(
 
     private var previous: CampusRunSnapshot? = null
     private var lastFailure: CampusRunFailure? = null
+    /** A restored snapshot cannot prove that upstream authorization is still valid. */
+    private var restoredFromCache = false
 
     fun accept(snapshot: CampusRunSnapshot, nowEpochMillis: Long): CampusRunViewState {
         val verified = validateCampusRunSnapshot(snapshot, nowEpochMillis)
         previous = verified
         lastFailure = null
+        restoredFromCache = false
+        return state(nowEpochMillis)
+    }
+
+    /**
+     * Restoring a verified local ciphertext does not verify the live service
+     * again. Always render it as cached/stale, even when captured recently.
+     */
+    fun restoreCached(
+        snapshot: CampusRunSnapshot,
+        nowEpochMillis: Long
+    ): CampusRunViewState {
+        val verified = validateCampusRunSnapshot(snapshot, nowEpochMillis)
+        require(verified.provenance == CampusRunProvenance.TRUSTED_READONLY &&
+            verified.ownerMatched) { "untrusted_cache_restore" }
+        previous = verified
+        lastFailure = null
+        restoredFromCache = true
         return state(nowEpochMillis)
     }
 
     fun refreshFailed(reason: CampusRunFailure, nowEpochMillis: Long): CampusRunViewState {
         // Revoked/expired authorization is not an ordinary network failure:
         // do not continue exposing the previous owner's personal snapshot.
-        if (reason == CampusRunFailure.NOT_AUTHORIZED) previous = null
+        if (reason == CampusRunFailure.NOT_AUTHORIZED) {
+            previous = null
+            restoredFromCache = false
+        }
         lastFailure = reason
         return state(nowEpochMillis)
     }
@@ -222,7 +257,7 @@ class CampusRunSnapshotGate(
         require(nowEpochMillis > 0)
         val value = previous ?: return lastFailure?.let(CampusRunViewState::Unavailable)
             ?: CampusRunViewState.NotConnected
-        val stale = lastFailure != null ||
+        val stale = restoredFromCache || lastFailure != null ||
             nowEpochMillis < value.capturedAtEpochMillis ||
             nowEpochMillis - value.capturedAtEpochMillis > maxAgeMillis
         return if (stale) CampusRunViewState.Stale(value, lastFailure)
@@ -232,5 +267,6 @@ class CampusRunSnapshotGate(
     fun clear() {
         previous = null
         lastFailure = null
+        restoredFromCache = false
     }
 }

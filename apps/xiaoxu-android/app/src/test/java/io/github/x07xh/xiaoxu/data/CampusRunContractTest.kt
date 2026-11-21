@@ -55,9 +55,33 @@ class CampusRunContractTest {
         assertEquals(0L, parseCampusRunKilometers("0.00"))
         assertNull(parseCampusRunKilometers("  "))
         rejects { parseCampusRunKilometers("-1") }
-        rejects { parseCampusRunKilometers("1.999") }
+        assertEquals(1_999L, parseCampusRunKilometers("1.999"))
+        rejects { parseCampusRunKilometers("1.9999") }
         rejects { parseCampusRunKilometers("1e6") }
         rejects { parseCampusRunKilometers("1,000") }
+    }
+
+    @Test fun manualCountIsExplicitAndNotDerivedFromDistance() {
+        assertEquals(5, parseCampusRunCount("5"))
+        assertEquals(0, parseCampusRunCount("0"))
+        assertNull(parseCampusRunCount(""))
+        rejects { parseCampusRunCount("-1") }
+        rejects { parseCampusRunCount("1.5") }
+        rejects { parseCampusRunCount("1000001") }
+        rejects { parseCampusRunCount("10x") }
+
+        val ownerImport = CampusRunManualInput(
+            "test term", "", "", "12.001", "", "", "5", "3"
+        ).toSnapshot(now)
+        assertEquals(12_001L, ownerImport.rawMeters)
+        assertEquals(5, ownerImport.totalRunCount)
+        assertEquals(3, ownerImport.effectiveRunCount)
+        assertFalse(ownerImport.historyComplete)
+        assertTrue(ownerImport.records.isEmpty())
+        assertEquals(CampusRunProvenance.USER_IMPORT, ownerImport.provenance)
+        rejects { CampusRunManualInput(
+            "", "", "", "12", "", "", "2", "3"
+        ).toSnapshot(now) }
     }
 
     @Test fun manualEntryIsNeverTrustedAndKeepsUnrelatedScopesSeparate() {

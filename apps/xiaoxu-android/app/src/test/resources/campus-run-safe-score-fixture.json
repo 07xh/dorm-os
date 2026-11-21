@@ -1,0 +1,14 @@
+{
+  "schema": "xiaoxu/campus-run-toolkit-safe-v1",
+  "unit": "m",
+  "semester_completed": {
+    "error": 10000,
+    "data": {
+      "sname": "synthetic-autumn",
+      "semesterDis": 12345,
+      "semesterValidDis": 10003,
+      "semesterCount": 5,
+      "semesterValidCount": 3
+    }
+  }
+}

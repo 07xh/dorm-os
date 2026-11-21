@@ -68,6 +68,7 @@ fun ProfileSettingsPage(
     route: String,
     onRouteChange: (String) -> Unit,
     onScheduleSettings: () -> Unit,
+    onOpenCampusRun: () -> Unit,
     client: CloudClient,
     openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit,
@@ -166,7 +167,8 @@ fun ProfileSettingsPage(
                 }
                 "connections" -> item {
                     ConnectionsPanel(client, openWebsite, openLocalSchool,
-                        startSchoolAuthorization, recentImport)
+                        startSchoolAuthorization, recentImport,
+                        onOpenCampusRun = onOpenCampusRun)
                 }
                 "notifications", "notifications-course", "notifications-task" -> item {
                     NotificationSettingsContent(localTasks, animatedRoute, onRouteChange)
