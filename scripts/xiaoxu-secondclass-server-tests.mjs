@@ -31,9 +31,13 @@ async function readonlySchool(url,options){
  assert.equal(new URLSearchParams(options.body).has('password'),false);
  assert.ok(options.headers.cookie?.includes('school_ss='));
  if(u.pathname===NCWU_SECOND_CLASS_READS.scores)
-  return response(200,JSON.stringify({data:[{student_code:student,
-   school_term_index:100,score_value:4.5,score_plus:2,activity_type1_score:1.5}],
-   startIndex:0,totalPage:0,totalSize:1}));
+  return response(200,JSON.stringify({data:[
+   {student_code:student,school_term_index:1,score_value:4.5,score_plus:2,
+    activity_type1_score:1.5},
+   // The real school aggregate may omit the student identifier. The semester
+   // row establishes the owner; the aggregate is never identity evidence.
+   {school_term_index:100,score_value:4.5,score_plus:2,activity_type1_score:1.5}
+  ],startIndex:0,totalPage:0,totalSize:2}));
  if(u.pathname===NCWU_SECOND_CLASS_READS.scoreTypes)
   return response(200,JSON.stringify([{code:'1',name:'志愿服务'}]));
  if(u.pathname===NCWU_SECOND_CLASS_READS.activities)
