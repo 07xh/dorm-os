@@ -68,3 +68,28 @@
 ## 非目标
 
 本证据目录**不实现网络请求、自动登录、选课目录或选课提交**，不修改现有 `NCWU_QINGGUO_TRUSTED_SYNC_ENABLED` 默认安全门禁，不触碰已有 Android Room/ICS/JSON、Cloudflare D1 或学校账号。抢课 EXE 需使用它自己经过真实验证的选课协议，不能引用这里的课表/考试 action 作为选课接口。
+
+## 2026-11-21 补充：整包接口静态清单（309 条）
+
+新材料为《接口信息收集报告.md》与《接口清单.csv》，均为喜鹊儿 2.6.457 的静态提取。旧目录的 33 条是厂商 JSON 的别名配置，而 309 条是整包路径/配置记录，两者口径不同。
+
+| CSV 分类 | 记录数 | 注意事项 |
+| --- | ---: | --- |
+| Hardcoded URL | 169 | 包含地图、推送、第三方 SDK 地址，不能全部归为教务 |
+| Hardcoded path | 59 | 只有静态相对路径，HTTP 方法和响应未知 |
+| Vendor gateway | 52 | vendorJw 30、vendorOt 18、vendorSx 4，均为静态动作路径 |
+| REST(low-code) | 29 | 25 条正式配置 + 4 条测试配置（radio 3、datepicker 1） |
+| **合计** | **309** | 不等于 309 条可用的学校接口 |
+
+### 新增候选与现有路线的关系
+
+- 主业务网关 /wap/wapController.jsp：报告给出按 action 分发的典型 POST 模式，但其 serviceUrl 由学校决定，**未核实华水服务基址**，不能拼到现有 /hsjw/ 路线。
+- 固定页面候选：/wap/MySdkc.aspx?（课程日程）、/wap/GetXnXq_XL.aspx 和 /wap/GetXnXq_JxRw.aspx（学期）、/wap/getxnxq_cjcx.aspx?（成绩）、/wap/GetKslc.aspx（考试流程）、/wap/GetStxx.aspx（身份）、/wap/GetSchoolArea.aspx（校区）。结尾问号属于提取字符串，不能猜测后续参数或 HTTP 方法。
+- .action 动作候选保留之前的 33 条别名目录；更完整的 CSV 还覆盖办公/考勤、实训和低代码报销，这些不是普通学生教务接入优先项。
+- /kingo-auth/ 与 /cas/loginCheckServlet 仅证明客户端包含相应入口，不证明华水部署。内网调试地址、密钥与 APK 中的敏感材料不上传、不用于配置。
+
+当前校序已有 Android LocalQingguoImportActivity + ncwu_qingguo_local.js 的主动本机课表导入，也保留原有服务端青果会话/课表候选与成绩考试扩展位置。**不新增重复连接器、登录器、定时同步或 D1/Room 迁移**；本报告没有提供学校真实请求/响应样本，不能启用 trusted sync。
+
+下一个可验证事实：在本人合法授权的只读查询中确认华水是否真的使用这些接口，获得脱敏字段名称/类型、会话要求、空数据语义，并与官方页面独立对照。如果学校仍使用 /hsjw/ HTML 页面，优先修复现有解析器，不因厂商静态目录强行迁移。
+
+完整计数、来源拆分和候选路径追加到现有 [机器可读证据](ncwu-xiqueer-route-catalog.json) 中，继续标记为 static_only。
