@@ -6,9 +6,10 @@ import org.junit.Test
 class SecondClassAutoReadPolicyTest {
     private fun due(enabled: Boolean = true, background: Boolean = false,
         backgroundAllowed: Boolean = false, bound: Boolean = true, interactive: Boolean = false,
-        now: Long = 2_000_000, saved: Long = 1_000_000, attempted: Long = 0) =
+        now: Long = 2_000_000, saved: Long = 1_000_000, attempted: Long = 0,
+        userRequested: Boolean = false) =
         SecondClassAutoReadPolicy.shouldRead(enabled, backgroundAllowed, background,
-            bound, interactive, now, saved, attempted)
+            bound, interactive, now, saved, attempted, userRequested)
     @Test fun priorConfirmedReadAllowsForegroundWithoutAnActivity() {
         assertTrue(due())
         assertFalse(due(bound = false)); assertFalse(due(enabled = false))
@@ -23,6 +24,18 @@ class SecondClassAutoReadPolicyTest {
         assertFalse(due(saved = 1_999_999)); assertFalse(due(attempted = 1_999_999))
         assertFalse(due(saved = 2_000_001)); assertFalse(due(attempted = 2_000_001))
         assertTrue(due(saved = 1_400_000, attempted = 1_940_000))
+    }
+    @Test fun explicitRefreshUsesExistingBoundSessionWithoutReopeningOfficialPage() {
+        // Manual reads may run while automatic reads are disabled and the cache
+        // is younger than 10 minutes, but never override owner/account checks.
+        assertFalse(due(saved = 1_999_999))
+        assertTrue(due(saved = 1_999_999, userRequested = true))
+        assertTrue(due(saved = 1_999_999, enabled = false, userRequested = true))
+        assertFalse(due(bound = false, userRequested = true))
+        assertFalse(due(interactive = true, userRequested = true))
+        assertFalse(due(saved = 0, userRequested = true))
+        assertFalse(due(attempted = 1_999_999, userRequested = true))
+        assertFalse(due(background = true, userRequested = true))
     }
     @Test fun saveRequiresThePreviouslyConfirmedHash() {
         assertTrue(SecondClassAutoReadPolicy.matchesConfirmedAccount("a".repeat(64), "a".repeat(64)))
