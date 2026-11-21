@@ -10,6 +10,7 @@
  const safeId=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{12,128}$/.test(v);
  let devices=[],candidates=[],loaded=false,busy=false,error='',note='',opened=false,devicesOpen=false;
  let oneTimeToken=null,tokenDevice=null,epoch=0,lastReadAt=0;
+ let monitorDevices=new Map(),monitorUnavailable=false;
  const AUTO_REFRESH_MS=2*60*1000;
 
  async function request(path,method='GET',payload){
@@ -38,6 +39,7 @@
  function disconnect(){
   epoch++;devices=[];candidates=[];loaded=false;busy=false;error='';note='';
   oneTimeToken=null;tokenDevice=null;opened=false;devicesOpen=false;lastReadAt=0;
+  monitorDevices=new Map();monitorUnavailable=false;
   update();
  }
  function when(t){
@@ -52,6 +54,19 @@
   return '截止时间未知';
  }
  function deviceText(dev){
+  if(dev.revokedAt)return '已撤销';
+  const cloud=monitorDevices.get(dev.id);
+  if(cloud){
+   const labels={recent:'最近90分钟有云端确认',overdue:'同步时段超过90分钟未确认',
+    outside_window:'当前不在采集时段',starting_window:'采集窗口刚开始，等待本轮同步',not_verified:'从未完成云端同步',revoked:'已撤销'};
+   const state=labels[cloud.cloudState]||'状态未知';
+   const batches=Number.isSafeInteger(cloud.confirmedBatches24h)&&cloud.confirmedBatches24h>=0?
+    cloud.confirmedBatches24h:0;
+   const pending=Number.isSafeInteger(cloud.pendingCount)&&cloud.pendingCount>=0?
+    cloud.pendingCount:0;
+   return state+' · '+(cloud.lastConfirmedAt?'最后确认 '+when(cloud.lastConfirmedAt):'无云端确认记录')+
+    ' · 24小时确认 '+batches+' 批 · 待审核 '+pending+' 条';
+  }
   if(dev.revokedAt)return '已撤销';
   if(!dev.lastSeenAt)return '已绑定，尚未完成首次云端同步';
   const seen=Date.parse(dev.lastSeenAt);
@@ -79,7 +94,8 @@
    :'<div class="button-row"><button type="button" class="secondary" data-xu-wc-refresh'+
      (busy?' disabled':'')+'>读取我的候选消息</button></div>';
   const paired=loaded?'<details class="xu-wc-devices"'+(devicesOpen?' open':'')+'><summary>电脑设备管理</summary>'+
-   '<p class="small muted">仅允许你主动绑定的电脑上传候选；群消息读取仍在电脑本地完成。</p>'+
+   '<p class="small muted">仅允许你主动绑定的电脑上传候选；群消息读取仍在电脑本地完成。以下是云端接收记录，不代表电脑实时在线或本地扫描成功。</p>'+
+   (monitorUnavailable?'<p class="small muted">云端监控数据暂不可用，设备绑定及任务审核不受影响。</p>':'')+
    '<div class="form-field"><label for="xuWcDeviceName">电脑名称</label>'+
    '<input id="xuWcDeviceName" data-xu-wc-device-name maxlength="48" placeholder="我的 Windows 电脑" autocomplete="off"></div>'+
    '<div class="button-row"><button class="secondary" type="button" data-xu-wc-pair'+
@@ -118,13 +134,17 @@
   busy=true;error='';note='';
   const turn=epoch;
   try{
-   const [d,c]=await Promise.all([
-    request('devices'),request('candidates?limit=50')
+   const [d,c,m]=await Promise.all([
+    request('devices'),request('candidates?limit=50'),
+    request('monitor').catch(()=>null)
    ]);
    if(turn!==epoch)return;
    if(!Array.isArray(d.devices)||!Array.isArray(c.items)||c.status!=='personal_candidates')
     throw Error('云端数据格式不符');
    devices=d.devices.filter(x=>safeId(x.id)&&typeof x.name==='string');
+   monitorUnavailable=!m||!Array.isArray(m.devices);
+   monitorDevices=new Map((Array.isArray(m?.devices)?m.devices:[])
+    .filter(x=>safeId(x.id)).map(x=>[x.id,x]));
    candidates=c.items.filter(x=>safeId(x.id)&&typeof x.title==='string');
    loaded=true;
   }catch(e){if(turn===epoch)error=String(e.message||'读取失败');}
