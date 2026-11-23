@@ -21,6 +21,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -28,6 +29,13 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.x07xh.xiaoxu.data.ChaoxingWebNavigation
+import io.github.x07xh.xiaoxu.data.CampusUtilitiesException
+import io.github.x07xh.xiaoxu.data.CampusUtilitiesReadOnlyClient
+import io.github.x07xh.xiaoxu.data.CampusUtilitiesWebViewTransport
+import io.github.x07xh.xiaoxu.data.CampusUtilityKind
+import io.github.x07xh.xiaoxu.data.CampusUtilityRoom
+import io.github.x07xh.xiaoxu.data.CampusUtilitiesPortal
+import java.time.YearMonth
 import io.github.x07xh.xiaoxu.data.ChaoxingWebSession
 import io.github.x07xh.xiaoxu.data.ChaoxingLocalReader
 import io.github.x07xh.xiaoxu.data.ChaoxingReadFailure
@@ -76,7 +84,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                 "?service=https%3A%2F%2Ffysso.chaoxing.com%2Fcassso%2Fncwu"
         private val entries = mapOf(
             "chaoxing" to "https://i.chaoxing.com/base",
-            "second_class" to "https://dekt.ncwu.edu.cn/sys/stu/score"
+            "second_class" to "https://dekt.ncwu.edu.cn/sys/stu/score",
+            "campus_utilities" to CampusUtilitiesPortal.HOME
         )
         private val schools = setOf(
             "authserver.ncwu.edu.cn",
@@ -99,6 +108,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     else -> ChaoxingWebNavigation.target(raw) == raw
                 }
                 "second_class" -> host in schools
+                "campus_utilities" -> host == "mobile-ykt.ncwu.edu.cn" ||
+                    (host == "authserver.ncwu.edu.cn" && uri.path == "/authserver/login")
                 else -> false
             }
         }
@@ -108,6 +119,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             val host = uri.host?.lowercase() ?: return false
             return when (provider) {
                 "second_class" -> host == "dekt.ncwu.edu.cn"
+                "campus_utilities" -> host == "mobile-ykt.ncwu.edu.cn"
                 else -> false
             }
         }
@@ -120,6 +132,10 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private lateinit var catalogProbe: Button
     private var catalogProbeOn = false
     private var provider = ""
+    private var campusKind = CampusUtilityKind.ELECTRIC
+    private var campusRoomInput: EditText? = null
+    private var campusMonthInput: EditText? = null
+    private var campusReadJob: Job? = null
     private var loaded = false
     private var pageFailed = false
     private var captureEpoch = 0
@@ -139,6 +155,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private fun abortTaskDiscovery() {
         chaoxingWebSession?.cancel()
         chaoxingReadJob?.cancel()
+        campusReadJob?.cancel()
         chaoxingWebSession = null
     }
 
@@ -183,6 +200,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             setPadding(8, 4, 8, 8)
             if (provider == "second_class") text =
                 "首次在学校官网正常登录；会话有效时可直接读取积分，无需每次登录。积分仅保存在此设备。"
+            if (provider == "campus_utilities") text =
+                "学校官方登录与只读查询在同一 WebView 内完成，无需粘贴 Token。请先在官网登录并找到有权限的房间坐标。"
         }
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun control(label: String, action: () -> Unit): Button =
@@ -202,6 +221,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         }
         extract = control("读取全部") { captureVisibleRecords() }
         if (provider == "second_class") extract.text = "读取／刷新本人积分"
+        if (provider == "campus_utilities") extract.text = "读取本月用量"
         extract.isEnabled = false
         val ncwuSsoShortcut = if (provider == "chaoxing") Button(this).apply {
             text = "华水统一身份认证（学习通）"
@@ -219,7 +239,7 @@ class NativeSchoolConnectActivity : ComponentActivity() {
         finishAndReturn = Button(this).apply {
             text = "返回校序查看已保存数据"
             isEnabled = false
-            if (provider == "chaoxing") visibility = View.GONE
+            if (provider == "chaoxing" || provider == "campus_utilities") visibility = View.GONE
             setOnClickListener {
                 // Only a committed Room write enables this button.
                 setResult(Activity.RESULT_OK, Intent()
@@ -283,13 +303,18 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     val host = Uri.parse(url ?: "").host
                     extract.isEnabled = if (provider == "chaoxing") loaded && chaoxingReadJob?.isActive != true
                         else loaded && extractionAllowed(provider, url)
-                    extract.text = if (provider == "second_class") "读取／刷新本人积分"
-                        else "读取全部"
+                    extract.text = when (provider) {
+                        "second_class" -> "读取／刷新本人积分"
+                        "campus_utilities" -> "读取本月用量"
+                        else -> "读取全部"
+                    }
                     catalogProbe.isEnabled = provider == "second_class" && loaded &&
                         host == "dekt.ncwu.edu.cn" &&
                         Uri.parse(url ?: "").path.orEmpty().startsWith("/sys/")
                     tell(if (pageFailed)
                         "当前页面访问失败，已禁止导入；请检查官方页面后重试。"
+                    else if (provider == "campus_utilities" && extract.isEnabled)
+                        "官方校园生活页面已打开。确认本人登录后，填写房间和月份，再点「读取本月用量」。"
                     else if (extract.isEnabled)
                         "已打开官方站点（" + host + "）。只有进入本人真实业务列表后才能读取；登录成功不代表数据已同步。"
                     else "请在官网继续正常登录或进入本人课程／作业／活动列表；此页面不会被提取。")
@@ -359,6 +384,31 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             }
         }
         root.addView(controls)
+        if (provider == "campus_utilities") {
+            val campusInputs = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            campusRoomInput = EditText(this).apply {
+                hint = "本人有权限的房间六段坐标（05-02-01-1-3-0301）"
+                isSingleLine = true
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+            }
+            campusMonthInput = EditText(this).apply {
+                hint = "月份 YYYY-MM"
+                isSingleLine = true
+                inputType = android.text.InputType.TYPE_CLASS_DATETIME
+                setText(YearMonth.now().toString())
+            }
+            campusInputs.addView(campusRoomInput)
+            campusInputs.addView(campusMonthInput)
+            campusInputs.addView(Button(this).apply {
+                text = "当前：电费（点此切换水费）"
+                setOnClickListener {
+                    campusKind = if (campusKind == CampusUtilityKind.ELECTRIC)
+                        CampusUtilityKind.WATER else CampusUtilityKind.ELECTRIC
+                    text = "当前：" + campusKind.title + "（点此切换）"
+                }
+            })
+            root.addView(campusInputs)
+        }
         if (provider == "chaoxing") {
             val more = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -494,6 +544,8 @@ class NativeSchoolConnectActivity : ComponentActivity() {
     private fun captureVisibleRecords() {
         if (provider == "chaoxing") {
             startOwnerTaskDiscovery()
+        } else if (provider == "campus_utilities") {
+            captureCampusUtilities()
         } else if (provider == "second_class") {
             val uri = Uri.parse(browser.url ?: "")
             if (!loaded || pageFailed || uri.host != "dekt.ncwu.edu.cn") {
@@ -503,6 +555,61 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             } else if (uri.path.orEmpty().startsWith("/sys/")) {
                 pendingOfficialCatalogRead = true
                 browser.loadUrl(entries.getValue("second_class"))
+            }
+        }
+    }
+
+
+    /**
+     * The student's own official WebView retains school accessToken. The API
+     * client receives only result data, never that token; no server or D1 write.
+     */
+    private fun captureCampusUtilities() {
+        if (provider != "campus_utilities" || !loaded || pageFailed ||
+            !extractionAllowed(provider, browser.url) || campusReadJob?.isActive == true
+        ) {
+            tell("请先在校园生活官网登录，确认学校页面已加载。")
+            return
+        }
+        val room = CampusUtilityRoom.parse(campusRoomInput?.text?.toString().orEmpty())
+        val month = runCatching {
+            YearMonth.parse(campusMonthInput?.text?.toString().orEmpty())
+        }.getOrNull()
+        if (room == null || month == null) {
+            tell("房间坐标应为六段，月份格式为 YYYY-MM。")
+            return
+        }
+        val queryEpoch = captureEpoch
+        val selectedKind = campusKind
+        extract.isEnabled = false
+        tell("正在以当前学校官方页面的本人会话只读查询" + selectedKind.title + "…")
+        campusReadJob = lifecycleScope.launch {
+            try {
+                val adapter = CampusUtilitiesWebViewTransport(browser) {
+                    queryEpoch == captureEpoch && loaded && !pageFailed &&
+                        extractionAllowed(provider, browser.url)
+                }
+                val result = CampusUtilitiesReadOnlyClient(adapter).readMonth(
+                    accessToken = "school-webview-session-only",
+                    utility = selectedKind,
+                    room = room,
+                    month = month
+                )
+                if (queryEpoch == captureEpoch) tell(
+                    result.utility.title + "（" + result.month + "） · 总用量：" +
+                        (result.totalUsed ?: "校方未提供") +
+                        " · 明细记录：" + (result.recordCount?.toString() ?: "校方未提供") +
+                        "\n本次结果仅在当前页面显示；余额及房间所有权不做推断。"
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: CampusUtilitiesException) {
+                if (queryEpoch == captureEpoch) tell(e.message ?: "学校只读查询失败")
+            } catch (_: Exception) {
+                if (queryEpoch == captureEpoch) tell("学校页面查询失败；不保存未验证数据。")
+            } finally {
+                if (queryEpoch == captureEpoch)
+                    extract.isEnabled = loaded && extractionAllowed(provider, browser.url)
             }
         }
     }
