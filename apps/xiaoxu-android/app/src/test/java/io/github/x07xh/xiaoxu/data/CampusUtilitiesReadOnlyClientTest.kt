@@ -18,8 +18,7 @@ class CampusUtilitiesReadOnlyClientTest {
 
     @Test fun directReadUsesOnlyDocumentedPostSequenceAndV2() = runBlocking {
         val calls = ArrayList<Pair<String, JSONObject>>()
-        val transport = CampusUtilitiesTransport { path, token, payload ->
-            assertEquals("student-session", token)
+        val transport = CampusUtilitiesTransport { path, payload ->
             calls.add(path to JSONObject(payload.toString()))
             when (path) {
                 "/utilities/config" -> success(JSONObject().put("detailConfig",
@@ -31,7 +30,7 @@ class CampusUtilitiesReadOnlyClientTest {
             }
         }
         val client = CampusUtilitiesReadOnlyClient(transport, pace = {})
-        val result = client.readMonth("student-session", CampusUtilityKind.ELECTRIC,
+        val result = client.readMonth(CampusUtilityKind.ELECTRIC,
             room, YearMonth.of(2026, 11))
         assertEquals(
             listOf("/utilities/config", "/utilities/account", "/utilities/usageDetailsV2"),
@@ -50,7 +49,7 @@ class CampusUtilitiesReadOnlyClientTest {
     }
 
     @Test fun v1UsesDetailsAndSummaryWithoutInventingBalance() = runBlocking {
-        val transport = CampusUtilitiesTransport { path, _, _ ->
+        val transport = CampusUtilitiesTransport { path, _ ->
             when (path) {
                 "/utilities/config" -> success(JSONObject().put("detailConfig",
                     JSONObject().put("enabled", true).put("version", "v1")))
@@ -61,7 +60,7 @@ class CampusUtilitiesReadOnlyClientTest {
             }
         }
         val result = CampusUtilitiesReadOnlyClient(transport, pace = {})
-            .readMonth("own-session", CampusUtilityKind.WATER, room, YearMonth.of(2026, 10))
+            .readMonth(CampusUtilityKind.WATER, room, YearMonth.of(2026, 10))
         assertEquals("12.50", result.totalUsed)
         assertEquals(3, result.recordCount)
         assertEquals("v1", result.detailVersion)
@@ -69,13 +68,13 @@ class CampusUtilitiesReadOnlyClientTest {
 
     @Test fun anonymousOrExpiredSessionStopsWithoutRetry() = runBlocking {
         val paths = mutableListOf<String>()
-        val transport = CampusUtilitiesTransport { path, _, _ ->
+        val transport = CampusUtilitiesTransport { path, _ ->
             paths.add(path)
             CampusUtilitiesRawResponse(401, "")
         }
         try {
             CampusUtilitiesReadOnlyClient(transport, pace = {})
-                .readMonth("expired", CampusUtilityKind.WATER, room, YearMonth.of(2026, 11))
+                .readMonth(CampusUtilityKind.WATER, room, YearMonth.of(2026, 11))
             fail("Expected server 401 to reject the read")
         } catch (e: CampusUtilitiesException) {
             assertEquals(CampusUtilitiesFailure.LOGIN_REQUIRED, e.failure)
