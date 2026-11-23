@@ -598,7 +598,6 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                         extractionAllowed(provider, browser.url)
                 }
                 val result = CampusUtilitiesReadOnlyClient(adapter).readMonth(
-                    accessToken = "school-webview-session-only",
                     utility = selectedKind,
                     room = room,
                     month = month
