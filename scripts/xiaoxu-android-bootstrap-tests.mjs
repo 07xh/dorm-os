@@ -2176,12 +2176,45 @@ const academicOverviewSource = main.slice(
     main.indexOf('AcademicDestination.OVERVIEW -> Content('),
     main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
 );
-assert.match(academicOverviewSource, /XiaoxuGroupedSection\(title = "教务"\)/,
+assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "教务"\)/,
   '成绩和考试须归入教务分类');
-assert.match(academicOverviewSource, /XiaoxuGroupedSection\(title = "校园生活"\)/,
+assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "校园生活"\)/,
   '第二课堂和校园服务须归入校园生活分类');
 assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
   '教务连续分组内部不能再套第二层方形卡片');
+assert.match(main, /private fun AcademicEditorialSection\(/,
+  '教务分区复用编辑式布局组件，不添加第二套导航');
+const academicEditorial = main.slice(main.indexOf('private fun AcademicEditorialSection('),
+  main.indexOf('private fun AcademicActionRow('));
+assert.match(academicEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
+  '教务分区用开放式细线与标题组织');
+assert.doesNotMatch(academicEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
+  '教务分区不应重新叠加大卡片');
+const academicAction = main.slice(main.indexOf('private fun AcademicActionRow('));
+assert.match(academicAction, /heightIn\(min = 60\.dp\)/,
+  '教务入口保持足够触控高度');
+assert.match(academicAction, /onClickLabel = "打开\$title"/,
+  '教务入口保持有意义的无障碍点击描述');
+assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
+  '教务入口不新增蓝色装饰瓷砖');
+assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
+  '设置首页使用开放式分组而非复制组件库');
+for (const label of ['学习与课程', '账户与数据', '其他']) {
+  assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
+    label + ' 原有导航分组需完整保留');
+}
+const settingsEditorial = profileSettings.slice(profileSettings.indexOf('private fun SettingsEditorialSection('),
+  profileSettings.indexOf('private fun SettingsDivider('));
+assert.match(settingsEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
+  '设置首页用细线组织内容');
+assert.doesNotMatch(settingsEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
+  '设置首页分组不得嵌套内容玻璃卡');
+assert.match(profileSettings, /"connections" -> item \{/,
+  '实际连接页必须继续在原二级路由内');
+assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+  '备份恢复入口仍可达');
+
+
 assert.doesNotMatch(academicOverviewSource, /"未读取"/,
   '教务总览只做导航，未核验状态留在真实详情页');
 
