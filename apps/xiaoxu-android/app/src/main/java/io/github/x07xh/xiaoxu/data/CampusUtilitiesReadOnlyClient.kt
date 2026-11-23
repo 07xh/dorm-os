@@ -155,7 +155,8 @@ class CampusUtilitiesReadOnlyClient(
             if (v2) "/utilities/usageDetailsV2" else "/utilities/usageDetails",
             accessToken,
             room.putInto(
-                JSONObject().put("fromDate", month.atDay(1).toString())
+                JSONObject().put("utilityType", type)
+                    .put("fromDate", month.atDay(1).toString())
                     .put("toDate", month.atEndOfMonth().toString())
                     .put("pageSize", 1_000).put("pageNo", 0).put("appId", type)
             )
