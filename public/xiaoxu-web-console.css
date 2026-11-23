@@ -1,38 +1,76 @@
-/* Web Console phase 2: a desktop presentation of the EXISTING site nav.
- * Smaller screens keep the same five-button mobile navigation and all old URLs.
- * Uses no new data/API/auth state and does not touch local coursework storage.
+/* Layout: one semantic nav, outside the top toolbar.
+ * At wide widths, CSS Grid gives the nav a real document-flow sidebar.
+ * Keyboard focus order follows the same source and visible order.
+ * Smaller screens keep the same five primary routes.
  */
 .xu-webnav-heading,
-.x-v7-header .xu-web-only { display:none; }
+.x-v7-primary-nav .xu-web-only { display:none; }
 
+/* Intermediate widths: a horizontal navigation row below the toolbar. */
+@media (min-width:791px) and (max-width:1179px) {
+  .x-v7-primary-nav {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:5px;
+    position:sticky;
+    top:74px;
+    z-index:89;
+    padding:8px 16px;
+    background:var(--xu-surface);
+    border-bottom:1px solid var(--xu-line);
+  }
+}
 @media (min-width:1180px) {
-  .x-v7-header-inner { max-width:none; padding-inline:clamp(20px,3vw,46px); }
-  .x-v7-header .main-nav {
-    position:fixed;
-    top:82px;
-    left:max(20px,calc(50vw - 800px));
-    width:220px;
+  .shell {
+    display:grid!important;
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap:24px;
+    max-width:1600px;
+    margin-inline:auto;
+    align-items:start;
+  }
+  .x-v7-header {
+    grid-column:1 / -1;
+    grid-row:1;
+  }
+  .x-v7-header-inner {
+    max-width:none;
+    padding-inline:clamp(20px,3vw,46px);
+  }
+  .x-v7-primary-nav {
+    grid-column:1;
+    grid-row:2;
+    align-self:start;
+    position:sticky;
+    top:92px;
+    width:auto;
+    min-width:0;
+    max-height:calc(100dvh - 110px);
+    overflow-y:auto;
     display:flex;
     flex-direction:column;
     align-items:stretch;
     gap:4px;
     padding:12px;
+    margin:18px 0 22px clamp(16px,2vw,28px);
     background:var(--xu-surface);
     border:1px solid var(--xu-line);
-    border-radius:14px;
-    box-shadow:0 8px 24px rgb(24 38 61 / 5%);
+    border-radius:16px;
+    box-shadow:0 6px 20px rgb(24 38 61 / 5%);
   }
-  .x-v7-header .xu-webnav-heading {
+  .x-v7-primary-nav .xu-webnav-heading {
     display:block;
-    order:0;
     padding:9px 12px 10px;
     color:var(--xu-muted);
     font-size:11px;
     font-weight:700;
     letter-spacing:.09em;
   }
-  .x-v7-header .xu-web-only { display:flex; }
-  .x-v7-header .nav-link {
+  .x-v7-primary-nav .xu-web-only { display:flex; }
+  .x-v7-primary-nav .nav-link {
     justify-content:flex-start;
     width:100%;
     min-height:46px;
@@ -40,28 +78,25 @@
     font-size:13px;
     border-radius:9px;
   }
-  .x-v7-header .nav-link[data-page="dashboard"] {order:1;}
-  .x-v7-header .nav-link[data-page="tasks"] {order:2;}
-  .x-v7-header .nav-link[href="#review"] {order:3; padding-left:20px;}
-  .x-v7-header .nav-link[data-page="academic"] {order:4;}
-  .x-v7-header .nav-link[href="#settings"] {order:5;}
-  .x-v7-header .nav-link[data-page="profile"] {order:6;}
-  .x-v7-header .nav-link[data-page="timetable"] {
-    order:7;
+  .x-v7-primary-nav [data-console-route="review"] {
     margin-top:12px;
+    padding-top:15px;
     border-top:1px solid var(--xu-line);
     border-radius:0 0 9px 9px;
-    padding-top:15px;
   }
-  .x-v7-header .nav-link[href="#review"][data-active="true"] {
+  .x-v7-primary-nav [data-console-route="review"][data-active="true"] {
     background:var(--xu-soft);
     color:var(--xu-brand);
   }
+  .workspace {
+    grid-column:2;
+    grid-row:2;
+    min-width:0;
+  }
   .workspace main {
     max-width:none;
-    margin-left:calc(max(20px,calc(50vw - 800px)) + 242px);
-    margin-right:max(20px,calc(50vw - 800px));
-    padding:32px 24px 72px;
     min-width:0;
+    margin-inline:0;
+    padding:32px clamp(18px,2vw,32px) 72px 0;
   }
 }
