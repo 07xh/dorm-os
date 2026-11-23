@@ -49,6 +49,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -202,7 +204,8 @@ private fun SettingsEditorialSection(
         HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
         Text(
             title,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                .semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
             color = XiaoxuPalette.Ink
         )
