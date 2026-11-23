@@ -1,12 +1,8 @@
 package io.github.x07xh.xiaoxu.data
 
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.YearMonth
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
@@ -60,52 +56,7 @@ class CampusUtilitiesException(val failure: CampusUtilitiesFailure) :
 data class CampusUtilitiesRawResponse(val statusCode: Int, val body: String)
 
 fun interface CampusUtilitiesTransport {
-    suspend fun post(path: String, accessToken: String, json: JSONObject): CampusUtilitiesRawResponse
-}
-
-class CampusUtilitiesOfficialTransport : CampusUtilitiesTransport {
-    override suspend fun post(path: String, accessToken: String, json: JSONObject) =
-        withContext(Dispatchers.IO) {
-            if (path !in ALLOWED) throw CampusUtilitiesException(CampusUtilitiesFailure.ACCESS_DENIED)
-            if (accessToken.isBlank() || '\r' in accessToken || '\n' in accessToken) {
-                throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
-            }
-            try {
-                val connection = URL("https://mobile-ykt.ncwu.edu.cn/server$path")
-                    .openConnection() as HttpURLConnection
-                try {
-                    connection.requestMethod = "POST"
-                    connection.instanceFollowRedirects = false
-                    connection.connectTimeout = 15_000
-                    connection.readTimeout = 15_000
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json")
-                    connection.setRequestProperty("Accept", "application/json")
-                    connection.setRequestProperty("Authorization", accessToken)
-                    connection.setRequestProperty("V8-Language", "zh-CN")
-                    connection.outputStream.use {
-                        it.write(json.toString().toByteArray(Charsets.UTF_8))
-                    }
-                    val status = connection.responseCode
-                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                    val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-                    CampusUtilitiesRawResponse(status, body)
-                } finally {
-                    connection.disconnect()
-                }
-            } catch (exception: CampusUtilitiesException) {
-                throw exception
-            } catch (_: IOException) {
-                throw CampusUtilitiesException(CampusUtilitiesFailure.NETWORK_FAILURE)
-            }
-        }
-
-    companion object {
-        private val ALLOWED = setOf(
-            "/utilities/config", "/utilities/account",
-            "/utilities/usageDetails", "/utilities/usageDetailsV2"
-        )
-    }
+    suspend fun post(path: String, json: JSONObject): CampusUtilitiesRawResponse
 }
 
 data class CampusUtilityMonthResult(
@@ -119,25 +70,23 @@ data class CampusUtilityMonthResult(
 )
 
 /**
- * The access token is passed per call and never persisted here. The school's
- * server is still responsible for authorizing the student's room. The result
- * indicates successful upstream reading, NOT proof of account/room ownership.
+ * Transport owns the authorized same-origin school session. Kotlin receives
+ * only read responses, never an accessToken. The school remains responsible
+ * for enforcing room permissions; a response alone is not ownership proof.
  */
 class CampusUtilitiesReadOnlyClient(
-    private val transport: CampusUtilitiesTransport = CampusUtilitiesOfficialTransport(),
+    private val transport: CampusUtilitiesTransport,
     private val pace: suspend () -> Unit = { delay(2_000) },
     private val now: () -> Long = System::currentTimeMillis
 ) {
     suspend fun readMonth(
-        accessToken: String,
         utility: CampusUtilityKind,
         room: CampusUtilityRoom,
         month: YearMonth
     ): CampusUtilityMonthResult {
-        if (accessToken.isBlank()) throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
         val type = utility.apiType
         val config = request(
-            "/utilities/config", accessToken,
+            "/utilities/config",
             JSONObject().put("utilityType", type).put("appId", type)
         )
         val details = config.optJSONObject("detailConfig")
@@ -147,13 +96,12 @@ class CampusUtilitiesReadOnlyClient(
         val v2 = details?.optString("version") == "v2"
         pace()
         val account = request(
-            "/utilities/account", accessToken,
+            "/utilities/account",
             room.putInto(JSONObject().put("utilityType", type).put("appId", type))
         )
         pace()
         val usage = request(
             if (v2) "/utilities/usageDetailsV2" else "/utilities/usageDetails",
-            accessToken,
             room.putInto(
                 JSONObject().put("utilityType", type)
                     .put("fromDate", month.atDay(1).toString())
@@ -175,8 +123,8 @@ class CampusUtilitiesReadOnlyClient(
         )
     }
 
-    private suspend fun request(path: String, token: String, body: JSONObject): JSONObject {
-        val result = transport.post(path, token, body)
+    private suspend fun request(path: String, body: JSONObject): JSONObject {
+        val result = transport.post(path, body)
         when (result.statusCode) {
             401 -> throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
             403 -> throw CampusUtilitiesException(CampusUtilitiesFailure.ACCESS_DENIED)
