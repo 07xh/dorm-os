@@ -1752,6 +1752,39 @@ assert.match(workspace, /work\.capturedAt/,
 assert.match(workspace, /HomeTaskRow\(task, today, onOpen/,
   '首页待办必须继续进入既有任务详情');
 
+// Fourth pass: verify large-tablet centering and small-screen typography
+// adaptation without introducing multiple scrolling owners or fake counters.
+const homeReadingLayout = workspace.slice(workspace.indexOf('val homeListState = rememberLazyListState()'),
+    workspace.indexOf('val selectedLesson =', workspace.indexOf('val homeListState = rememberLazyListState()')));
+assert.match(homeReadingLayout, /BoxWithConstraints\(Modifier\.fillMaxSize\(\), contentAlignment = Alignment\.TopCenter\)/,
+    '今日页在宽屏应居中放置阅读栏，不贴屏幕左边');
+assert.match(homeReadingLayout, /widthIn\(max = 1200\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
+    '今日页必须保持单一有界的 LazyColumn 滚动栏');
+const homeMetricLayout = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
+    workspace.indexOf('private fun HomeQuickBlock('));
+assert.match(homeMetricLayout, /if \(maxWidth < 360\.dp\)/,
+    '未来七天的双行说明应在窄屏避免互相挤压');
+assert.match(homeMetricLayout, /clickable\(role = Role\.Button, onClickLabel = "打开待完成任务"/,
+    '开放式数字指标仍是可访问的操作入口');
+assert.match(homeMetricLayout, /clickable\(role = Role\.Button, onClickLabel = "打开近期截止任务"/,
+    '第二个数字指标也应保留明确触控语义');
+const taskReadingLayout = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub('),
+    workspace.indexOf('private fun TaskGroupHeader('));
+assert.match(taskReadingLayout, /wrapContentWidth\(Alignment\.CenterHorizontally\)/,
+    '任务中心宽屏应居中，不能整条阅读列贴左');
+assert.match(taskReadingLayout, /widthIn\(max = 860\.dp\)/,
+    '任务中心保持有界内容宽度');
+const academicReadingLayout = main.slice(main.indexOf('private fun Content('),
+    main.indexOf('private fun CompactPageHeading('));
+assert.match(academicReadingLayout, /Box\(Modifier\.fillMaxSize\(\), contentAlignment = Alignment\.TopCenter\)/,
+    '教务的阅读内容须与顶栏使用同一个居中基准');
+assert.match(academicReadingLayout, /widthIn\(max = 860\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
+    '教务详情维持单一滚动栏，不新增嵌套滚动');
+const academicHeadingLayout = main.slice(main.indexOf('private fun AcademicPage('),
+    main.indexOf('private fun AcademicEditorialSection('));
+assert.match(academicHeadingLayout, /Box\(Modifier\.fillMaxWidth\(\), contentAlignment = Alignment\.TopCenter\)/,
+    '教务顶栏应与平板内容栏水平对齐');
+
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
 assert.ok(workspace.includes('private fun HomeCourseList('), '首页使用统一课程列表');
