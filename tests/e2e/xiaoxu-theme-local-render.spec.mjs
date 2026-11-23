@@ -21,7 +21,7 @@ test('settings theme selection preserves open settings panel and focused control
   await page.goto('/#settings');
   const more = page.locator('.xu-settings-more');
   await expect(more).toHaveCount(1);
-  await more.locator('> summary').click();
+  await more.locator('summary').first().click();
   const selector = page.locator('#themeSelect');
   await expect(selector).toBeVisible();
   await page.evaluate(() => {
