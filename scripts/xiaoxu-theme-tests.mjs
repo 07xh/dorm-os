@@ -47,4 +47,11 @@ assert.deepEqual(boot(JSON.stringify({version:1,settings:{theme:'dark'}})), { th
 assert.deepEqual(boot(JSON.stringify({version:2,settings:{theme:'dark'}})), { theme:'light', light:true });
 assert.deepEqual(boot('{invalid'), { theme:'light', light:true });
 assert.deepEqual(boot(null,true), { theme:'light', light:true });
+// A palette change must not recreate the active page tree.
+assert(html.includes('function applyTheme(){'), 'Dedicated theme applicator missing');
+assert(html.includes('applyTheme();tick();'), 'Render must keep theme synchronized');
+assert(html.includes("if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();applyTheme();return;}"),
+  'Toolbar theme switch should apply CSS without a full render');
+assert(html.includes("else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();applyTheme();}"),
+  'Settings theme selection should apply CSS without a full render');
 console.log('P0 theme first paint, token ownership, legacy alias and storage fallback checks passed');
