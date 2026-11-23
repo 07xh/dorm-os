@@ -117,9 +117,9 @@ class CampusUtilitiesWebViewTransport(
         )
 
         fun isOfficialOrigin(raw: String): Boolean = runCatching {
-            val uri = android.net.Uri.parse(raw)
+            val uri = java.net.URI(raw)
             uri.scheme == "https" && uri.host == "mobile-ykt.ncwu.edu.cn" &&
-                (uri.port == -1 || uri.port == 443) && uri.userInfo == null
+                (uri.port == -1 || uri.port == 443) && uri.rawUserInfo == null
         }.getOrDefault(false)
     }
 }
