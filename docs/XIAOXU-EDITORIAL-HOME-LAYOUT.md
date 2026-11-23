@@ -58,3 +58,17 @@
 | 使用 Google Fonts | 继续使用 Android 本机字体和 MaterialTypography，不联网加载网页字体 |
 
 此 PR 仍是 `#449` 的子 PR、非独立主集成线；本轮尚未完成 Android Gradle 编译、CI 和真机截图验收。
+
+## 第三轮：教务总览与设置首页（2026-11-24）
+
+按原 HTML 的 `strip-item`、`tbody td`（无斑马纹、无外框、浅色行分割）和 `h2/h3` 层级继续优化，而非搬用其论文式长篇字号。
+
+- **教务总览**：在原 `AcademicPage` 内，将「教务」「校园生活」改成 `AcademicEditorialSection` 开放式分组，保留成绩、考试、第二课堂、校园服务四项原始回调。分区轻描线；原 `AcademicActionRow` 改为无彩色装饰瓷砖的 60dp 原生点击行，语义标记为 Button。未核验状态仍留在成绩/考试真实详情，不能在入口伪造“已读取”。
+- **设置首页**：仅替换 `ProfileSettingsPage(route = "home")` 的三个一级分组为 `SettingsEditorialSection`，保留课表设置、通知与提醒、数据连接、备份与恢复、关于校序原有二级路由。分区标题添加无障碍 heading 语义。其他独立详情如 `ConnectionsPanel` 与备份页继续使用自己的可靠业务组件，不侵入其 UI 状态。
+- **任务中心**：本轮复核现有 `ConnectedTaskShell` 已采用共享底色、细线分隔，`TaskRow` 保留 48dp 交互区、状态来源及屏幕阅读说明，暂不进一步压缩或重写，避免破坏快速完成操作。
+- **共用边界**：不修改 `XiaoxuDesignSystem`、`PrimaryNavigation`、液态玻璃底栏、Room、任务写入、CloudClient、官方授权和任何学校读写接口。Android 玻璃的用途只保留给交互表面与需要明确封装的弹层，而不是数据内容的重复边框。
+- **测试更新**：更新已有 Android bootstrap 源码守卫以识别新分组，新增分组标题、点击行最小高度、原路由存续的检查；原提醒详情内的 `XiaoxuGroupedSection(title="个人任务")` 未变。
+
+### 待完成的实际验收
+
+当前属于**源码修改与静态源码核对**。尚无本分支的 Gradle 编译、Instrumentation、正式 Android APK 或一加设备上对比截图。合并之前还需在主线执行 Android CI，真实设备核对 320/360/393dp 单列与大字、触摸反馈、页面返回、任务勾选、弹层不遮挡和滚动性能。
