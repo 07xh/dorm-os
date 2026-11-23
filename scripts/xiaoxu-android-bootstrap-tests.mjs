@@ -1727,9 +1727,9 @@ assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\
 // surrounding every status or list with another glass card.
 const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
   workspace.indexOf('private fun HomeTaskRow('));
-assert.match(editorialHome, /HorizontalDivider\\(color = XiaoxuPalette\\.Ink, thickness = 1\\.dp\\)/,
+assert.match(editorialHome, /HorizontalDivider\(color = XiaoxuPalette\.Ink, thickness = 1\.dp\)/,
   '首页开放式统计区须保留明确视觉分界');
-assert.match(editorialHome, /if \\(maxWidth < 420\\.dp\\)/,
+assert.match(editorialHome, /if \(maxWidth < 420\.dp\)/,
   '小屏学业入口应自动降为双列');
 for (const [start, end, label] of [
   ['private fun HomeTodoBlock(', 'private fun HomeNoticesBlock(', '优先处理'],
@@ -1740,16 +1740,16 @@ for (const [start, end, label] of [
   const until = workspace.indexOf(end, from + 1);
   assert.ok(from >= 0 && until > from, label + '必须保留原有页面组件');
   const section = workspace.slice(from, until);
-  assert.doesNotMatch(section, /XiaoxuCard\\(/,
+  assert.doesNotMatch(section, /XiaoxuCard\(/,
     label + '列表应使用开放式分隔行，而不是嵌套整张玻璃卡');
-  assert.match(section, /HorizontalDivider\\(color = XiaoxuPalette\\.Line/,
+  assert.match(section, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
     label + '列表保留轻量行分隔');
 }
-assert.match(workspace, /state\\.publicError\\?\\.let/,
+assert.match(workspace, /state\.publicError\?\.let/,
   '官方公告失败提示不能因视觉重构消失');
-assert.match(workspace, /work\\.capturedAt/,
+assert.match(workspace, /work\.capturedAt/,
   '本机学习通记录的采集时间不能因视觉重构消失');
-assert.match(workspace, /HomeTaskRow\\(task, today, onOpen/,
+assert.match(workspace, /HomeTaskRow\(task, today, onOpen/,
   '首页待办必须继续进入既有任务详情');
 
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
