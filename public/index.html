@@ -32,19 +32,20 @@
   <header class="x-v7-header">
     <div class="x-v7-header-inner">
       <a class="x-v7-brand" href="#dashboard" aria-label="校序总览"><span class="x-v7-brand-mark" aria-hidden="true">序</span><span class="x-v8-brand-text">校序</span></a>
-      <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="顶部主导航">
-        <span class="xu-webnav-heading" aria-hidden="true">学业工作台</span>
-        <button type="button" data-page="dashboard" class="nav-link active"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-5v-7H9v7H3z"/></svg>总览</button>
-        <button type="button" data-page="timetable" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3"/></svg>课表</button>
-        <button type="button" data-page="academic" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V7l8-4 8 4v12M2 21h20M9 21v-6h6v6"/></svg>教务</button>
-        <button type="button" data-page="tasks" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="m8 11 2 2 4-4M8 17h8"/></svg>任务</button>
-        <a href="#review" class="nav-link xu-web-only" data-console-route="review" data-active="false"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 10h6"/></svg>消息审核</a>
-        <a href="#settings" class="nav-link xu-web-only" data-console-route="settings"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h8"/></svg>数据连接</a>
-        <button type="button" data-page="profile" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>我的</button>
-      </nav>
+
       <div class="x-v8-header-actions"><div class="xu-header-tools"><span id="breadcrumb" hidden></span><span id="dateChip" class="header-date">—</span><span hidden id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-search"></use></svg><span class="x-v8-search-label">搜索</span><kbd class="x-v8-shortcut">Ctrl K</kbd></button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div><button type="button" class="x-v8-header-theme" data-action="theme-v8" aria-label="切换深浅色主题" title="切换深浅色主题"><svg class="dorm-ui-icon x-v8-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.1A8.5 8.5 0 0 1 9.9 3.6 8.5 8.5 0 1 0 20.4 14.1Z"/></svg><svg class="dorm-ui-icon x-v8-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button></div>
     </div>
   </header>
+  <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="主导航">
+    <span class="xu-webnav-heading" aria-hidden="true">学业工作台</span>
+    <button type="button" data-page="dashboard" class="nav-link active"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-5v-7H9v7H3z"/></svg>总览</button>
+    <button type="button" data-page="timetable" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3"/></svg>课表</button>
+    <button type="button" data-page="academic" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V7l8-4 8 4v12M2 21h20M9 21v-6h6v6"/></svg>教务</button>
+    <button type="button" data-page="tasks" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="m8 11 2 2 4-4M8 17h8"/></svg>任务</button>
+    <button type="button" data-page="profile" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>我的</button>
+    <a href="#review" class="nav-link xu-web-only" data-console-route="review" data-active="false"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 10h6"/></svg>消息审核</a>
+    <a href="#settings" class="nav-link xu-web-only" data-console-route="settings"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h8"/></svg>数据连接</a>
+  </nav>
   <div class="workspace">
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>当前离线：已保存的课程、任务和个人场景仍可使用；天气与外部服务暂不可用。</div>
     <main id="app" tabindex="-1"></main>
