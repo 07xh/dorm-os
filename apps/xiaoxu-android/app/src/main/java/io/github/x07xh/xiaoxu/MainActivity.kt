@@ -78,6 +78,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
@@ -900,7 +903,7 @@ private fun AcademicPage(
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    XiaoxuGroupedSection(title = "教务") {
+                    AcademicEditorialSection(title = "教务") {
                         AcademicActionRow("成绩", Icons.Outlined.School) {
                             select(AcademicDestination.GRADES)
                         }
@@ -911,7 +914,7 @@ private fun AcademicPage(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    XiaoxuGroupedSection(title = "校园生活") {
+                    AcademicEditorialSection(title = "校园生活") {
                         AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
                             select(AcademicDestination.SECOND_CLASS)
                         }
@@ -965,6 +968,31 @@ private fun AcademicPage(
     }
 }
 
+/**
+ * 技术编辑式分组：上边界细线 + 一处真正的标题 + 连续操作行。
+ * 教务仍使用唯一 AcademicPage 导航宿主和原有详情页面。
+ */
+@Composable
+private fun AcademicEditorialSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
+        Text(
+            title,
+            modifier = Modifier.padding(top = 4.dp).semantics { heading() },
+            style = MaterialTheme.typography.titleMedium,
+            color = XiaoxuPalette.Ink
+        )
+        Column(content = { content() })
+    }
+}
+
+/** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
 @Composable
 private fun AcademicActionRow(
     title: String,
@@ -973,23 +1001,17 @@ private fun AcademicActionRow(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+            .clickable(role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(34.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(XiaoxuPalette.BrandSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null,
-                tint = XiaoxuPalette.BrandDeep, modifier = Modifier.size(19.dp))
-        }
-        Spacer(Modifier.width(12.dp))
+        Icon(icon, contentDescription = null,
+            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(16.dp))
         Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+            style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink)
         if (status != null) {
             Text(status, style = MaterialTheme.typography.labelMedium,
                 color = XiaoxuPalette.Ink3)
