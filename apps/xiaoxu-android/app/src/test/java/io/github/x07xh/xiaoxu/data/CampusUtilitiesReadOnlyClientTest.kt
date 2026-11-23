@@ -82,6 +82,22 @@ class CampusUtilitiesReadOnlyClientTest {
         assertEquals(listOf("/utilities/config"), paths)
     }
 
+    @Test fun networkFailureIsNotMisreportedAsLoginFailure() = runBlocking {
+        var calls = 0
+        val transport = CampusUtilitiesTransport { _, _ ->
+            calls++
+            CampusUtilitiesRawResponse(0, "")
+        }
+        try {
+            CampusUtilitiesReadOnlyClient(transport, pace = {})
+                .readMonth(CampusUtilityKind.ELECTRIC, room, YearMonth.of(2026, 11))
+            fail("Expected a failed first read")
+        } catch (e: CampusUtilitiesException) {
+            assertEquals(CampusUtilitiesFailure.NETWORK_FAILURE, e.failure)
+        }
+        assertEquals(1, calls)
+    }
+
     @Test fun malformedRoomDoesNotIssueRequests() {
         assertNull(CampusUtilityRoom.parse("05-02-01"))
         assertNull(CampusUtilityRoom.parse("05-02-01-1-3-\n0301"))
