@@ -27,6 +27,8 @@ test('settings theme selection preserves open settings panel and focused control
   await page.evaluate(() => {
     window.__settingsBeforeTheme = document.querySelector('#app').firstElementChild;
   });
+  await selector.focus();
+  await expect(selector).toBeFocused();
   await selector.selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   expect(await page.evaluate(() =>
@@ -34,6 +36,7 @@ test('settings theme selection preserves open settings panel and focused control
   )).toBe(true);
   await expect(more).toHaveAttribute('open','');
   await expect(selector).toHaveValue('dark');
+  await expect(selector).toBeFocused();
   await selector.selectOption('light');
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   expect(await page.evaluate(() =>
