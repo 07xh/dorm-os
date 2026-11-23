@@ -140,7 +140,7 @@ fun ProfileSettingsPage(
             when (animatedRoute) {
                 "home" -> {
                     item {
-                        XiaoxuGroupedSection(title = "学习与课程") {
+                        SettingsEditorialSection(title = "学习与课程") {
                             SettingsEntry("课表设置", Icons.Outlined.DateRange,
                                 onClick = onScheduleSettings)
                             SettingsDivider()
@@ -150,7 +150,7 @@ fun ProfileSettingsPage(
                         }
                     }
                     item {
-                        XiaoxuGroupedSection(title = "账户与数据") {
+                        SettingsEditorialSection(title = "账户与数据") {
                             SettingsEntry("数据连接", Icons.Outlined.School) {
                                 onRouteChange("connections")
                             }
@@ -161,7 +161,7 @@ fun ProfileSettingsPage(
                         }
                     }
                     item {
-                        XiaoxuGroupedSection(title = "其他") {
+                        SettingsEditorialSection(title = "其他") {
                             SettingsEntry("关于校序", Icons.Outlined.Info) {
                                 onRouteChange("about")
                             }
@@ -186,6 +186,30 @@ fun ProfileSettingsPage(
     }
 }
 
+/**
+ * 设置首页保留原二级路由，只把分组从整张玻璃卡改为开放式行列表。
+ * 与单独的连接状态页、提醒开关以及备份等业务容器严格分离。
+ */
+@Composable
+private fun SettingsEditorialSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
+        Text(
+            title,
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = XiaoxuPalette.Ink
+        )
+        Column(content = { content() })
+    }
+}
+
 @Composable
 private fun SettingsDivider() {
     HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
@@ -200,12 +224,12 @@ private fun SettingsEntry(
     statusLabel: String? = null,
     onClick: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 58.dp else 70.dp)
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 60.dp else 72.dp)
         .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
         .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Brand, modifier = Modifier.size(22.dp))
+            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
         Spacer(Modifier.size(16.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium,
