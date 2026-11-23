@@ -688,27 +688,39 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
         in 18..22 -> "晚上好"
         else -> "夜深了"
     }
-    // 首页主标题由唯一顶栏显示；这里仅给日期与问候，不再堆第二个大标题。
+    // 参考编辑式报告的信息层级：日期成为首屏阅读锚点，不复制 Shell 的「今日」标题。
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink2,
-            modifier = Modifier.weight(1f)
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "学业速览",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            Text(
+                text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = XiaoxuPalette.Ink,
+                modifier = Modifier.semantics { heading() }
+            )
+        }
         Text(
             text = greeting,
             style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink3
+            color = XiaoxuPalette.Ink3,
+            modifier = Modifier.padding(bottom = 3.dp)
         )
     }
 }
 
-/** 分区外壳：标题 + 内容，统一 8dp 间距，页面不再各写各的。 */
+/** 编辑式分区：细分隔线、标题、内容同层布局，减少连续卡片带来的视觉噪音。 */
 @Composable
 private fun HomeSection(
     title: String,
@@ -719,8 +731,9 @@ private fun HomeSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
         SectionHeader(
             title = title, caption = caption,
             actionLabel = actionLabel, onAction = onAction
@@ -822,7 +835,7 @@ private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
     }
 }
 
-/** One compact metrics group with real, local-only deadline distribution. */
+/** 编辑式开放指标栏：只有真实任务数，不提供装饰性完成率或虚构课表统计。 */
 @Composable
 private fun HomeMetricsBlock(
     pending: Int,
@@ -831,44 +844,77 @@ private fun HomeMetricsBlock(
     today: LocalDate,
     openTasks: () -> Unit
 ) {
-    // A single quiet metrics strip: the numbers are live data, not decorative cards.
-    XiaoxuCard(onClick = openTasks, contentPadding = 14.dp) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(pending.toString(), style = MaterialTheme.typography.headlineSmall,
-                    color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
-                Text("待完成", style = MaterialTheme.typography.labelMedium,
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Ink, thickness = 1.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+                    .heightIn(min = 76.dp)
+                    .clickable(onClickLabel = "打开待完成任务", onClick = openTasks)
+                    .padding(vertical = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    pending.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = XiaoxuPalette.BrandDeep
+                )
+                Text("待完成任务", style = MaterialTheme.typography.labelMedium,
                     color = XiaoxuPalette.Ink2)
             }
-            Box(Modifier.width(1.dp).height(36.dp).background(XiaoxuPalette.Line))
-            Column(Modifier.weight(1f).padding(start = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(attention.toString(), style = MaterialTheme.typography.headlineSmall,
-                    color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.width(1.dp).height(50.dp).background(XiaoxuPalette.Line))
+            Column(
+                modifier = Modifier.weight(1f)
+                    .heightIn(min = 76.dp)
+                    .clickable(onClickLabel = "打开近期截止任务", onClick = openTasks)
+                    .padding(start = 18.dp, top = 9.dp, bottom = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    attention.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (attention > 0) XiaoxuPalette.Warning else XiaoxuPalette.Ink
+                )
                 Text("近期截止", style = MaterialTheme.typography.labelMedium,
                     color = XiaoxuPalette.Ink2)
             }
         }
         if (deadlineHistogram.any { it > 0 }) {
             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
-            Text("未来七天", style = MaterialTheme.typography.labelMedium,
-                color = XiaoxuPalette.Ink2)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("未来七天 · 个人截止日期", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+                Text("按已保存日期统计", style = MaterialTheme.typography.labelSmall,
+                    color = XiaoxuPalette.Ink3)
+            }
             val maximum = deadlineHistogram.maxOrNull()?.coerceAtLeast(1) ?: 1
             val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.Bottom) {
                 deadlineHistogram.forEachIndexed { index, count ->
-                    val barHeight = if (count == 0) 2 else 8 + 24 * count / maximum
+                    val barHeight = if (count == 0) 2 else 7 + 24 * count / maximum
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(if (count > 0) count.toString() else "",
                             style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink2)
                         Spacer(Modifier.height((32 - barHeight).dp))
-                        Box(Modifier.width(16.dp).height(barHeight.dp)
-                            .clip(RoundedCornerShape(5.dp))
+                        Box(Modifier.width(18.dp).height(barHeight.dp)
+                            .clip(RoundedCornerShape(2.dp))
                             .background(if (count == 0) XiaoxuPalette.Line
-                                else XiaoxuPalette.Brand))
+                                else XiaoxuPalette.BrandDeep))
                         Text(weekdays[(today.dayOfWeek.value - 1 + index) % 7],
                             style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink3)
@@ -888,15 +934,30 @@ private fun HomeQuickBlock(
     openSecondClass: () -> Unit,
     openChaoxing: () -> Unit
 ) {
-    HomeSection(title = "快捷入口", actionLabel = "校园", onAction = openAcademic) {
-        XiaoxuCard(contentPadding = 8.dp) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
-                HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
-                HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
-                    Modifier.weight(1f), openSecondClass)
-                HomeQuickAction("学习通", Icons.Outlined.MailOutline,
-                    Modifier.weight(1f), openChaoxing)
+    HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth < 420.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                        HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                            Modifier.weight(1f), openSecondClass)
+                        HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                            Modifier.weight(1f), openChaoxing)
+                    }
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                    HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
+                    HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                        Modifier.weight(1f), openSecondClass)
+                    HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                        Modifier.weight(1f), openChaoxing)
+                }
             }
         }
     }
