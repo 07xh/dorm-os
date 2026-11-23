@@ -108,8 +108,16 @@ class NativeSchoolConnectActivity : ComponentActivity() {
                     else -> ChaoxingWebNavigation.target(raw) == raw
                 }
                 "second_class" -> host in schools
-                "campus_utilities" -> host == "mobile-ykt.ncwu.edu.cn" ||
-                    (host == "authserver.ncwu.edu.cn" && uri.path == "/authserver/login")
+                "campus_utilities" -> when (host) {
+                    "mobile-ykt.ncwu.edu.cn" -> uri.port == -1 || uri.port == 443
+                    "authserver.ncwu.edu.cn" ->
+                        (uri.port == -1 || uri.port == 443) &&
+                            uri.path == "/authserver/login" &&
+                            uri.getQueryParameters("service").size == 1 &&
+                            CampusUtilitiesWebViewTransport.isOfficialOrigin(
+                                uri.getQueryParameter("service").orEmpty())
+                    else -> false
+                }
                 else -> false
             }
         }
