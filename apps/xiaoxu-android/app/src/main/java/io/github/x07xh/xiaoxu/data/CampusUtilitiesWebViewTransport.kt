@@ -47,17 +47,21 @@ class CampusUtilitiesWebViewTransport(
                 window.__xiaoxuUtilityRead = {id:id, phase:'done', code:403, body:''};
                 return;
               }
-              // Never return this value to Android or save it in Xiaoxu.
-              const token = localStorage.getItem('accessToken') || '';
+              // Token stays inside the school origin and is never returned to Android.
+              let token = '';
+              try { token = localStorage.getItem('accessToken') || ''; } catch (_) {}
               if (!token) {
                 window.__xiaoxuUtilityRead = {id:id, phase:'done', code:401, body:''};
                 return;
               }
+              const controller = new AbortController();
+              const timeout = setTimeout(function(){ controller.abort(); }, 15000);
               fetch($requestPath, {
                 method:'POST',
                 credentials:'same-origin',
                 redirect:'error',
                 cache:'no-store',
+                signal:controller.signal,
                 headers:{
                   'Authorization':token,
                   'Content-Type':'application/json',
@@ -67,13 +71,19 @@ class CampusUtilitiesWebViewTransport(
                 body:$payload
               }).then(async function(response) {
                 const body = await response.text();
-                window.__xiaoxuUtilityRead = {
-                  id:id, phase:'done', code:response.status,
-                  body:body.length <= 262144 ? body : ''
-                };
+                if (window.__xiaoxuUtilityRead &&
+                    window.__xiaoxuUtilityRead.id === id) {
+                  window.__xiaoxuUtilityRead = {
+                    id:id, phase:'done', code:response.status,
+                    body:body.length <= 262144 ? body : ''
+                  };
+                }
               }).catch(function() {
-                window.__xiaoxuUtilityRead = {id:id, phase:'done', code:0, body:''};
-              });
+                if (window.__xiaoxuUtilityRead &&
+                    window.__xiaoxuUtilityRead.id === id) {
+                  window.__xiaoxuUtilityRead = {id:id, phase:'done', code:0, body:''};
+                }
+              }).finally(function(){ clearTimeout(timeout); });
             })();
         """.trimIndent()
         webView.evaluateJavascript(startScript, null)
