@@ -55,4 +55,18 @@ class WorkspaceDueProvenanceTest {
         assertEquals(0, countUpcomingLocalDeadlines(
             listOf(task("none", "local", null), task("cloud", "cloud", null)), today))
     }
+    @Test
+    fun histogramShowsOnlySelfEnteredIncompleteTasksInNextSevenDays() {
+        val items = listOf(
+            task("today", "local", today),
+            task("today2", "local", today),
+            task("tomorrow", "local", today.plusDays(1), true),
+            task("later", "local", today.plusDays(6)),
+            task("outside", "local", today.plusDays(7)),
+            task("school-snapshot", "cloud", today.plusDays(2))
+        )
+        assertEquals(listOf(2, 0, 0, 0, 0, 0, 1),
+            personalDeadlineHistogram(items, today))
+    }
+
 }

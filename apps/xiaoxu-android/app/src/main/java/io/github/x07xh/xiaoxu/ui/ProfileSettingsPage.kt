@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -48,12 +49,17 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
+import io.github.x07xh.xiaoxu.data.DeadlineReminderSchedule
+import io.github.x07xh.xiaoxu.data.LocalQuietHours
+import io.github.x07xh.xiaoxu.data.LocalReminderQuietHours
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
@@ -136,7 +142,7 @@ fun ProfileSettingsPage(
             when (animatedRoute) {
                 "home" -> {
                     item {
-                        XiaoxuGroupedSection(title = "学习与课程") {
+                        SettingsEditorialSection(title = "学习与课程") {
                             SettingsEntry("课表设置", Icons.Outlined.DateRange,
                                 onClick = onScheduleSettings)
                             SettingsDivider()
@@ -146,7 +152,7 @@ fun ProfileSettingsPage(
                         }
                     }
                     item {
-                        XiaoxuGroupedSection(title = "账户与数据") {
+                        SettingsEditorialSection(title = "账户与数据") {
                             SettingsEntry("数据连接", Icons.Outlined.School) {
                                 onRouteChange("connections")
                             }
@@ -157,7 +163,7 @@ fun ProfileSettingsPage(
                         }
                     }
                     item {
-                        XiaoxuGroupedSection(title = "其他") {
+                        SettingsEditorialSection(title = "其他") {
                             SettingsEntry("关于校序", Icons.Outlined.Info) {
                                 onRouteChange("about")
                             }
@@ -182,6 +188,31 @@ fun ProfileSettingsPage(
     }
 }
 
+/**
+ * 设置首页保留原二级路由，只把分组从整张玻璃卡改为开放式行列表。
+ * 与单独的连接状态页、提醒开关以及备份等业务容器严格分离。
+ */
+@Composable
+private fun SettingsEditorialSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
+        Text(
+            title,
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                .semantics { heading() },
+            style = MaterialTheme.typography.titleMedium,
+            color = XiaoxuPalette.Ink
+        )
+        Column(content = { content() })
+    }
+}
+
 @Composable
 private fun SettingsDivider() {
     HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
@@ -196,12 +227,12 @@ private fun SettingsEntry(
     statusLabel: String? = null,
     onClick: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 58.dp else 70.dp)
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 60.dp else 72.dp)
         .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
         .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Brand, modifier = Modifier.size(22.dp))
+            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
         Spacer(Modifier.size(16.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium,
@@ -233,7 +264,8 @@ private fun ReminderToggleRow(
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
         }
         XiaoxuSettingsSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
@@ -251,6 +283,11 @@ private fun NotificationSettingsContent(
     var deadlineEnabled by remember { mutableStateOf(LocalDeadlineReminders.enabled(context)) }
     var leadMinutes by remember { mutableStateOf(LocalCourseReminders.leadMinutes(context)) }
     var leadPickerOpen by remember { mutableStateOf(false) }
+    var reminderSchedule by remember { mutableStateOf(LocalDeadlineReminders.schedule(context)) }
+    var taskTimePickerOpen by remember { mutableStateOf(false) }
+    var quietHours by remember { mutableStateOf(LocalReminderQuietHours.load(context)) }
+    // 0 = closed, 1 = start, 2 = end; only one picker is ever composed.
+    var quietTimePicker by remember { mutableStateOf(0) }
     var permissionTarget by remember { mutableStateOf("course") }
 
     fun toggle(value: Boolean) {
@@ -277,6 +314,36 @@ private fun NotificationSettingsContent(
             }
             deadlineEnabled = LocalDeadlineReminders.enabled(context)
             if (!success) Toast.makeText(context, "本机截止提醒更新失败", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun updateReminderSchedule(value: DeadlineReminderSchedule) {
+        scope.launch {
+            val success = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (!LocalDeadlineReminders.setSchedule(context, value)) false
+                    else {
+                        if (LocalDeadlineReminders.enabled(context)) {
+                            LocalDeadlineReminders.reconcile(context, tasks)
+                        }
+                        true
+                    }
+                }.getOrDefault(false)
+            }
+            reminderSchedule = LocalDeadlineReminders.schedule(context)
+            if (!success) Toast.makeText(context,
+                "提醒配置未完全生效，请重试", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun updateQuietHours(value: LocalQuietHours) {
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                LocalReminderQuietHours.save(context, value)
+            }
+            quietHours = LocalReminderQuietHours.load(context)
+            if (!saved) Toast.makeText(context,
+                "免打扰设置保存失败，请重试", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -317,97 +384,115 @@ private fun NotificationSettingsContent(
         }
     }
 
-    when (route) {
-        "notifications" -> {
-            XiaoxuGroupedSection(title = "提醒类别") {
-                SettingsEntry(
-                    "课程提醒", Icons.Outlined.DateRange,
-                    subtitle = "本机课表 · 单门课程可独立设置",
-                    statusLabel = if (enabled) "开关已开" else "已关闭"
-                ) {
-                    onRouteChange("notifications-course")
-                }
-                SettingsDivider()
-                SettingsEntry(
-                    "任务提醒", Icons.Outlined.CheckCircle,
-                    subtitle = "本人标注的本机待办日期",
-                    statusLabel = if (deadlineEnabled) "开关已开" else "已关闭"
-                ) {
-                    onRouteChange("notifications-task")
+    // A single short form replaces two nested reminder-settings routes.
+    XiaoxuGroupedSection(title = "课程") {
+        ReminderToggleRow(
+            title = "上课提醒", subtitle = "", checked = enabled,
+            onCheckedChange = { value ->
+                when {
+                    !value -> toggle(false)
+                    LocalCourseReminders.canNotify(context) -> toggle(true)
+                    else -> requestNotificationAccess("course")
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            XiaoxuGroupedSection(title = "系统通知") {
-                SettingsEntry("管理系统通知权限", Icons.Outlined.NotificationsNone,
-                    onClick = ::openPermissionSettings)
-            }
-            Spacer(Modifier.height(16.dp))
-            XiaoxuGroupedSection(title = "其他学业来源") {
-                Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text("学习通、考试、第二课堂与微信任务",
-                        style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
-                    Text("专用系统提醒仍待真实数据及状态核验。相关记录继续在消息或任务页面查看，不展示未接入的开关。",
-                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-                }
-            }
-        }
-        "notifications-course" -> {
-            XiaoxuGroupedSection(title = "本机课表") {
-                ReminderToggleRow(
-                    title = "上课提醒",
-                    subtitle = "根据本机课表安排，单门课程可单独设置",
-                    checked = enabled,
-                    onCheckedChange = { value ->
-                        when {
-                            !value -> toggle(false)
-                            LocalCourseReminders.canNotify(context) -> toggle(true)
-                            else -> requestNotificationAccess("course")
-                        }
-                    }
-                )
-                SettingsDivider()
-                SettingsEntry(
-                    if (leadMinutes == 0) "上课时提醒" else "提前提醒 · ${leadMinutes} 分钟",
-                    Icons.Outlined.DateRange,
-                    subtitle = "选择提醒提前量"
-                ) {
-                    leadPickerOpen = true
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            XiaoxuGroupedSection(title = "送达说明") {
-                Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text("提醒由 WorkManager 在本机排定，受系统省电策略影响，实际到达可能延迟。",
-                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-                }
-            }
-        }
-        "notifications-task" -> {
-            XiaoxuGroupedSection(title = "本机待办") {
-                ReminderToggleRow(
-                    title = "本机截止提醒",
-                    subtitle = "仅提醒本人填写的日期，截止前一天及当天约 09:00",
-                    checked = deadlineEnabled,
-                    onCheckedChange = { value ->
-                        when {
-                            !value -> toggleDeadline(false)
-                            LocalDeadlineReminders.canNotify(context) -> toggleDeadline(true)
-                            else -> requestNotificationAccess("deadline")
-                        }
-                    }
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            XiaoxuGroupedSection(title = "数据范围") {
-                Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text("本机提醒不会把未核对的学习通作业当作未完成任务，也不会修改学校平台的提交状态。",
-                        style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-                }
-            }
+        )
+        SettingsDivider()
+        SettingsEntry("课前 · " + leadMinutes + " 分钟", Icons.Outlined.DateRange) {
+            leadPickerOpen = true
         }
     }
+    Spacer(Modifier.height(14.dp))
+    XiaoxuGroupedSection(title = "个人任务") {
+        ReminderToggleRow(
+            title = "截止提醒", subtitle = "", checked = deadlineEnabled,
+            onCheckedChange = { value ->
+                when {
+                    !value -> toggleDeadline(false)
+                    LocalDeadlineReminders.canNotify(context) -> toggleDeadline(true)
+                    else -> requestNotificationAccess("deadline")
+                }
+            }
+        )
+        SettingsDivider()
+        ReminderToggleRow("提前一天", "", reminderSchedule.dayBefore,
+            onCheckedChange = { updateReminderSchedule(reminderSchedule.copy(dayBefore = it)) })
+        SettingsDivider()
+        ReminderToggleRow("截止当天", "", reminderSchedule.dueDay,
+            onCheckedChange = { updateReminderSchedule(reminderSchedule.copy(dueDay = it)) })
+        SettingsDivider()
+        SettingsEntry(
+            "提醒时间 · " + "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
+            Icons.Outlined.DateRange
+        ) { taskTimePickerOpen = true }
+    }
+    Spacer(Modifier.height(14.dp))
+    XiaoxuGroupedSection(title = "免打扰") {
+        ReminderToggleRow(
+            title = "启用本机免打扰",
+            subtitle = "时段内跳过提醒，不补发；不修改系统免打扰",
+            checked = quietHours.enabled,
+            onCheckedChange = { updateQuietHours(quietHours.copy(enabled = it)) }
+        )
+        SettingsDivider()
+        SettingsEntry(
+            "开始 · " + "%02d:%02d".format(
+                quietHours.startMinutes / 60, quietHours.startMinutes % 60),
+            Icons.Outlined.DateRange
+        ) { quietTimePicker = 1 }
+        SettingsDivider()
+        SettingsEntry(
+            "结束 · " + "%02d:%02d".format(
+                quietHours.endMinutes / 60, quietHours.endMinutes % 60),
+            Icons.Outlined.DateRange
+        ) { quietTimePicker = 2 }
+    }
+    Spacer(Modifier.height(14.dp))
+    XiaoxuGroupedSection(title = "系统") {
+        SettingsEntry("通知权限与渠道", Icons.Outlined.NotificationsNone,
+            onClick = ::openPermissionSettings)
+    }
+    Text("本机课程与个人任务 · 省电模式下可能延迟",
+        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp))
 
-    if (route == "notifications-course" && leadPickerOpen) {
+    if (quietTimePicker != 0) {
+        val pickingStart = quietTimePicker == 1
+        val chosen = if (pickingStart) quietHours.startMinutes else quietHours.endMinutes
+        AlertDialog(
+            onDismissRequest = { quietTimePicker = 0 },
+            title = { Text(if (pickingStart) "免打扰开始时间" else "免打扰结束时间") },
+            text = {
+                val listState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = (chosen / 30 - 2).coerceAtLeast(0))
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                    state = listState
+                ) {
+                    items((0..47).toList()) { slot ->
+                        val minutes = slot * 30
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .clickable {
+                                quietTimePicker = 0
+                                if (chosen != minutes) {
+                                    updateQuietHours(if (pickingStart)
+                                        quietHours.copy(startMinutes = minutes)
+                                    else quietHours.copy(endMinutes = minutes))
+                                }
+                            }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("%02d:%02d".format(minutes / 60, minutes % 60),
+                                modifier = Modifier.weight(1f), color = XiaoxuPalette.Ink)
+                            if (minutes == chosen) Icon(Icons.Outlined.CheckCircle,
+                                contentDescription = "已选择", tint = XiaoxuPalette.Brand)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { quietTimePicker = 0 }) { Text("关闭") } }
+        )
+    }
+
+    if (leadPickerOpen) {
         XiaoxuBottomActionSheet(
             title = "课前提醒时间",
             subtitle = "选择上课前的通知时间",
@@ -441,4 +526,49 @@ private fun NotificationSettingsContent(
             }
         )
     }
+        if (taskTimePickerOpen) {
+        AlertDialog(
+            onDismissRequest = { taskTimePickerOpen = false },
+            title = { Text("任务提醒时间") },
+            text = {
+                val selectedSlot = reminderSchedule.hour * 2 + reminderSchedule.minute / 30
+                val listState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = (selectedSlot - 2).coerceAtLeast(0)
+                )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)
+                ) {
+                    items((0..47).toList()) { slot ->
+                        val hour = slot / 2
+                        val minute = (slot % 2) * 30
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .clickable {
+                                    taskTimePickerOpen = false
+                                    if (hour != reminderSchedule.hour ||
+                                        minute != reminderSchedule.minute) {
+                                        updateReminderSchedule(reminderSchedule.copy(
+                                            hour = hour, minute = minute))
+                                    }
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("%02d:%02d".format(hour, minute),
+                                modifier = Modifier.weight(1f), color = XiaoxuPalette.Ink)
+                            if (hour == reminderSchedule.hour && minute == reminderSchedule.minute) {
+                                Icon(Icons.Outlined.CheckCircle, contentDescription = "已选择",
+                                    tint = XiaoxuPalette.Brand)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { taskTimePickerOpen = false }) { Text("关闭") }
+            }
+        )
+    }
+
 }
