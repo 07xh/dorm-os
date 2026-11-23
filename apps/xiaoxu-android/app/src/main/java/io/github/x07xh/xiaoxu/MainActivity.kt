@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -813,13 +814,17 @@ private fun Content(
     topPadding: androidx.compose.ui.unit.Dp = 18.dp,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
-            top = topPadding, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        content = content
-    )
+    // Align tablet reading width with the settings and home workspaces.
+    // Only one LazyColumn owns scrolling; no nested independent list.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.widthIn(max = 860.dp).fillMaxWidth().fillMaxHeight(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
+                top = topPadding, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
 }
 
 @Composable
@@ -876,28 +881,31 @@ private fun AcademicPage(
         modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (academicRoute != AcademicDestination.OVERVIEW) {
-                IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "返回校园",
-                        tint = XiaoxuPalette.Ink2)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Row(
+                Modifier.widthIn(max = 860.dp).fillMaxWidth()
+                    .padding(start = 12.dp, end = 18.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (academicRoute != AcademicDestination.OVERVIEW) {
+                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "返回校园",
+                            tint = XiaoxuPalette.Ink2)
+                    }
                 }
-            }
-            Box(Modifier.weight(1f)) {
-                CompactPageHeading(
-                    title = when (academicRoute) {
-                        AcademicDestination.OVERVIEW -> "校园"
-                        AcademicDestination.GRADES -> "成绩"
-                        AcademicDestination.EXAMS -> "考试"
-                        AcademicDestination.SECOND_CLASS -> "第二课堂"
-                        AcademicDestination.SERVICES -> "校园服务"
-                    },
-                    onMessages = onMessages
-                )
+                Box(Modifier.weight(1f)) {
+                    CompactPageHeading(
+                        title = when (academicRoute) {
+                            AcademicDestination.OVERVIEW -> "校园"
+                            AcademicDestination.GRADES -> "成绩"
+                            AcademicDestination.EXAMS -> "考试"
+                            AcademicDestination.SECOND_CLASS -> "第二课堂"
+                            AcademicDestination.SERVICES -> "校园服务"
+                        },
+                        onMessages = onMessages
+                    )
+                }
             }
         }
         when (academicRoute) {
