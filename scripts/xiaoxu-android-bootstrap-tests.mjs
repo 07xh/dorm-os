@@ -1712,7 +1712,7 @@ assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问�
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\) \{[\s\S]*?XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
 const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
-    workspace.indexOf('/** 分区外壳', workspace.indexOf('private fun HomeGreeting(')));
+    workspace.indexOf('private fun HomeSection(', workspace.indexOf('private fun HomeGreeting(')));
 assert.match(compactGreeting, /Row\(/,
   '日期和问候同排展示，不额外占用一层大标题');
 assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
@@ -1722,6 +1722,35 @@ assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
   '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');
 assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassRim/,
   '首页学业快捷入口不能回退到实心白卡和灰色硬描边');
+
+// Editorial report visual adaptation: make scrollable content readable without
+// surrounding every status or list with another glass card.
+const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
+  workspace.indexOf('private fun HomeTaskRow('));
+assert.match(editorialHome, /HorizontalDivider\\(color = XiaoxuPalette\\.Ink, thickness = 1\\.dp\\)/,
+  '首页开放式统计区须保留明确视觉分界');
+assert.match(editorialHome, /if \\(maxWidth < 420\\.dp\\)/,
+  '小屏学业入口应自动降为双列');
+for (const [start, end, label] of [
+  ['private fun HomeTodoBlock(', 'private fun HomeNoticesBlock(', '优先处理'],
+  ['private fun HomeNoticesBlock(', 'private fun HomeHomeworkBlock(', '校园动态'],
+  ['private fun HomeHomeworkBlock(', 'private fun HomeTaskRow(', '学习通本机作业']
+]) {
+  const from = workspace.indexOf(start);
+  const until = workspace.indexOf(end, from + 1);
+  assert.ok(from >= 0 && until > from, label + '必须保留原有页面组件');
+  const section = workspace.slice(from, until);
+  assert.doesNotMatch(section, /XiaoxuCard\\(/,
+    label + '列表应使用开放式分隔行，而不是嵌套整张玻璃卡');
+  assert.match(section, /HorizontalDivider\\(color = XiaoxuPalette\\.Line/,
+    label + '列表保留轻量行分隔');
+}
+assert.match(workspace, /state\\.publicError\\?\\.let/,
+  '官方公告失败提示不能因视觉重构消失');
+assert.match(workspace, /work\\.capturedAt/,
+  '本机学习通记录的采集时间不能因视觉重构消失');
+assert.match(workspace, /HomeTaskRow\\(task, today, onOpen/,
+  '首页待办必须继续进入既有任务详情');
 
 assert.doesNotMatch(workspace, /private fun HomeHero\(/, '旧首页轮播必须清退');
 assert.ok(workspace.includes('internal fun <T> homeCoursePreview('), '首页预览应保留本人课程原顺序');
@@ -1740,7 +1769,7 @@ assert.doesNotMatch(homeCourseBlock, /caption = "\$weekdayLabel/,
   '首页课程不重复铺设周次来源诊断文案');
 
 const homeRowSource = workspace.slice(workspace.indexOf('private fun HomeCourseRecordRow('),
-    workspace.indexOf('/** 两张统计卡', workspace.indexOf('private fun HomeCourseRecordRow(')));
+    workspace.indexOf('private fun HomeMetricsBlock(', workspace.indexOf('private fun HomeCourseRecordRow(')));
 assert.match(homeRowSource, /heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
   '首页课程行与消息及任务列表使用一致的最小触控高度');
 assert.match(schedulePanel, /Modifier\.width\(4\.dp\)\.heightIn\(min = XiaoxuSpacing\.listRowMin\)/,
