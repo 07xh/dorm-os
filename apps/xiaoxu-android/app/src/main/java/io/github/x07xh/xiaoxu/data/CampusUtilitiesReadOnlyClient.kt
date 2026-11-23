@@ -126,6 +126,7 @@ class CampusUtilitiesReadOnlyClient(
     private suspend fun request(path: String, body: JSONObject): JSONObject {
         val result = transport.post(path, body)
         when (result.statusCode) {
+            0 -> throw CampusUtilitiesException(CampusUtilitiesFailure.NETWORK_FAILURE)
             401 -> throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
             403 -> throw CampusUtilitiesException(CampusUtilitiesFailure.ACCESS_DENIED)
             200 -> Unit
