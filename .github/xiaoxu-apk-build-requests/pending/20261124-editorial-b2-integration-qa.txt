@@ -1,0 +1,5 @@
+mode=qa-only
+scope=android-build-and-tests
+source_pr=464
+formal_release=false
+note=Temporary PR-only QA request. Remove before merging to main.
