@@ -364,6 +364,31 @@ assert.deepEqual(compactWorks.items.map(x=>[x.workId,x.statusCode]),
  [['940','submitted'],['941','submitted']]);
 assert.ok(!JSON.stringify(compactWorks).includes('signedWork'));
 
+// The PC/H5 inventory documents /mooc-ans/work/list without the extra
+// /mooc2 segment. Only use it after the established variants are exhausted.
+const documentedRouteCalls=[];
+const documentedRouteAdapter=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
+ const u=new URL(raw),path=u.pathname;
+ if(path==='/base')return response(profile);
+ if(path==='/mooc2-ans/visit/courselistdata')return response(courseHtml);
+ if(path==='/visit/stucoursemiddle')return response(middle);
+ if(path==='/mooc2/work/list'||path==='/mooc-ans/mooc2/work/list')
+  return response('<body>无数据</body>');
+ if(path==='/mooc-ans/work/list'){
+  documentedRouteCalls.push(path);
+  assert.equal(u.searchParams.get('courseId'),'123');
+  assert.equal(u.searchParams.get('classId'),'456');
+  assert.equal(u.searchParams.get('enc'),'signedWork');
+  return response(workHtml);
+ }
+ throw Error('unexpected route '+path);
+}});
+const documentedRouteReader=await documentedRouteAdapter.forSession({session,userId:'owner1'});
+await documentedRouteReader.verifySession();
+const documentedList=await documentedRouteReader.readHomeworkList(courseKeys);
+assert.deepEqual(documentedList.items.map(x=>[x.workId,x.statusCode]),[['987','todo']]);
+assert.deepEqual(documentedRouteCalls,['/mooc-ans/work/list']);
+
 // A broken response under BOTH query shapes must not create fake zero work,
 // alter trusted statuses or downgrade an actual official authorization failure.
 const compactBroken=createChaoxingSchoolAdapter({fetchImpl:async raw=>{
