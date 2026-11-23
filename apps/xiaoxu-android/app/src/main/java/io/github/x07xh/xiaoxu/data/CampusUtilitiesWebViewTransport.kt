@@ -25,7 +25,6 @@ class CampusUtilitiesWebViewTransport(
 ) : CampusUtilitiesTransport {
     override suspend fun post(
         path: String,
-        accessToken: String,
         json: JSONObject
     ): CampusUtilitiesRawResponse = withContext(Dispatchers.Main) {
         require(path in allowedPaths) { "Unsupported utilities route" }
