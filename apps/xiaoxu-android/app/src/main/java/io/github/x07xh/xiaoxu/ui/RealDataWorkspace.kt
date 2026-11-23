@@ -606,12 +606,13 @@ fun RealAcademicHome(
     }
 
     val homeListState = rememberLazyListState()
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val wideLayout = maxWidth >= 700.dp
+        // Keep a single scroll owner; center the bounded reading column on large tablets.
         // One scroll owner on phones AND tablets; neither column scrolls separately.
         LazyColumn(
             state = homeListState,
-            modifier = Modifier.fillMaxSize().widthIn(max = 1200.dp),
+            modifier = Modifier.widthIn(max = 1200.dp).fillMaxWidth().fillMaxHeight(),
             contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 18.dp,
                 vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -856,7 +857,7 @@ private fun HomeMetricsBlock(
             Column(
                 modifier = Modifier.weight(1f)
                     .heightIn(min = 76.dp)
-                    .clickable(onClickLabel = "打开待完成任务", onClick = openTasks)
+                    .clickable(role = Role.Button, onClickLabel = "打开待完成任务", onClick = openTasks)
                     .padding(vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -873,7 +874,7 @@ private fun HomeMetricsBlock(
             Column(
                 modifier = Modifier.weight(1f)
                     .heightIn(min = 76.dp)
-                    .clickable(onClickLabel = "打开近期截止任务", onClick = openTasks)
+                    .clickable(role = Role.Button, onClickLabel = "打开近期截止任务", onClick = openTasks)
                     .padding(start = 18.dp, top = 9.dp, bottom = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -889,15 +890,32 @@ private fun HomeMetricsBlock(
         }
         if (deadlineHistogram.any { it > 0 }) {
             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("未来七天 · 个人截止日期", style = MaterialTheme.typography.labelMedium,
-                    color = XiaoxuPalette.Ink2)
-                Text("按已保存日期统计", style = MaterialTheme.typography.labelSmall,
-                    color = XiaoxuPalette.Ink3)
+            // Same information, but no forced single-line collision at 320dp
+            // or when the user enlarges the system font.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 360.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("未来七天 · 个人截止日期",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2)
+                        Text("按已保存日期统计",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("未来七天 · 个人截止日期",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2)
+                        Text("按已保存日期统计",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
             }
             val maximum = deadlineHistogram.maxOrNull()?.coerceAtLeast(1) ?: 1
             val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
