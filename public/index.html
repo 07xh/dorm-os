@@ -9,10 +9,13 @@
   <!-- Scrub App navigation nonce before the SPA parses its hash route. -->
   <script src="/xiaoxu-android-return.js"></script>
   <script src="/xiaoxu-updates.js"></script>
+  <!-- Apply saved theme before styles are painted. -->
+  <script src="/xiaoxu-theme-bootstrap.js"></script>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/dorm-os.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
       <link rel="stylesheet" href="/xiaoxu-base.css">
+  <link rel="stylesheet" href="/xiaoxu-tokens.css">
 
 
   <link rel="stylesheet" href="/xiaoxu-academic.css">
@@ -999,7 +1002,7 @@ function render(){const previousApp=$('app');const focusedEl=document.activeElem
   .find(el=>el.dataset.xuSchoolProvider===item.provider);
  const panel=group?.querySelectorAll('details')[item.index];
  if(panel)panel.open=true;
-}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
+}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.dataset.theme=state.settings.theme==='dark'?'dark':'light';document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
 
 
  // After owner authentication, the connection-center page may read its status.

@@ -1,8 +1,6 @@
 /* Current workspace design. One shell and component layer for all screen sizes. */
-:root{--xu-bg:#f5f7fb;--xu-surface:#fff;--xu-soft:#eef3fc;--xu-ink:#18263d;--xu-muted:#64748b;--xu-line:#e5eaf1;--xu-brand:#285de5;--xu-ring:#91adff;--xu-radius:13px;--xu-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
-html:not(.theme-light){--xu-bg:#0e1726;--xu-surface:#17243a;--xu-soft:#22334e;--xu-ink:#e8effa;--xu-muted:#a4b4cc;--xu-line:#33455e;--xu-brand:#92b5ff}
-html{--base:var(--xu-bg);--surface:var(--xu-surface);--surface2:var(--xu-soft);--text:var(--xu-ink);--muted:var(--xu-muted);--border:var(--xu-line);--blue:var(--xu-brand);scroll-behavior:auto}
-html.theme-light{--base:var(--xu-bg);--surface:var(--xu-surface);--surface2:var(--xu-soft);--text:var(--xu-ink);--muted:var(--xu-muted);--border:var(--xu-line);--blue:var(--xu-brand)}
+/* Theme tokens and the legacy aliases now live in xiaoxu-tokens.css. */
+html{scroll-behavior:auto}
 body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.6}
 [hidden]{display:none!important}button,a,summary{touch-action:manipulation}button{color:inherit}button:disabled{cursor:wait;opacity:.55}button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--xu-ring);outline-offset:3px}
 .shell{display:block!important;background:transparent;min-height:100vh}.workspace{width:100%;min-width:0}.workspace main{max-width:1220px;padding:32px 30px 72px;margin:auto}
