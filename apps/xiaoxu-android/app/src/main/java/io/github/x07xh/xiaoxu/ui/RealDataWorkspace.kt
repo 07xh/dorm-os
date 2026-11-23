@@ -992,14 +992,16 @@ private fun HomeTodoBlock(
 ) {
     HomeSection(title = "优先处理", caption = caption,
         actionLabel = "全部任务", onAction = openTasks) {
-        XiaoxuCard {
+        // Editorial-style rows: one hierarchy, thin rules, no nested glass card.
+        Column(Modifier.fillMaxWidth()) {
             if (upcoming.isEmpty()) {
                 Text("当前没有已保存的待办任务",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
-                upcoming.forEachIndexed { index, task ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                upcoming.forEach { task ->
                     HomeTaskRow(task, today, onOpen = { onTaskOpen(task) })
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
         }
@@ -1015,20 +1017,20 @@ private fun HomeNoticesBlock(
 ) {
     HomeSection(title = "校园动态",
         actionLabel = "消息中心", onAction = openMessages) {
-        XiaoxuCard {
+        Column(Modifier.fillMaxWidth()) {
             if (state.notices.isEmpty()) {
                 Text("暂无已读取的官方通知",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
-                state.notices.take(2).forEachIndexed { index, notice ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                state.notices.take(2).forEach { notice ->
                     Column(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
                             .clickable(onClickLabel = "查看公告详情") {
                                 onNoticeOpen(notice.id.ifBlank { notice.url })
                             }
-                            .padding(vertical = 9.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text(notice.title, style = MaterialTheme.typography.titleSmall,
                             color = XiaoxuPalette.Ink,
@@ -1037,10 +1039,12 @@ private fun HomeNoticesBlock(
                             style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink3)
                     }
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
             state.publicError?.let {
                 Text("公告刷新失败，旧记录可能过期",
+                    modifier = Modifier.padding(top = 8.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Danger)
             }
@@ -1055,32 +1059,27 @@ private fun HomeHomeworkBlock(
     openLocalSchool: (String) -> Unit
 ) {
     HomeSection(title = "学习通 · 本机作业") {
-        XiaoxuCard {
+        Column(Modifier.fillMaxWidth()) {
             if (localHomework.isEmpty()) {
-                Text(
-                    text = "还没有本机读取到的作业标题",
+                Text("还没有本机读取到的作业标题",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink2
-                )
+                    color = XiaoxuPalette.Ink2)
                 TextButton(onClick = { openLocalSchool("chaoxing") }) {
                     Text("在 App 内读取学习通作业")
                 }
             } else {
-                Text(
-                    text = "已保存 ${localHomework.size} 条",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2
-                )
-                localHomework.take(3).forEachIndexed { index, work ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = work.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                Text("已保存 ${localHomework.size} 条",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+                localHomework.take(3).forEach { work ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(work.title, style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
                         Text(
                             text = "采集时间：" + DateFormat.getDateTimeInstance(
                                 DateFormat.SHORT, DateFormat.SHORT
@@ -1089,6 +1088,7 @@ private fun HomeHomeworkBlock(
                             color = XiaoxuPalette.Ink3
                         )
                     }
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
                 TextButton(onClick = { openLocalSchool("chaoxing") }) {
                     Text("重新读取官网当前页面")
@@ -1097,8 +1097,6 @@ private fun HomeHomeworkBlock(
         }
     }
 }
-
-
 
 /** 首页待办行：状态标签沿用任务中心同一套判定（describeDue），不在这里另算。 */
 @Composable
@@ -2581,8 +2579,9 @@ private fun TaskSectionHeader(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = title,
