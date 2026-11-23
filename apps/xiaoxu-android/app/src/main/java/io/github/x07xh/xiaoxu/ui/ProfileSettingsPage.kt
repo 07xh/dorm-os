@@ -88,6 +88,7 @@ fun ProfileSettingsPage(
     ) { animatedRoute ->
     val title = when (animatedRoute) {
         "connections" -> "数据连接"
+        "utilities" -> "校园生活"
         "notifications" -> "通知与提醒"
         "notifications-course" -> "课程提醒"
         "notifications-task" -> "任务提醒"
@@ -151,6 +152,10 @@ fun ProfileSettingsPage(
                                 onRouteChange("connections")
                             }
                             SettingsDivider()
+                            SettingsEntry("校园生活 · 水电费", Icons.Outlined.School) {
+                                onRouteChange("utilities")
+                            }
+                            SettingsDivider()
                             SettingsEntry("备份与恢复", Icons.Outlined.CheckCircle) {
                                 onRouteChange("backup")
                             }
@@ -168,6 +173,7 @@ fun ProfileSettingsPage(
                     ConnectionsPanel(client, openWebsite, openLocalSchool,
                         startSchoolAuthorization, recentImport)
                 }
+                "utilities" -> item { CampusUtilitiesPanel() }
                 "notifications", "notifications-course", "notifications-task" -> item {
                     NotificationSettingsContent(localTasks, animatedRoute, onRouteChange)
                 }
