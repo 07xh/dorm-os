@@ -23,8 +23,10 @@ for (const name of ['--xu-danger:', '--xu-warn:', '--xu-success:']) {
   assert(tokens.includes(name), 'Missing semantic status token: ' + name);
 }
 assert(academic.includes('color:var(--xu-danger)'), 'Error component must use semantic color');
-assert(html.includes("document.documentElement.dataset.theme=state.settings.theme==='dark'?'dark':'light';"),
-  'Runtime theme changes must update data-theme');
+assert(html.includes("const theme=state.settings.theme==='dark'?'dark':'light';") &&
+  html.includes('root.dataset.theme=theme;') &&
+  html.includes("root.classList.toggle('theme-light',theme==='light');"),
+  'Runtime theme changes must synchronize data-theme and legacy light class');
 
 function boot(raw, blocked = false) {
   const classes = new Set();
