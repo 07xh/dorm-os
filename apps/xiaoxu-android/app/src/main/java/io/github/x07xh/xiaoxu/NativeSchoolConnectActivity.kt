@@ -388,13 +388,13 @@ class NativeSchoolConnectActivity : ComponentActivity() {
             val campusInputs = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             campusRoomInput = EditText(this).apply {
                 hint = "本人有权限的房间六段坐标（05-02-01-1-3-0301）"
-                isSingleLine = true
+                setSingleLine(true)
                 inputType = android.text.InputType.TYPE_CLASS_TEXT
             }
             campusMonthInput = EditText(this).apply {
                 hint = "月份 YYYY-MM"
-                isSingleLine = true
-                inputType = android.text.InputType.TYPE_CLASS_DATETIME
+                setSingleLine(true)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
                 setText(YearMonth.now().toString())
             }
             campusInputs.addView(campusRoomInput)
