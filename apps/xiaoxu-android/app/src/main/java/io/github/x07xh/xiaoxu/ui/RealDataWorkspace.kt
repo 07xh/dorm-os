@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -1437,7 +1438,11 @@ fun RealAcademicTaskHub(
         }
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
+        // Wrap the bounded list in the full available width: on tablets this
+        // centers the existing single scroll owner instead of pinning it left.
+        modifier = Modifier.fillMaxSize()
+            .wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = 860.dp),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
         // Keep connected task rows as separate lazy items with zero gaps.
         verticalArrangement = Arrangement.spacedBy(0.dp)
