@@ -54,7 +54,8 @@ internal fun UiV2Shell(
             ) { padding ->
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     if (rail && showNavigation) {
-                        PrimarySideNavigation(selected = selected, onSelect = onSelect)
+                        PrimarySideNavigation(selected = selected, onSelect = onSelect,
+                            canExpand = maxWidth.value >= 1100f)
                     }
                     Surface(
                         color = Color.Transparent,
