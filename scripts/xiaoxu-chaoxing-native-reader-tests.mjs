@@ -32,8 +32,17 @@ assert.doesNotMatch(workspace,/if \(\(capturedHomework\.isNotEmpty\(\) \|\| capt
  'the Chaoxing group remains available on a fresh install with cloud-only or no records');
 const panels=readFileSync(base+'java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt','utf8');
 assert.match(panels,/"chaoxing" to "学习通"/,'cloud connections must retain the Chaoxing card');
-assert.match(panels,/id == "chaoxing"\) client\.refreshPrivate\(\)/,
- 'cloud record refresh uses the existing assignment API, not the retired reader');
+assert.match(panels,/client\.syncChaoxingHomeworkHttp\(\)/,
+ 'cloud school refresh must invoke the existing authorized homework HTTP API');
+assert.match(panels,/client\.refreshPrivate\(\)/,'cloud snapshot refresh remains separate');
+const httpSync=cloud.slice(cloud.indexOf('suspend fun syncChaoxingHomeworkHttp'),cloud.indexOf('suspend fun syncAuthorizedSchool'));
+assert.match(httpSync,/\/api\/v1\/chaoxing-homework\?view=courses/);
+assert.match(httpSync,/\/api\/v1\/chaoxing-homework\/sync/);
+assert.match(httpSync,/boundSessionToken = token/);
+assert.match(httpSync,/epoch == sessionEpoch && state\.authenticated && state\.ownerId == owner/);
+assert.match(httpSync,/state\.tasksFresh && expected\.all/);
+assert.match(httpSync,/successful == total && reconciled/);
+assert.doesNotMatch(httpSync,/WebView|CookieManager|evaluateJavascript|openLocalSchool/);
 assert.doesNotMatch(reader+session,/api\/v1|CloudClient|addJavascriptInterface|readProgress|saveStatus|submitForm.*POST/);
 assert.match(storage,/if \(old != accountHash \|\| complete\) \{/);
 assert.match(storage,/@Transaction\s+suspend fun mergeChaoxingRead/);
