@@ -475,12 +475,12 @@ private fun PlatformStatusCard(
 ) {
     val platform = state.platforms.firstOrNull { it.id == id }
     val canRead = state.authenticated && state.connectionsFresh &&
-        platform?.sessionState == "active"
+        platform?.sessionState == "active" &&
+        (id != "chaoxing" || platform?.authorization == "verified_session")
     val refreshing = state.schoolSyncBusyProvider == id || (id == "chaoxing" && state.busy)
     val cloudChaoxingCount = state.tasks.count { it.provider == "chaoxing" }
     val statusTone = when {
         !state.authenticated -> XiaoxuTone.Neutral
-        id == "chaoxing" -> if (state.tasksFresh) XiaoxuTone.Brand else XiaoxuTone.Warning
         !state.connectionsFresh -> XiaoxuTone.Warning
         platform?.verified == true -> XiaoxuTone.Success
         else -> XiaoxuTone.Neutral
@@ -524,8 +524,6 @@ private fun PlatformStatusCard(
                 Text(
                     text = when {
                         !state.authenticated -> "请先连接校序云端"
-                        id == "chaoxing" -> if (state.tasksFresh)
-                            "云端已保存 $cloudChaoxingCount 条任务" else "已有云端任务待刷新"
                         !state.connectionsFresh -> "本次无法核验连接状态；缓存仅供参考，请刷新重试"
                         else -> connectionStatusLabel(platform)
                     },
@@ -539,7 +537,6 @@ private fun PlatformStatusCard(
             SourceBadge(
                 text = when {
                     !state.authenticated -> "云端未连接"
-                    id == "chaoxing" -> if (state.tasksFresh) "已读取云端记录" else "待刷新"
                     !state.connectionsFresh -> "状态待刷新"
                     platform?.verified == true && id == "ncwu" -> "教务会话有效"
                     platform?.verified == true -> "已核验读取"
@@ -583,11 +580,17 @@ private fun PlatformStatusCard(
                     modifier = Modifier.weight(1f)
                 ) { scope.launch { client.syncChaoxingHomeworkHttp() } }
             }
-            if (!canRead) Text(
-                text = "HTTP 同步需要先在校序网站连接本人学习通账号，再刷新连接状态。",
+            Text(
+                text = if (state.tasksFresh) "云端已保存 $cloudChaoxingCount 条学习通任务"
+                    else "云端任务缓存未核验",
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink3
             )
+            PrimaryAction(
+                label = if (canRead) "管理学习通授权" else "连接学习通账号",
+                enabled = state.authenticated && !refreshing &&
+                    state.schoolSyncBusyProvider == null
+            ) { startSchoolAuthorization(id) }
             SettingRow(
                 icon = Icons.AutoMirrored.Outlined.MenuBook,
                 title = "本机 HTTP 读取",
