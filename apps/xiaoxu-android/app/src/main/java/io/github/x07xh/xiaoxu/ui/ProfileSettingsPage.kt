@@ -341,7 +341,7 @@ private fun NotificationSettingsContent(
     }
 
     // A single short form replaces two nested reminder-settings routes.
-    XiaoxuGroupedSection(title = "课程") {
+    UiV2SettingsGroup(title = "课程") {
         UiV2SettingsToggle(
             title = "上课提醒", subtitle = "", checked = enabled,
             onCheckedChange = { value ->
@@ -353,11 +353,11 @@ private fun NotificationSettingsContent(
             }
         )
         UiV2SettingsDivider()
-        UiV2SettingsEntry("课前 · " + leadMinutes + " 分钟", Icons.Outlined.DateRange,
+        UiV2SettingsEntry("课前提醒", Icons.Outlined.DateRange, statusLabel = "$leadMinutes 分钟",
             onClick = { leadPickerOpen = true })
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "个人任务") {
+    UiV2SettingsGroup(title = "个人任务") {
         UiV2SettingsToggle(
             title = "截止提醒", subtitle = "", checked = deadlineEnabled,
             onCheckedChange = { value ->
@@ -376,13 +376,13 @@ private fun NotificationSettingsContent(
             onCheckedChange = { updateReminderSchedule(reminderSchedule.copy(dueDay = it)) })
         UiV2SettingsDivider()
         UiV2SettingsEntry(
-            "提醒时间 · " + "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
-            Icons.Outlined.DateRange,
+            "提醒时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
             onClick = { taskTimePickerOpen = true }
         )
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "免打扰") {
+    UiV2SettingsGroup(title = "免打扰") {
         UiV2SettingsToggle(
             title = "启用本机免打扰",
             subtitle = "时段内跳过提醒，不补发；不修改系统免打扰",
@@ -391,21 +391,21 @@ private fun NotificationSettingsContent(
         )
         UiV2SettingsDivider()
         UiV2SettingsEntry(
-            "开始 · " + "%02d:%02d".format(
+            "开始时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(
                 quietHours.startMinutes / 60, quietHours.startMinutes % 60),
-            Icons.Outlined.DateRange,
             onClick = { quietTimePicker = 1 }
         )
         UiV2SettingsDivider()
         UiV2SettingsEntry(
-            "结束 · " + "%02d:%02d".format(
+            "结束时间", Icons.Outlined.DateRange,
+            statusLabel = "%02d:%02d".format(
                 quietHours.endMinutes / 60, quietHours.endMinutes % 60),
-            Icons.Outlined.DateRange,
             onClick = { quietTimePicker = 2 }
         )
     }
     Spacer(Modifier.height(14.dp))
-    XiaoxuGroupedSection(title = "系统") {
+    UiV2SettingsGroup(title = "系统") {
         UiV2SettingsEntry("通知权限与渠道", Icons.Outlined.NotificationsNone,
             onClick = ::openPermissionSettings)
     }

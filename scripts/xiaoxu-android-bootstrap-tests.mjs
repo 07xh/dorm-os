@@ -327,7 +327,7 @@ assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-course"\)/,
   'Reminder settings must not require a second navigation hop');
 assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-task"\)/,
   'Course and task toggles must share a single screen');
-assert.match(profileSettings, /XiaoxuGroupedSection\(title = "个人任务"\)/);
+assert.match(profileSettings, /UiV2SettingsGroup\(title = "个人任务"\)/);
 assert.match(profileSettings, /updateReminderSchedule\(reminderSchedule\.copy\(/);
 assert.match(profileSettings, /title = "上课提醒", subtitle = "", checked = enabled/,
   '课程提醒状态直接来自本机真实开关，单页操作不再二次跳转');
@@ -2511,3 +2511,8 @@ assert.match(floatingBar, /velocityPx = \{ drag\.velocity \* cellWidthPx \}/);
 assert.doesNotMatch(aboutPage, /fun AboutInfoRow\(|fun AboutLine\(|height\(254\.dp\)/);
 assert.match(aboutPage, /UiV2SettingsEntry\("版本信息", statusLabel = version, onClick = onVersionClick\)/);
 assert.match(aboutPage, /"DSH Go", "V2 布局与交互设计参考"/);
+
+assert.match(localSchoolUi, /UiV2SettingsGroup\(title = "本机学校连接"\)/);
+assert.match(localSchoolUi, /UiV2SettingsEntry\([\s\S]*?title = name,[\s\S]*?onClick = \{ openLocal\(provider\) \}/);
+assert.match(localSchoolUi, /if \(platformOpen\) XiaoxuBottomSheet\(/);
+assert.match(panels, /UiV2SettingsGroup\(title = "云端同步"\)/);

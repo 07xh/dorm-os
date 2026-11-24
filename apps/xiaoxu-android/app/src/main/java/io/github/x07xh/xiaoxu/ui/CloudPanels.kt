@@ -8,6 +8,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -305,24 +307,12 @@ private fun CloudAuthorizationSection(
     onToggleAdvanced: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(
-            title = "云端同步",
-            actionLabel = "管理",
-            onAction = onToggleAdvanced
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                if (state.authenticated) "校序云端已连接" else "校序云端未连接",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2
-            )
-            SourceBadge(
-                text = if (state.authenticated) "已连接" else "未连接",
-                tone = if (state.authenticated) XiaoxuTone.Success else XiaoxuTone.Neutral
+        UiV2SettingsGroup(title = "云端同步") {
+            UiV2SettingsEntry(
+                title = "校序云端",
+                icon = Icons.Outlined.Cloud,
+                statusLabel = if (state.authenticated) "已连接" else "未连接",
+                onClick = onToggleAdvanced
             )
         }
         if (cloudAdvanced) XiaoxuBottomSheet(
