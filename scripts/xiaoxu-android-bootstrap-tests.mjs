@@ -122,7 +122,7 @@ assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
 assert.match(v2Shell, /PrimaryBottomNavigation\(selected = selected, backdrop = backdrop, onSelect = onSelect\)/,
   '主壳层须只放一套可折射玻璃底栏');
-assert.match(v2Shell, /PrimarySideNavigation\(selected = selected, onSelect = onSelect\)/,
+assert.match(v2Shell, /PrimarySideNavigation\(selected = selected, onSelect = onSelect,\s*canExpand = maxWidth\.value >= 1100f\)/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"/);
@@ -2609,3 +2609,13 @@ assert.match(homeReadingLayout, /item\(key = "services"\) \{ academic\(\) \}\s*i
 
 assert.match(taskReadingLayout, /Text\("任务",\s*style = MaterialTheme\.typography\.titleLarge,[\s\S]*?Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/);
 assert.doesNotMatch(taskReadingLayout, /DateTimeFormatter\.ofPattern\("M月d日 · EEEE"/, '任务顶栏不重复首页日期');
+
+assert.match(schedulePanel, /if \(weekNumbers\.size > 1 && showWeekPicker\) \{\s*XiaoxuBottomSheet\(\s*title = "选择教学周"/,
+  '周次选择浮层不得推挤课表主网格');
+assert.match(schedulePanel, /onDismiss = \{ showWeekPicker = false \}/);
+assert.match(schedulePanel, /Text\(if \(viewMode == "week"\) "切换日视图" else "切换周视图"/);
+assert.match(primaryNavigation, /var expanded by rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.match(primaryNavigation, /if \(canExpand && expanded\) \{/);
+assert.match(primaryNavigation, /NavigationDrawerItem\(\s*label = \{ Text\(page\.primaryTabLabel\) \},\s*selected = selected == page,\s*onClick = \{ onSelect\(page\) \}/);
+assert.match(primaryNavigation, /contentDescription = "展开侧栏"/);
+assert.match(primaryNavigation, /contentDescription = "收起侧栏"/);
