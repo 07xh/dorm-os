@@ -11,6 +11,22 @@
  let connectionStatusRead=false,connectionEpoch=0,connectionRequest=null;
  let schoolAutoSyncBusy=false,lastSchoolAutoSyncAttempt=0;
  let ncwuAutoSyncBusy=false,lastNcwuAutoSyncAttempt=0;
+ const NCWU_SCHEDULE_AUTO_PREF='xiaoxu-ncwu-schedule-auto-v1';
+ function ncwuScheduleAutoEnabled(){
+  try{return root.localStorage?.getItem(NCWU_SCHEDULE_AUTO_PREF)==='1';}catch{return false;}
+ }
+ function saveNcwuScheduleAuto(enabled){
+  try{if(!root.localStorage)return false;
+   root.localStorage.setItem(NCWU_SCHEDULE_AUTO_PREF,enabled===true?'1':'0');
+   return ncwuScheduleAutoEnabled()===(enabled===true);
+  }catch{return false;}
+ }
+ function ncwuScheduleAutoSettings(){
+  const enabled=ncwuScheduleAutoEnabled();
+  return '<div class="config-row"><div><strong>课表自动同步</strong><div class="detail">'+
+   (enabled?'开启 · 前台每30分钟尝试同步':'关闭 · 仅手动同步')+
+   '</div></div><button type="button" class="secondary" data-xu-ncwu-schedule-auto-toggle role="switch" aria-label="课表自动同步" aria-checked="'+enabled+'">'+(enabled?'开启':'关闭')+'</button></div>';
+ }
  let ncwuBusinessBusy=false,ncwuBusinessGeneration=0;
  const ncwuBusinessResults={grades:null,exams:null};
  const ncwuBusinessAttempts={grades:null,exams:null};
@@ -247,7 +263,7 @@
     record.trustedKinds.includes('schedule')?'课表已授权 · 可同步；成绩、考试待接入':
     authorized?'已授权 · 可同步':label;
    const ncwuAutoHint=authorized&&provider.id==='ncwu'?
-    '<p class="tiny muted">网页打开且会话有效时，课表超过30分钟将尝试刷新；关闭网页不后台同步。</p>':'';
+    '<p class="tiny muted">课表默认仅手动同步，可在基本设置中开启自动同步。</p>':'';
    const qrQuickAction=provider.id==='chaoxing'&&!authorized&&
     record?.qrLoginAvailable===true?
      '<button type="button" class="primary" data-xu-chaoxing-qr-start>扫码连接</button>':'';
@@ -378,7 +394,7 @@
    (result?.checkedAt?'<p class="tiny muted">本次查询 '+escapeHtml(stamp(result.checkedAt))+'</p>':'')+
    (rows?'<div class="xu-private-list">'+rows+'</div>':'')+
    (ncwuBusinessNeedsAuthorization?'<button type="button" class="secondary" data-page="settings">检查连接或重新授权</button>':'')+
-   '<p class="tiny muted">打开本页自动查询，间隔至少30分钟；未验证明细不会覆盖已保存记录。</p></section>';
+   '<p class="tiny muted">'+(kind==='grades'?'仅点击刷新时查询成绩。':'打开本页自动查询，间隔至少30分钟。')+'未验证明细不会覆盖已保存记录。</p></section>';
  }
  function panel(kind){
   if(!hasData(kind))return '';
@@ -637,6 +653,7 @@
  // Reuse only a verified owner-bound encrypted NCWU session.
  // Foreground-only: closed tabs perform no school traffic.
  async function autoRefreshNcwu({force=false}={}){
+  if(!force&&!ncwuScheduleAutoEnabled())return false;
   if(!connected||ncwuAutoSyncBusy||ncwuBusinessBusy||typeof document==='undefined'||
      document.visibilityState==='hidden')return false;
   const linked=sources.find(x=>x.id==='ncwu');
@@ -732,6 +749,7 @@
   root.dispatchEvent(new Event('xiaoxu-ncwu-query-updated'));
  }
  async function refreshNcwuBusiness(kind,{force=false}={}){
+  if(kind==='grades'&&!force)return false;
   if(!['grades','exams'].includes(kind)||!ncwuBusinessAuthorized()||ncwuBusinessBusy||
      ncwuAutoSyncBusy||ncwuBusinessNeedsAuthorization||typeof document==='undefined'||document.hidden)return false;
   const time=Date.now(),last=ncwuBusinessAttempts[kind];
@@ -762,8 +780,8 @@
  }
  function autoRefreshVisibleNcwuBusiness(){
   if(typeof document==='undefined'||document.hidden)return;
-  const button=document.querySelector?.('#xu-academic-panel [data-xu-ncwu-business]');
-  if(button)void refreshNcwuBusiness(button.dataset.xuNcwuBusiness);
+  const button=document.querySelector?.('#xu-academic-panel [data-xu-ncwu-business="exams"]');
+  if(button?.dataset?.xuNcwuBusiness==='exams')void refreshNcwuBusiness('exams');
  }
  function announceUpdated(){
   root.dispatchEvent(new Event('xiaoxu-school-connection-updated'));
@@ -1117,6 +1135,14 @@
    finally{if(submit.isConnected)submit.disabled=false;}
   });
   document.addEventListener('click',event=>{
+   const toggle=event.target.closest?.('[data-xu-ncwu-schedule-auto-toggle]');
+   if(toggle){
+    const enabled=!ncwuScheduleAutoEnabled();
+    if(!saveNcwuScheduleAuto(enabled)){root.alert('设置保存失败，请检查本地存储。');return;}
+    announceNcwuBusinessUpdated();
+    if(enabled)void autoRefreshNcwu();
+    return;
+   }
    const button=event.target.closest?.('[data-xu-ncwu-business]');
    if(button)void refreshNcwuBusiness(button.dataset.xuNcwuBusiness,{force:true});
    const schedule=event.target.closest?.('[data-xu-ncwu-schedule-refresh]');
@@ -1153,6 +1179,6 @@
    }finally{if(button.isConnected)button.disabled=false;}
   });
  }
- root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,hasVerifiedSchoolConnection:()=>connected&&sources.some(row=>row.accountAuthorization==='verified_session'&&row.sessionState==='active'),state,hasData,records,connectionPanel,panel,ncwuBusinessPanel,ncwuScheduleRefreshButton,autoRefreshVisibleNcwuBusiness,taskRows,statusLabel});
+ root.XiaoxuAcademic=Object.freeze({TYPES,connect,disconnect,refresh,readConnectionStatus,diagnose,isReady:()=>connected,hasVerifiedSchoolConnection:()=>connected&&sources.some(row=>row.accountAuthorization==='verified_session'&&row.sessionState==='active'),state,hasData,records,connectionPanel,panel,ncwuBusinessPanel,ncwuScheduleRefreshButton,ncwuScheduleAutoSettings,autoRefreshVisibleNcwuBusiness,taskRows,statusLabel});
 })(globalThis);
 

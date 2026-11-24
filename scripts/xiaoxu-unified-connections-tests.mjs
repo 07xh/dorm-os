@@ -83,6 +83,24 @@ assert.equal(typeof browser.XiaoxuAcademic?.autoRefreshVisibleNcwuBusiness,'func
 assert.equal(typeof browser.XiaoxuAcademic?.ncwuScheduleRefreshButton,'function');
 assert.match(browser.XiaoxuAcademic.ncwuScheduleRefreshButton(),/连接青果/);
 assert.doesNotThrow(()=>browser.XiaoxuAcademic.autoRefreshVisibleNcwuBusiness());
+assert.match(browser.XiaoxuAcademic.ncwuScheduleAutoSettings(),/aria-checked="false"/);
+assert.match(client,/if\(!force&&!ncwuScheduleAutoEnabled\(\)\)return false/);
+assert.match(client,/if\(kind==='grades'&&!force\)return false/);
+assert.match(client,/data-xu-ncwu-business="exams"/);
+const prefs=new Map(),clickListeners=[];
+const prefsBrowser={document:{documentElement:{},addEventListener(type,listener){if(type==='click')clickListeners.push(listener);}},
+ addEventListener(){},setInterval(){},dispatchEvent(){},Event:class {},MutationObserver:class {observe(){}},
+ localStorage:{getItem:key=>prefs.get(key)??null,setItem:(key,value)=>prefs.set(key,value)}};
+runInNewContext(client,prefsBrowser);
+const toggleEvent={target:{closest:selector=>selector==='[data-xu-ncwu-schedule-auto-toggle]'?{}:null}};
+assert.match(prefsBrowser.XiaoxuAcademic.ncwuScheduleAutoSettings(),/aria-checked="false"/);
+for(const listener of clickListeners)await listener(toggleEvent);
+assert.match(prefsBrowser.XiaoxuAcademic.ncwuScheduleAutoSettings(),/aria-checked="true"/);
+for(const listener of clickListeners)await listener(toggleEvent);
+assert.match(prefsBrowser.XiaoxuAcademic.ncwuScheduleAutoSettings(),/aria-checked="false"/);
+const reopened={...prefsBrowser,document:{documentElement:{},addEventListener(){}}};
+runInNewContext(client,reopened);
+assert.match(reopened.XiaoxuAcademic.ncwuScheduleAutoSettings(),/aria-checked="false"/);
 assert.ok(client.includes('超星独立密码'));
 assert.ok(client.includes('学校统一身份认证'));
 assert.ok(client.includes('fysso.chaoxing.com%2Fcassso%2Fncwu'));
