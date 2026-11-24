@@ -576,6 +576,14 @@ private fun NativeShell(
         LocalTaskDatabase.open(reminderContext).nativeSchoolRecords()
     }
     val workspaceSchoolRows = rememberLocalRows(workspaceNativeDao) { workspaceNativeDao.observe() }
+    // Keep execution rows warm as well; entering Tasks no longer starts three
+    // fresh empty Room collectors and then relayouts the execution list.
+    val workspaceExecutionDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).executions()
+    }
+    val workspaceTaskSteps = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeSteps() }
+    val workspaceStepEdges = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeEdges() }
+    val workspaceExecutions = rememberLocalRows(workspaceExecutionDao) { workspaceExecutionDao.observeExecutions() }
     // Cache the expensive canonical identity/deduplication projection across
     // Home/Tasks disposal. Compute lazily only when a consumer needs it.
     val workspaceRecords = remember(cloud, workspaceLocalTasks, workspaceSchoolRows) {
@@ -742,7 +750,11 @@ private fun NativeShell(
                 onNavigation = openNavigation,
                 dependencies = workspaceDependencies.value,
                 schoolRows = workspaceSchoolRows.value,
-                allRecords = workspaceRecords.value)
+                allRecords = workspaceRecords.value,
+                executionDao = workspaceExecutionDao,
+                taskSteps = workspaceTaskSteps.value,
+                stepEdges = workspaceStepEdges.value,
+                executions = workspaceExecutions.value)
             MainDestination.PROFILE -> {
                 // Reuse the settings child route for the timetable
                 // child. It must not bypass the settings host on entry/back.
