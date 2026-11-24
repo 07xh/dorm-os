@@ -537,6 +537,118 @@ class CloudClient(context: Context) {
     }
 
     /**
+     * Explicit, owner-authorized HTTP homework refresh; no WebView or school
+     * credentials in the app. The server performs the verified read and D1 sync.
+     */
+    suspend fun syncChaoxingHomeworkHttp(): Boolean {
+        val provider = "chaoxing"
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null ||
+            state.platforms.none { it.id == provider && it.sessionState == "active" }) return false
+        val epoch = sessionEpoch
+        val owner = state.ownerId ?: return false
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = "正在读取官方课程列表…")
+        var total = 0
+        var successful = 0
+        val expected = mutableMapOf<String, String>()
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        val number = Regex("""\d{1,24}""")
+        fun validId(row: JSONObject, key: String): String =
+            (row.opt(key) as? String)?.takeIf { number.matches(it) }
+                ?: throw IllegalStateException("invalid_id")
+        fun data(response: HttpResult, view: String): JSONObject {
+            if (response.code != 200 ||
+                response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                response.json.optString("view") != view ||
+                !response.json.optBoolean("live")) throw IllegalStateException("invalid_read")
+            return response.json.getJSONObject("data")
+        }
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            if (!current()) return false
+            val catalog = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-homework?view=courses", authenticated = true,
+                    boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (catalog.code != 200) {
+                state = state.copy(schoolSyncMessage = "官方课程读取失败；请检查学习通授权后重试")
+                if (catalog.code == 401) refreshPrivate()
+                return false
+            }
+            val courses = data(catalog, "courses").getJSONArray("courses")
+            if (courses.length() !in 1..120) throw IllegalStateException("invalid_courses")
+            // Validate the whole catalog before sending any course-scoped requests.
+            val keys = (0 until courses.length()).map { index ->
+                val row = courses.getJSONObject(index)
+                Triple(validId(row, "courseId"), validId(row, "classId"), validId(row, "cpi"))
+            }
+            if (keys.map { it.first to it.second }.distinct().size != keys.size)
+                throw IllegalStateException("duplicate_courses")
+            total = keys.size
+            for ((courseId, classId, cpi) in keys) {
+                if (!current()) return false
+                val result = withContext(Dispatchers.IO) {
+                    request("/api/v1/chaoxing-homework/sync", "POST",
+                        JSONObject().put("courseId", courseId).put("classId", classId).put("cpi", cpi),
+                        authenticated = true, boundSessionToken = token)
+                }
+                if (!current()) return false
+                // Stop on authorization, rate limit, or upstream/service failure.
+                // A failed course does not invalidate earlier confirmed records.
+                if (result.code != 200) {
+                    if (result.code != 422) break
+                    continue
+                }
+                val list = data(result, "list")
+                val course = list.getJSONObject("course")
+                if (validId(course, "courseId") != courseId ||
+                    validId(course, "classId") != classId ||
+                    validId(course, "cpi") != cpi || list.optJSONObject("sync") == null)
+                    throw IllegalStateException("course_mismatch")
+                val items = list.getJSONArray("items")
+                if (items.length() > 200 || list.optBoolean("verifiedEmpty") != (items.length() == 0))
+                    throw IllegalStateException("invalid_list")
+                val verified = mutableMapOf<String, String>()
+                for (i in 0 until items.length()) {
+                    val item = items.getJSONObject(i)
+                    val id = "work:$courseId:$classId:${validId(item, "workId")}"
+                    val status = trustedChaoxingPlatformStatus(provider, id, item.optString("statusCode"))
+                    if (!item.optBoolean("platformVerified") || status == null ||
+                        verified.put(id, status) != null) throw IllegalStateException("invalid_work")
+                }
+                expected.putAll(verified)
+                successful++
+                state = state.copy(schoolSyncMessage = "已同步 $successful / $total 门课程，正在读取其余课程")
+            }
+            if (!current()) return false
+            refreshPrivate()
+            if (!current()) return false
+            val ledger = state.tasks.filter { it.provider == provider }
+                .groupBy { it.sourceExternalId }
+            val reconciled = state.tasksFresh && expected.all { (id, status) ->
+                ledger[id]?.singleOrNull()?.officialStatus == status
+            }
+            val verifiedAll = successful == total && reconciled
+            state = state.copy(schoolSyncResultProvider = provider, schoolSyncMessage = when {
+                verifiedAll -> "已同步并核对 $total 门课程，${expected.size} 条官方作业记录"
+                !reconciled -> "已读取 $successful / $total 门课程；云端任务核对未完成"
+                else -> "已同步 $successful / $total 门课程；其余课程未核验，旧记录保留"
+            })
+            return verifiedAll
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(schoolSyncMessage =
+                "读取中断（已确认 $successful / $total 门）；请刷新任务并检查授权")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
+    /**
      * Trigger the existing authenticated, owner-scoped readonly school refresh.
      * This is NOT a school login, CAS bridge or a browser Cookie extractor.
      * Never mark success until the server confirms refreshed=true.
