@@ -2544,7 +2544,7 @@ assert.match(v2FormField, /OutlinedTextField\(/);
 assert.match(v2FormField, /enabled = enabled/);
 assert.match(courseEditor, /UiV2FormField\(name,/);
 assert.doesNotMatch(courseEditor, /private fun EditorField\(/);
-assert.equal((taskBoard.match(/UiV2FormField\(/g) || []).length, 2);
+assert.equal((taskBoard.match(/UiV2FormField\(/g) || []).length, 1, '新增和编辑共用字段实现');
 assert.match(taskBackupPanel, /XiaoxuBottomSheet\(title = "备份说明"/);
 
 assert.match(v2Theme, /val GroupShape = RoundedCornerShape\(24\.dp\)/);
@@ -2568,8 +2568,16 @@ assert.doesNotMatch(connectionEntryV2, /UiV2SettingsDivider\(|\bRow\(/, '账户�
 assert.match(scheduleUi, /maxWidth\.value\.coerceAtMost\(XiaoxuPageLayout\.ScheduleMaxWidth\.value\)/);
 assert.match(designSystem, /val ScheduleMaxWidth: Dp = 1200\.dp/);
 
-assert.equal((taskBoard.match(/LocalTaskDuePicker\(due = due, onSelect = \{ due = it; error = null \}, enabled = !saving\)/g) || []).length, 2,
-  '新增与编辑统一使用日期控制器且修改后清除旧错误');
+assert.equal((taskBoard.match(/LocalTaskFormFields\(\s*title = title, source = source, due = due, enabled = !saving,/g) || []).length, 2,
+  '新增和编辑均使用唯一共享表单');
+assert.equal((taskBoard.match(/onDue = \{ due = it; error = null \}/g) || []).length, 2,
+  '修改日期后清除旧错误');
+assert.match(taskBoard, /LocalTaskDuePicker\(due = due, onSelect = onDue, enabled = enabled\)/);
+assert.equal((taskBoard.match(/showDismissButton = false/g) || []).length, 2);
+assert.match(taskBoard, /TextButton\(onClick = onCancel, enabled = !saving,/);
+assert.match(taskBoard, /Button\(onClick = onSave, enabled = !saving && valid,/);
+assert.match(taskBoard, /saveLabel = "添加任务"/);
+assert.match(taskBoard, /saveLabel = "保存修改"/);
 assert.equal((taskBoard.match(/DatePickerDialog\(/g) || []).length, 1,
   '任务日期弹窗仅保留一份实现');
 const taskDueControl = taskBoard.slice(taskBoard.indexOf('private fun LocalTaskDuePicker('),
