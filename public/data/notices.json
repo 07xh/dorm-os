@@ -2,48 +2,55 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+  "lastSuccessAt": "2026-11-24T02:55:53.200Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-23T10:50:46.561Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-23T10:50:46.561Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "ok",
+      "status": "error",
       "lastSuccessAt": "2026-11-23T10:50:46.561Z",
       "count": 20
+    },
+    {
+      "id": "jwc-api",
+      "name": "教务处公开公告（代理兜底）",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-24T02:55:53.200Z",
+      "count": 28
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+      "lastSuccessAt": "2026-11-24T02:55:53.200Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+      "lastSuccessAt": "2026-11-24T02:55:53.200Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+      "lastSuccessAt": "2026-11-24T02:55:53.200Z",
       "count": 10
     }
   ],
@@ -547,6 +554,15 @@
       "id": "ncwu-8e71535a3d8c2b20",
       "title": "教务处党支部关于巡察整改落实情况的报告 11-20",
       "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3023.htm",
+      "date": null,
+      "sourceId": "jwc-api",
+      "sourceName": "教务处公开公告（校序官方网页代理）",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-6db9bec4ab18e3b7",
+      "title": "关于开展2026-2027学年第一学期本科教学工作量核算工作的通知 11-23",
+      "url": "https://www2.ncwu.edu.cn/jiaowu/info/1008/3024.htm",
       "date": null,
       "sourceId": "jwc-api",
       "sourceName": "教务处公开公告（校序官方网页代理）",
