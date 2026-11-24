@@ -83,7 +83,7 @@ const designSystem = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh
 const scheduleUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
 const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
 assert.match(designSystem, /fun Modifier\.xiaoxuPageWidth\(/, '正文最大宽度由唯一设计系统定义');
-assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
+assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ScheduleMaxWidth\)/);
 assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
 assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
 
@@ -1786,7 +1786,7 @@ assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\
 const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
   workspace.indexOf('private fun HomeTaskRow('));
 assert.match(editorialHome, /UiV2HomeSurface \{/, '统计区使用唯一 V2 轻量表面');
-assert.match(v2Home, /clip\(RoundedCornerShape\(24\.dp\)\)/);
+assert.match(v2Home, /clip\(UiV2Theme\.GroupShape\)/);
 assert.match(v2Home, /UiV2HomeSurface\(content = content\)/);
 assert.match(editorialHome, /if \(maxWidth < 296\.dp \|\| LocalDensity\.current\.fontScale > 1\.15f\)/,
   '小屏学业入口应自动降为双列');
@@ -2532,3 +2532,11 @@ assert.match(courseEditor, /UiV2FormField\(name,/);
 assert.doesNotMatch(courseEditor, /private fun EditorField\(/);
 assert.equal((taskBoard.match(/UiV2FormField\(/g) || []).length, 2);
 assert.match(taskBackupPanel, /XiaoxuBottomSheet\(title = "备份说明"/);
+
+assert.match(v2Theme, /val GroupShape = RoundedCornerShape\(24\.dp\)/);
+assert.match(v2Settings, /clip\(UiV2Theme\.GroupShape\)/);
+assert.match(v2SearchField, /background\(UiV2Theme\.SearchSurface\)/);
+assert.match(profileSettings, /compact = animatedRoute != "home" \|\| compactSettingsHeader/);
+assert.match(v2Settings, /if \(!compact\) Text\(/);
+assert.match(scheduleUi, /maxWidth\.value\.coerceAtMost\(XiaoxuPageLayout\.ScheduleMaxWidth\.value\)/);
+assert.match(designSystem, /val ScheduleMaxWidth: Dp = 1200\.dp/);

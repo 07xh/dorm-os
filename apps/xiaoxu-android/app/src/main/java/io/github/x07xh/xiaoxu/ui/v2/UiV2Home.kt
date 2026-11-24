@@ -38,8 +38,8 @@ internal fun UiV2HomeSurface(
     content: @Composable () -> Unit
 ) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-            .background(XiaoxuPalette.Surface.copy(alpha = 0.9f))
+        modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) { content() }
 }
@@ -49,7 +49,7 @@ internal fun UiV2HomeSection(
     title: String, caption: String?, actionLabel: String?,
     onAction: (() -> Unit)?, content: @Composable () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(UiV2Theme.GroupGap)) {
         SectionHeader(title = title, caption = caption,
             actionLabel = actionLabel, onAction = onAction,
             modifier = Modifier.padding(horizontal = 4.dp))
@@ -63,8 +63,8 @@ internal fun UiV2HomeQuickAction(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val warm = title == "第二课堂" || title == "学习通"
-    val container = if (warm) Color(0xFFF7E8D0) else Color(0xFFDDEDFC)
-    val tint = if (warm) Color(0xFF805717) else Color(0xFF245B86)
+    val container = if (warm) UiV2Theme.WarmContainer else UiV2Theme.CoolContainer
+    val tint = if (warm) UiV2Theme.WarmInk else UiV2Theme.CoolInk
     Column(
         modifier.uiV2Press(interaction).clip(RoundedCornerShape(14.dp))
             .heightIn(min = 64.dp)

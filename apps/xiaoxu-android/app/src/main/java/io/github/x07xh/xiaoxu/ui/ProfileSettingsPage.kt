@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsHeader
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionSettingsPage
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
@@ -97,6 +98,7 @@ fun ProfileSettingsPage(
         if (target == "timetable-settings") onScheduleSettings() else onRouteChange(target)
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+    val compactSettingsHeader = maxHeight < 480.dp
     val settingsTwoColumns = uiV2DetailWidth(
         maxWidth.value.coerceAtMost(XiaoxuPageLayout.ContentMaxWidth.value), maxHeight.value,
         mainMin = 360f, detailMin = 320f, detailMax = 420f, gap = 16f, horizontalPadding = 32f
@@ -133,13 +135,15 @@ fun ProfileSettingsPage(
             onBack = if (animatedRoute != "home") goBack else null,
             onRefresh = if (animatedRoute == "home") onRefresh else null,
             refreshing = client.state.busy,
-            onMessages = if (animatedRoute == "home") onMessages else null
+            onMessages = if (animatedRoute == "home") onMessages else null,
+            compact = animatedRoute != "home" || compactSettingsHeader
         )
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.weight(1f).xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 16.dp, end = 16.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                start = UiV2Theme.PageGutter, end = UiV2Theme.PageGutter, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (animatedRoute == "home") UiV2Theme.HubSectionGap else UiV2Theme.DetailSectionGap)
         ) {
             when (animatedRoute) {
                 "home" -> {

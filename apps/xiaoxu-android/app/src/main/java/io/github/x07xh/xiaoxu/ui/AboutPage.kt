@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.R
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
@@ -148,8 +149,8 @@ internal fun AboutPage(onOpenLicenses: () -> Unit) {
 @Composable
 private fun AboutBrandHero(version: String, onVersionClick: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-            .background(XiaoxuPalette.Surface.copy(alpha = 0.9f))
+        modifier = Modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))
             .padding(top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)

@@ -39,7 +39,7 @@ internal fun UiV2SearchField(query: String, onQuery: (String) -> Unit, placehold
         decorationBox = { field ->
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .clip(CircleShape).background(Color(0xFFE5EAF3))
+                    .clip(CircleShape).background(UiV2Theme.SearchSurface)
                     .padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

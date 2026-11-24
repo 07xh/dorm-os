@@ -100,6 +100,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
 import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
 import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
@@ -960,7 +961,7 @@ private fun AcademicActionRow(
     UiV2SettingsEntry(
         title = title, icon = icon, subtitle = null, statusLabel = status,
         onClick = onClick,
-        iconContainer = if (warm) Color(0xFFF7E8D0) else Color(0xFFDDEDFC),
-        iconTint = if (warm) Color(0xFF805717) else Color(0xFF245B86)
+        iconContainer = if (warm) UiV2Theme.WarmContainer else UiV2Theme.CoolContainer,
+        iconTint = if (warm) UiV2Theme.WarmInk else UiV2Theme.CoolInk
     )
 }

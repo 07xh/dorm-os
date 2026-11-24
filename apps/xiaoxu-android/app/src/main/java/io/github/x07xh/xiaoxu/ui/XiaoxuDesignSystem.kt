@@ -208,6 +208,7 @@ internal object XiaoxuMotion {
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
 internal object XiaoxuPageLayout {
     val ContentMaxWidth: Dp = 860.dp
+    val ScheduleMaxWidth: Dp = 1200.dp
     val StateMaxWidth: Dp = 560.dp
 }
 

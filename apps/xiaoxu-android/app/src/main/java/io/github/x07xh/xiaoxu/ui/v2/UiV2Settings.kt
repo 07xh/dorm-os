@@ -56,9 +56,10 @@ internal fun UiV2SettingsHeader(
     onBack: (() -> Unit)?,
     onRefresh: (() -> Unit)?,
     refreshing: Boolean,
-    onMessages: (() -> Unit)?
+    onMessages: (() -> Unit)?,
+    compact: Boolean = false
 ) {
-    Column(Modifier.xiaoxuPageWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(Modifier.xiaoxuPageWidth().padding(horizontal = UiV2Theme.PageGutter, vertical = if (compact) 4.dp else 8.dp)) {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -68,7 +69,11 @@ internal fun UiV2SettingsHeader(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         }
-        Spacer(Modifier.weight(1f))
+        if (compact) {
+            Text(title, modifier = Modifier.weight(1f).padding(start = if (onBack == null) 8.dp else 4.dp)
+                .semantics { heading() }, style = MaterialTheme.typography.titleLarge,
+                color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        } else Spacer(Modifier.weight(1f))
         if (onRefresh != null) {
             XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
@@ -80,7 +85,7 @@ internal fun UiV2SettingsHeader(
             }
         }
     }
-    Text(
+    if (!compact) Text(
         title, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 12.dp)
             .semantics { heading() },
         style = MaterialTheme.typography.headlineLarge,
@@ -93,7 +98,7 @@ internal fun UiV2SettingsHeader(
 internal fun UiV2SettingsGroup(title: String? = null, content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(UiV2Theme.GroupGap)
     ) {
         if (!title.isNullOrBlank()) Text(
             title,
@@ -102,8 +107,8 @@ internal fun UiV2SettingsGroup(title: String? = null, content: @Composable () ->
             color = XiaoxuPalette.Ink2
         )
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                .background(XiaoxuPalette.Surface.copy(alpha = 0.9f)),
+            Modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+                .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity)),
             content = { content() }
         )
     }

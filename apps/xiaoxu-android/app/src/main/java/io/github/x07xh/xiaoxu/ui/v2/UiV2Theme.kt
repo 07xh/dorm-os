@@ -18,6 +18,19 @@ internal object UiV2Theme {
     )
     val SegmentTrack = Color(0xFFE9EDF4)
     val SegmentThumb = Color.White
+    val GroupShape = RoundedCornerShape(24.dp)
+    val GroupOpacity = 0.9f
+    val GroupGap = 8.dp
+    val PageGutter = 16.dp
+    val HubSectionGap = 24.dp
+    val DetailSectionGap = 16.dp
+    val SearchSurface = Color(0xFFE5EAF3)
+    val CoolContainer = Color(0xFFDDEDFC)
+    val CoolInk = Color(0xFF245B86)
+    val WarmContainer = Color(0xFFF7E8D0)
+    val WarmInk = Color(0xFF805717)
+    val NeutralContainer = Color(0xFFE8EAF0)
+    val NeutralInk = Color(0xFF525F75)
     val Shapes = Shapes(
         extraSmall = RoundedCornerShape(6.dp),
         small = RoundedCornerShape(10.dp),

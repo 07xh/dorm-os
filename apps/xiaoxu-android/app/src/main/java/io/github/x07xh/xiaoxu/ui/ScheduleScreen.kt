@@ -211,7 +211,7 @@ fun CloudTimetablePanel(
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ContentMaxWidth.value),
+        val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ScheduleMaxWidth.value),
             maxHeight.value, mainMin = 480f, detailMin = 280f, detailMax = 400f,
             gap = 12f, horizontalPadding = 36f)
         ScheduleVerifiedContent(
@@ -426,8 +426,7 @@ private fun ScheduleVerifiedContent(
     } else {
     Column(
         Modifier
-            .fillMaxWidth()
-            .xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)
+            .xiaoxuPageWidth(XiaoxuPageLayout.ScheduleMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         SchedulePageHeading(

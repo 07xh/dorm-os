@@ -45,8 +45,8 @@ internal fun UiV2SettingsSearchField(query: String, onQuery: (String) -> Unit) {
 @Composable
 internal fun UiV2SettingsConnectionCard(authenticated: Boolean, busy: Boolean, onOpen: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-            .background(XiaoxuPalette.Surface.copy(alpha = 0.9f))
+        Modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))
     ) {
         UiV2SettingsEntry(
             title = if (authenticated) "云端账户" else "连接校序云端",
@@ -54,8 +54,8 @@ internal fun UiV2SettingsConnectionCard(authenticated: Boolean, busy: Boolean, o
             subtitle = if (authenticated) "管理账户与数据来源" else "本机任务无需登录",
             statusLabel = null,
             onClick = onOpen,
-            iconContainer = Color(0xFFDDEDFC),
-            iconTint = Color(0xFF245B86),
+            iconContainer = UiV2Theme.CoolContainer,
+            iconTint = UiV2Theme.CoolInk,
             prominent = true
         )
         UiV2SettingsDivider()
@@ -90,9 +90,9 @@ private fun settingIcon(route: String): ImageVector = when (route) {
 @Composable
 internal fun UiV2SettingsIndexedEntry(entry: UiV2Setting, showPath: Boolean = false, onOpen: (String) -> Unit) {
     val colors = when (entry.group) {
-        "学习与课程", "通知与提醒" -> Color(0xFFDDEDFC) to Color(0xFF245B86)
-        "账户与数据" -> Color(0xFFF7E8D0) to Color(0xFF805717)
-        else -> Color(0xFFE8EAF0) to Color(0xFF525F75)
+        "学习与课程", "通知与提醒" -> UiV2Theme.CoolContainer to UiV2Theme.CoolInk
+        "账户与数据" -> UiV2Theme.WarmContainer to UiV2Theme.WarmInk
+        else -> UiV2Theme.NeutralContainer to UiV2Theme.NeutralInk
     }
     UiV2SettingsEntry(
         title = entry.title, icon = settingIcon(entry.route),
