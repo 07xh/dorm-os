@@ -110,8 +110,32 @@ class CampusUtilitiesReadOnlyClient(
             )
         )
         val rows = if (v2) usage.optJSONObject("data") else usage.optJSONObject("details")
-        val count = rows?.optInt("totalCount", -1)?.takeIf { it >= 0 }
-        val total = usage.opt("totalUsed")?.takeUnless { it == JSONObject.NULL }?.toString()
+        // Unknown fields remain unknown. JSONObject.optInt can truncate a
+        // fractional count or overflow, and toString() on an object can turn
+        // a malformed payload into a seemingly valid displayed quantity.
+        val count = rows?.opt("totalCount")?.let { value ->
+            when (value) {
+                JSONObject.NULL -> null
+                is Int -> value.takeIf { it >= 0 }
+                is Long -> value.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt()
+                is String -> value.takeIf { it.matches(Regex("^[0-9]{1,10}$")) }
+                    ?.toIntOrNull()
+                else -> null
+            }
+        }
+        val total = usage.opt("totalUsed")?.let { value ->
+            when (value) {
+                is String, is Number -> value.toString().takeIf {
+                    it.length in 1..64 && it.matches(Regex("^[0-9]+(\\.[0-9]+)?$"))
+                }
+                else -> null
+            }
+        }
+        // The V2 dynamic sumList must not be guessed to mean electric balance
+        // or a particular usage unit without a verified real response.
+        if (count == null && total == null) {
+            throw CampusUtilitiesException(CampusUtilitiesFailure.UNEXPECTED_RESPONSE)
+        }
         return CampusUtilityMonthResult(
             utility = utility,
             month = month.toString(),
