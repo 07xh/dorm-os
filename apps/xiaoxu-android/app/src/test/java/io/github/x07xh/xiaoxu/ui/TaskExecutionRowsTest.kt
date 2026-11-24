@@ -24,6 +24,31 @@ class TaskExecutionRowsTest {
             if (it.id == 2L) it.copy(completed=true) else it
         })[a])
     }
+    @Test fun indexedEdgesStillBlockCrossRootPrerequisiteAndIgnoreUnrelatedEdges() {
+        val parent = task()
+        val key = ExecutionRoot("device", parent.key)
+        val first = TaskStep(id=1,scope=key.scope,rootKey=key.key,title="第一步",completed=true)
+        val second = TaskStep(id=2,scope=key.scope,rootKey=key.key,title="第二步")
+        val other = TaskStep(id=3,scope="device",rootKey="local:2",title="其他任务",completed=true)
+        val steps = listOf(first,second,other)
+        val edges = listOf(TaskStepEdge(2,1),TaskStepEdge(3,1))
+        val ready = executionReadyRows(listOf(parent),steps,edges,emptyList(),{key},"")
+        assertEquals(2L,ready.single().step!!.id)
+        val invalid = edges + TaskStepEdge(2,3)
+        assertTrue(executionReadyRows(listOf(parent),steps,invalid,emptyList(),{key},"").isEmpty())
+    }
+
+    @Test fun indexedEndedStateDoesNotLeakBetweenScopes() {
+        val key = ExecutionRoot("device", "local:1")
+        val step = TaskStep(id=1,scope=key.scope,rootKey=key.key,title="完成",completed=true)
+        val other = TaskExecution("cloud:other",key.key,true)
+        val rows = executionReadyRows(listOf(task()),listOf(step),emptyList(),listOf(other),{key},"")
+        assertTrue(rows.single().confirm)
+        val ended = TaskExecution(key.scope,key.key,true)
+        val completed = executionReadyRows(listOf(task()),listOf(step),emptyList(),listOf(other,ended),{key},"")
+        assertFalse(completed.single().confirm)
+    }
+
     @Test fun childSearchKeepsParentAndDoesNotInflateRootCount() {
         val root=task();val key=ExecutionRoot("device","local:1")
         val steps=listOf(TaskStep(id=1,scope=key.scope,rootKey=key.key,title="截图"),TaskStep(id=2,scope=key.scope,rootKey=key.key,title="写代码"))

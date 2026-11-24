@@ -46,6 +46,14 @@ fun NorthPhosphorNavigationIcon(
 }
 
 private val outlineStroke = Stroke(16f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+// Immutable geometry shared by the visible and optical-copy icons. Avoid
+// constructing identical collections and boxed tuples on every draw frame.
+private val calendarRingX = floatArrayOf(80f, 176f)
+private val calendarDots = listOf(
+    Offset(128f, 132f), Offset(172f, 132f), Offset(84f, 172f),
+    Offset(128f, 172f), Offset(172f, 172f)
+)
+private val chartBars = listOf(Triple(48f, 136f, 48f), Triple(96f, 88f, 56f), Triple(152f, 40f, 56f))
 private fun path(data: String): Path = PathParser().parsePathString(data).toPath()
 private object PhosphorPaths {
     val bookFill = path("M48,72h64V184H48Z")
@@ -78,13 +86,13 @@ private fun DrawScope.drawCalendar(t: Float, tint: Color, fill: Color) {
     drawRect(fill, Offset(40f, 40f), Size(176f, 48f))
     drawRoundRect(tint, Offset(40f, 40f), Size(176f, 176f), CornerRadius(8f), style = outlineStroke)
     drawLine(tint, Offset(40f, 88f), Offset(216f, 88f), 16f)
-    for ((i, x) in listOf(80f, 176f).withIndex()) {
+    for (i in calendarRingX.indices) {
+        val x = calendarRingX[i]
         val ringT = ((t - i * 0.06f) / (1f - i * 0.06f)).coerceIn(0f, 1f)
         val bounce = -16f * flourish(ringT)
         drawLine(tint, Offset(x, 24f + bounce), Offset(x, 56f + bounce), 16f, StrokeCap.Round)
     }
-    val dots = listOf(Offset(128f, 132f), Offset(172f, 132f), Offset(84f, 172f), Offset(128f, 172f), Offset(172f, 172f))
-    dots.forEachIndexed { index, point ->
+    calendarDots.forEachIndexed { index, point ->
         val dotT = ((t - index * 0.09f) / 0.48f).coerceIn(0f, 1f)
         val light = NorthNavigationIconMotion.charge(dotT)
         drawCircle(tint.copy(alpha = tint.alpha * (1f - 0.68f * light.coerceAtLeast(0f))), 12f - 9f * light, point)
@@ -106,8 +114,7 @@ private fun DrawScope.drawLightning(t: Float, tint: Color, fill: Color) {
 }
 
 private fun DrawScope.drawChart(t: Float, tint: Color, fill: Color) {
-    val bars = listOf(Triple(48f, 136f, 48f), Triple(96f, 88f, 56f), Triple(152f, 40f, 56f))
-    bars.forEachIndexed { index, (x, top, width) ->
+    chartBars.forEachIndexed { index, (x, top, width) ->
         val p = ((t - index * 0.07f) / (1f - index * 0.07f)).coerceIn(0f, 1f)
         // Move geometry rather than the canvas, keeping the 16-unit stroke uniform.
         val movingTop = 208f - (208f - top) * NorthNavigationIconMotion.barScale(p)
@@ -120,10 +127,13 @@ private fun DrawScope.drawChart(t: Float, tint: Color, fill: Color) {
 
 private fun DrawScope.drawSliders(t: Float, tint: Color, fill: Color) {
     val shift = 42f * flourish(t)
-    for ((x, y) in listOf(104f + shift to 80f, 168f - shift to 176f)) {
-        drawLine(tint, Offset(40f, y), Offset(x - 24f, y), 16f, StrokeCap.Round)
-        drawLine(tint, Offset(x + 24f, y), Offset(216f, y), 16f, StrokeCap.Round)
-        drawCircle(fill, 24f, Offset(x, y))
-        drawCircle(tint, 24f, Offset(x, y), style = outlineStroke)
-    }
+    drawSlider(104f + shift, 80f, tint, fill)
+    drawSlider(168f - shift, 176f, tint, fill)
+}
+
+private fun DrawScope.drawSlider(x: Float, y: Float, tint: Color, fill: Color) {
+    drawLine(tint, Offset(40f, y), Offset(x - 24f, y), 16f, StrokeCap.Round)
+    drawLine(tint, Offset(x + 24f, y), Offset(216f, y), 16f, StrokeCap.Round)
+    drawCircle(fill, 24f, Offset(x, y))
+    drawCircle(tint, 24f, Offset(x, y), style = outlineStroke)
 }

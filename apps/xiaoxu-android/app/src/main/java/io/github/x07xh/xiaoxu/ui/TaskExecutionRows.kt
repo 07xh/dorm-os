@@ -23,10 +23,12 @@ internal fun trustedExecutionDate(row: WorkspaceTask): LocalDate? = when {
     else -> null
 }
 
+private val officialWorkIdentity = Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}")
+
 internal fun taskExecutionRoot(row: WorkspaceTask, ownerId: String?, schoolBinding: String?): ExecutionRoot? = when {
     row.storage == "local" -> ExecutionRoot("device", row.key)
     row.provider == "chaoxing" && !schoolBinding.isNullOrBlank() &&
-        Regex("work:\\d{1,24}:\\d{1,24}:\\d{1,24}").matches(row.sourceExternalId.orEmpty()) ->
+        officialWorkIdentity.matches(row.sourceExternalId.orEmpty()) ->
         ExecutionRoot("chaoxing:$schoolBinding", row.sourceExternalId!!)
     row.provider != "chaoxing" && row.storage == "cloud" && !ownerId.isNullOrBlank() ->
         ExecutionRoot((if (row.category == "wechat") "wechat:" else "cloud:") + ownerId, row.key)
@@ -40,6 +42,11 @@ internal fun executionReadyRows(
 ): List<ExecutionRow> {
     val needle = query.trim()
     val grouped = steps.groupBy { ExecutionRoot(it.scope,it.rootKey) }
+    // Index once for this snapshot. Include every edge targeting a child, even
+    // invalid cross-root edges: readyTaskSteps must still reject those.
+    val edgesByStep = edges.groupBy { it.stepId }
+    val endedRoots = executions.asSequence().filter { it.ended }
+        .map { ExecutionRoot(it.scope, it.rootKey) }.toHashSet()
     return parents.filter(::isActionableWorkspaceTask).flatMap { parent ->
         val root=resolve(parent)
         val children=grouped[root].orEmpty()
@@ -48,11 +55,14 @@ internal fun executionReadyRows(
         if(children.isEmpty()) return@flatMap if(parentMatches) listOf(ExecutionRow(parent,root)) else emptyList()
         val done=children.count {it.completed}
         if(done==children.size) {
-            val ended=executions.any {it.scope==root?.scope && it.rootKey==root?.key && it.ended}
+            val ended=root in endedRoots
             if(parentMatches || childMatches) listOf(ExecutionRow(parent,root,completed=done,total=children.size,
                 confirm=!ended,officialAction=ended && parent.provider=="chaoxing")) else emptyList()
-        } else readyTaskSteps(children,edges).filter {parentMatches || it.title.contains(needle,true)}.map {
-            ExecutionRow(parent,root,it,done,children.size)
+        } else {
+            val childEdges = children.flatMap { edgesByStep[it.id].orEmpty() }
+            readyTaskSteps(children,childEdges).filter {parentMatches || it.title.contains(needle,true)}.map {
+                ExecutionRow(parent,root,it,done,children.size)
+            }
         }
     }.sortedWith(compareBy<ExecutionRow> {it.date ?: LocalDate.MAX}.thenBy {it.parent.key}.thenBy {it.step?.position ?: -1}.thenBy {it.key})
 }

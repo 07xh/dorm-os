@@ -211,3 +211,10 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 
 - 任务执行进度按 ExecutionRoot（scope + key）一次分组、缓存，行渲染只查询索引；账号身份及登录状态作为执行筛选缓存依赖，避免账号状态变化后继续复用旧投影。周范围边界在每次筛选时只计算一次。纯逻辑单测覆盖同 key 不同账号、完成状态变化、空步骤。
 - 添加短同步 Trace 区段 Xiaoxu.workspace.combine、Xiaoxu.tasks.filter、Xiaoxu.tasks.executionRows、Xiaoxu.tasks.nowCount、Xiaoxu.tasks.progressIndex。在 Release Perfetto 轨迹按区段与 FrameTimeline 对齐定位主线程计算；不将缓存命中率或源码复杂度当作实测帧率。未改变任务、课表或学校数据写入路径。
+
+
+## 性能定位：执行依赖索引与底栏绘制分配
+
+- 执行列表一次建立目标步骤的依赖索引及已结束任务身份集合，避免每个任务重新分组全表依赖、扫描全部执行记录；跨账号和跨任务依赖仍按原规则拒绝，新增回归用例覆盖合法依赖、无关边及非法跨根依赖与结束状态隔离。
+- 北化图标可见层和光学采样层共享固定几何数据，避免每帧构建相同的日历圆点、柱图三元组及滑杆 Pair；保留原画法、动画时钟、光学合成和色彩。未对玻璃 GPU 成本作实测结论，也不贸然降低材质质量。
+- 此批独立暂存以保留上一基线的 APK/CI 验证；尚需编译、回归及真机 Perfetto 对比。
