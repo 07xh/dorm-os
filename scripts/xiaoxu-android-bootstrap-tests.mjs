@@ -477,6 +477,9 @@ assert.match(v2Segments, /Modifier\.weight\(1f\)\.heightIn\(min = 48\.dp\)/,
  '共享分段控件等宽且至少48dp触控高度');
 assert.match(v2Segments, /drawBehind[\s\S]*?thumb\.value/, '滑块只在绘制阶段读取动画值');
 assert.match(v2Segments, /selectedKey == option\.key/, '选中状态来自调用方');
+assert.match(v2Segments, /detectHorizontalDragGestures\(/, '共享分段滑块支持横向跟手拖动');
+assert.match(v2Segments, /onDragCancel = \{ settle\.intValue\+\+ \}/, '取消手势不得提交业务选择');
+assert.match(v2Segments, /onDragEnd = \{[\s\S]*?callback\.value\?\.invoke\(target\)/, '仅在释放时提交拖动选择');
 assert.match(workspace, /\.uiV2SelectionThumb\(/, '任务计数筛选共享单选中层');
 assert.match(scheduleUi, /LocalCourseReminders\.leadMinutes\(context\)/, '课程提醒展示真实配置');
 assert.match(v2Theme, /titleLarge = type\(20, 26, true\)/, '一级页面保持20sp字级与26sp行高');

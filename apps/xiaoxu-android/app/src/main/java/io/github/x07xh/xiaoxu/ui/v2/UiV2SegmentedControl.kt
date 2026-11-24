@@ -1,6 +1,14 @@
 package io.github.x07xh.xiaoxu.ui.v2
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -52,7 +60,9 @@ internal fun UiV2SegmentedControl(
             .clip(pill)
             .background(UiV2Theme.SegmentTrack)
             .padding(3.dp)
-            .uiV2SelectionThumb(index, options.size)
+            .uiV2SelectionThumb(index, options.size, onDragSelected = { target ->
+                options.getOrNull(target)?.let { if (it.key != selectedKey) onSelected(it.key) }
+            })
             .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -82,27 +92,63 @@ internal fun UiV2SegmentedControl(
     }
 }
 
-/** Shared draw-only selected layer for equal-width controls. Apply after track padding. */
+/** Shared draw-only selected layer for equal-width controls. Apply after track padding.
+ * A horizontal gesture previews selection; only release commits the nearest index.
+ * The authoritative index still belongs to the caller, including after cancellation.
+ */
 @Composable
-internal fun Modifier.uiV2SelectionThumb(index: Int, count: Int, radius: Dp = 999.dp): Modifier {
-    val thumb = animateFloatAsState(
-        targetValue = index.coerceAtLeast(0).toFloat(),
-        animationSpec = tween(UiV2Motion.StandardMs, easing = UiV2Motion.Easing),
-        label = "v2-segment-thumb"
-    )
-    return this.drawBehind {
-                if (index in 0 until count && size.width > 0f) {
-                    val width = size.width / count
-                    val position = thumb.value.coerceIn(0f, (count - 1).toFloat())
-                    val visualIndex = if (layoutDirection == LayoutDirection.Rtl) {
-                        count - 1 - position
-                    } else position
-                    drawRoundRect(
-                        color = UiV2Theme.SegmentThumb,
-                        topLeft = Offset(visualIndex * width, 0f),
-                        size = Size(width, size.height),
-                        cornerRadius = CornerRadius(radius.toPx().coerceAtMost(size.height / 2f))
+internal fun Modifier.uiV2SelectionThumb(
+    index: Int, count: Int, radius: Dp = 999.dp,
+    onDragSelected: ((Int) -> Unit)? = null
+): Modifier {
+    val thumb = remember(count) { Animatable(index.coerceAtLeast(0).toFloat()) }
+    val drag = remember(index, count) { mutableFloatStateOf(Float.NaN) }
+    val settle = remember(index, count) { mutableIntStateOf(0) }
+    val callback = rememberUpdatedState(onDragSelected)
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    LaunchedEffect(index, count, settle.intValue) {
+        val preview = drag.floatValue
+        if (preview.isFinite()) {
+            thumb.snapTo(preview)
+            drag.floatValue = Float.NaN
+        }
+        thumb.animateTo(index.coerceAtLeast(0).toFloat(),
+            animationSpec = tween(UiV2Motion.StandardMs, easing = UiV2Motion.Easing))
+    }
+    val gesture = if (count > 1 && index in 0 until count && onDragSelected != null) {
+        Modifier.pointerInput(index, count, rtl) {
+            detectHorizontalDragGestures(
+                onDragStart = {
+                    drag.floatValue = thumb.value.coerceIn(0f, (count - 1).toFloat())
+                },
+                onHorizontalDrag = { change, amount ->
+                    change.consume()
+                    drag.floatValue = UiV2SegmentDragPolicy.move(
+                        drag.floatValue, amount, size.width.toFloat(), count, rtl
                     )
+                },
+                onDragCancel = { settle.intValue++ },
+                onDragEnd = {
+                    val target = UiV2SegmentDragPolicy.nearest(drag.floatValue, count)
+                    if (target != null && target != index) callback.value?.invoke(target)
+                    settle.intValue++
                 }
-            }
+            )
+        }
+    } else Modifier
+    return this.then(gesture).drawBehind {
+        if (index in 0 until count && size.width > 0f) {
+            val width = size.width / count
+            val preview = drag.floatValue
+            val position = (if (preview.isFinite()) preview else thumb.value)
+                .coerceIn(0f, (count - 1).toFloat())
+            val visualIndex = if (layoutDirection == LayoutDirection.Rtl) count - 1 - position else position
+            drawRoundRect(
+                color = UiV2Theme.SegmentThumb,
+                topLeft = Offset(visualIndex * width, 0f),
+                size = Size(width, size.height),
+                cornerRadius = CornerRadius(radius.toPx().coerceAtMost(size.height / 2f))
+            )
+        }
+    }
 }

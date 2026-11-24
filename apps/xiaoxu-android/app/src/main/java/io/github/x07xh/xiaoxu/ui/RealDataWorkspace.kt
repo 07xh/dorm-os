@@ -1523,7 +1523,13 @@ fun RealAcademicTaskHub(
                     .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
                         RoundedCornerShape(XiaoxuRadius.card))
                     .padding(5.dp)
-                    .uiV2SelectionThumb(listOf("now", "pending", "all", "done").indexOf(filter), 4, XiaoxuRadius.tile)
+                    .uiV2SelectionThumb(
+                        listOf("now", "pending", "all", "done").indexOf(filter), 4, XiaoxuRadius.tile,
+                        onDragSelected = { target ->
+                            filter = listOf("now", "pending", "all", "done")[target]
+                            if (filter == "done") onlyThisWeek = false
+                        }
+                    )
                     .selectableGroup()
             ) {
                 TaskStatusTab(
