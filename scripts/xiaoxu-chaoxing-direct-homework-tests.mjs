@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
  parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus,
- parseChaoxingHomeworkGrades,parseChaoxingGradeEntry} from '../lib/academic-chaoxing-work-discovery.mjs';
+ parseChaoxingHomeworkGrades,parseChaoxingGradeEntry,parseChaoxingCourseProgress} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
 import {normalizeVerifiedChaoxingHomework} from '../lib/academic-chaoxing-homework-sync.mjs';
 globalThis.crypto??=webcrypto;
@@ -221,6 +221,37 @@ assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
  assert.equal(grades.scope,'current_table_only');
  assert.ok(!JSON.stringify(grades).includes('fixtureGrade'));
  await assert.rejects(()=>gradeReader.readHomeworkGrades({...timingKeys,courseId:'999'}),
+  e=>e.code==='authorization_failed');
+
+
+ // Synthetic fixture for the published read-only course aggregate contract.
+ const progressPage='<div>已完成任务点: <span>3</span>/8</div>'+
+  '<div class="chapter_item">ignored chapter detail</div>';
+ const aggregate=parseChaoxingCourseProgress(progressPage);
+ assert.equal(aggregate.completed,3);
+ assert.equal(aggregate.total,8);
+ assert.equal(aggregate.percent,37.5);
+ assert.equal(parseChaoxingCourseProgress('<div>已完成任务点：0/0</div>').percent,null);
+ for(const html of ['<div>作业：3/8</div>','<div>已完成任务点：9/8</div>',
+  '<div hidden>已完成任务点：3/8</div>',progressPage+progressPage])
+  assert.throws(()=>parseChaoxingCourseProgress(html));
+ const progressAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+  const u=new URL(raw);
+  if(u.pathname==='/mooc2-ans/mycourse/studentcourse'){
+   assert.equal(options.method,'GET');
+   assert.equal(u.searchParams.get('courseid'),'123');
+   assert.equal(u.searchParams.get('clazzid'),'456');
+   return response(progressPage);
+  }
+  return fakeFetch(raw,options);
+ }});
+ const progressReader=await progressAdapter.forSession({session,userId:'owner1'});
+ await progressReader.verifySession();
+ const progressResult=await progressReader.readCourseProgress(timingKeys);
+ assert.equal(progressResult.course.courseId,'123');
+ assert.equal(progressResult.metric,'official_task_points');
+ assert.ok(!JSON.stringify(progressResult).includes('ignored chapter detail'));
+ await assert.rejects(()=>progressReader.readCourseProgress({...timingKeys,courseId:'999'}),
   e=>e.code==='authorization_failed');
 
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
