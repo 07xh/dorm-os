@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -72,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -101,6 +103,7 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
 import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
 import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
@@ -886,24 +889,20 @@ private fun AcademicPage(
         }
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
-                item {
-                    UiV2SettingsGroup(title = "教务") {
-                        AcademicActionRow("成绩", Icons.Outlined.School) {
-                            select(AcademicDestination.GRADES)
-                        }
-                        UiV2SettingsDivider()
-                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
-                            select(AcademicDestination.EXAMS)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    UiV2SettingsGroup(title = "校园生活") {
-                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
-                            select(AcademicDestination.SECOND_CLASS)
-                        }
-                        UiV2SettingsDivider()
-                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
-                            select(AcademicDestination.SERVICES)
+                item(key = "academic_actions") {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val singleColumn = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("教务", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "成绩", Icons.Outlined.School, { select(AcademicDestination.GRADES) },
+                                "考试", Icons.Outlined.DateRange, { select(AcademicDestination.EXAMS) })
+                            Text("校园生活", style = MaterialTheme.typography.titleMedium,
+                                color = XiaoxuPalette.Ink)
+                            AcademicActionPair(singleColumn,
+                                "第二课堂", Icons.Outlined.CheckCircle, { select(AcademicDestination.SECOND_CLASS) },
+                                "校园服务", Icons.Outlined.Home, { select(AcademicDestination.SERVICES) })
                         }
                     }
                 }
@@ -949,7 +948,27 @@ private fun AcademicPage(
     }
 }
 
-/** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
+/** Responsive direct action pair using the same horizontal tile as Home. */
+@Composable
+private fun AcademicActionPair(
+    singleColumn: Boolean,
+    firstTitle: String, firstIcon: ImageVector, firstAction: () -> Unit,
+    secondTitle: String, secondIcon: ImageVector, secondAction: () -> Unit
+) {
+    if (singleColumn) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.fillMaxWidth(), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.fillMaxWidth(), secondAction)
+        }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            UiV2HomeQuickAction(firstTitle, firstIcon, Modifier.weight(1f), firstAction)
+            UiV2HomeQuickAction(secondTitle, secondIcon, Modifier.weight(1f), secondAction)
+        }
+    }
+}
+
+/** Secondary service links remain compact list rows. */
 @Composable
 private fun AcademicActionRow(
     title: String,
