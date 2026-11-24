@@ -1,6 +1,14 @@
 package io.github.x07xh.xiaoxu.ui.v2
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.x07xh.xiaoxu.ui.PrimaryNavigationDrawer
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -32,13 +40,33 @@ internal fun UiV2Shell(
     showNavigation: Boolean,
     onSelect: (MainDestination) -> Unit,
     backPreview: UiV2BackPreview? = null,
-    content: @Composable () -> Unit
+    content: @Composable (openNavigation: (() -> Unit)?) -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
         val rail = uiV2Window(maxWidth.value, maxHeight.value) == UiV2Window.Expanded
+        val canExpandSidebar = maxWidth.value >= 1100f
+        val drawerEnabled = !rail && showNavigation
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+        LaunchedEffect(drawerEnabled) {
+            if (!drawerEnabled) drawerState.snapTo(DrawerValue.Closed)
+        }
+        val openNavigation: (() -> Unit)? = if (drawerEnabled) {
+            { scope.launch { drawerState.open() }; Unit }
+        } else null
         val backdrop = if (!rail && showNavigation && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = drawerEnabled && drawerState.isOpen,
+            drawerContent = {
+                PrimaryNavigationDrawer(selected = selected, onSelect = { page ->
+                    onSelect(page)
+                    scope.launch { drawerState.close() }
+                }, onClose = { scope.launch { drawerState.close() } })
+            }
+        ) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
                 modifier = Modifier.fillMaxSize().then(
@@ -55,12 +83,12 @@ internal fun UiV2Shell(
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     if (rail && showNavigation) {
                         PrimarySideNavigation(selected = selected, onSelect = onSelect,
-                            canExpand = maxWidth.value >= 1100f)
+                            canExpand = canExpandSidebar)
                     }
                     Surface(
                         color = Color.Transparent,
                         modifier = Modifier.weight(1f).fillMaxSize().uiV2BackLayer(backPreview),
-                        content = content
+                        content = { content(openNavigation) }
                     )
                 }
             }
@@ -70,5 +98,7 @@ internal fun UiV2Shell(
                 }
             }
         }
+        }
+        BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
     }
 }
