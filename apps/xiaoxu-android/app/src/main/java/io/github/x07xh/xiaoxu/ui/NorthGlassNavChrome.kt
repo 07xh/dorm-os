@@ -80,11 +80,13 @@ internal fun Modifier.northGlassIndicator(
     shape = { Capsule() },
     effects = {
         val press = pressProgress().coerceIn(0f, 1f)
-        val speedDp = velocityPx() / density
-        val motion = UiV2GlassMotionPolicy.motionFraction(speedDp)
-        val quality = UiV2GlassMotionPolicy.lensQuality(speedDp)
         vibrancy()
-        if (Build.VERSION.SDK_INT >= 33 && size.minDimension > 0f) {
+        // The original refraction floor is zero. At rest there is no lens
+        // to calculate; retain the combined backdrop, tint and vibrancy.
+        if (press > 0f && Build.VERSION.SDK_INT >= 33 && size.minDimension > 0f) {
+            val speedDp = velocityPx() / density
+            val motion = UiV2GlassMotionPolicy.motionFraction(speedDp)
+            val quality = UiV2GlassMotionPolicy.lensQuality(speedDp)
             val base = press // Original v1.0.83 NavIndicatorRefractionFloor = 0.
             val hScale = base * (1f + motion * 0.25f) * quality
             val aScale = base * (1f + motion * 0.35f) * quality
