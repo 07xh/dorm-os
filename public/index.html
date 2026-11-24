@@ -616,7 +616,7 @@ function selectTimetableDay(chosen){
 }
 function timetable(){
  const p=now(),weekStart=addDays(p.date,-((p.day+6)%7)+timetableWeekOffset*7);
- return `${titleBlock('','我的课表','',XiaoxuAcademic.ncwuScheduleRefreshButton())}
+ return `<div class="xu-ncwu-timetable-heading">${titleBlock('','我的课表','',XiaoxuAcademic.ncwuScheduleRefreshButton())}</div>
  <div class="v42-schedule-toolbar"><div class="v42-segments" role="group" aria-label="课表视图">
  <button type="button" data-timetable-mode="day" aria-pressed="${timetableMode==='day'}" class="${timetableMode==='day'?'active':''}">单日</button>
  <button type="button" data-timetable-mode="week" aria-pressed="${timetableMode==='week'}" class="${timetableMode==='week'?'active':''}">整周</button>

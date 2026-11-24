@@ -131,7 +131,8 @@ test('Qingguo schedule defaults to manual, opt-in persists, and pending review n
  await expect.poll(()=>gradeChecks).toBe(1);
  await expect(page.locator('[data-xu-ncwu-business="grades"]')).toBeEnabled();
 
- await page.locator('button[data-page="settings"]').first().click();
+ await page.locator('button[data-page="profile"].nav-link').click();
+ await page.locator('button.v4-profile-link[data-page="settings"]').click();
  await openMore();
  await toggle.click();
  await expect(toggle).toHaveAttribute('aria-checked','true');
