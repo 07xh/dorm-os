@@ -1676,7 +1676,7 @@ assert.doesNotMatch(main, /fadeIn\(animationSpec = tween\(XiaoxuMotion\.PageSwit
   '不允许恢复主导航文字重影交叉淡入');
 assert.doesNotMatch(main, /private const val PageSwitchMs/, '删除重复的本地切页时间常量');
 assert.match(schedulePanel, /tween\(XiaoxuMotion\.SelectionMs\)/);
-assert.match(messageCenter, /tween\(XiaoxuMotion\.SelectionMs\)/);
+assert.match(messageCenter, /tween\(if \(reduced\) 0 else XiaoxuMotion\.SelectionMs\)/, '消息筛选使用共享时长，并尊重减少动画');
 assert.match(design, /fun XiaoxuCard\(/, '须有通用圆角卡');
 const primaryCardSource = design.slice(design.indexOf('fun XiaoxuCard('),
   design.indexOf('/** 同一个分段选择器', design.indexOf('fun XiaoxuCard(')));
