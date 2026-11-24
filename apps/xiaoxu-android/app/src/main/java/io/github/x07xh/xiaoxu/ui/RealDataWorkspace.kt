@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import android.widget.Toast
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SelectionThumb
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
@@ -20,6 +22,7 @@ import io.github.x07xh.xiaoxu.data.readyTaskSteps
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -2323,6 +2326,7 @@ fun RealAcademicTaskHub(
 }
 
 /** 首页与任务中心共用任务详情，不在首页重建独立状态机。 */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WorkspaceTaskDetailSheet(
     selectedTask: WorkspaceTask,
@@ -2346,7 +2350,10 @@ internal fun WorkspaceTaskDetailSheet(
     ) {
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             SourceBadge(
                 when (selectedTask.category) {
                     "wechat" -> "微信任务"
@@ -2368,6 +2375,12 @@ internal fun WorkspaceTaskDetailSheet(
                 if (considerCompleteInTaskList(selectedTask)) XiaoxuTone.Success
                 else XiaoxuTone.Neutral
             )
+        }
+        // Put the frequent, safe action before long prerequisite and execution content.
+        if (selectedTask.storage == "local") {
+            XiaoxuDialogPrimaryButton(onClick = onManage) { Text(manageLabel) }
+        } else if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
+            XiaoxuDialogPrimaryButton(onClick = onVerifyChaoxing) { Text("打开学习通核对") }
         }
         HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
         Text("来源与日期", style = MaterialTheme.typography.labelMedium,
@@ -2415,20 +2428,10 @@ internal fun WorkspaceTaskDetailSheet(
             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
             executionContent.invoke()
         }
-        if (onArchive != null || selectedTask.storage == "local" ||
-            (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null)) {
-            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
-            Text("操作", style = MaterialTheme.typography.labelMedium,
-                color = XiaoxuPalette.Ink2)
-        }
         if (selectedTask.category == "wechat") {
             WechatTaskLinkActions(selectedTask.links)
         }
         if (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null) {
-            OutlinedButton(
-                onClick = onVerifyChaoxing,
-                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
-            ) { Text("打开学习通核对") }
             Text(
                 if (Regex("""work:\d{1,24}:\d{1,24}:\d{1,24}""").matches(
                         selectedTask.sourceExternalId.orEmpty()))
@@ -2438,18 +2441,19 @@ internal fun WorkspaceTaskDetailSheet(
                 color = XiaoxuPalette.Ink2
             )
         }
-        if (onArchive != null) {
-            OutlinedButton(onClick = onArchive,
-                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-                Text("从本机任务列表移出")
+        if (onArchive != null || (selectedTask.storage == "local" && onDelete != null)) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            UiV2SettingsGroup {
+                if (onArchive != null) {
+                    UiV2SettingsEntry(title = "从本机任务列表移出", onClick = onArchive)
+                }
+                if (selectedTask.storage == "local" && onDelete != null) {
+                    TextButton(onClick = onDelete,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text("删除本机任务", color = XiaoxuPalette.Danger)
+                    }
+                }
             }
-        }
-        if (selectedTask.storage == "local") {
-            OutlinedButton(onClick = onManage,
-                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()) {
-                Text(manageLabel)
-            }
-            if (onDelete != null) TextButton(onClick = onDelete) { Text("删除本机任务") }
         }
     }
 }
@@ -2742,8 +2746,8 @@ private fun TaskRow(
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击" + openLabel
             }
-            .padding(start = 10.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(start = 4.dp, end = 6.dp, top = 7.dp, bottom = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 同样的勾选视觉：本机 Room 任务可直接更改个人完成状态；
@@ -2820,7 +2824,7 @@ private fun TaskRow(
         }
         if (compact && onQuickDate != null) {
             IconButton(onClick = onQuickDate, enabled = actionEnabled,
-                modifier = Modifier.size(44.dp)) {
+                modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Outlined.DateRange,
                     contentDescription = "设置“" + task.title + "”的个人截止日期",
                     tint = XiaoxuPalette.Ink2, modifier = Modifier.size(20.dp))
