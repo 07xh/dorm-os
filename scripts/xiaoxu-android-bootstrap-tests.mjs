@@ -698,6 +698,14 @@ assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(use
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
 assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
   '课程编辑背景必须沿用现有课表设置背景');
+assert.match(courseEditor, /\.imePadding\(\)/, '编辑器保留键盘避让');
+assert.equal((courseEditor.match(/\.widthIn\(max = XiaoxuPageLayout\.StateMaxWidth\)/g) || []).length, 3,
+  '编辑器标题、错误及滚动内容同宽，平板不拉伸');
+assert.match(courseEditor, /horizontalAlignment = Alignment\.CenterHorizontally/);
+assert.match(courseEditor, /\.padding\(horizontal = UiV2Theme\.PageGutter\)/);
+assert.match(courseEditor, /\.toggleable\(value = weekOnly, enabled = !busy, role = Role\.Checkbox,/);
+assert.match(courseEditor, /Checkbox\(checked = weekOnly,\s*onCheckedChange = null, enabled = !busy\)/,
+  '周次范围只有一处交互及无障碍语义');
 assert.match(courseEditor, /UiV2SettingsGroup\(title = "课程信息"\)/,
   '课程信息必须复用同一玻璃分组组件');
 assert.match(courseEditor, /UiV2SettingsGroup\(title = "上课时间"\)/,
