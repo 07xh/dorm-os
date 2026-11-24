@@ -11,8 +11,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSection
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
-import io.github.x07xh.xiaoxu.ui.v2.UiV2Window
-import io.github.x07xh.xiaoxu.ui.v2.uiV2Window
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
 import io.github.x07xh.xiaoxu.data.withExecutionAction
 import io.github.x07xh.xiaoxu.data.withOwnerExecutionAction
 import io.github.x07xh.xiaoxu.data.TaskStep
@@ -623,7 +622,12 @@ fun RealAcademicHome(
 
     val homeListState = rememberLazyListState()
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        val wideLayout = uiV2Window(maxWidth.value, maxHeight.value) == UiV2Window.Expanded
+        val homeDetailWidth = uiV2DetailWidth(
+            maxWidth.value.coerceAtMost(1200f), maxHeight.value,
+            mainMin = 420f, detailMin = 340f, detailMax = 500f,
+            gap = 16f, horizontalPadding = 40f
+        )
+        val wideLayout = homeDetailWidth != null
         // Keep a single scroll owner; center the bounded reading column on large tablets.
         // One scroll owner on phones AND tablets; neither column scrolls separately.
         LazyColumn(
@@ -634,33 +638,33 @@ fun RealAcademicHome(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item(key = "greeting") { HomeGreeting(today, weekdayLabel) }
-            if (wideLayout) {
-                item {
+            if (homeDetailWidth != null) {
+                item(key = "dashboard-primary") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.Top) {
-                        Column(Modifier.weight(1.15f),
+                        Column(Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             metrics()
                             hero()
                         }
-                        Column(Modifier.weight(1f)) { tasks() }
+                        Column(Modifier.width(homeDetailWidth.dp)) { tasks() }
                     }
                 }
                 item(key = "services") { academic() }
-                item {
+                item(key = "dashboard-secondary") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f)) { notices() }
-                        Column(Modifier.weight(1f)) { homework() }
+                        Column(Modifier.width(homeDetailWidth.dp)) { homework() }
                     }
                 }
             } else {
-                item { metrics() }
-                item { hero() }
-                item { tasks() }
-                item { notices() }
-                item { academic() }
-                item { homework() }
+                item(key = "metrics") { metrics() }
+                item(key = "courses") { hero() }
+                item(key = "tasks") { tasks() }
+                item(key = "services") { academic() }
+                item(key = "notices") { notices() }
+                item(key = "homework") { homework() }
             }
         }
     }
@@ -1589,71 +1593,89 @@ fun RealAcademicTaskHub(
                 style = MaterialTheme.typography.labelSmall,
                 color = XiaoxuPalette.Ink2)
         }
-        if (showSearch) item {
-            UiV2SearchField(
-                query = searchQuery,
-                onQuery = { searchQuery = it.take(100) },
-                placeholder = "搜索任务标题或来源",
-                modifier = Modifier.padding(top = 12.dp)
-            )
-        }
-
-        item {
-            // Daily controls: source and a direct local-deadline toggle.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = { sourceMenuOpen = true },
-                        modifier = Modifier.heightIn(min = 48.dp)
+        item(key = "task:facets") {
+            // A single controlled filter row; narrow layouts stack the input above it.
+            // Wide layouts keep both controls visible without a second scroll owner.
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val filters: @Composable (Modifier) -> Unit = { modifier ->
+                    // Daily controls: source and a direct local-deadline toggle.
+                    Row(
+                        modifier = modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            when (sourceFilter) {
-                                "local" -> "本机来源"
-                                "cloud" -> "云端来源"
-                                "wechat" -> "微信任务"
-                                "chaoxing" -> "学习通任务"
-                                else -> "全部来源"
-                            },
-                            style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink
-                        )
-                        Icon(Icons.Outlined.ExpandMore,
-                            contentDescription = "切换任务来源",
-                            tint = XiaoxuPalette.Ink2,
-                            modifier = Modifier.size(20.dp))
-                    }
-                    DropdownMenu(
-                        expanded = sourceMenuOpen,
-                        onDismissRequest = { sourceMenuOpen = false }
-                    ) {
-                        listOf(
-                            "all" to "全部来源",
-                            "cloud" to "云端来源",
-                            "wechat" to "微信任务",
-                            "chaoxing" to "学习通任务",
-                            "local" to "本机来源"
-                        ).forEach { (source, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    sourceFilter = source
-                                    sourceMenuOpen = false
+                        Box(modifier = Modifier.weight(1f)) {
+                            TextButton(
+                                onClick = { sourceMenuOpen = true },
+                                modifier = Modifier.heightIn(min = 48.dp)
+                            ) {
+                                Text(
+                                    when (sourceFilter) {
+                                        "local" -> "本机来源"
+                                        "cloud" -> "云端来源"
+                                        "wechat" -> "微信任务"
+                                        "chaoxing" -> "学习通任务"
+                                        else -> "全部来源"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = XiaoxuPalette.Ink
+                                )
+                                Icon(Icons.Outlined.ExpandMore,
+                                    contentDescription = "切换任务来源",
+                                    tint = XiaoxuPalette.Ink2,
+                                    modifier = Modifier.size(20.dp))
+                            }
+                            DropdownMenu(
+                                expanded = sourceMenuOpen,
+                                onDismissRequest = { sourceMenuOpen = false }
+                            ) {
+                                listOf(
+                                    "all" to "全部来源",
+                                    "cloud" to "云端来源",
+                                    "wechat" to "微信任务",
+                                    "chaoxing" to "学习通任务",
+                                    "local" to "本机来源"
+                                ).forEach { (source, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            sourceFilter = source
+                                            sourceMenuOpen = false
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
+                        FilterChip(
+                            selected = onlyThisWeek,
+                            onClick = {
+                                onlyThisWeek = !onlyThisWeek
+                            },
+                            label = { Text("本周日期") }
+                        )
+                    }
+                        }
+                val search: @Composable (Modifier) -> Unit = { modifier ->
+                    UiV2SearchField(
+                        query = searchQuery,
+                        onQuery = { searchQuery = it.take(100) },
+                        placeholder = "搜索任务标题或来源",
+                        modifier = modifier
+                    )
+                }
+                if (showSearch && maxWidth >= 700.dp) {
+                    Row(Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { search(Modifier) }
+                        Box(Modifier.weight(1f)) { filters(Modifier) }
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (showSearch) search(Modifier)
+                        filters(Modifier)
                     }
                 }
-                FilterChip(
-                    selected = onlyThisWeek,
-                    onClick = {
-                        onlyThisWeek = !onlyThisWeek
-                    },
-                    label = { Text("本周日期") }
-                )
             }
         }
         if (sourceFilter != "all" || onlyThisWeek || searchQuery.isNotBlank()) item(key = "task:clear-facets") {

@@ -2065,7 +2065,10 @@ assert.match(messageCenter, /WechatReviewPanel\(/,
   '已保存候选只允许从消息中心审核');
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不得恢复重复微信审核器');
-assert.match(workspace, /if \(showSearch\) item \{/, '搜索框应由头部按钮控制，默认不抢首屏空间');
+assert.match(workspace, /if \(showSearch\) search\(Modifier\)/, '搜索框应由头部按钮控制，默认不抢首屏空间');
+assert.match(workspace, /if \(showSearch && maxWidth >= 700\.dp\)/, '宽屏并排显示任务搜索和筛选');
+assert.match(homeReadingLayout, /val homeDetailWidth = uiV2DetailWidth\(/, '首页按阅读空间预算布局');
+assert.match(homeReadingLayout, /Modifier\.width\(homeDetailWidth\.dp\)/, '首页主列空间优先');
 assert.match(workspace, /taskMenuOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '低频任务管理收进默认关闭的更多菜单');
 assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不得有独立海报演示版');
