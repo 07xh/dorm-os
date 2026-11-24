@@ -66,12 +66,10 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -140,7 +138,6 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.text.DateFormat
 import java.util.Date
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -1182,7 +1179,7 @@ fun RealAcademicTaskHub(
     var sourceMenuOpen by rememberSaveable { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(true) }
     var taskMenuOpen by rememberSaveable { mutableStateOf(false) }
     var showDependencyGraph by rememberSaveable { mutableStateOf(false) }
     var showArchiveSheet by rememberSaveable { mutableStateOf(false) }
@@ -1417,23 +1414,11 @@ fun RealAcademicTaskHub(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("任务",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = XiaoxuPalette.Ink,
-                        maxLines = 1,
-                        modifier = Modifier.semantics { heading() })
-                    Text(
-                        today.format(DateTimeFormatter.ofPattern("M月d日 · EEEE",
-                            java.util.Locale.CHINA)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XiaoxuPalette.Ink2,
-                        maxLines = 1
-                    )
-                }
+                Text("任务",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = XiaoxuPalette.Ink,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f).semantics { heading() })
 
                 XiaoxuToolbarAction(
                     icon = Icons.Outlined.Search,
@@ -1571,26 +1556,7 @@ fun RealAcademicTaskHub(
                                     tint = XiaoxuPalette.Ink2,
                                     modifier = Modifier.size(20.dp))
                             }
-                            DropdownMenu(
-                                expanded = sourceMenuOpen,
-                                onDismissRequest = { sourceMenuOpen = false }
-                            ) {
-                                listOf(
-                                    "all" to "全部来源",
-                                    "cloud" to "云端来源",
-                                    "wechat" to "微信任务",
-                                    "chaoxing" to "学习通任务",
-                                    "local" to "本机来源"
-                                ).forEach { (source, label) ->
-                                    DropdownMenuItem(
-                                        text = { Text(label) },
-                                        onClick = {
-                                            sourceFilter = source
-                                            sourceMenuOpen = false
-                                        }
-                                    )
-                                }
-                            }
+
                         }
                         FilterChip(
                             selected = onlyThisWeek,
@@ -1605,7 +1571,7 @@ fun RealAcademicTaskHub(
                     UiV2SearchField(
                         query = searchQuery,
                         onQuery = { searchQuery = it.take(100) },
-                        placeholder = "搜索任务标题或来源",
+                        placeholder = "搜索任务",
                         modifier = modifier
                     )
                 }
@@ -2085,6 +2051,28 @@ fun RealAcademicTaskHub(
     }
 
     } // fixed toolbar and task list
+    if (sourceMenuOpen) {
+        XiaoxuBottomActionSheet(
+            title = "任务来源",
+            onDismiss = { sourceMenuOpen = false },
+            actions = listOf(
+                "all" to "全部来源",
+                "cloud" to "云端来源",
+                "wechat" to "微信任务",
+                "chaoxing" to "学习通任务",
+                "local" to "本机来源"
+            ).map { (source, label) ->
+                XiaoxuSheetAction(
+                    label = label,
+                    selected = sourceFilter == source,
+                    onClick = {
+                        sourceFilter = source
+                        sourceMenuOpen = false
+                    }
+                )
+            }
+        )
+    }
     if (taskMenuOpen) {
         val submitted = all.filter {
             it.storage == "cloud" && it.provider == "chaoxing" &&
