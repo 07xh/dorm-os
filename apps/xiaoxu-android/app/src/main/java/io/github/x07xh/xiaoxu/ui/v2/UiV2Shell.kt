@@ -31,6 +31,7 @@ internal fun UiV2Shell(
     selected: MainDestination,
     showNavigation: Boolean,
     onSelect: (MainDestination) -> Unit,
+    backPreview: UiV2BackPreview? = null,
     content: @Composable () -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
@@ -57,7 +58,7 @@ internal fun UiV2Shell(
                     }
                     Surface(
                         color = Color.Transparent,
-                        modifier = Modifier.weight(1f).fillMaxSize(),
+                        modifier = Modifier.weight(1f).fillMaxSize().uiV2BackLayer(backPreview),
                         content = content
                     )
                 }

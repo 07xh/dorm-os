@@ -98,6 +98,8 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
+import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
+import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
@@ -530,19 +532,28 @@ private fun NativeShell(
         current = next.destination
         messagesOpen = false
     }
+    val backPreview = rememberUiV2BackPreview(
+        "${current.name}:${academic.name}:$profileSettingsRoute:$messagesOpen:$scheduleSettingsOpen"
+    )
     BackHandler(enabled = current == MainDestination.SCHEDULE && scheduleSettingsOpen) {
         scheduleSettingsOpen = false
     }
-    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
-        profileSettingsRoute != "home") {
+    UiV2PredictiveBack(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute != "home" && profileSettingsRoute != "timetable-editor" &&
+        profileSettingsRoute != "timetable-settings", preview = backPreview) {
         profileSettingsRoute = uiV2SettingsParent(profileSettingsRoute)
     }
-    BackHandler(enabled = messagesOpen) {
+    BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
+        profileSettingsRoute in setOf("timetable-editor", "timetable-settings")) {
+        profileSettingsRoute = "home"
+    }
+    UiV2PredictiveBack(enabled = messagesOpen, preview = backPreview) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
     }
-    BackHandler(
+    UiV2PredictiveBack(
         enabled = !messagesOpen && current == MainDestination.ACADEMIC &&
-            academic != AcademicDestination.OVERVIEW
+            academic != AcademicDestination.OVERVIEW,
+        preview = backPreview
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
@@ -596,6 +607,7 @@ private fun NativeShell(
     UiV2Shell(
         selected = current,
         showNavigation = showPrimaryNavigation,
+        backPreview = backPreview,
         onSelect = { selected ->
             current = selected
             profileSettingsRoute = "home"

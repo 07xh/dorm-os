@@ -80,3 +80,9 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 
 - 参考 DSH Go 的动效档位与降低昂贵效果原则，新增 UiV2GlassMotionPolicy，仅对北化玻璃底栏的选中指示器折射效果实施速度相关策略。静止与低速保留原折射参数；600–1200dp/s 连续降低强度至 50%，600dp/s 起关闭色散，速度单位按密度归一化。保留原始玻璃底槽、背景采样、几何、指示器定位及手势业务。
 - 新增纯逻辑单测：静止、方向对称、阈值、非有限数值。该策略只改变效果参数，尚未通过真机 GPU 或帧时间测量，不声称已减少背景采样次数或达到高刷新率；当前没有引入 Flutter 快照和预测返回机制。
+
+## 第十一批：单页面预测性返回
+
+- 按 AndroidX PredictiveBackHandler 官方 API（https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture）实现设置普通子页、校园详情和消息中心的系统手势预览。主 Activity 显式启用平台预测返回回调；三键返回沿用同一提交动作。
+- 只在当前内容 Surface 的 graphicsLayer 读取进度，左右边缘方向独立，最大缩放 6%、位移 8%；取消时 160ms 恢复，完成时执行原父路由动作。预览按路由隔离，不增加第二个业务页面或底层截图。课表编辑/设置仍保留原即时返回和子级保护。
+- 新增纯逻辑边界测试与静态接入检查。尚需 APK、真机验证系统手势、子级弹窗优先级、三键返回及快速连续操作；不宣称完整移植 DSH Go 页面转场或已测得性能改善。

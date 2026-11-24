@@ -12,6 +12,11 @@ const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/
 const v2Shell = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Shell.kt');
 assert.match(main, /UiV2Shell\(\s*selected = current,\s*showNavigation = showPrimaryNavigation,/);
 assert.doesNotMatch(main, /\b(?:PrimaryBottomNavigation|PrimarySideNavigation|Scaffold)\(/, '导航外壳只能由 V2 持有');
+const v2Back = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2PredictiveBack.kt');
+assert.match(v2Back, /PredictiveBackHandler\(enabled = enabled\)/);
+assert.match(v2Back, /events\.collect[\s\S]*?latestBack\.value\(\)/);
+assert.match(v2Back, /catch \(cancelled: CancellationException\)[\s\S]*?targetValue = 0f/);
+assert.match(v2Shell, /\.uiV2BackLayer\(backPreview\)/);
 const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 // RC1 retired these sources and superseded QA requests. Deleting them is not
 // enough: later UI branches must not silently restore obsolete containers.
@@ -2383,7 +2388,7 @@ assert.match(main, /useStatusBarInset = false, onBack = \{ messagesOpen = false 
   '消息页面直接传入返回来源页的回调，无重复中间包装组件');
 assert.match(main, /localTasks = localTasks, localLessons = localLessons/,
   '本机提醒聚合仅使用本机 Room 任务与本机课表，不冒充官方公告');
-assert.match(main, /BackHandler\(enabled = messagesOpen\)/,
+assert.match(main, /UiV2PredictiveBack\(enabled = messagesOpen, preview = backPreview\)/,
   '系统返回键也必须关闭消息页并恢复原一级页');
 assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\)/,
   '页面状态跨导航保留');
