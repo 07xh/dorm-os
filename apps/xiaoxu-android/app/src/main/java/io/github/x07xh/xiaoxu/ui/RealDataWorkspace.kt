@@ -601,7 +601,7 @@ fun RealAcademicHome(
         )
     }
     val tasks: @Composable () -> Unit = {
-        HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
+        HomeTodoBlock(upcoming, today, todoCaption, pending, attention, openTasks, onTaskOpen)
     }
     val metrics: @Composable () -> Unit = {
         HomeMetricsBlock(pending, attention, deadlineHistogram, today, openTasks)
@@ -646,7 +646,7 @@ fun RealAcademicHome(
                         Column(Modifier.width(homeDetailWidth.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             tasks()
-                            metrics()
+                            if (pending > 0 || attention > 0 || deadlineHistogram.any { it > 0 }) metrics()
                         }
                     }
                 }
@@ -661,9 +661,10 @@ fun RealAcademicHome(
                 item(key = "services") { academic() }
                 item(key = "courses") { hero() }
                 item(key = "tasks") { tasks() }
-                item(key = "metrics") { metrics() }
+                if (pending > 0 || attention > 0 || deadlineHistogram.any { it > 0 })
+                    item(key = "metrics") { metrics() }
                 item(key = "notices") { notices() }
-                item(key = "homework") { homework() }
+                if (localHomework.isNotEmpty()) item(key = "homework") { homework() }
             }
         }
     }
@@ -969,21 +970,29 @@ private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
     today: LocalDate,
     caption: String?,
+    pending: Int,
+    attention: Int,
     openTasks: () -> Unit,
     onTaskOpen: (WorkspaceTask) -> Unit
 ) {
     HomeSection(title = "优先处理", caption = caption,
         actionLabel = "全部任务", onAction = openTasks) {
+        if (pending > 0 && upcoming.isNotEmpty()) {
+            Text("$pending 项待完成" + if (attention > 0) " · $attention 项近期截止" else "",
+                style = MaterialTheme.typography.labelMedium, color = XiaoxuPalette.Ink2)
+        }
         // Editorial-style rows: one hierarchy, thin rules, no nested glass card.
         Column(Modifier.fillMaxWidth()) {
             if (upcoming.isEmpty()) {
-                Text("当前没有已保存的待办任务",
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+                HomeCompactLink(
+                    title = if (pending > 0) "暂无可直接执行的任务" else "暂无待办任务",
+                    detail = if (pending > 0) "$pending 项待完成" else null,
+                    onOpen = openTasks
+                )
             } else {
-                upcoming.forEach { task ->
+                upcoming.forEachIndexed { index, task ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                     HomeTaskRow(task, today, onOpen = { onTaskOpen(task) })
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
         }
@@ -997,6 +1006,10 @@ private fun HomeNoticesBlock(
     openMessages: () -> Unit,
     onNoticeOpen: (String) -> Unit
 ) {
+    if (state.notices.isEmpty() && state.publicError == null) {
+        HomeCompactLink("校园动态", "暂无已读取通知", openMessages)
+        return
+    }
     HomeSection(title = "校园动态",
         actionLabel = "消息中心", onAction = openMessages) {
         Column(Modifier.fillMaxWidth()) {
@@ -1005,7 +1018,8 @@ private fun HomeNoticesBlock(
                     modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
-                state.notices.take(2).forEach { notice ->
+                state.notices.take(2).forEachIndexed { index, notice ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                     Column(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
                             .clickable(onClickLabel = "查看公告详情") {
@@ -1021,7 +1035,6 @@ private fun HomeNoticesBlock(
                             style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink3)
                     }
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
             state.publicError?.let {
@@ -1040,21 +1053,15 @@ private fun HomeHomeworkBlock(
     localHomework: List<NativeSchoolRecord>,
     openLocalSchool: (String) -> Unit
 ) {
-    HomeSection(title = "学习通 · 本机作业") {
+    if (localHomework.isEmpty()) return // Existing 学习通 quick action remains visible.
+    HomeSection(title = "学习通 · 本机作业",
+        actionLabel = "查看", onAction = { openLocalSchool("chaoxing") }) {
         Column(Modifier.fillMaxWidth()) {
-            if (localHomework.isEmpty()) {
-                Text("还没有本机读取到的作业标题",
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink2)
-                TextButton(onClick = { openLocalSchool("chaoxing") }) {
-                    Text("在 App 内读取学习通作业")
-                }
-            } else {
                 Text("已保存 ${localHomework.size} 条",
                     style = MaterialTheme.typography.labelMedium,
                     color = XiaoxuPalette.Ink2)
-                localHomework.take(3).forEach { work ->
+                localHomework.take(3).forEachIndexed { index, work ->
+                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
@@ -1070,13 +1077,26 @@ private fun HomeHomeworkBlock(
                             color = XiaoxuPalette.Ink3
                         )
                     }
-                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
-                TextButton(onClick = { openLocalSchool("chaoxing") }) {
-                    Text("重新读取官网当前页面")
-                }
-            }
         }
+    }
+}
+
+/** Short entry for empty sections; the destination still owns the real data. */
+@Composable
+private fun HomeCompactLink(title: String, detail: String?, onOpen: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .clickable(role = Role.Button, onClickLabel = title, onClick = onOpen)
+        .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink)
+            if (!detail.isNullOrBlank()) Text(detail, style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2)
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = XiaoxuPalette.Ink3,
+            modifier = Modifier.size(20.dp))
     }
 }
 
