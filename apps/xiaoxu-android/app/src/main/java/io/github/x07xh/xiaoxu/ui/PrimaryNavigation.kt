@@ -17,6 +17,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
@@ -197,6 +201,43 @@ internal fun PrimarySideNavigation(
                         unselectedIconColor = XiaoxuPalette.Ink3,
                         unselectedTextColor = XiaoxuPalette.Ink3
                     )
+                )
+            }
+        }
+    }
+}
+
+/** Phone drawer uses the same route descriptors as the rail and dock. */
+@Composable
+internal fun PrimaryNavigationDrawer(
+    selected: MainDestination,
+    onSelect: (MainDestination) -> Unit,
+    onClose: () -> Unit
+) {
+    ModalDrawerSheet(
+        modifier = Modifier.widthIn(max = 320.dp),
+        drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+        drawerContainerColor = XiaoxuPalette.Surface,
+        drawerContentColor = XiaoxuPalette.Ink
+    ) {
+        Column(
+            Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("校序", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall)
+                XiaoxuSoftIconButton(onClick = onClose) {
+                    Icon(Icons.Outlined.Close, contentDescription = "关闭导航")
+                }
+            }
+            PrimaryTabs.forEach { page ->
+                NavigationDrawerItem(
+                    label = { Text(page.primaryTabLabel) },
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) }
                 )
             }
         }
