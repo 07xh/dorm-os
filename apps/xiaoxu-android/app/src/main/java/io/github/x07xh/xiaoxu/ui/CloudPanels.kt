@@ -570,7 +570,31 @@ private fun PlatformStatusCard(
                 color = XiaoxuPalette.Ink3
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (id == "chaoxing") {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryAction(
+                    label = "刷新云端缓存",
+                    enabled = state.authenticated && !refreshing && state.schoolSyncBusyProvider == null,
+                    modifier = Modifier.weight(1f)
+                ) { scope.launch { client.refreshPrivate() } }
+                PrimaryAction(
+                    label = if (refreshing) "正在同步…" else "HTTP 同步全部作业",
+                    enabled = canRead && !refreshing && state.schoolSyncBusyProvider == null,
+                    modifier = Modifier.weight(1f)
+                ) { scope.launch { client.syncChaoxingHomeworkHttp() } }
+            }
+            if (!canRead) Text(
+                text = "HTTP 同步需要先在校序网站连接本人学习通账号，再刷新连接状态。",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            SettingRow(
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                title = "本机读取（旧方式）",
+                subtitle = "仅供尚未完成 HTTP 授权的用户过渡使用",
+                onClick = { openLocalSchool(id) }
+            )
+        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryAction(
                 label = when {
                     refreshing -> "正在读取…"
