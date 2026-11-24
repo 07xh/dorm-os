@@ -1796,8 +1796,8 @@ const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetrics
 assert.match(editorialHome, /UiV2HomeSurface \{/, '统计区使用唯一 V2 轻量表面');
 assert.match(v2Home, /clip\(UiV2Theme\.GroupShape\)/);
 assert.match(v2Home, /UiV2HomeSurface\(content = content\)/);
-assert.match(editorialHome, /if \(maxWidth < 296\.dp \|\| LocalDensity\.current\.fontScale > 1\.15f\)/,
-  '小屏学业入口应自动降为双列');
+assert.match(editorialHome, /if \(maxWidth < 300\.dp \|\| LocalDensity\.current\.fontScale > 1\.3f\)/,
+  '极窄屏或大字号使用单列，普通手机使用双列直接入口');
 for (const [start, end, label] of [
   ['private fun HomeTodoBlock(', 'private fun HomeNoticesBlock(', '优先处理'],
   ['private fun HomeNoticesBlock(', 'private fun HomeHomeworkBlock(', '校园动态'],
@@ -2578,3 +2578,12 @@ const cancelPill = bottomActions.slice(bottomActions.indexOf('private fun Xiaoxu
 assert.doesNotMatch(cancelPill, /destructive|selected/,
   '取消按钮不保留永远未用的动作和选中变体');
 assert.match(cancelPill, /enabled = enabled/);
+
+const homeActionGrid = workspace.slice(workspace.indexOf('private fun HomeQuickBlock('),
+  workspace.indexOf('private fun HomeQuickAction('));
+assert.doesNotMatch(homeActionGrid, /HomeSection\(|XiaoxuCard\(/, '快捷入口独立呈现，不再套第二层卡片');
+assert.match(homeActionGrid, /Row\(Modifier\.fillMaxWidth\(\), horizontalArrangement = Arrangement\.spacedBy\(10\.dp\)\)/);
+assert.match(v2Home, /Row\(\s*modifier\.uiV2Press\(interaction\)\.clip\(UiV2Theme\.GroupShape\)/);
+assert.match(v2Home, /Text\(title, modifier = Modifier\.weight\(1f\)/);
+assert.match(homeReadingLayout, /item\(key = "services"\) \{ academic\(\) \}\s*item\(key = "courses"\)/,
+  '首页先显示可直接操作的服务入口');
