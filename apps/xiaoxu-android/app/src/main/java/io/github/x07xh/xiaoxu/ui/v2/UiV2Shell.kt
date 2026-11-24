@@ -6,6 +6,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import io.github.x07xh.xiaoxu.ui.PrimaryNavigationDrawer
 import kotlinx.coroutines.launch
@@ -51,9 +52,13 @@ internal fun UiV2Shell(
         LaunchedEffect(drawerEnabled) {
             if (!drawerEnabled) drawerState.snapTo(DrawerValue.Closed)
         }
-        val openNavigation: (() -> Unit)? = if (drawerEnabled) {
+        val openDrawer: () -> Unit = remember(scope, drawerState) {
             { scope.launch { drawerState.open() }; Unit }
-        } else null
+        }
+        val closeDrawer: () -> Unit = remember(scope, drawerState) {
+            { scope.launch { drawerState.close() }; Unit }
+        }
+        val openNavigation: (() -> Unit)? = if (drawerEnabled) openDrawer else null
         val backdrop = if (!rail && showNavigation && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
@@ -63,8 +68,8 @@ internal fun UiV2Shell(
             drawerContent = {
                 PrimaryNavigationDrawer(selected = selected, onSelect = { page ->
                     onSelect(page)
-                    scope.launch { drawerState.close() }
-                }, onClose = { scope.launch { drawerState.close() } })
+                    closeDrawer()
+                }, onClose = closeDrawer)
             }
         ) {
         Box(Modifier.fillMaxSize()) {
@@ -99,6 +104,6 @@ internal fun UiV2Shell(
             }
         }
         }
-        BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
+        BackHandler(enabled = drawerState.isOpen, onBack = closeDrawer)
     }
 }
