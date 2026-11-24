@@ -1,10 +1,11 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import io.github.x07xh.xiaoxu.ui.v2.UiV2FormField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,12 +15,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -125,10 +126,12 @@ internal fun CourseEditorDialog(
                 .background(XiaoxuPalette.PageGradient)
                 .systemBarsPadding()
                 .imePadding()
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = UiV2Theme.PageGutter),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+                modifier = Modifier.widthIn(max = XiaoxuPageLayout.StateMaxWidth)
+                    .fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 XiaoxuSoftIconButton(
@@ -140,23 +143,25 @@ internal fun CourseEditorDialog(
                 Text(
                     if (original == null) "新增课程" else "编辑课程",
                     modifier = Modifier.weight(1f).padding(start = 14.dp),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = XiaoxuPalette.Ink
                 )
                 TextButton(enabled = !busy, onClick = ::submit) {
                     Text(if (busy) "保存中" else "保存", color = XiaoxuPalette.Brand, fontSize = 16.sp)
                 }
             }
-                if (externalError != null || localError != null) {
-                    Text(externalError ?: localError.orEmpty(),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 14.dp))
-                }
+            if (externalError != null || localError != null) {
+                Text(externalError ?: localError.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.widthIn(max = XiaoxuPageLayout.StateMaxWidth)
+                        .fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp))
+            }
             Column(
-                modifier = Modifier.fillMaxWidth().weight(1f)
+                modifier = Modifier.widthIn(max = XiaoxuPageLayout.StateMaxWidth)
+                    .fillMaxWidth().weight(1f)
                     .verticalScroll(rememberScrollState()).padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(UiV2Theme.DetailSectionGap)
             ) {
                 UiV2SettingsGroup(title = "课程信息") {
                     Column(
@@ -210,12 +215,13 @@ internal fun CourseEditorDialog(
                             Row(
                                 modifier = Modifier.fillMaxWidth()
                                     .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                                    .clickable(enabled = !busy) { weekOnly = !weekOnly },
+                                    .toggleable(value = weekOnly, enabled = !busy, role = Role.Checkbox,
+                                        onValueChange = { weekOnly = it }),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(checked = weekOnly,
-                                    onCheckedChange = { weekOnly = it }, enabled = !busy)
-                                Text("仅修改第$selectedWeek 周", color = XiaoxuPalette.Ink)
+                                    onCheckedChange = null, enabled = !busy)
+                                Text("仅修改第 $selectedWeek 周", color = XiaoxuPalette.Ink)
                             }
                         }
                     }
