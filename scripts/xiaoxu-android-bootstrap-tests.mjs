@@ -1297,7 +1297,12 @@ assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
 assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
-assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
+assert.match(main, /val workspaceSchoolRows = rememberLocalRows\(workspaceNativeDao\) \{ workspaceNativeDao\.observe\(\) \}/);
+assert.match(main, /val workspaceDependencies = rememberLocalRows\(dao\) \{ dao\.observeDependencies\(\) \}/);
+assert.match(main, /homeDependencies = workspaceDependencies\.value,\s*nativeRows = workspaceSchoolRows\.value/);
+assert.match(main, /dependencies = workspaceDependencies\.value,\s*schoolRows = workspaceSchoolRows\.value/);
+assert.doesNotMatch(workspace, /observeDependencies\(\)\.collectAsState|nativeDao\.observe\(\)\.collectAsState|schoolDao\.observe\(\)\.collectAsState/,
+  'switching tabs does not recreate the shared Room collectors');
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /UiV2HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机读取/);
