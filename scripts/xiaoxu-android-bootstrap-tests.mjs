@@ -2640,3 +2640,13 @@ assert.match(schedulePanel, /private fun SchedulePageHeading\([\s\S]*?XiaoxuNavi
 assert.match(profileSettings, /onNavigation = if \(animatedRoute == "home"\) onNavigation else null/);
 assert.match(v2Settings, /if \(onBack == null\) XiaoxuNavigationAction\(onNavigation\)/);
 assert.match(main, /onNavigation = if \(academicRoute == AcademicDestination\.OVERVIEW\) onNavigation else null/);
+
+assert.match(homeReadingLayout, /if \(localHomework\.isNotEmpty\(\)\) item\(key = "homework"\)/,
+  '没有本机学习通作业时隐藏重复空卡，保留快捷入口');
+assert.match(homeReadingLayout, /if \(pending > 0 \|\| attention > 0 \|\| deadlineHistogram\.any \{ it > 0 \}\)/);
+assert.match(workspace, /if \(state\.notices\.isEmpty\(\) && state\.publicError == null\) \{\s*HomeCompactLink\("校园动态"/,
+  '无通知时使用紧凑入口，有错误仍显示原错误状态');
+assert.match(workspace, /title = if \(pending > 0\) "暂无可直接执行的任务" else "暂无待办任务"/,
+  '存在待完成但不可执行的任务时，不误报无待办');
+assert.match(workspace, /private fun HomeCompactLink\([\s\S]*?heightIn\(min = 48\.dp\)[\s\S]*?onClick = onOpen/);
+assert.match(workspace, /upcoming\.forEachIndexed \{ index, task ->\s*if \(index > 0\) HorizontalDivider/);
