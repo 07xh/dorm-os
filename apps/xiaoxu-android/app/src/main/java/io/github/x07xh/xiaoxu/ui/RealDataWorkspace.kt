@@ -691,18 +691,6 @@ private fun homeLessonKey(lesson: VerifiedLesson): String =
 /** 按原始顺序截取首页最多四条真实课程记录。 */
 internal fun <T> homeCoursePreview(records: List<T>): List<T> = records.take(4)
 
-/** 编辑式分区：细分隔线、标题、内容同层布局，减少连续卡片带来的视觉噪音。 */
-@Composable
-private fun HomeSection(
-    title: String,
-    caption: String? = null,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    UiV2HomeSection(title, caption, actionLabel, onAction, content)
-}
-
 /**
  * 首屏只展示本人本机导入的同星期课块。周次未知时仅称“课程记录”，避免冒充今日实际开课。
  * 课程行复用原课程详情抽屉，不再保留旧单卡轮播。
@@ -731,7 +719,7 @@ private fun HomeCourseList(
             TextButton(onClick = openSchedule) { Text("课表") }
         }
     } else {
-        HomeSection(
+        UiV2HomeSection(
             title = "课程记录",
             actionLabel = if (hasTimetable) "查看课表" else null,
             onAction = if (hasTimetable) openSchedule else null
@@ -928,34 +916,27 @@ private fun HomeQuickBlock(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HomeQuickAction("成绩", Icons.Outlined.School, Modifier.fillMaxWidth(), openGrades)
-                    HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.fillMaxWidth(), openExams)
-                    HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle, Modifier.fillMaxWidth(), openSecondClass)
-                    HomeQuickAction("学习通", Icons.Outlined.MailOutline, Modifier.fillMaxWidth(), openChaoxing)
+                    UiV2HomeQuickAction("成绩", Icons.Outlined.School, Modifier.fillMaxWidth(), openGrades)
+                    UiV2HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.fillMaxWidth(), openExams)
+                    UiV2HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle, Modifier.fillMaxWidth(), openSecondClass)
+                    UiV2HomeQuickAction("学习通", Icons.Outlined.MailOutline, Modifier.fillMaxWidth(), openChaoxing)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
-                        HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
+                        UiV2HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                        UiV2HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                        UiV2HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
                             Modifier.weight(1f), openSecondClass)
-                        HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                        UiV2HomeQuickAction("学习通", Icons.Outlined.MailOutline,
                             Modifier.weight(1f), openChaoxing)
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun HomeQuickAction(
-    title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit
-) {
-    UiV2HomeQuickAction(title, icon, modifier, onClick)
 }
 
 @Composable
@@ -968,7 +949,7 @@ private fun HomeTodoBlock(
     openTasks: () -> Unit,
     onTaskOpen: (WorkspaceTask) -> Unit
 ) {
-    HomeSection(title = "优先处理", caption = caption,
+    UiV2HomeSection(title = "优先处理", caption = caption,
         actionLabel = "全部任务", onAction = openTasks) {
         if (pending > 0 && upcoming.isNotEmpty()) {
             Text("$pending 项待完成" + if (attention > 0) " · $attention 项近期截止" else "",
@@ -1003,7 +984,7 @@ private fun HomeNoticesBlock(
         HomeCompactLink("校园动态", "暂无已读取通知", openMessages)
         return
     }
-    HomeSection(title = "校园动态",
+    UiV2HomeSection(title = "校园动态",
         actionLabel = "消息中心", onAction = openMessages) {
         Column(Modifier.fillMaxWidth()) {
             if (state.notices.isEmpty()) {
@@ -1047,7 +1028,7 @@ private fun HomeHomeworkBlock(
     openLocalSchool: (String) -> Unit
 ) {
     if (localHomework.isEmpty()) return // Existing 学习通 quick action remains visible.
-    HomeSection(title = "学习通 · 本机作业",
+    UiV2HomeSection(title = "学习通 · 本机作业",
         actionLabel = "查看", onAction = { openLocalSchool("chaoxing") }) {
         Column(Modifier.fillMaxWidth()) {
                 Text("已保存 ${localHomework.size} 条",
@@ -2606,12 +2587,6 @@ private fun TaskSectionHeader(
 }
 
 /** 来源徽标：只描述数据从哪来，不代表任何学校核验结论。 */
-@Composable
-private fun TaskSourceBadge(text: String, emphasized: Boolean = false) {
-    // 保留既有调用接口，仅替换视觉实现；来源标签不等于学校提交或同步认证。
-    SourceBadge(text, tone = if (emphasized) XiaoxuTone.Brand else XiaoxuTone.Neutral)
-}
-
 /** 截止日展示：只呈现已有日期，缺失就说缺失，不推算、不留空。 */
 private data class DueUi(val label: String, val spoken: String, val emphasis: Int)
 
@@ -2904,7 +2879,7 @@ private fun SnapshotRow(work: NativeSchoolRecord) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TaskSourceBadge("本机读取记录")
+                SourceBadge("本机读取记录", tone = XiaoxuTone.Neutral)
                 Text(
                     text = work.sourceHost,
                     style = MaterialTheme.typography.labelSmall,
