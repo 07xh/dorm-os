@@ -88,7 +88,8 @@ fun ProfileSettingsPage(
     recentImport: LocalSchoolImportReceipt?,
     localTasks: List<LocalTask>,
     onMessages: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onNavigation: (() -> Unit)? = null
 ) {
     var settingsQuery by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
@@ -136,6 +137,7 @@ fun ProfileSettingsPage(
             onRefresh = if (animatedRoute == "home") onRefresh else null,
             refreshing = client.state.busy,
             onMessages = if (animatedRoute == "home") onMessages else null,
+            onNavigation = if (animatedRoute == "home") onNavigation else null,
             compact = animatedRoute != "home" || compactSettingsHeader
         )
         androidx.compose.foundation.lazy.LazyColumn(
