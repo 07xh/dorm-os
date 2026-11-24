@@ -35,11 +35,11 @@ object SecondClassAutoRefresh {
     fun reconcile(c: Context) {
         val work = WorkManager.getInstance(c)
         if (!enabled(c) || !background(c)) { work.cancelUniqueWork(WORK); return }
-        val request = PeriodicWorkRequestBuilder<SecondClassAutoReadWorker>(30, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<SecondClassAutoReadWorker>(SecondClassAutoReadPolicy.AUTO_SYNC_HOURS, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true).build())
             .build()
-        work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+        work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
     // Main-thread Activity callbacks reserve manual mode until pending Room
     // work has completed cancellation, even if the Activity is destroyed.

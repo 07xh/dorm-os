@@ -24,7 +24,7 @@ class SecondClassBackgroundReadTest {
     private val identity get() = c.getSharedPreferences("second_class_local_identity", Context.MODE_PRIVATE)
     private val dao get() = LocalTaskDatabase.open(c).nativeSchoolRecords()
     private val hash = "a".repeat(64)
-    private val savedAt = System.currentTimeMillis() - 1_000_000
+    private val savedAt = System.currentTimeMillis() - SecondClassAutoReadPolicy.AUTO_SYNC_INTERVAL_MS - 1_000_000
     private var ownsStorage = false
     private fun payload() = JSONObject("""{"schema":"xiaoxu/local-secondclass-scores-v1","ok":true,
         "identityMatched":true,"httpStatus":200,"accountHash":"$hash",
@@ -234,7 +234,7 @@ class SecondClassBackgroundReadTest {
         val scheduled = jobs.single { !it.state.isFinished }
         assertEquals(NetworkType.CONNECTED, scheduled.constraints.requiredNetworkType)
         assertTrue(scheduled.constraints.requiresBatteryNotLow())
-        assertEquals(1_800_000L, scheduled.periodicityInfo!!.repeatIntervalMillis)
+        assertEquals(43_200_000L, scheduled.periodicityInfo!!.repeatIntervalMillis)
         SecondClassAutoRefresh.configure(c, true, false)
         awaitCancellationOfScheduledWork()
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)

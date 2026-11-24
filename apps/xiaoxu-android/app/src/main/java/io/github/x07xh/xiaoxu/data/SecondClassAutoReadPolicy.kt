@@ -1,6 +1,10 @@
 package io.github.x07xh.xiaoxu.data
 
 object SecondClassAutoReadPolicy {
+    const val AUTO_SYNC_HOURS = 12L
+    const val AUTO_SYNC_INTERVAL_MS = AUTO_SYNC_HOURS * 60 * 60 * 1000
+    const val MANUAL_COOLDOWN_MS = 60_000L
+
     fun requiresReconnect(httpStatus: Int, stage: String = ""): Boolean =
         httpStatus == 401 && stage != "activity_http"
 
@@ -10,8 +14,8 @@ object SecondClassAutoReadPolicy {
         (enabled || userRequested) && (!background || backgroundAllowed) &&
             (!userRequested || !background) && bound && !interactive &&
             savedAt > 0 && now >= savedAt &&
-            (userRequested || now - savedAt >= 600_000) &&
-            (attemptedAt == 0L || now >= attemptedAt && now - attemptedAt >= 60_000)
+            (userRequested || now - savedAt >= AUTO_SYNC_INTERVAL_MS) &&
+            (attemptedAt == 0L || now >= attemptedAt && now - attemptedAt >= (if (userRequested) MANUAL_COOLDOWN_MS else AUTO_SYNC_INTERVAL_MS))
 
     fun matchesConfirmedAccount(expected: String?, actual: String?): Boolean =
         expected != null && expected.matches(Regex("^[a-f0-9]{64}$")) && expected == actual

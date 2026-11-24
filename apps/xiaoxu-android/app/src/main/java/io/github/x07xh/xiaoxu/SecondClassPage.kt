@@ -283,11 +283,11 @@ fun SecondClassPage(
                 }
                 IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
                     Icon(Icons.Outlined.Refresh,
-                        contentDescription = "从学校重新读取第二课堂")
+                        contentDescription = "手动同步第二课堂")
                 }
             }
             if (refreshing) {
-                Text("读取中…", style = MaterialTheme.typography.labelSmall,
+                Text("同步中…", style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Ink2)
             }
             if (error != null) {
