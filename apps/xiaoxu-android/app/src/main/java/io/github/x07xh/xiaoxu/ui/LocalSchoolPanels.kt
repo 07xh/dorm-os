@@ -33,6 +33,8 @@ private fun kindLabel(kind: String) = when (kind) {
     "schedule" -> "课表"
     "course" -> "课程"
     "homework" -> "作业"
+    "study_task" -> "学习计划"
+    "exam_notice" -> "考试通知"
     "activity" -> "活动"
     "credits" -> "积分／学时"
     else -> "记录"
