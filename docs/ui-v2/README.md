@@ -41,3 +41,7 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 - `UiV2Theme` 提供统一系统无衬线字阶、400/600 字重及 6/10/14/20/28dp Material 形状阶梯；原业务页标题保持 20sp/26sp，北化导航和课程专用圆角仍保留以供后续逐页迁移。中性浅色背景替代原多色渐变，校序品牌蓝和课程色板不变。未声明全局暗色支持。
 - `UiV2SegmentedControl` 采用单一绘制层滑动选中胶囊，保持等宽、48dp触控区、RTL 与可访问选中语义。保留调用者的真实筛选状态；本阶段仅点击切换，未实现 DSH Go 的水平拖拽与液态形变。
 - 上游参考（固定提交）：[typography.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/theme/typography.dart)、[shapes.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/theme/shapes.dart)（MIT 标注）；[segmented_pill.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/common/segmented_pill.dart)（交互参考，独立 Compose 绘制实现）。未直接复制 Dart 代码或受限素材。
+
+## 第四批：设置页面与返回规则
+
+参考 DSH Go MIT 标注 [settings_widgets.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/settings/settings_widgets.dart) 的 SettingsMetrics，独立 Compose 实现统一的 52/64dp 行、32dp 图标槽、16dp 内边距、20dp 分组面和共享标题栏。迁移设置入口及通知开关展示，保留权限检查、备份、连接等原业务回调。系统返回和标题栏共享父路由映射，修正通知子页返回设置首页的问题；不引入两棵重型页面同时渲染的转场。新增父路由单测。未完成真机视觉与 APK 验收。

@@ -2264,17 +2264,19 @@ assert.match(academicAction, /onClickLabel = "打开\$title"/,
 assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
   '教务入口不新增蓝色装饰瓷砖');
 assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
-  '设置首页使用开放式分组而非复制组件库');
+  '设置首页保留统一分组适配入口');
 for (const label of ['学习与课程', '账户与数据', '其他']) {
   assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
     label + ' 原有导航分组需完整保留');
 }
-const settingsEditorial = profileSettings.slice(profileSettings.indexOf('private fun SettingsEditorialSection('),
-  profileSettings.indexOf('private fun SettingsDivider('));
-assert.match(settingsEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '设置首页用细线组织内容');
-assert.doesNotMatch(settingsEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '设置首页分组不得嵌套内容玻璃卡');
+const v2Settings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Settings.kt');
+assert.match(profileSettings, /UiV2SettingsGroup\(title, content\)/, '设置分组使用唯一 V2 容器');
+assert.match(v2Settings, /val SingleLine = 52\.dp/);
+assert.match(v2Settings, /val TwoLine = 64\.dp/);
+assert.match(v2Settings, /onClickLabel = "打开\$title"/);
+assert.match(v2Settings, /XiaoxuSettingsSwitch\(checked = checked, onCheckedChange = onCheckedChange\)/);
+assert.match(main, /profileSettingsRoute = uiV2SettingsParent\(profileSettingsRoute\)/);
+assert.match(profileSettings, /onRouteChange\(uiV2SettingsParent\(animatedRoute\)\)/);
 assert.match(profileSettings, /"connections" -> item \{/,
   '实际连接页必须继续在原二级路由内');
 assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,

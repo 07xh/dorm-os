@@ -54,6 +54,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsHeader
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsToggle
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -102,11 +108,7 @@ fun ProfileSettingsPage(
         "licenses" -> "开源许可"
         else -> "设置"
     }
-    val goBack = { onRouteChange(when (animatedRoute) {
-        "licenses" -> "about"
-        "notifications-course", "notifications-task" -> "notifications"
-        else -> "home"
-    }) }
+    val goBack = { onRouteChange(uiV2SettingsParent(animatedRoute)) }
     // Each animated route paints an opaque page, so the outgoing settings
     // labels/cards cannot bleed through the incoming full-screen page.
     Column(
@@ -114,25 +116,13 @@ fun ProfileSettingsPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(Modifier.xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            if (animatedRoute != "home") {
-                XiaoxuSoftIconButton(onClick = goBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回设置")
-                }
-            }
-            Text(title, modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall,
-                color = XiaoxuPalette.Ink)
-            if (animatedRoute == "home") {
-                XiaoxuSoftIconButton(onClick = onRefresh, enabled = !client.state.busy) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
-                }
-                XiaoxuSoftIconButton(onClick = onMessages) {
-                    Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
-                }
-            }
-        }
+        UiV2SettingsHeader(
+            title = title,
+            onBack = if (animatedRoute != "home") goBack else null,
+            onRefresh = if (animatedRoute == "home") onRefresh else null,
+            refreshing = client.state.busy,
+            onMessages = if (animatedRoute == "home") onMessages else null
+        )
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.weight(1f).xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -188,35 +178,15 @@ fun ProfileSettingsPage(
     }
 }
 
-/**
- * 设置首页保留原二级路由，只把分组从整张玻璃卡改为开放式行列表。
- * 与单独的连接状态页、提醒开关以及备份等业务容器严格分离。
- */
+/** Compatibility adapters while the settings business page migrates to V2. */
 @Composable
-private fun SettingsEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                .semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
-        )
-        Column(content = { content() })
-    }
+private fun SettingsEditorialSection(title: String, content: @Composable () -> Unit) {
+    UiV2SettingsGroup(title, content)
 }
 
 @Composable
 private fun SettingsDivider() {
-    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-        modifier = Modifier.padding(horizontal = 16.dp))
+    UiV2SettingsDivider()
 }
 
 @Composable
@@ -227,31 +197,10 @@ private fun SettingsEntry(
     statusLabel: String? = null,
     onClick: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = if (subtitle == null) 60.dp else 72.dp)
-        .clickable(role = Role.Button, onClickLabel = "打开" + title, onClick = onClick)
-        .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.size(16.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium,
-                color = XiaoxuPalette.Ink)
-            if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2)
-            }
-        }
-        if (!statusLabel.isNullOrBlank()) {
-            Text(statusLabel, style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(end = 8.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(20.dp))
-    }
+    UiV2SettingsEntry(title, icon, subtitle, statusLabel, onClick)
 }
 
-/** Shared reminder row; each caller owns its schedule and Android notification permission checks. */
+/** Reminder ownership and permission checks remain with the original callers. */
 @Composable
 private fun ReminderToggleRow(
     title: String,
@@ -259,16 +208,7 @@ private fun ReminderToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 70.dp)
-        .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = XiaoxuPalette.Ink)
-            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                color = XiaoxuPalette.Ink2)
-        }
-        XiaoxuSettingsSwitch(checked = checked, onCheckedChange = onCheckedChange)
-    }
+    UiV2SettingsToggle(title, subtitle, checked, onCheckedChange)
 }
 
 @Composable

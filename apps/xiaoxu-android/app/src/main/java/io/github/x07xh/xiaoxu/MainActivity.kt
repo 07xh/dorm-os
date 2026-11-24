@@ -98,6 +98,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
 import io.github.x07xh.xiaoxu.data.LocalDeadlineReminders
@@ -532,7 +533,7 @@ private fun NativeShell(
     }
     BackHandler(enabled = !messagesOpen && current == MainDestination.PROFILE &&
         profileSettingsRoute != "home") {
-        profileSettingsRoute = if (profileSettingsRoute == "licenses") "about" else "home"
+        profileSettingsRoute = uiV2SettingsParent(profileSettingsRoute)
     }
     BackHandler(enabled = messagesOpen) {
         messagesOpen = false // The contextual inbox returns to the originating tab.
