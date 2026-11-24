@@ -179,6 +179,39 @@ class SecondClassBackgroundReadTest {
         assertEquals(updated, SecondClassAutoRefresh.lastSuccess(c))
         assertFalse(SecondClassAutoRefresh.background(c))
     }
+    @Test fun authorizedNativeReadUsesTheSameRoomCommitAndRecordsTransport() = runBlocking {
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, salt, expected ->
+                assertEquals("b".repeat(32), salt)
+                assertEquals(hash, expected)
+                payload()
+            }) { _, _ -> error("an authorized native read must not start WebView") })
+        assertEquals("native_http", settings.getString("success_transport", ""))
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > savedAt)
+        assertEquals(hash, dao.snapshot().single { it.kind == "account_binding" }.details)
+    }
+
+    @Test fun nativeFailureDoesNotFallbackOrOverwriteSnapshot() = runBlocking {
+        val before = dao.snapshot()
+        assertFalse(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, _, _ -> throw SecondClassHttpFailure(401, SecondClassReadEndpoint.SCORES) }
+        ) { _, _ -> error("native failure must not start WebView") })
+        assertEquals("needs_reconnect", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+        assertFalse(settings.contains("success_transport"))
+    }
+
+    @Test fun missingNativeSessionUsesOfficialCompatibilityReaderExactlyOnce() = runBlocking {
+        var count = 0
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, _, _ -> null }
+        ) { _, _ -> count++; payload() })
+        assertEquals(1, count)
+        assertEquals("official_webview", settings.getString("success_transport", ""))
+    }
+
     @Test fun mixedCatalogMarksOnlyTheActuallyEmptyFilters() {
         val mixed = mixedCatalog()
         assertEquals(listOf("待验证", "即将开始报名"),

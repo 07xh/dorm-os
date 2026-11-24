@@ -25,7 +25,7 @@ internal enum class SecondClassReadEndpoint(val path: String) {
     CATALOG("/sys/stu/activity")
 }
 
-internal class SecondClassHttpFailure(val status: Int) : Exception("school_read_failed")
+internal class SecondClassHttpFailure(val status: Int, val endpoint: SecondClassReadEndpoint) : Exception("school_read_failed")
 
 /** Fixed read-only routes; redirect and TLS failures never trigger a login attempt. */
 internal class SecondClassNativeHttpTransport(private val session: SecondClassAuthorizedHttpSession) {
@@ -58,7 +58,7 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                 connection.setFixedLengthStreamingMode(body.size)
                 connection.outputStream.use { it.write(body) }
                 val status = connection.responseCode
-                if (status != 200) throw SecondClassHttpFailure(status)
+                if (status != 200) throw SecondClassHttpFailure(status, endpoint)
                 session.acceptResponse(connection)
                 val limit = if (endpoint == SecondClassReadEndpoint.CATALOG) 100_000 else 300_000
                 val bytes = java.io.ByteArrayOutputStream()

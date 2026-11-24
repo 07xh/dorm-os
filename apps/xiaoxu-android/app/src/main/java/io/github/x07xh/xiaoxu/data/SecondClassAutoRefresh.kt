@@ -54,6 +54,11 @@ object SecondClassAutoRefresh {
 
     internal suspend fun refreshIfDue(
         context: Context, backgroundRun: Boolean = false, userRequested: Boolean = false,
+        // A provider must return an explicitly authorized, account-bound reader.
+        // Null means no native session was issued, not a failed native request.
+        nativeReader: suspend (Context, String, String) -> JSONObject? = { c, salt, expected ->
+            readSecondClassFromAuthorizedSession(c, salt, expected)
+        },
         reader: suspend (Context, String) -> JSONObject = { c, salt -> readSecondClassAutomatically(c, salt) }
     ): Boolean {
         val c = context.applicationContext
@@ -97,7 +102,8 @@ object SecondClassAutoRefresh {
                 userRequested)) return false
             settings.edit().putLong("attempt", startedAt).apply()
             state("reading")
-            val payload = reader(c, salt!!)
+            val result = readSecondClassForSync(c, salt!!, requireNotNull(expected), nativeReader, reader)
+            val payload = result.payload
             if (!payload.optBoolean("ok")) {
                 state(if (SecondClassAutoReadPolicy.requiresReconnect(
                     payload.optInt("httpStatus"), payload.optString("stage"))) "needs_reconnect"
@@ -131,6 +137,7 @@ object SecondClassAutoRefresh {
             settings.edit().putLong("success_at", System.currentTimeMillis())
                 .putBoolean("success_background", backgroundRun)
                 .putString("catalog_status", payload.optString("catalogStatus"))
+                .putString("success_transport", result.transport)
                 .putString("status", "updated").apply()
             return true
         } catch (_: TimeoutCancellationException) { state("failed"); return false }
@@ -138,6 +145,11 @@ object SecondClassAutoRefresh {
             if (status(c) == "reading") state("idle")
             throw cancelled
         } catch (failure: AutoReadFailure) { state(failure.status); return false }
+        catch (failure: SecondClassHttpFailure) {
+            state(if (failure.status == 401 && failure.endpoint == SecondClassReadEndpoint.SCORES)
+                "needs_reconnect" else "failed")
+            return false
+        }
         catch (_: Exception) { state("failed"); return false }
         finally {
             // Invalidation can return before Room without throwing (for
