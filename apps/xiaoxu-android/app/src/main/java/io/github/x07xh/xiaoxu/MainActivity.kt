@@ -619,7 +619,7 @@ private fun NativeShell(
             profileSettingsRoute = "home"
             messagesOpen = false
         }
-    ) {
+    ) { openNavigation ->
     if (messagesOpen) {
         pageStateHolder.SaveableStateProvider("messages") {
             MessageCenterPanel(cloud, openWebsite, openArticle,
@@ -661,6 +661,7 @@ private fun NativeShell(
                     refreshing = cloud.state.busy,
                     onRefresh = { scope.launch { cloud.refresh() } },
                     onMessages = { messagesOpen = true },
+                    onNavigation = openNavigation,
                     applyStatusBarInset = false
                 )
                 Box(Modifier.weight(1f)) {
