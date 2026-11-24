@@ -54,7 +54,7 @@ assert.ok(authReturn.indexOf('refreshPrivate()')<authReturn.indexOf('已核对�
 assert.doesNotMatch(authReturn,/syncChaoxingHomeworkHttp\(\)/,
  'navigation callback must not trigger bulk upstream sync without explicit user action');
 assert.doesNotMatch(httpSync,/WebView|CookieManager|evaluateJavascript|openLocalSchool/);
-const autoSync=cloud.slice(cloud.indexOf('suspend fun setChaoxingAutoSync'),cloud.indexOf('suspend fun syncChaoxingNoticesHttp'));
+const autoSync=cloud.slice(cloud.indexOf('suspend fun setChaoxingAutoSync'),cloud.indexOf('suspend fun readChaoxingGrades'));
 assert.match(autoSync,/\/api\/v1\/connections\/chaoxing\/auto-sync/);
 assert.match(autoSync,/JSONObject\(\)\.put\("enabled", enabled\)/);
 assert.match(autoSync,/boundSessionToken = boundToken/);
@@ -68,6 +68,13 @@ assert.match(noticeSync,/\/api\/v1\/connections\/chaoxing\/sync/);
 assert.match(noticeSync,/boundSessionToken = token/);
 assert.match(noticeSync,/state\.tasksFresh && state\.connectionsFresh/);
 assert.match(panels,/client\.syncChaoxingNoticesHttp\(\)/);
+const gradeRead=cloud.slice(cloud.indexOf('suspend fun readChaoxingGrades'),cloud.indexOf('suspend fun syncChaoxingNoticesHttp'));
+assert.match(gradeRead,/boundSessionToken = token/);
+assert.match(gradeRead,/course !in state\.chaoxingGradeCourses/);
+assert.match(gradeRead,/current_table_only/);
+assert.match(gradeRead,/parseCourse\(data\.getJSONObject\("course"\)\) != course/);
+assert.match(cloud,/chaoxingGradeCourses = emptyList\(\), chaoxingGradeCourse = null/);
+assert.doesNotMatch(gradeRead,/WebView|CookieManager|evaluateJavascript/);
 assert.match(cloud,/\/api\/v1\/chaoxing-inbox\?limit=100/);
 assert.match(cloud,/chaoxingInbox = inbox \?: state\.chaoxingInbox/);
 assert.match(cloud,/chaoxingInboxFresh = inbox != null/);
