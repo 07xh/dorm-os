@@ -120,6 +120,11 @@ data class ChaoxingInboxNotice(
     val platformRead: Boolean, val observedAt: String
 )
 
+data class ChaoxingGradeCourse(val courseId: String, val classId: String, val cpi: String, val title: String) {
+    val key: String get() = "$courseId:$classId:$cpi"
+}
+data class ChaoxingHomeworkGrade(val title: String, val score: Double?, val maxScore: Double?, val label: String)
+
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
@@ -146,7 +151,11 @@ data class CloudUiState(
     val schoolSyncResultProvider: String? = null,
     val schoolSyncMessage: String? = null,
     val chaoxingInbox: List<ChaoxingInboxNotice> = emptyList(),
-    val chaoxingInboxFresh: Boolean = false
+    val chaoxingInboxFresh: Boolean = false,
+    val chaoxingGradeCourses: List<ChaoxingGradeCourse> = emptyList(),
+    val chaoxingGradeCourse: ChaoxingGradeCourse? = null,
+    val chaoxingGrades: List<ChaoxingHomeworkGrade> = emptyList(),
+    val chaoxingGradeError: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -774,6 +783,96 @@ class CloudClient(context: Context) {
         }
     }
 
+    /** Read official grade tables only on explicit user action; no task or grade writes. */
+    suspend fun readChaoxingGrades(course: ChaoxingGradeCourse? = null): Boolean {
+        val owner = state.ownerId ?: return false
+        val provider = "chaoxing"
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null || state.platforms.none {
+                it.id == provider && it.sessionState == "active" &&
+                    it.authorization == "verified_session"
+            }) return false
+        if (course != null && course !in state.chaoxingGradeCourses) return false
+        val epoch = sessionEpoch
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        state = state.copy(schoolSyncBusyProvider = provider, chaoxingGradeError = null,
+            chaoxingGradeCourse = null, chaoxingGrades = emptyList())
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            if (!current()) return false
+            val view = if (course == null) "courses" else "grades"
+            val path = "/api/v1/chaoxing-homework?view=" + view +
+                (if (course == null) "" else "&courseId=" + course.courseId +
+                    "&classId=" + course.classId + "&cpi=" + course.cpi)
+            val response = withContext(Dispatchers.IO) {
+                request(path, authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (response.code != 200 ||
+                response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                response.json.optString("view") != view || !response.json.optBoolean("live")) {
+                state = state.copy(chaoxingGradeError = when (response.json.optString("error")) {
+                    "grades_unverified" -> "官方作业成绩表尚未核实"
+                    "session_expired", "interactive_login_required" -> "需要重新完成学习通授权"
+                    else -> "成绩查询未成功，请重试"
+                })
+                return false
+            }
+            val data = response.json.getJSONObject("data")
+            fun parseCourse(row: JSONObject): ChaoxingGradeCourse {
+                val id = row.getString("courseId")
+                val clazz = row.getString("classId")
+                val cpi = row.getString("cpi")
+                val title = row.getString("title")
+                if (listOf(id, clazz, cpi).any { !Regex("[0-9]{1,24}").matches(it) } ||
+                    title.isBlank() || title.length > 100) throw IllegalStateException("invalid_course")
+                return ChaoxingGradeCourse(id, clazz, cpi, title)
+            }
+            if (course == null) {
+                val rows = data.getJSONArray("courses")
+                if (rows.length() !in 1..120) throw IllegalStateException("invalid_course_list")
+                val list = (0 until rows.length()).map { parseCourse(rows.getJSONObject(it)) }
+                if (list.map { it.key }.distinct().size != list.size)
+                    throw IllegalStateException("duplicate_course")
+                state = state.copy(chaoxingGradeCourses = list)
+            } else {
+                if (data.optString("schema") != "xiaoxu/chaoxing-homework-grades-v1" ||
+                    data.optString("scope") != "current_table_only" ||
+                    parseCourse(data.getJSONObject("course")) != course)
+                    throw IllegalStateException("invalid_grades")
+                val rows = data.getJSONArray("items")
+                if (rows.length() !in 1..200) throw IllegalStateException("invalid_grade_rows")
+                fun number(row: JSONObject, key: String): Double? {
+                    if (row.isNull(key)) return null
+                    val n = (row.get(key) as? Number)?.toDouble()
+                        ?: throw IllegalStateException("invalid_score")
+                    if (!n.isFinite() || n < 0.0) throw IllegalStateException("invalid_score")
+                    return n
+                }
+                val grades = (0 until rows.length()).map {
+                    val row = rows.getJSONObject(it)
+                    val title = row.getString("title")
+                    val label = row.getString("scoreLabel")
+                    val score = number(row, "score")
+                    val max = number(row, "maxScore")
+                    if (title.isBlank() || title.length > 100 || label.length > 40 ||
+                        (score != null && max != null && score > max))
+                        throw IllegalStateException("invalid_score_row")
+                    ChaoxingHomeworkGrade(title, score, max, label)
+                }
+                state = state.copy(chaoxingGradeCourse = course, chaoxingGrades = grades)
+            }
+            return true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(chaoxingGradeError = "成绩查询未完成，未显示未经核验的结果")
+            return false
+        } finally {
+            if (current()) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
     /** Explicit owner-authorized inbox refresh through the existing server adapter. */
     suspend fun syncChaoxingNoticesHttp(): Boolean {
         val provider = "chaoxing"
@@ -1038,6 +1137,8 @@ class CloudClient(context: Context) {
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
         ownerId = null,
         chaoxingInbox = emptyList(), chaoxingInboxFresh = false,
+        chaoxingGradeCourses = emptyList(), chaoxingGradeCourse = null,
+        chaoxingGrades = emptyList(), chaoxingGradeError = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
