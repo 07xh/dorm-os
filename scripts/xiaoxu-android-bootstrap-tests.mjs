@@ -873,7 +873,7 @@ assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)
   '成绩页面入口仍为独立原生内容页');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
   '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
+const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades")'),
     main.indexOf('AcademicDestination.SERVICES -> Content('));
 assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
   '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
