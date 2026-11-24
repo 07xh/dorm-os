@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
@@ -206,7 +208,7 @@ object XiaoxuSpacing {
 
 /** Local selection and feedback only; full-screen route switches are immediate. */
 internal object XiaoxuMotion {
-    const val SelectionMs = 180
+    const val SelectionMs = UiV2Motion.QuickMs
     const val FeedbackMs = 120
 }
 
@@ -360,7 +362,7 @@ internal fun XiaoxuSoftIconButton(
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(48.dp).clip(CircleShape)
+        modifier = modifier.size(48.dp).uiV2Press(source, enabled).clip(CircleShape)
             .background(backgroundColor)
             // Capture-free glass fallback: only floating controls get this rim.
             // Keep the click indicator after clipping to prevent square dark flashes.
@@ -394,9 +396,11 @@ fun XiaoxuCard(
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val source = if (onClick != null) remember { MutableInteractionSource() } else null
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .then(if (source != null) Modifier.uiV2Press(source) else Modifier)
             .clip(shape)
             .background(container)
             .border(
@@ -405,8 +409,12 @@ fun XiaoxuCard(
                 shape
             )
             .then(
-                if (onClick != null) {
-                    Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
+                if (onClick != null && source != null) {
+                    Modifier.heightIn(min = 48.dp).clickable(
+                        interactionSource = source,
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
                 } else Modifier
             )
             .padding(contentPadding),
@@ -477,11 +485,11 @@ fun XiaoxuSegmentedControl(
                 targetValue = if (selected) {
                     if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
                 } else Color.Transparent,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
+                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing), label = "xiaoxu-segment-bg"
             ).value
             val inkColor = animateColorAsState(
                 targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
+                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing), label = "xiaoxu-segment-text"
             ).value
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
@@ -557,7 +565,7 @@ fun XiaoxuExpandableGlassRow(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing),
         label = "glass-row-chevron"
     )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
