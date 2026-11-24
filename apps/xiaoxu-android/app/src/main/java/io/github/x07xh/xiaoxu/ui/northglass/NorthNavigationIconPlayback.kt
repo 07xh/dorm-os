@@ -10,16 +10,25 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** One clock per tab, shared by the visible glyph, optical copy and minimized capsule. */
+/** Retain the entering icon and at most one outgoing icon during rapid navigation. */
+internal fun retiredNavigationIcons(count: Int, previous: Int, next: Int): List<Int> =
+    (0 until count).filter { it != previous && it != next }
+
+/** One clock per tab, shared by the visible glyph, optical copy and minimized capsule.
+ * Only the current and immediately outgoing icon may keep animating.
+ */
 @Stable
 class NorthNavigationIconPlayback(count: Int, private val scope: CoroutineScope) {
     private val clocks = List(count) { Animatable(1f) }
     private val jobs = arrayOfNulls<Job>(count)
     private val pending = BooleanArray(count)
+    // Draw-phase snapshot gate: retiring an icon restores its resting pose
+    // immediately without scheduling another coroutine just to reset the clock.
+    private val visible = List(count) { mutableStateOf(false) }
     private var selected = -1
     private var reduced = false
 
-    fun phase(index: Int): Float = clocks[index].value
+    fun phase(index: Int): Float = if (visible[index].value) clocks[index].value else 1f
 
     fun isRunning(index: Int): Boolean = jobs[index]?.isActive == true
 
@@ -29,15 +38,17 @@ class NorthNavigationIconPlayback(count: Int, private val scope: CoroutineScope)
             if (reduced) clocks.indices.forEach { stop(it) }
         }
         if (selected == index) return
-        // Finish the current gesture at its original speed. Interrupting only discards
-        // queued feedback, so both the pose and its velocity remain continuous.
+        // Let the immediately outgoing icon finish its current cycle. A third
+        // overlapping selection retires older icons instead of accumulating
+        // independent 480ms draws in both visible and optical-copy layers.
         if (selected >= 0) pending[selected] = false
+        retiredNavigationIcons(clocks.size, selected, index).forEach { stop(it) }
         selected = index
-        replay(index)
+        if (!reduced) replay(index)
     }
 
     fun replay(index: Int) {
-        if (reduced) return
+        if (reduced || index != selected) return
         if (isRunning(index)) {
             pending[index] = true
             return
@@ -49,20 +60,21 @@ class NorthNavigationIconPlayback(count: Int, private val scope: CoroutineScope)
                 // The renderer has identical poses and zero velocity at 0 and 1.
                 // Only a completed gesture can enter a new cycle.
                 clock.snapTo(0f)
+                visible[index].value = true
                 clock.animateTo(1f, tween(480, easing = LinearEasing))
-            } while (pending[index] && !reduced)
+            } while (pending[index] && !reduced && index == selected)
+            visible[index].value = false
         }
     }
 
     private fun stop(index: Int) {
         pending[index] = false
         jobs[index]?.cancel()
-        jobs[index] = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            clocks[index].snapTo(1f)
-        }
+        jobs[index] = null
+        visible[index].value = false
     }
 
-    fun dispose() = jobs.forEach { it?.cancel() }
+    fun dispose() = clocks.indices.forEach { stop(it) }
 }
 
 @Composable

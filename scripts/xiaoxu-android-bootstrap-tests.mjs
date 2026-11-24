@@ -2763,3 +2763,9 @@ assert.match(workspace, /val authenticatedOwnerId = state\.ownerId\.takeIf \{ st
 assert.match(workspace, /val result = localLessons\.filter \{ it\.weekday == weekday \}\.sortedBy \{ it\.startSection \}/);
 assert.match(main, /val homeProjectionCache = remember \{ HomeProjectionCache\(\) \}/);
 assert.match(main, /projectionCache = homeProjectionCache/);
+
+// Bound rapid navigation replay without dropping the physical dock/lens renderer.
+assert.match(northMotion, /retiredNavigationIcons\(clocks\.size, selected, index\)\.forEach \{ stop\(it\) \}/);
+assert.match(northMotion, /if \(reduced \|\| index != selected\) return/);
+assert.match(northMotion, /if \(visible\[index\]\.value\) clocks\[index\]\.value else 1f/);
+assert.match(northMotion, /jobs\[index\] = null\s*visible\[index\]\.value = false/);
