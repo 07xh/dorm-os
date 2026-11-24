@@ -112,6 +112,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 /**
@@ -584,6 +585,17 @@ private fun NativeShell(
             onSchoolReturnConsumed()
         }
     }
+    // Only the visible exam page may trigger periodic candidate checks.
+    LaunchedEffect(current, academic, messagesOpen, appLifecycle, cloud) {
+        if (current == MainDestination.ACADEMIC && academic == AcademicDestination.EXAMS && !messagesOpen) {
+            appLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    cloud.checkNcwuBusiness("exams", manual = false)
+                    delay(60_000L)
+                }
+            }
+        }
+    }
     DisposableEffect(appLifecycle, cloud, returnedSchool) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && returnedSchool == null) {
@@ -939,24 +951,10 @@ private fun AcademicPage(
                     SecondClassPage()
                 }
             AcademicDestination.GRADES -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
-                        actionLabel = "连接青果教务",
-                        onAction = openProfile
-                    )
-                }
+                item { NcwuBusinessPanel("grades", cloud, openProfile) }
             }
             AcademicDestination.EXAMS -> Content(topPadding = 6.dp) {
-                item {
-                    XiaoxuEmpty(
-                        title = "考试安排尚未读取",
-                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
-                        actionLabel = "查看数据连接",
-                        onAction = openProfile
-                    )
-                }
+                item { NcwuBusinessPanel("exams", cloud, openProfile) }
             }
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
@@ -973,6 +971,42 @@ private fun AcademicPage(
             }
         }
     }
+    }
+}
+
+/** Existing owner connection; grades are manual-only, exam status may refresh in foreground. */
+@Composable
+private fun NcwuBusinessPanel(kind: String, cloud: CloudClient, openProfile: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val result = cloud.state.ncwuBusiness[kind]
+    val authorized = cloud.canCheckNcwuBusiness()
+    if (!authorized || result?.authorizationRequired == true) {
+        XiaoxuEmpty(
+            title = if (kind == "grades") "成绩尚未读取" else "考试安排尚未读取",
+            message = result?.message ?: "请在数据连接中确认本人青果授权。",
+            actionLabel = "查看数据连接", onAction = openProfile
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (kind == "grades") "成绩查询" else "考试查询",
+                modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            androidx.compose.material3.OutlinedButton(
+                enabled = !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
+                onClick = { scope.launch { cloud.checkNcwuBusiness(kind, manual = true) } }
+            ) { Text(if (result?.loading == true) "查询中" else "刷新") }
+        }
+        Text(if (result?.loading == true) "正在读取学校接口…" else result?.message ?: "尚未查询",
+            style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink)
+        result?.rounds?.forEach { round ->
+            HorizontalDivider(color = XiaoxuPalette.Line)
+            Text(round.title, style = MaterialTheme.typography.titleSmall)
+            Text(round.message, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        Text(if (kind == "grades") "仅手动查询；正式成绩明细尚未核验。"
+            else "前台自动查询间隔至少30分钟；轮次状态不等于正式考试安排。",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
 

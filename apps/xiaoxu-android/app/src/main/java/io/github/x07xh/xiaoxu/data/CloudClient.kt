@@ -16,6 +16,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HttpsURLConnection
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -137,7 +138,8 @@ data class CloudUiState(
     val secondClassError: String? = null,
     val schoolSyncBusyProvider: String? = null,
     val schoolSyncResultProvider: String? = null,
-    val schoolSyncMessage: String? = null
+    val schoolSyncMessage: String? = null,
+    val ncwuBusiness: Map<String, NcwuBusinessResult> = emptyMap()
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -199,6 +201,7 @@ class CloudClient(context: Context) {
     private var privateSnapshotReadId: Long = 0L
     private var secondClassReadId: Long = 0L
     private var secondClassSnapshotReadId: Long = -1L
+    private var ncwuExamAttemptMs: Long? = null
 
     /** Hash of this App's owner session, never the Cookie itself. */
     fun ownerSessionBinding(): String? = session.load()?.let { token ->
@@ -536,6 +539,57 @@ class CloudClient(context: Context) {
         loadSecondClass()
     }
 
+    fun canCheckNcwuBusiness(): Boolean = state.authenticated && state.connectionsFresh &&
+        state.platforms.any { it.id == "ncwu" && it.verified }
+
+    /** No credentials or web view: a candidate query never changes verified snapshots. */
+    suspend fun checkNcwuBusiness(kind: String, manual: Boolean): Boolean {
+        if (kind !in setOf("grades", "exams") || (kind == "grades" && !manual) ||
+            !canCheckNcwuBusiness() || state.busy || state.schoolSyncBusyProvider != null) return false
+        val previous = state.ncwuBusiness[kind]
+        if (previous?.authorizationRequired == true) return false
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!manual && ncwuExamAttemptMs?.let { now - it < 30 * 60_000L } == true) return false
+        val token = session.load() ?: return false
+        val epoch = sessionEpoch
+        if (kind == "exams") ncwuExamAttemptMs = now
+        state = state.copy(schoolSyncBusyProvider = "ncwu",
+            ncwuBusiness = state.ncwuBusiness + (kind to (previous ?: NcwuBusinessResult()).copy(loading = true)))
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/ncwu/business-check", "POST",
+                    JSONObject().put("kind", kind), authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            val result = if (response.code == 200) parseNcwuBusinessResult(kind, response.json)
+                else {
+                    val code = response.json.optString("error")
+                    val needsAuth = response.code == 401 || code in setOf("session_expired", "authorization_failed", "review_pending")
+                    NcwuBusinessResult(message = when {
+                        needsAuth -> "会话失效，请检查数据连接并重新授权。"
+                        response.code == 429 -> "查询过于频繁，请稍后手动刷新。"
+                        else -> "学校查询暂不可用，旧数据保留。"
+                    }, authorizationRequired = needsAuth)
+                }
+            state = state.copy(ncwuBusiness = state.ncwuBusiness + (kind to result))
+            if (response.code == 401) refreshPrivate()
+            return response.code == 200
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuBusiness = state.ncwuBusiness +
+                (kind to NcwuBusinessResult(message = "查询未完成，未更改已保存记录。")))
+            return false
+        } finally {
+            if (epoch == sessionEpoch) {
+                val current = state.ncwuBusiness[kind]
+                state = state.copy(schoolSyncBusyProvider = null,
+                    ncwuBusiness = if (current?.loading == true)
+                        state.ncwuBusiness + (kind to current.copy(loading = false)) else state.ncwuBusiness)
+            }
+        }
+    }
+
     /**
      * Trigger the existing authenticated, owner-scoped readonly school refresh.
      * This is NOT a school login, CAS bridge or a browser Cookie extractor.
@@ -648,7 +702,11 @@ class CloudClient(context: Context) {
                 else "尚未证实学校本人授权；请完成官方登录后再返回")
             return
         }
-        syncAuthorizedSchool(provider)
+        if (provider == "ncwu") {
+            ncwuExamAttemptMs = null
+            state = state.copy(ncwuBusiness = emptyMap(), schoolSyncMessage =
+                "青果授权状态已读取；请在教务页手动查询成绩。")
+        } else syncAuthorizedSchool(provider)
 
     }
 
@@ -744,12 +802,16 @@ class CloudClient(context: Context) {
         }
     }
 
-    private fun clearAccountSnapshots(): CloudUiState = state.copy(
+    private fun clearAccountSnapshots(): CloudUiState {
+        ncwuExamAttemptMs = null
+        return state.copy(
         ownerId = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
-        schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
-    )
+        schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null,
+        ncwuBusiness = emptyMap()
+        )
+    }
 
     suspend fun signIn(passphrase: String): Boolean {
         if (passphrase.isBlank() || state.signingIn) return false
