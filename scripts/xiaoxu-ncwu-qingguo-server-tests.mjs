@@ -79,7 +79,7 @@ assert.throws(()=>parseNcwuLessonDetailHtml(lessonGrid.replace('12(19:55-20:40)'
 function school({second=false,identity=student,detailTime,challenge=false,cryptoForm=false,
  redirectAway=false,rotateCookie=false,directLogin=false,directChallenge=false,
  gbkLogin=false,optionalChallengeTab=false,principalHelpText=false,
- principalPasswordField=false,splitWeeks=false}={}){
+ principalPasswordField=false,splitWeeks=false,nonemptyBusiness=false}={}){
  const calls=[];
  let principalReads=0;
  async function fetcher(url,options={}){
@@ -166,14 +166,18 @@ function school({second=false,identity=student,detailTime,challenge=false,crypto
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/ksap.ksapb_date.jsp'){
    assert.equal(method,'POST');
    assert.equal(new URLSearchParams(options.body).get('xnxq'),'20260');
-   return reply(200,'<h1>华北水利水电大学考试安排表</h1><p>2026-2027学年第一学期</p><p>没有检索到记录!</p>');
+   return reply(200,'<h1>华北水利水电大学考试安排表</h1><p>2026-2027学年第一学期</p>'+ (nonemptyBusiness?
+    '<table><tr><th>课程代码</th><th>考试科目</th><th>考试日期</th><th>开始时间</th><th>结束时间</th><th>考场</th></tr><tr><td>SYN2</td><td>合成考试</td><td>2026/12/20</td><td>09:00</td><td>11:00</td><td>合成考场</td></tr></table>':
+    '<p>没有检索到记录!</p>'));
   }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/frame/desk/showUserInfo.action')
    return reply(200,'<p>年级：2026</p>');
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/xscj.stuckcj_data.jsp'){
    assert.equal(method,'POST');
    assert.equal(new URLSearchParams(options.body).get('rxnj'),'2026');
-   return reply(200,'<p>你还有未评教的课程，不允许查看成绩！</p>');
+   return reply(200,nonemptyBusiness?
+    '<table><tr><th>学年学期</th><th>课程代码</th><th>课程名称</th><th>成绩</th><th>学分</th></tr><tr><td>2026-2027-1</td><td>SYN1</td><td>合成课程</td><td>80</td><td>2</td></tr></table>':
+    '<p>你还有未评教的课程，不允许查看成绩！</p>');
   }
   if(u.hostname==='jwmis.ncwu.edu.cn'&&u.pathname==='/hsjw/student/wsxk.xskcb10319.jsp'){
    if(rotateCookie)assert.ok((options.headers?.cookie||options.headers?.Cookie||'')
@@ -223,6 +227,18 @@ const gradeCandidate=await nativeReader.readGradeCandidate({session:nativeProof.
 assert.deepEqual(gradeCandidate,{kind:'grades',verified:false,complete:false,
  trustedSyncAllowed:false,status:'evaluation_required'});
 await assert.rejects(()=>nativeReader.readGradeCandidate({session:{...nativeProof.session,studentId:'OTHER'}}));
+const businessSchool=school({directLogin:true,nonemptyBusiness:true});
+const businessAdapter=makeNcwuQingguoServerAdapter({fetcher:businessSchool.fetcher,trustedSyncEnabled:true});
+const businessLogin=await businessAdapter.login({username:student,password});
+const businessReader=await businessAdapter.forSession({session:businessLogin.session,userId:'owner-business'});
+const businessProof=await businessReader.verifySession();
+assert.deepEqual(await businessReader.readGradeCandidate({session:businessProof.session}),
+ {kind:'grades',verified:false,complete:false,trustedSyncAllowed:false,status:'syntactically_parsed'});
+assert.deepEqual(await businessReader.readExamCandidates({session:businessProof.session}),
+ {kind:'exams',verified:false,complete:false,trustedSyncAllowed:false,roundCount:1,
+  statuses:['syntactically_parsed'],rounds:[{title:'9-12周',status:'syntactically_parsed'}]});
+await assert.rejects(()=>businessReader.readSection({kind:'grades',session:businessProof.session}));
+await assert.rejects(()=>businessReader.readSection({kind:'exams',session:businessProof.session}));
  // Qingguo can serve GBK/GB2312 pages without setting the HTTP charset.
 // This exercises decoding actual non-UTF-8 bytes, not just a meta-string.
 const nativeGbkSchool=school({directLogin:true,gbkLogin:true});

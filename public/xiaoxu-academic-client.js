@@ -368,6 +368,7 @@
  }
  const ncwuBusinessLabels={evaluation_required:'学校要求完成评教后才能查看成绩',
   schema_review_required:'接口已响应，正式明细尚未验证',
+  syntactically_parsed:'已识别明细结构，待正式数据核验',
   reported_empty:'所查考试轮次暂无场次返回（待核验）',
   no_rounds_reported:'本学期未返回考试轮次（待核验）',
   unrecognized:'学校响应格式暂未识别'};
