@@ -79,6 +79,10 @@ const browser={document:{documentElement:{},addEventListener(){}},
 assert.doesNotThrow(()=>runInNewContext(client,browser),
  'the connection client must initialize in a browser');
 assert.equal(typeof browser.XiaoxuAcademic?.readConnectionStatus,'function');
+assert.equal(typeof browser.XiaoxuAcademic?.autoRefreshVisibleNcwuBusiness,'function');
+assert.equal(typeof browser.XiaoxuAcademic?.ncwuScheduleRefreshButton,'function');
+assert.match(browser.XiaoxuAcademic.ncwuScheduleRefreshButton(),/连接青果/);
+assert.doesNotThrow(()=>browser.XiaoxuAcademic.autoRefreshVisibleNcwuBusiness());
 assert.ok(client.includes('超星独立密码'));
 assert.ok(client.includes('学校统一身份认证'));
 assert.ok(client.includes('fysso.chaoxing.com%2Fcassso%2Fncwu'));

@@ -616,7 +616,7 @@ function selectTimetableDay(chosen){
 }
 function timetable(){
  const p=now(),weekStart=addDays(p.date,-((p.day+6)%7)+timetableWeekOffset*7);
- return `${titleBlock('','我的课表')}
+ return `${titleBlock('','我的课表','',XiaoxuAcademic.ncwuScheduleRefreshButton())}
  <div class="v42-schedule-toolbar"><div class="v42-segments" role="group" aria-label="课表视图">
  <button type="button" data-timetable-mode="day" aria-pressed="${timetableMode==='day'}" class="${timetableMode==='day'?'active':''}">单日</button>
  <button type="button" data-timetable-mode="week" aria-pressed="${timetableMode==='week'}" class="${timetableMode==='week'?'active':''}">整周</button>
@@ -1125,7 +1125,7 @@ function render(){const previousApp=$('app');const focusedEl=document.activeElem
   .find(el=>el.dataset.xuSchoolProvider===item.provider);
  const panel=group?.querySelectorAll('details')[item.index];
  if(panel)panel.open=true;
-}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');applyTheme();tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
+}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');applyTheme();tick();if(page==='academic'&&['grades','exams'].includes(academicTab))queueMicrotask(()=>XiaoxuAcademic.autoRefreshVisibleNcwuBusiness());if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
 
 
  // After owner authentication, the connection-center page may read its status.
@@ -1483,7 +1483,8 @@ $('editor').addEventListener('click',e=>{if(e.target===$('editor'))$('editor').c
 window.addEventListener('hashchange',()=>{const route=XiaoxuWebRouter.fromHash(location.hash);if(!route)return;const changed=route.page!==page||(route.taskFilter!==null&&route.taskFilter!==taskFilter);if(route.taskFilter!==null)taskFilter=route.taskFilter;if(changed){page=route.page;render();maybeReadMyConnections();}});
  window.addEventListener('xiaoxu-chaoxing-tasks-synced',()=>{if(['tasks','dashboard'].includes(page))render();});
  window.addEventListener('xiaoxu-wechat-task-reviewed',()=>{if(['tasks','dashboard'].includes(page))render();});
-window.addEventListener('xiaoxu-school-connection-updated',()=>{if(['settings','academic','dashboard','tasks'].includes(page))render();toast('学校平台连接状态已更新');});
+window.addEventListener('xiaoxu-school-connection-updated',()=>{if(['settings','academic','dashboard','tasks','timetable'].includes(page))render();toast('学校平台连接状态已更新');});
+window.addEventListener('xiaoxu-ncwu-query-updated',()=>{if(['academic','timetable'].includes(page))render();});
 // A successful real school connection explicitly opts this device into the
 // existing owner-verified cloud resume path. This preference contains no
 // password, cookie, ticket or student information. Reopening still requires
