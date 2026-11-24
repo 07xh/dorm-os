@@ -997,7 +997,8 @@ private fun NcwuBusinessPanel(kind: String, cloud: CloudClient, openProfile: () 
     val scope = rememberCoroutineScope()
     val result = cloud.state.ncwuBusiness[kind]
     val authorized = cloud.canCheckNcwuBusiness()
-    if (!authorized || result?.authorizationRequired == true) {
+    val snapshot = cloud.state.ncwuAcademicSnapshots[kind]
+    if ((!authorized || result?.authorizationRequired == true) && snapshot == null) {
         XiaoxuEmpty(
             title = if (kind == "grades") "成绩尚未读取" else "考试安排尚未读取",
             message = result?.message ?: "请在数据连接中确认本人青果授权。",
@@ -1010,7 +1011,7 @@ private fun NcwuBusinessPanel(kind: String, cloud: CloudClient, openProfile: () 
             Text(if (kind == "grades") "成绩查询" else "考试查询",
                 modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             androidx.compose.material3.OutlinedButton(
-                enabled = !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
+                enabled = authorized && result?.authorizationRequired != true && !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
                 onClick = { scope.launch { cloud.checkNcwuBusiness(kind, manual = true) } }
             ) { Text(if (result?.loading == true) "查询中" else "刷新") }
         }
@@ -1021,7 +1022,39 @@ private fun NcwuBusinessPanel(kind: String, cloud: CloudClient, openProfile: () 
             Text(round.title, style = MaterialTheme.typography.titleSmall)
             Text(round.message, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         }
-        Text(if (kind == "grades") "仅手动查询；正式成绩明细尚未核验。"
+        if (!authorized || result?.authorizationRequired == true) {
+            androidx.compose.material3.TextButton(onClick = openProfile) { Text("检查数据连接") }
+        }
+        if (snapshot != null) {
+            HorizontalDivider(color = XiaoxuPalette.Line)
+            Text(if (kind == "grades") "已核验成绩快照" else "已核验考试快照",
+                style = MaterialTheme.typography.titleMedium)
+            Text("历史数据 · " + snapshot.capturedAt + if (snapshot.stale) " · 已过期" else "",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+            if (snapshot.records.isEmpty()) Text("该已核验批次没有记录，不代表当前学校无记录。")
+            snapshot.records.groupBy { it.term }.forEach { (term, records) ->
+                Text(term, style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink2)
+                records.forEach { row ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(row.title, style = MaterialTheme.typography.bodyMedium)
+                            val details = if (kind == "grades") listOfNotNull(
+                                row.credit?.let { "学分 $it" }, row.gradePoint?.let { "绩点 $it" })
+                            else listOfNotNull(row.date, listOfNotNull(row.startTime, row.endTime)
+                                .joinToString("–").takeIf { it.isNotEmpty() }, row.location)
+                            if (details.isNotEmpty()) Text(details.joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                        }
+                        if (kind == "grades") Text(row.score ?: "未提供")
+                    }
+                    HorizontalDivider(color = XiaoxuPalette.Line)
+                }
+            }
+        }
+        cloud.state.ncwuAcademicSnapshotErrors[kind]?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        Text(if (kind == "grades") "仅手动查询；本次接口检查不等于正式成绩同步。"
             else "前台自动查询间隔至少30分钟；轮次状态不等于正式考试安排。",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }

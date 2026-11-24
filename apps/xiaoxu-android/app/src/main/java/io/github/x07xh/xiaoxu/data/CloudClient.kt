@@ -143,7 +143,9 @@ data class CloudUiState(
     val ncwuSchedule: NcwuScheduleSnapshot? = null,
     val ncwuScheduleMessage: String? = null,
     val ncwuScheduleNeedsAuthorization: Boolean = false,
-    val ncwuScheduleFromCache: Boolean = false
+    val ncwuScheduleFromCache: Boolean = false,
+    val ncwuAcademicSnapshots: Map<String, NcwuAcademicSnapshot> = emptyMap(),
+    val ncwuAcademicSnapshotErrors: Map<String, String> = emptyMap()
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -672,6 +674,36 @@ class CloudClient(context: Context) {
         }
     }
 
+    // Only called within an explicit grade check or the existing exam policy.
+    // A GET here restores D1 history; it does not authorize a new school read.
+    private suspend fun readNcwuAcademicSnapshot(kind: String, token: String, epoch: Long) {
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/$kind", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return
+            if (response.code == 401) {
+                refreshPrivate()
+                return
+            }
+            require(response.code == 200)
+            if (response.json.optString("status") == "not_connected") {
+                state = state.copy(ncwuAcademicSnapshotErrors = state.ncwuAcademicSnapshotErrors +
+                    (kind to "服务器尚无已核验明细快照；不代表学校没有记录。"))
+                return
+            }
+            val snapshot = parseNcwuAcademicSnapshot(kind, response.json)
+            val previous = state.ncwuAcademicSnapshots[kind]
+            require(previous == null || !Instant.parse(snapshot.capturedAt).isBefore(Instant.parse(previous.capturedAt)))
+            state = state.copy(ncwuAcademicSnapshots = state.ncwuAcademicSnapshots + (kind to snapshot),
+                ncwuAcademicSnapshotErrors = state.ncwuAcademicSnapshotErrors - kind)
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuAcademicSnapshotErrors =
+                state.ncwuAcademicSnapshotErrors + (kind to "未取得可信明细，保留历史快照。"))
+        }
+    }
+
     /** No credentials or web view: a candidate query never changes verified snapshots. */
     suspend fun checkNcwuBusiness(kind: String, manual: Boolean): Boolean {
         if (kind !in setOf("grades", "exams") || (kind == "grades" && !manual) ||
@@ -680,8 +712,9 @@ class CloudClient(context: Context) {
         if (previous?.authorizationRequired == true) return false
         val now = android.os.SystemClock.elapsedRealtime()
         if (!manual && ncwuExamAttemptMs?.let { now - it < 30 * 60_000L } == true) return false
-        val token = session.load() ?: return false
         val epoch = sessionEpoch
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.busy || state.schoolSyncBusyProvider != null || !canCheckNcwuBusiness()) return false
         if (kind == "exams") ncwuExamAttemptMs = now
         state = state.copy(schoolSyncBusyProvider = "ncwu",
             ncwuBusiness = state.ncwuBusiness + (kind to (previous ?: NcwuBusinessResult()).copy(loading = true)))
@@ -703,6 +736,7 @@ class CloudClient(context: Context) {
                 }
             state = state.copy(ncwuBusiness = state.ncwuBusiness + (kind to result))
             if (response.code == 401) refreshPrivate()
+            else if (epoch == sessionEpoch) readNcwuAcademicSnapshot(kind, token, epoch)
             return response.code == 200
         } catch (e: CancellationException) {
             throw e
@@ -836,6 +870,7 @@ class CloudClient(context: Context) {
             ncwuExamAttemptMs = null
             ncwuScheduleAttemptMs = null
             state = state.copy(ncwuBusiness = emptyMap(), ncwuSchedule = null,
+                ncwuAcademicSnapshots = emptyMap(), ncwuAcademicSnapshotErrors = emptyMap(),
                 ncwuScheduleNeedsAuthorization = false, ncwuScheduleMessage = null, schoolSyncMessage =
                 "青果授权状态已读取；请在教务页手动查询成绩。")
         } else syncAuthorizedSchool(provider)
@@ -945,7 +980,8 @@ class CloudClient(context: Context) {
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null,
         ncwuBusiness = emptyMap(), ncwuSchedule = null,
         ncwuScheduleMessage = null, ncwuScheduleNeedsAuthorization = false,
-        ncwuScheduleFromCache = false
+        ncwuScheduleFromCache = false, ncwuAcademicSnapshots = emptyMap(),
+        ncwuAcademicSnapshotErrors = emptyMap()
         )
     }
 
