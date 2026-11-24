@@ -8,6 +8,9 @@ test('课表单日与整周切换保留导入工具及学校原始课表',async(
  const imported=page.locator('.v4-import-tools');
  await expect(view).toBeVisible();
  await expect(weekRange).toContainText('本周');
+ // Desktop defaults to week, mobile to day; normalize the test's starting view.
+ await page.locator('[data-timetable-mode="day"]').click();
+ await expect(page.locator('.v42-day-picker')).toBeVisible();
  await imported.locator('summary').click();
  await expect(imported).toHaveAttribute('open','');
  const originalRange=await weekRange.innerText();
