@@ -698,9 +698,9 @@ assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(use
   '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
 assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
   '课程编辑背景必须沿用现有课表设置背景');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
+assert.match(courseEditor, /UiV2SettingsGroup\(title = "课程信息"\)/,
   '课程信息必须复用同一玻璃分组组件');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
+assert.match(courseEditor, /UiV2SettingsGroup\(title = "上课时间"\)/,
   '编辑节次不能再出现孤立弹框');
 assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
   '编辑课程星期须使用与课表设置同一套原生分段选择组件');
@@ -708,7 +708,7 @@ assert.match(courseEditor, /selectedKey = weekday/,
   '星期选中态必须来自正在编辑的真实课程');
 assert.match(courseEditor, /onSelected = \{ if \(!busy\) weekday = it \}/,
   '选择星期必须更新已有课程字段而非仅展示');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
+assert.match(courseEditor, /UiV2SettingsGroup\(title = "上课周次"\)/);
 assert.match(courseEditor, /compact = true/,
   '课程星期采用紧凑分段控件');
 assert.match(courseEditor, /enabled = !weekOnly && !busy/,
@@ -1184,9 +1184,9 @@ assert.match(taskBackup, /tryAddDependency\(from, to\)/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.CreateDocument/);
 assert.match(taskBackupPanel, /ActivityResultContracts\.OpenDocument/);
 assert.match(taskBackupPanel, /LocalTaskBackup/);
-assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "任务数据"\)/,
+assert.match(taskBackupPanel, /UiV2SettingsGroup\(title = "任务数据"\)/,
   '备份数据分组须保持');
-assert.match(taskBackupPanel, /XiaoxuGroupedSection\(title = "安全与说明"\)/,
+assert.match(taskBackupPanel, /UiV2SettingsGroup\(title = "安全与说明"\)/,
   '安全说明需分组呈现');
 assert.match(backupSource, /onBusyChange\(true\)/,
   '本机备份开始时需向父页面通知繁忙状态');
@@ -2524,3 +2524,11 @@ assert.match(licenseUiV2, /XiaoxuBottomSheet\(title = "完整许可与来源声�
 assert.match(licenseUiV2, /context\.assets\.open\("THIRD_PARTY_NOTICES\.txt"\)/);
 assert.match(licenseUiV2, /组合分发兼容性尚未完成审查/);
 assert.match(localSchoolUi, /历史记录 · 不代表当前官网状态/);
+
+const v2FormField = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2FormField.kt');
+assert.match(v2FormField, /OutlinedTextField\(/);
+assert.match(v2FormField, /enabled = enabled/);
+assert.match(courseEditor, /UiV2FormField\(name,/);
+assert.doesNotMatch(courseEditor, /private fun EditorField\(/);
+assert.equal((taskBoard.match(/UiV2FormField\(/g) || []).length, 2);
+assert.match(taskBackupPanel, /XiaoxuBottomSheet\(title = "备份说明"/);

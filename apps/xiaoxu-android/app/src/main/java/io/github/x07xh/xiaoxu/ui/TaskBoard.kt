@@ -37,7 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import io.github.x07xh.xiaoxu.ui.v2.UiV2FormField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -158,18 +158,12 @@ internal fun LocalTaskCreateSheet(
         onDismiss = { if (!saving) onDismiss() },
         showDismissButton = false
     ) {
-        Text(
-            "只需填写任务名称。分类和日期均可选，之后还能编辑。",
-            style = MaterialTheme.typography.bodySmall,
-            color = XiaoxuPalette.Ink2
-        )
-        OutlinedTextField(
+        UiV2FormField(
             value = title,
-            onValueChange = { title = it.take(120); error = null },
-            label = { Text("任务名称") },
-            placeholder = { Text("例如：完成电路实验报告") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            onChange = { title = it.take(120); error = null },
+            label = "任务名称",
+            placeholder = "例如：完成电路实验报告",
+            enabled = !saving
         )
         LocalTaskSourcePicker(source = source, onSelect = { source = it }, enabled = !saving)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -328,13 +322,12 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     val graphWithoutThis = allEdges.filter { it.taskId != task.id } +
         chosen.map { LocalTaskDependency(task.id, it) }
 
-    XiaoxuGlassDialog(title = "编辑本机任务", onDismiss = onDismiss, dismissLabel = "取消") {
-        OutlinedTextField(
+    XiaoxuGlassDialog(title = "编辑本机任务", onDismiss = { if (!saving) onDismiss() }, dismissLabel = "取消") {
+        UiV2FormField(
             value = title,
-            onValueChange = { title = it.take(120); error = null },
-            label = { Text("任务名称") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            onChange = { title = it.take(120); error = null },
+            label = "任务名称",
+            enabled = !saving
         )
         LocalTaskSourcePicker(
             source = source,
@@ -344,6 +337,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(
                 onClick = { pickerOpen = true },
+                enabled = !saving,
                 modifier = Modifier.heightIn(min = 48.dp)
             ) {
                 Icon(Icons.Outlined.DateRange, contentDescription = null,
@@ -352,7 +346,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                 Text(due ?: "选择截止日期")
             }
             if (due != null) {
-                TextButton(onClick = { due = null }, modifier = Modifier.heightIn(min = 48.dp)) {
+                TextButton(onClick = { due = null }, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text("清除")
                 }
             }
@@ -406,7 +400,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                     }
                 }
             }
-            Text("所选任务全部完成后，当前事项才会出现在“现在可做”；保存修改时一并生效。",
+            Text("前置任务全部完成后，当前任务才可执行。",
                 style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
         }
         if (error != null) {

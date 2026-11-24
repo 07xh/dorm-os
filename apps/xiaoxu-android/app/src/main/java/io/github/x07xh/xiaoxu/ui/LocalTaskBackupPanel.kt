@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -140,7 +142,7 @@ fun LocalTaskBackupPanel(
         if (embedded) {
             backupActions()
         } else {
-            XiaoxuGroupedSection(title = "任务数据") { backupActions() }
+            UiV2SettingsGroup(title = "任务数据") { backupActions() }
         }
         message?.let {
             Text(
@@ -158,35 +160,14 @@ fun LocalTaskBackupPanel(
                 BackupGuidance()
             }
         } else {
-            XiaoxuGroupedSection(title = "安全与说明") {
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .heightIn(min = 58.dp)
-                        .clickable(role = Role.Button, onClickLabel = "查看备份说明") {
-                            guidanceExpanded = !guidanceExpanded
-                        }.padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.Info, contentDescription = null,
-                        tint = XiaoxuPalette.Brand)
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        if (guidanceExpanded) "收起备份说明" else "查看备份说明",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink
-                    )
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-                        tint = XiaoxuPalette.Ink3)
-                }
-                if (guidanceExpanded) {
-                    HorizontalDivider(
-                        color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 18.dp)
-                    )
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(18.dp)
-                    ) { BackupGuidance() }
+            UiV2SettingsGroup(title = "安全与说明") {
+                UiV2SettingsEntry("查看备份说明", Icons.Outlined.Info,
+                    onClick = { guidanceExpanded = true })
+            }
+            if (guidanceExpanded) {
+                XiaoxuBottomSheet(title = "备份说明",
+                    onDismiss = { guidanceExpanded = false }, showCancel = false) {
+                    BackupGuidance()
                 }
             }
         }

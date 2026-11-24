@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import io.github.x07xh.xiaoxu.ui.v2.UiV2FormField
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,8 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,8 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -130,7 +128,7 @@ internal fun CourseEditorDialog(
                 .padding(horizontal = 22.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 XiaoxuSoftIconButton(
@@ -143,32 +141,37 @@ internal fun CourseEditorDialog(
                     if (original == null) "新增课程" else "编辑课程",
                     modifier = Modifier.weight(1f).padding(start = 14.dp),
                     style = MaterialTheme.typography.headlineSmall,
-                    fontSize = 27.sp, fontWeight = FontWeight.SemiBold,
+                    fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
                     color = XiaoxuPalette.Ink
                 )
                 TextButton(enabled = !busy, onClick = ::submit) {
                     Text(if (busy) "保存中" else "保存", color = XiaoxuPalette.Brand, fontSize = 16.sp)
                 }
             }
+                if (externalError != null || localError != null) {
+                    Text(externalError ?: localError.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 14.dp))
+                }
             Column(
                 modifier = Modifier.fillMaxWidth().weight(1f)
                     .verticalScroll(rememberScrollState()).padding(bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                XiaoxuGroupedSection(title = "课程信息") {
+                UiV2SettingsGroup(title = "课程信息") {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        EditorField(name, { name = it; localError = null }, "课程名称",
+                        UiV2FormField(name, { name = it; localError = null }, "课程名称",
                             enabled = !busy)
-                        EditorField(teacher, { teacher = it }, "任课教师（可选）",
+                        UiV2FormField(teacher, { teacher = it }, "任课教师（可选）",
                             enabled = !busy)
-                        EditorField(location, { location = it }, "教室（可选）",
+                        UiV2FormField(location, { location = it }, "教室（可选）",
                             enabled = !busy)
                     }
                 }
-                XiaoxuGroupedSection(title = "上课时间") {
+                UiV2SettingsGroup(title = "上课时间") {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -187,21 +190,21 @@ internal fun CourseEditorDialog(
                             compact = true
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            EditorField(start, { start = it }, "开始节", enabled = !busy,
+                            UiV2FormField(start, { start = it }, "开始节", enabled = !busy,
                                 numeric = true,
                                 modifier = Modifier.weight(1f))
-                            EditorField(end, { end = it }, "结束节", enabled = !busy,
+                            UiV2FormField(end, { end = it }, "结束节", enabled = !busy,
                                 numeric = true,
                                 modifier = Modifier.weight(1f))
                         }
                     }
                 }
-                XiaoxuGroupedSection(title = "上课周次") {
+                UiV2SettingsGroup(title = "上课周次") {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        EditorField(weeks, { weeks = it }, "周次（如1-16,18）",
+                        UiV2FormField(weeks, { weeks = it }, "周次（如1-16,18）",
                             enabled = !weekOnly && !busy)
                         if (canScope) {
                             Row(
@@ -223,13 +226,8 @@ internal fun CourseEditorDialog(
                     color = XiaoxuPalette.Ink2,
                     modifier = Modifier.padding(horizontal = 14.dp)
                 )
-                if (externalError != null || localError != null) {
-                    Text(externalError ?: localError.orEmpty(),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 14.dp))
-                }
                 if (original != null) {
-                    XiaoxuGroupedSection(title = "危险操作") {
+                    UiV2SettingsGroup(title = "危险操作") {
                         TextButton(
                             enabled = !busy,
                             onClick = { confirmDelete = true },
@@ -264,35 +262,3 @@ internal fun CourseEditorDialog(
     }
 }
 
-@Composable
-private fun EditorField(
-    value: String,
-    onChange: (String) -> Unit,
-    label: String,
-    enabled: Boolean = true,
-    numeric: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text
-        ),
-        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
-        shape = RoundedCornerShape(XiaoxuRadius.tile),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = XiaoxuPalette.Brand,
-            unfocusedBorderColor = XiaoxuPalette.Line,
-            focusedLabelColor = XiaoxuPalette.BrandDeep,
-            unfocusedLabelColor = XiaoxuPalette.Ink2,
-            focusedTextColor = XiaoxuPalette.Ink,
-            unfocusedTextColor = XiaoxuPalette.Ink,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        )
-    )
-}
