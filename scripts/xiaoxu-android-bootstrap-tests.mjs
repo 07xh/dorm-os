@@ -1567,11 +1567,11 @@ assert.match(design, /object XiaoxuPalette/, '设计系统须集中定义调色�
 assert.match(design, /val Brand = Color\(0xFF2F6BFF\)/, '主色须为 #2F6BFF');
 assert.match(design, /val BrandDeep = Color\(0xFF1B47C8\)/, '深蓝须为 #1B47C8');
 assert.match(design, /val Bg = Color\(0xFFF4F7FD\)/, '背景须为 #F4F7FD');
-assert.match(design, /val card: Dp = 18\.dp/, '普通内容卡采用18dp圆角');
-assert.match(design, /val group: Dp = 20\.dp/, '外层分组采用20dp圆角');
-assert.match(design, /val list: Dp = 14\.dp/, '课程、公告和连续列表采用14dp行级圆角');
-assert.match(design, /val tile: Dp = 12\.dp/, '快捷小块使用12dp圆角');
-assert.match(design, /val modal: Dp = 28\.dp/, '弹层使用独立28dp圆角，不能跟随内容卡缩小');
+assert.match(design, /val card: Dp = UiV2Theme\.CardRadius/, '普通内容卡采用18dp圆角');
+assert.match(design, /val group: Dp = UiV2Theme\.GroupRadius/, '外层分组统一采用 V2 24dp 圆角');
+assert.match(design, /val list: Dp = UiV2Theme\.ListRadius/, '课程、公告和连续列表采用14dp行级圆角');
+assert.match(design, /val tile: Dp = UiV2Theme\.TileRadius/, '快捷小块使用12dp圆角');
+assert.match(design, /val modal: Dp = UiV2Theme\.ModalRadius/, '弹层使用独立28dp圆角，不能跟随内容卡缩小');
 assert.match(workspace, /val rowRadius = XiaoxuRadius\.list/, '独立任务列表行不使用分组大圆角');
 assert.match(schedulePanel, /shape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '课程卡必须使用列表级圆角');
 assert.match(messageCenter, /private val CardShape = RoundedCornerShape\(XiaoxuRadius\.list\)/, '公告骨架与正式卡片圆角相同');
@@ -1598,7 +1598,7 @@ assert.match(design, /val GlassCard = Color.White\.copy\(alpha = 0\.95f\)/,
 
 assert.match(design, /label = "glass-row-chevron"/,
   '展开箭头动画与其他页面共用时序');
-assert.match(design, /val glassStroke: Dp = 0\.5\.dp/,
+assert.match(design, /val glassStroke: Dp = UiV2Theme\.Hairline/,
   '玻璃描边必须保持为单一轻量尺寸，避免肉眼可见硬灰边');
 assert.match(design, /val GlassBorder = Color\.White\.copy\(alpha = 0\.74f\)/,
   '保留全局轻色描边作为普通卡片后备');
@@ -1611,7 +1611,7 @@ assert.match(design, /glassChrome: Boolean = false/,
 assert.match(design, /Brush\.linearGradient\(/,
   '全局背景使用一致的淡蓝紫渐变，不得各页面覆盖');
 
-assert.match(design, /val hero: Dp = 28\.dp/, '重要卡与底部弹层圆角须统一为28dp');
+assert.match(design, /val hero: Dp = UiV2Theme\.ModalRadius/, '重要卡与底部弹层圆角须统一为28dp');
 assert.match(design, /val XiaoxuCourseColors/, '课程六色须集中定义');
 assert.match(design, /fun xiaoxuCourseColor\(key: String\)/, '课程配色须按稳定 key 取模');
 assert.match(design, /fun XiaoxuTheme\(/, '须有统一主题入口');
@@ -2025,7 +2025,7 @@ assert.match(workspace, /label = "task-group-chevron"/,
 assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.graphicsLayer \{ rotationZ = chevronRotation\.value \}/,
   '分组状态改变时只旋转箭头，不重新绘制业务数据');
 
-assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,
+assert.match(designSystem, /val listRowMin: Dp = UiV2Theme\.ListRowMin/,
   '任务与消息共用同一紧凑最小行高');
 assert.match(workspace, /val groupRadius = XiaoxuRadius\.group/,
   '任务列表首尾圆角必须沿用唯一设计系统');
@@ -2548,7 +2548,7 @@ assert.doesNotMatch(courseEditor, /private fun EditorField\(/);
 assert.equal((taskBoard.match(/UiV2FormField\(/g) || []).length, 1, '新增和编辑共用字段实现');
 assert.match(taskBackupPanel, /XiaoxuBottomSheet\(title = "备份说明"/);
 
-assert.match(v2Theme, /val GroupShape = RoundedCornerShape\(24\.dp\)/);
+assert.match(v2Theme, /val GroupShape = RoundedCornerShape\(GroupRadius\)/);
 assert.match(v2Settings, /clip\(UiV2Theme\.GroupShape\)/);
 assert.match(v2SearchField, /background\(UiV2Theme\.SearchSurface\)/);
 assert.match(profileSettings, /compact = animatedRoute != "home" \|\| compactSettingsHeader/);
@@ -2684,3 +2684,16 @@ const accountOverviewV2 = panels.slice(panels.indexOf('private fun ProfileHeroCa
 assert.match(accountOverviewV2, /if \(state\.authenticated\) \{\s*HorizontalDivider/);
 assert.match(accountOverviewV2, /if \(maxWidth < 300\.dp \|\| LocalDensity\.current\.fontScale > 1\.3f\)/);
 assert.match(accountOverviewV2, /else \{\s*Text\("本机功能无需连接云端"/);
+
+assert.match(v2Theme, /val GroupRadius = 24\.dp/);
+assert.match(v2Theme, /val CardRadius = 18\.dp/);
+assert.match(v2Theme, /val ListRadius = 14\.dp/);
+assert.match(v2Theme, /val TileRadius = 12\.dp/);
+assert.match(v2Theme, /val ModalRadius = 28\.dp/);
+assert.match(v2Theme, /val PillRadius = 999\.dp/);
+assert.match(v2Theme, /val ListRowMin = 68\.dp/);
+assert.match(v2Theme, /val Hairline = 0\.5\.dp/);
+assert.match(designSystem, /val page: Dp = UiV2Theme\.PageGutter/);
+assert.match(designSystem, /val gap: Dp = UiV2Theme\.GroupGap/);
+assert.match(v2Home, /RoundedCornerShape\(UiV2Theme\.TileRadius\)/);
+assert.match(bottomActions, /RoundedCornerShape\(UiV2Theme\.PillRadius\)/);
