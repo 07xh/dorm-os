@@ -869,14 +869,18 @@ assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
   '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
-assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
-  '成绩页面入口仍为独立原生内容页');
+assert.match(main, /AcademicDestination\.GRADES -> tabStateHolder\.SaveableStateProvider\("grades"\)/,
+  '成绩仍由唯一教务成绩入口承载');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
   '考试页面与成绩统一页内间距');
 const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades")'),
     main.indexOf('AcademicDestination.SERVICES -> Content('));
-assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
-  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
+assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 3,
+  '两个成绩来源及考试须复用唯一玻璃空态组件');
+assert.match(academicGradeArea, /XiaoxuSegmentOption\("ncwu", "青果教务"\)/);
+assert.match(academicGradeArea, /XiaoxuSegmentOption\("chaoxing", "学习通"\)/);
+assert.match(academicGradeArea, /cloud\.readChaoxingGrades\(course\)/);
+assert.match(academicGradeArea, /独立于教务总评，不计入绩点与学分/);
 assert.match(academicGradeArea, /title = "成绩尚未读取"/,
   '成绩未取得本人真实数据时明确为空态');
 assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
