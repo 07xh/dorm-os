@@ -566,6 +566,13 @@ private fun NativeShell(
     }
     val localTasks by rememberLocalRows(dao) { dao.observe() }
     val reminderContext = LocalContext.current
+    // Keep common Room snapshots alive across tabs. Read their State values
+    // only in the active destination, instead of recreating empty collectors.
+    val workspaceDependencies = rememberLocalRows(dao) { dao.observeDependencies() }
+    val workspaceNativeDao = remember(reminderContext) {
+        LocalTaskDatabase.open(reminderContext).nativeSchoolRecords()
+    }
+    val workspaceSchoolRows = rememberLocalRows(workspaceNativeDao) { workspaceNativeDao.observe() }
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
     val reminderSnapshot = remember { mutableStateOf<List<LocalTask>?>(null) }
@@ -687,7 +694,9 @@ private fun NativeShell(
                     current = MainDestination.ACADEMIC
                 },
                 openSecondClass = { openSecondClass() },
-                openArticle = openArticle)
+                openArticle = openArticle,
+                homeDependencies = workspaceDependencies.value,
+                nativeRows = workspaceSchoolRows.value)
                 }
             }
             MainDestination.SCHEDULE -> CloudTimetablePanel(
@@ -719,7 +728,9 @@ private fun NativeShell(
                 },
                 openLocalSchool = openLocalSchool,
                 onMessages = { messagesOpen = true },
-                onNavigation = openNavigation)
+                onNavigation = openNavigation,
+                dependencies = workspaceDependencies.value,
+                schoolRows = workspaceSchoolRows.value)
             MainDestination.PROFILE -> {
                 // Reuse the settings child route for the timetable
                 // child. It must not bypass the settings host on entry/back.
