@@ -91,11 +91,11 @@ internal fun Modifier.uiV2SelectionThumb(index: Int, count: Int, radius: Dp = 99
         label = "v2-segment-thumb"
     )
     return this.drawBehind {
-                if (index >= 0 && size.width > 0f) {
+                if (index in 0 until count && size.width > 0f) {
                     val width = size.width / count
-                    val position = thumb.value.coerceIn(0f, (options.size - 1).toFloat())
+                    val position = thumb.value.coerceIn(0f, (count - 1).toFloat())
                     val visualIndex = if (layoutDirection == LayoutDirection.Rtl) {
-                        options.size - 1 - position
+                        count - 1 - position
                     } else position
                     drawRoundRect(
                         color = UiV2Theme.SegmentThumb,
