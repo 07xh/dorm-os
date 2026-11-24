@@ -255,6 +255,9 @@
    const sessionTools=authorized?
     '<div class="xu-school-session-tools"><button type="button" class="secondary" data-xu-school-sync="'+escapeHtml(provider.id)+'">同步数据</button>'+
     autoAction+
+    (provider.id==='ncwu'?'<button type="button" class="secondary" data-xu-ncwu-business="grades">检查成绩</button>'+
+     '<button type="button" class="secondary" data-xu-ncwu-business="exams">检查考试</button>'+
+     '<span class="tiny muted" role="status" aria-live="polite" data-xu-ncwu-business-result></span>':'')+
     '<button type="button" class="secondary" data-xu-school-disconnect="'+escapeHtml(provider.id)+'">解除连接</button></div>':autoAction;
    const guidance=provider.id==='ncwu'?
     '<details class="xu-kingo-guide"><summary>账号授权与同步说明</summary>'+
@@ -574,7 +577,7 @@
  const schoolMessage={invalid_cookie_format:'会话格式无效，必须保留 Cookie 原始域名与路径，本次未保存',upstream_unavailable:'学校平台当前不可访问，未建立连接',schedule_changed:'核对期间学校课表发生变化，请重新读取并确认',review_pending:'核对记录已失效，请重新登录查看课表',invalid_review:'请先确认已与学校官网核对',invalid_credentials:'账号或密码格式无效，请核对所选登录方式',authorization_failed:'平台身份校验失败或账号未关联学校，请核对所选登录方式',interactive_login_required:'学校认证需要官方页面交互，校序暂不能建立会话',school_login_unavailable:'该平台网站登录尚未验证可用',session_expired:'学校会话已过期，请重新登录',sync_failed:'学校读取未完成，旧数据仍保留',too_many_attempts:'学校账号登录尝试过多，请稍后重试',not_configured:'服务端尚未配置连接能力',database_unavailable:'校序存储暂不可用'};
  async function schoolPost(provider,verb,payload={}){
   if(!['ncwu','chaoxing','second_class'].includes(provider)||
-     !['login','confirm','import','sync','disconnect'].includes(verb))
+     !['login','confirm','import','sync','disconnect','business-check'].includes(verb))
    throw Error('未知学校平台');
   if(provider==='second_class'&&verb==='login')
    throw Error('请在校序 App 内使用学校官方授权连接第二课堂');
@@ -1028,6 +1031,32 @@
     root.dispatchEvent(new Event('xiaoxu-school-authorization-connected'));
    }catch(e){status.textContent=e.message||'学校账号连接失败';}
    finally{if(submit.isConnected)submit.disabled=false;}
+  });
+  document.addEventListener('click',async event=>{
+   const button=event.target.closest?.('[data-xu-ncwu-business]');
+   if(!button)return;
+   const panel=button.closest('.xu-school-session-tools');
+   const status=panel?.querySelector('[data-xu-ncwu-business-result]');
+   const kind=button.dataset.xuNcwuBusiness;
+   if(!status||!['grades','exams'].includes(kind))return;
+   const buttons=panel.querySelectorAll('[data-xu-ncwu-business]');
+   if(ncwuAutoSyncBusy||Array.from(buttons).some(x=>x.disabled))return;
+   const epoch=connectionEpoch;
+   for(const control of buttons)control.disabled=true;
+   status.textContent='正在读取学校接口…';
+   try{
+    const result=await schoolPost('ncwu','business-check',{kind});
+    if(epoch!==connectionEpoch||!status.isConnected)return;
+    const labels={evaluation_required:'学校要求完成评教后才能查看成绩',
+     schema_review_required:'接口有响应，明细格式尚待核验',
+     reported_empty:'所查考试轮次暂未返回场次（待核验）',
+     no_rounds_reported:'本学期未返回考试轮次（待核验）',
+     unrecognized:'学校响应格式暂未识别'};
+    status.textContent=(kind==='grades'?'成绩：':'考试：')+
+     (result?.kind===kind&&result.verified===false&&labels[result.status]||
+      '无法确认查询结果');
+   }catch(e){if(epoch===connectionEpoch&&status.isConnected)status.textContent=e.message||'查询未完成，旧数据保留';}
+   finally{for(const control of buttons)if(control.isConnected)control.disabled=false;}
   });
   document.addEventListener('click',async event=>{
    const button=event.target.closest?.('[data-xu-school-sync],[data-xu-school-disconnect]');

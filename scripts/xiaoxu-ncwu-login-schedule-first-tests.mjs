@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates,prepareNcwuAccountReview,confirmNcwuAccountReview,SchoolLoginError} from '../lib/academic-school-login.mjs';
+import {connectSchoolAccount,refreshSchoolAccount,schoolSessionStates,prepareNcwuAccountReview,confirmNcwuAccountReview,checkNcwuBusiness,SchoolLoginError} from '../lib/academic-school-login.mjs';
 import {readConnectionCenter} from '../lib/academic-connection-center.mjs';
 import {isActiveSchoolAuthorization} from '../functions/api/v1/connections.js';
 
@@ -89,6 +89,29 @@ assert.equal(refreshed.refreshed,true);
 assert.equal(schedules,2,'refresh only requests the same verified timetable');
 assert.deepEqual(sqlite.prepare("SELECT DISTINCT kind FROM academic_verified_records WHERE user_id=?")
  .all(owner).map(x=>x.kind),['schedule']);
+const diagAdapter=kind=>({
+ ...adapter(),
+ async forSession(args){
+  const reader=await adapter().forSession(args);
+  return {...reader,readGradeCandidate:async()=>({kind:'grades',verified:false,
+   complete:false,trustedSyncAllowed:false,status:'evaluation_required',private:'DO_NOT_RETURN'}),
+   readExamCandidates:async()=>({kind:'exams',verified:false,complete:false,
+    trustedSyncAllowed:false,roundCount:2,statuses:['reported_empty','reported_empty']})};
+ }
+});
+const diagnosticsBefore=sqlite.prepare("SELECT status,last_success_at FROM academic_connections WHERE user_id=?").get(owner);
+const gradeCheck=await checkNcwuBusiness({db,userId:owner,adapter:diagAdapter(),secret,kind:'grades'});
+assert.equal(gradeCheck.status,'evaluation_required');
+assert.equal(gradeCheck.verified,false);
+assert.ok(!JSON.stringify(gradeCheck).includes('DO_NOT_RETURN'));
+const examCheck=await checkNcwuBusiness({db,userId:owner,adapter:diagAdapter(),secret,kind:'exams'});
+assert.equal(examCheck.status,'reported_empty');
+assert.equal(examCheck.roundCount,2);
+assert.deepEqual(sqlite.prepare("SELECT status,last_success_at FROM academic_connections WHERE user_id=?").get(owner),diagnosticsBefore);
+assert.deepEqual(sqlite.prepare("SELECT DISTINCT kind FROM academic_verified_records WHERE user_id=?").all(owner).map(x=>x.kind),['schedule']);
+await assert.rejects(()=>checkNcwuBusiness({db,userId:'unconnected-owner',adapter:diagAdapter(),secret,kind:'grades'}),e=>e.code==='session_expired');
+await assert.rejects(()=>checkNcwuBusiness({db,userId:owner,adapter:diagAdapter(),secret,kind:'profile'}),e=>e.code==='not_configured');
+assert.equal(schedules,2,'independent diagnostics must not sync timetable');
 const savedBefore=sqlite.prepare('SELECT COUNT(*) AS n FROM academic_provider_sessions WHERE user_id=?')
  .get(owner).n;
 await assert.rejects(
