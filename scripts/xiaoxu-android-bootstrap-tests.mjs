@@ -1740,6 +1740,10 @@ assert.doesNotMatch(floatingBar, /if \(index == safeIndex\) iconPlayback\?\.repl
   '禁止同一标签重触发页面刷新和动画');
 assert.match(glassChrome, /fun Modifier\.northGlassTrack\(/);
 assert.match(glassChrome, /fun Modifier\.northGlassIndicator\(/);
+assert.match(glassChrome, /val speedDp = velocityPx\(\) \/ density/);
+assert.match(glassChrome, /UiV2GlassMotionPolicy\.lensQuality\(speedDp\)/);
+assert.match(glassChrome, /chromaticAberration = UiV2GlassMotionPolicy\.allowChromaticFringe\(speedDp\)/);
+
 assert.match(northIcon, /NorthPhosphorNavigationIcon\(/);
 assert.match(northMotion, /rememberNorthNavigationIconPlayback\(/);
 assert.match(design, /fun XiaoxuGlassDialog\(/,

@@ -14,7 +14,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
-import kotlin.math.abs
+import io.github.x07xh.xiaoxu.ui.v2.UiV2GlassMotionPolicy
 
 /**
  * Material and physics taken from CourseSelector / 北化课表 v1.0.83,
@@ -80,19 +80,22 @@ internal fun Modifier.northGlassIndicator(
     shape = { Capsule() },
     effects = {
         val press = pressProgress().coerceIn(0f, 1f)
-        val motion = (abs(velocityPx()) / 900f).coerceIn(0f, 1f)
+        val speedDp = velocityPx() / density
+        val motion = UiV2GlassMotionPolicy.motionFraction(speedDp)
+        val quality = UiV2GlassMotionPolicy.lensQuality(speedDp)
         vibrancy()
         if (Build.VERSION.SDK_INT >= 33 && size.minDimension > 0f) {
             val base = press // Original v1.0.83 NavIndicatorRefractionFloor = 0.
-            val hScale = base * (1f + motion * 0.25f)
-            val aScale = base * (1f + motion * 0.35f)
+            val hScale = base * (1f + motion * 0.25f) * quality
+            val aScale = base * (1f + motion * 0.35f) * quality
             val h = (12.dp.toPx() * hScale).coerceIn(0f, size.minDimension / 2f)
             val a = (18.dp.toPx() * aScale).coerceIn(0f, size.minDimension * 0.40f)
             if (h > 0f && a > 0f) {
                 lens(
                     refractionHeight = h,
                     refractionAmount = a,
-                    chromaticAberration = press > 0.05f || motion > 0.05f
+                    chromaticAberration = UiV2GlassMotionPolicy.allowChromaticFringe(speedDp) &&
+                        (press > 0.05f || motion > 0.05f)
                 )
             }
         }
