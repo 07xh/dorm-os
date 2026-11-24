@@ -80,6 +80,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
@@ -1129,9 +1130,9 @@ private fun CourseDetailBottomSheet(
         dragHandle = {
             Box(
                 Modifier.padding(top = 12.dp, bottom = 12.dp)
-                    .size(width = 48.dp, height = 5.dp)
+                    .size(width = UiV2SheetPolicy.HandleWidthDp.dp, height = UiV2SheetPolicy.HandleHeightDp.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFDADFE9))
+                    .background(XiaoxuPalette.Ink3.copy(alpha = 0.35f))
             )
         }
     ) {
@@ -1219,7 +1220,8 @@ private fun CourseDetailBottomSheet(
                     Text("课程提醒", color = XiaoxuPalette.Ink,
                         style = MaterialTheme.typography.titleMedium)
                     Text(
-                        (if (reminderSelected) "已开启" else "未开启") + " · 上课前 15 分钟",
+                        (if (reminderSelected) "已开启" else "未开启") +
+                            " · 上课前 ${LocalCourseReminders.leadMinutes(context)} 分钟",
                         color = XiaoxuPalette.Ink2,
                         style = MaterialTheme.typography.bodyMedium
                     )

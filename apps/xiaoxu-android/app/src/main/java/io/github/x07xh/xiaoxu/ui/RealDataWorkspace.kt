@@ -4,6 +4,9 @@ import android.widget.Toast
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeGreeting
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SelectionThumb
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import androidx.compose.ui.graphics.graphicsLayer
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSection
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
@@ -1520,8 +1523,8 @@ fun RealAcademicTaskHub(
                     .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
                         RoundedCornerShape(XiaoxuRadius.card))
                     .padding(5.dp)
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .uiV2SelectionThumb(listOf("now", "pending", "all", "done").indexOf(filter), 4, XiaoxuRadius.tile)
+                    .selectableGroup()
             ) {
                 TaskStatusTab(
                     label = "可执行", count = nowCount,
@@ -2449,7 +2452,6 @@ private fun TaskStatusTab(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .background(if (active) XiaoxuPalette.GlassIndicator else Color.Transparent)
             .selectable(selected = active, role = Role.Tab, onClick = onClick)
             .semantics { contentDescription = "$label，$count 条" }
             .heightIn(min = 56.dp)
@@ -2494,9 +2496,9 @@ private fun TaskGroupHeader(
         topStart = XiaoxuRadius.group, topEnd = XiaoxuRadius.group,
         bottomStart = 0.dp, bottomEnd = 0.dp
     ) else RoundedCornerShape(XiaoxuRadius.group)
-    val chevronRotation by animateFloatAsState(
+    val chevronRotation = animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(UiV2Motion.QuickMs, easing = UiV2Motion.Easing),
         label = "task-group-chevron"
     )
     Row(
@@ -2546,7 +2548,7 @@ private fun TaskGroupHeader(
             Icons.Outlined.ExpandMore,
             contentDescription = null,
             tint = XiaoxuPalette.Ink2,
-            modifier = Modifier.size(20.dp).rotate(chevronRotation)
+            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = chevronRotation.value }
         )
     }
 }

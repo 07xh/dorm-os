@@ -477,6 +477,8 @@ assert.match(v2Segments, /Modifier\.weight\(1f\)\.heightIn\(min = 48\.dp\)/,
  '共享分段控件等宽且至少48dp触控高度');
 assert.match(v2Segments, /drawBehind[\s\S]*?thumb\.value/, '滑块只在绘制阶段读取动画值');
 assert.match(v2Segments, /selectedKey == option\.key/, '选中状态来自调用方');
+assert.match(workspace, /\.uiV2SelectionThumb\(/, '任务计数筛选共享单选中层');
+assert.match(scheduleUi, /LocalCourseReminders\.leadMinutes\(context\)/, '课程提醒展示真实配置');
 assert.match(v2Theme, /titleLarge = type\(20, 26, true\)/, '一级页面保持20sp字级与26sp行高');
 assert.match(designSystem, /typography = UiV2Theme\.Typography/, '全局主题须接入 V2 字阶');
 assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
@@ -1273,7 +1275,7 @@ assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevatio
   '删除本机连接中的旧 Material 灰色卡片阴影');
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
@@ -1295,9 +1297,9 @@ assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
   '待完成不能包含学习通未知或未关联的旧通知');
 assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
   '历史未知学校状态必须保留人工核对筛选');
-assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
+assert.match(workspace, /val pendingCount = remember\(all\) \{ all\.count\(::isActionableWorkspaceTask\) \}/,
   '任务中心待完成数量须与可执行待办一致');
-assert.match(workspace, /val pending = all\.count\(::isActionableWorkspaceTask\)/,
+assert.match(workspace, /val pending = remember\(all\) \{ all\.count\(::isActionableWorkspaceTask\) \}/,
   '首页待完成数量不得包含未核对旧通知');
 assert.match(workspace, /filter = "verify"/,
   '学习通待核对必须可以单独选择，不依赖其它分组');
@@ -1863,7 +1865,7 @@ assert.match(workspace, /HomeQuickAction\("成绩"/, '首页学业入口须指�
 assert.match(workspace, /HomeQuickAction\("考试"/);
 assert.match(workspace, /HomeQuickAction\("第二课堂"/);
 assert.match(workspace, /HomeQuickAction\("学习通"/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
 assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
@@ -1943,10 +1945,10 @@ assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须
 assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
 assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
   '三项统计应采用上下标签和数量而非横排大卡');
-assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
+assert.match(workspace, /label = "待完成", count = pendingCount/, '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
-assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
+assert.match(workspace, /label = "已完成", count = completedCount/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
@@ -1990,7 +1992,7 @@ assert.match(workspace, /joinedRows = true,/,
   '课程、微信和本机任务分组须与所属任务行衔接为单层玻璃列表');
 assert.match(workspace, /label = "task-group-chevron"/,
   '任务分组折叠箭头须使用共享动画时序');
-assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.rotate\(chevronRotation\)/,
+assert.match(workspace, /modifier = Modifier\.size\(20\.dp\)\.graphicsLayer \{ rotationZ = chevronRotation\.value \}/,
   '分组状态改变时只旋转箭头，不重新绘制业务数据');
 
 assert.match(designSystem, /val listRowMin: Dp = 68\.dp/,

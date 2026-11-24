@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 
@@ -44,11 +45,6 @@ internal fun UiV2SegmentedControl(
 ) {
     if (options.isEmpty()) return
     val index = options.indexOfFirst { it.key == selectedKey }
-    val thumb = animateFloatAsState(
-        targetValue = index.coerceAtLeast(0).toFloat(),
-        animationSpec = tween(UiV2Motion.StandardMs, easing = UiV2Motion.Easing),
-        label = "v2-segment-thumb"
-    )
     val pill = RoundedCornerShape(50)
     Row(
         modifier = modifier
@@ -56,21 +52,7 @@ internal fun UiV2SegmentedControl(
             .clip(pill)
             .background(UiV2Theme.SegmentTrack)
             .padding(3.dp)
-            .drawBehind {
-                if (index >= 0 && size.width > 0f) {
-                    val width = size.width / options.size
-                    val position = thumb.value.coerceIn(0f, (options.size - 1).toFloat())
-                    val visualIndex = if (layoutDirection == LayoutDirection.Rtl) {
-                        options.size - 1 - position
-                    } else position
-                    drawRoundRect(
-                        color = UiV2Theme.SegmentThumb,
-                        topLeft = Offset(visualIndex * width, 0f),
-                        size = Size(width, size.height),
-                        cornerRadius = CornerRadius(size.height / 2f)
-                    )
-                }
-            }
+            .uiV2SelectionThumb(index, options.size)
             .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -98,4 +80,29 @@ internal fun UiV2SegmentedControl(
             }
         }
     }
+}
+
+/** Shared draw-only selected layer for equal-width controls. Apply after track padding. */
+@Composable
+internal fun Modifier.uiV2SelectionThumb(index: Int, count: Int, radius: Dp = 999.dp): Modifier {
+    val thumb = animateFloatAsState(
+        targetValue = index.coerceAtLeast(0).toFloat(),
+        animationSpec = tween(UiV2Motion.StandardMs, easing = UiV2Motion.Easing),
+        label = "v2-segment-thumb"
+    )
+    return this.drawBehind {
+                if (index >= 0 && size.width > 0f) {
+                    val width = size.width / count
+                    val position = thumb.value.coerceIn(0f, (options.size - 1).toFloat())
+                    val visualIndex = if (layoutDirection == LayoutDirection.Rtl) {
+                        options.size - 1 - position
+                    } else position
+                    drawRoundRect(
+                        color = UiV2Theme.SegmentThumb,
+                        topLeft = Offset(visualIndex * width, 0f),
+                        size = Size(width, size.height),
+                        cornerRadius = CornerRadius(radius.toPx().coerceAtMost(size.height / 2f))
+                    )
+                }
+            }
 }
