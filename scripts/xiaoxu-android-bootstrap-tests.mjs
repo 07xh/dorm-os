@@ -2739,3 +2739,9 @@ assert.match(main, /val workspaceStepEdges = rememberLocalRows\(workspaceExecuti
 assert.match(main, /val workspaceExecutions = rememberLocalRows\(workspaceExecutionDao\) \{ workspaceExecutionDao\.observeExecutions\(\) \}/);
 assert.match(main, /executionDao = workspaceExecutionDao,\s*taskSteps = workspaceTaskSteps\.value,\s*stepEdges = workspaceStepEdges\.value,\s*executions = workspaceExecutions\.value/);
 assert.doesNotMatch(workspace, /rememberLocalRows\(executionDao\)/);
+
+assert.match(main, /val preparedSchedule = remember\(localLessons\) \{ localImportedScheduleView\(localLessons\) \}/);
+assert.equal((main.match(/preparedSchedule = preparedSchedule/g) || []).length, 2);
+assert.match(schedulePanel, /internal val displayLessons: List<LessonUi> by lazy \{ lessons\.map \{ it\.toUi\(\) \} \}/);
+assert.match(schedulePanel, /val lessons = data\.displayLessons/);
+assert.match(localTimetableEntry, /val scheduleData = preparedSchedule \?: remember\(localLessons\)/);
