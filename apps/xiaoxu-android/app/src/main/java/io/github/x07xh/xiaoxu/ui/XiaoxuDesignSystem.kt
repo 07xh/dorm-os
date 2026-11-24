@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
@@ -933,7 +934,8 @@ fun XiaoxuTopBar(
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
     onMessages: (() -> Unit)? = null,
-    applyStatusBarInset: Boolean = true
+    applyStatusBarInset: Boolean = true,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -945,6 +947,13 @@ fun XiaoxuTopBar(
             .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (onNavigation != null) {
+            XiaoxuSoftIconButton(onClick = onNavigation, glassChrome = true) {
+                Icon(Icons.Outlined.Menu, contentDescription = "打开导航",
+                    tint = XiaoxuPalette.Ink2)
+            }
+            Spacer(Modifier.width(8.dp))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
