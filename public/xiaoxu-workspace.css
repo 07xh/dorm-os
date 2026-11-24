@@ -33,6 +33,16 @@ body{background:var(--xu-bg);color:var(--xu-ink);font-family:-apple-system,Blink
 
 .xu-task-title{padding:0;background:none;border:0;text-align:left;cursor:pointer;min-height:44px}.xu-task-title:hover{color:var(--xu-brand)}
 
+/* The timetable import disclosure shares a row with schedule controls.
+ * Keep its expanded actions in layout flow so it cannot cover day/week buttons
+ * on touchscreens or while preserving the open panel across local updates. */
+#app .v42-schedule-toolbar .v4-import-tools[open] .v4-import-panel{
+ position:static;
+ margin-top:8px;
+ width:min(240px,100%);
+ box-shadow:none;
+}
+
 /* Preserve proven mobile task hit areas after removing V8/V9 style layers. */
 #app .v4-task-list .task-actions button{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 #app .v4-task-list .task-actions{flex-wrap:wrap}
