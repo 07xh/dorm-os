@@ -1127,7 +1127,8 @@ fun RealAcademicTaskHub(
     onMessages: () -> Unit,
     reminderTaskId: Long? = null,
     reminderTaskToken: Int = 0,
-    onReminderConsumed: () -> Unit = {}
+    onReminderConsumed: () -> Unit = {},
+    onNavigation: (() -> Unit)? = null
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -1414,6 +1415,7 @@ fun RealAcademicTaskHub(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                XiaoxuNavigationAction(onNavigation)
                 Text("任务",
                     style = MaterialTheme.typography.titleLarge,
                     color = XiaoxuPalette.Ink,
