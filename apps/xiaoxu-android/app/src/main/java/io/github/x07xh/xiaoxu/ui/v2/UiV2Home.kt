@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.LocalIndication
@@ -23,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,20 +62,22 @@ internal fun UiV2HomeQuickAction(
     val warm = title == "第二课堂" || title == "学习通"
     val container = if (warm) UiV2Theme.WarmContainer else UiV2Theme.CoolContainer
     val tint = if (warm) UiV2Theme.WarmInk else UiV2Theme.CoolInk
-    Column(
-        modifier.uiV2Press(interaction).clip(RoundedCornerShape(14.dp))
-            .heightIn(min = 64.dp)
+    Row(
+        modifier.uiV2Press(interaction).clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))
+            .heightIn(min = 68.dp)
             .clickable(interactionSource = interaction, indication = LocalIndication.current,
                 role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
-            .padding(horizontal = 2.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Box(Modifier.size(34.dp).clip(CircleShape).background(container),
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(container),
             contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = tint)
+            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
         }
-        Text(title, style = MaterialTheme.typography.labelMedium,
+        Text(title, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
             color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
