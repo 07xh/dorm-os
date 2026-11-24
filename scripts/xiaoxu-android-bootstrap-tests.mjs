@@ -1113,7 +1113,7 @@ assert.match(bottomActions, /BoxWithConstraints\(/,
   '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
 const v2SheetPolicy = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SheetPolicy.kt');
 assert.match(v2SheetPolicy, /const val HeightFraction = 0\.88f/);
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* UiV2SheetPolicy\.HeightFraction/,
+assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* UiV2SheetPolicy\.heightFraction\(maxHeight\.value\)/,
   '底部浮层高度必须相对可用空间限制');
 assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
   '底部浮层须避让状态栏、导航栏和键盘');
@@ -2495,3 +2495,8 @@ assert.match(taskReadingLayout, /LazyColumn\(\s*modifier = Modifier\.weight\(1f\
 assert.match(schedulePanel, /Text\(weekDateLabel, style = MaterialTheme\.typography\.labelSmall/);
 assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, nextMode\)\s*viewMode = nextMode/);
 assert.match(schedulePanel, /enabled = currentIndex >= 0 && currentIndex < weekNumbers\.lastIndex/);
+
+assert.match(bottomActions, /if \(!compactHeight\) UiV2SheetHandle\(/);
+assert.match(bottomActions, /if \(compactHeight && dismissEnabled\)/);
+assert.match(bottomActions, /actions\.forEachIndexed[\s\S]*?UiV2SettingsDivider\(\)[\s\S]*?XiaoxuSheetActionRow\(action\)/);
+assert.match(v2SheetPolicy, /if \(availableHeightDp < CompactHeightDp\) 1f else HeightFraction/);
