@@ -364,7 +364,9 @@ class CloudClient(context: Context) {
         state = state.copy(tasksFresh = false, connectionsFresh = false,
             secondClassFresh = false, chaoxingInboxFresh = false)
         // Android Keystore decryption may block; keep it off main.
-        if (withContext(Dispatchers.IO) { session.load() } == null) {
+        val boundToken = withContext(Dispatchers.IO) { session.load() }
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+        if (boundToken == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 privateError = null, lastSyncAt = null,
@@ -373,7 +375,7 @@ class CloudClient(context: Context) {
         }
         try {
             val auth = withContext(Dispatchers.IO) {
-                request("/api/v1/auth/me", authenticated = true)
+                request("/api/v1/auth/me", authenticated = true, boundSessionToken = boundToken)
             }
             if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
             if (auth.code == 401) {
@@ -398,9 +400,14 @@ class CloudClient(context: Context) {
             }
             val confirmedOwner = auth.json.optString("ownerId").takeIf { it.isNotBlank() }
             if (confirmedOwner == null) throw IllegalStateException("missing_owner")
-            if (state.ownerId != null && state.ownerId != confirmedOwner)
-                state = clearAccountSnapshots().copy(tasks = emptyList(), platforms = emptyList())
+            if (state.ownerId != null && state.ownerId != confirmedOwner) {
+                state = clearAccountSnapshots().copy(tasks = emptyList(), platforms = emptyList(),
+                    pendingWechatCount = null, secondClass = null, secondClassError = null,
+                    secondClassBusy = false, lastSyncAt = null)
+            }
             state = state.copy(ownerId = confirmedOwner)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
                 state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
@@ -424,7 +431,7 @@ class CloudClient(context: Context) {
                 val offset = pages.nextOffset
                 val r = withContext(Dispatchers.IO) {
                     request("/api/v1/assignments?limit=100&offset=$offset",
-                        authenticated = true)
+                        authenticated = true, boundSessionToken = boundToken)
                 }
                 if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
                 if (r.code != 200) throw IllegalStateException("assignments_page_failed")
@@ -467,7 +474,7 @@ class CloudClient(context: Context) {
         }
         try {
             val r = withContext(Dispatchers.IO) {
-                request("/api/v1/connections", authenticated = true)
+                request("/api/v1/connections", authenticated = true, boundSessionToken = boundToken)
             }
             if (r.code != 200) throw IllegalStateException()
             val array = r.json.getJSONArray("platforms")
@@ -505,7 +512,7 @@ class CloudClient(context: Context) {
         // Explicit local import is the only source of displayed lessons.
         try {
             val r = withContext(Dispatchers.IO) {
-                request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true)
+                request("/api/v1/wechat/candidates?limit=30&status=needs_review", authenticated = true, boundSessionToken = boundToken)
             }
             if (r.code != 200 || r.json.optString("status") != "personal_candidates")
                 throw IllegalStateException("invalid_candidates_response")
@@ -547,7 +554,7 @@ class CloudClient(context: Context) {
         var inbox: List<ChaoxingInboxNotice>? = null
         try {
             val r = withContext(Dispatchers.IO) {
-                request("/api/v1/chaoxing-inbox?limit=100", authenticated = true)
+                request("/api/v1/chaoxing-inbox?limit=100", authenticated = true, boundSessionToken = boundToken)
             }
             if (r.code != 200 || r.json.optString("schema") != "xiaoxu/chaoxing-inbox-v1" ||
                 r.json.optString("source") != "chaoxing" ||
