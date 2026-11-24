@@ -25,6 +25,8 @@ test('WeChat candidates auto-read after verified login but require manual confir
    result={devices};
   else if(url.pathname==='/api/v1/wechat/candidates'&&req.method()==='GET')
    result={status:'personal_candidates',items:records};
+  else if(url.pathname==='/api/v1/wechat/monitor'&&req.method()==='GET')
+   result={devices:devices.map(d=>({id:d.id,cloudState:d.lastSeenAt?'recent':'not_verified',lastConfirmedAt:d.lastSeenAt,confirmedBatches24h:0,pendingCount:0}))};
   else if(url.pathname==='/api/v1/wechat/devices'&&req.method()==='POST'){
    const input=req.postDataJSON();
    expect(input.name).toBe('我的 Windows 电脑');
@@ -41,14 +43,14 @@ test('WeChat candidates auto-read after verified login but require manual confir
  });
  await page.goto('/#tasks');
  // Auto-read only follows a verified owner session; the Review tab shows cached candidates.
- await expect.poll(()=>calls.filter(x=>x.method==='GET').length).toBe(2);
+ await expect.poll(()=>calls.filter(x=>x.method==='GET').map(x=>x.path).sort()).toEqual(['/api/v1/wechat/candidates','/api/v1/wechat/devices','/api/v1/wechat/monitor']);
  await page.locator('[data-filter="review"]').click();
  const panel=page.getByRole('region',{name:'微信待审核任务'});
  await expect(panel).toBeVisible();
  await expect(panel.locator('.xu-wc-details')).toContainText('1 条待确认');
  await panel.locator('.xu-wc-details > summary').click();
  await expect(panel.getByText('请在周五前提交示例报告')).toBeVisible();
- expect(calls.filter(x=>x.method==='GET').length).toBe(2);
+ expect(calls.filter(x=>x.method==='GET').map(x=>x.path).sort()).toEqual(['/api/v1/wechat/candidates','/api/v1/wechat/devices','/api/v1/wechat/monitor']);
  expect(calls.some(x=>x.method==='POST'&&x.path.includes('/candidates/'))).toBe(false);
 
  // The same original tasks page is responsible for reviewing and confirming.
