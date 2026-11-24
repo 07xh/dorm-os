@@ -313,33 +313,11 @@ fun MessageCenterPanel(
             Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                state = if (showWechat) wechatListState else officialListState,
-                modifier = Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth),
-                contentPadding = PaddingValues(
-                    start = sidePadding,
-                    end = sidePadding,
-                    top = 10.dp,
-                    bottom = 26.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
+            Column(Modifier.fillMaxHeight().xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = sidePadding),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MessageHeader(onRefresh = refresh, onBack = onBack)
-                }
-                item {
-                    LocalReminderSummary(
-                        previews = upcomingLocal,
-                        expanded = localSummaryExpanded,
-                        onExpand = { localSummaryExpanded = !localSummaryExpanded },
-                        onOpenTask = onOpenLocalTasks,
-                        onOpenCourse = onOpenLocalSchedule,
-                        onSettings = onOpenReminderSettings
-                    )
-                }
-                item {
-                    // One shared glass selector for real message sources, not a
-                    // Material TabRow with another visual system inside the page.
+                    // Keep source switching available even deep in the message list.
                     val noticeTitle = "官方通知" +
                         if (state.notices.isNotEmpty()) " (${state.notices.size})" else ""
                     val wechatTitle = "微信审核" +
@@ -355,6 +333,25 @@ fun MessageCenterPanel(
                         onSelected = { sourceTab = it }
                     )
                 }
+                LazyColumn(
+                    state = if (showWechat) wechatListState else officialListState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(
+                        start = sidePadding, end = sidePadding,
+                        top = 10.dp, bottom = 26.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (!showWechat) item(key = "local-reminders") {
+                        LocalReminderSummary(
+                            previews = upcomingLocal,
+                            expanded = localSummaryExpanded,
+                            onExpand = { localSummaryExpanded = !localSummaryExpanded },
+                            onOpenTask = onOpenLocalTasks,
+                            onOpenCourse = onOpenLocalSchedule,
+                            onSettings = onOpenReminderSettings
+                        )
+                    }
                 if (!showWechat) {
                     item {
                         UiV2SearchField(
@@ -450,6 +447,7 @@ fun MessageCenterPanel(
                     }
                 }
 
+                }
             }
         }
         if (detailWidth != null && !showWechat) {
