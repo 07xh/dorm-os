@@ -3,6 +3,7 @@ package io.github.x07xh.xiaoxu.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionProvider
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SegmentedControl
 import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
@@ -295,7 +296,7 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
             // low-contrast ripple; individually clipped shapes retain their outline.
             CompositionLocalProvider(
                 LocalIndication provides ripple(bounded = true, color = XiaoxuPalette.PressTint)
-            ) { content() }
+            ) { UiV2MotionProvider(content) }
         }
     )
 }

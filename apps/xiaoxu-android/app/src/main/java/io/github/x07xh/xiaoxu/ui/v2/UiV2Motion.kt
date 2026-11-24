@@ -1,6 +1,9 @@
 package io.github.x07xh.xiaoxu.ui.v2
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
@@ -22,19 +25,23 @@ internal object UiV2Motion {
     const val SheetSettleMs = 260
     const val PressScale = 0.97f
     val Easing = FastOutSlowInEasing
+
+    fun spec(mode: UiV2MotionMode, durationMs: Int): AnimationSpec<Float> = when (mode) {
+        UiV2MotionMode.Reduced -> snap()
+        UiV2MotionMode.Fluid -> spring(dampingRatio = 0.9f, stiffness = 550f, visibilityThreshold = 0.001f)
+        UiV2MotionMode.Standard -> tween(durationMs, easing = Easing)
+    }
 }
 
 /** Use the existing clickable interaction stream instead of intercepting gestures. */
 @Composable
 internal fun Modifier.uiV2Press(source: InteractionSource, enabled: Boolean = true): Modifier {
     val pressed by source.collectIsPressedAsState()
-    val active = enabled && pressed
+    val mode = LocalUiV2Motion.current
+    val active = enabled && pressed && mode != UiV2MotionMode.Reduced
     val scale = animateFloatAsState(
         targetValue = if (active) UiV2Motion.PressScale else 1f,
-        animationSpec = tween(
-            durationMillis = if (active) UiV2Motion.PressMs else UiV2Motion.ReleaseMs,
-            easing = UiV2Motion.Easing
-        ),
+        animationSpec = UiV2Motion.spec(mode, if (active) UiV2Motion.PressMs else UiV2Motion.ReleaseMs),
         label = "v2-press"
     )
     // Read the animated value only in the graphics phase, not in composition/layout.

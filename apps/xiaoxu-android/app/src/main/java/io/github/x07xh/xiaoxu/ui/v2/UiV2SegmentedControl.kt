@@ -101,19 +101,20 @@ internal fun Modifier.uiV2SelectionThumb(
     index: Int, count: Int, radius: Dp = 999.dp,
     onDragSelected: ((Int) -> Unit)? = null
 ): Modifier {
+    val mode = LocalUiV2Motion.current
     val thumb = remember(count) { Animatable(index.coerceAtLeast(0).toFloat()) }
     val drag = remember(count) { mutableFloatStateOf(Float.NaN) }
     val settle = remember(count) { mutableIntStateOf(0) }
     val callback = rememberUpdatedState(onDragSelected)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    LaunchedEffect(index, count, settle.intValue) {
+    LaunchedEffect(index, count, settle.intValue, mode) {
         val preview = drag.floatValue
         if (preview.isFinite()) {
             thumb.snapTo(preview)
             drag.floatValue = Float.NaN
         }
         thumb.animateTo(index.coerceAtLeast(0).toFloat(),
-            animationSpec = tween(UiV2Motion.StandardMs, easing = UiV2Motion.Easing))
+            animationSpec = UiV2Motion.spec(mode, UiV2Motion.StandardMs))
     }
     val gesture = if (count > 1 && index in 0 until count && onDragSelected != null) {
         Modifier.pointerInput(index, count, rtl) {

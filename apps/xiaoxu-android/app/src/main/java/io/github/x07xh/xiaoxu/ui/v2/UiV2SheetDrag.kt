@@ -56,6 +56,7 @@ internal fun UiV2SheetHandle(
     color: Color
 ) {
     val scope = rememberCoroutineScope()
+    val mode = rememberUpdatedState(LocalUiV2Motion.current)
     val currentDismiss by rememberUpdatedState(onDismiss)
     val currentEnabled by rememberUpdatedState(enabled)
     val flingPx = with(LocalDensity.current) { UiV2SheetPolicy.FlingDpPerSecond.dp.toPx() }
@@ -88,8 +89,8 @@ internal fun UiV2SheetHandle(
                             settleJob = scope.launch {
                                 animate(
                                     initialValue = state.offset, targetValue = 0f,
-                                    animationSpec = tween(UiV2Motion.SheetSettleMs, easing = UiV2Motion.Easing)
-                                ) { value, _ -> state.offset = value }
+                                    animationSpec = UiV2Motion.spec(mode.value, UiV2Motion.SheetSettleMs)
+                                ) { value, _ -> state.offset = value.coerceAtLeast(0f) }
                             }
                         }
                     }

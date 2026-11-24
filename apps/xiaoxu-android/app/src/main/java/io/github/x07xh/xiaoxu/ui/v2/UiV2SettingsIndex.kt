@@ -16,6 +16,7 @@ internal val uiV2SettingsIndex = listOf(
     UiV2Setting("notifications", "通知与提醒", "学习与课程", listOf("消息", "免打扰", "通知权限")),
     UiV2Setting("connections", "数据连接", "账户与数据", listOf("登录", "云端", "教务", "青果", "学习通", "第二课堂")),
     UiV2Setting("backup", "备份与恢复", "账户与数据", listOf("本机", "任务备份", "恢复", "数据")),
+    UiV2Setting("motion", "外观与动效", "其他", listOf("动画", "灵动", "减少动画", "性能", "流畅度")),
     UiV2Setting("about", "关于校序", "其他", listOf("版本", "应用", "开发者")),
     UiV2Setting("notifications-course", "课程提醒", "通知与提醒", listOf("上课", "课前", "通知")),
     UiV2Setting("notifications-task", "任务提醒", "通知与提醒", listOf("截止", "作业", "通知")),

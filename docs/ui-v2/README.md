@@ -86,3 +86,8 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 - 按 AndroidX PredictiveBackHandler 官方 API（https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture）实现设置普通子页、校园详情和消息中心的系统手势预览。主 Activity 显式启用平台预测返回回调；三键返回沿用同一提交动作。
 - 只在当前内容 Surface 的 graphicsLayer 读取进度，左右边缘方向独立，最大缩放 6%、位移 8%；取消时 160ms 恢复，完成时执行原父路由动作。预览按路由隔离，不增加第二个业务页面或底层截图。课表编辑/设置仍保留原即时返回和子级保护。
 - 新增纯逻辑边界测试与静态接入检查。尚需 APK、真机验证系统手势、子级弹窗优先级、三键返回及快速连续操作；不宣称完整移植 DSH Go 页面转场或已测得性能改善。
+
+## 第十二批：V2 动效档位
+
+- 参考 DSH Go AppMotion 的标准/灵动/减少动画机制，独立 Compose 实现统一动画 spec。默认标准，灵动使用弹簧，减少动画使用 snap 并关闭按压缩放和返回预览；系统 animator duration scale 为 0 时优先减少动画。
+- 设置新增真实外观与动效入口，设备本地持久化偏好，搜索索引接入该路由。先接 V2 按压、滑块、弹层回位和返回恢复；北化玻璃物理动画与其他遗留动画尚未纳入全局档位，不宣称全 App 已统一。新增模式逻辑单测，尚待 APK/真机验收。

@@ -35,6 +35,7 @@ internal fun UiV2PredictiveBack(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val mode = rememberUpdatedState(LocalUiV2Motion.current)
     val latestPreview = rememberUpdatedState(preview)
     val latestEnabled = rememberUpdatedState(enabled)
     val latestBack = rememberUpdatedState(onBack)
@@ -45,7 +46,8 @@ internal fun UiV2PredictiveBack(
         try {
             events.collect { event ->
                 active.fromRight.value = event.swipeEdge == BackEventCompat.EDGE_RIGHT
-                active.progress.floatValue = UiV2BackPolicy.progress(event.progress)
+                active.progress.floatValue = if (mode.value == UiV2MotionMode.Reduced) 0f
+                    else UiV2BackPolicy.progress(event.progress)
             }
             active.progress.floatValue = 0f
             if (latestEnabled.value && latestPreview.value === active) latestBack.value()
@@ -54,7 +56,7 @@ internal fun UiV2PredictiveBack(
                 animate(
                     initialValue = active.progress.floatValue,
                     targetValue = 0f,
-                    animationSpec = tween(UiV2Motion.QuickMs, easing = UiV2Motion.Easing)
+                    animationSpec = UiV2Motion.spec(mode.value, UiV2Motion.QuickMs)
                 ) { value, _ -> active.progress.floatValue = value }
             }
             throw cancelled

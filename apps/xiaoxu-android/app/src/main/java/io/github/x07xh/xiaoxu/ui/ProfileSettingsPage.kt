@@ -62,6 +62,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsHeader
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionSettingsPage
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
@@ -119,6 +120,7 @@ fun ProfileSettingsPage(
         "backup" -> "备份与恢复"
         "about" -> "关于校序"
         "licenses" -> "开源许可"
+        "motion" -> "外观与动效"
         else -> "设置"
     }
     val goBack = { onRouteChange(uiV2SettingsParent(animatedRoute)) }
@@ -199,6 +201,7 @@ fun ProfileSettingsPage(
                     AboutPage(onOpenLicenses = { onRouteChange("licenses") })
                 }
                 "licenses" -> item { OpenSourceCreditsPanel() }
+                "motion" -> item { UiV2MotionSettingsPage() }
             }
         }
     }
