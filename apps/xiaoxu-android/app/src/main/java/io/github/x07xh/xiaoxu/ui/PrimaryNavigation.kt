@@ -45,6 +45,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
@@ -108,13 +109,17 @@ internal fun PrimaryBottomNavigation(
     val items = remember {
         PrimaryTabs.map { FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol) }
     }
+    val latestOnSelect = rememberUpdatedState(onSelect)
+    val selectIndex: (Int) -> Unit = remember {
+        { index -> PrimaryTabs.getOrNull(index)?.let { latestOnSelect.value(it) } }
+    }
     FloatingBottomBar(
         items = items,
         selectedIndex = PrimaryTabs.indexOf(selected).coerceAtLeast(0),
         backdrop = backdrop,
         // Original v1.0.83 selected tint; no custom palette reinterpretation.
         selectedContentColor = if (backdrop != null) Color(0xFF0057D9) else XiaoxuPalette.BrandDeep,
-        onSelect = { onSelect(PrimaryTabs[it]) }
+        onSelect = selectIndex
     )
 }
 
