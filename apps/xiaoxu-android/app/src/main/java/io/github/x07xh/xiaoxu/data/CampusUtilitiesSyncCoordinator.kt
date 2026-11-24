@@ -78,7 +78,9 @@ internal class CampusUtilitiesSyncCoordinator(
             return@withLock CampusUtilitiesSyncState.Cached(cached)
         }
         val result = try {
-            client.readMonth(CampusUtilityKind.ELECTRIC, binding.room, month)
+            client.readMonth(CampusUtilityKind.ELECTRIC, binding.room, month) {
+                currentBinding() == binding
+            }
         } catch (e: CampusUtilitiesException) {
             if (e.failure == CampusUtilitiesFailure.LOGIN_REQUIRED ||
                 e.failure == CampusUtilitiesFailure.ACCESS_DENIED) {
