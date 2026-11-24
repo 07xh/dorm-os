@@ -1299,7 +1299,7 @@ assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*
   '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
-assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
+assert.match(workspace, /UiV2HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
 assert.match(workspace, /学习通 · 本机读取/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
@@ -1861,7 +1861,7 @@ assert.match(homeCourseBlock, /if \(hasTimetable && lessons\.isEmpty\(\)\) \{/,
   '首页有课表但当天无课时，应显示紧凑提示而非多余的厚玻璃空卡');
 assert.match(homeCourseBlock, /暂无本机课程记录/,
   '未知当前教学周时仅描述本机记录，不推定学校官方无课');
-assert.match(homeCourseBlock, /else \{\s*HomeSection\([\s\S]*?Column\(Modifier\.fillMaxWidth\(\)\)/,
+assert.match(homeCourseBlock, /else \{\s*UiV2HomeSection\([\s\S]*?Column\(Modifier\.fillMaxWidth\(\)\)/,
   '仅有课程记录或未导入课表时渲染实际列表或导入入口');
 assert.match(homeCourseBlock, /if \(hasTimetable && lessons.isEmpty\(\)\) \{\s*[\s\S]*?Row\(/,
   '本机当日无课时用单行对齐提示替代独立厚卡');
@@ -1884,15 +1884,16 @@ assert.doesNotMatch(workspace.slice(workspace.indexOf('val hero: @Composable'), 
   /HomeHero\(/, '首页不能继续调用旧轮播');
 assert.doesNotMatch(workspace, /resolveHomeCourseIndex|selectedHomeCourseKey|onSelectCourse\(/,
   '首页旧轮播状态须清退');
-assert.match(workspace, /private fun HomeQuickAction\(/,
-  '学业入口使用单个紧凑共享入口组件');
+assert.doesNotMatch(workspace, /private fun (HomeQuickAction|HomeSection|TaskSourceBadge)\(/,
+  '直接使用 V2 共享组件，不保留转发包装');
+assert.match(v2Home, /internal fun UiV2HomeQuickAction\(/);
 const homeCourseSequence = read('apps/xiaoxu-android/app/src/test/java/io/github/x07xh/xiaoxu/ui/HomeCourseSequenceTest.kt');
 assert.match(homeCourseSequence, /firstFourPreserveSequenceFromLongList/, '首页列表必须保持记录顺序');
 assert.match(workspace, /private fun HomeTaskRow\(/, '首页待办行须复用任务状态判定');
-assert.match(workspace, /HomeQuickAction\("成绩"/, '首页学业入口须指向真实子页面');
-assert.match(workspace, /HomeQuickAction\("考试"/);
-assert.match(workspace, /HomeQuickAction\("第二课堂"/);
-assert.match(workspace, /HomeQuickAction\("学习通"/);
+assert.match(workspace, /UiV2HomeQuickAction\("成绩"/, '首页学业入口须指向真实子页面');
+assert.match(workspace, /UiV2HomeQuickAction\("考试"/);
+assert.match(workspace, /UiV2HomeQuickAction\("第二课堂"/);
+assert.match(workspace, /UiV2HomeQuickAction\("学习通"/);
 assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
@@ -2144,7 +2145,7 @@ assert.ok(workspace.includes('TaskRow(cloudRows[i], today, onOpen = { openedTask
   '云端任务仍从真实 Row 数据打开详情且保留来源隔离');
 assert.ok(workspace.includes('含上次云端快照'),
   '未核验云端数据不得被统计描述为最新');
-assert.ok(workspace.includes('SourceBadge(text, tone = if (emphasized)'),
+assert.ok(workspace.includes('SourceBadge("本机读取记录", tone = XiaoxuTone.Neutral)'),
   '任务来源必须复用共享来源标签');
 assert.ok(!workspace.includes('WechatReviewPanel('),
   '任务中心只展示已保存任务，不能复制微信候选审核器');
@@ -2607,8 +2608,8 @@ assert.doesNotMatch(cancelPill, /destructive|selected/,
 assert.match(cancelPill, /enabled = enabled/);
 
 const homeActionGrid = workspace.slice(workspace.indexOf('private fun HomeQuickBlock('),
-  workspace.indexOf('private fun HomeQuickAction('));
-assert.doesNotMatch(homeActionGrid, /HomeSection\(|XiaoxuCard\(/, '快捷入口独立呈现，不再套第二层卡片');
+  workspace.indexOf('private fun HomeTodoBlock('));
+assert.doesNotMatch(homeActionGrid, /UiV2HomeSection\(|XiaoxuCard\(/, '快捷入口独立呈现，不再套第二层卡片');
 assert.match(homeActionGrid, /Row\(Modifier\.fillMaxWidth\(\), horizontalArrangement = Arrangement\.spacedBy\(10\.dp\)\)/);
 assert.match(v2Home, /Row\(\s*modifier\.uiV2Press\(interaction\)\.clip\(UiV2Theme\.GroupShape\)/);
 assert.match(v2Home, /Text\(title, modifier = Modifier\.weight\(1f\)/);
