@@ -875,18 +875,24 @@ assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/
   '考试页面与成绩统一页内间距');
 const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
     main.indexOf('AcademicDestination.SERVICES -> Content('));
-assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
-  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
-assert.match(academicGradeArea, /title = "成绩尚未读取"/,
-  '成绩未取得本人真实数据时明确为空态');
-assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
-  '考试未读取前不能显示模拟考试安排');
-assert.match(academicGradeArea, /actionLabel = "连接青果教务",\s*onAction = openProfile/,
-  '成绩操作必须打开现有学校连接中心');
-assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/,
-  '考试操作必须打开现有学校连接中心');
-assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
-  '未核验数据不能混入成绩或考试页面');
+assert.match(academicGradeArea, /NcwuBusinessPanel\("grades", cloud, openProfile\)/);
+assert.match(academicGradeArea, /NcwuBusinessPanel\("exams", cloud, openProfile\)/);
+const ncwuBusinessPanel = main.slice(main.indexOf('private fun NcwuBusinessPanel('),
+  main.indexOf('private fun AcademicEditorialSection('));
+assert.equal((ncwuBusinessPanel.match(/XiaoxuEmpty\(/g) || []).length, 1,
+  '成绩与考试共享唯一空态与查询组件');
+assert.match(ncwuBusinessPanel, /"成绩尚未读取" else "考试安排尚未读取"/);
+assert.match(ncwuBusinessPanel, /actionLabel = "查看数据连接",\s*onAction = openProfile/);
+assert.match(ncwuBusinessPanel, /cloud\.checkNcwuBusiness\(kind, manual = true\)/);
+assert.doesNotMatch(academicGradeArea + ncwuBusinessPanel, /DemoData|mockGrades|fakeExam/);
+assert.match(cloud, /\(kind == "grades" && !manual\)/, '成绩只能手动读取');
+assert.match(cloud, /\(!manual && !ncwuScheduleAutoEnabled\)/, '课表自动同步默认需显式开启');
+assert.match(cloud, /getBoolean\("schedule_auto", false\)/);
+assert.match(cloud, /cipher\.updateAAD\(scheduleAad\(token\)\)/);
+assert.match(cloud, /request\("\/api\/v1\/verified\/schedule", authenticated = true, boundSessionToken = token\)/);
+const schoolScheduleRead = cloud.slice(cloud.indexOf('suspend fun refreshNcwuSchedule('),
+  cloud.indexOf('suspend fun checkNcwuBusiness('));
+assert.doesNotMatch(schoolScheduleRead, /LocalScheduleStore\./);
 
 const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
     workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));

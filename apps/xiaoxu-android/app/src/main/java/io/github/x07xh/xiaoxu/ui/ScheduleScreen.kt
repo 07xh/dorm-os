@@ -57,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -204,7 +205,8 @@ fun CloudTimetablePanel(
     focusLessonId: String? = null,
     focusWeekday: Int = 0,
     onFocusConsumed: () -> Unit = {},
-    cloud: CloudClient? = null
+    cloud: CloudClient? = null,
+    schoolOpenRequest: Int = 0
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -225,7 +227,8 @@ fun CloudTimetablePanel(
             focusLessonId = focusLessonId,
             focusWeekday = focusWeekday,
             onFocusConsumed = onFocusConsumed,
-            cloud = cloud
+            cloud = cloud,
+            schoolOpenRequest = schoolOpenRequest
         )
     }
 }
@@ -329,7 +332,8 @@ private fun ScheduleVerifiedContent(
     focusLessonId: String?,
     focusWeekday: Int,
     onFocusConsumed: () -> Unit,
-    cloud: CloudClient?
+    cloud: CloudClient?,
+    schoolOpenRequest: Int
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
@@ -341,6 +345,14 @@ private fun ScheduleVerifiedContent(
     }
     var showingCourseEditor by remember { mutableStateOf(false) }
     var showSchoolSchedule by rememberSaveable { mutableStateOf(false) }
+    var handledSchoolOpenRequest by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(schoolOpenRequest) {
+        if (schoolOpenRequest > handledSchoolOpenRequest) {
+            handledSchoolOpenRequest = schoolOpenRequest
+            showSchoolSchedule = true
+        }
+    }
+    LaunchedEffect(focusLessonId) { if (!focusLessonId.isNullOrBlank()) showSchoolSchedule = false }
     var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
     var editingBusy by remember { mutableStateOf(false) }
     var editingError by remember { mutableStateOf<String?>(null) }
@@ -786,7 +798,8 @@ private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, 
             else "请在我的 → 数据连接确认青果授权。",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
         if (snapshot != null) {
-            Text("上次核验：${snapshot.capturedAt}", style = MaterialTheme.typography.labelSmall)
+            Text((if (cloud.state.ncwuScheduleFromCache) "本机历史缓存 · " else "") +
+                "上次核验：${snapshot.capturedAt}", style = MaterialTheme.typography.labelSmall)
             if (weeks.isNotEmpty()) {
                 WeekSelector(weeks = weeks, selected = selectedWeek, onSelect = { selectedWeek = it })
                 WeeklyTimetableGrid(lessons = snapshot.lessons.filter { selectedWeek in it.weeks }) {

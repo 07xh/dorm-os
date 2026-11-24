@@ -142,7 +142,8 @@ data class CloudUiState(
     val ncwuBusiness: Map<String, NcwuBusinessResult> = emptyMap(),
     val ncwuSchedule: NcwuScheduleSnapshot? = null,
     val ncwuScheduleMessage: String? = null,
-    val ncwuScheduleNeedsAuthorization: Boolean = false
+    val ncwuScheduleNeedsAuthorization: Boolean = false,
+    val ncwuScheduleFromCache: Boolean = false
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -187,6 +188,32 @@ private class SessionStore(context: Context) {
             null
         }
     }
+    // Local cache is encrypted with the existing Keystore key and bound to the
+    // exact owner session token through authenticated associated data.
+    private fun scheduleAad(token: String) = ("ncwu-schedule-v1|" + token).toByteArray(Charsets.UTF_8)
+    fun saveScheduleCache(token: String, json: JSONObject): Boolean = runCatching {
+        val raw = json.toString().toByteArray(Charsets.UTF_8)
+        require(raw.size <= 250_000)
+        if (load() != token) return false
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.updateAAD(scheduleAad(token))
+        val encrypted = Base64.getEncoder().encodeToString(cipher.doFinal(raw))
+        if (load() != token) return false
+        prefs.edit().putString("schedule_cipher", encrypted)
+            .putString("schedule_iv", Base64.getEncoder().encodeToString(cipher.iv)).commit()
+    }.getOrDefault(false)
+    fun loadScheduleCache(token: String): NcwuScheduleSnapshot? = runCatching {
+        val encrypted = prefs.getString("schedule_cipher", null) ?: return null
+        require(encrypted.length <= 350_000)
+        val iv = Base64.getDecoder().decode(prefs.getString("schedule_iv", "")!!)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+        cipher.updateAAD(scheduleAad(token))
+        val raw = cipher.doFinal(Base64.getDecoder().decode(encrypted))
+        require(raw.size <= 250_000)
+        parseNcwuScheduleSnapshot(JSONObject(String(raw, Charsets.UTF_8)))
+    }.getOrNull()
     fun clear() { prefs.edit().clear().apply() }
 }
 private data class HttpResult(val code: Int, val json: JSONObject, val cookie: String?)
@@ -214,6 +241,7 @@ class CloudClient(context: Context) {
     private var secondClassSnapshotReadId: Long = -1L
     private var ncwuExamAttemptMs: Long? = null
     private var ncwuScheduleAttemptMs: Long? = null
+    private var ncwuScheduleReadSerial: Long = 0L
 
     /** Hash of this App's owner session, never the Cookie itself. */
     fun ownerSessionBinding(): String? = session.load()?.let { token ->
@@ -357,12 +385,21 @@ class CloudClient(context: Context) {
         state = state.copy(tasksFresh = false, connectionsFresh = false,
             secondClassFresh = false)
         // Android Keystore decryption may block; keep it off main.
-        if (withContext(Dispatchers.IO) { session.load() } == null) {
+        val ownerToken = withContext(Dispatchers.IO) { session.load() }
+        if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+        if (ownerToken == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
                 tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
                 privateError = null, lastSyncAt = null,
                 secondClass = null, secondClassError = null, secondClassBusy = false)
             return
+        }
+        if (state.ncwuSchedule == null) {
+            val cached = withContext(Dispatchers.IO) { session.loadScheduleCache(ownerToken) }
+            if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
+            if (cached != null && state.ncwuSchedule == null) state = state.copy(
+                ncwuSchedule = cached, ncwuScheduleFromCache = true,
+                ncwuScheduleMessage = "本机历史缓存 · 尚未确认当前学校数据")
         }
         try {
             val auth = withContext(Dispatchers.IO) {
@@ -549,6 +586,29 @@ class CloudClient(context: Context) {
             lastSyncAt = if (failed.isEmpty()) Instant.now().toString() else state.lastSyncAt
         )
         loadSecondClass()
+        if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId && state.authenticated)
+            readSavedNcwuSchedule(ownerToken)
+    }
+
+    // A GET reads only the saved owner-scoped D1 snapshot; it never contacts Qingguo.
+    private suspend fun readSavedNcwuSchedule(token: String) {
+        if (state.schoolSyncBusyProvider == "ncwu") return
+        val epoch = sessionEpoch
+        val readSerial = ++ncwuScheduleReadSerial
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/schedule", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch || readSerial != ncwuScheduleReadSerial || !state.authenticated) return
+            if (response.code != 200 || response.json.optString("status") == "not_connected") return
+            val next = parseNcwuScheduleSnapshot(response.json)
+            val current = state.ncwuSchedule
+            if (current != null && Instant.parse(next.capturedAt).isBefore(Instant.parse(current.capturedAt))) return
+            state = state.copy(ncwuSchedule = next, ncwuScheduleFromCache = false,
+                ncwuScheduleMessage = "已保存的学校课表 · 非本次实时查询")
+            withContext(Dispatchers.IO) { session.saveScheduleCache(token, response.json) }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { /* Keep the last verified snapshot, never fabricate an empty one. */ }
     }
 
     fun canCheckNcwuBusiness(): Boolean = state.authenticated && state.connectionsFresh &&
@@ -566,6 +626,7 @@ class CloudClient(context: Context) {
         if (epoch != sessionEpoch || state.busy || state.schoolSyncBusyProvider != null ||
             !canCheckNcwuBusiness() || (!manual && !ncwuScheduleAutoEnabled)) return false
         ncwuScheduleAttemptMs = now
+        ncwuScheduleReadSerial++
         state = state.copy(schoolSyncBusyProvider = "ncwu", schoolSyncResultProvider = "ncwu",
             ncwuScheduleMessage = "正在同步学校课表…")
         try {
@@ -596,7 +657,9 @@ class CloudClient(context: Context) {
             require(read.code == 200)
             val snapshot = parseNcwuScheduleSnapshot(read.json, minimum)
             state = state.copy(ncwuSchedule = snapshot, ncwuScheduleNeedsAuthorization = false,
+                ncwuScheduleFromCache = false,
                 ncwuScheduleMessage = "已核验学校课表（${snapshot.lessons.size} 个课块）")
+            withContext(Dispatchers.IO) { session.saveScheduleCache(token, read.json) }
             return true
         } catch (e: CancellationException) {
             if (epoch == sessionEpoch) state = state.copy(ncwuScheduleMessage = "同步已中断，保留旧课表。")
@@ -874,13 +937,15 @@ class CloudClient(context: Context) {
     private fun clearAccountSnapshots(): CloudUiState {
         ncwuExamAttemptMs = null
         ncwuScheduleAttemptMs = null
+        ncwuScheduleReadSerial++
         return state.copy(
         ownerId = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null,
         ncwuBusiness = emptyMap(), ncwuSchedule = null,
-        ncwuScheduleMessage = null, ncwuScheduleNeedsAuthorization = false
+        ncwuScheduleMessage = null, ncwuScheduleNeedsAuthorization = false,
+        ncwuScheduleFromCache = false
         )
     }
 

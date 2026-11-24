@@ -504,6 +504,7 @@ private fun NativeShell(
     var messagesOpen by rememberSaveable { mutableStateOf(false) }
     // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var schoolScheduleOpenRequest by rememberSaveable { mutableIntStateOf(0) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
     // Inbox selections are transient shell-owned state; Activity reminder arguments
     // remain immutable and are consumed only by their original notification path.
@@ -696,6 +697,10 @@ private fun NativeShell(
                                 RealAcademicHome(localTasks, client = cloud,
                                 localLessons = localLessons,
                                 openSchedule = { current = MainDestination.SCHEDULE },
+                                openSchoolSchedule = {
+                                    schoolScheduleOpenRequest++
+                                    current = MainDestination.SCHEDULE
+                                },
                                 openTasks = { current = MainDestination.TASKS },
                                 openMessages = { messagesOpen = true },
                                 openProfile = { current = MainDestination.PROFILE },
@@ -719,6 +724,7 @@ private fun NativeShell(
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
                                 cloud = cloud,
+                                schoolOpenRequest = schoolScheduleOpenRequest,
                                 focusLessonId = inboxLessonId ?: reminderLessonId,
                                 focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
                                     else reminderLessonWeekday,

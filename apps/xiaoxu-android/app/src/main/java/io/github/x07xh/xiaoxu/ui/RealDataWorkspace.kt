@@ -530,7 +530,8 @@ fun RealAcademicHome(
     openGrades: () -> Unit,
     openExams: () -> Unit,
     openSecondClass: () -> Unit,
-    openArticle: (String) -> Unit
+    openArticle: (String) -> Unit,
+    openSchoolSchedule: () -> Unit = openSchedule
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -588,6 +589,11 @@ fun RealAcademicHome(
             openFileImport = openFileImport,
             onOpenLesson = onLessonOpen
         )
+        if (state.ncwuSchedule != null || client.canCheckNcwuBusiness()) {
+            TextButton(onClick = openSchoolSchedule) {
+                Text(if (state.ncwuScheduleFromCache) "学校课表 · 历史缓存" else "查看学校课表")
+            }
+        }
     }
     val tasks: @Composable () -> Unit = {
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)

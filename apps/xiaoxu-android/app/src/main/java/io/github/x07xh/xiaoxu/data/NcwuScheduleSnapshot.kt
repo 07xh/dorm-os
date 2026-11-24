@@ -6,11 +6,13 @@ import org.json.JSONObject
 data class NcwuScheduleSnapshot(val capturedAt: String, val lessons: List<VerifiedLesson>)
 
 /** The existing owner API is the only source of this separate read-only timetable. */
-internal fun parseNcwuScheduleSnapshot(json: JSONObject, minimumCapturedAt: String): NcwuScheduleSnapshot {
+internal fun parseNcwuScheduleSnapshot(json: JSONObject, minimumCapturedAt: String? = null): NcwuScheduleSnapshot {
     require(json.optString("kind") == "schedule" && json.optString("source") == "ncwu" &&
-        json.optString("status") == "ready" && json.optString("provenance") == "trusted_readonly")
+        json.optString("status") in (if (minimumCapturedAt == null) setOf("ready", "stale") else setOf("ready")) &&
+        json.optString("provenance") == "trusted_readonly")
     val at = json.getString("lastSuccessAt")
-    require(!Instant.parse(at).isBefore(Instant.parse(minimumCapturedAt)))
+    val captured = Instant.parse(at)
+    require(minimumCapturedAt == null || !captured.isBefore(Instant.parse(minimumCapturedAt)))
     val rows = json.getJSONArray("records")
     require(rows.length() in 0..250)
     val seen = mutableSetOf<Pair<String, String>>()
