@@ -2438,10 +2438,12 @@ assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\
 
 // Settings switches use a single high-contrast component, even when disabled.
 const switchFiles = [
-  'ui/ProfileSettingsPage.kt',
+  'ui/v2/UiV2Settings.kt',
   'ui/SecondClassAutoReadControls.kt',
   'ui/ScheduleScreen.kt'
 ];
+assert.match(profileSettings, /UiV2SettingsToggle\(/, '设置提醒必须使用 V2 开关适配器');
+assert.doesNotMatch(profileSettings, /\bSwitch\s*\(/, '设置页不得独立绘制未统一的开关');
 for (const name of switchFiles) {
   const source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/' + name);
   assert.match(source, /XiaoxuSettingsSwitch\s*\(/, name + ': shared switch');
