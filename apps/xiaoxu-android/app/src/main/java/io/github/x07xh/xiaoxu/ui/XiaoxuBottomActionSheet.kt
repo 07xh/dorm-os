@@ -206,7 +206,7 @@ private fun XiaoxuSheetPill(
     Box(
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
             .uiV2Press(interaction, enabled)
-            .clip(RoundedCornerShape(999.dp))
+            .clip(RoundedCornerShape(UiV2Theme.PillRadius))
             .background(Color.White.copy(alpha = if (enabled) 0.82f else 0.42f))
             .clickable(
                 enabled = enabled, role = Role.Button,
