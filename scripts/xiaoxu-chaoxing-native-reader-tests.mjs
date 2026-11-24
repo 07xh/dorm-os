@@ -35,7 +35,7 @@ assert.match(panels,/"chaoxing" to "学习通"/,'cloud connections must retain t
 assert.match(panels,/client\.syncChaoxingHomeworkHttp\(\)/,
  'cloud school refresh must invoke the existing authorized homework HTTP API');
 assert.match(panels,/client\.refreshPrivate\(\)/,'cloud snapshot refresh remains separate');
-const httpSync=cloud.slice(cloud.indexOf('suspend fun syncChaoxingHomeworkHttp'),cloud.indexOf('suspend fun syncAuthorizedSchool'));
+const httpSync=cloud.slice(cloud.indexOf('suspend fun syncChaoxingHomeworkHttp'),cloud.indexOf('Explicit owner opt-in'));
 assert.match(httpSync,/\/api\/v1\/chaoxing-homework\?view=courses/);
 assert.match(httpSync,/\/api\/v1\/chaoxing-homework\/sync/);
 assert.match(httpSync,/boundSessionToken = token/);
@@ -54,6 +54,21 @@ assert.ok(authReturn.indexOf('refreshPrivate()')<authReturn.indexOf('已核对�
 assert.doesNotMatch(authReturn,/syncChaoxingHomeworkHttp\(\)/,
  'navigation callback must not trigger bulk upstream sync without explicit user action');
 assert.doesNotMatch(httpSync,/WebView|CookieManager|evaluateJavascript|openLocalSchool/);
+const autoSync=cloud.slice(cloud.indexOf('suspend fun setChaoxingAutoSync'),cloud.indexOf('suspend fun syncChaoxingNoticesHttp'));
+assert.match(autoSync,/\/api\/v1\/connections\/chaoxing\/auto-sync/);
+assert.match(autoSync,/JSONObject\(\)\.put\("enabled", enabled\)/);
+assert.match(autoSync,/boundSessionToken = boundToken/);
+assert.match(autoSync,/refreshPrivate\(\)/);
+assert.match(autoSync,/state\.connectionsFresh &&/);
+assert.match(panels,/showChaoxingAutoConfirmation && allowed && !enabled/);
+assert.match(panels,/client\.setChaoxingAutoSync\(true\)/);
+assert.match(panels,/client\.setChaoxingAutoSync\(false\)/);
+const noticeSync=cloud.slice(cloud.indexOf('suspend fun syncChaoxingNoticesHttp'),cloud.indexOf('suspend fun syncAuthorizedSchool'));
+assert.match(noticeSync,/\/api\/v1\/connections\/chaoxing\/sync/);
+assert.match(noticeSync,/boundSessionToken = token/);
+assert.match(noticeSync,/state\.tasksFresh && state\.connectionsFresh/);
+assert.match(panels,/client\.syncChaoxingNoticesHttp\(\)/);
+assert.doesNotMatch(autoSync+noticeSync,/CookieManager|evaluateJavascript|openLocalSchool/);
 assert.doesNotMatch(reader+session,/api\/v1|CloudClient|addJavascriptInterface|readProgress|saveStatus|submitForm.*POST/);
 assert.match(storage,/if \(old != accountHash \|\| complete\) \{/);
 assert.match(storage,/@Transaction\s+suspend fun mergeChaoxingRead/);
