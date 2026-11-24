@@ -436,10 +436,13 @@ assert.match(secondClassPointsHeader, /DropdownMenu\(/,
 assert.doesNotMatch(secondClassMain, /item\(key = "term_selector"\)/,
   '学期选择不再单独占据积分卡下方的一张大卡片');
 const secondClassBreakdown = secondClassMain.slice(
-  secondClassMain.indexOf('item(key = "term_breakdown")'),
+  secondClassMain.indexOf('item(key = "metrics")'),
   secondClassMain.indexOf('item(key = "activities_header")'));
 assert.match(secondClassBreakdown, /Text\("积分明细"/,
-  '积分明细默认只显示可点击的摘要行');
+  '积分明细直接集成在积分概览卡内部');
+assert.match(secondClassBreakdown, /UiV2SettingsDivider\(\)/);
+assert.match(secondClassBreakdown, /clickable\(enabled = selectedTerm != null\)/);
+assert.doesNotMatch(secondClassMain, /item\(key = "term_breakdown"\)/, '不再单独堆叠明细卡');
 assert.doesNotMatch(secondClassBreakdown, /secondClassCategories\(|entries\.forEach|selectedTerm\.details/,
   '六类积分默认不能在主页面向下展开');
 assert.match(secondClassMain, /if \(detailRecord\.kind == "credits"\)/,
@@ -2488,3 +2491,7 @@ assert.match(homeMetricLayout, /if \(showTrend && deadlineHistogram\.any/);
 
 assert.match(taskReadingLayout, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\s*\.wrapContentWidth\(Alignment\.CenterHorizontally\)/, '任务页头固定于有界内容容器');
 assert.match(taskReadingLayout, /LazyColumn\(\s*modifier = Modifier\.weight\(1f\)\.fillMaxWidth\(\)/, '任务滚动仅占用工具栏下方空间');
+
+assert.match(schedulePanel, /Text\(weekDateLabel, style = MaterialTheme\.typography\.labelSmall/);
+assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, nextMode\)\s*viewMode = nextMode/);
+assert.match(schedulePanel, /enabled = currentIndex >= 0 && currentIndex < weekNumbers\.lastIndex/);

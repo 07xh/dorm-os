@@ -440,10 +440,11 @@ private fun ScheduleVerifiedContent(
             },
             onSettings = { onSettingsOpenChanged(true) }
         )
-        if (weekNumbers.size > 1 && showWeekPicker) {
-            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
-                onSelect = { selectedWeek = it; showWeekPicker = false })
-        }
+        val monday = calendar?.dateFor(selectedWeek, 1)
+        val sunday = calendar?.dateFor(selectedWeek, 7)
+        val weekDateLabel = if (selectedWeek != ALL_WEEKS && monday != null && sunday != null)
+            "${monday.monthValue}月${monday.dayOfMonth}日 — ${sunday.monthValue}月${sunday.dayOfMonth}日"
+            else null
         if (weekNumbers.isNotEmpty()) {
             // Without term settings, only imported weeks are selectable.
             // Explicitly configured semesters also expose empty teaching weeks.
@@ -453,7 +454,6 @@ private fun ScheduleVerifiedContent(
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                    .background(XiaoxuPalette.GlassCard)
                     .background(XiaoxuPalette.GlassControlSurface)
                     .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim,
                         RoundedCornerShape(XiaoxuRadius.tile))
@@ -472,40 +472,43 @@ private fun ScheduleVerifiedContent(
                     enabled = weekNumbers.size > 1,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
-                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = XiaoxuPalette.Ink)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink)
+                        if (weekDateLabel != null) {
+                            Text(weekDateLabel, style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
                 XiaoxuSoftIconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
-                    enabled = currentIndex < weekNumbers.lastIndex
+                    enabled = currentIndex >= 0 && currentIndex < weekNumbers.lastIndex
                 ) {
                     Icon(Icons.Outlined.ChevronRight, contentDescription = "下一周")
                 }
             }
         }
-        if (calendar != null && selectedWeek != ALL_WEEKS) {
-            val monday = calendar?.dateFor(selectedWeek, 1)
-            val sunday = calendar?.dateFor(selectedWeek, 7)
-            if (monday != null && sunday != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "${monday.monthValue}月${monday.dayOfMonth}日 — " +
-                            "${sunday.monthValue}月${sunday.dayOfMonth}日",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = XiaoxuPalette.Ink2
-                    )
-                    if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
-                        selectedWeek != actualCurrentWeek) {
-                        TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
-                            Text("返回本周")
-                        }
-                    }
+        if (weekNumbers.size > 1 && showWeekPicker) {
+            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
+                onSelect = { selectedWeek = it; showWeekPicker = false })
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                val nextMode = if (viewMode == "week") "day" else "week"
+                LocalSemesterConfigStore.saveViewMode(context, nextMode)
+                viewMode = nextMode
+            }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (viewMode == "week") "周视图 · 切换日视图" else "日视图 · 切换周视图",
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(Modifier.weight(1f))
+            if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                selectedWeek != actualCurrentWeek) {
+                TextButton(onClick = { selectedWeek = actualCurrentWeek!!; showWeekPicker = false }) {
+                    Text("返回本周")
                 }
             }
         }

@@ -53,6 +53,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.XiaoxuSpacing
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -266,24 +267,19 @@ fun SecondClassPage(
                         Modifier.weight(1f)
                     )
                 }
-            }
-        }
-        item(key = "term_breakdown") {
-            // 默认折叠为单行，明细只在居中玻璃弹窗内展示；
-            // 不插入六条内容把页面和底栏向下推。
-            XiaoxuCard(
-                onClick = if (selectedTerm != null) ({
-                    detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
-                }) else null,
-                contentPadding = 8.dp
-            ) {
+                UiV2SettingsDivider()
+                // One card, one direct entry; detail continues to use the original dialog.
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(enabled = selectedTerm != null) {
+                            selectedTerm?.let { detailKey = it.kind + ":" + it.fingerprint }
+                        }
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("积分明细", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
                     if (selectedTerm == null) {
                         Text("暂未获取", style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink2)
