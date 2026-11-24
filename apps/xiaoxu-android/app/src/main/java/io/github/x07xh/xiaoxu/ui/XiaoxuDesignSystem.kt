@@ -6,6 +6,7 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionProvider
 import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SegmentedControl
 import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 import androidx.compose.foundation.LocalIndication
@@ -741,21 +742,23 @@ fun XiaoxuGlassDialog(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = UiV2Theme.PageGutter, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            val availableDialogHeight = maxHeight * 0.88f
+            val compactHeight = maxHeight.value < UiV2SheetPolicy.CompactHeightDp
+            val availableDialogHeight = maxHeight * UiV2SheetPolicy.heightFraction(maxHeight.value)
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .widthIn(max = 560.dp)
+                    .widthIn(max = XiaoxuPageLayout.StateMaxWidth)
+                    .fillMaxWidth()
                     .heightIn(max = availableDialogHeight)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                    .padding(horizontal = UiV2Theme.PageGutter,
+                        vertical = if (compactHeight) 12.dp else 20.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -767,7 +770,7 @@ fun XiaoxuGlassDialog(
                 )
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                     content = content
                 )
                 if (showDismissButton) {
