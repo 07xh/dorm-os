@@ -993,8 +993,12 @@ assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle
   '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
 assert.match(messageCenter, /title = "微信候选"/);
 assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
-  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
+assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 3,
+  '微信审核与私人学习通通知各有身份行，公开公告仍只使用分段栏');
+assert.match(messageCenter,/title = "学习通",\s*badge = "本人通知"/);
+assert.match(messageCenter,/if \(!showWechat && state\.authenticated\)/);
+assert.match(messageCenter,/考试通知 · 状态未核实/);
+assert.match(messageCenter,/state\.chaoxingInboxFresh/);
 assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
   '消息中心禁止持续显示面向开发人员的来源免责声明');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
