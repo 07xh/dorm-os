@@ -59,21 +59,24 @@ internal fun UiV2SettingsHeader(
     onMessages: (() -> Unit)?,
     compact: Boolean = false
 ) {
-    Column(Modifier.xiaoxuPageWidth().padding(horizontal = UiV2Theme.PageGutter, vertical = if (compact) 4.dp else 8.dp)) {
     Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        Modifier.xiaoxuPageWidth()
+            .padding(horizontal = UiV2Theme.PageGutter, vertical = if (compact) 4.dp else 8.dp)
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (onBack != null) {
             XiaoxuSoftIconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         }
-        if (compact) {
-            Text(title, modifier = Modifier.weight(1f).padding(start = if (onBack == null) 8.dp else 4.dp)
-                .semantics { heading() }, style = MaterialTheme.typography.titleLarge,
-                color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        } else Spacer(Modifier.weight(1f))
+        Text(
+            title,
+            modifier = Modifier.weight(1f).semantics { heading() },
+            style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineLarge,
+            color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis
+        )
         if (onRefresh != null) {
             XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
@@ -84,13 +87,6 @@ internal fun UiV2SettingsHeader(
                 Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
             }
         }
-    }
-    if (!compact) Text(
-        title, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 12.dp)
-            .semantics { heading() },
-        style = MaterialTheme.typography.headlineLarge,
-        color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis
-    )
     }
 }
 
