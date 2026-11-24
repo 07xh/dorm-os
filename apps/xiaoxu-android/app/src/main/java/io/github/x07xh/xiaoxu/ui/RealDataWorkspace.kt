@@ -1406,19 +1406,15 @@ fun RealAcademicTaskHub(
             }
         }
     }
-    LazyColumn(
-        // Wrap the bounded list in the full available width: on tablets this
-        // centers the existing single scroll owner instead of pinning it left.
+    // Fixed toolbar, bounded list: scrolling tasks cannot clip the page title
+    // against the status bar or move the primary actions off-screen.
+    Column(
         modifier = Modifier.fillMaxSize()
             .wrapContentWidth(Alignment.CenterHorizontally)
-            .widthIn(max = 860.dp),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-        // Keep connected task rows as separate lazy items with zero gaps.
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+            .widthIn(max = 860.dp)
     ) {
-        item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -1464,8 +1460,12 @@ fun RealAcademicTaskHub(
 
                 }
             }
-        }
-        item {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+        item(key = "task:status") {
             // One continuous status strip; values come from real saved tasks.
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -2085,6 +2085,7 @@ fun RealAcademicTaskHub(
         }
     }
 
+    } // fixed toolbar and task list
     if (taskMenuOpen) {
         val submitted = all.filter {
             it.storage == "cloud" && it.provider == "chaoxing" &&

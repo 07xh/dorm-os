@@ -450,7 +450,7 @@ assert.match(secondClassMain, /if \(countConfirmed\) myActivities\.size\.toStrin
   '未验证活动快照不能推导数量');
 assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
-assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
+assert.match(secondClassMain, /XiaoxuSoftIconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
   '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
 assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
   '汇总标题不可显示为个人活动卡片');
@@ -2489,3 +2489,6 @@ assert.match(schedulePanel, /uiV2DetailWidth\(/);
 assert.match(homeReadingLayout, /item\(key = "courses"\) \{ hero\(\) \}[\s\S]*?item\(key = "tasks"\) \{ tasks\(\) \}[\s\S]*?item\(key = "metrics"\)/, '手机首页先课程和任务，再展示统计');
 assert.match(homeMetricLayout, /showTrend by rememberSaveable \{ mutableStateOf\(false\) \}/);
 assert.match(homeMetricLayout, /if \(showTrend && deadlineHistogram\.any/);
+
+assert.match(taskReadingLayout, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\s*\.wrapContentWidth\(Alignment\.CenterHorizontally\)/, '任务页头固定于有界内容容器');
+assert.match(taskReadingLayout, /LazyColumn\(\s*modifier = Modifier\.weight\(1f\)\.fillMaxWidth\(\)/, '任务滚动仅占用工具栏下方空间');
