@@ -1,5 +1,22 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
@@ -114,34 +131,74 @@ internal fun PrimaryBottomNavigationReserve(glass: Boolean) {
     )
 }
 
+/**
+ * DSH-style expandable sidebar on wide tablets; the narrow rail and sidebar
+ * are alternative renderers of the same five routes, never a second router.
+ */
 @Composable
 internal fun PrimarySideNavigation(
     selected: MainDestination,
-    onSelect: (MainDestination) -> Unit
+    onSelect: (MainDestination) -> Unit,
+    canExpand: Boolean = false
 ) {
-    // One responsive alternative, not a second permanent navigation state.
-    // Scrolling keeps all five entries accessible in short landscape windows.
-    NavigationRail(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
-        containerColor = XiaoxuPalette.Surface,
-        contentColor = XiaoxuPalette.Ink2
-    ) {
-        Spacer(Modifier.height(12.dp))
-        PrimaryTabs.forEach { page ->
-            NavigationRailItem(
-                selected = selected == page,
-                onClick = { onSelect(page) },
-                icon = { Icon(page.primaryTabIcon, contentDescription = null) },
-                label = { Text(page.primaryTabLabel) },
-                alwaysShowLabel = true,
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = XiaoxuPalette.BrandDeep,
-                    selectedTextColor = XiaoxuPalette.BrandDeep,
-                    indicatorColor = XiaoxuPalette.BrandSoft,
-                    unselectedIconColor = XiaoxuPalette.Ink3,
-                    unselectedTextColor = XiaoxuPalette.Ink3
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val frame = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
+        .clip(UiV2Theme.GroupShape)
+    if (canExpand && expanded) {
+        Column(
+            modifier = frame.width(220.dp).fillMaxHeight()
+                .background(XiaoxuPalette.Surface)
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("校序", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge, color = XiaoxuPalette.Ink)
+                XiaoxuSoftIconButton(onClick = { expanded = false }) {
+                    Icon(Icons.Outlined.Menu, contentDescription = "收起侧栏")
+                }
+            }
+            PrimaryTabs.forEach { page ->
+                NavigationDrawerItem(
+                    label = { Text(page.primaryTabLabel) },
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) }
                 )
-            )
+            }
+        }
+    } else {
+        NavigationRail(
+            modifier = frame.verticalScroll(rememberScrollState()),
+            containerColor = XiaoxuPalette.Surface,
+            contentColor = XiaoxuPalette.Ink2,
+            header = if (canExpand) {
+                {
+                    XiaoxuSoftIconButton(onClick = { expanded = true }) {
+                        Icon(Icons.Outlined.Menu, contentDescription = "展开侧栏")
+                    }
+                }
+            } else null
+        ) {
+            Spacer(Modifier.height(8.dp))
+            PrimaryTabs.forEach { page ->
+                NavigationRailItem(
+                    selected = selected == page,
+                    onClick = { onSelect(page) },
+                    icon = { Icon(page.primaryTabIcon, contentDescription = null) },
+                    label = { Text(page.primaryTabLabel) },
+                    alwaysShowLabel = true,
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = XiaoxuPalette.BrandDeep,
+                        selectedTextColor = XiaoxuPalette.BrandDeep,
+                        indicatorColor = XiaoxuPalette.BrandSoft,
+                        unselectedIconColor = XiaoxuPalette.Ink3,
+                        unselectedTextColor = XiaoxuPalette.Ink3
+                    )
+                )
+            }
         }
     }
 }
