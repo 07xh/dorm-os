@@ -1,0 +1,4 @@
+QA-only Android APK build requested for PR #459's native campus utilities water/electric read-only integration on its exact head revision.
+Run Gradle compile, JVM unit tests (including CampusUtilities*), Android instrumentation/runtime checks, and existing project checks; upload debug and isolated QA artifacts for user-controlled real device testing.
+This marker is NOT authorization to sign, publish, tag, merge, deploy or promote a formal release. Do not replace existing installed APK, school sessions, Cloudflare credentials, or the original signing key.
+Live school WebView authentication, allowed room scope, usage response format and physical-device validation remain unverified and must not be claimed to pass from a synthetic CI run.
