@@ -59,7 +59,8 @@ internal fun UiV2Shell(
             { scope.launch { drawerState.close() }; Unit }
         }
         val openNavigation: (() -> Unit)? = if (drawerEnabled) openDrawer else null
-        val backdrop = if (!rail && showNavigation && Build.VERSION.SDK_INT >= 33) {
+        val liveGlass = LocalUiV2LiveGlass.current
+        val backdrop = if (liveGlass && !rail && showNavigation && Build.VERSION.SDK_INT >= 33) {
             rememberLayerBackdrop()
         } else null
         ModalNavigationDrawer(
