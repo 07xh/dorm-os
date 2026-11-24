@@ -125,6 +125,11 @@ class DampedDragAnimation(
 
     fun updateValue(value: Float) {
         val targetValue = value.coerceIn(valueRange)
+        // Drag events at a clamped boundary and duplicate route callbacks may
+        // request the same target repeatedly. Do not cancel/relaunch a spring
+        // already moving there; a cancelled/incomplete spring remains retryable.
+        if (targetValue == directValue.floatValue &&
+            (reducedMotion || valueJob?.isActive == true || valueAnimation.value == targetValue)) return
         // Publish the requested index synchronously so consecutive MOVE events
         // cannot calculate their delta from an earlier coroutine's target.
         directValue.floatValue = targetValue
