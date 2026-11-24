@@ -82,10 +82,24 @@ class CampusUtilitiesReadOnlyClient(
     suspend fun readMonth(
         utility: CampusUtilityKind,
         room: CampusUtilityRoom,
-        month: YearMonth
+        month: YearMonth,
+        bindingStillValid: suspend () -> Boolean = { true }
     ): CampusUtilityMonthResult {
+        // The native coordinator supplies its current verified binding check.
+        // Check before and after each read, including after inter-request delay.
+        // The transport must independently keep credentials tied to that owner.
+        suspend fun boundRequest(path: String, body: JSONObject): JSONObject {
+            if (!bindingStillValid()) {
+                throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
+            }
+            val result = request(path, body)
+            if (!bindingStillValid()) {
+                throw CampusUtilitiesException(CampusUtilitiesFailure.LOGIN_REQUIRED)
+            }
+            return result
+        }
         val type = utility.apiType
-        val config = request(
+        val config = boundRequest(
             "/utilities/config",
             JSONObject().put("utilityType", type).put("appId", type)
         )
@@ -95,12 +109,12 @@ class CampusUtilitiesReadOnlyClient(
         }
         val v2 = details?.optString("version") == "v2"
         pace()
-        val account = request(
+        val account = boundRequest(
             "/utilities/account",
             room.putInto(JSONObject().put("utilityType", type).put("appId", type))
         )
         pace()
-        val usage = request(
+        val usage = boundRequest(
             if (v2) "/utilities/usageDetailsV2" else "/utilities/usageDetails",
             room.putInto(
                 JSONObject().put("utilityType", type)
