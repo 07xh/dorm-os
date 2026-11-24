@@ -685,7 +685,7 @@ assert.equal((v2Shell.match(/if \(!rail && showNavigation\)/g) || []).length, 2,
   '底栏本体与 Scaffold 占位必须同时使用统一显隐标记');
 assert.match(v2Shell, /if \(rail && showNavigation\)/,
   '平板侧栏也遵守相同子页面规则');
-assert.match(v2Shell, /backdrop = if \(!rail && showNavigation/,
+assert.match(v2Shell, /backdrop = if \(liveGlass && !rail && showNavigation && Build\.VERSION\.SDK_INT >= 33\)/,
   '没有底栏时不得额外保留全屏玻璃采样层');
 assert.match(main, /profileSettingsRoute == "timetable-editor"/,
   '新增课程编辑页应保留独立二级路由，不能回退到跨标签状态');
