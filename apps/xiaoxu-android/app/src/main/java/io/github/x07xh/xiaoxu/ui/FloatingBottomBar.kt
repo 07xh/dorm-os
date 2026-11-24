@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -237,10 +238,12 @@ fun FloatingBottomBar(
             )
         }
 
+        DisposableEffect(drag) { onDispose { drag.dispose() } }
+
         // Source CapsuleNavigationBar.indicatorScale: same velocity transform for
         // the lens and the highlight (no separately scaling the rim).
         fun physicalScale(): Pair<Float, Float> {
-            val v = drag.velocity / 6f
+            val v = drag.normalizedVelocity / 6f
             val sx = drag.scaleX / (1f - (v * 0.75f).coerceIn(-0.22f, 0.22f))
             val sy = drag.scaleY * (1f - (v * 0.25f).coerceIn(-0.22f, 0.22f))
             return sx to sy
@@ -257,7 +260,7 @@ fun FloatingBottomBar(
         // ⚠️ 手势必须挂在胶囊本身，不能挂在同级覆盖层：
         // Compose 的 hitTest 在 z-order 上遇到第一个命中的兄弟就停止，
         // 胶囊会把上层事件全挡住，同级覆盖层永远收不到 MOVE。
-        val gestureModifier = if (draggable) {
+        val gestureModifier = if (draggable && count > 1) {
             Modifier.pointerInput(drag, count) {
                 inspectDragGestures(
                     onDragStart = {
@@ -296,7 +299,7 @@ fun FloatingBottomBar(
                         dragState.net += dx
                         if (abs(dragState.net) > currentSlop) dragState.moved = true
                     }
-                    if (dragState.moved) {
+                    if (dragState.moved && currentCellWidth > 0f) {
                         change.consume()
                         drag.updateValue(
                             (drag.targetValue + dx / currentCellWidth)

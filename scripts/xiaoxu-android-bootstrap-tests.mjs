@@ -2500,3 +2500,10 @@ assert.match(bottomActions, /if \(!compactHeight\) UiV2SheetHandle\(/);
 assert.match(bottomActions, /if \(compactHeight && dismissEnabled\)/);
 assert.match(bottomActions, /actions\.forEachIndexed[\s\S]*?UiV2SettingsDivider\(\)[\s\S]*?XiaoxuSheetActionRow\(action\)/);
 assert.match(v2SheetPolicy, /if \(availableHeightDp < CompactHeightDp\) 1f else HeightFraction/);
+
+assert.match(dockDragMotion, /val velocity: Float get\(\) = if \(reducedMotion\) 0f else valueAnimation\.velocity/);
+assert.doesNotMatch(dockDragMotion, /VelocityTracker|velocityJob|updateVelocity\(/, '底栏不再逐帧创建速度动画任务');
+assert.match(dockDragMotion, /SupervisorJob\(animationScope\.coroutineContext\[Job\]\)/);
+assert.match(floatingBar, /DisposableEffect\(drag\) \{ onDispose \{ drag\.dispose\(\) \} \}/);
+assert.match(floatingBar, /drag\.normalizedVelocity \/ 6f/);
+assert.match(floatingBar, /velocityPx = \{ drag\.velocity \* cellWidthPx \}/);
