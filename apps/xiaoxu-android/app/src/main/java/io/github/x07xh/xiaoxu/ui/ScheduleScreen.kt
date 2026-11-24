@@ -570,7 +570,7 @@ private fun ScheduleVerifiedContent(
                     }
                 }
             }
-        } else if (expanded) {
+        } else if (detailWidthDp != null) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 WeekdaySideBar(
                     counts = counts, selected = effectiveWeekday, today = todayWeekday,
