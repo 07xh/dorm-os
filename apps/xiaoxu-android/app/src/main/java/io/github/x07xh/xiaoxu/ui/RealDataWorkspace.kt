@@ -1229,6 +1229,10 @@ fun RealAcademicTaskHub(
     var showWaitingTasks by rememberSaveable { mutableStateOf(false) }
     var showNeedsVerification by rememberSaveable { mutableStateOf(false) }
     val taskScope = rememberCoroutineScope()
+    val canSyncChaoxingHttp = state.authenticated && state.connectionsFresh &&
+        state.platforms.any { it.id == "chaoxing" && it.sessionState == "active" &&
+            it.authorization == "verified_session" }
+    val chaoxingSyncBusy = state.busy || state.schoolSyncBusyProvider != null
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
     val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
@@ -1910,10 +1914,25 @@ fun RealAcademicTaskHub(
                 )
             }
             if (showChaoxingTasks) {
-                if (chaoxingRows.isEmpty()) item(key = "chaoxing:read") {
-                    OutlinedButton(onClick = { openLocalSchool("chaoxing") },
-                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
-                        Text("读取学习通任务")
+                item(key = "chaoxing:read") {
+                    if (canSyncChaoxingHttp) {
+                        OutlinedButton(
+                            onClick = { taskScope.launch { client.syncChaoxingHomeworkHttp() } },
+                            enabled = !chaoxingSyncBusy,
+                            modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                        ) {
+                            Text(if (state.schoolSyncBusyProvider == "chaoxing") "正在同步…" else "同步全部作业")
+                        }
+                    }
+                    TextButton(
+                        onClick = { openLocalSchool("chaoxing") },
+                        enabled = !chaoxingSyncBusy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("本机 HTTP 读取 · 含学习计划") }
+                    if (state.schoolSyncResultProvider == "chaoxing" && state.schoolSyncMessage != null) {
+                        Text(state.schoolSyncMessage,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
                     }
                 }
                 items(count = chaoxingRows.size, key = { i -> chaoxingRows[i].key }) { i ->
@@ -2073,7 +2092,7 @@ fun RealAcademicTaskHub(
         if (showSchoolRecords) {
         item {
             TaskSectionHeader(
-                title = "学习通 · 本机读取",
+                title = "学习通 · 本机 HTTP 读取",
                 count = capturedHomework.size,
                 badge = "本机读取记录",
                 note = "通知、学习计划和课程作业共用本机读取结果，已完成 $visibleCompleted 条。"
@@ -2082,8 +2101,7 @@ fun RealAcademicTaskHub(
                 onClick = { openLocalSchool("chaoxing") },
                 modifier = Modifier.heightIn(min = 48.dp).padding(top = 4.dp)
             ) {
-                Text(if (capturedHomework.isEmpty()) "在 App 内读取学习通作业"
-                     else "更新本机学习通作业")
+                Text("读取通知、学习计划与课程作业")
             }
         }
         if (capturedHomework.isEmpty()) {
@@ -2108,7 +2126,7 @@ fun RealAcademicTaskHub(
                     title = "学习通 · 学习计划任务",
                     count = capturedStudyTasks.size,
                     badge = "官方页面状态",
-                    note = "只读展示本人已登录学习计划中显示的状态；不自动执行阅读、提交或批改操作。"
+                    note = "本机 HTTP 读取的学习计划状态；与云端授权独立，不自动执行学习任务。"
                 )
             }
             items(count = minOf(capturedStudyTasks.size, 5000),
