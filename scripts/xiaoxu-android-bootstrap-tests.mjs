@@ -2711,3 +2711,11 @@ assert.match(glassChrome, /vibrancy\(\)\s*\/\/ The original refraction floor is 
 assert.match(primaryNavigation, /val latestOnSelect = rememberUpdatedState\(onSelect\)/);
 assert.match(primaryNavigation, /val selectIndex: \(Int\) -> Unit = remember \{[\s\S]*?PrimaryTabs\.getOrNull\(index\)\?\.let \{ latestOnSelect\.value\(it\) \}/);
 assert.match(primaryNavigation, /onSelect = selectIndex/);
+
+const liveGlassPreferencesV2 = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2MotionSettings.kt');
+assert.match(liveGlassPreferencesV2, /LocalUiV2LiveGlass = staticCompositionLocalOf \{ false \}/);
+assert.match(liveGlassPreferencesV2, /prefs\.getBoolean\("live_glass", false\)/);
+assert.match(liveGlassPreferencesV2, /prefs\.edit\(\)\.putBoolean\("live_glass", next\)\.apply\(\)/);
+assert.match(liveGlassPreferencesV2, /LocalUiV2LiveGlass provides liveGlass/);
+assert.match(v2Shell, /if \(liveGlass && !rail && showNavigation && Build\.VERSION\.SDK_INT >= 33\) \{\s*rememberLayerBackdrop\(\)/,
+  'lightweight mode skips the entire live backdrop capture, not just animation');
