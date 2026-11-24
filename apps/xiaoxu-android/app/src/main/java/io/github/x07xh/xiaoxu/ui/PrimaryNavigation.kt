@@ -20,7 +20,6 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
@@ -217,14 +216,17 @@ internal fun PrimarySideNavigation(
 internal fun PrimaryNavigationDrawer(
     selected: MainDestination,
     onSelect: (MainDestination) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    showContents: Boolean = true
 ) {
     ModalDrawerSheet(
-        modifier = Modifier.widthIn(max = 320.dp),
+        // Keep the drawer anchor measurable even without its hidden rows.
+        modifier = Modifier.width(320.dp),
         drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         drawerContainerColor = XiaoxuPalette.Surface,
         drawerContentColor = XiaoxuPalette.Ink
     ) {
+        if (showContents) {
         Column(
             Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -245,6 +247,7 @@ internal fun PrimaryNavigationDrawer(
                     icon = { Icon(page.primaryTabIcon, contentDescription = null) }
                 )
             }
+        }
         }
     }
 }
