@@ -101,6 +101,8 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
 import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
 import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2BackPreview
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.LocalTask
@@ -811,16 +813,16 @@ private fun CompactPageHeading(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, modifier = Modifier.weight(1f),
+        Text(title,
             style = MaterialTheme.typography.headlineSmall,
-            color = XiaoxuPalette.Ink)
+            color = XiaoxuPalette.Ink, modifier = Modifier.weight(1f).semantics { heading() })
         if (onRefresh != null) {
-            IconButton(onClick = onRefresh, enabled = !refreshing) {
+            XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新数据",
                     tint = XiaoxuPalette.Ink2)
             }
         }
-        IconButton(onClick = onMessages) {
+        XiaoxuSoftIconButton(onClick = onMessages) {
             Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心",
                 tint = XiaoxuPalette.Ink2)
         }
@@ -861,7 +863,7 @@ private fun AcademicPage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (academicRoute != AcademicDestination.OVERVIEW) {
-                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                    XiaoxuSoftIconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "返回校园",
                             tint = XiaoxuPalette.Ink2)
@@ -884,23 +886,21 @@ private fun AcademicPage(
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    AcademicEditorialSection(title = "教务") {
+                    UiV2SettingsGroup(title = "教务") {
                         AcademicActionRow("成绩", Icons.Outlined.School) {
                             select(AcademicDestination.GRADES)
                         }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
+                        UiV2SettingsDivider()
                         AcademicActionRow("考试", Icons.Outlined.DateRange) {
                             select(AcademicDestination.EXAMS)
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    AcademicEditorialSection(title = "校园生活") {
+                    UiV2SettingsGroup(title = "校园生活") {
                         AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
                             select(AcademicDestination.SECOND_CLASS)
                         }
-                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp))
+                        UiV2SettingsDivider()
                         AcademicActionRow("校园服务", Icons.Outlined.Home) {
                             select(AcademicDestination.SERVICES)
                         }
@@ -915,7 +915,7 @@ private fun AcademicPage(
                 item {
                     XiaoxuEmpty(
                         title = "成绩尚未读取",
-                        message = "尚无已核验的本人成绩，学校连接情况请在「我的」查看。",
+                        message = "暂无已核验的本人成绩。",
                         actionLabel = "连接青果教务",
                         onAction = openProfile
                     )
@@ -925,7 +925,7 @@ private fun AcademicPage(
                 item {
                     XiaoxuEmpty(
                         title = "考试安排尚未读取",
-                        message = "尚无已核验的本人考试安排，学校连接情况请在「我的」查看。",
+                        message = "暂无已核验的本人考试安排。",
                         actionLabel = "查看数据连接",
                         onAction = openProfile
                     )
@@ -934,11 +934,10 @@ private fun AcademicPage(
             AcademicDestination.SERVICES -> Content {
                 item { CampusRunPanel(cloud) }
                 item {
-                    XiaoxuGroupedSection {
+                    UiV2SettingsGroup(title = "其他服务") {
                         AcademicActionRow("数据连接", Icons.Outlined.School,
                                 onClick = openProfile)
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
+                        UiV2SettingsDivider()
                         AcademicActionRow("打开校序网站", Icons.Outlined.Home,
                             onClick = openWebsite)
                     }
@@ -947,18 +946,6 @@ private fun AcademicPage(
         }
     }
     }
-}
-
-/**
- * 技术编辑式分组：上边界细线 + 一处真正的标题 + 连续操作行。
- * 教务仍使用唯一 AcademicPage 导航宿主和原有详情页面。
- */
-@Composable
-private fun AcademicEditorialSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    UiV2SettingsGroup(title, content)
 }
 
 /** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */

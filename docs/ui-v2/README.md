@@ -143,3 +143,8 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 - 根据真机任务页上滚时标题被裁切、操作入口随列表移出屏幕的问题，将页头移出 LazyColumn，保留单一有界列表和原搜索、创建、更多回调。状态筛选和列表仍可滚动，避免短屏固定区过高。
 - 495e6bd 基线 JVM、全仓 CI、Android runtime 均通过；APK 流程在 benchmarkReleaseRuntimeClasspath 缺失 Maven JAR 时失败。加入一次 --refresh-dependencies 重试，不跳过 benchmark 编译、不降低发布门槛，是否有效仍待下一次真实构建。
 - 同步修订第二课堂刷新按钮旧断言，继续使用统一按钮组件。当前不声明真机验收已通过。
+
+## 第二轮第七批：校园分组和回归合同
+
+- 899f4be 已通过 Kotlin/JVM；全仓与 APK 的静态回归分别卡在旧课表空态 XiaoxuCard 及旧设置按钮断言。改为验证真实直接导入及手动添加入口，不改数据解析或授权合同。
+- 校园总览与服务列表直接使用共享 V2 分组、分隔线，移除 AcademicEditorialSection 透传包装；二级返回和消息按钮统一软圆按钮，成绩/考试未读取说明简化，保留已核验状态与原连接入口。待新 head 编译及真机验证。

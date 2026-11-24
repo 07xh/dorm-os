@@ -1837,7 +1837,7 @@ assert.match(academicReadingLayout, /Box\(Modifier\.fillMaxSize\(\), contentAlig
 assert.match(academicReadingLayout, /widthIn\(max = 860\.dp\)\.fillMaxWidth\(\)\.fillMaxHeight\(\)/,
     '教务详情维持单一滚动栏，不新增嵌套滚动');
 const academicHeadingLayout = main.slice(main.indexOf('private fun AcademicPage('),
-    main.indexOf('private fun AcademicEditorialSection('));
+    main.indexOf('private fun AcademicActionRow('));
 assert.match(academicHeadingLayout, /Box\(Modifier\.fillMaxWidth\(\), contentAlignment = Alignment\.TopCenter\)/,
     '教务顶栏应与平板内容栏水平对齐');
 
@@ -1942,7 +1942,8 @@ assert.doesNotMatch(schedulePanel, /sealed interface ScheduleUiState|fun deriveS
 
 // 课表视觉只检查仍然渲染的本机页面，停止约束旧海报/云端样式。
 const scheduleVisual = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-assert.match(scheduleVisual, /XiaoxuCard\(/);
+assert.match(scheduleVisual, /UiV2HomeSurface \{/);
+assert.match(scheduleVisual, /Button\(onClick = onImport/);
 assert.match(scheduleVisual, /private fun SchedulePageHeading\([\s\S]*?Text\(\s*"我的课表"/,
   '本机课表空态与有课程态须使用同一标题组件');
 assert.doesNotMatch(scheduleVisual, /label = "重新导入课表"/);
@@ -2268,20 +2269,15 @@ const academicOverviewSource = main.slice(
     main.indexOf('AcademicDestination.OVERVIEW -> Content('),
     main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
 );
-assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "教务"\)/,
+assert.match(academicOverviewSource, /UiV2SettingsGroup\(title = "教务"\)/,
   '成绩和考试须归入教务分类');
-assert.match(academicOverviewSource, /AcademicEditorialSection\(title = "校园生活"\)/,
+assert.match(academicOverviewSource, /UiV2SettingsGroup\(title = "校园生活"\)/,
   '第二课堂和校园服务须归入校园生活分类');
 assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
   '教务连续分组内部不能再套第二层方形卡片');
-assert.match(main, /private fun AcademicEditorialSection\(/,
-  '教务分区复用编辑式布局组件，不添加第二套导航');
-const academicEditorial = main.slice(main.indexOf('private fun AcademicEditorialSection('),
-  main.indexOf('private fun AcademicActionRow('));
-assert.match(academicEditorial, /UiV2SettingsGroup\(title, content\)/,
-  '教务和设置共用 V2 分组，不重复实现容器');
-assert.doesNotMatch(academicEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '教务分区不应重新叠加大卡片');
+assert.doesNotMatch(main, /private fun AcademicEditorialSection\(/, '删除无独立逻辑的旧分组包装');
+assert.match(academicOverviewSource, /UiV2SettingsDivider\(\)/);
+assert.match(academicHeadingLayout, /XiaoxuSoftIconButton\(onClick = \{ select\(AcademicDestination\.OVERVIEW\) \}\)/);
 const academicAction = main.slice(main.indexOf('private fun AcademicActionRow('));
 assert.match(academicAction, /UiV2SettingsEntry\(/, '教务入口使用统一行');
 assert.match(v2Settings, /val SingleLine = 52\.dp/, '共享入口具备足够触控高度');
