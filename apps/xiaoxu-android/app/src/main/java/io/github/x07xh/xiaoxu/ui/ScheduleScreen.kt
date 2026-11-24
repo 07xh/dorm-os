@@ -285,7 +285,7 @@ private fun LocalTimetableEmptyState(
     onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit, onImport: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
+        modifier = Modifier.xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -467,7 +467,7 @@ private fun ScheduleVerifiedContent(
                     Icon(Icons.Outlined.ChevronLeft, contentDescription = "上一周")
                 }
                 TextButton(
-                    onClick = { showWeekPicker = !showWeekPicker },
+                    onClick = { showWeekPicker = true },
                     enabled = weekNumbers.size > 1,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
@@ -491,8 +491,22 @@ private fun ScheduleVerifiedContent(
             }
         }
         if (weekNumbers.size > 1 && showWeekPicker) {
-            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
-                onSelect = { selectedWeek = it; showWeekPicker = false })
+            XiaoxuBottomSheet(
+                title = "选择教学周",
+                subtitle = "当前查看第 $selectedWeek 周",
+                onDismiss = { showWeekPicker = false },
+                showCancel = false
+            ) {
+                WeekSelector(weeks = weekNumbers, selected = selectedWeek,
+                    onSelect = { selectedWeek = it; showWeekPicker = false })
+                if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                    selectedWeek != actualCurrentWeek) {
+                    TextButton(onClick = { selectedWeek = actualCurrentWeek; showWeekPicker = false },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text("返回本周")
+                    }
+                }
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = {
@@ -500,7 +514,7 @@ private fun ScheduleVerifiedContent(
                 LocalSemesterConfigStore.saveViewMode(context, nextMode)
                 viewMode = nextMode
             }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(if (viewMode == "week") "周视图 · 切换日视图" else "日视图 · 切换周视图",
+                Text(if (viewMode == "week") "切换日视图" else "切换周视图",
                     style = MaterialTheme.typography.labelMedium)
             }
             Spacer(Modifier.weight(1f))
@@ -793,13 +807,7 @@ private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Uni
             weekListState.scrollToItem((selectedIndex - 2).coerceAtLeast(0))
         }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = "周次",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(8.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         LazyRow(state = weekListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = weeks.size, key = { index -> weeks[index] }) { index ->
                 val week = weeks[index]
