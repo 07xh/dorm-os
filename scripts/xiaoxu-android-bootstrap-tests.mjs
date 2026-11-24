@@ -2562,3 +2562,19 @@ assert.match(taskDueControl, /onClick = \{ onSelect\(null\) \}/);
 assert.match(taskDueControl, /atStartOfDay\(ZoneOffset\.UTC\)/);
 assert.match(taskDueControl, /atZone\(ZoneOffset\.UTC\)/);
 assert.match(taskDueControl, /Modifier\.weight\(1f\)\.heightIn\(min = 48\.dp\)/);
+
+const v2GlassDialog = designSystem.slice(designSystem.indexOf('fun XiaoxuGlassDialog('),
+  designSystem.indexOf('internal fun XiaoxuDialogPrimaryButton('));
+assert.match(v2GlassDialog, /\.widthIn\(max = XiaoxuPageLayout\.StateMaxWidth\)\s*\.fillMaxWidth\(\)/,
+  '先限制最大宽度再填充，避免宽屏弹窗超过上限');
+assert.match(v2GlassDialog, /UiV2SheetPolicy\.heightFraction\(maxHeight\.value\)/,
+  '低可用高度和键盘场景共享浮层高度策略');
+assert.match(v2GlassDialog, /\.imePadding\(\)/);
+assert.match(v2GlassDialog, /vertical = if \(compactHeight\) 12\.dp else 20\.dp/);
+assert.match(bottomActions, /\.padding\(horizontal = UiV2Theme\.PageGutter, vertical = 12\.dp\)/);
+assert.match(bottomActions, /clip\(UiV2Theme\.GroupShape\)/);
+const cancelPill = bottomActions.slice(bottomActions.indexOf('private fun XiaoxuSheetPill('),
+  bottomActions.indexOf('private fun XiaoxuSheetActionRow('));
+assert.doesNotMatch(cancelPill, /destructive|selected/,
+  '取消按钮不保留永远未用的动作和选中变体');
+assert.match(cancelPill, /enabled = enabled/);
