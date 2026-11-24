@@ -85,6 +85,9 @@ import io.github.x07xh.xiaoxu.data.LocalReminderPreview
 import io.github.x07xh.xiaoxu.data.LocalReminderOrigin
 import io.github.x07xh.xiaoxu.data.plannedLocalReminderInbox
 import java.time.ZonedDateTime
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -404,6 +407,61 @@ fun MessageCenterPanel(
                             MessageErrorCard(phase.message, refresh, openWebsite)
                         }
                         else -> Unit
+                    }
+                }
+
+                // Private Chaoxing inbox is kept separate from public school notices.
+                if (!showWechat && state.authenticated) {
+                    val privateNotices = state.chaoxingInbox.filter { notice ->
+                        val categoryMatches = when (filterKey) {
+                            MSG_FILTER_EXAM -> notice.category == "exam"
+                            MSG_FILTER_NOTICE -> notice.category != "exam"
+                            else -> true
+                        }
+                        categoryMatches && (query.isBlank() ||
+                            notice.title.contains(query.trim(), ignoreCase = true) ||
+                            notice.course.contains(query.trim(), ignoreCase = true))
+                    }
+                    item(key = "chaoxing-inbox-header") {
+                        SourceSectionHeader(
+                            icon = Icons.Outlined.MailOutline,
+                            title = "学习通",
+                            badge = "本人通知",
+                            detail = when {
+                                !state.chaoxingInboxFresh -> "缓存未核验"
+                                state.chaoxingInbox.size == 100 -> "最近100条"
+                                else -> "${state.chaoxingInbox.size} 条已保存"
+                            }
+                        )
+                    }
+                    if (privateNotices.isEmpty()) item(key = "chaoxing-inbox-empty") {
+                        Text(
+                            if (state.chaoxingInboxFresh) "当前缓存中没有匹配通知"
+                            else "尚未成功读取学习通通知缓存",
+                            color = XiaoxuPalette.Ink3,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    items(count = privateNotices.size, key = { "chaoxing-inbox:" + privateNotices[it].id }) { index ->
+                        val notice = privateNotices[index]
+                        val format = DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                            .withZone(ZoneId.of("Asia/Shanghai"))
+                        XiaoxuCard(contentPadding = 12.dp) {
+                            Text(notice.title, style = MaterialTheme.typography.titleSmall,
+                                color = XiaoxuPalette.Ink)
+                            Text(listOfNotNull(notice.course.takeIf { it.isNotBlank() },
+                                if (notice.category == "exam") "考试通知 · 状态未核实" else "学习通通知",
+                                format.format(Instant.parse(notice.sentAt))).joinToString(" · "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink3)
+                            if (notice.dueAt != null) Text(
+                                (if (notice.category == "exam") "通知所列考试时间：" else "通知所列时间：") +
+                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                        .withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(notice.dueAt)),
+                                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+                            if (!state.chaoxingInboxFresh) Text("上次读取记录",
+                                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3)
+                        }
                     }
                 }
 

@@ -3,7 +3,7 @@
  */
 (function(root){
  'use strict';
- let courses=[],items=[],detail=null,selected='',loaded=false,loading='',error='',epoch=0;
+ let courses=[],items=[],detail=null,grades=null,selected='',loaded=false,loading='',error='',epoch=0;
  let listVerified=false,checkedAt=null,bulkProgress='';
  const sourceStatus={todo:'官方显示：未提交',submitted:'官方显示：已提交 / 待批阅',
   graded:'官方显示：已批阅',returned:'官方显示：已退回',unknown:'官方状态未知'};
@@ -29,7 +29,8 @@
       '<option value="'+esc(key(c))+'" '+(key(c)===selected?'selected':'')+'>'+esc(c.title)+'</option>').join('')+
     '</select><button type="button" class="secondary" data-xu-work-list '+(loading?'disabled':'')+
      '>重新同步本课程</button><button type="button" class="secondary" data-xu-work-all '+(loading?'disabled':'')+
-     '>同步全部课程</button></div>':'')+
+     '>同步全部课程</button><button type="button" class="secondary" data-xu-work-grades '+(loading?'disabled':'')+
+     '>查询作业成绩</button></div>':'')+
    (ready&&bulkProgress?'<p class="small muted" role="status" data-xu-work-bulk>'+esc(bulkProgress)+'</p>':'')+
    (ready&&listVerified&&current?'<p class="small muted" data-xu-work-verification>官方作业状态已同步：'+
     items.length+' 份 · '+items.filter(x=>['todo','returned'].includes(x.statusCode)).length+' 份待处理 · '+
@@ -38,13 +39,18 @@
     '</p>':'')+
    (error?'<p class="small muted" role="alert">'+esc(error)+'</p>':'')+
    (loading?'<p class="small muted" role="status">正在读取官方'+
-      esc(({courses:'课程列表',list:'作业列表',detail:'题目'})[loading]||'数据')+'…</p>':'')+
+      esc(({courses:'课程列表',list:'作业列表',detail:'题目',grades:'作业成绩'})[loading]||'数据')+'…</p>':'')+
    (ready&&current&&items.length?'<div class="xu-inbox-entries">'+items.map(x=>
     '<article class="xu-inbox-entry"><div><strong>'+esc(x.title)+'</strong>'+
      '<div class="small muted">'+esc(displayedStatus(x))+
      (x.status&&x.statusCode==='unknown'?' · '+esc(x.status):'')+'</div></div>'+
      '<button class="secondary" type="button" data-xu-work-detail="'+esc(x.workId)+'" '+
       (loading?'disabled':'')+'>查看题目</button></article>').join('')+'</div>':'')+
+   (ready&&grades?'<div class="xu-inbox-panel"><h4>作业成绩 · '+esc(grades.course.title)+'</h4>'+
+    '<p class="small muted">官方当前成绩表，不代表课程总评或全量成绩。未显示分数不等于零分。</p>'+
+    grades.items.map(x=>'<article class="xu-inbox-entry"><strong>'+esc(x.title)+'</strong>'+
+     '<span>'+esc(x.score===null?x.scoreLabel:String(x.score)+(x.maxScore===null?'':' / '+x.maxScore))+
+     '</span></article>').join('')+'</div>':'')+
    (ready&&detail?'<div class="xu-inbox-panel"><h4>'+esc(detail.title)+'</h4>'+
     '<p class="small muted">'+esc(detail.course||'')+' · '+esc(detail.note||'')+'</p>'+
     (detail.questionsAvailable?detail.questions.map(q=>
@@ -78,6 +84,7 @@
    session_expired:'学习通会话已失效，请在「我的」重新连接',
    interactive_login_required:'学习通要求重新登录或人机验证，请在官方页面完成后重新连接',
    school_login_unavailable:'学习通读取服务尚未准备好',
+   grades_unverified:'暂未核实此课程的官方作业成绩表',
    courses_unverified:'未能从本人学习通会话核实课程所属学校标识或课程列表，请重新连接学习通并检查官方课程是否可访问',
    work_not_available:'该课程作业页未开放或缺少官方作业签名，不能据此认定作业已完成',
    database_unavailable:'云端任务同步数据库不可用，官方完成状态未保存',
@@ -97,7 +104,7 @@
  }
  async function load(view,params={}){
   if(loading||!online())return;
-  loading=view;error='';const at=epoch;let startBulkSync=false;update();
+  loading=view;error='';grades=null;const at=epoch;let startBulkSync=false;update();
   try{
    const data=await read(view,params);
    if(at!==epoch||!online())return;
@@ -117,6 +124,13 @@
     detail=null;listVerified=true;checkedAt=Date.now();
     if(!items.length)error=data.verifiedEmpty?'官方页面显示暂无作业':'未读取到完整作业列表，不能据此断定该课程没有作业';
     if(data.sync)void refreshSyncedTasks();
+   }else if(view==='grades'){
+    const current=choice();
+    if(data?.schema!=='xiaoxu/chaoxing-homework-grades-v1'||
+      data.scope!=='current_table_only'||!current||!data.course||
+      key(data.course)!==key(current)||!Array.isArray(data.items)||data.items.length>200)
+      throw Error('作业成绩结构无效');
+    grades=data;detail=null;
    }else{
     if(!Array.isArray(data.questions)||data.questions.length>120)throw Error('作业内容无效');
     detail=data;
@@ -131,7 +145,7 @@
   if(loading||!loaded||!online()||!courses.length)return;
   const at=epoch,list=courses.slice();
   let successful=0,failed=0,needsAction=0;
-  loading='all';error='';bulkProgress='开始同步 '+list.length+' 门课程…';update();
+  loading='all';error='';grades=null;bulkProgress='开始同步 '+list.length+' 门课程…';update();
   try{
    for(let i=0;i<list.length;i++){
     if(epoch!==at||!online())return;
@@ -167,12 +181,15 @@
    }
   }
  }
- function disconnect(){epoch++;courses=[];items=[];detail=null;selected='';loaded=false;loading='';error='';listVerified=false;checkedAt=null;bulkProgress='';update();}
+ function disconnect(){epoch++;courses=[];items=[];detail=null;grades=null;selected='';loaded=false;loading='';error='';listVerified=false;checkedAt=null;bulkProgress='';update();}
  document.addEventListener('click',e=>{
   if(e.target.closest('[data-xu-work-courses]')){load('courses');return;}
   if(e.target.closest('[data-xu-work-all]')){void syncAllCourses();return;}
   if(e.target.closest('[data-xu-work-list]')){
    const c=choice();if(c)load('list',{courseId:c.courseId,classId:c.classId,cpi:c.cpi});return;
+  }
+  if(e.target.closest('[data-xu-work-grades]')){
+   const c=choice();if(c)load('grades',{courseId:c.courseId,classId:c.classId,cpi:c.cpi});return;
   }
   const btn=e.target.closest('[data-xu-work-detail]');
   if(btn){const c=choice();if(c)load('detail',{courseId:c.courseId,
@@ -180,7 +197,7 @@
  });
  document.addEventListener('change',e=>{
   if(e.target.matches('[data-xu-work-select]')&&!loading){
-   selected=e.target.value;items=[];detail=null;error='';listVerified=false;checkedAt=null;update();
+   selected=e.target.value;items=[];detail=null;grades=null;error='';listVerified=false;checkedAt=null;update();
    const course=choice();
    if(course)void load('list',{courseId:course.courseId,classId:course.classId,cpi:course.cpi});
   }

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
- parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus} from '../lib/academic-chaoxing-work-discovery.mjs';
+ parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus,
+ parseChaoxingHomeworkGrades,parseChaoxingGradeEntry,parseChaoxingCourseProgress} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
+import {normalizeVerifiedChaoxingHomework} from '../lib/academic-chaoxing-homework-sync.mjs';
 globalThis.crypto??=webcrypto;
 const courseHtml='<a href="/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"></a>'+
  '<span class="course-name" title="Python 基础"></span>';
@@ -118,6 +120,140 @@ assert.ok(!JSON.stringify(detail).includes('signedTask'));
 assert.ok(!JSON.stringify(detail).includes('sandbox-session'));
 assert.ok(requests.every(x=>x.method==='GET'));
 assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
+
+ // Full-year timing is attached to the exact official row and passed to the
+ // existing D1 normalizer. Yearless, hidden or malformed evidence cannot set a date.
+ const timingKeys={courseId:'123',classId:'456',cpi:'789'};
+ const datedHtml=workHtml.replace('</li>','<p>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</p></li>');
+ const timedAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>
+  new URL(raw).pathname==='/mooc2/work/list'?response(datedHtml):fakeFetch(raw,options)});
+ const timedRead=await timedAdapter.forSession({session,userId:'owner1'});
+ await timedRead.verifySession();
+ const timedList=await timedRead.readHomeworkList(timingKeys);
+ assert.equal(timedList.items[0].due,'2026-12-01');
+ assert.equal(timedList.items[0].dueAt,'2026-12-01T23:59:00+08:00');
+ const normalized=normalizeVerifiedChaoxingHomework(timingKeys,timedList);
+ assert.equal(normalized.tasks[0].dueAt,'2026-12-01T23:59:00+08:00');
+ for(const metadata of [
+  '<p>作答时间：11-03 08:15 至 12-01 23:59</p>',
+  '<p hidden>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</p>',
+  '<p>作答时间：2026-02-30 08:15 至 2026-12-01 23:59</p>',
+  '<p>作答时间：2026-12-03 08:15 至 2026-12-01 23:59</p>'
+ ]){
+  const parsed=parseChaoxingWorkList(workHtml.replace('</li>',metadata+'</li>'),timingKeys);
+  assert.equal(parsed.items[0].timing?.dueAt,undefined);
+ }
+ const invalid={...timedList,items:timedList.items.map(item=>({...item,due:'2026-02-30',dueAt:'2026-02-30T23:59:00+08:00'}))};
+ assert.equal(normalizeVerifiedChaoxingHomework(timingKeys,invalid).tasks[0].dueAt,'');
+
+
+ // Deadline-only detail enrichment never opens an answer page and never
+ // turns optional detail failures into lost official list records.
+ const fullDetail='<body><section>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</section></body>';
+ const threeWorkHtml='<ul>'+['987','988','989'].map(id=>
+  workHtml.slice(4,-5).replace('workId=987','workId='+id)).join('')+'</ul>';
+ async function metadataReader(getDetail){
+  const visited=[];
+  const metadataAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+   const u=new URL(raw);
+   if(u.pathname==='/mooc2/work/list')return response(threeWorkHtml);
+   if(u.pathname==='/mooc-ans/mooc2/work/task'){
+    visited.push(u.searchParams.get('workId'));return getDetail(u);
+   }
+   if(u.pathname.includes('/work/dowork'))throw Error('must not enter answer page');
+   return fakeFetch(raw,options);
+  }});
+  const reader=await metadataAdapter.forSession({session,userId:'owner1'});
+  await reader.verifySession();
+  return {reader,visited};
+ }
+ const metadata=await metadataReader(()=>response(fullDetail));
+ const normal=await metadata.reader.readHomeworkList(timingKeys);
+ assert.equal(normal.items.length,3);
+ assert.equal(metadata.visited.length,0,'ordinary list read must not fetch details');
+ const enriched=await metadata.reader.readHomeworkList(timingKeys,{includeDeadlines:true});
+ assert.equal(enriched.items.length,3);
+ assert.deepEqual(metadata.visited,['987','988']);
+ assert.equal(enriched.items[0].dueAt,'2026-12-01T23:59:00+08:00');
+ assert.equal(enriched.items[2].dueAt,undefined);
+ const throttled=await metadataReader(()=>new Response('',{status:429}));
+ assert.equal((await throttled.reader.readHomeworkList(timingKeys,{includeDeadlines:true})).items.length,3);
+ assert.equal(throttled.visited.length,1,'no further optional reads after throttling');
+ const expired=await metadataReader(()=>new Response('',{status:302,
+  headers:{location:'https://passport2.chaoxing.com/login'}}));
+ await assert.rejects(()=>expired.reader.readHomeworkList(timingKeys,{includeDeadlines:true}),
+  e=>e.code==='authorization_failed');
+ const redirectAnswer=await metadataReader(u=>new Response('',{status:302,
+  headers:{location:u.href.replace('/work/task','/work/dowork')}}));
+ const protectedList=await redirectAnswer.reader.readHomeworkList(timingKeys,{includeDeadlines:true});
+ assert.equal(protectedList.items.length,3);
+ assert.ok(protectedList.items.every(x=>x.dueAt===undefined));
+
+
+ // Grade HTML fixture is synthetic; the documented route still needs owner QA.
+ const gradeLink='https://stat2-ans.chaoxing.com/stat2/work/my?courseId=123&classId=456&cpi=789&enc=fixtureGrade';
+ const gradePage='<table><tr><th>作业名称</th><th>得分</th><th>满分</th></tr>'+
+  '<tr><td>练习一</td><td>0</td><td>20</td></tr>'+
+  '<tr><td>练习二</td><td>待批阅</td><td>20</td></tr>'+
+  '<tr><td>练习三</td><td>18.5</td><td>20</td></tr></table>';
+ const gradeMiddle=middle+'<a href="'+gradeLink.replaceAll('&','&amp;')+'">成绩</a>';
+ assert.equal(parseChaoxingGradeEntry(gradeMiddle,timingKeys),gradeLink);
+ assert.throws(()=>parseChaoxingGradeEntry(gradeMiddle.replace('courseId=123','courseId=999'),timingKeys));
+ const gradeParsed=parseChaoxingHomeworkGrades(gradePage);
+ assert.deepEqual(gradeParsed.items.map(x=>x.score),[0,null,18.5]);
+ assert.deepEqual(gradeParsed.items.map(x=>x.maxScore),[20,20,20]);
+ assert.throws(()=>parseChaoxingHomeworkGrades(gradePage.replace('<td>18.5</td>','<td>98</td>')));
+ assert.throws(()=>parseChaoxingHomeworkGrades('<table><tr><th>姓名</th><th>总评</th></tr><tr><td>测试</td><td>99</td></tr></table>'));
+ assert.throws(()=>parseChaoxingHomeworkGrades(gradePage+gradePage));
+ const gradeAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+  const u=new URL(raw);
+  if(u.pathname==='/visit/stucoursemiddle')return response(gradeMiddle);
+  if(u.pathname==='/stat2/work/my'){
+   assert.equal(options.method,'GET');assert.equal(u.href,gradeLink);
+   return response(gradePage);
+  }
+  return fakeFetch(raw,options);
+ }});
+ const gradeReader=await gradeAdapter.forSession({session,userId:'owner1'});
+ await gradeReader.verifySession();
+ const grades=await gradeReader.readHomeworkGrades(timingKeys);
+ assert.equal(grades.course.courseId,'123');
+ assert.equal(grades.scope,'current_table_only');
+ assert.ok(!JSON.stringify(grades).includes('fixtureGrade'));
+ await assert.rejects(()=>gradeReader.readHomeworkGrades({...timingKeys,courseId:'999'}),
+  e=>e.code==='authorization_failed');
+
+
+ // Synthetic fixture for the published read-only course aggregate contract.
+ const progressPage='<div>已完成任务点: <span>3</span>/8</div>'+
+  '<div class="chapter_item">ignored chapter detail</div>';
+ const aggregate=parseChaoxingCourseProgress(progressPage);
+ assert.equal(aggregate.completed,3);
+ assert.equal(aggregate.total,8);
+ assert.equal(aggregate.percent,37.5);
+ assert.equal(parseChaoxingCourseProgress('<div>已完成任务点：0/0</div>').percent,null);
+ for(const html of ['<div>作业：3/8</div>','<div>已完成任务点：9/8</div>',
+  '<div hidden>已完成任务点：3/8</div>',progressPage+progressPage])
+  assert.throws(()=>parseChaoxingCourseProgress(html));
+ const progressAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+  const u=new URL(raw);
+  if(u.pathname==='/mooc2-ans/mycourse/studentcourse'){
+   assert.equal(options.method,'GET');
+   assert.equal(u.searchParams.get('courseid'),'123');
+   assert.equal(u.searchParams.get('clazzid'),'456');
+   return response(progressPage);
+  }
+  return fakeFetch(raw,options);
+ }});
+ const progressReader=await progressAdapter.forSession({session,userId:'owner1'});
+ await progressReader.verifySession();
+ const progressResult=await progressReader.readCourseProgress(timingKeys);
+ assert.equal(progressResult.course.courseId,'123');
+ assert.equal(progressResult.metric,'official_task_points');
+ assert.ok(!JSON.stringify(progressResult).includes('ignored chapter detail'));
+ await assert.rejects(()=>progressReader.readCourseProgress({...timingKeys,courseId:'999'}),
+  e=>e.code==='authorization_failed');
+
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
 
 const missingFidProfile='<div aria-label="账号：虚构测试人"></div>'+

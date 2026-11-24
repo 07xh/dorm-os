@@ -869,14 +869,21 @@ assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
   '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
-assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
-  '成绩页面入口仍为独立原生内容页');
+assert.match(main, /AcademicDestination\.GRADES -> tabStateHolder\.SaveableStateProvider\("grades"\)/,
+  '成绩仍由唯一教务成绩入口承载');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
   '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
+const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades")'),
     main.indexOf('AcademicDestination.SERVICES -> Content('));
+assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 1,
+  '学习通未授权仍使用共享空态');
+assert.match(academicGradeArea, /XiaoxuSegmentOption\("ncwu", "青果教务"\)/);
+assert.match(academicGradeArea, /XiaoxuSegmentOption\("chaoxing", "学习通"\)/);
+assert.match(academicGradeArea, /cloud\.readChaoxingGrades\(course\)/);
+assert.match(academicGradeArea, /独立于教务总评，不计入绩点与学分/);
 assert.match(academicGradeArea, /NcwuBusinessPanel\("grades", cloud, openProfile\)/);
 assert.match(academicGradeArea, /NcwuBusinessPanel\("exams", cloud, openProfile\)/);
+assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/);
 const ncwuBusinessPanel = main.slice(main.indexOf('private fun NcwuBusinessPanel('),
   main.indexOf('private fun AcademicEditorialSection('));
 assert.equal((ncwuBusinessPanel.match(/XiaoxuEmpty\(/g) || []).length, 1,
@@ -893,6 +900,7 @@ assert.match(cloud, /request\("\/api\/v1\/verified\/schedule", authenticated = t
 const schoolScheduleRead = cloud.slice(cloud.indexOf('suspend fun refreshNcwuSchedule('),
   cloud.indexOf('suspend fun checkNcwuBusiness('));
 assert.doesNotMatch(schoolScheduleRead, /LocalScheduleStore\./);
+
 
 const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
     workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
@@ -999,8 +1007,12 @@ assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle
   '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
 assert.match(messageCenter, /title = "微信候选"/);
 assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
-  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
+assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 3,
+  '微信审核与私人学习通通知各有身份行，公开公告仍只使用分段栏');
+assert.match(messageCenter,/title = "学习通",\s*badge = "本人通知"/);
+assert.match(messageCenter,/if \(!showWechat && state\.authenticated\)/);
+assert.match(messageCenter,/考试通知 · 状态未核实/);
+assert.match(messageCenter,/state\.chaoxingInboxFresh/);
 assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
   '消息中心禁止持续显示面向开发人员的来源免责声明');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
@@ -1271,7 +1283,10 @@ assert.match(workspace, /val sameWeekday = localLessons\.filter/,
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
-assert.match(workspace, /学习通 · 本机读取/);
+assert.match(workspace, /学习通 · 本机 HTTP 读取/);
+assert.match(workspace, /val canSyncChaoxingHttp = state\.authenticated && state\.connectionsFresh/);
+assert.match(workspace, /taskScope\.launch \{ client\.syncChaoxingHomeworkHttp\(\) \}/);
+assert.match(workspace, /本机 HTTP 读取 · 含学习计划/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
 assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);

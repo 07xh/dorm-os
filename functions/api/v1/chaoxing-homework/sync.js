@@ -28,7 +28,7 @@ export async function onRequestPost(context){
    db:auth.db,userId:auth.userId,adapter,
    secret:context.env?.SCHOOL_SESSION_KEY,
    reader:async(source,proof)=>syncVerifiedChaoxingHomework(
-    auth.db,auth.userId,source,proof,input)
+    auth.db,auth.userId,source,proof,input,{includeDeadlines:true})
   });
   return json({schema:'xiaoxu/chaoxing-work-browser-v1',
    view:'list',live:true,data});
