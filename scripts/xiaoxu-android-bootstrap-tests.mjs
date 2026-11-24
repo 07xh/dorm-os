@@ -2247,6 +2247,8 @@ assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实
 assert.match(workspace, /if \(sourceMenuOpen\) \{\s*XiaoxuBottomActionSheet\(\s*title = "任务来源"/, '来源筛选复用统一选择浮层');
 assert.match(workspace, /selected = sourceFilter == source/);
 assert.doesNotMatch(workspace, /DropdownMenu\(|DropdownMenuItem\(/, '移除独立来源下拉菜单');
+assert.match(workspace, /if \(showProgressCourses && canSyncChaoxingHttp && !chaoxingSyncBusy\) \{\s*XiaoxuBottomActionSheet\(\s*title = "选择课程"/, '课程进度也使用统一浮层且保持授权门禁');
+assert.match(workspace, /taskScope\.launch \{ client\.readChaoxingCourseProgress\(course\) \}/);
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"/,

@@ -1863,17 +1863,7 @@ internal fun RealAcademicTaskHub(
                                     }
                                 }
                             ) { Text("查询课程进度") }
-                            DropdownMenu(
-                                expanded = showProgressCourses && !chaoxingSyncBusy && canSyncChaoxingHttp,
-                                onDismissRequest = { showProgressCourses = false }
-                            ) {
-                                state.chaoxingGradeCourses.forEach { course ->
-                                    DropdownMenuItem(text = { Text(course.title) }, onClick = {
-                                        showProgressCourses = false
-                                        taskScope.launch { client.readChaoxingCourseProgress(course) }
-                                    })
-                                }
-                            }
+
                         }
                         state.chaoxingCourseProgress?.let { progress ->
                             XiaoxuCard(contentPadding = 12.dp) {
@@ -2142,6 +2132,22 @@ internal fun RealAcademicTaskHub(
     }
 
     } // fixed toolbar and task list
+    if (showProgressCourses && canSyncChaoxingHttp && !chaoxingSyncBusy) {
+        XiaoxuBottomActionSheet(
+            title = "选择课程",
+            onDismiss = { showProgressCourses = false },
+            actions = state.chaoxingGradeCourses.map { course ->
+                XiaoxuSheetAction(
+                    label = course.title,
+                    selected = state.chaoxingCourseProgress?.course == course,
+                    onClick = {
+                        showProgressCourses = false
+                        taskScope.launch { client.readChaoxingCourseProgress(course) }
+                    }
+                )
+            }
+        )
+    }
     if (sourceMenuOpen) {
         XiaoxuBottomActionSheet(
             title = "任务来源",
