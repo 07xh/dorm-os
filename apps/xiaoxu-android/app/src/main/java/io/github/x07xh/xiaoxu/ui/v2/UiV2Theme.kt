@@ -18,7 +18,16 @@ internal object UiV2Theme {
     )
     val SegmentTrack = Color(0xFFE9EDF4)
     val SegmentThumb = Color.White
-    val GroupShape = RoundedCornerShape(24.dp)
+    val GroupRadius = 24.dp
+    val CardRadius = 18.dp
+    val ListRadius = 14.dp
+    val TileRadius = 12.dp
+    val ModalRadius = 28.dp
+    val PillRadius = 999.dp
+    val SectionGap = 14.dp
+    val ListRowMin = 68.dp
+    val Hairline = 0.5.dp
+    val GroupShape = RoundedCornerShape(GroupRadius)
     val GroupOpacity = 0.9f
     val GroupGap = 8.dp
     val PageGutter = 16.dp
