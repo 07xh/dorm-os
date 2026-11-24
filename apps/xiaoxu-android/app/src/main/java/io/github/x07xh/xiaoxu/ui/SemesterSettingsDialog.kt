@@ -229,7 +229,7 @@ internal fun SemesterSettingsPage(
                             Text("默认关闭 · 开启后前台每30分钟同步",
                                 style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
                         }
-                        androidx.compose.material3.Switch(checked = cloud.ncwuScheduleAutoEnabled,
+                        XiaoxuSettingsSwitch(checked = cloud.ncwuScheduleAutoEnabled,
                             onCheckedChange = { enabled ->
                                 if (!cloud.setNcwuScheduleAutoEnabled(enabled))
                                     error = "自动同步设置保存失败"

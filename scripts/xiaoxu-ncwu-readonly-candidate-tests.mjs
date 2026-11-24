@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readExamClassPath,parseExamRounds,examRoundBody,classifyExamCandidate,
- readEnrollmentYearCandidate,gradeQueryBody,classifyGradeCandidate} from '../lib/academic-ncwu-readonly-candidates.mjs';
+ readEnrollmentYearCandidate,gradeQueryBody,classifyGradeCandidate,parseNcwuBusinessTableCandidate} from '../lib/academic-ncwu-readonly-candidates.mjs';
 
 const term='2026-2027-1',opaque='A'.repeat(240);
 assert.equal(readExamClassPath('<root><examArrangeInfo>'+opaque+'</examArrangeInfo></root>'),opaque);
@@ -30,3 +30,26 @@ assert.equal(classifyGradeCandidate('<p>你还有未评教的课程，不允许�
 assert.equal(classifyGradeCandidate('<table><tr><td>合成成绩</td></tr></table>'),'schema_review_required');
 assert.throws(()=>classifyGradeCandidate('<input type="password">'));
 console.log('NCWU readonly candidate contracts passed');
+
+const gradeTable='<table><tr><th>学年学期</th><th>课程代码</th><th>课程名称</th><th>成绩</th><th>学分</th><th>绩点</th></tr>'+
+ '<tr><td>2026-2027-1</td><td>SYN1</td><td>合成测试课程</td><td>0</td><td>0</td><td>0</td></tr></table>';
+const gradeParsed=parseNcwuBusinessTableCandidate(gradeTable,{kind:'grades'});
+assert.equal(gradeParsed.status,'syntactically_parsed');
+assert.equal(gradeParsed.records[0].score,'0');
+assert.equal(gradeParsed.records[0].credit,0);
+assert.equal(gradeParsed.trustedSyncAllowed,false);
+assert.equal(gradeParsed.complete,false);
+assert.equal(parseNcwuBusinessTableCandidate(gradeTable.replace('<td>0</td>','<td></td>'),{kind:'grades'}).records.length,0);
+assert.equal(parseNcwuBusinessTableCandidate(gradeTable+gradeTable,{kind:'grades'}).status,'schema_review_required');
+assert.equal(parseNcwuBusinessTableCandidate('<p>你还有未评教的课程，不允许查看成绩！</p>'+gradeTable,{kind:'grades'}).status,'evaluation_required');
+const examTable='<h1>华北水利水电大学考试安排表</h1><p>2026-2027学年第一学期</p>'+
+ '<table><tr><th>课程代码</th><th>考试科目</th><th>考试日期</th><th>开始时间</th><th>结束时间</th><th>考场</th></tr>'+
+ '<tr><td>SYN2</td><td>合成考试</td><td>2026/12/20</td><td>09:00</td><td>11:00</td><td>合成考场</td></tr></table>';
+const examParsed=parseNcwuBusinessTableCandidate(examTable,{kind:'exams',term});
+assert.equal(examParsed.status,'syntactically_parsed');
+assert.equal(examParsed.records[0].date,'2026-12-20');
+assert.equal(examParsed.verified,false);
+assert.equal(parseNcwuBusinessTableCandidate(examTable.replace('2026/12/20','2026/02/30'),{kind:'exams',term}).records.length,0);
+assert.equal(parseNcwuBusinessTableCandidate(examTable,{kind:'exams',term:'2026-2027-2'}).status,'unrecognized');
+assert.equal(parseNcwuBusinessTableCandidate(empty,{kind:'exams',term}).status,'reported_empty');
+console.log('NCWU provisional nonempty table candidate grammar passed');

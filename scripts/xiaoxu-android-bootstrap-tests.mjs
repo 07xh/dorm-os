@@ -2429,8 +2429,12 @@ for (const name of switchFiles) {
   assert.match(source, /XiaoxuSettingsSwitch\s*\(/, name + ': shared switch');
   assert.doesNotMatch(source, /\bSwitch\s*\(/, name + ': no unstyled switch');
 }
-assert.doesNotMatch(timetableSettings, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/,
-  '课表设置不再维护全局提醒开关');
+assert.equal((timetableSettings.match(/XiaoxuSettingsSwitch\s*\(/g)||[]).length,1,
+  '课表设置只允许学校课表同步开关');
+assert.match(timetableSettings, /XiaoxuSettingsSwitch\(checked = cloud\.ncwuScheduleAutoEnabled/);
+assert.match(timetableSettings, /cloud\.setNcwuScheduleAutoEnabled\(enabled\)/);
+assert.doesNotMatch(timetableSettings, /\bSwitch\s*\(|LocalCourseReminders\.setEnabled\(/,
+  '禁止非统一开关和重复全局提醒设置');
 assert.doesNotMatch(localTaskUi, /XiaoxuSettingsSwitch\s*\(|\bSwitch\s*\(/,
   '任务编辑页不应存在重复的通知总开关');
 assert.match(designSystem, /fun XiaoxuSettingsSwitch\(/);
