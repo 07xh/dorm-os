@@ -1233,6 +1233,7 @@ fun RealAcademicTaskHub(
         state.platforms.any { it.id == "chaoxing" && it.sessionState == "active" &&
             it.authorization == "verified_session" }
     val chaoxingSyncBusy = state.busy || state.schoolSyncBusyProvider != null
+    var showProgressCourses by remember(state.ownerId) { mutableStateOf(false) }
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
     val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
@@ -1922,6 +1923,51 @@ fun RealAcademicTaskHub(
                             modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
                         ) {
                             Text(if (state.schoolSyncBusyProvider == "chaoxing") "正在同步…" else "同步全部作业")
+                        }
+                    }
+                    if (canSyncChaoxingHttp) {
+                        Box(Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                enabled = !chaoxingSyncBusy,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    taskScope.launch {
+                                        if (client.readChaoxingCourseProgress()) showProgressCourses = true
+                                    }
+                                }
+                            ) { Text("查询课程进度") }
+                            DropdownMenu(
+                                expanded = showProgressCourses && !chaoxingSyncBusy && canSyncChaoxingHttp,
+                                onDismissRequest = { showProgressCourses = false }
+                            ) {
+                                state.chaoxingGradeCourses.forEach { course ->
+                                    DropdownMenuItem(text = { Text(course.title) }, onClick = {
+                                        showProgressCourses = false
+                                        taskScope.launch { client.readChaoxingCourseProgress(course) }
+                                    })
+                                }
+                            }
+                        }
+                        state.chaoxingCourseProgress?.let { progress ->
+                            XiaoxuCard(contentPadding = 12.dp) {
+                                Text(progress.course.title, style = MaterialTheme.typography.titleSmall)
+                                Text("官方任务点：" + progress.completed + " / " + progress.total,
+                                    style = MaterialTheme.typography.bodyMedium)
+                                if (progress.total > 0) {
+                                    val fraction = progress.completed.toFloat() / progress.total.toFloat()
+                                    Box(Modifier.fillMaxWidth().height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)).background(XiaoxuPalette.Line)) {
+                                        Box(Modifier.fillMaxWidth(fraction).height(6.dp)
+                                            .background(XiaoxuPalette.Brand))
+                                    }
+                                    Text(String.format(java.util.Locale.ROOT, "%.1f%%", fraction * 100),
+                                        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+                                } else Text("官方显示暂无任务点",
+                                    style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink3)
+                            }
+                        }
+                        state.chaoxingProgressError?.let {
+                            Text(it, style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Danger)
                         }
                     }
                     TextButton(
