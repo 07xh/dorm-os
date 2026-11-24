@@ -57,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import io.github.x07xh.xiaoxu.ui.TimetableImportPreviewSheet
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import io.github.x07xh.xiaoxu.ui.rememberLocalRows
@@ -90,6 +91,7 @@ import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
+import io.github.x07xh.xiaoxu.ui.combineWorkspaceTasks
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
@@ -564,7 +566,8 @@ private fun NativeShell(
     ) {
         academic = AcademicDestination.OVERVIEW // Native back consistently leaves every academic detail.
     }
-    val localTasks by rememberLocalRows(dao) { dao.observe() }
+    val workspaceLocalTasks = rememberLocalRows(dao) { dao.observe() }
+    val localTasks by workspaceLocalTasks
     val reminderContext = LocalContext.current
     // Keep common Room snapshots alive across tabs. Read their State values
     // only in the active destination, instead of recreating empty collectors.
@@ -573,6 +576,13 @@ private fun NativeShell(
         LocalTaskDatabase.open(reminderContext).nativeSchoolRecords()
     }
     val workspaceSchoolRows = rememberLocalRows(workspaceNativeDao) { workspaceNativeDao.observe() }
+    // Cache the expensive canonical identity/deduplication projection across
+    // Home/Tasks disposal. Compute lazily only when a consumer needs it.
+    val workspaceRecords = remember(cloud, workspaceLocalTasks, workspaceSchoolRows) {
+        derivedStateOf {
+            combineWorkspaceTasks(workspaceLocalTasks.value, cloud.state.tasks, workspaceSchoolRows.value)
+        }
+    }
     // A Room checkbox update should reschedule only affected local deadlines,
     // rather than rewriting every WorkManager job. Keep the scheduling work on IO.
     val reminderSnapshot = remember { mutableStateOf<List<LocalTask>?>(null) }
@@ -696,7 +706,8 @@ private fun NativeShell(
                 openSecondClass = { openSecondClass() },
                 openArticle = openArticle,
                 homeDependencies = workspaceDependencies.value,
-                nativeRows = workspaceSchoolRows.value)
+                nativeRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value)
                 }
             }
             MainDestination.SCHEDULE -> CloudTimetablePanel(
@@ -730,7 +741,8 @@ private fun NativeShell(
                 onMessages = { messagesOpen = true },
                 onNavigation = openNavigation,
                 dependencies = workspaceDependencies.value,
-                schoolRows = workspaceSchoolRows.value)
+                schoolRows = workspaceSchoolRows.value,
+                allRecords = workspaceRecords.value)
             MainDestination.PROFILE -> {
                 // Reuse the settings child route for the timetable
                 // child. It must not bypass the settings host on entry/back.
