@@ -39,6 +39,8 @@ jobs:
           gradle-version: '8.13'
       - name: Compile Android Kotlin and run existing JVM unit tests
         run: gradle -p apps/xiaoxu-android :app:testDebugUnitTest --no-daemon --stacktrace
+      - name: Compile Android instrumentation test APK without booting emulator
+        run: gradle -p apps/xiaoxu-android :app:assembleDebugAndroidTest -PxiaoxuRuntimeTest=true --no-daemon --stacktrace
       - name: Upload JVM test reports only on failure
         if: failure()
         uses: actions/upload-artifact@v4

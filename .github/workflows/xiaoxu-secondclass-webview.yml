@@ -11,6 +11,12 @@ on:
       - '.github/workflows/xiaoxu-secondclass-webview.yml'
       - '.github/workflows/build-xiaoxu-android.yml'
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
+# Android emulator runs are expensive. Do not keep several obsolete PR
+# commits booting emulators at once; only test the newest head of each PR.
+concurrency:
+  group: xiaoxu-secondclass-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
