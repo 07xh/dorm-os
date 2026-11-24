@@ -80,6 +80,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
@@ -103,8 +104,7 @@ import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 
 /*
- * 课表仅渲染本机导入的 localLessons；旧云端课表状态不再控制此页面。
- * CloudClient 的任务、连接状态与学校会话逻辑仍由对应模块负责。
+ * 本地课表与学校可信只读课表分别展示；学校同步不写入本机编辑存储。
  */
 
 /** 本机导入课程和来源标签，永不冒充学校实时核验结果。 */
@@ -203,7 +203,8 @@ fun CloudTimetablePanel(
     onEditorClosed: () -> Unit = {},
     focusLessonId: String? = null,
     focusWeekday: Int = 0,
-    onFocusConsumed: () -> Unit = {}
+    onFocusConsumed: () -> Unit = {},
+    cloud: CloudClient? = null
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -223,7 +224,8 @@ fun CloudTimetablePanel(
             onEditorClosed = onEditorClosed,
             focusLessonId = focusLessonId,
             focusWeekday = focusWeekday,
-            onFocusConsumed = onFocusConsumed
+            onFocusConsumed = onFocusConsumed,
+            cloud = cloud
         )
     }
 }
@@ -326,7 +328,8 @@ private fun ScheduleVerifiedContent(
     onEditorClosed: () -> Unit,
     focusLessonId: String?,
     focusWeekday: Int,
-    onFocusConsumed: () -> Unit
+    onFocusConsumed: () -> Unit,
+    cloud: CloudClient?
 ) {
     val context = LocalContext.current
     var calendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
@@ -337,6 +340,7 @@ private fun ScheduleVerifiedContent(
         calendar = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
     }
     var showingCourseEditor by remember { mutableStateOf(false) }
+    var showSchoolSchedule by rememberSaveable { mutableStateOf(false) }
     var editOriginal by remember { mutableStateOf<VerifiedLesson?>(null) }
     var editingBusy by remember { mutableStateOf(false) }
     var editingError by remember { mutableStateOf<String?>(null) }
@@ -411,7 +415,19 @@ private fun ScheduleVerifiedContent(
             modifier = Modifier.fillMaxSize().verticalScroll(timetableScroll),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-    if (data.lessons.isEmpty()) {
+    if (cloud != null) {
+        Row(Modifier.fillMaxWidth().xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { showSchoolSchedule = false }, enabled = showSchoolSchedule,
+                modifier = Modifier.weight(1f)) { Text("本机课表") }
+            OutlinedButton(onClick = { showSchoolSchedule = true; selectedCourseKey = null },
+                enabled = !showSchoolSchedule && !showingCourseEditor,
+                modifier = Modifier.weight(1f)) { Text("学校课表") }
+        }
+    }
+    if (showSchoolSchedule && cloud != null) {
+        SchoolReadOnlyTimetable(cloud, onSettings = { onSettingsOpenChanged(true) }, onMessages = onMessages)
+    } else if (data.lessons.isEmpty()) {
         LocalTimetableEmptyState(
             onSettings = { onSettingsOpenChanged(true) },
             onAdd = {
@@ -601,7 +617,7 @@ private fun ScheduleVerifiedContent(
     }
     // 详情从当前筛选的本机课程集合查找，避免回显已替换的旧课表。
     val opened = filtered.firstOrNull { it.key == selectedCourseKey }
-    if (opened != null) {
+    if (opened != null && !showSchoolSchedule) {
         CourseDetailBottomSheet(
             lesson = opened,
             timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
@@ -614,7 +630,7 @@ private fun ScheduleVerifiedContent(
             onDismiss = { selectedCourseKey = null }
         )
     }
-    if (showingCourseEditor) {
+    if (showingCourseEditor && !showSchoolSchedule) {
         fun commitEdited(changed: List<VerifiedLesson>) {
             if (editingBusy) return
             editingBusy = true
@@ -696,7 +712,9 @@ private fun ScheduleVerifiedContent(
             current = calendar,
             initialViewMode = viewMode,
             initialSections = visibleSections,
+            cloud = cloud,
             onAddCourse = {
+                showSchoolSchedule = false
                 onSettingsOpenChanged(false)
                 editOriginal = null
                 editingError = null
@@ -745,6 +763,47 @@ private fun ScheduleVerifiedContent(
             }
         )
     }
+    }
+}
+
+/** Same weekly grid, separate source, no edit or local reminder mutation. */
+@Composable
+private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, onMessages: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val snapshot = cloud.state.ncwuSchedule
+    val authorized = cloud.canCheckNcwuBusiness()
+    val weeks = remember(snapshot) { snapshot?.lessons.orEmpty().flatMap { it.weeks }.distinct().sorted() }
+    var selectedWeek by rememberSaveable { mutableStateOf(1) }
+    var selectedLesson by remember(snapshot) { mutableStateOf<VerifiedLesson?>(null) }
+    LaunchedEffect(weeks) { if (weeks.isNotEmpty() && selectedWeek !in weeks) selectedWeek = weeks.first() }
+    Column(Modifier.fillMaxWidth().xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SchedulePageHeading(onMessages, sourceLabel = "学校课表 · 只读", onSettings = onSettings)
+        OutlinedButton(onClick = { scope.launch { cloud.refreshNcwuSchedule(manual = true) } },
+            enabled = authorized && !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
+            modifier = Modifier.fillMaxWidth()) { Text("同步学校课表") }
+        Text(cloud.state.ncwuScheduleMessage ?: if (authorized) "点击同步读取本人学校课表"
+            else "请在我的 → 数据连接确认青果授权。",
+            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (snapshot != null) {
+            Text("上次核验：${snapshot.capturedAt}", style = MaterialTheme.typography.labelSmall)
+            if (weeks.isNotEmpty()) {
+                WeekSelector(weeks = weeks, selected = selectedWeek, onSelect = { selectedWeek = it })
+                WeeklyTimetableGrid(lessons = snapshot.lessons.filter { selectedWeek in it.weeks }) {
+                    selectedLesson = it
+                }
+            } else Text("本次已核验课表无课块")
+        }
+    }
+    selectedLesson?.let { lesson ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { selectedLesson = null },
+            title = { Text(lesson.title) },
+            text = { Text(listOf(lesson.teacher, lesson.location,
+                "第${lesson.startSection}–${lesson.endSection}节", formatWeeks(lesson.weeks))
+                .filter { it.isNotBlank() }.joinToString("\n")) },
+            confirmButton = { TextButton(onClick = { selectedLesson = null }) { Text("关闭") } }
+        )
     }
 }
 

@@ -139,7 +139,10 @@ data class CloudUiState(
     val schoolSyncBusyProvider: String? = null,
     val schoolSyncResultProvider: String? = null,
     val schoolSyncMessage: String? = null,
-    val ncwuBusiness: Map<String, NcwuBusinessResult> = emptyMap()
+    val ncwuBusiness: Map<String, NcwuBusinessResult> = emptyMap(),
+    val ncwuSchedule: NcwuScheduleSnapshot? = null,
+    val ncwuScheduleMessage: String? = null,
+    val ncwuScheduleNeedsAuthorization: Boolean = false
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -194,6 +197,14 @@ private data class HttpResult(val code: Int, val json: JSONObject, val cookie: S
  */
 class CloudClient(context: Context) {
     private val session = SessionStore(context)
+    private val schedulePrefs = context.applicationContext.getSharedPreferences("xiaoxu-ncwu-sync-v1", Context.MODE_PRIVATE)
+    var ncwuScheduleAutoEnabled by mutableStateOf(runCatching { schedulePrefs.getBoolean("schedule_auto", false) }.getOrDefault(false))
+        private set
+    fun setNcwuScheduleAutoEnabled(enabled: Boolean): Boolean {
+        val saved = runCatching { schedulePrefs.edit().putBoolean("schedule_auto", enabled).commit() }.getOrDefault(false)
+        if (saved) ncwuScheduleAutoEnabled = enabled
+        return saved
+    }
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
@@ -202,6 +213,7 @@ class CloudClient(context: Context) {
     private var secondClassReadId: Long = 0L
     private var secondClassSnapshotReadId: Long = -1L
     private var ncwuExamAttemptMs: Long? = null
+    private var ncwuScheduleAttemptMs: Long? = null
 
     /** Hash of this App's owner session, never the Cookie itself. */
     fun ownerSessionBinding(): String? = session.load()?.let { token ->
@@ -542,6 +554,61 @@ class CloudClient(context: Context) {
     fun canCheckNcwuBusiness(): Boolean = state.authenticated && state.connectionsFresh &&
         state.platforms.any { it.id == "ncwu" && it.verified }
 
+    /** Refresh the separate verified school timetable, never LocalScheduleStore. */
+    suspend fun refreshNcwuSchedule(manual: Boolean): Boolean {
+        if ((!manual && !ncwuScheduleAutoEnabled) ||
+            (!manual && state.ncwuScheduleNeedsAuthorization) ||
+            !canCheckNcwuBusiness() || state.busy || state.schoolSyncBusyProvider != null) return false
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!manual && ncwuScheduleAttemptMs?.let { now - it < 30 * 60_000L } == true) return false
+        val epoch = sessionEpoch
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.busy || state.schoolSyncBusyProvider != null ||
+            !canCheckNcwuBusiness() || (!manual && !ncwuScheduleAutoEnabled)) return false
+        ncwuScheduleAttemptMs = now
+        state = state.copy(schoolSyncBusyProvider = "ncwu", schoolSyncResultProvider = "ncwu",
+            ncwuScheduleMessage = "正在同步学校课表…")
+        try {
+            val posted = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/ncwu/sync", "POST", JSONObject(),
+                    authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            if (posted.code != 200 || !posted.json.optBoolean("refreshed") ||
+                posted.json.optString("provider") != "ncwu") {
+                val code = posted.json.optString("error")
+                val authRequired = posted.code == 401 || code in setOf("session_expired", "authorization_failed", "review_pending")
+                state = state.copy(ncwuScheduleNeedsAuthorization = authRequired,
+                    ncwuScheduleMessage = if (authRequired) "学校会话失效，请在数据连接重新授权。"
+                    else "学校课表同步失败，保留上次已核验课表。")
+                if (posted.code == 401) refreshPrivate()
+                return false
+            }
+            val minimum = posted.json.getString("lastSuccessAt")
+            val read = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/schedule", authenticated = true, boundSessionToken = token)
+            }
+            if (epoch != sessionEpoch) return false
+            if (read.code == 401) {
+                refreshPrivate()
+                return false
+            }
+            require(read.code == 200)
+            val snapshot = parseNcwuScheduleSnapshot(read.json, minimum)
+            state = state.copy(ncwuSchedule = snapshot, ncwuScheduleNeedsAuthorization = false,
+                ncwuScheduleMessage = "已核验学校课表（${snapshot.lessons.size} 个课块）")
+            return true
+        } catch (e: CancellationException) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuScheduleMessage = "同步已中断，保留旧课表。")
+            throw e
+        } catch (_: Exception) {
+            if (epoch == sessionEpoch) state = state.copy(ncwuScheduleMessage = "未能确认学校课表同步，旧课表保留。")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
     /** No credentials or web view: a candidate query never changes verified snapshots. */
     suspend fun checkNcwuBusiness(kind: String, manual: Boolean): Boolean {
         if (kind !in setOf("grades", "exams") || (kind == "grades" && !manual) ||
@@ -704,7 +771,9 @@ class CloudClient(context: Context) {
         }
         if (provider == "ncwu") {
             ncwuExamAttemptMs = null
-            state = state.copy(ncwuBusiness = emptyMap(), schoolSyncMessage =
+            ncwuScheduleAttemptMs = null
+            state = state.copy(ncwuBusiness = emptyMap(), ncwuSchedule = null,
+                ncwuScheduleNeedsAuthorization = false, ncwuScheduleMessage = null, schoolSyncMessage =
                 "青果授权状态已读取；请在教务页手动查询成绩。")
         } else syncAuthorizedSchool(provider)
 
@@ -804,12 +873,14 @@ class CloudClient(context: Context) {
 
     private fun clearAccountSnapshots(): CloudUiState {
         ncwuExamAttemptMs = null
+        ncwuScheduleAttemptMs = null
         return state.copy(
         ownerId = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null,
-        ncwuBusiness = emptyMap()
+        ncwuBusiness = emptyMap(), ncwuSchedule = null,
+        ncwuScheduleMessage = null, ncwuScheduleNeedsAuthorization = false
         )
     }
 

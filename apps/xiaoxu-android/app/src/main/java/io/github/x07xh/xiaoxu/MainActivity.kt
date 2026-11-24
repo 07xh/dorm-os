@@ -585,6 +585,15 @@ private fun NativeShell(
             onSchoolReturnConsumed()
         }
     }
+    // Opt-in only, no school network traffic when the app is paused.
+    LaunchedEffect(cloud, appLifecycle, cloud.ncwuScheduleAutoEnabled) {
+        if (cloud.ncwuScheduleAutoEnabled) appLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                cloud.refreshNcwuSchedule(manual = false)
+                delay(60_000L)
+            }
+        }
+    }
     // Only the visible exam page may trigger periodic candidate checks.
     LaunchedEffect(current, academic, messagesOpen, appLifecycle, cloud) {
         if (current == MainDestination.ACADEMIC && academic == AcademicDestination.EXAMS && !messagesOpen) {
@@ -709,6 +718,7 @@ private fun NativeShell(
                                 }
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
+                                cloud = cloud,
                                 focusLessonId = inboxLessonId ?: reminderLessonId,
                                 focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
                                     else reminderLessonWeekday,
@@ -758,6 +768,7 @@ private fun NativeShell(
                                     // Keeping current == PROFILE avoids AnimatedContent rendering a
                                     // second full timetable page and glass dock during entry.
                                     CloudTimetablePanel(
+                                        cloud = cloud,
                                         localLessons = localLessons,
                                         openFileImport = openFileImport,
                                         openFileExport = openFileExport,
