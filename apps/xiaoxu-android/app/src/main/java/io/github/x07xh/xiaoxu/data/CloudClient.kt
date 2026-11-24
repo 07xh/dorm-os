@@ -113,6 +113,13 @@ data class PlatformConnection(
         get() = authorization == "verified_session" &&
             sessionState == "active" && status in setOf("connected", "partial")
 }
+/** Private inbox metadata, not a public announcement or verified exam completion. */
+data class ChaoxingInboxNotice(
+    val id: String, val category: String, val title: String,
+    val course: String, val sentAt: String, val dueAt: String?,
+    val platformRead: Boolean, val observedAt: String
+)
+
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
@@ -137,7 +144,9 @@ data class CloudUiState(
     val secondClassError: String? = null,
     val schoolSyncBusyProvider: String? = null,
     val schoolSyncResultProvider: String? = null,
-    val schoolSyncMessage: String? = null
+    val schoolSyncMessage: String? = null,
+    val chaoxingInbox: List<ChaoxingInboxNotice> = emptyList(),
+    val chaoxingInboxFresh: Boolean = false
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -340,7 +349,7 @@ class CloudClient(context: Context) {
         // The previous snapshot remains visible, but a failed current read
         // must never certify that a school session is still active.
         state = state.copy(tasksFresh = false, connectionsFresh = false,
-            secondClassFresh = false)
+            secondClassFresh = false, chaoxingInboxFresh = false)
         // Android Keystore decryption may block; keep it off main.
         if (withContext(Dispatchers.IO) { session.load() } == null) {
             state = clearAccountSnapshots().copy(authenticated = false, authMessage = "云端未连接",
@@ -374,7 +383,11 @@ class CloudClient(context: Context) {
                 )
                 return
             }
-            state = state.copy(ownerId = auth.json.optString("ownerId").takeIf { it.isNotBlank() })
+            val confirmedOwner = auth.json.optString("ownerId").takeIf { it.isNotBlank() }
+            if (confirmedOwner == null) throw IllegalStateException("missing_owner")
+            if (state.ownerId != null && state.ownerId != confirmedOwner)
+                state = clearAccountSnapshots().copy(tasks = emptyList(), platforms = emptyList())
+            state = state.copy(ownerId = confirmedOwner)
         } catch (_: Exception) {
             if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
                 state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
@@ -518,6 +531,46 @@ class CloudClient(context: Context) {
             failed.add("微信候选")
         }
 
+        var inbox: List<ChaoxingInboxNotice>? = null
+        try {
+            val r = withContext(Dispatchers.IO) {
+                request("/api/v1/chaoxing-inbox?limit=100", authenticated = true)
+            }
+            if (r.code != 200 || r.json.optString("schema") != "xiaoxu/chaoxing-inbox-v1" ||
+                r.json.optString("source") != "chaoxing" ||
+                r.json.opt("live") != false) throw IllegalStateException("invalid_inbox")
+            val rows = r.json.getJSONArray("messages")
+            if (rows.length() > 100) throw IllegalStateException("oversized_inbox")
+            val seen = mutableSetOf<String>()
+            inbox = buildList {
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val id = row.getString("id")
+                    val category = row.getString("category")
+                    val title = row.getString("title")
+                    val course = row.optString("course", "").take(80)
+                    val sent = row.getString("sentAt")
+                    val observed = row.getString("observedAt")
+                    val due = row.opt("dueAt") as? String
+                    if (!Regex("[A-Za-z0-9_$:-]{1,100}").matches(id) ||
+                        !seen.add(id) || title.isBlank() || title.length > 140 ||
+                        category !in setOf("assignment", "assignment_reminder", "peer_review",
+                            "exam", "checkin", "quiz", "activity", "notice") ||
+                        row.opt("platformRead") !is Boolean)
+                        throw IllegalStateException("invalid_notice")
+                    Instant.parse(sent)
+                    Instant.parse(observed)
+                    if (due != null) Instant.parse(due)
+                    add(ChaoxingInboxNotice(id, category, title, course, sent, due,
+                        row.getBoolean("platformRead"), observed))
+                }
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Inbox is an independent, optional snapshot. Do not discard valid tasks.
+        }
+
         // Logout AND newer overlapping refreshes invalidate this result.
         // Only the newest request can certify school-connection freshness.
         if (epoch != sessionEpoch || snapshotRead != privateSnapshotReadId) return
@@ -527,6 +580,8 @@ class CloudClient(context: Context) {
             tasksFresh = tasks != null,
             platforms = platforms ?: state.platforms,
             connectionsFresh = platforms != null,
+            chaoxingInbox = inbox ?: state.chaoxingInbox,
+            chaoxingInboxFresh = inbox != null,
             wechatCandidates = candidates ?: state.wechatCandidates,
             pendingWechatCount = candidates?.size ?: state.pendingWechatCount,
             wechatError = if (candidateLoadFailed) "微信候选读取失败，列表可能过期，请重试" else null,
@@ -752,7 +807,7 @@ class CloudClient(context: Context) {
             }
             refreshPrivate()
             if (!current()) return false
-            val refreshed = state.tasksFresh && state.connectionsFresh &&
+            val refreshed = state.tasksFresh && state.connectionsFresh && state.chaoxingInboxFresh &&
                 state.platforms.any { it.id == provider && it.verified }
             state = state.copy(schoolSyncMessage = if (refreshed)
                 "服务器已同步通知，已刷新云端任务；通知不代表官方作业提交状态"
@@ -982,6 +1037,7 @@ class CloudClient(context: Context) {
 
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
         ownerId = null,
+        chaoxingInbox = emptyList(), chaoxingInboxFresh = false,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
