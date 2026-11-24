@@ -160,10 +160,7 @@ fun ProfileSettingsPage(
                                 onOpen = { openSetting("connections") }
                             )
                         }
-                        val groups = uiV2SettingsIndex.filter {
-                            it.group in listOf("学习与课程", "账户与数据", "其他") &&
-                                it.route != "connections"
-                        }.groupBy { it.group }
+                        val groups = settingsHomeGroups
                         if (settingsTwoColumns) {
                             groups.entries.toList().chunked(2).forEach { pair ->
                                 item(key = pair.first().key) {
@@ -218,6 +215,11 @@ fun ProfileSettingsPage(
     }
     }
 }
+
+// The settings index is static; never rebuild its groups during a tab switch.
+private val settingsHomeGroups = uiV2SettingsIndex.filter {
+    it.group in listOf("学习与课程", "账户与数据", "其他") && it.route != "connections"
+}.groupBy { it.group }
 
 /** Shared indexed groups keep search results and the adaptive hub on the same row path. */
 @Composable
