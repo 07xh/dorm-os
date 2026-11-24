@@ -2630,3 +2630,13 @@ assert.match(main, /onNavigation = openNavigation/);
 assert.match(designSystem, /contentDescription = "打开导航"/);
 assert.match(primaryNavigation, /fun PrimaryNavigationDrawer\([\s\S]*?ModalDrawerSheet\(/);
 assert.match(primaryNavigation, /fun PrimaryNavigationDrawer\([\s\S]*?PrimaryTabs\.forEach/);
+
+assert.equal((main.match(/onNavigation = openNavigation/g) || []).length, 5,
+  '五个一级页面共用唯一导航抽屉回调');
+assert.match(designSystem, /internal fun XiaoxuNavigationAction\(onNavigation: \(\(\) -> Unit\)\?\)/);
+assert.match(designSystem, /if \(onNavigation != null\) \{\s*XiaoxuSoftIconButton\(onClick = onNavigation/);
+assert.match(taskReadingLayout, /XiaoxuNavigationAction\(onNavigation\)/);
+assert.match(schedulePanel, /private fun SchedulePageHeading\([\s\S]*?XiaoxuNavigationAction\(onNavigation\)/);
+assert.match(profileSettings, /onNavigation = if \(animatedRoute == "home"\) onNavigation else null/);
+assert.match(v2Settings, /if \(onBack == null\) XiaoxuNavigationAction\(onNavigation\)/);
+assert.match(main, /onNavigation = if \(academicRoute == AcademicDestination\.OVERVIEW\) onNavigation else null/);
