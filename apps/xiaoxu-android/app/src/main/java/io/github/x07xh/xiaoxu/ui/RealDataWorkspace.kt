@@ -643,8 +643,8 @@ fun RealAcademicHome(
                         verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            hero()
                             academic()
+                            hero()
                         }
                         Column(Modifier.width(homeDetailWidth.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -661,10 +661,10 @@ fun RealAcademicHome(
                     }
                 }
             } else {
+                item(key = "services") { academic() }
                 item(key = "courses") { hero() }
                 item(key = "tasks") { tasks() }
                 item(key = "metrics") { metrics() }
-                item(key = "services") { academic() }
                 item(key = "notices") { notices() }
                 item(key = "homework") { homework() }
             }
@@ -923,7 +923,7 @@ private fun HomeMetricsBlock(
     }
 }
 
-/** Low-frequency services share one lightweight strip instead of four large cards. */
+/** DSH-style direct action grid: independent tiles, no enclosing card or extra navigation. */
 @Composable
 private fun HomeQuickBlock(
     openAcademic: () -> Unit,
@@ -932,29 +932,28 @@ private fun HomeQuickBlock(
     openSecondClass: () -> Unit,
     openChaoxing: () -> Unit
 ) {
-    HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionHeader(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic)
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth < 296.dp || LocalDensity.current.fontScale > 1.15f) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
+            if (maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HomeQuickAction("成绩", Icons.Outlined.School, Modifier.fillMaxWidth(), openGrades)
+                    HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.fillMaxWidth(), openExams)
+                    HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle, Modifier.fillMaxWidth(), openSecondClass)
+                    HomeQuickAction("学习通", Icons.Outlined.MailOutline, Modifier.fillMaxWidth(), openChaoxing)
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
                         HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
                     }
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
                             Modifier.weight(1f), openSecondClass)
                         HomeQuickAction("学习通", Icons.Outlined.MailOutline,
                             Modifier.weight(1f), openChaoxing)
                     }
-                }
-            } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
-                    HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
-                    HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
-                        Modifier.weight(1f), openSecondClass)
-                    HomeQuickAction("学习通", Icons.Outlined.MailOutline,
-                        Modifier.weight(1f), openChaoxing)
                 }
             }
         }
