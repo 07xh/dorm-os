@@ -1269,7 +1269,10 @@ assert.match(workspace, /val sameWeekday = localLessons\.filter/,
 assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
 assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
 assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
-assert.match(workspace, /学习通 · 本机读取/);
+assert.match(workspace, /学习通 · 本机 HTTP 读取/);
+assert.match(workspace, /val canSyncChaoxingHttp = state\.authenticated && state\.connectionsFresh/);
+assert.match(workspace, /taskScope\.launch \{ client\.syncChaoxingHomeworkHttp\(\) \}/);
+assert.match(workspace, /本机 HTTP 读取 · 含学习计划/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
 assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
