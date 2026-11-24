@@ -1663,7 +1663,7 @@ assert.match(main, /label = "profileTimetableChild"/,
   '我的到课表设置继续使用原生子页面宿主');
 assert.match(main, /val page = current\s*Box\(Modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/,
   '五个主页面仅组合当前标签内容并保留边界裁剪');
-assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\) \{\s*when \(page\)/,
+assert.match(main, /pageStateHolder\.SaveableStateProvider\(page\.name\) \{[\s\S]*?Box\(Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)\s*\.testTag\("xiaoxu_page_\$\{page\.name\}"\)\) \{\s*when \(page\)/,
   '主标签切换时以完整不透明页面绘制，旧页面内容不得穿透');
 assert.match(profileSettings, /xiaoxuSettingsRouteTransition\(initialState, targetState\)/,
   '设置二级页须保持方向明确的推进与返回');
@@ -2630,7 +2630,7 @@ assert.match(schedulePanel, /onDismiss = \{ showWeekPicker = false \}/);
 assert.match(schedulePanel, /Text\(if \(viewMode == "week"\) "切换日视图" else "切换周视图"/);
 assert.match(primaryNavigation, /var expanded by rememberSaveable \{ mutableStateOf\(false\) \}/);
 assert.match(primaryNavigation, /if \(canExpand && expanded\) \{/);
-assert.match(primaryNavigation, /NavigationDrawerItem\(\s*label = \{ Text\(page\.primaryTabLabel\) \},\s*selected = selected == page,\s*onClick = \{ onSelect\(page\) \}/);
+assert.match(primaryNavigation, /NavigationDrawerItem\(\s*modifier = Modifier\.testTag\("xiaoxu_tab_\$\{page\.name\}"\),\s*label = \{ Text\(page\.primaryTabLabel\) \},\s*selected = selected == page,\s*onClick = \{ onSelect\(page\) \}/);
 assert.match(primaryNavigation, /contentDescription = "展开侧栏"/);
 assert.match(primaryNavigation, /contentDescription = "收起侧栏"/);
 
