@@ -2295,6 +2295,10 @@ assert.match(autoRefresh,/expectedBinding = expected/);
 assert.match(localNative,/accountHash = accountHash/);
 
 const autoControls=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt');
+const secondClassSettingsPanel=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+assert.match(secondClassSettingsPanel,/SecondClassAutoReadControls\(snapshotAt\)/);
+assert.match(secondClassSettingsPanel,/SecondClassAutoRefresh\.refreshIfDue\(\s*context\.applicationContext, userRequested = true\)/);
+assert.match(autoControls,/lastSuccessTransport/);
 assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foreground automatic reads must be owned by the Activity lifecycle, not a retained composition');
 assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);
 

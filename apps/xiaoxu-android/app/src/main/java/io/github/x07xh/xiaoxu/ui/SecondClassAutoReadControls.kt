@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
 
 @Composable
-fun SecondClassAutoReadControls() {
+fun SecondClassAutoReadControls(snapshotAt: Long? = null) {
     val c = LocalContext.current.applicationContext
     val prefs = remember(c) { c.getSharedPreferences(SecondClassAutoRefresh.SETTINGS, 0) }
     var revision by remember { mutableIntStateOf(0) }
@@ -25,7 +25,7 @@ fun SecondClassAutoReadControls() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text("自动读取", style = MaterialTheme.typography.bodyMedium)
+            Text("自动同步", style = MaterialTheme.typography.bodyMedium)
             Text("回到 App 时检查，12小时内复用已保存数据",
                 style = MaterialTheme.typography.labelSmall)
         }
@@ -36,7 +36,7 @@ fun SecondClassAutoReadControls() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text("后台定期检查", style = MaterialTheme.typography.bodyMedium)
+            Text("后台自动同步", style = MaterialTheme.typography.bodyMedium)
             Text("每12小时，系统可能延迟", style = MaterialTheme.typography.labelSmall)
         }
         XiaoxuSettingsSwitch(checked = background, enabled = enabled, onCheckedChange = {
@@ -55,9 +55,16 @@ fun SecondClassAutoReadControls() {
     val success = remember(revision) { SecondClassAutoRefresh.lastSuccess(c) }
     val checked = remember(revision) { SecondClassAutoRefresh.lastBackgroundCheck(c) }
     val backgroundSuccess = remember(revision) { SecondClassAutoRefresh.lastSuccessWasBackground(c) }
+    val transport = remember(revision) { SecondClassAutoRefresh.lastSuccessTransport(c) }
+    if (snapshotAt != null && snapshotAt > 0) Text("数据时间：" + android.text.format.DateFormat.format("MM-dd HH:mm", snapshotAt),
+        style = MaterialTheme.typography.labelSmall)
     val recent = when {
-        success > 0 -> "上次同步：" + android.text.format.DateFormat.format("MM-dd HH:mm", success) +
-            if (backgroundSuccess) "（后台）" else ""
+        success > 0 -> "上次静默同步：" + android.text.format.DateFormat.format("MM-dd HH:mm", success) +
+            (if (backgroundSuccess) "（后台）" else "") + when (transport) {
+                "native_http" -> " · 原生 HTTP"
+                "official_webview" -> " · 官方网页会话"
+                else -> ""
+            }
         checked > 0 -> "最近后台检查：" + android.text.format.DateFormat.format("MM-dd HH:mm", checked)
         else -> null
     }

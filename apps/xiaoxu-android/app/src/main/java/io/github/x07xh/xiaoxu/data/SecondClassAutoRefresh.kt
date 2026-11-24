@@ -15,7 +15,7 @@ object SecondClassAutoRefresh {
     private val lock = Mutex()
     private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     @Volatile private var manualUsers = 0
-    private data class ActiveRead(val job: Job?, val background: Boolean)
+    private data class ActiveRead(val job: Job?, val background: Boolean, val userRequested: Boolean)
     @Volatile private var activeRead: ActiveRead? = null
     private fun prefs(c: Context) = c.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE)
     fun enabled(c: Context) = prefs(c).getBoolean("enabled", true)
@@ -23,13 +23,14 @@ object SecondClassAutoRefresh {
     fun status(c: Context) = prefs(c).getString("status", "idle").orEmpty()
 
     fun lastSuccess(c: Context) = prefs(c).getLong("success_at", 0)
+    fun lastSuccessTransport(c: Context) = prefs(c).getString("success_transport", "").orEmpty()
     fun lastSuccessWasBackground(c: Context) = prefs(c).getBoolean("success_background", false)
     fun lastBackgroundCheck(c: Context) = prefs(c).getLong("background_check_at", 0)
 
     fun configure(c: Context, enabled: Boolean, background: Boolean) {
         prefs(c).edit().putBoolean("enabled", enabled).putBoolean("background", background).apply()
         val active = activeRead
-        if (!enabled || !background && active?.background == true) active?.job?.cancel()
+        if (active != null && !active.userRequested && (!enabled || !background && active.background)) active.job?.cancel()
         reconcile(c)
     }
     fun reconcile(c: Context) {
@@ -63,7 +64,7 @@ object SecondClassAutoRefresh {
     ): Boolean {
         val c = context.applicationContext
         if (!lock.tryLock()) return false
-        activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun)
+        activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun, userRequested)
         val settings = prefs(c)
         fun state(value: String) { settings.edit().putString("status", value).apply() }
         try {

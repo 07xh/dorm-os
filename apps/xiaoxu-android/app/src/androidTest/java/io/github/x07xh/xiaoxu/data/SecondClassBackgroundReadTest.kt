@@ -179,6 +179,29 @@ class SecondClassBackgroundReadTest {
         assertEquals(updated, SecondClassAutoRefresh.lastSuccess(c))
         assertFalse(SecondClassAutoRefresh.background(c))
     }
+    @Test fun disablingAutoSyncDoesNotCancelExplicitManualSync() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val finish = CompletableDeferred<Unit>()
+        val read = async {
+            SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+                nativeReader = { _, _, _ ->
+                    entered.complete(Unit)
+                    finish.await()
+                    payload()
+                }) { _, _ -> error("must not start WebView") }
+        }
+        try {
+            withTimeout(5_000) { entered.await() }
+            SecondClassAutoRefresh.configure(c, enabled = false, background = false)
+            finish.complete(Unit)
+            assertTrue(withTimeout(5_000) { read.await() })
+            assertEquals("native_http", SecondClassAutoRefresh.lastSuccessTransport(c))
+        } finally {
+            finish.complete(Unit)
+            read.cancelAndJoin()
+        }
+    }
+
     @Test fun authorizedNativeReadUsesTheSameRoomCommitAndRecordsTransport() = runBlocking {
         assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
             nativeReader = { _, salt, expected ->
