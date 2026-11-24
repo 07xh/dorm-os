@@ -113,4 +113,47 @@ class CampusUtilitiesReadOnlyClientTest {
         assertEquals("0123456789abcdeffedcba9876543210",
             plain.joinToString("") { "%02x".format(it.toInt() and 0xff) })
     }
+
+    @Test fun malformedUsageDoesNotBecomeSuccessfulMonthlySnapshot() = runBlocking {
+        for (payload in listOf(
+            JSONObject(),
+            JSONObject().put("details", JSONObject().put("totalCount", 1.5)),
+            JSONObject().put("details", JSONObject().put("totalCount", 4294967296L)),
+            JSONObject().put("totalUsed", JSONObject().put("value", 12)),
+            JSONObject().put("totalUsed", "-1")
+        )) {
+            val client = CampusUtilitiesReadOnlyClient(CampusUtilitiesTransport { path, _ ->
+                when (path) {
+                    "/utilities/config" -> success(JSONObject().put("detailConfig",
+                        JSONObject().put("version", "v1")))
+                    "/utilities/account" -> success(JSONObject().put("accountNum", "fixture"))
+                    "/utilities/usageDetails" -> success(payload)
+                    else -> error("unexpected route")
+                }
+            }, pace = {})
+            try {
+                client.readMonth(CampusUtilityKind.ELECTRIC, room, YearMonth.of(2026, 11))
+                fail("Malformed response must not be accepted")
+            } catch (e: CampusUtilitiesException) {
+                assertEquals(CampusUtilitiesFailure.UNEXPECTED_RESPONSE, e.failure)
+            }
+        }
+    }
+
+    @Test fun zeroUsageAndUnknownV2TotalsRemainDistinct() = runBlocking {
+        val client = CampusUtilitiesReadOnlyClient(CampusUtilitiesTransport { path, _ ->
+            when (path) {
+                "/utilities/config" -> success(JSONObject().put("detailConfig",
+                    JSONObject().put("version", "v2")))
+                "/utilities/account" -> success(JSONObject())
+                "/utilities/usageDetailsV2" -> success(JSONObject()
+                    .put("data", JSONObject().put("totalCount", 0))
+                    .put("sumList", org.json.JSONArray().put(JSONObject().put("unknown", 12))))
+                else -> error("unexpected route")
+            }
+        }, pace = {})
+        val result = client.readMonth(CampusUtilityKind.ELECTRIC, room, YearMonth.of(2026, 11))
+        assertEquals(0, result.recordCount)
+        assertNull(result.totalUsed)
+    }
 }
