@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
- parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus} from '../lib/academic-chaoxing-work-discovery.mjs';
+ parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus,
+ parseChaoxingHomeworkGrades,parseChaoxingGradeEntry} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
 import {normalizeVerifiedChaoxingHomework} from '../lib/academic-chaoxing-homework-sync.mjs';
 globalThis.crypto??=webcrypto;
@@ -187,6 +188,40 @@ assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
  const protectedList=await redirectAnswer.reader.readHomeworkList(timingKeys,{includeDeadlines:true});
  assert.equal(protectedList.items.length,3);
  assert.ok(protectedList.items.every(x=>x.dueAt===undefined));
+
+
+ // Grade HTML fixture is synthetic; the documented route still needs owner QA.
+ const gradeLink='https://stat2-ans.chaoxing.com/stat2/work/my?courseId=123&classId=456&cpi=789&enc=fixtureGrade';
+ const gradePage='<table><tr><th>作业名称</th><th>得分</th><th>满分</th></tr>'+
+  '<tr><td>练习一</td><td>0</td><td>20</td></tr>'+
+  '<tr><td>练习二</td><td>待批阅</td><td>20</td></tr>'+
+  '<tr><td>练习三</td><td>18.5</td><td>20</td></tr></table>';
+ const gradeMiddle=middle+'<a href="'+gradeLink.replaceAll('&','&amp;')+'">成绩</a>';
+ assert.equal(parseChaoxingGradeEntry(gradeMiddle,timingKeys),gradeLink);
+ assert.throws(()=>parseChaoxingGradeEntry(gradeMiddle.replace('courseId=123','courseId=999'),timingKeys));
+ const gradeParsed=parseChaoxingHomeworkGrades(gradePage);
+ assert.deepEqual(gradeParsed.items.map(x=>x.score),[0,null,18.5]);
+ assert.deepEqual(gradeParsed.items.map(x=>x.maxScore),[20,20,20]);
+ assert.throws(()=>parseChaoxingHomeworkGrades(gradePage.replace('<td>18.5</td>','<td>98</td>')));
+ assert.throws(()=>parseChaoxingHomeworkGrades('<table><tr><th>姓名</th><th>总评</th></tr><tr><td>测试</td><td>99</td></tr></table>'));
+ assert.throws(()=>parseChaoxingHomeworkGrades(gradePage+gradePage));
+ const gradeAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+  const u=new URL(raw);
+  if(u.pathname==='/visit/stucoursemiddle')return response(gradeMiddle);
+  if(u.pathname==='/stat2/work/my'){
+   assert.equal(options.method,'GET');assert.equal(u.href,gradeLink);
+   return response(gradePage);
+  }
+  return fakeFetch(raw,options);
+ }});
+ const gradeReader=await gradeAdapter.forSession({session,userId:'owner1'});
+ await gradeReader.verifySession();
+ const grades=await gradeReader.readHomeworkGrades(timingKeys);
+ assert.equal(grades.course.courseId,'123');
+ assert.equal(grades.scope,'current_table_only');
+ assert.ok(!JSON.stringify(grades).includes('fixtureGrade'));
+ await assert.rejects(()=>gradeReader.readHomeworkGrades({...timingKeys,courseId:'999'}),
+  e=>e.code==='authorization_failed');
 
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
 
