@@ -205,3 +205,9 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 - 使用稳定的 Compose semantics resource ID 定位五个主入口（手机底栏、平板侧栏）及活动页面；不再依赖屏幕百分比或中文文案。每次点击必须观察到预期页面，否则基准失败。Baseline Profile 生成复用该路径。
 - Release Macrobenchmark 将启动移至 setup；分别测试页面确认后 220ms、600ms 停留，每次迭代十次切换，六次正式迭代。FrameTimingMetric 记录帧 CPU 耗时和支持设备的帧超时；页面语义出现不等于首帧完整绘制或数据加载完成。
 - 连接设备，使用 `gradle -p apps/xiaoxu-android :benchmark:tasks --all` 确认本地 connected benchmark 变体任务，指定 NavigationFrameBenchmark 执行，保存 JSON 与 Perfetto trace；同设备、同刷新率、同数据集对比 P50/P90/P95/P99。CI 编译 benchmark 不等于实际执行，尚无本批真机测量结果。
+
+
+## 性能定位：任务执行投影与 Perfetto
+
+- 任务执行进度按 ExecutionRoot（scope + key）一次分组、缓存，行渲染只查询索引；账号身份及登录状态作为执行筛选缓存依赖，避免账号状态变化后继续复用旧投影。周范围边界在每次筛选时只计算一次。纯逻辑单测覆盖同 key 不同账号、完成状态变化、空步骤。
+- 添加短同步 Trace 区段 Xiaoxu.workspace.combine、Xiaoxu.tasks.filter、Xiaoxu.tasks.executionRows、Xiaoxu.tasks.nowCount、Xiaoxu.tasks.progressIndex。在 Release Perfetto 轨迹按区段与 FrameTimeline 对齐定位主线程计算；不将缓存命中率或源码复杂度当作实测帧率。未改变任务、课表或学校数据写入路径。

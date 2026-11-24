@@ -1315,7 +1315,7 @@ assert.match(workspace, /Text\(if \(capturedHomework\.isEmpty\(\)\) "读取学�
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
 // 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
 assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies, taskSteps, state\.ownerId, schoolBinding\)[\s\S]*?facetWorkspaceTasks\(/,
+assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies, taskSteps, authenticatedOwnerId, schoolBinding\)[\s\S]*?facetWorkspaceTasks\(/,
   '任务中心按真实任务与当前筛选条件计算可见记录');
 assert.match(workspace, /searchExecutionRoots\(searchWorkspaceTasks\(all, filter, "", today\)/, '任务仍使用真实搜索结果');
 assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
@@ -2727,7 +2727,7 @@ assert.match(v2Shell, /if \(liveGlass && !rail && showNavigation && Build\.VERSI
 
 const sharedWorkspaceProjection = main.slice(main.indexOf('val workspaceRecords = remember('),
   main.indexOf('// A Room checkbox update'));
-assert.match(sharedWorkspaceProjection, /derivedStateOf \{\s*combineWorkspaceTasks\(workspaceLocalTasks\.value, cloud\.state\.tasks, workspaceSchoolRows\.value\)/,
+assert.match(sharedWorkspaceProjection, /derivedStateOf \{\s*traceWorkspace\("Xiaoxu\.workspace\.combine"\) \{\s*combineWorkspaceTasks\(workspaceLocalTasks\.value, cloud\.state\.tasks, workspaceSchoolRows\.value\)/,
   'canonical task projection survives navigation and is read only by active consumers');
 assert.equal((main.match(/allRecords = workspaceRecords\.value/g) || []).length, 2);
 assert.equal((workspace.match(/\bcombineWorkspaceTasks\(/g) || []).length, 1,
@@ -2752,3 +2752,8 @@ assert.match(primaryNavigation, /modifier = Modifier\.width\(320\.dp\),/);
 assert.match(primaryNavigation, /if \(showContents\) \{\s*Column\(/);
 assert.match(profileSettings, /private val settingsHomeGroups = uiV2SettingsIndex\.filter/);
 assert.match(profileSettings, /val groups = settingsHomeGroups/);
+
+// Trace actual UI projections and retain scope-aware task progress across row rendering.
+assert.match(workspace, /val progressByRoot = remember\(taskSteps\) \{[\s\S]*?executionProgressIndex\(taskSteps\)/);
+assert.match(workspace, /resolveExecution\(row\)\?\.let \{ progressByRoot\[it\] \}/);
+assert.match(workspace, /val authenticatedOwnerId = state\.ownerId\.takeIf \{ state\.authenticated \}/);

@@ -6,6 +6,24 @@ import org.junit.Test
 
 class TaskExecutionRowsTest {
     private fun task()=WorkspaceTask("local:1","报告","本机",false,null,"本人填写","local","local")
+    @Test fun progressIndexKeepsAccountScopesAndUpdatesCommittedCounts() {
+        val a = ExecutionRoot("cloud:owner-a", "cloud:1")
+        val b = ExecutionRoot("cloud:owner-b", "cloud:1")
+        val missing = ExecutionRoot("cloud:owner-c", "cloud:1")
+        val steps = listOf(
+            TaskStep(id=1,scope=a.scope,rootKey=a.key,title="A",completed=true),
+            TaskStep(id=2,scope=a.scope,rootKey=a.key,title="B"),
+            TaskStep(id=3,scope=b.scope,rootKey=b.key,title="C")
+        )
+        val progress = executionProgressIndex(steps)
+        assertEquals("步骤 1/2", progress[a])
+        assertEquals("步骤 0/1", progress[b])
+        assertNull(progress[missing])
+        assertTrue(executionProgressIndex(emptyList()).isEmpty())
+        assertEquals("步骤 2/2", executionProgressIndex(steps.map {
+            if (it.id == 2L) it.copy(completed=true) else it
+        })[a])
+    }
     @Test fun childSearchKeepsParentAndDoesNotInflateRootCount() {
         val root=task();val key=ExecutionRoot("device","local:1")
         val steps=listOf(TaskStep(id=1,scope=key.scope,rootKey=key.key,title="截图"),TaskStep(id=2,scope=key.scope,rootKey=key.key,title="写代码"))

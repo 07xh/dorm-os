@@ -94,6 +94,7 @@ import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
 import io.github.x07xh.xiaoxu.ui.combineWorkspaceTasks
+import io.github.x07xh.xiaoxu.ui.traceWorkspace
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
 import io.github.x07xh.xiaoxu.ui.MessageCenterPanel
 import io.github.x07xh.xiaoxu.ui.CampusRunPanel
@@ -591,7 +592,9 @@ private fun NativeShell(
     // Home/Tasks disposal. Compute lazily only when a consumer needs it.
     val workspaceRecords = remember(cloud, workspaceLocalTasks, workspaceSchoolRows) {
         derivedStateOf {
-            combineWorkspaceTasks(workspaceLocalTasks.value, cloud.state.tasks, workspaceSchoolRows.value)
+            traceWorkspace("Xiaoxu.workspace.combine") {
+                combineWorkspaceTasks(workspaceLocalTasks.value, cloud.state.tasks, workspaceSchoolRows.value)
+            }
         }
     }
     // A Room checkbox update should reschedule only affected local deadlines,

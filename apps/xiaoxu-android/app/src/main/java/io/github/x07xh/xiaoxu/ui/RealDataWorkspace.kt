@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.widget.Toast
+import android.os.Trace
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
@@ -136,6 +137,23 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private val SchoolZone = ZoneId.of("Asia/Shanghai")
+
+// Short synchronous sections only; callers use this around main-thread UI projections.
+// Pure task helpers remain independently JVM-testable.
+internal inline fun <T> traceWorkspace(name: String, block: () -> T): T {
+    Trace.beginSection(name)
+    try {
+        return block()
+    } finally {
+        Trace.endSection()
+    }
+}
+
+/** One pass per committed step snapshot, preserving account scope in the key. */
+internal fun executionProgressIndex(steps: List<TaskStep>): Map<ExecutionRoot, String> =
+    steps.groupBy { ExecutionRoot(it.scope, it.rootKey) }.mapValues { (_, children) ->
+        "步骤 ${children.count { it.completed }}/${children.size}"
+    }
 
 /** In-memory combination for DISPLAY ONLY. Room, D1 and school data remain separate. */
 internal data class WorkspaceTask(
@@ -1135,11 +1153,14 @@ internal fun RealAcademicTaskHub(
     val context = LocalContext.current
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
-    val schoolBinding = schoolRows.singleOrNull {
-        it.provider == "chaoxing" && it.kind == "account_binding" && it.fingerprint == "current"
-    }?.details?.takeIf { it.matches(Regex("[a-f0-9]{64}")) }
-    val resolveExecution: (WorkspaceTask) -> ExecutionRoot? = { row ->
-        taskExecutionRoot(row, state.ownerId.takeIf { state.authenticated }, schoolBinding)
+    val schoolBinding = remember(schoolRows) {
+        schoolRows.singleOrNull {
+            it.provider == "chaoxing" && it.kind == "account_binding" && it.fingerprint == "current"
+        }?.details?.takeIf { it.matches(Regex("[a-f0-9]{64}")) }
+    }
+    val authenticatedOwnerId = state.ownerId.takeIf { state.authenticated }
+    val resolveExecution: (WorkspaceTask) -> ExecutionRoot? = remember(authenticatedOwnerId, schoolBinding) {
+        { row -> taskExecutionRoot(row, authenticatedOwnerId, schoolBinding) }
     }
     val pendingStepUpdates = remember { mutableStateMapOf<Long, Boolean>() }
     var lastCompletedStepId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -1232,29 +1253,36 @@ internal fun RealAcademicTaskHub(
     // Checkbox previews, expansion toggles and sheet navigation do not need
     // another search + date-facet pass over every stored task.
     val shown = remember(all, filter, searchQuery, sourceFilter, onlyThisWeek,
-        today, localTasks, dependencies, taskSteps, state.ownerId, schoolBinding) {
-        val filtered = facetWorkspaceTasks(
-            searchExecutionRoots(searchWorkspaceTasks(all, filter, "", today), taskSteps,
-                resolveExecution, if (filter == "now") "" else searchQuery),
-            sourceFilter, onlyThisWeek && filter != "now", today
-        )
-        if (filter == "now") readyWorkspaceTasks(filtered, localTasks, dependencies)
-        else filtered
+        today, localTasks, dependencies, taskSteps, authenticatedOwnerId, schoolBinding) {
+        traceWorkspace("Xiaoxu.tasks.filter") {
+            val filtered = facetWorkspaceTasks(
+                searchExecutionRoots(searchWorkspaceTasks(all, filter, "", today), taskSteps,
+                    resolveExecution, if (filter == "now") "" else searchQuery),
+                sourceFilter, onlyThisWeek && filter != "now", today
+            )
+            if (filter == "now") readyWorkspaceTasks(filtered, localTasks, dependencies)
+            else filtered
+        }
     }
     val executionRows = remember(shown, taskSteps, stepEdges, executions, searchQuery,
-        state.ownerId, schoolBinding, onlyThisWeek, today) {
-        executionReadyRows(shown, taskSteps, stepEdges, executions, resolveExecution, searchQuery)
-            .filter { row ->
-                if (!onlyThisWeek) true else row.date?.let { date ->
-                    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
-                    !date.isBefore(monday) && date.isBefore(monday.plusDays(7))
-                } == true
-            }
+        authenticatedOwnerId, schoolBinding, onlyThisWeek, today) {
+        traceWorkspace("Xiaoxu.tasks.executionRows") {
+            val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val nextMonday = monday.plusDays(7)
+            executionReadyRows(shown, taskSteps, stepEdges, executions, resolveExecution, searchQuery)
+                .filter { row ->
+                    if (!onlyThisWeek) true else row.date?.let { date ->
+                        !date.isBefore(monday) && date.isBefore(nextMonday)
+                    } == true
+                }
+        }
     }
     val nowCount = remember(all, localTasks, dependencies, taskSteps, stepEdges, executions,
-        state.ownerId, schoolBinding) {
-        executionReadyRows(readyWorkspaceTasks(all, localTasks, dependencies), taskSteps,
-            stepEdges, executions, resolveExecution, "").map { it.parent.key }.distinct().size
+        authenticatedOwnerId, schoolBinding) {
+        traceWorkspace("Xiaoxu.tasks.nowCount") {
+            executionReadyRows(readyWorkspaceTasks(all, localTasks, dependencies), taskSteps,
+                stepEdges, executions, resolveExecution, "").map { it.parent.key }.distinct().size
+        }
     }
     val readySections = remember(executionRows, today) {
         executionRows.groupBy { row -> when {
@@ -1288,11 +1316,11 @@ internal fun RealAcademicTaskHub(
     val cloudRows = remember(shown) { shown.filter { it.category == "cloud" } }
     val wechatRows = remember(shown) { shown.filter { it.category == "wechat" } }
 
-    val executionProgress: (WorkspaceTask) -> String? = { row ->
-        resolveExecution(row)?.let { root ->
-            val children = taskSteps.filter { it.scope == root.scope && it.rootKey == root.key }
-            if (children.isEmpty()) null else "步骤 ${children.count { it.completed }}/${children.size}"
-        }
+    val progressByRoot = remember(taskSteps) {
+        traceWorkspace("Xiaoxu.tasks.progressIndex") { executionProgressIndex(taskSteps) }
+    }
+    val executionProgress: (WorkspaceTask) -> String? = remember(resolveExecution, progressByRoot) {
+        { row -> resolveExecution(row)?.let { progressByRoot[it] } }
     }
 
     // Reuse the same write paths in the flat "now" view and the grouped archive.
