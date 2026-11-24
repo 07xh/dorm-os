@@ -2733,3 +2733,9 @@ assert.equal((main.match(/allRecords = workspaceRecords\.value/g) || []).length,
 assert.equal((workspace.match(/\bcombineWorkspaceTasks\(/g) || []).length, 1,
   'neither tab independently recomputes canonical identity joins');
 assert.equal((workspace.match(/allRecords: List<WorkspaceTask>/g) || []).length, 2);
+
+assert.match(main, /val workspaceTaskSteps = rememberLocalRows\(workspaceExecutionDao\) \{ workspaceExecutionDao\.observeSteps\(\) \}/);
+assert.match(main, /val workspaceStepEdges = rememberLocalRows\(workspaceExecutionDao\) \{ workspaceExecutionDao\.observeEdges\(\) \}/);
+assert.match(main, /val workspaceExecutions = rememberLocalRows\(workspaceExecutionDao\) \{ workspaceExecutionDao\.observeExecutions\(\) \}/);
+assert.match(main, /executionDao = workspaceExecutionDao,\s*taskSteps = workspaceTaskSteps\.value,\s*stepEdges = workspaceStepEdges\.value,\s*executions = workspaceExecutions\.value/);
+assert.doesNotMatch(workspace, /rememberLocalRows\(executionDao\)/);
