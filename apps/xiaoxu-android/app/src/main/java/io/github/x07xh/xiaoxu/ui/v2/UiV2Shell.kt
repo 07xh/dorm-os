@@ -44,6 +44,7 @@ internal fun UiV2Shell(
                     if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier
                 ),
                 containerColor = Color.Transparent,
+                topBar = {},
                 bottomBar = {
                     if (!rail && showNavigation) {
                         PrimaryBottomNavigationReserve(glass = backdrop != null)

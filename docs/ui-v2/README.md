@@ -29,3 +29,9 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 6. 通过同包升级、本地数据库、通知、会话、课表和任务回归后，才清除已无引用的 V1 UI、发布 APK。
 
 本分支尚未构建或真机验收。
+
+## 第二批：通用短内容弹层
+
+- `UiV2SheetPolicy` 统一短内容浮层几何与下拉判定；`UiV2SheetDrag` 实现把手跟手平移、释放后回位、位置/速度关闭判定以及点击关闭。参考 DSH Go 的 MIT 标注 [app_sheet.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/common/app_sheet.dart)，为独立 Compose 实现，非 Dart 文件复制。
+- 兼容入口 `XiaoxuBottomSheet` 保持既有签名；耗时操作的关闭保护覆盖遮罩、返回键与把手，内容滚动不抢手势。不接入长表单及课程专用 ModalBottomSheet，暂不加入实时模糊。
+- 静态回归检查迁移至真实 V2 Shell 位置，保留唯一底栏、侧栏、Scaffold 和显隐规则；增加弹层判定边界单测。仍需构建、无障碍、真机与性能验收。

@@ -45,6 +45,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetHandle
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
+import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2SheetDragState
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SheetMotion
+import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 
 /**
  * SleepDown 参考的轻量底部浮层。只承载链接、选择、确认等短内容；
@@ -64,10 +69,15 @@ internal fun XiaoxuBottomSheet(
 ) {
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(XiaoxuRadius.modal)
+    val shape = RoundedCornerShape(UiV2SheetPolicy.CornerDp.dp)
+    val dragState = rememberUiV2SheetDragState()
     Dialog(
         onDismissRequest = { if (dismissEnabled) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = dismissEnabled,
+            dismissOnClickOutside = dismissEnabled
+        )
     ) {
         XiaoxuDialogDim(dimAmount = 0.26f)
         // Size against the usable dialog window, not the full screen.
@@ -86,22 +96,24 @@ internal fun XiaoxuBottomSheet(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
-            val sheetMaxHeight = maxHeight * 0.88f
+            val sheetMaxHeight = maxHeight * UiV2SheetPolicy.HeightFraction
             Column(
                 modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
                     .heightIn(max = sheetMaxHeight)
+                    .uiV2SheetMotion(dragState)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
                     .clickable(interactionSource = innerInteraction, indication = null, onClick = {})
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                    .padding(horizontal = UiV2SheetPolicy.GutterDp.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Box(
-                    Modifier.width(36.dp).height(4.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(XiaoxuPalette.Ink3.copy(alpha = 0.28f))
+                UiV2SheetHandle(
+                    state = dragState,
+                    enabled = dismissEnabled,
+                    onDismiss = onDismiss,
+                    color = XiaoxuPalette.Ink3.copy(alpha = 0.35f)
                 )
                 Text(
                     title, style = MaterialTheme.typography.titleLarge,
@@ -188,6 +200,7 @@ private fun XiaoxuSheetPill(
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .uiV2Press(interaction, enabled)
             .clip(RoundedCornerShape(999.dp))
             .background(Color.White.copy(alpha = if (enabled) 0.82f else 0.42f))
             .clickable(

@@ -9,6 +9,9 @@ const strings = read('apps/xiaoxu-android/app/src/main/res/values/strings.xml');
 const appGradle = read('apps/xiaoxu-android/app/build.gradle');
 const rootGradle = read('apps/xiaoxu-android/build.gradle');
 const main = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
+const v2Shell = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Shell.kt');
+assert.match(main, /UiV2Shell\(\s*selected = current,\s*showNavigation = showPrimaryNavigation,/);
+assert.doesNotMatch(main, /\b(?:PrimaryBottomNavigation|PrimarySideNavigation|Scaffold)\(/, '导航外壳只能由 V2 持有');
 const pageMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ImmediateRouteTransition.kt');
 // RC1 retired these sources and superseded QA requests. Deleting them is not
 // enough: later UI branches must not silently restore obsolete containers.
@@ -109,9 +112,9 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /PrimaryBottomNavigation\(selected = current, backdrop = navBackdrop\)/,
+assert.match(v2Shell, /PrimaryBottomNavigation\(selected = selected, backdrop = backdrop, onSelect = onSelect\)/,
   '主壳层须只放一套可折射玻璃底栏');
-assert.match(main, /PrimarySideNavigation\(selected = current\)/,
+assert.match(v2Shell, /PrimarySideNavigation\(selected = selected, onSelect = onSelect\)/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"/);
@@ -656,11 +659,11 @@ assert.match(main, /profileSettingsRoute != "home"/,
   '设置二级页应处理系统返回并收起主导航');
 assert.match(main, /val showPrimaryNavigation = !messagesOpen &&[\s\S]*?!\(current == MainDestination\.SCHEDULE && scheduleSettingsOpen\) &&[\s\S]*?!\(current == MainDestination\.PROFILE && profileSettingsRoute != "home"\)/,
   '主导航需共用唯一显隐判断，所有二级页都不能露出底栏或背景采样');
-assert.equal((main.match(/if \(!tabletLayout && showPrimaryNavigation\)/g) || []).length, 2,
+assert.equal((v2Shell.match(/if \(!rail && showNavigation\)/g) || []).length, 2,
   '底栏本体与 Scaffold 占位必须同时使用统一显隐标记');
-assert.match(main, /if \(tabletLayout && showPrimaryNavigation\)/,
+assert.match(v2Shell, /if \(rail && showNavigation\)/,
   '平板侧栏也遵守相同子页面规则');
-assert.match(main, /navBackdrop = if \(!tabletLayout && showPrimaryNavigation/,
+assert.match(v2Shell, /backdrop = if \(!rail && showNavigation/,
   '没有底栏时不得额外保留全屏玻璃采样层');
 assert.match(main, /profileSettingsRoute == "timetable-editor"/,
   '新增课程编辑页应保留独立二级路由，不能回退到跨标签状态');
@@ -1086,7 +1089,9 @@ const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xi
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
 assert.match(bottomActions, /BoxWithConstraints\(/,
   '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
+const v2SheetPolicy = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SheetPolicy.kt');
+assert.match(v2SheetPolicy, /const val HeightFraction = 0\.88f/);
+assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* UiV2SheetPolicy\.HeightFraction/,
   '底部浮层高度必须相对可用空间限制');
 assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
   '底部浮层须避让状态栏、导航栏和键盘');
@@ -1694,12 +1699,12 @@ const northIcon = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xi
 const northMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/northglass/NorthNavigationIconPlayback.kt');
 assert.match(appGradle, /io\.github\.kyant0:backdrop:2\.0\.0-alpha03/);
 assert.match(appGradle, /io\.github\.kyant0:shapes:1\.2\.0/);
-assert.match(main, /rememberLayerBackdrop\(\)/);
-assert.match(main, /Modifier\.layerBackdrop\(navBackdrop\)/);
-assert.match(main, /PrimaryBottomNavigationReserve\(glass = navBackdrop != null\)/);
-assert.equal((main.match(/Scaffold\(/g) || []).length, 1,
+assert.match(v2Shell, /rememberLayerBackdrop\(\)/);
+assert.match(v2Shell, /Modifier\.layerBackdrop\(backdrop\)/);
+assert.match(v2Shell, /PrimaryBottomNavigationReserve\(glass = backdrop != null\)/);
+assert.equal(((main + v2Shell).match(/Scaffold\(/g) || []).length, 1,
   '主壳层只能有一套 Scaffold');
-assert.doesNotMatch(main, /\bFloatingBottomBar\(/,
+assert.doesNotMatch(main + v2Shell, /\bFloatingBottomBar\(/,
   '实际底栏统一经过 PrimaryBottomNavigation 适配器');
 assert.match(primaryNavigation, /FloatingBottomBar\(/);
 assert.match(primaryNavigation, /PrimaryBottomNavigationReserve\(/);
@@ -2206,7 +2211,7 @@ assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
 assert.match(main, /private fun CompactPageHeading\(/,
   '教务业务页仍复用紧凑标题，设置页标题由 ProfileSettingsPage 唯一维护');
-assert.match(main, /topBar = \{\},/,
+assert.match(v2Shell, /topBar = \{\},/,
   'Scaffold 顶栏不随五个标签跳动，避免切页时整体内容高度变化');
 assert.match(main, /applyStatusBarInset = false/,
   '首页顶栏移动到页面内后应使用Scaffold既有状态栏内边距，不可重复下移');
