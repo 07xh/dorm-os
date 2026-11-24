@@ -3,10 +3,14 @@ package io.github.x07xh.xiaoxu.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
 import javax.net.ssl.HttpsURLConnection
@@ -27,9 +31,23 @@ internal enum class SecondClassReadEndpoint(val path: String) {
 
 internal class SecondClassHttpFailure(val status: Int, val endpoint: SecondClassReadEndpoint) : Exception("school_read_failed")
 
+/** Only a known login redirect is evidence of expiry. Never follow it or expose its URL. */
+internal fun isSecondClassLoginRedirect(status: Int, location: String?): Boolean {
+    if (status !in 300..399 || location.isNullOrBlank()) return false
+    return runCatching {
+        val u = URI("https://dekt.ncwu.edu.cn/").resolve(location)
+        u.scheme == "https" && u.host == "dekt.ncwu.edu.cn" &&
+            u.port in setOf(-1, 443) && u.rawUserInfo == null &&
+            u.rawPath in setOf("/login", "/login/")
+    }.getOrDefault(false)
+}
+
 /** Fixed read-only routes; redirect and TLS failures never trigger a login attempt. */
 internal class SecondClassNativeHttpTransport(private val session: SecondClassAuthorizedHttpSession) {
+    private val requests = Mutex()
+    private var attempted = false
     suspend fun post(endpoint: SecondClassReadEndpoint, form: Map<String, String>): JSONObject =
+        requests.withLock {
         withContext(Dispatchers.IO) {
             val validForm = when (endpoint) {
                 SecondClassReadEndpoint.SCORES -> form.isEmpty()
@@ -39,6 +57,10 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                     form["title"] in listOf("报名中", "待验证", "即将开始报名")
             }
             require(validForm)
+            // 2026-11-21 observed school session: requests must be serial.
+            // Wait after every completed/failed attempt, including catalog filters.
+            if (attempted) delay(300)
+            attempted = true
             val url = URL("https://dekt.ncwu.edu.cn" + endpoint.path)
             val connection = url.openConnection() as HttpsURLConnection
             try {
@@ -48,7 +70,8 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                 connection.useCaches = false
                 connection.requestMethod = "POST"
                 connection.doOutput = true
-                connection.setRequestProperty("Accept", "application/json")
+                connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+                connection.setRequestProperty("Referer", "https://dekt.ncwu.edu.cn/sys/stu/activity")
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 connection.setRequestProperty("X-Requested-With", "XMLHttpRequest")
                 session.authorize(connection)
@@ -58,6 +81,8 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
                 connection.setFixedLengthStreamingMode(body.size)
                 connection.outputStream.use { it.write(body) }
                 val status = connection.responseCode
+                if (isSecondClassLoginRedirect(status, connection.getHeaderField("Location")))
+                    throw AutoReadFailure("needs_reconnect")
                 if (status != 200) throw SecondClassHttpFailure(status, endpoint)
                 session.acceptResponse(connection)
                 val limit = if (endpoint == SecondClassReadEndpoint.CATALOG) 100_000 else 300_000
@@ -76,6 +101,7 @@ internal class SecondClassNativeHttpTransport(private val session: SecondClassAu
             } finally {
                 connection.disconnect()
             }
+        }
         }
 }
 
@@ -211,6 +237,7 @@ internal suspend fun readSecondClassNativeHttp(
         }
         if (catalogStatus == "verified_empty" && catalog.length() > 0) catalogStatus = "verified_nonempty"
     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+    catch (failure: AutoReadFailure) { throw failure }
     catch (_: Exception) { catalogStatus = "unavailable" }
     if (catalogStatus !in setOf("verified_empty", "verified_nonempty")) {
         empty = JSONArray(); catalog = JSONArray()

@@ -93,6 +93,29 @@ class SecondClassNativeHttpReadTest {
         assertTrue(parseLocalSecondClassCatalogActivities(result, 1).isEmpty())
     }
 
+    @Test fun onlyKnownSchoolLoginRedirectMeansReconnect() {
+        assertTrue(isSecondClassLoginRedirect(302, "/login"))
+        assertTrue(isSecondClassLoginRedirect(302, "https://dekt.ncwu.edu.cn/login"))
+        assertFalse(isSecondClassLoginRedirect(302, "https://example.invalid/login"))
+        assertFalse(isSecondClassLoginRedirect(302, "/sys/stu/score"))
+        assertFalse(isSecondClassLoginRedirect(302, "http://dekt.ncwu.edu.cn/login"))
+        assertFalse(isSecondClassLoginRedirect(200, "/login"))
+    }
+
+    @Test fun explicitExpiryDuringCatalogRejectsWholeBatch() = runBlocking {
+        val failure = runCatching {
+            readSecondClassNativeHttp(salt, hash) { endpoint, _ ->
+                when (endpoint) {
+                    SecondClassReadEndpoint.SCORES -> scores()
+                    SecondClassReadEndpoint.PERSONAL -> envelope()
+                    SecondClassReadEndpoint.CATALOG -> throw AutoReadFailure("needs_reconnect")
+                }
+            }
+        }.exceptionOrNull()
+        assertTrue(failure is AutoReadFailure)
+        assertEquals("needs_reconnect", (failure as AutoReadFailure).status)
+    }
+
     @Test fun incompletePersonalPaginationRejectsEntireBatch() = runBlocking {
         val failure = runCatching {
             readSecondClassNativeHttp(salt, hash) { endpoint, _ ->
