@@ -56,7 +56,9 @@ const scoreRow=(term,quality,hours)=>({
  score_plus2:99,student_code:schoolCode,student_name:'SHOULD_NEVER_BE_PERSISTED',
  ...Object.fromEntries(Array.from({length:6},(_,i)=>['activity_type'+(i+1)+'_score',i+0.25]))
 });
-const schoolScores={data:[scoreRow(1,4,2),scoreRow(100,4,2)],
+const aggregateScoreRow=scoreRow(100,4,2);
+delete aggregateScoreRow.student_code; // Real official "total" row has no account code.
+const schoolScores={data:[scoreRow(1,4,2),aggregateScoreRow],
  startIndex:0,totalPage:0,totalSize:2};
 const score=parseNcwuScoreList(schoolScores,cleanTypes);
 assert.equal(score.isSchoolReportedAggregate,true);
@@ -113,6 +115,24 @@ assert.equal(received1.activities.length,1);
 assert.equal(received2.complete,true);
 const totals=await a.readOfficialScores();
 assert.equal(totals.aggregate.qualityScore,4);
+// A total row cannot override the verified semester owner's identity.
+// An aggregate-only response cannot establish the student's identity.
+for(const rows of [
+ [scoreRow(1,4,2),{...scoreRow(100,4,2),student_code:'OTHER_ACCOUNT'}],
+ [aggregateScoreRow]
+]){
+ const unbound=makeNcwuSecondClassAdapter({
+  verifySession:async()=>verified,
+  readPost:async({path})=>{
+   if(path===NCWU_SECOND_CLASS_READS.scoreTypes)return types;
+   if(path===NCWU_SECOND_CLASS_READS.scores)return {
+    data:rows,startIndex:0,totalPage:0,totalSize:rows.length};
+   throw Error('unexpected path');
+  }
+ });
+ await assert.rejects(()=>unbound.readOfficialScores(),
+  e=>e.code==='authorization_failed');
+}
 assert.deepEqual(auditCalls.map(x=>x.path).slice(-4),[
  NCWU_SECOND_CLASS_READS.activities,NCWU_SECOND_CLASS_READS.activities,
  NCWU_SECOND_CLASS_READS.scoreTypes,NCWU_SECOND_CLASS_READS.scores

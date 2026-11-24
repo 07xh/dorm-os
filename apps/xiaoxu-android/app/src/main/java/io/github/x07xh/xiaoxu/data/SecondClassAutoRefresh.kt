@@ -15,7 +15,7 @@ object SecondClassAutoRefresh {
     private val lock = Mutex()
     private val releaseScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     @Volatile private var manualUsers = 0
-    private data class ActiveRead(val job: Job?, val background: Boolean)
+    private data class ActiveRead(val job: Job?, val background: Boolean, val userRequested: Boolean)
     @Volatile private var activeRead: ActiveRead? = null
     private fun prefs(c: Context) = c.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE)
     fun enabled(c: Context) = prefs(c).getBoolean("enabled", true)
@@ -23,23 +23,24 @@ object SecondClassAutoRefresh {
     fun status(c: Context) = prefs(c).getString("status", "idle").orEmpty()
 
     fun lastSuccess(c: Context) = prefs(c).getLong("success_at", 0)
+    fun lastSuccessTransport(c: Context) = prefs(c).getString("success_transport", "").orEmpty()
     fun lastSuccessWasBackground(c: Context) = prefs(c).getBoolean("success_background", false)
     fun lastBackgroundCheck(c: Context) = prefs(c).getLong("background_check_at", 0)
 
     fun configure(c: Context, enabled: Boolean, background: Boolean) {
         prefs(c).edit().putBoolean("enabled", enabled).putBoolean("background", background).apply()
         val active = activeRead
-        if (!enabled || !background && active?.background == true) active?.job?.cancel()
+        if (active != null && !active.userRequested && (!enabled || !background && active.background)) active.job?.cancel()
         reconcile(c)
     }
     fun reconcile(c: Context) {
         val work = WorkManager.getInstance(c)
         if (!enabled(c) || !background(c)) { work.cancelUniqueWork(WORK); return }
-        val request = PeriodicWorkRequestBuilder<SecondClassAutoReadWorker>(30, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<SecondClassAutoReadWorker>(SecondClassAutoReadPolicy.AUTO_SYNC_HOURS, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true).build())
             .build()
-        work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+        work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
     // Main-thread Activity callbacks reserve manual mode until pending Room
     // work has completed cancellation, even if the Activity is destroyed.
@@ -48,17 +49,23 @@ object SecondClassAutoRefresh {
         releaseScope.launch { saving?.join(); manualUsers = (manualUsers - 1).coerceAtLeast(0) }
     }
     fun onManualSave(c: Context) {
+        SecondClassNativeQaSession.clear(c)
         prefs(c).edit().putString("status", "updated").apply()
         reconcile(c)
     }
 
     internal suspend fun refreshIfDue(
-        context: Context, backgroundRun: Boolean = false,
+        context: Context, backgroundRun: Boolean = false, userRequested: Boolean = false,
+        // A provider must return an explicitly authorized, account-bound reader.
+        // Null means no native session was issued, not a failed native request.
+        nativeReader: suspend (Context, String, String) -> JSONObject? = { c, salt, expected ->
+            readSecondClassFromAuthorizedSession(c, salt, expected)
+        },
         reader: suspend (Context, String) -> JSONObject = { c, salt -> readSecondClassAutomatically(c, salt) }
-    ) {
+    ): Boolean {
         val c = context.applicationContext
-        if (!lock.tryLock()) return
-        activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun)
+        if (!lock.tryLock()) return false
+        activeRead = ActiveRead(currentCoroutineContext()[Job], backgroundRun, userRequested)
         val settings = prefs(c)
         fun state(value: String) { settings.edit().putString("status", value).apply() }
         try {
@@ -93,19 +100,21 @@ object SecondClassAutoRefresh {
                 credits.all { it.sourceHost == "dekt.ncwu.edu.cn" }
             val startedAt = System.currentTimeMillis()
             if (!SecondClassAutoReadPolicy.shouldRead(enabled(c), background(c), backgroundRun,
-                bound, manualUsers > 0, startedAt, saved, settings.getLong("attempt", 0))) return
+                bound, manualUsers > 0, startedAt, saved, settings.getLong("attempt", 0),
+                userRequested)) return false
             settings.edit().putLong("attempt", startedAt).apply()
             state("reading")
-            val payload = reader(c, salt!!)
+            val result = readSecondClassForSync(c, salt!!, requireNotNull(expected), nativeReader, reader)
+            val payload = result.payload
             if (!payload.optBoolean("ok")) {
                 state(if (SecondClassAutoReadPolicy.requiresReconnect(
                     payload.optInt("httpStatus"), payload.optString("stage"))) "needs_reconnect"
                     else if (payload.optString("stage") == "identity" &&
                         payload.optString("reason") != "visible_account_required") "needs_confirmation" else "failed")
-                return
+                return false
             }
             if (!SecondClassAutoReadPolicy.matchesConfirmedAccount(expected, payload.optString("accountHash"))) {
-                state("needs_confirmation"); return
+                state("needs_confirmation"); return false
             }
             val scores = parseLocalSecondClassScores(payload, startedAt)
             val activities = parseLocalSecondClassActivities(payload, startedAt)
@@ -117,10 +126,10 @@ object SecondClassAutoRefresh {
             val catalogVerified = payload.optString("catalogStatus") in
                 setOf("verified_empty", "verified_nonempty")
             currentCoroutineContext().ensureActive()
-            if (!enabled(c) || backgroundRun && !background(c) || manualUsers > 0 ||
-                identity.getString("salt", null) != salt) return
+            if ((!enabled(c) && !userRequested) || backgroundRun && !background(c) ||
+                manualUsers > 0 || identity.getString("salt", null) != salt) return false
             // A changed legacy confirmation must also invalidate this attempt.
-            if (bindings.isEmpty() && identity.getString("account", null) != expected) return
+            if (bindings.isEmpty() && identity.getString("account", null) != expected) return false
             withContext(Dispatchers.IO) {
                 currentCoroutineContext().ensureActive()
                 dao.replaceSecondClassSnapshot(scores, activities, catalog, catalogActivities,
@@ -130,13 +139,20 @@ object SecondClassAutoRefresh {
             settings.edit().putLong("success_at", System.currentTimeMillis())
                 .putBoolean("success_background", backgroundRun)
                 .putString("catalog_status", payload.optString("catalogStatus"))
+                .putString("success_transport", result.transport)
                 .putString("status", "updated").apply()
-        } catch (_: TimeoutCancellationException) { state("failed") }
+            return true
+        } catch (_: TimeoutCancellationException) { state("failed"); return false }
         catch (cancelled: CancellationException) {
             if (status(c) == "reading") state("idle")
             throw cancelled
-        } catch (failure: AutoReadFailure) { state(failure.status) }
-        catch (_: Exception) { state("failed") }
+        } catch (failure: AutoReadFailure) { state(failure.status); return false }
+        catch (failure: SecondClassHttpFailure) {
+            state(if (failure.status == 401 && failure.endpoint == SecondClassReadEndpoint.SCORES)
+                "needs_reconnect" else "failed")
+            return false
+        }
+        catch (_: Exception) { state("failed"); return false }
         finally {
             // Invalidation can return before Room without throwing (for
             // example a changed identity salt). Never leave a finished read busy.
