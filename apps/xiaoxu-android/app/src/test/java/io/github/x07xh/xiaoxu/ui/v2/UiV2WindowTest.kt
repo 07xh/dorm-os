@@ -16,4 +16,14 @@ class UiV2WindowTest {
         assertEquals(UiV2Window.Compact, uiV2Window(1200f, 479f))
         assertEquals(UiV2Window.Expanded, uiV2Window(1200f, 480f))
     }
+
+    @Test fun detailFoldsBeforePrimaryContentBecomesTooNarrow() {
+        fun detail(w: Float, h: Float) = uiV2DetailWidth(w, h, 400f, 320f, 420f, 12f, 78f)
+        assertEquals(null, detail(839f, 800f))
+        assertEquals(null, detail(1200f, 412f))
+        assertEquals(320f, detail(840f, 800f))
+        assertEquals(408f, detail(1200f, 800f))
+        assertEquals(420f, detail(1800f, 800f))
+        assertEquals(null, uiV2DetailWidth(840f, 800f, 500f, 320f, 420f, 12f, 78f))
+    }
 }

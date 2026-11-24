@@ -1,5 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -208,10 +210,12 @@ fun CloudTimetablePanel(
 ) {
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val expanded = maxWidth >= 840.dp
+        val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ContentMaxWidth.value),
+            maxHeight.value, mainMin = 480f, detailMin = 280f, detailMax = 400f,
+            gap = 12f, horizontalPadding = 36f)
         ScheduleVerifiedContent(
             data = localImportedScheduleView(localLessons),
-            expanded = expanded,
+            detailWidthDp = detailWidth,
             openFileImport = openFileImport,
             openFileExport = openFileExport,
             localScheduleRevision = localScheduleRevision,
@@ -314,7 +318,7 @@ private fun LocalTimetableEmptyState(
 @Composable
 private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
-    expanded: Boolean,
+    detailWidthDp: Float?,
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
@@ -510,16 +514,17 @@ private fun ScheduleVerifiedContent(
         }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
-            if (expanded) {
+            if (detailWidthDp != null) {
                 // 平板：左七日网格 + 右当日列表。表头选中哪天就显示那天（空日走空态），
                 // 不做"跳回最近有课日"，否则点了周六却显示周三，选中态也对不上。
                 val tabletWeekday = selectedWeekday
                 val tabletDayLessons = remember(filtered, tabletWeekday) {
                     filtered.filter { it.weekday == tabletWeekday }.sortedBy { it.startSection }
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(
-                        modifier = Modifier.weight(1.35f),
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (selectedWeek != ALL_WEEKS) {
@@ -542,7 +547,7 @@ private fun ScheduleVerifiedContent(
                         weekday = tabletWeekday,
                         todayWeekday = todayWeekday,
                         onOpen = openCourse,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp)
+                        modifier = Modifier.width(detailWidthDp.dp)
                     )
                 }
             } else {

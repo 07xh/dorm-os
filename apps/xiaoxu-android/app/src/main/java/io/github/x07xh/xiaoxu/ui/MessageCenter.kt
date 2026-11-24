@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
 import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionMode
 
@@ -36,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Info
@@ -299,7 +299,10 @@ fun MessageCenterPanel(
         if (useStatusBarInset) Modifier.fillMaxSize().statusBarsPadding()
         else Modifier.fillMaxSize()
     ) {
-        val wide = maxWidth >= 840.dp
+        val detailWidth = uiV2DetailWidth(maxWidth.value, maxHeight.value,
+            mainMin = 400f, detailMin = 320f, detailMax = 420f, gap = 12f,
+            horizontalPadding = 78f)
+        val wide = detailWidth != null
         val sidePadding = when {
             wide -> 28.dp
             maxWidth < 380.dp -> 14.dp
@@ -354,9 +357,10 @@ fun MessageCenterPanel(
                 }
                 if (!showWechat) {
                     item {
-                        MessageSearchField(
+                        UiV2SearchField(
                             query = query,
-                            onQueryChange = { query = it.take(60) }
+                            onQuery = { query = it.take(60) },
+                            placeholder = "搜索官方公告标题或日期"
                         )
                     }
                     item { FilterRow(selected = filterKey, onSelect = { filterKey = it }) }
@@ -448,8 +452,8 @@ fun MessageCenterPanel(
 
             }
         }
-        if (wide && !showWechat) {
-            Column(Modifier.weight(1f).fillMaxHeight()
+        if (detailWidth != null && !showWechat) {
+            Column(Modifier.width((detailWidth + 22f).dp).fillMaxHeight()
                 .padding(top = 10.dp, end = 22.dp)) {
                 NoticeTabletDetailPane(
                     notice = opened,
@@ -458,7 +462,7 @@ fun MessageCenterPanel(
             }
         }
         }
-        if (!wide && opened != null) {
+        if (!wide && !showWechat && opened != null) {
             NoticeDetailSheet(
                 notice = opened,
                 openArticle = openArticle,
@@ -656,16 +660,6 @@ private fun SourceSectionHeader(
 // ---------------------------------------------------------------------------
 // 搜索 / 筛选
 // ---------------------------------------------------------------------------
-
-/** Shared V2 search field; retains the official-notice query semantics. */
-@Composable
-private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
-    UiV2SearchField(
-        query = query,
-        onQuery = onQueryChange,
-        placeholder = "搜索官方公告标题或日期"
-    )
-}
 
 @Composable
 private fun FilterRow(selected: String, onSelect: (String) -> Unit) {

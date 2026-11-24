@@ -918,9 +918,7 @@ assert.match(workspace, /\.selectableGroup\(\)/,
 assert.match(statusTabSource, /XiaoxuRadius\.tile/,
   '任务筛选圆角必须复用唯一设计系统');
 // messageUi is loaded before these assertions; messageCenter is declared later.
-const messageSearchSource = messageUi.slice(
-    messageUi.indexOf('private fun MessageSearchField('),
-    messageUi.indexOf('private fun FilterRow('));
+const messageSearchSource = messageUi;
 const v2SearchField = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SearchField.kt');
 assert.match(messageSearchSource, /UiV2SearchField\(/, '官方消息复用统一搜索框');
 assert.match(messageSearchSource, /placeholder = "搜索官方公告标题或日期"/, '保留公告查询语义');
@@ -1737,7 +1735,10 @@ assert.match(floatingBar, /Modifier\.northGlassIndicator\(/);
 const dockDragMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt');
 assert.match(floatingBar, /rememberNorthNavigationIconPlayback\(count, safeIndex, reducedMotion\)/);
 assert.match(floatingBar, /reducedMotion = reducedMotion/);
-assert.match(dockDragMotion, /if \(reducedMotion\) \{\s*directValue\.floatValue = targetValue\s*return/);
+assert.match(dockDragMotion, /directValue\.floatValue = targetValue\s*if \(reducedMotion\) return/);
+assert.match(dockDragMotion, /val targetValue: Float get\(\) = directValue\.floatValue/);
+assert.match(dockDragMotion, /releaseJob\?\.cancel\(\)/);
+assert.match(dockDragMotion, /valueJob\?\.cancel\(\)/);
 assert.match(dockDragMotion, /fun press\(\) \{\s*if \(reducedMotion\) return/);
 
 assert.match(floatingBar, /onDragCancel = \{/);
@@ -2215,7 +2216,7 @@ assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
   '消息顶栏不再重复展示英文装饰标题');
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
 assert.match(messageCenter, /UiV2SearchField\(/, '搜索条统一复用 V2 胶囊输入');
-assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
+assert.doesNotMatch(messageCenter, /fun MessageSearchField\(/, '删除已被共享 V2 搜索框替代的包装');
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
 assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
@@ -2477,3 +2478,7 @@ const semesterSettingsUi = read('apps/xiaoxu-android/app/src/main/java/io/github
 assert.match(semesterSettingsUi, /Text\("默认课表视图"/);
 assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
   'default timetable view must use the compact inline choice, not a full-row segmented bar');
+
+assert.match(messageCenter, /uiV2DetailWidth\(maxWidth\.value, maxHeight\.value/);
+assert.match(messageCenter, /if \(!wide && !showWechat && opened != null\)/);
+assert.match(schedulePanel, /uiV2DetailWidth\(/);
