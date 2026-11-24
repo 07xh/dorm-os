@@ -2280,14 +2280,17 @@ const academicOverviewSource = main.slice(
     main.indexOf('AcademicDestination.OVERVIEW -> Content('),
     main.indexOf('AcademicDestination.SECOND_CLASS ->', main.indexOf('AcademicDestination.OVERVIEW -> Content('))
 );
-assert.match(academicOverviewSource, /UiV2SettingsGroup\(title = "教务"\)/,
+assert.match(academicOverviewSource, /Text\("教务"/,
   '成绩和考试须归入教务分类');
-assert.match(academicOverviewSource, /UiV2SettingsGroup\(title = "校园生活"\)/,
+assert.match(academicOverviewSource, /Text\("校园生活"/,
   '第二课堂和校园服务须归入校园生活分类');
 assert.doesNotMatch(academicOverviewSource, /XiaoxuCard\(/,
   '教务连续分组内部不能再套第二层方形卡片');
 assert.doesNotMatch(main, /private fun AcademicEditorialSection\(/, '删除无独立逻辑的旧分组包装');
-assert.match(academicOverviewSource, /UiV2SettingsDivider\(\)/);
+assert.doesNotMatch(academicOverviewSource, /UiV2SettingsGroup\(|UiV2SettingsDivider\(/);
+assert.equal((academicOverviewSource.match(/AcademicActionPair\(/g) || []).length, 2);
+assert.match(academicOverviewSource, /val singleColumn = maxWidth < 300\.dp \|\| LocalDensity\.current\.fontScale > 1\.3f/);
+assert.match(main, /private fun AcademicActionPair\([\s\S]*?UiV2HomeQuickAction\(firstTitle/);
 assert.match(academicHeadingLayout, /XiaoxuSoftIconButton\(onClick = \{ select\(AcademicDestination\.OVERVIEW\) \}\)/);
 const academicAction = main.slice(main.indexOf('private fun AcademicActionRow('));
 assert.match(academicAction, /UiV2SettingsEntry\(/, '教务入口使用统一行');
@@ -2326,7 +2329,7 @@ assert.match(v2SettingsIndex, /UiV2Setting\("backup", "备份与恢复", "账户
 assert.doesNotMatch(academicOverviewSource, /"未读取"/,
   '教务总览只做导航，未核验状态留在真实详情页');
 
-assert.match(main, /AcademicActionRow\("第二课堂"/,
+assert.match(academicOverviewSource, /"第二课堂", Icons\.Outlined\.CheckCircle, \{ select\(AcademicDestination\.SECOND_CLASS\) \}/,
   '真实第二课堂必须保留直接可达入口');
 assert.match(main, /CampusRunPanel\(cloud\)/,
   '校园跑/学校服务真实面板不可在 UI 精简时丢失');
