@@ -1773,7 +1773,9 @@ assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)
 const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
     workspace.indexOf('private fun HomeSection(', workspace.indexOf('private fun HomeGreeting(')));
 assert.match(compactGreeting, /UiV2HomeGreeting\(/, '日期与问候使用 V2 展示组件');
-assert.match(v2Home, /style = MaterialTheme\.typography\.headlineLarge/, '参考图的大字号层级');
+assert.match(v2Home, /style = MaterialTheme\.typography\.headlineSmall/, '首页页头压缩，课程和待办优先');
+assert.match(v2Home, /XiaoxuSoftIconButton\(onClick = onMessages\)/);
+assert.match(v2Home, /XiaoxuSoftIconButton\(onClick = onProfile\)/);
 assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
   '首页问候不得在全局标题下重复显示一个大标题');
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
@@ -1789,7 +1791,7 @@ const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetrics
 assert.match(editorialHome, /UiV2HomeSurface \{/, '统计区使用唯一 V2 轻量表面');
 assert.match(v2Home, /clip\(RoundedCornerShape\(24\.dp\)\)/);
 assert.match(v2Home, /UiV2HomeSurface\(content = content\)/);
-assert.match(editorialHome, /if \(maxWidth < 420\.dp\)/,
+assert.match(editorialHome, /if \(maxWidth < 296\.dp \|\| LocalDensity\.current\.fontScale > 1\.15f\)/,
   '小屏学业入口应自动降为双列');
 for (const [start, end, label] of [
   ['private fun HomeTodoBlock(', 'private fun HomeNoticesBlock(', '优先处理'],
@@ -2489,3 +2491,7 @@ assert.match(semesterSettingsUi, /fillWidth = false,\s*compact = true/,
 assert.match(messageCenter, /uiV2DetailWidth\(maxWidth\.value, maxHeight\.value/);
 assert.match(messageCenter, /if \(!wide && !showWechat && opened != null\)/);
 assert.match(schedulePanel, /uiV2DetailWidth\(/);
+
+assert.match(homeReadingLayout, /item\(key = "courses"\) \{ hero\(\) \}[\s\S]*?item\(key = "tasks"\) \{ tasks\(\) \}[\s\S]*?item\(key = "metrics"\)/, '手机首页先课程和任务，再展示统计');
+assert.match(homeMetricLayout, /showTrend by rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.match(homeMetricLayout, /if \(showTrend && deadlineHistogram\.any/);

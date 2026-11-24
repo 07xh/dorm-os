@@ -62,6 +62,7 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.MoreVert
@@ -101,6 +102,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -635,22 +637,25 @@ fun RealAcademicHome(
             modifier = Modifier.widthIn(max = 1200.dp).fillMaxWidth().fillMaxHeight(),
             contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 16.dp,
                 vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item(key = "greeting") { HomeGreeting(today, weekdayLabel) }
+            item(key = "greeting") { HomeGreeting(today, weekdayLabel, openMessages, openProfile) }
             if (homeDetailWidth != null) {
                 item(key = "dashboard-primary") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            metrics()
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             hero()
+                            academic()
                         }
-                        Column(Modifier.width(homeDetailWidth.dp)) { tasks() }
+                        Column(Modifier.width(homeDetailWidth.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            tasks()
+                            metrics()
+                        }
                     }
                 }
-                item(key = "services") { academic() }
                 item(key = "dashboard-secondary") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.Top) {
@@ -659,9 +664,9 @@ fun RealAcademicHome(
                     }
                 }
             } else {
-                item(key = "metrics") { metrics() }
                 item(key = "courses") { hero() }
                 item(key = "tasks") { tasks() }
+                item(key = "metrics") { metrics() }
                 item(key = "services") { academic() }
                 item(key = "notices") { notices() }
                 item(key = "homework") { homework() }
@@ -700,7 +705,7 @@ internal fun <T> homeCoursePreview(records: List<T>): List<T> = records.take(4)
 
 /** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
 @Composable
-private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
+private fun HomeGreeting(today: LocalDate, weekdayLabel: String, onMessages: () -> Unit, onProfile: () -> Unit) {
     val hour = remember { LocalTime.now(SchoolZone).hour }
     val greeting = when (hour) {
         in 5..10 -> "早上好"
@@ -711,7 +716,9 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
     }
     UiV2HomeGreeting(
         date = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-        greeting = greeting
+        greeting = greeting,
+        onMessages = onMessages,
+        onProfile = onProfile
     )
 }
 
@@ -829,10 +836,11 @@ private fun HomeMetricsBlock(
     today: LocalDate,
     openTasks: () -> Unit
 ) {
+    var showTrend by rememberSaveable { mutableStateOf(false) }
     UiV2HomeSurface {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -840,31 +848,31 @@ private fun HomeMetricsBlock(
         ) {
             Column(
                 modifier = Modifier.weight(1f)
-                    .heightIn(min = 76.dp)
+                    .heightIn(min = 48.dp)
                     .clickable(role = Role.Button, onClickLabel = "打开待完成任务", onClick = openTasks)
-                    .padding(vertical = 9.dp),
+                    .padding(vertical = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     pending.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = XiaoxuPalette.BrandDeep
                 )
                 Text("待完成任务", style = MaterialTheme.typography.labelMedium,
                     color = XiaoxuPalette.Ink2)
             }
-            Box(Modifier.width(1.dp).height(50.dp).background(XiaoxuPalette.Line))
+            Box(Modifier.width(1.dp).height(36.dp).background(XiaoxuPalette.Line))
             Column(
                 modifier = Modifier.weight(1f)
-                    .heightIn(min = 76.dp)
+                    .heightIn(min = 48.dp)
                     .clickable(role = Role.Button, onClickLabel = "打开近期截止任务", onClick = openTasks)
-                    .padding(start = 18.dp, top = 9.dp, bottom = 9.dp),
+                    .padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     attention.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (attention > 0) XiaoxuPalette.Warning else XiaoxuPalette.Ink
                 )
@@ -873,6 +881,15 @@ private fun HomeMetricsBlock(
             }
         }
         if (deadlineHistogram.any { it > 0 }) {
+            TextButton(onClick = { showTrend = !showTrend },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(if (showTrend) "收起未来七天" else "查看未来七天截止分布",
+                    modifier = Modifier.weight(1f))
+                Icon(if (showTrend) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null)
+            }
+        }
+        if (showTrend && deadlineHistogram.any { it > 0 }) {
             HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
             // Same information, but no forced single-line collision at 320dp
             // or when the user enlarges the system font.
@@ -939,7 +956,7 @@ private fun HomeQuickBlock(
 ) {
     HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth < 420.dp) {
+            if (maxWidth < 296.dp || LocalDensity.current.fontScale > 1.15f) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth()) {
                         HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)

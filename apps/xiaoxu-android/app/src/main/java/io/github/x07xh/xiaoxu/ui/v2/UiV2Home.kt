@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.ui.SectionHeader
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
 
 /** Shared static surfaces; only the navigation chrome samples the live backdrop. */
 @Composable
@@ -60,16 +64,22 @@ internal fun UiV2HomeSection(
 }
 
 @Composable
-internal fun UiV2HomeGreeting(date: String, greeting: String) {
+internal fun UiV2HomeGreeting(date: String, greeting: String, onMessages: () -> Unit, onProfile: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.Bottom,
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(date, style = MaterialTheme.typography.labelLarge, color = XiaoxuPalette.Ink2)
-            Text(greeting, style = MaterialTheme.typography.headlineLarge,
+            Text(greeting, style = MaterialTheme.typography.headlineSmall,
                 color = XiaoxuPalette.Ink, modifier = Modifier.semantics { heading() })
+        }
+        XiaoxuSoftIconButton(onClick = onMessages) {
+            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
+        }
+        XiaoxuSoftIconButton(onClick = onProfile) {
+            Icon(Icons.Outlined.PersonOutline, contentDescription = "设置")
         }
     }
 }
@@ -84,14 +94,14 @@ internal fun UiV2HomeQuickAction(
     val tint = if (warm) Color(0xFF805717) else Color(0xFF245B86)
     Column(
         modifier.uiV2Press(interaction).clip(RoundedCornerShape(14.dp))
-            .heightIn(min = 76.dp)
+            .heightIn(min = 64.dp)
             .clickable(interactionSource = interaction, indication = LocalIndication.current,
                 role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
             .padding(horizontal = 2.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
     ) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(container),
+        Box(Modifier.size(34.dp).clip(CircleShape).background(container),
             contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = tint)
         }
