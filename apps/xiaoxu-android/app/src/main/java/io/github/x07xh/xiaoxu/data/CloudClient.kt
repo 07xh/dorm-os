@@ -730,12 +730,7 @@ class CloudClient(context: Context) {
      * read actual records. Do not trust the browser or return URI as proof.
      */
     suspend fun completeSchoolReturn(provider: String) {
-        if (provider == "chaoxing") {
-            state = state.copy(schoolSyncResultProvider = provider,
-                schoolSyncMessage = "学习通使用本机官方登录与读取，请在数据连接中打开。")
-            return
-        }
-        if (provider !in setOf("ncwu", "second_class")) return
+        if (provider !in setOf("chaoxing", "ncwu", "second_class")) return
         val epoch = sessionEpoch
         state = state.copy(schoolSyncResultProvider = provider,
             schoolSyncMessage = "已返回校序；正在通过本人会话核验学校授权和真实数据")
@@ -758,6 +753,14 @@ class CloudClient(context: Context) {
                 schoolSyncMessage = if (platform?.sessionState == "review_pending")
                     "青果课表仍需要在学校连接中心确认预览；未标记已连接"
                 else "尚未证实学校本人授权；请完成官方登录后再返回")
+            return
+        }
+        if (provider == "chaoxing") {
+            // A navigation callback is not authorization proof. The fresh
+            // owner-scoped connection response above is the only source.
+            // Leave the actual full-course sync to the explicit HTTP button.
+            state = state.copy(schoolSyncResultProvider = provider,
+                schoolSyncMessage = "已核对学习通授权会话；可手动 HTTP 同步全部作业")
             return
         }
         syncAuthorizedSchool(provider)
