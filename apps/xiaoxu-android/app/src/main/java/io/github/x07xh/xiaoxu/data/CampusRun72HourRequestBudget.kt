@@ -2,6 +2,7 @@ package io.github.x07xh.xiaoxu.data
 
 import android.content.Context
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.CancellationException
 
 /**
  * Local request budget for the owner's already-authorized campus-running reads.
@@ -66,8 +67,8 @@ class AndroidCampusRunRequestCheckpointStore(context: Context) :
 /**
  * Opt-in entry point for a future approved, truly connected read-only adapter.
  * Call on app foreground/navigation only. No background polling, no automatic
- * login/re-login and no retry on auth error. Both summary and history share
- * the SAME 72-hour budget to prevent a detail screen from bypassing the cap.
+ * login/re-login and no retry on auth error. Summary and history use one bounded read transaction per 72 hours.
+ * Either screen gets the same snapshot; a summary visit must not starve history.
  *
  * Note: production must also restore the owner's trusted cached snapshot on
  * app restart; the existing Query gate itself holds only an in-memory snapshot.
@@ -100,14 +101,14 @@ class CampusRun72HourReadCoordinator(
 
     suspend fun refreshSummaryIfDue(
         expectedSubjectFingerprint: String, nowEpochMillis: Long
-    ): CampusRunViewState = refreshIfDue(expectedSubjectFingerprint, nowEpochMillis, false)
+    ): CampusRunViewState = refreshIfDue(expectedSubjectFingerprint, nowEpochMillis)
 
     suspend fun refreshHistoryIfDue(
         expectedSubjectFingerprint: String, nowEpochMillis: Long
-    ): CampusRunViewState = refreshIfDue(expectedSubjectFingerprint, nowEpochMillis, true)
+    ): CampusRunViewState = refreshIfDue(expectedSubjectFingerprint, nowEpochMillis)
 
-    private suspend fun refreshIfDue(
-        fingerprint: String, now: Long, history: Boolean
+    suspend fun refreshIfDue(
+        fingerprint: String, now: Long
     ): CampusRunViewState {
         mutex.lock()
         try {
@@ -139,6 +140,8 @@ class CampusRun72HourReadCoordinator(
                     trustedCache?.load(fingerprint, now)?.let {
                         query.restoreTrustedSnapshot(fingerprint, it, now)
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (_: Exception) {
                     // Unreadable ciphertext remains on disk for later recovery.
                     query.clear()
@@ -146,8 +149,9 @@ class CampusRun72HourReadCoordinator(
             }
             if (!budget.reserveIfDue(fingerprint, now)) return query.state(now)
 
-            val result = if (history) query.refresh(fingerprint, now)
-                else query.refreshSummary(fingerprint, now)
+            // Both entry points refresh the same bounded summary + history snapshot.
+            // A failure does not consume a second reservation or publish a partial update.
+            val result = query.refresh(fingerprint, now)
             when (result) {
                 is CampusRunViewState.Current -> {
                     // The successful official read may still be shown if disk
@@ -155,6 +159,8 @@ class CampusRun72HourReadCoordinator(
                     // a stored snapshot.
                     try {
                         trustedCache?.save(fingerprint, result.snapshot, now)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (_: Exception) {
                         // No secret data is logged. The live result is valid.
                     }
