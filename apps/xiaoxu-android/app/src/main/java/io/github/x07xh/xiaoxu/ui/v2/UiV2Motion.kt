@@ -36,9 +36,11 @@ internal object UiV2Motion {
 /** Use the existing clickable interaction stream instead of intercepting gestures. */
 @Composable
 internal fun Modifier.uiV2Press(source: InteractionSource, enabled: Boolean = true): Modifier {
-    val pressed by source.collectIsPressedAsState()
     val mode = LocalUiV2Motion.current
-    val active = enabled && pressed && mode != UiV2MotionMode.Reduced
+    // Disabled and reduced-motion controls need no press collector or animation layer.
+    if (!enabled || mode == UiV2MotionMode.Reduced) return this
+    val pressed by source.collectIsPressedAsState()
+    val active = pressed
     val scale = animateFloatAsState(
         targetValue = if (active) UiV2Motion.PressScale else 1f,
         animationSpec = UiV2Motion.spec(mode, if (active) UiV2Motion.PressMs else UiV2Motion.ReleaseMs),
