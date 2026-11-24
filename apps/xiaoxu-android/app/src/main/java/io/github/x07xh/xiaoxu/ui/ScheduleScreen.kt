@@ -171,8 +171,11 @@ private data class LessonUi(
     val endSection: Int
 )
 
+private fun VerifiedLesson.uiKey(): String =
+    (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday"
+
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
-    key = (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday",
+    key = uiKey(),
     sourceId = id,
     // 与首页 CourseTile 共用相同的稳定课程标识，跨页面保持六色一致。
     colorKey = id.ifBlank { title },
@@ -209,13 +212,15 @@ fun CloudTimetablePanel(
     focusWeekday: Int = 0,
     onFocusConsumed: () -> Unit = {}
 ) {
+    // Reuse the source view across unrelated shell recompositions.
+    val scheduleData = remember(localLessons) { localImportedScheduleView(localLessons) }
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ScheduleMaxWidth.value),
             maxHeight.value, mainMin = 480f, detailMin = 280f, detailMax = 400f,
             gap = 12f, horizontalPadding = 36f)
         ScheduleVerifiedContent(
-            data = localImportedScheduleView(localLessons),
+            data = scheduleData,
             detailWidthDp = detailWidth,
             openFileImport = openFileImport,
             openFileExport = openFileExport,
@@ -377,14 +382,20 @@ private fun ScheduleVerifiedContent(
         selectedWeek = currentWeek?.takeIf { it in target.weeks && it in weekNumbers }
             ?: target.weeks.firstOrNull { it in weekNumbers } ?: selectedWeek
         selectedWeekday = target.weekday
-        selectedCourseKey = target.toUi().key
+        selectedCourseKey = target.uiKey()
         onFocusConsumed()
     }
 
     // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
-    val allowedKeys = remember(data.lessons, selectedWeek) {
+    // Reuse the same week selection for the grid and the list key lookup.
+    // A key lookup must not allocate a full LessonUi or format its week label.
+    val weekLessons = remember(data.lessons, selectedWeek) {
+        if (selectedWeek == ALL_WEEKS) data.lessons
+        else data.lessons.filter { selectedWeek in it.weeks }
+    }
+    val allowedKeys = remember(weekLessons, selectedWeek) {
         if (selectedWeek == ALL_WEEKS) null
-        else data.lessons.filter { selectedWeek in it.weeks }.map { it.toUi().key }.toSet()
+        else weekLessons.map { it.uiKey() }.toSet()
     }
     val filtered = remember(lessons, allowedKeys) {
         if (allowedKeys == null) lessons else lessons.filter { it.key in allowedKeys }
@@ -538,9 +549,6 @@ private fun ScheduleVerifiedContent(
                 // 平板：左七日网格 + 右当日列表。表头选中哪天就显示那天（空日走空态），
                 // 不做"跳回最近有课日"，否则点了周六却显示周三，选中态也对不上。
                 val tabletWeekday = selectedWeekday
-                val tabletDayLessons = remember(filtered, tabletWeekday) {
-                    filtered.filter { it.weekday == tabletWeekday }.sortedBy { it.startSection }
-                }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(
@@ -548,21 +556,18 @@ private fun ScheduleVerifiedContent(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (selectedWeek != ALL_WEEKS) {
-                            val weekLessons = remember(data.lessons, selectedWeek) {
-                                data.lessons.filter { selectedWeek in it.weeks }
-                            }
                             WeeklyTimetableGrid(
                                 lessons = weekLessons,
                                 dailySections = visibleSections,
                                 selectedWeekday = tabletWeekday,
                                 onSelectWeekday = { selectedWeekday = it }
                             ) { item ->
-                                openCourse(item.toUi().key)
+                                openCourse(item.uiKey())
                             }
                         }
                     }
                     DayLessonList(
-                        dayLessons = tabletDayLessons,
+                        dayLessons = dayLessons,
                         selectedWeek = selectedWeek,
                         weekday = tabletWeekday,
                         todayWeekday = todayWeekday,
@@ -576,16 +581,13 @@ private fun ScheduleVerifiedContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (selectedWeek != ALL_WEEKS) {
-                        val weekLessons = remember(data.lessons, selectedWeek) {
-                            data.lessons.filter { selectedWeek in it.weeks }
-                        }
                         WeeklyTimetableGrid(
                             lessons = weekLessons,
                             dailySections = visibleSections,
                             selectedWeekday = selectedWeekday,
                             onSelectWeekday = { selectedWeekday = it }
                         ) { item ->
-                            openCourse(item.toUi().key)
+                            openCourse(item.uiKey())
                         }
                     }
                 }
@@ -632,7 +634,7 @@ private fun ScheduleVerifiedContent(
             lesson = opened,
             timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
             onEdit = {
-                editOriginal = data.lessons.firstOrNull { it.toUi().key == opened.key }
+                editOriginal = data.lessons.firstOrNull { it.uiKey() == opened.key }
                 editingError = null
                 selectedCourseKey = null
                 showingCourseEditor = editOriginal != null
