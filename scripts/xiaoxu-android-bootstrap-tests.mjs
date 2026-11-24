@@ -2634,7 +2634,7 @@ assert.match(v2Shell, /val drawerEnabled = !rail && showNavigation/);
 assert.match(v2Shell, /ModalNavigationDrawer\(/);
 assert.match(v2Shell, /gesturesEnabled = drawerEnabled && drawerState\.isOpen/, '关闭时不抢课表和底栏横向手势');
 assert.match(v2Shell, /if \(!drawerEnabled\) drawerState\.snapTo\(DrawerValue\.Closed\)/);
-assert.match(v2Shell, /BackHandler\(enabled = drawerState\.isOpen\)/);
+assert.match(v2Shell, /BackHandler\(enabled = drawerState\.isOpen, onBack = closeDrawer\)/);
 assert.match(main, /onNavigation = openNavigation/);
 assert.match(designSystem, /contentDescription = "打开导航"/);
 assert.match(primaryNavigation, /fun PrimaryNavigationDrawer\([\s\S]*?ModalDrawerSheet\(/);
@@ -2697,3 +2697,11 @@ assert.match(designSystem, /val page: Dp = UiV2Theme\.PageGutter/);
 assert.match(designSystem, /val gap: Dp = UiV2Theme\.GroupGap/);
 assert.match(v2Home, /RoundedCornerShape\(UiV2Theme\.TileRadius\)/);
 assert.match(bottomActions, /RoundedCornerShape\(UiV2Theme\.PillRadius\)/);
+
+assert.match(dockDragMotion, /if \(targetValue == directValue\.floatValue &&\s*\(reducedMotion \|\| valueJob\?\.isActive == true \|\| valueAnimation\.value == targetValue\)\) return/,
+  'same target avoids redundant spring restart without dropping unfinished animation');
+assert.match(v2Shell, /val openDrawer: \(\) -> Unit = remember\(scope, drawerState\)/);
+assert.match(v2Shell, /val closeDrawer: \(\) -> Unit = remember\(scope, drawerState\)/);
+const pressMotionV2Source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Motion.kt');
+assert.match(pressMotionV2Source, /if \(!enabled \|\| mode == UiV2MotionMode\.Reduced\) return this\s*val pressed by source\.collectIsPressedAsState\(\)/,
+  'disabled or reduced-motion controls skip press animation collection');
