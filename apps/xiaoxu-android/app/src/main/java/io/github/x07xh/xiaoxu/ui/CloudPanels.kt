@@ -583,6 +583,11 @@ private fun PlatformStatusCard(
                     modifier = Modifier.weight(1f)
                 ) { scope.launch { client.syncChaoxingHomeworkHttp() } }
             }
+            SecondaryAction(
+                label = "同步课程通知",
+                enabled = canRead && !refreshing && state.schoolSyncBusyProvider == null,
+                modifier = Modifier.fillMaxWidth()
+            ) { scope.launch { client.syncChaoxingNoticesHttp() } }
             Text(
                 text = if (state.tasksFresh) "云端已保存 $cloudChaoxingCount 条学习通任务"
                     else "云端任务缓存未核验",
