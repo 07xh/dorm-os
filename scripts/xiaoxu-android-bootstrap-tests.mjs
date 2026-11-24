@@ -2073,7 +2073,8 @@ assert.match(messageCenter, /WechatReviewPanel\(/,
   '已保存候选只允许从消息中心审核');
 assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
   '任务中心不得恢复重复微信审核器');
-assert.match(workspace, /if \(showSearch\) search\(Modifier\)/, '搜索框应由头部按钮控制，默认不抢首屏空间');
+assert.match(workspace, /if \(showSearch\) search\(Modifier\)/, '搜索框可由头部按钮收起');
+assert.match(workspace, /var showSearch by rememberSaveable \{ mutableStateOf\(true\) \}/, '默认直接展示搜索入口');
 assert.match(workspace, /if \(showSearch && maxWidth >= 700\.dp\)/, '宽屏并排显示任务搜索和筛选');
 assert.match(homeReadingLayout, /val homeDetailWidth = uiV2DetailWidth\(/, '首页按阅读空间预算布局');
 assert.match(homeReadingLayout, /Modifier\.width\(homeDetailWidth\.dp\)/, '首页主列空间优先');
@@ -2210,7 +2211,9 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
 assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
-assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
+assert.match(workspace, /if \(sourceMenuOpen\) \{\s*XiaoxuBottomActionSheet\(\s*title = "任务来源"/, '来源筛选复用统一选择浮层');
+assert.match(workspace, /selected = sourceFilter == source/);
+assert.doesNotMatch(workspace, /DropdownMenu\(|DropdownMenuItem\(/, '移除独立来源下拉菜单');
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"/,
@@ -2603,3 +2606,6 @@ assert.match(v2Home, /Row\(\s*modifier\.uiV2Press\(interaction\)\.clip\(UiV2Them
 assert.match(v2Home, /Text\(title, modifier = Modifier\.weight\(1f\)/);
 assert.match(homeReadingLayout, /item\(key = "services"\) \{ academic\(\) \}\s*item\(key = "courses"\)/,
   '首页先显示可直接操作的服务入口');
+
+assert.match(taskReadingLayout, /Text\("任务",\s*style = MaterialTheme\.typography\.titleLarge,[\s\S]*?Modifier\.weight\(1f\)\.semantics \{ heading\(\) \}/);
+assert.doesNotMatch(taskReadingLayout, /DateTimeFormatter\.ofPattern\("M月d日 · EEEE"/, '任务顶栏不重复首页日期');
