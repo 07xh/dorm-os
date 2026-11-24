@@ -1279,8 +1279,8 @@ assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
 assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
 assert.match(localSchoolUi, /课表在课表页查看/,
   '青果本机课表入口保持可达，不重复堆技术说明');
-assert.match(localSchoolUi, /XiaoxuExpandableGlassRow\(/,
-  '三个本机平台入口须共用玻璃展开组件');
+assert.match(localSchoolUi, /UiV2SettingsGroup\(title = "本机学校连接"\)/,
+  '三个本机平台直接共用统一分组入口');
 assert.match(localSchoolUi, /mutableStateOf\(justImported != null\)/,
   '读取成功自动显示真实本机回执');
 assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevation = 1\.dp\)/,
@@ -2516,3 +2516,11 @@ assert.match(localSchoolUi, /UiV2SettingsGroup\(title = "本机学校连接"\)/)
 assert.match(localSchoolUi, /UiV2SettingsEntry\([\s\S]*?title = name,[\s\S]*?onClick = \{ openLocal\(provider\) \}/);
 assert.match(localSchoolUi, /if \(platformOpen\) XiaoxuBottomSheet\(/);
 assert.match(panels, /UiV2SettingsGroup\(title = "云端同步"\)/);
+
+const licenseUiV2 = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/OpenSourceCredits.kt');
+assert.match(licenseUiV2, /val projects = aboutUpstreams \+ AboutUpstream\(/);
+assert.match(licenseUiV2, /UiV2SettingsEntry\("查看完整声明"/);
+assert.match(licenseUiV2, /XiaoxuBottomSheet\(title = "完整许可与来源声明"/);
+assert.match(licenseUiV2, /context\.assets\.open\("THIRD_PARTY_NOTICES\.txt"\)/);
+assert.match(licenseUiV2, /组合分发兼容性尚未完成审查/);
+assert.match(localSchoolUi, /历史记录 · 不代表当前官网状态/);

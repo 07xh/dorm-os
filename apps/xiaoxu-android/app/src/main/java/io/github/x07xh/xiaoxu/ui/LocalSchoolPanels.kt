@@ -146,6 +146,9 @@ fun LocalSchoolConnectionPanel(
                             )
                         }
                     }
+                    if (prioritized.isNotEmpty()) Text("历史记录 · 不代表当前官网状态",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     prioritized.take(if (allRecordsExpanded) prioritized.size
                         else if (justImported != null) 12 else 3)
                         .forEach { item ->
@@ -161,7 +164,7 @@ fun LocalSchoolConnectionPanel(
                             Text(
                                 "本机采集：${DateFormat.getDateTimeInstance(
                                     DateFormat.SHORT, DateFormat.SHORT
-                                ).format(Date(item.capturedAt))} · 不代表当前官网状态",
+                                ).format(Date(item.capturedAt))}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

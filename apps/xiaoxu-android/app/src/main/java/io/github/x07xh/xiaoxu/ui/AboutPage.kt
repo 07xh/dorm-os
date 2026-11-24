@@ -36,14 +36,14 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 
 /** Only projects already credited by the bundled THIRD_PARTY_NOTICES. */
-private data class AboutUpstream(
+internal data class AboutUpstream(
     val name: String,
     val detail: String,
     val license: String,
     val url: String
 )
 
-private val aboutUpstreams = listOf(
+internal val aboutUpstreams = listOf(
     AboutUpstream(
         "SleepDown-Schedule", "导航手势与页面动效", "署名非商业、源码可见许可 1.1",
         "https://github.com/xiaomanjun233/SleepDown-Schedule"
