@@ -16,6 +16,9 @@ import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
 import io.github.x07xh.xiaoxu.data.withExecutionAction
 import io.github.x07xh.xiaoxu.data.withOwnerExecutionAction
 import io.github.x07xh.xiaoxu.data.TaskStep
+import io.github.x07xh.xiaoxu.data.TaskStepEdge
+import io.github.x07xh.xiaoxu.data.TaskExecution
+import io.github.x07xh.xiaoxu.data.TaskExecutionDao
 import io.github.x07xh.xiaoxu.data.ExecutionRoot
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -110,7 +113,6 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDependency
 import io.github.x07xh.xiaoxu.data.readyLocalTaskIds
 import io.github.x07xh.xiaoxu.data.waitingLocalTaskIds
 import io.github.x07xh.xiaoxu.data.unfinishedLocalPrerequisites
-import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.data.LocalTaskArchiveStore
 import io.github.x07xh.xiaoxu.data.nativeChaoxingPlanSourceId
 import io.github.x07xh.xiaoxu.data.nativeChaoxingRemovedWorkIds
@@ -1122,17 +1124,17 @@ internal fun RealAcademicTaskHub(
     onNavigation: (() -> Unit)? = null,
     dependencies: List<LocalTaskDependency>,
     schoolRows: List<NativeSchoolRecord>,
-    allRecords: List<WorkspaceTask>
+    allRecords: List<WorkspaceTask>,
+    executionDao: TaskExecutionDao,
+    taskSteps: List<TaskStep>,
+    stepEdges: List<TaskStepEdge>,
+    executions: List<TaskExecution>
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
     val context = LocalContext.current
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
-    val executionDao = remember(context) { LocalTaskDatabase.open(context).executions() }
-    val taskSteps by rememberLocalRows(executionDao) { executionDao.observeSteps() }
-    val stepEdges by rememberLocalRows(executionDao) { executionDao.observeEdges() }
-    val executions by rememberLocalRows(executionDao) { executionDao.observeExecutions() }
     val schoolBinding = schoolRows.singleOrNull {
         it.provider == "chaoxing" && it.kind == "account_binding" && it.fingerprint == "current"
     }?.details?.takeIf { it.matches(Regex("[a-f0-9]{64}")) }
