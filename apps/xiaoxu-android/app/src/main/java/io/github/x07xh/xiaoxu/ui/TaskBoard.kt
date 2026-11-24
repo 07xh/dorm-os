@@ -156,42 +156,49 @@ internal fun LocalTaskCreateSheet(
         onDismiss = { if (!saving) onDismiss() },
         showDismissButton = false
     ) {
-        UiV2FormField(
-            value = title,
-            onChange = { title = it.take(120); error = null },
-            label = "任务名称",
-            placeholder = "例如：完成电路实验报告",
-            enabled = !saving
+        LocalTaskFormFields(
+            title = title, source = source, due = due, enabled = !saving,
+            onTitle = { title = it; error = null },
+            onSource = { source = it; error = null },
+            onDue = { due = it; error = null }
         )
-        LocalTaskSourcePicker(source = source, onSelect = { source = it; error = null }, enabled = !saving)
-        LocalTaskDuePicker(due = due, onSelect = { due = it; error = null }, enabled = !saving)
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !saving,
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("取消") }
-            Button(
-                onClick = ::create,
-                enabled = !saving && title.isNotBlank(),
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-            ) {
-                Text(if (saving) "保存中…" else "添加任务")
-            }
+        LocalTaskFormActions(saving = saving, valid = title.isNotBlank(),
+            saveLabel = "添加任务", onCancel = onDismiss, onSave = ::create)
+    }
+}
+
+/** One presentation for create and edit; drafts and Room operations remain with callers. */
+@Composable
+private fun LocalTaskFormFields(
+    title: String, source: String?, due: String?, enabled: Boolean,
+    onTitle: (String) -> Unit, onSource: (String?) -> Unit, onDue: (String?) -> Unit
+) {
+    UiV2FormField(value = title, onChange = { onTitle(it.take(120)) },
+        label = "任务名称", placeholder = "例如：完成电路实验报告", enabled = enabled)
+    LocalTaskSourcePicker(source = source, onSelect = onSource, enabled = enabled)
+    LocalTaskDuePicker(due = due, onSelect = onDue, enabled = enabled)
+    Text("分类和日期由本人设置，不代表学校官方状态。",
+        style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+}
+
+@Composable
+private fun LocalTaskFormActions(
+    saving: Boolean, valid: Boolean, saveLabel: String,
+    onCancel: () -> Unit, onSave: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = onCancel, enabled = !saving,
+            modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }
+        Button(onClick = onSave, enabled = !saving && valid,
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+            Text(if (saving) "保存中…" else saveLabel)
         }
-        Text(
-            "保存在本机；个人分类与日期不代表学校平台的官方状态。",
-            style = MaterialTheme.typography.labelSmall,
-            color = XiaoxuPalette.Ink2
-        )
     }
 }
 
@@ -339,19 +346,14 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     val graphWithoutThis = allEdges.filter { it.taskId != task.id } +
         chosen.map { LocalTaskDependency(task.id, it) }
 
-    XiaoxuGlassDialog(title = "编辑本机任务", onDismiss = { if (!saving) onDismiss() }, dismissLabel = "取消") {
-        UiV2FormField(
-            value = title,
-            onChange = { title = it.take(120); error = null },
-            label = "任务名称",
-            enabled = !saving
+    XiaoxuGlassDialog(title = "编辑本机任务", onDismiss = { if (!saving) onDismiss() },
+        showDismissButton = false) {
+        LocalTaskFormFields(
+            title = title, source = source, due = due, enabled = !saving,
+            onTitle = { title = it; error = null },
+            onSource = { source = it; error = null },
+            onDue = { due = it; error = null }
         )
-        LocalTaskSourcePicker(
-            source = source,
-            onSelect = { selected -> source = selected; error = null },
-            enabled = !saving
-        )
-        LocalTaskDuePicker(due = due, onSelect = { due = it; error = null }, enabled = !saving)
         // Keep the common title/date edit short; the optional dependency editor
         // is available on demand and never changes the saved DAG unless edited.
         TextButton(
@@ -409,10 +411,11 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             Text(error!!, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
         }
-        Button(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            enabled = !saving && title.isNotBlank(),
-            onClick = {
+        LocalTaskFormActions(
+            saving = saving, valid = title.isNotBlank(), saveLabel = "保存修改",
+            onCancel = onDismiss,
+            onSave = {
+                if (!saving) {
                 val cleanTitle = title.trim()
                 if (due != null && parseDue(due) == null) {
                     error = "截止日期无效，请重新选择或清除"
@@ -437,8 +440,9 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                         }
                     }
                 }
+                }
             }
-        ) { Text(if (saving) "保存中…" else "保存修改") }
+        )
     }
 }
 
