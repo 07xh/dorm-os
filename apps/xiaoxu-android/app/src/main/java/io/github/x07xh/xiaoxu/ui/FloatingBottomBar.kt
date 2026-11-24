@@ -60,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
@@ -122,7 +123,8 @@ data class FloatingBarItem(
     val icon: ImageVector,
     /** 角标数字，null 或 ≤0 表示不显示。 */
     val badge: Int? = null,
-    val northSymbol: NorthAppSymbolSpec? = null
+    val northSymbol: NorthAppSymbolSpec? = null,
+    val automationTag: String? = null
 )
 
 private val IndicatorInset: Dp = 6.dp
@@ -351,7 +353,9 @@ fun FloatingBottomBar(
                         iconPhase = { iconPlayback?.phase(index) ?: 1f },
                         selectedContentColor = selectedContentColor,
                         unselectedContentColor = unselectedContentColor,
-                        modifier = Modifier.width(cellWidthDp),
+                        modifier = Modifier.width(cellWidthDp).then(
+                            item.automationTag?.let { Modifier.testTag(it) } ?: Modifier
+                        ),
                         onClick = {
                             if (index != safeIndex) {
                                 haptics.performHapticFeedback(HapticFeedbackType.ContextClick)

@@ -20,6 +20,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -35,6 +38,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
  * saveable state and callbacks. Existing navigation chrome is a migration adapter.
  * The real backdrop is captured once; the dock sits outside the capture subtree.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun UiV2Shell(
     selected: MainDestination,
@@ -43,7 +47,8 @@ internal fun UiV2Shell(
     backPreview: UiV2BackPreview? = null,
     content: @Composable (openNavigation: (() -> Unit)?) -> Unit
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)
+        .semantics { testTagsAsResourceId = true }) {
         val rail = uiV2Window(maxWidth.value, maxHeight.value) == UiV2Window.Expanded
         val canExpandSidebar = maxWidth.value >= 1100f
         val drawerEnabled = !rail && showNavigation

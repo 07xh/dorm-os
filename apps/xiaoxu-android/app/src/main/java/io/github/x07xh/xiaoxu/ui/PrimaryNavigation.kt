@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -106,7 +107,10 @@ internal fun PrimaryBottomNavigation(
 ) {
     // Stable items: no allocation of a new list on every animation frame.
     val items = remember {
-        PrimaryTabs.map { FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol) }
+        PrimaryTabs.map {
+            FloatingBarItem(it.primaryTabLabel, it.primaryTabIcon, northSymbol = it.primaryNorthSymbol,
+                automationTag = "xiaoxu_tab_${it.name}")
+        }
     }
     val latestOnSelect = rememberUpdatedState(onSelect)
     val selectIndex: (Int) -> Unit = remember {
@@ -170,6 +174,7 @@ internal fun PrimarySideNavigation(
             }
             PrimaryTabs.forEach { page ->
                 NavigationDrawerItem(
+                    modifier = Modifier.testTag("xiaoxu_tab_${page.name}"),
                     label = { Text(page.primaryTabLabel) },
                     selected = selected == page,
                     onClick = { onSelect(page) },
@@ -193,6 +198,7 @@ internal fun PrimarySideNavigation(
             Spacer(Modifier.height(8.dp))
             PrimaryTabs.forEach { page ->
                 NavigationRailItem(
+                    modifier = Modifier.testTag("xiaoxu_tab_${page.name}"),
                     selected = selected == page,
                     onClick = { onSelect(page) },
                     icon = { Icon(page.primaryTabIcon, contentDescription = null) },

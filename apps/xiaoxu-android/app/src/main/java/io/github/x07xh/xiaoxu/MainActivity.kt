@@ -75,6 +75,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -679,7 +680,8 @@ private fun NativeShell(
         pageStateHolder.SaveableStateProvider(page.name) {
         // Full-size opaque layers and bounds clipping prevent old
         // page labels from showing through while rapidly changing tabs.
-        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)) {
+        Box(Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient)
+            .testTag("xiaoxu_page_${page.name}")) {
         when (page) {
             MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
                 XiaoxuTopBar(
