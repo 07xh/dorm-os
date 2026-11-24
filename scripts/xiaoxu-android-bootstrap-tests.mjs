@@ -2256,17 +2256,17 @@ assert.match(main, /private fun AcademicEditorialSection\(/,
   '教务分区复用编辑式布局组件，不添加第二套导航');
 const academicEditorial = main.slice(main.indexOf('private fun AcademicEditorialSection('),
   main.indexOf('private fun AcademicActionRow('));
-assert.match(academicEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '教务分区用开放式细线与标题组织');
+assert.match(academicEditorial, /UiV2SettingsGroup\(title, content\)/,
+  '教务和设置共用 V2 分组，不重复实现容器');
 assert.doesNotMatch(academicEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
   '教务分区不应重新叠加大卡片');
 const academicAction = main.slice(main.indexOf('private fun AcademicActionRow('));
-assert.match(academicAction, /heightIn\(min = 60\.dp\)/,
-  '教务入口保持足够触控高度');
-assert.match(academicAction, /onClickLabel = "打开\$title"/,
-  '教务入口保持有意义的无障碍点击描述');
-assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
-  '教务入口不新增蓝色装饰瓷砖');
+assert.match(academicAction, /UiV2SettingsEntry\(/, '教务入口使用统一行');
+assert.match(v2Settings, /val SingleLine = 52\.dp/, '共享入口具备足够触控高度');
+assert.match(v2Settings, /onClickLabel = "打开\$title"/, '共享入口保留可访问点击描述');
+assert.match(workspace, /UiV2SearchField\([\s\S]*?query = searchQuery/, '任务搜索接入共享组件');
+assert.match(workspace, /val pendingCount = remember\(all\)/);
+assert.match(workspace, /val completedCount = remember\(all\)/);
 assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
   '设置首页保留统一分组适配入口');
 for (const label of ['学习与课程', '账户与数据', '其他']) {

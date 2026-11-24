@@ -39,34 +39,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
 
 @Composable
 internal fun UiV2SettingsSearchField(query: String, onQuery: (String) -> Unit) {
-    BasicTextField(
-        value = query, onValueChange = onQuery, singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = XiaoxuPalette.Ink),
-        cursorBrush = SolidColor(XiaoxuPalette.Brand),
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "搜索设置" },
-        decorationBox = { field ->
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .clip(CircleShape).background(Color(0xFFE5EAF3))
-                    .padding(start = 16.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = XiaoxuPalette.Ink3,
-                    modifier = Modifier.size(23.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("搜索设置", style = MaterialTheme.typography.bodyLarge,
-                        color = XiaoxuPalette.Ink3)
-                    field()
-                }
-                if (query.isNotEmpty()) {
-                    XiaoxuSoftIconButton(onClick = { onQuery("") }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "清空搜索")
-                    }
-                }
-            }
-        }
-    )
+    UiV2SearchField(query, onQuery, placeholder = "搜索设置")
 }
 
 @Composable

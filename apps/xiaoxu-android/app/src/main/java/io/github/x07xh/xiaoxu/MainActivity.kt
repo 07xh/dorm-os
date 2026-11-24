@@ -98,6 +98,8 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsParent
 import io.github.x07xh.xiaoxu.data.LocalTask
 import io.github.x07xh.xiaoxu.data.LocalTaskDao
@@ -943,19 +945,7 @@ private fun AcademicEditorialSection(
     title: String,
     content: @Composable () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        Text(
-            title,
-            modifier = Modifier.padding(top = 4.dp).semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink
-        )
-        Column(content = { content() })
-    }
+    UiV2SettingsGroup(title, content)
 }
 
 /** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
@@ -966,24 +956,11 @@ private fun AcademicActionRow(
     status: String? = null,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-            .clickable(role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null,
-            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(16.dp))
-        Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink)
-        if (status != null) {
-            Text(status, style = MaterialTheme.typography.labelMedium,
-                color = XiaoxuPalette.Ink3)
-            Spacer(Modifier.width(7.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
-            tint = XiaoxuPalette.Ink3, modifier = Modifier.size(18.dp))
-    }
+    val warm = title == "第二课堂" || title == "校园服务"
+    UiV2SettingsEntry(
+        title = title, icon = icon, subtitle = null, statusLabel = status,
+        onClick = onClick,
+        iconContainer = if (warm) Color(0xFFF7E8D0) else Color(0xFFDDEDFC),
+        iconTint = if (warm) Color(0xFF805717) else Color(0xFF245B86)
+    )
 }

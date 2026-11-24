@@ -2,6 +2,8 @@ package io.github.x07xh.xiaoxu.ui
 
 import android.widget.Toast
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeGreeting
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSection
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
@@ -1273,6 +1275,8 @@ fun RealAcademicTaskHub(
         }}.entries.map { it.key to it.value }
     }
     val reviewCount = remember(all) { all.count(::requiresChaoxingVerification) }
+    val pendingCount = remember(all) { all.count(::isActionableWorkspaceTask) }
+    val completedCount = remember(all) { all.count { considerCompleteInTaskList(it) } }
     val needsVerificationRows = remember(all, filter, searchQuery, sourceFilter,
         onlyThisWeek, today) {
         if (filter != "now") emptyList()
@@ -1512,7 +1516,7 @@ fun RealAcademicTaskHub(
                 modifier = Modifier.fillMaxWidth()
                     .padding(top = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.card))
-                    .background(XiaoxuPalette.GlassTrack)
+                    .background(UiV2Theme.SegmentTrack)
                     .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
                         RoundedCornerShape(XiaoxuRadius.card))
                     .padding(5.dp)
@@ -1525,7 +1529,7 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "now" }
                 )
                 TaskStatusTab(
-                    label = "待完成", count = all.count(::isActionableWorkspaceTask),
+                    label = "待完成", count = pendingCount,
                     active = filter == "pending", modifier = Modifier.weight(1f),
                     onClick = { filter = "pending" }
                 )
@@ -1535,7 +1539,7 @@ fun RealAcademicTaskHub(
                     onClick = { filter = "all" }
                 )
                 TaskStatusTab(
-                    label = "已完成", count = all.count { considerCompleteInTaskList(it) },
+                    label = "已完成", count = completedCount,
                     active = filter == "done", modifier = Modifier.weight(1f),
                     onClick = { filter = "done"; onlyThisWeek = false }
                 )
@@ -1576,20 +1580,11 @@ fun RealAcademicTaskHub(
                 color = XiaoxuPalette.Ink2)
         }
         if (showSearch) item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it.take(100) },
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                singleLine = true,
-                label = { Text("搜索任务标题或来源") },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                trailingIcon = if (searchQuery.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Outlined.Close, contentDescription = "清除搜索")
-                        }
-                    }
-                } else null
+            UiV2SearchField(
+                query = searchQuery,
+                onQuery = { searchQuery = it.take(100) },
+                placeholder = "搜索任务标题或来源",
+                modifier = Modifier.padding(top = 12.dp)
             )
         }
 
