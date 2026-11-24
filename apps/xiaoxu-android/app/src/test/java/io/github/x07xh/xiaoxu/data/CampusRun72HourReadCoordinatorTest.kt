@@ -55,6 +55,8 @@ class CampusRun72HourReadCoordinatorTest {
 
     private class ReadSource(var subject: String) : CampusRunReadOnlySource {
         var semesterReads = 0
+        var historyReads = 0
+        var failHistory = false
         var failNetwork = false
         override suspend fun authorizedSubjectFingerprint() = subject
         override suspend fun readSemester(): CampusRunReadSummary {
@@ -68,8 +70,11 @@ class CampusRun72HourReadCoordinatorTest {
                 rawMeters = 3_000L
             )
         }
-        override suspend fun readHistoryPage(cursor: String?) =
-            CampusRunReadPage(subject, emptyList(), null, true)
+        override suspend fun readHistoryPage(cursor: String?): CampusRunReadPage {
+            historyReads++
+            if (failHistory) throw IOException("offline history fixture")
+            return CampusRunReadPage(subject, emptyList(), null, true)
+        }
     }
 
     private fun coordinator(
@@ -230,6 +235,41 @@ class CampusRun72HourReadCoordinatorTest {
         assertEquals(2, source.semesterReads)
         assertEquals(now + CampusRun72HourRequestBudget.THREE_DAYS_MILLIS,
             (after72h as CampusRunViewState.Current).snapshot.capturedAtEpochMillis)
+    }
+
+
+    @Test fun summaryThenHistoryUsesOneCompleteTransaction() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val coordinator = coordinator(source, checkpoints, cache)
+        val summary = coordinator.refreshSummaryIfDue(alice, now) as CampusRunViewState.Current
+        assertTrue(summary.snapshot.historyComplete)
+        val history = coordinator.refreshHistoryIfDue(alice, now + 1000L)
+            as CampusRunViewState.Current
+        assertEquals(summary.snapshot, history.snapshot)
+        assertEquals(1, source.semesterReads)
+        assertEquals(1, source.historyReads)
+        assertEquals(1, cache.savedCount)
+        assertEquals(1, checkpoints.attempts.size)
+    }
+
+    @Test fun historyFailurePreservesPriorCompleteSnapshotAndBudget() = runBlocking {
+        val checkpoints = Checkpoints()
+        val cache = MemoryCache()
+        val source = ReadSource(alice)
+        val c = coordinator(source, checkpoints, cache)
+        val first = c.refreshIfDue(alice, now) as CampusRunViewState.Current
+        source.failHistory = true
+        val due = now + CampusRun72HourRequestBudget.THREE_DAYS_MILLIS
+        val failed = c.refreshIfDue(alice, due) as CampusRunViewState.Stale
+        assertEquals(CampusRunFailure.NETWORK, failed.reason)
+        assertEquals(first.snapshot, failed.snapshot)
+        assertEquals(first.snapshot, cache.snapshot)
+        c.refreshHistoryIfDue(alice, due + 1000L)
+        assertEquals(2, source.semesterReads)
+        assertEquals(2, source.historyReads)
+        assertEquals(1, cache.savedCount)
     }
 
 }
