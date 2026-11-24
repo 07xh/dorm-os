@@ -114,7 +114,11 @@ import java.time.LocalDate
 data class LocalImportedScheduleView(
     val lessons: List<VerifiedLesson>,
     val sourceLabel: String
-)
+) {
+    // Reuse formatted course labels and keys across timetable tab re-entry.
+    // The underlying imported snapshot changes only when the actual lessons change.
+    internal val displayLessons: List<LessonUi> by lazy { lessons.map { it.toUi() } }
+}
 
 fun localImportedScheduleView(lessons: List<VerifiedLesson>) =
     LocalImportedScheduleView(
@@ -156,7 +160,7 @@ private fun weekdayLong(weekday: Int): String =
 
 /** VerifiedLesson 含 List<Int>，Compose 无法推断稳定性；UI 侧显式声明不可变。 */
 @Immutable
-private data class LessonUi(
+internal data class LessonUi(
     val key: String,
     val sourceId: String,
     val colorKey: String,
@@ -210,10 +214,12 @@ fun CloudTimetablePanel(
     onNavigation: (() -> Unit)? = null,
     focusLessonId: String? = null,
     focusWeekday: Int = 0,
-    onFocusConsumed: () -> Unit = {}
+    onFocusConsumed: () -> Unit = {},
+    preparedSchedule: LocalImportedScheduleView? = null
 ) {
-    // Reuse the source view across unrelated shell recompositions.
-    val scheduleData = remember(localLessons) { localImportedScheduleView(localLessons) }
+    // NativeShell owns the long-lived imported snapshot; standalone callers
+    // can still use the original local-only entry without supplying a cache.
+    val scheduleData = preparedSchedule ?: remember(localLessons) { localImportedScheduleView(localLessons) }
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ScheduleMaxWidth.value),
@@ -352,7 +358,7 @@ private fun ScheduleVerifiedContent(
     var editingBusy by remember { mutableStateOf(false) }
     var editingError by remember { mutableStateOf<String?>(null) }
     val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
-    val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
+    val lessons = data.displayLessons
     val weekNumbers = remember(data.lessons, calendar) {
         selectableTeachingWeeks(data.lessons, calendar)
     }
