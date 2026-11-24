@@ -2548,3 +2548,17 @@ assert.match(profileSettings, /compact = animatedRoute != "home" \|\| compactSet
 assert.match(v2Settings, /if \(!compact\) Text\(/);
 assert.match(scheduleUi, /maxWidth\.value\.coerceAtMost\(XiaoxuPageLayout\.ScheduleMaxWidth\.value\)/);
 assert.match(designSystem, /val ScheduleMaxWidth: Dp = 1200\.dp/);
+
+assert.equal((taskBoard.match(/LocalTaskDuePicker\(due = due, onSelect = \{ due = it; error = null \}, enabled = !saving\)/g) || []).length, 2,
+  '新增与编辑统一使用日期控制器且修改后清除旧错误');
+assert.equal((taskBoard.match(/DatePickerDialog\(/g) || []).length, 1,
+  '任务日期弹窗仅保留一份实现');
+const taskDueControl = taskBoard.slice(taskBoard.indexOf('private fun LocalTaskDuePicker('),
+  taskBoard.indexOf('private fun LocalTaskSourcePicker('));
+assert.match(taskDueControl, /rememberSaveable \{ mutableStateOf\(false\) \}/);
+assert.match(taskDueControl, /if \(pickerOpen && enabled\)/);
+assert.match(taskDueControl, /enabled = state\.selectedDateMillis != null/);
+assert.match(taskDueControl, /onClick = \{ onSelect\(null\) \}/);
+assert.match(taskDueControl, /atStartOfDay\(ZoneOffset\.UTC\)/);
+assert.match(taskDueControl, /atZone\(ZoneOffset\.UTC\)/);
+assert.match(taskDueControl, /Modifier\.weight\(1f\)\.heightIn\(min = 48\.dp\)/);
