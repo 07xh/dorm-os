@@ -590,41 +590,38 @@ private fun PlatformStatusCard(
             )
             SettingRow(
                 icon = Icons.AutoMirrored.Outlined.MenuBook,
-                title = "本机读取（旧方式）",
-                subtitle = "仅供尚未完成 HTTP 授权的用户过渡使用",
+                title = "本机 HTTP 读取",
+                subtitle = "使用本机官方授权会话，数据保存在设备上",
                 onClick = { openLocalSchool(id) }
             )
         } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryAction(
                 label = when {
                     refreshing -> "正在读取…"
-                    id == "chaoxing" -> "刷新已保存任务"
                     id == "ncwu" -> "成绩读取待接入"
                     else -> "刷新本人数据"
                 },
                 // The old ncwu sync path refreshes a server timetable, NOT grades.
                 // Keep school authorization, but do not send the imported schedule to cloud.
                 enabled = id != "ncwu" &&
-                    (if (id == "chaoxing") state.authenticated else canRead) && !state.busy &&
+                    canRead && !state.busy &&
                     state.schoolSyncBusyProvider == null,
                 modifier = Modifier.weight(1f)
             ) {
                 scope.launch {
-                    if (id == "chaoxing") client.refreshPrivate()
-                    else client.syncAuthorizedSchool(id)
+                    client.syncAuthorizedSchool(id)
                 }
             }
             PrimaryAction(
-                label = if (id == "chaoxing") "读取本人任务"
-                    else if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
+                label = if (id == "second_class") "学校官方授权" else when (platform?.sessionState) {
                     "expired", "unreadable" -> "重新授权"
                     "active" -> "管理授权"
                     else -> "连接账号"
                 },
-                enabled = id in setOf("chaoxing", "second_class") || client.ownerSessionBinding() != null,
+                enabled = id == "second_class" || client.ownerSessionBinding() != null,
                 modifier = Modifier.weight(1f)
             ) {
-                if (id in setOf("chaoxing", "second_class")) openLocalSchool(id)
+                if (id == "second_class") openLocalSchool(id)
                 else startSchoolAuthorization(id)
             }
         }
