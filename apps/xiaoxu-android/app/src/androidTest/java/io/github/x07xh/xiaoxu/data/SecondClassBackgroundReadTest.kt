@@ -24,7 +24,7 @@ class SecondClassBackgroundReadTest {
     private val identity get() = c.getSharedPreferences("second_class_local_identity", Context.MODE_PRIVATE)
     private val dao get() = LocalTaskDatabase.open(c).nativeSchoolRecords()
     private val hash = "a".repeat(64)
-    private val savedAt = System.currentTimeMillis() - 1_000_000
+    private val savedAt = System.currentTimeMillis() - SecondClassAutoReadPolicy.AUTO_SYNC_INTERVAL_MS - 1_000_000
     private var ownsStorage = false
     private fun payload() = JSONObject("""{"schema":"xiaoxu/local-secondclass-scores-v1","ok":true,
         "identityMatched":true,"httpStatus":200,"accountHash":"$hash",
@@ -165,6 +165,76 @@ class SecondClassBackgroundReadTest {
         assertEquals(hash, identity.getString("account", null))
         assertTrue(SecondClassAutoRefresh.background(c))
     }
+    @Test fun explicitRefreshWithoutAutoOptInUsesCachedIdentityAndHonorsCooldown() = runBlocking {
+        SecondClassAutoRefresh.configure(c, false, false)
+        val fresh = System.currentTimeMillis() - 1_000
+        dao.insertAll(dao.snapshot().map { it.copy(capturedAt = fresh) })
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true) { _, _ -> payload() })
+        val updated = SecondClassAutoRefresh.lastSuccess(c)
+        assertTrue(updated >= fresh)
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertFalse(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true) { _, _ ->
+            error("manual retry must respect the 60-second cooldown")
+        })
+        assertEquals(updated, SecondClassAutoRefresh.lastSuccess(c))
+        assertFalse(SecondClassAutoRefresh.background(c))
+    }
+    @Test fun disablingAutoSyncDoesNotCancelExplicitManualSync() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val finish = CompletableDeferred<Unit>()
+        val read = async {
+            SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+                nativeReader = { _, _, _ ->
+                    entered.complete(Unit)
+                    finish.await()
+                    payload()
+                }) { _, _ -> error("must not start WebView") }
+        }
+        try {
+            withTimeout(5_000) { entered.await() }
+            SecondClassAutoRefresh.configure(c, enabled = false, background = false)
+            finish.complete(Unit)
+            assertTrue(withTimeout(5_000) { read.await() })
+            assertEquals("native_http", SecondClassAutoRefresh.lastSuccessTransport(c))
+        } finally {
+            finish.complete(Unit)
+            read.cancelAndJoin()
+        }
+    }
+
+    @Test fun authorizedNativeReadUsesTheSameRoomCommitAndRecordsTransport() = runBlocking {
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, salt, expected ->
+                assertEquals("b".repeat(32), salt)
+                assertEquals(hash, expected)
+                payload()
+            }) { _, _ -> error("an authorized native read must not start WebView") })
+        assertEquals("native_http", settings.getString("success_transport", ""))
+        assertEquals("updated", SecondClassAutoRefresh.status(c))
+        assertTrue(SecondClassAutoRefresh.lastSuccess(c) > savedAt)
+        assertEquals(hash, dao.snapshot().single { it.kind == "account_binding" }.details)
+    }
+
+    @Test fun nativeFailureDoesNotFallbackOrOverwriteSnapshot() = runBlocking {
+        val before = dao.snapshot()
+        assertFalse(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, _, _ -> throw SecondClassHttpFailure(401, SecondClassReadEndpoint.SCORES) }
+        ) { _, _ -> error("native failure must not start WebView") })
+        assertEquals("needs_reconnect", SecondClassAutoRefresh.status(c))
+        assertEquals(before, dao.snapshot())
+        assertEquals(0L, SecondClassAutoRefresh.lastSuccess(c))
+        assertFalse(settings.contains("success_transport"))
+    }
+
+    @Test fun missingNativeSessionUsesOfficialCompatibilityReaderExactlyOnce() = runBlocking {
+        var count = 0
+        assertTrue(SecondClassAutoRefresh.refreshIfDue(c, userRequested = true,
+            nativeReader = { _, _, _ -> null }
+        ) { _, _ -> count++; payload() })
+        assertEquals(1, count)
+        assertEquals("official_webview", settings.getString("success_transport", ""))
+    }
+
     @Test fun mixedCatalogMarksOnlyTheActuallyEmptyFilters() {
         val mixed = mixedCatalog()
         assertEquals(listOf("待验证", "即将开始报名"),
@@ -220,7 +290,7 @@ class SecondClassBackgroundReadTest {
         val scheduled = jobs.single { !it.state.isFinished }
         assertEquals(NetworkType.CONNECTED, scheduled.constraints.requiredNetworkType)
         assertTrue(scheduled.constraints.requiresBatteryNotLow())
-        assertEquals(1_800_000L, scheduled.periodicityInfo!!.repeatIntervalMillis)
+        assertEquals(43_200_000L, scheduled.periodicityInfo!!.repeatIntervalMillis)
         SecondClassAutoRefresh.configure(c, true, false)
         awaitCancellationOfScheduledWork()
         val cancelled = work.getWorkInfosForUniqueWork("secondclass-local-auto-read-v1").get(10, TimeUnit.SECONDS)

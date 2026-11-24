@@ -303,7 +303,10 @@ assert.ok(
 const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
 assert.match(nativeSchoolPanel, /连接学习通／刷新全部任务/);
 assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
-assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
+assert.match(nativeSchoolPanel, /打开第二课堂/);
+assert.match(nativeSchoolPanel, /立即同步/);
+assert.match(nativeSchoolPanel, /SecondClassAutoRefresh\.refreshIfDue\(\s*context\.applicationContext, userRequested = true\)/,
+  'manual second-class sync must call the shared coordinator');
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
   '旧版工具弹窗和混合式连接入口应彻底退役');
 assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
@@ -2432,6 +2435,10 @@ assert.match(autoRefresh,/expectedBinding = expected/);
 assert.match(localNative,/accountHash = accountHash/);
 
 const autoControls=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SecondClassAutoReadControls.kt');
+const secondClassSettingsPanel=read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+assert.match(secondClassSettingsPanel,/SecondClassAutoReadControls\(snapshotAt\)/);
+assert.match(secondClassSettingsPanel,/SecondClassAutoRefresh\.refreshIfDue\(\s*context\.applicationContext, userRequested = true\)/);
+assert.match(autoControls,/lastSuccessTransport/);
 assert.doesNotMatch(autoControls,/rememberCoroutineScope|refreshIfDue/, 'foreground automatic reads must be owned by the Activity lifecycle, not a retained composition');
 assert.match(main,/override fun onStop\(\)[\s\S]*secondClassAutoJob\?\.cancel\(\)/);
 
