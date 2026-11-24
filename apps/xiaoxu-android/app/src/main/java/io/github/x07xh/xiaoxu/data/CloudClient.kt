@@ -719,6 +719,55 @@ class CloudClient(context: Context) {
         }
     }
 
+    /** Explicit owner-authorized inbox refresh through the existing server adapter. */
+    suspend fun syncChaoxingNoticesHttp(): Boolean {
+        val provider = "chaoxing"
+        val owner = state.ownerId ?: return false
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null || state.platforms.none {
+                it.id == provider && it.sessionState == "active" &&
+                    it.authorization == "verified_session"
+            }) return false
+        val epoch = sessionEpoch
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
+            schoolSyncMessage = "正在同步学习通通知…")
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            if (!current()) return false
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/connections/chaoxing/sync", "POST", JSONObject(),
+                    authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (response.code != 200 || response.json.optString("provider") != provider ||
+                !response.json.optBoolean("refreshed")) {
+                state = state.copy(schoolSyncMessage = when (response.json.optString("error")) {
+                    "session_expired" -> "学习通会话已过期，请重新授权"
+                    "interactive_login_required" -> "请完成官方交互认证"
+                    else -> "通知同步未确认成功；保留旧任务"
+                })
+                if (response.code == 401 || response.code == 409) refreshPrivate()
+                return false
+            }
+            refreshPrivate()
+            if (!current()) return false
+            val refreshed = state.tasksFresh && state.connectionsFresh &&
+                state.platforms.any { it.id == provider && it.verified }
+            state = state.copy(schoolSyncMessage = if (refreshed)
+                "服务器已同步通知，已刷新云端任务；通知不代表官方作业提交状态"
+                else "通知同步已返回，但任务缓存未核验，请刷新重试")
+            return refreshed
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(schoolSyncMessage = "通知同步失败或结果未知，请刷新核实")
+            return false
+        } finally {
+            if (epoch == sessionEpoch) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
     /**
      * Trigger the existing authenticated, owner-scoped readonly school refresh.
      * This is NOT a school login, CAS bridge or a browser Cookie extractor.
