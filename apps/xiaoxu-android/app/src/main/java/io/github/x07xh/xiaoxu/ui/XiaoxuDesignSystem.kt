@@ -1,10 +1,12 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,6 +64,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
@@ -208,6 +211,32 @@ object XiaoxuSpacing {
 internal object XiaoxuMotion {
     const val SelectionMs = 180
     const val FeedbackMs = 120
+    const val PressMs = 90
+    const val ReleaseMs = 150
+    const val PressScale = 0.97f
+}
+
+/** Lightweight press feedback inspired by the MIT-licensed AppMotion in DSH Go.
+ * Uses Compose's interaction stream and layer-phase state reads; no extra gesture detector,
+ * measure/layout animation, blur or delay before the click callback.
+ * Reference: https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/theme/motion.dart
+ */
+@Composable
+private fun Modifier.xiaoxuPressFeedback(source: MutableInteractionSource, enabled: Boolean = true): Modifier {
+    val pressed by source.collectIsPressedAsState()
+    val active = enabled && pressed
+    val scale = animateFloatAsState(
+        targetValue = if (active) XiaoxuMotion.PressScale else 1f,
+        animationSpec = tween(
+            durationMillis = if (active) XiaoxuMotion.PressMs else XiaoxuMotion.ReleaseMs,
+            easing = FastOutSlowInEasing
+        ),
+        label = "xiaoxu-press-scale"
+    )
+    return graphicsLayer {
+        scaleX = scale.value
+        scaleY = scale.value
+    }
 }
 
 /** 所有一级页面与二级内容页共用同一内容宽度，不再各自声明 860dp。 */
@@ -360,7 +389,7 @@ internal fun XiaoxuSoftIconButton(
 ) {
     val source = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier.size(48.dp).clip(CircleShape)
+        modifier = modifier.size(48.dp).xiaoxuPressFeedback(source, enabled).clip(CircleShape)
             .background(backgroundColor)
             // Capture-free glass fallback: only floating controls get this rim.
             // Keep the click indicator after clipping to prevent square dark flashes.
@@ -394,9 +423,11 @@ fun XiaoxuCard(
     contentPadding: Dp = XiaoxuSpacing.card,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val source = if (onClick != null) remember { MutableInteractionSource() } else null
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .then(if (source != null) Modifier.xiaoxuPressFeedback(source) else Modifier)
             .clip(shape)
             .background(container)
             .border(
@@ -405,8 +436,12 @@ fun XiaoxuCard(
                 shape
             )
             .then(
-                if (onClick != null) {
-                    Modifier.heightIn(min = 48.dp).clickable(onClick = onClick)
+                if (onClick != null && source != null) {
+                    Modifier.heightIn(min = 48.dp).clickable(
+                        interactionSource = source,
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
                 } else Modifier
             )
             .padding(contentPadding),
@@ -477,11 +512,11 @@ fun XiaoxuSegmentedControl(
                 targetValue = if (selected) {
                     if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
                 } else Color.Transparent,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
+                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = FastOutSlowInEasing), label = "xiaoxu-segment-bg"
             ).value
             val inkColor = animateColorAsState(
                 targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
+                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = FastOutSlowInEasing), label = "xiaoxu-segment-text"
             ).value
             Box(
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp)
@@ -557,7 +592,7 @@ fun XiaoxuExpandableGlassRow(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(XiaoxuMotion.SelectionMs, easing = FastOutSlowInEasing),
         label = "glass-row-chevron"
     )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {
