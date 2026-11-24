@@ -826,6 +826,10 @@ function academicPage(){
  if(academicTab==='grades'&&XiaoxuAcademic.hasData('grades'))content=XiaoxuAcademic.panel('grades');
  if(academicTab==='exams'&&XiaoxuAcademic.hasData('exams'))content=XiaoxuAcademic.panel('exams');
  if(academicTab==='second'&&XiaoxuAcademic.hasData('second-class'))content=XiaoxuAcademic.panel('second-class');
+ if(['grades','exams'].includes(academicTab)){
+  const check=XiaoxuAcademic.ncwuBusinessPanel(academicTab);
+  if(check)content=check+(XiaoxuAcademic.hasData(academicTab)?content:'');
+ }
  const tabs='<nav class="x-v7-secondary" aria-label="教务二级导航" role="tablist">'+ACADEMIC_TABS.map(t=>
   '<button type="button" role="tab" id="xu-tab-'+t.id+'" data-academic-tab="'+t.id+'" aria-controls="xu-academic-panel" aria-selected="'+(academicTab===t.id)+'" tabindex="'+(academicTab===t.id?'0':'-1')+'" class="'+(academicTab===t.id?'selected':'')+'">'+t.label+'</button>'
  ).join('')+'</nav>';

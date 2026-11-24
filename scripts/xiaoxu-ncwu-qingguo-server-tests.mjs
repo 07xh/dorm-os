@@ -217,7 +217,8 @@ assert.equal(direct.calls.filter(x=>x.path==='/hsjw/frame/desk/showLessonSchedul
 assert.equal((await nativeReader.readSection({kind:'schedule',session:nativeProof.session})).records.length,1);
 const examCandidate=await nativeReader.readExamCandidates({session:nativeProof.session});
 assert.deepEqual(examCandidate,{kind:'exams',verified:false,complete:false,
- trustedSyncAllowed:false,roundCount:1,statuses:['reported_empty']});
+ trustedSyncAllowed:false,roundCount:1,statuses:['reported_empty'],
+ rounds:[{title:'9-12周',status:'reported_empty'}]});
 const gradeCandidate=await nativeReader.readGradeCandidate({session:nativeProof.session});
 assert.deepEqual(gradeCandidate,{kind:'grades',verified:false,complete:false,
  trustedSyncAllowed:false,status:'evaluation_required'});
