@@ -70,7 +70,9 @@ internal fun UiV2Shell(
                 PrimaryNavigationDrawer(selected = selected, onSelect = { page ->
                     onSelect(page)
                     closeDrawer()
-                }, onClose = closeDrawer)
+                }, onClose = closeDrawer,
+                    showContents = drawerEnabled &&
+                        (drawerState.currentValue == DrawerValue.Open || drawerState.targetValue == DrawerValue.Open))
             }
         ) {
         Box(Modifier.fillMaxSize()) {
