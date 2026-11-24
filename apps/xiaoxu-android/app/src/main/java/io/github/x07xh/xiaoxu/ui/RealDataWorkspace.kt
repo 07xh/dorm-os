@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -399,6 +400,16 @@ internal fun countUpcomingLocalDeadlines(tasks: List<WorkspaceTask>, today: Loca
             task.date?.let { !it.isBefore(today) && !it.isAfter(today.plusDays(3)) } == true
     }
 
+/** Seven-day histogram from user-entered dates only; never treat cloud snapshots as deadlines. */
+internal fun personalDeadlineHistogram(tasks: List<WorkspaceTask>, today: LocalDate): List<Int> {
+    val totals = tasks.asSequence()
+        .filter { it.storage == "local" && !it.done }
+        .mapNotNull { it.date }
+        .groupingBy { it }
+        .eachCount()
+    return List(7) { day -> totals[today.plusDays(day.toLong())] ?: 0 }
+}
+
 private fun thisWeek(date: LocalDate?, today: LocalDate): Boolean {
     if (date == null) return false
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -545,6 +556,7 @@ fun RealAcademicHome(
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
     val attention = countUpcomingLocalDeadlines(all, today)
+    val deadlineHistogram = remember(all, today) { personalDeadlineHistogram(all, today) }
     val upcoming = remember(all, localTasks, homeDependencies) {
         readyWorkspaceTasks(all, localTasks, homeDependencies).take(3)
     }
@@ -581,7 +593,7 @@ fun RealAcademicHome(
         HomeTodoBlock(upcoming, today, todoCaption, openTasks, onTaskOpen)
     }
     val metrics: @Composable () -> Unit = {
-        HomeMetricsBlock(pending, attention, openTasks)
+        HomeMetricsBlock(pending, attention, deadlineHistogram, today, openTasks)
     }
     val academic: @Composable () -> Unit = {
         HomeQuickBlock(openAcademic, openGrades, openExams, openSecondClass,
@@ -595,12 +607,13 @@ fun RealAcademicHome(
     }
 
     val homeListState = rememberLazyListState()
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val wideLayout = maxWidth >= 700.dp
+        // Keep a single scroll owner; center the bounded reading column on large tablets.
         // One scroll owner on phones AND tablets; neither column scrolls separately.
         LazyColumn(
             state = homeListState,
-            modifier = Modifier.fillMaxSize().widthIn(max = 1200.dp),
+            modifier = Modifier.widthIn(max = 1200.dp).fillMaxWidth().fillMaxHeight(),
             contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 18.dp,
                 vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -612,8 +625,8 @@ fun RealAcademicHome(
                         verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1.15f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            hero()
                             metrics()
+                            hero()
                         }
                         Column(Modifier.weight(1f)) { tasks() }
                     }
@@ -627,11 +640,11 @@ fun RealAcademicHome(
                     }
                 }
             } else {
+                item { metrics() }
                 item { hero() }
                 item { tasks() }
-                item { metrics() }
-                item { academic() }
                 item { notices() }
+                item { academic() }
                 item { homework() }
             }
         }
@@ -677,27 +690,39 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
         in 18..22 -> "晚上好"
         else -> "夜深了"
     }
-    // 首页主标题由唯一顶栏显示；这里仅给日期与问候，不再堆第二个大标题。
+    // 参考编辑式报告的信息层级：日期成为首屏阅读锚点，不复制 Shell 的「今日」标题。
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink2,
-            modifier = Modifier.weight(1f)
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "学业速览",
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink3
+            )
+            Text(
+                text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = XiaoxuPalette.Ink,
+                modifier = Modifier.semantics { heading() }
+            )
+        }
         Text(
             text = greeting,
             style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink3
+            color = XiaoxuPalette.Ink3,
+            modifier = Modifier.padding(bottom = 3.dp)
         )
     }
 }
 
-/** 分区外壳：标题 + 内容，统一 8dp 间距，页面不再各写各的。 */
+/** 编辑式分区：细分隔线、标题、内容同层布局，减少连续卡片带来的视觉噪音。 */
 @Composable
 private fun HomeSection(
     title: String,
@@ -708,8 +733,9 @@ private fun HomeSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
         SectionHeader(
             title = title, caption = caption,
             actionLabel = actionLabel, onAction = onAction
@@ -811,23 +837,114 @@ private fun HomeCourseRecordRow(lesson: VerifiedLesson, onOpen: () -> Unit) {
     }
 }
 
-/** 两张统计卡：数值与口径都来自已有记录，点击直达任务中心。 */
+/** 编辑式开放指标栏：只有真实任务数，不提供装饰性完成率或虚构课表统计。 */
 @Composable
 private fun HomeMetricsBlock(
     pending: Int,
     attention: Int,
+    deadlineHistogram: List<Int>,
+    today: LocalDate,
     openTasks: () -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MetricCard(label = "待完成", value = pending.toString(),
-            modifier = Modifier.weight(1f), onClick = openTasks)
-        MetricCard(label = "近期截止", value = attention.toString(),
-            tone = XiaoxuTone.Warning,
-            modifier = Modifier.weight(1f), onClick = openTasks)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Ink, thickness = 1.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+                    .heightIn(min = 76.dp)
+                    .clickable(role = Role.Button, onClickLabel = "打开待完成任务", onClick = openTasks)
+                    .padding(vertical = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    pending.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = XiaoxuPalette.BrandDeep
+                )
+                Text("待完成任务", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+            }
+            Box(Modifier.width(1.dp).height(50.dp).background(XiaoxuPalette.Line))
+            Column(
+                modifier = Modifier.weight(1f)
+                    .heightIn(min = 76.dp)
+                    .clickable(role = Role.Button, onClickLabel = "打开近期截止任务", onClick = openTasks)
+                    .padding(start = 18.dp, top = 9.dp, bottom = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    attention.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (attention > 0) XiaoxuPalette.Warning else XiaoxuPalette.Ink
+                )
+                Text("近期截止", style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+            }
+        }
+        if (deadlineHistogram.any { it > 0 }) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            // Same information, but no forced single-line collision at 320dp
+            // or when the user enlarges the system font.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 360.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("未来七天 · 个人截止日期",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2)
+                        Text("按已保存日期统计",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("未来七天 · 个人截止日期",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = XiaoxuPalette.Ink2)
+                        Text("按已保存日期统计",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
+            }
+            val maximum = deadlineHistogram.maxOrNull()?.coerceAtLeast(1) ?: 1
+            val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom) {
+                deadlineHistogram.forEachIndexed { index, count ->
+                    val barHeight = if (count == 0) 2 else 7 + 24 * count / maximum
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(if (count > 0) count.toString() else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink2)
+                        Spacer(Modifier.height((32 - barHeight).dp))
+                        Box(Modifier.width(18.dp).height(barHeight.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (count == 0) XiaoxuPalette.Line
+                                else XiaoxuPalette.BrandDeep))
+                        Text(weekdays[(today.dayOfWeek.value - 1 + index) % 7],
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XiaoxuPalette.Ink3)
+                    }
+                }
+            }
+        }
     }
 }
 
-/** 学业服务直达真实子导航；未接通的平台保留诚实的空态。 */
+/** Low-frequency services share one lightweight strip instead of four large cards. */
 @Composable
 private fun HomeQuickBlock(
     openAcademic: () -> Unit,
@@ -839,44 +956,51 @@ private fun HomeQuickBlock(
     HomeSection(title = "学业服务", actionLabel = "全部教务", onAction = openAcademic) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 420.dp) {
-                // Four single-line labels in a 320–400dp phone would become
-                // cramped. Keep native QuickEntry, arranged in two clear rows.
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
-                        QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                        HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
-                            Modifier.weight(1f), XiaoxuTone.Success)
-                        QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
-                            Modifier.weight(1f), XiaoxuTone.Warning)
+                    Row(Modifier.fillMaxWidth()) {
+                        HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                            Modifier.weight(1f), openSecondClass)
+                        HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                            Modifier.weight(1f), openChaoxing)
                     }
                 }
             } else {
-                Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                    QuickEntry("成绩", Icons.Outlined.School, openGrades, Modifier.weight(1f))
-                    QuickEntry("考试", Icons.Outlined.DateRange, openExams, Modifier.weight(1f))
-                    QuickEntry("第二课堂", Icons.Outlined.CheckCircle, openSecondClass,
-                        Modifier.weight(1f), XiaoxuTone.Success)
-                    QuickEntry("学习通", Icons.Outlined.MailOutline, openChaoxing,
-                        Modifier.weight(1f), XiaoxuTone.Warning)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    HomeQuickAction("成绩", Icons.Outlined.School, Modifier.weight(1f), openGrades)
+                    HomeQuickAction("考试", Icons.Outlined.DateRange, Modifier.weight(1f), openExams)
+                    HomeQuickAction("第二课堂", Icons.Outlined.CheckCircle,
+                        Modifier.weight(1f), openSecondClass)
+                    HomeQuickAction("学习通", Icons.Outlined.MailOutline,
+                        Modifier.weight(1f), openChaoxing)
                 }
             }
         }
     }
 }
 
-/** 待办与提醒：截止状态复用任务中心判定，缺日期不猜。 */
+@Composable
+private fun HomeQuickAction(
+    title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier.clip(RoundedCornerShape(XiaoxuRadius.tile))
+            .clickable(onClickLabel = "打开$title", onClick = onClick)
+            .heightIn(min = 70.dp).padding(horizontal = 2.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
+            tint = XiaoxuPalette.Ink2)
+        Text(title, style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun HomeTodoBlock(
     upcoming: List<WorkspaceTask>,
@@ -887,14 +1011,16 @@ private fun HomeTodoBlock(
 ) {
     HomeSection(title = "优先处理", caption = caption,
         actionLabel = "全部任务", onAction = openTasks) {
-        XiaoxuCard {
+        // Editorial-style rows: one hierarchy, thin rules, no nested glass card.
+        Column(Modifier.fillMaxWidth()) {
             if (upcoming.isEmpty()) {
                 Text("当前没有已保存的待办任务",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
-                upcoming.forEachIndexed { index, task ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                upcoming.forEach { task ->
                     HomeTaskRow(task, today, onOpen = { onTaskOpen(task) })
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
         }
@@ -910,20 +1036,20 @@ private fun HomeNoticesBlock(
 ) {
     HomeSection(title = "校园动态",
         actionLabel = "消息中心", onAction = openMessages) {
-        XiaoxuCard {
+        Column(Modifier.fillMaxWidth()) {
             if (state.notices.isEmpty()) {
                 Text("暂无已读取的官方通知",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
             } else {
-                state.notices.take(2).forEachIndexed { index, notice ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
+                state.notices.take(2).forEach { notice ->
                     Column(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
                             .clickable(onClickLabel = "查看公告详情") {
                                 onNoticeOpen(notice.id.ifBlank { notice.url })
                             }
-                            .padding(vertical = 9.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text(notice.title, style = MaterialTheme.typography.titleSmall,
                             color = XiaoxuPalette.Ink,
@@ -932,10 +1058,12 @@ private fun HomeNoticesBlock(
                             style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink3)
                     }
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
             state.publicError?.let {
                 Text("公告刷新失败，旧记录可能过期",
+                    modifier = Modifier.padding(top = 8.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = XiaoxuPalette.Danger)
             }
@@ -950,32 +1078,27 @@ private fun HomeHomeworkBlock(
     openLocalSchool: (String) -> Unit
 ) {
     HomeSection(title = "学习通 · 本机作业") {
-        XiaoxuCard {
+        Column(Modifier.fillMaxWidth()) {
             if (localHomework.isEmpty()) {
-                Text(
-                    text = "还没有本机读取到的作业标题",
+                Text("还没有本机读取到的作业标题",
+                    modifier = Modifier.padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Ink2
-                )
+                    color = XiaoxuPalette.Ink2)
                 TextButton(onClick = { openLocalSchool("chaoxing") }) {
                     Text("在 App 内读取学习通作业")
                 }
             } else {
-                Text(
-                    text = "已保存 ${localHomework.size} 条",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink2
-                )
-                localHomework.take(3).forEachIndexed { index, work ->
-                    if (index > 0) HorizontalDivider(color = XiaoxuPalette.Line)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = work.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = XiaoxuPalette.Ink,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                Text("已保存 ${localHomework.size} 条",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = XiaoxuPalette.Ink2)
+                localHomework.take(3).forEach { work ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(work.title, style = MaterialTheme.typography.titleSmall,
+                            color = XiaoxuPalette.Ink, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
                         Text(
                             text = "采集时间：" + DateFormat.getDateTimeInstance(
                                 DateFormat.SHORT, DateFormat.SHORT
@@ -984,6 +1107,7 @@ private fun HomeHomeworkBlock(
                             color = XiaoxuPalette.Ink3
                         )
                     }
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
                 TextButton(onClick = { openLocalSchool("chaoxing") }) {
                     Text("重新读取官网当前页面")
@@ -993,43 +1117,33 @@ private fun HomeHomeworkBlock(
     }
 }
 
-
-
 /** 首页待办行：状态标签沿用任务中心同一套判定（describeDue），不在这里另算。 */
 @Composable
 private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Unit) {
     val due = remember(task, today) { describeDue(task, today) }
-    val tone = when (due.emphasis) {
-        DUE_OVERDUE -> XiaoxuTone.Danger
-        DUE_TODAY -> XiaoxuTone.Warning
-        DUE_WEEK -> XiaoxuTone.Brand
-        else -> XiaoxuTone.Neutral
+    val highlight = when (due.emphasis) {
+        DUE_OVERDUE -> XiaoxuPalette.Danger
+        DUE_TODAY -> XiaoxuPalette.Warning
+        else -> XiaoxuPalette.Ink3
     }
-    Column(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
             .clickable(onClickLabel = "查看任务详情", onClick = onOpen)
             .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = task.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = XiaoxuPalette.Ink,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            StatusChip(due.label, tone)
+        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(highlight))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(task.title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium, color = XiaoxuPalette.Ink,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                text = task.origin,
+                if (due.emphasis == DUE_MISSING) task.origin
+                else task.origin + " · " + due.label,
                 style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                color = if (due.emphasis >= DUE_TODAY) highlight else XiaoxuPalette.Ink2,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1047,7 +1161,10 @@ fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
     openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit = {},
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    reminderTaskId: Long? = null,
+    reminderTaskToken: Int = 0,
+    onReminderConsumed: () -> Unit = {}
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -1146,6 +1263,12 @@ fun RealAcademicTaskHub(
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
     var openedTaskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(reminderTaskId, reminderTaskToken) {
+        if (reminderTaskId != null && reminderTaskId > 0L) {
+            openedTaskKey = "local:" + reminderTaskId
+            onReminderConsumed()
+        }
+    }
     val selectedTask = all.firstOrNull { it.key == openedTaskKey }
     // Personal tasks open the existing edit sheet directly; cloud tasks still
     // use the source-aware detail view. Checkbox completion is unchanged.
@@ -1315,7 +1438,11 @@ fun RealAcademicTaskHub(
         }
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
+        // Wrap the bounded list in the full available width: on tablets this
+        // centers the existing single scroll owner instead of pinning it left.
+        modifier = Modifier.fillMaxSize()
+            .wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = 860.dp),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
         // Keep connected task rows as separate lazy items with zero gaps.
         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -1330,7 +1457,7 @@ fun RealAcademicTaskHub(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("任务中心",
+                    Text("任务",
                         style = MaterialTheme.typography.titleLarge,
                         color = XiaoxuPalette.Ink,
                         maxLines = 1,
@@ -1431,7 +1558,7 @@ fun RealAcademicTaskHub(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 TaskStatusTab(
-                    label = "现在可做", count = nowCount,
+                    label = "可执行", count = nowCount,
                     active = filter == "now", modifier = Modifier.weight(1f),
                     onClick = { filter = "now" }
                 )
@@ -2145,26 +2272,49 @@ fun RealAcademicTaskHub(
         )
     }
     if (showTaskBackup) {
-        XiaoxuGlassDialog(title = "备份与恢复", onDismiss = { showTaskBackup = false }) { LocalTaskBackupPanel() }
+        var backupBusy by remember { mutableStateOf(false) }
+        XiaoxuBottomSheet(
+            title = "备份与恢复",
+            onDismiss = { if (!backupBusy) showTaskBackup = false },
+            dismissEnabled = !backupBusy,
+            cancelLabel = "关闭"
+        ) {
+            LocalTaskBackupPanel(
+                embedded = true,
+                onBusyChange = { backupBusy = it }
+            )
+        }
     }
     val deletingTask = localTasks.firstOrNull { it.id == deletingLocalId }
     if (deletingTask != null) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { if (!deletingLocalBusy) deletingLocalId = null },
-            title = { Text("删除本机任务？") },
-            text = { Text("删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。") },
-            confirmButton = { TextButton(enabled = !deletingLocalBusy, onClick = {
-                deletingLocalBusy = true
-                taskScope.launch {
-                    try {
-                        dao.remove(deletingTask.id)
-                        deletingLocalId = null; openedTaskKey = null
-                    } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { Toast.makeText(context, "删除失败，请重试", Toast.LENGTH_SHORT).show() }
-                    finally { deletingLocalBusy = false }
-                }
-            }) { Text("删除") } },
-            dismissButton = { TextButton(enabled = !deletingLocalBusy, onClick = { deletingLocalId = null }) { Text("取消") } }
+        XiaoxuBottomActionSheet(
+            title = "删除本机任务？",
+            subtitle = "删除“${deletingTask.title}”及其个人步骤，也会解除其他本机任务对它的前置要求。",
+            onDismiss = { if (!deletingLocalBusy) deletingLocalId = null },
+            dismissEnabled = !deletingLocalBusy,
+            actions = listOf(
+                XiaoxuSheetAction(
+                    label = "删除任务",
+                    destructive = true,
+                    enabled = !deletingLocalBusy,
+                    onClick = {
+                        deletingLocalBusy = true
+                        taskScope.launch {
+                            try {
+                                dao.remove(deletingTask.id)
+                                deletingLocalId = null
+                                openedTaskKey = null
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                Toast.makeText(context, "删除失败，请重试", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                deletingLocalBusy = false
+                            }
+                        }
+                    }
+                )
+            )
         )
     }
     if (showCloudEditor) {
@@ -2217,10 +2367,13 @@ internal fun WorkspaceTaskDetailSheet(
     executionContent: (@Composable () -> Unit)? = null
 ) {
     val selectedDue = describeDue(selectedTask, today)
-    XiaoxuSheet(onDismiss = onDismiss, title = "任务详情") {
+    XiaoxuBottomSheet(
+        title = "任务详情",
+        onDismiss = onDismiss,
+        cancelLabel = "关闭"
+    ) {
         Text(selectedTask.title, style = MaterialTheme.typography.titleLarge,
             color = XiaoxuPalette.Ink)
-        executionContent?.invoke()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SourceBadge(
                 when (selectedTask.category) {
@@ -2244,20 +2397,9 @@ internal fun WorkspaceTaskDetailSheet(
                 else XiaoxuTone.Neutral
             )
         }
-        if (prerequisiteProgress.isNotEmpty()) {
-            Text("前置进度：${prerequisiteProgress.count { it.completed }} / ${prerequisiteProgress.size} 项已完成",
-                style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
-            prerequisiteProgress.take(7).forEach { before ->
-                Text((if (before.completed) "✓ " else "○ ") + before.title,
-                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            if (prerequisiteProgress.size > 7) Text("其余前置请在关系图查看",
-                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
-        } else if (waitingTitles.isNotEmpty()) {
-            Text("还需先完成：" + waitingTitles.joinToString("、"),
-                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
-        }
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+        Text("来源与日期", style = MaterialTheme.typography.labelMedium,
+            color = XiaoxuPalette.Ink2)
         Text("来源：" + selectedTask.origin, style = MaterialTheme.typography.bodyMedium)
         chaoxingTaskIdentityHint(selectedTask)?.let { identity ->
             Text(identity, style = MaterialTheme.typography.bodySmall,
@@ -2278,6 +2420,35 @@ internal fun WorkspaceTaskDetailSheet(
             else "云端历史快照；日期与完成情况可能已变化"
         } else "本机记录 · 离线保存",
             style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        if (prerequisiteProgress.isNotEmpty() || waitingTitles.isNotEmpty()) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            Text("前置关系", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+        }
+        if (prerequisiteProgress.isNotEmpty()) {
+            Text("前置进度：${prerequisiteProgress.count { it.completed }} / ${prerequisiteProgress.size} 项已完成",
+                style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+            prerequisiteProgress.take(7).forEach { before ->
+                Text((if (before.completed) "✓ " else "○ ") + before.title,
+                    style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (prerequisiteProgress.size > 7) Text("其余前置请在关系图查看",
+                style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2)
+        } else if (waitingTitles.isNotEmpty()) {
+            Text("还需先完成：" + waitingTitles.joinToString("、"),
+                style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
+        }
+        if (executionContent != null) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            executionContent.invoke()
+        }
+        if (onArchive != null || selectedTask.storage == "local" ||
+            (selectedTask.provider == "chaoxing" && onVerifyChaoxing != null)) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            Text("操作", style = MaterialTheme.typography.labelMedium,
+                color = XiaoxuPalette.Ink2)
+        }
         if (selectedTask.category == "wechat") {
             WechatTaskLinkActions(selectedTask.links)
         }
@@ -2310,8 +2481,6 @@ internal fun WorkspaceTaskDetailSheet(
         }
     }
 }
-
-
 
 
 /** Three real-data statuses in a single container, sized through the shared typography. */
@@ -2365,9 +2534,9 @@ private fun TaskGroupHeader(
     modifier: Modifier = Modifier
 ) {
     val shape = if (joinedRows && expanded) RoundedCornerShape(
-        topStart = XiaoxuRadius.card, topEnd = XiaoxuRadius.card,
+        topStart = XiaoxuRadius.group, topEnd = XiaoxuRadius.group,
         bottomStart = 0.dp, bottomEnd = 0.dp
-    ) else RoundedCornerShape(XiaoxuRadius.card)
+    ) else RoundedCornerShape(XiaoxuRadius.group)
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(XiaoxuMotion.SelectionMs),
@@ -2378,8 +2547,7 @@ private fun TaskGroupHeader(
             .padding(top = 8.dp)
             .clip(shape)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, shape)
+            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.Line, shape)
             .clickable(onClickLabel = if (expanded) "收起$title" else "展开$title", onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -2400,14 +2568,14 @@ private fun TaskGroupHeader(
         Column(modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                title + if (showCount) " ($count)" else "",
+                title + if (showCount) " · $count" else "",
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
                 color = XiaoxuPalette.Ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics { heading() }
             )
-            if (badge.isNotBlank() || note.isNotBlank()) {
+            if (expanded && (badge.isNotBlank() || note.isNotBlank())) {
                 Text(
                     listOf(badge, note).filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,
@@ -2440,8 +2608,9 @@ private fun TaskSectionHeader(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = title,
@@ -2459,12 +2628,15 @@ private fun TaskSectionHeader(
                 )
             }
         }
-        TaskSourceBadge(badge, emphasized = true)
-        Text(
-            text = note,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        val subtitle = note.ifBlank { badge }
+        if (subtitle.isNotBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = XiaoxuPalette.Ink2,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -2526,21 +2698,23 @@ private fun ConnectedTaskShell(
     standalone: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val radius = XiaoxuRadius.card
-    // LazyColumn items remain individually keyed; group header forms the shared top edge.
+    val groupRadius = XiaoxuRadius.group
+    val rowRadius = XiaoxuRadius.list
+    // Only exposed outer edges are rounded; joined rows have no inter-row "bubbles".
     val corners = when {
-        standalone && total == 1 -> RoundedCornerShape(radius)
+        standalone && total == 1 -> RoundedCornerShape(rowRadius)
         standalone && index == 0 -> RoundedCornerShape(
-            topStart = radius, topEnd = radius, bottomStart = 0.dp, bottomEnd = 0.dp)
+            topStart = rowRadius, topEnd = rowRadius, bottomStart = 0.dp, bottomEnd = 0.dp)
         index == total - 1 -> RoundedCornerShape(
-            topStart = 0.dp, topEnd = 0.dp, bottomStart = radius, bottomEnd = radius)
+            topStart = 0.dp, topEnd = 0.dp,
+            bottomStart = if (standalone) rowRadius else groupRadius,
+            bottomEnd = if (standalone) rowRadius else groupRadius)
         else -> RoundedCornerShape(0.dp)
     }
     Column(
         modifier = modifier.fillMaxWidth()
             .clip(corners)
             .background(XiaoxuPalette.GlassCard)
-            .background(XiaoxuPalette.GlassSheen)
     ) {
         if (index > 0) {
             HorizontalDivider(
@@ -2571,12 +2745,6 @@ private fun TaskRow(
 ) {
     val due = remember(task, today) { describeDue(task, today) }
     val openLabel = "查看任务详情"
-    val dueTone = when (due.emphasis) {
-        DUE_OVERDUE -> XiaoxuPalette.Danger
-        DUE_TODAY -> XiaoxuPalette.Warning
-        DUE_WEEK -> XiaoxuPalette.Brand
-        else -> XiaoxuPalette.Ink2
-    }
     val officialLabel = if (task.provider == "chaoxing")
         task.officialStatusRaw?.let { "平台显示：" + it }
             ?: officialTaskStatusLabel(task.officialStatus) else null
@@ -2584,47 +2752,7 @@ private fun TaskRow(
     val isPending = pendingChecked != null
     val displayDone = pendingChecked ?: considerCompleteInTaskList(task)
     val needsReview = requiresChaoxingVerification(task)
-    val statusText = if (isPending) "保存中…" else
-        dependencyHint ?: verificationHint ?: executionHint ?:
-            if (needsReview) "学习通 · 待核对"
-            else officialLabel ?: if (task.done) "个人已完成" else due.label
-    // In the default focus view suppress routine source labels and missing-date
-    // notices. Exceptions (today, overdue, returned, saving) stay visible.
-    val compactStatusText = if (!compact) statusText else when {
-        isPending -> "保存中…"
-        dependencyHint != null || verificationHint != null || executionHint != null -> statusText
-        task.officialStatus == "returned" -> "官方退回"
-        isTodayPriorityWorkspaceTask(task, today) && task.officialDeadline != null ->
-            due.label
-        due.emphasis in setOf(DUE_TODAY, DUE_OVERDUE) &&
-            (task.storage == "local" || task.officialDeadline != null) -> due.label
-        else -> null
-    }
-    val statusInk = when {
-        isPending -> XiaoxuPalette.Brand
-        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.Ink2
-        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.Warning
-        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.Danger
-        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
-            XiaoxuPalette.Success
-        officialLabel != null -> XiaoxuPalette.Ink2
-        task.done -> XiaoxuPalette.Success
-        else -> dueTone
-    }
-    val statusBackground = when {
-        isPending -> XiaoxuPalette.BrandSoft
-        dependencyHint != null || verificationHint != null || needsReview -> XiaoxuPalette.GlassTrack
-        officialLabel != null && task.officialStatus == "todo" -> XiaoxuPalette.WarningSoft
-        officialLabel != null && task.officialStatus == "returned" -> XiaoxuPalette.DangerSoft
-        officialLabel != null && (task.officialStatus == "submitted" || task.officialStatus == "graded") ->
-            XiaoxuPalette.SuccessSoft
-        officialLabel != null -> XiaoxuPalette.GlassTrack
-        task.done -> XiaoxuPalette.SuccessSoft
-        due.emphasis == DUE_OVERDUE -> XiaoxuPalette.DangerSoft
-        due.emphasis == DUE_TODAY -> XiaoxuPalette.WarningSoft
-        due.emphasis == DUE_WEEK -> XiaoxuPalette.BrandSoft
-        else -> XiaoxuPalette.GlassTrack
-    }
+    // One accessible task row; no duplicate surface or nested card.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2643,7 +2771,7 @@ private fun TaskRow(
                     (officialLabel?.let { "；上次学校同步：" + it } ?: "") +
                     "；点击" + openLabel
             }
-            .padding(start = 12.dp, end = 9.dp, top = 11.dp, bottom = 11.dp),
+            .padding(start = 10.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2686,7 +2814,7 @@ private fun TaskRow(
         }
         // 任务标题占满内容列；状态放第二行，不再挤在右侧 108dp 窄框中截断。
         Column(modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 task.title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -2696,37 +2824,28 @@ private fun TaskRow(
                 textDecoration = if (displayDone) TextDecoration.LineThrough else null,
                 color = if (displayDone) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink
             )
-            if (compactStatusText != null || !compact) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (compactStatusText != null) {
-                        Box(
-                            modifier = Modifier.widthIn(max = 162.dp)
-                                .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                                .background(statusBackground)
-                                .padding(horizontal = 7.dp, vertical = 4.dp)
-                        ) {
-                            Text(compactStatusText, color = statusInk,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2)
-                        }
-                    }
-                    // Full detail remains available by tapping the row.
-                    if (!compact && task.category != "wechat") {
-                        Text(
-                            task.origin,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+            // One secondary line replaces stacked status pills and repeated source tags.
+            val secondary = when {
+                isPending -> "保存中…"
+                dependencyHint != null -> dependencyHint
+                verificationHint != null -> verificationHint
+                executionHint != null -> executionHint
+                needsReview -> "学习通 · 待核验"
+                officialLabel != null -> officialLabel
+                due.emphasis == DUE_MISSING -> task.origin
+                else -> task.origin + " · " + due.label
             }
+            Text(
+                secondary,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isPending) XiaoxuPalette.Brand
+                    else if (due.emphasis == DUE_OVERDUE || task.officialStatus == "returned")
+                        XiaoxuPalette.Danger
+                    else if (due.emphasis == DUE_TODAY) XiaoxuPalette.Warning
+                    else XiaoxuPalette.Ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         if (compact && onQuickDate != null) {
             IconButton(onClick = onQuickDate, enabled = actionEnabled,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -77,6 +79,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalScheduleStore
@@ -167,15 +172,23 @@ class MainActivity : ComponentActivity() {
     // Changes even when only semester settings are restored and course rows stay equal.
     private var localScheduleRevision by mutableIntStateOf(0)
     private var taskReminderOpenCount by mutableIntStateOf(0)
+    private var reminderTaskId by mutableStateOf<Long?>(null)
+    private var reminderLessonId by mutableStateOf<String?>(null)
+    private var reminderLessonWeekday by mutableIntStateOf(0)
     private var scheduleReminderOpenCount by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
         // 状态栏 / 导航栏与应用同底色：顶栏自己处理状态栏内边距，底部导航处理导航栏内边距。
         enableEdgeToEdge()
@@ -188,7 +201,12 @@ class MainActivity : ComponentActivity() {
                 NativeShell(
                     dao = dao, cloud = cloud, appLifecycle = lifecycle,
                     taskReminderOpenCount = taskReminderOpenCount,
+                    reminderTaskId = reminderTaskId,
+                    onReminderTaskConsumed = { reminderTaskId = null },
                     scheduleReminderOpenCount = scheduleReminderOpenCount,
+                    reminderLessonId = reminderLessonId,
+                    reminderLessonWeekday = reminderLessonWeekday,
+                    onReminderCourseConsumed = { reminderLessonId = null },
                     localLessons = localLessons,
                     localScheduleRevision = localScheduleRevision,
                     onLocalLessonsChanged = { saved ->
@@ -389,9 +407,14 @@ class MainActivity : ComponentActivity() {
         receiveSchoolReturn(intent)
         if (intent.getBooleanExtra("xiaoxu_open_tasks_from_reminder", false)) {
             taskReminderOpenCount++
+            reminderTaskId = intent.getLongExtra("xiaoxu_open_task_id", -1L)
+                .takeIf { it > 0L }
         }
         if (intent.getBooleanExtra("xiaoxu_open_schedule_from_reminder", false)) {
             scheduleReminderOpenCount++
+            reminderLessonId = intent.getStringExtra("xiaoxu_open_lesson_id")
+                ?.takeIf { it.isNotBlank() }
+            reminderLessonWeekday = intent.getIntExtra("xiaoxu_open_lesson_weekday", 0)
         }
     }
 
@@ -449,7 +472,12 @@ private fun NativeShell(
     cloud: CloudClient,
     appLifecycle: Lifecycle,
     taskReminderOpenCount: Int,
+    reminderTaskId: Long?,
+    onReminderTaskConsumed: () -> Unit,
     scheduleReminderOpenCount: Int,
+    reminderLessonId: String?,
+    reminderLessonWeekday: Int,
+    onReminderCourseConsumed: () -> Unit,
     localLessons: List<VerifiedLesson>,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
@@ -476,6 +504,12 @@ private fun NativeShell(
     // The timetable's own settings entry stays on SCHEDULE; 我的 → 课表设置 uses a PROFILE child.
     var scheduleSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var profileSettingsRoute by rememberSaveable { mutableStateOf("home") }
+    // Inbox selections are transient shell-owned state; Activity reminder arguments
+    // remain immutable and are consumed only by their original notification path.
+    var inboxTaskId by remember { mutableStateOf<Long?>(null) }
+    var inboxLessonId by remember { mutableStateOf<String?>(null) }
+    var inboxLessonWeekday by remember { mutableIntStateOf(0) }
+    var inboxTaskSerial by remember { mutableIntStateOf(0) }
     // One visibility rule for the bottom reserve, tablet rail and glass dock.
     // Child settings must not leave behind navigation chrome during page transitions.
     val showPrimaryNavigation = !messagesOpen &&
@@ -598,7 +632,25 @@ private fun NativeShell(
                     if (messagesOpen) {
                         pageStateHolder.SaveableStateProvider("messages") {
                             MessageCenterPanel(cloud, openWebsite, openArticle,
-                                useStatusBarInset = false, onBack = { messagesOpen = false })
+                                useStatusBarInset = false, onBack = { messagesOpen = false },
+                                localTasks = localTasks, localLessons = localLessons,
+                                onOpenLocalTasks = { id ->
+                                    inboxTaskId = id
+                                    inboxTaskSerial++
+                                    messagesOpen = false
+                                    current = MainDestination.TASKS
+                                },
+                                onOpenLocalSchedule = { id, weekday ->
+                                    inboxLessonId = id
+                                    inboxLessonWeekday = weekday
+                                    messagesOpen = false
+                                    current = MainDestination.SCHEDULE
+                                },
+                                onOpenReminderSettings = {
+                                    messagesOpen = false
+                                    current = MainDestination.PROFILE
+                                    profileSettingsRoute = "notifications"
+                                })
                         }
                     } else {
                     // Only one heavy tab is ever composed; no AnimatedContent overlap.
@@ -645,6 +697,13 @@ private fun NativeShell(
                                 }
                             }
                             MainDestination.SCHEDULE -> CloudTimetablePanel(
+                                focusLessonId = inboxLessonId ?: reminderLessonId,
+                                focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
+                                    else reminderLessonWeekday,
+                                onFocusConsumed = {
+                                    inboxLessonId = null
+                                    onReminderCourseConsumed()
+                                },
                                 localLessons = localLessons, openFileImport = openFileImport,
                                 openFileExport = openFileExport,
                                 localScheduleRevision = localScheduleRevision,
@@ -656,6 +715,12 @@ private fun NativeShell(
                                 openWebsite, openProfile = { current = MainDestination.PROFILE },
                                 cloud = cloud, onMessages = { messagesOpen = true })
                             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
+                                reminderTaskId = inboxTaskId ?: reminderTaskId,
+                                reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
+                                onReminderConsumed = {
+                                    inboxTaskId = null
+                                    onReminderTaskConsumed()
+                                },
                                 openLocalSchool = openLocalSchool,
                                 onMessages = { messagesOpen = true })
                             MainDestination.PROFILE -> {
@@ -755,13 +820,17 @@ private fun Content(
     topPadding: androidx.compose.ui.unit.Dp = 18.dp,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().widthIn(max = 860.dp),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
-            top = topPadding, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        content = content
-    )
+    // Align tablet reading width with the settings and home workspaces.
+    // Only one LazyColumn owns scrolling; no nested independent list.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.widthIn(max = 860.dp).fillMaxWidth().fillMaxHeight(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp,
+                top = topPadding, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
 }
 
 @Composable
@@ -818,49 +887,56 @@ private fun AcademicPage(
         modifier = Modifier.fillMaxSize().background(XiaoxuPalette.PageGradient),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 18.dp, top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (academicRoute != AcademicDestination.OVERVIEW) {
-                IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "返回教务",
-                        tint = XiaoxuPalette.Ink2)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Row(
+                Modifier.widthIn(max = 860.dp).fillMaxWidth()
+                    .padding(start = 12.dp, end = 18.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (academicRoute != AcademicDestination.OVERVIEW) {
+                    IconButton(onClick = { select(AcademicDestination.OVERVIEW) }) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "返回校园",
+                            tint = XiaoxuPalette.Ink2)
+                    }
                 }
-            }
-            Box(Modifier.weight(1f)) {
-                CompactPageHeading(
-                    title = when (academicRoute) {
-                        AcademicDestination.OVERVIEW -> "教务"
-                        AcademicDestination.GRADES -> "成绩"
-                        AcademicDestination.EXAMS -> "考试"
-                        AcademicDestination.SECOND_CLASS -> "第二课堂"
-                        AcademicDestination.SERVICES -> "校园服务"
-                    },
-                    onMessages = onMessages
-                )
+                Box(Modifier.weight(1f)) {
+                    CompactPageHeading(
+                        title = when (academicRoute) {
+                            AcademicDestination.OVERVIEW -> "校园"
+                            AcademicDestination.GRADES -> "成绩"
+                            AcademicDestination.EXAMS -> "考试"
+                            AcademicDestination.SECOND_CLASS -> "第二课堂"
+                            AcademicDestination.SERVICES -> "校园服务"
+                        },
+                        onMessages = onMessages
+                    )
+                }
             }
         }
         when (academicRoute) {
             AcademicDestination.OVERVIEW -> Content(topPadding = 6.dp) {
                 item {
-                    // One continuous glass surface; no nested rectangle around the four rows.
-                    XiaoxuGroupedSection {
-                        AcademicActionRow("成绩", Icons.Outlined.School,
-                                onClick = { select(AcademicDestination.GRADES) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("考试", Icons.Outlined.DateRange,
-                                onClick = { select(AcademicDestination.EXAMS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                            AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle,
-                                onClick = { select(AcademicDestination.SECOND_CLASS) })
-                            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                        AcademicActionRow("校园服务", Icons.Outlined.Home,
-                            onClick = { select(AcademicDestination.SERVICES) })
+                    AcademicEditorialSection(title = "教务") {
+                        AcademicActionRow("成绩", Icons.Outlined.School) {
+                            select(AcademicDestination.GRADES)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("考试", Icons.Outlined.DateRange) {
+                            select(AcademicDestination.EXAMS)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    AcademicEditorialSection(title = "校园生活") {
+                        AcademicActionRow("第二课堂", Icons.Outlined.CheckCircle) {
+                            select(AcademicDestination.SECOND_CLASS)
+                        }
+                        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        AcademicActionRow("校园服务", Icons.Outlined.Home) {
+                            select(AcademicDestination.SERVICES)
+                        }
                     }
                 }
             }
@@ -906,6 +982,31 @@ private fun AcademicPage(
     }
 }
 
+/**
+ * 技术编辑式分组：上边界细线 + 一处真正的标题 + 连续操作行。
+ * 教务仍使用唯一 AcademicPage 导航宿主和原有详情页面。
+ */
+@Composable
+private fun AcademicEditorialSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
+        Text(
+            title,
+            modifier = Modifier.padding(top = 4.dp).semantics { heading() },
+            style = MaterialTheme.typography.titleMedium,
+            color = XiaoxuPalette.Ink
+        )
+        Column(content = { content() })
+    }
+}
+
+/** 导航入口保持 56dp 以上触控高度；用行分割替代额外彩色图标卡。 */
 @Composable
 private fun AcademicActionRow(
     title: String,
@@ -914,23 +1015,17 @@ private fun AcademicActionRow(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+            .clickable(role = Role.Button, onClickLabel = "打开$title", onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(34.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(XiaoxuPalette.BrandSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null,
-                tint = XiaoxuPalette.BrandDeep, modifier = Modifier.size(19.dp))
-        }
-        Spacer(Modifier.width(12.dp))
+        Icon(icon, contentDescription = null,
+            tint = XiaoxuPalette.Ink2, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(16.dp))
         Text(title, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall, color = XiaoxuPalette.Ink)
+            style = MaterialTheme.typography.titleSmall,
+            color = XiaoxuPalette.Ink)
         if (status != null) {
             Text(status, style = MaterialTheme.typography.labelMedium,
                 color = XiaoxuPalette.Ink3)

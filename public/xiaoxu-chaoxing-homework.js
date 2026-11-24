@@ -23,7 +23,7 @@
    '<p class="small muted">根据本人官方课程和作业 ID 同步提交状态到校序任务；通知不会冒充完成结果。不会自动作答或提交。</p>'+
    (!ready?'<p class="small muted">请先在「我的 → 数据连接」连接校序及学习通账号。</p>':
     '<div class="button-row"><button class="secondary" type="button" data-xu-work-courses '+(loading?'disabled':'')+
-    '>'+(loading==='courses'?'读取中…':'读取课程')+'</button></div>')+
+    '>'+(loading==='courses'?'读取中…':'读取课程并同步作业')+'</button></div>')+
    (ready&&loaded?'<div class="config-row"><label for="xuWorkCourseSelect">选择课程（'+courses.length+' 门）</label>'+
     '<select id="xuWorkCourseSelect" data-xu-work-select>'+courses.map(c=>
       '<option value="'+esc(key(c))+'" '+(key(c)===selected?'selected':'')+'>'+esc(c.title)+'</option>').join('')+
@@ -32,7 +32,7 @@
      '>同步全部课程</button></div>':'')+
    (ready&&bulkProgress?'<p class="small muted" role="status" data-xu-work-bulk>'+esc(bulkProgress)+'</p>':'')+
    (ready&&listVerified&&current?'<p class="small muted" data-xu-work-verification>官方作业状态已同步：'+
-    items.length+' 份 · '+items.filter(x=>x.statusCode==='todo').length+' 份待提交 · '+
+    items.length+' 份 · '+items.filter(x=>['todo','returned'].includes(x.statusCode)).length+' 份待处理 · '+
     items.filter(x=>['submitted','graded'].includes(x.statusCode)).length+' 份已提交/批阅'+
     (checkedAt?' · 读取于 '+esc(new Date(checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})):'')+
     '</p>':'')+
@@ -97,7 +97,7 @@
  }
  async function load(view,params={}){
   if(loading||!online())return;
-  loading=view;error='';const at=epoch;update();
+  loading=view;error='';const at=epoch;let startBulkSync=false;update();
   try{
    const data=await read(view,params);
    if(at!==epoch||!online())return;
@@ -108,23 +108,9 @@
     selected=key(courses[0]||{courseId:'',classId:'',cpi:''});
     if(!courses.length)throw Error('学习通课程列表未包含可验证的课程信息');
     loaded=true;items=[];detail=null;listVerified=false;checkedAt=null;bulkProgress='';
-    // One explicit user click reads the official course list and the first
-    // course's homework status. No background scraping of every course.
-    const first=choice();
-    if(first){
-     try{
-      const list=await read('list',{courseId:first.courseId,classId:first.classId,cpi:first.cpi});
-      if(at!==epoch||!online())return;
-      if(!Array.isArray(list.items)||list.items.length>200)
-       throw Error('首门课程的官方作业列表无效');
-      items=list.items.filter(x=>x&&/^\d{1,24}$/.test(x.workId)&&typeof x.title==='string');
-      listVerified=true;checkedAt=Date.now();
-      if(!items.length)error=list.verifiedEmpty?'首门课程官方显示暂无作业':'首门课程未获取到完整作业列表，状态仍未知';
-      if(list.sync)void refreshSyncedTasks();
-     }catch(ex){
-      if(at===epoch)error='课程已读取，但首门课程作业未同步：'+String(ex.message||'官方页面异常');
-     }
-    }
+    // A single explicit click now syncs all verified courses, not just the
+    // first one. An empty first course says nothing about other courses.
+    startBulkSync=true;
    }else if(view==='list'){
     if(!Array.isArray(data.items)||data.items.length>200)throw Error('作业列表无效');
     items=data.items.filter(x=>x&&/^\d{1,24}$/.test(x.workId)&&typeof x.title==='string');
@@ -136,12 +122,15 @@
     detail=data;
    }
   }catch(e){if(at===epoch)error=String(e.message||'读取失败');}
-  finally{if(at===epoch){loading='';update();}}
+  finally{if(at===epoch){
+   loading='';update();
+   if(startBulkSync&&online())void syncAllCourses();
+  }}
  }
  async function syncAllCourses(){
   if(loading||!loaded||!online()||!courses.length)return;
-  const at=epoch,list=courses.slice(0,30);
-  let successful=0,failed=0;
+  const at=epoch,list=courses.slice();
+  let successful=0,failed=0,needsAction=0;
   loading='all';error='';bulkProgress='开始同步 '+list.length+' 门课程…';update();
   try{
    for(let i=0;i<list.length;i++){
@@ -153,6 +142,8 @@
      if(epoch!==at||!online())return;
      if(!result.sync||!Array.isArray(result.items))throw Error('官方同步结果无效');
      successful++;
+     needsAction+=result.items.filter(x=>['todo','returned'].includes(x.statusCode)).length;
+     if(successful===1||successful%5===0)void refreshSyncedTasks();
      if(selected===key(course)){
       items=result.items;listVerified=true;checkedAt=Date.now();detail=null;
      }
@@ -166,11 +157,10 @@
      }
     }
     bulkProgress='已处理 '+(i+1)+' / '+list.length+' 门 · 成功 '+successful+
-     ' 门 · 待重试 '+failed+' 门';update();
+     ' 门 · 待重试 '+failed+' 门 · 已核实待处理 '+needsAction+' 份';update();
    }
-   if(courses.length>list.length)
-    bulkProgress+=' · 其余课程请切换后单独同步';
    if(failed&&!error)error='部分课程官方作业页不可用，未覆盖旧任务；可单独重试';
+   if(!failed&&epoch===at)bulkProgress='全部 '+list.length+' 门课程已核实 · 待处理 '+needsAction+' 份';
   }finally{
    if(epoch===at){
     loading='';update();void refreshSyncedTasks();

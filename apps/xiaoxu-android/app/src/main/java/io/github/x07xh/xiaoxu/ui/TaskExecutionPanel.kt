@@ -186,12 +186,27 @@ internal fun TaskExecutionPanel(
         }
         if(error!=null) Text(error!!,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
     }
-    deleting?.let {step->
-        AlertDialog(onDismissRequest={if(!busy)deleting=null},title={Text("删除步骤？")},
-            text={Text("删除“${step.title}”也会解除其他步骤对它的前置要求。")},
-            confirmButton={TextButton(enabled=!busy,onClick={perform {
-                val saved=dao.removeStep(root,step.id);if(saved)deleting=null;saved
-            }}){Text("删除")}},dismissButton={TextButton(onClick={deleting=null},enabled=!busy){Text("取消")}})
+    deleting?.let { step ->
+        XiaoxuBottomActionSheet(
+            title = "删除个人步骤？",
+            subtitle = "删除“${step.title}”也会解除其他步骤对它的前置要求。",
+            onDismiss = { if (!busy) deleting = null },
+            dismissEnabled = !busy,
+            actions = listOf(
+                XiaoxuSheetAction(
+                    label = if (busy) "正在删除…" else "确认删除步骤",
+                    destructive = true,
+                    enabled = !busy,
+                    onClick = {
+                        perform {
+                            val saved = dao.removeStep(root, step.id)
+                            if (saved) deleting = null
+                            saved
+                        }
+                    }
+                )
+            )
+        )
     }
 }
 

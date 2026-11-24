@@ -1,13 +1,17 @@
 package io.github.x07xh.xiaoxu.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -17,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,7 +51,10 @@ internal fun TimetableImportPreviewSheet(
         title = if (decreased) "核对课表变更" else "导入课表",
         onDismiss = { if (!saving) onDismiss() }
     ) {
-        XiaoxuCard {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Text(
                 text = fileName,
                 style = MaterialTheme.typography.bodyMedium,
@@ -75,14 +83,16 @@ internal fun TimetableImportPreviewSheet(
         }
 
         if (decreased) {
-            XiaoxuCard(container = XiaoxuPalette.WarningSoft) {
-                Text(
-                    text = if (confirmedReduced) "请确认已核对课程，再替换原课表"
-                        else "新文件课块更少，请核对是否遗漏课程",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XiaoxuPalette.Warning
-                )
-            }
+            Text(
+                text = if (confirmedReduced) "请确认已核对课程，再替换原课表"
+                    else "新文件课块更少，请核对是否遗漏课程",
+                style = MaterialTheme.typography.bodyMedium,
+                color = XiaoxuPalette.Warning,
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(XiaoxuPalette.WarningSoft)
+                    .padding(14.dp)
+            )
         }
         Text(
             "课程预览",
@@ -96,7 +106,10 @@ internal fun TimetableImportPreviewSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(sorted) { index, lesson ->
-                XiaoxuCard(contentPadding = 12.dp) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
                         (index + 1).toString() + ". " + lesson.title,
                         style = MaterialTheme.typography.titleSmall,
@@ -121,6 +134,9 @@ internal fun TimetableImportPreviewSheet(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                if (index != sorted.lastIndex) {
+                    HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
                 }
             }
         }
