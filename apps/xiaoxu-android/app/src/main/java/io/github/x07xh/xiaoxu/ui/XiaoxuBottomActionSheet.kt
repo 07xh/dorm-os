@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.runtime.LaunchedEffect
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
@@ -96,7 +97,7 @@ internal fun XiaoxuBottomSheet(
                     indication = null,
                     onClick = onDismiss
                 )
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = UiV2Theme.PageGutter, vertical = 12.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             val compactHeight = maxHeight.value < UiV2SheetPolicy.CompactHeightDp
@@ -188,8 +189,8 @@ internal fun XiaoxuBottomActionSheet(
         showCancel = showCancel,
         dismissEnabled = dismissEnabled
     ) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-            .background(XiaoxuPalette.Surface.copy(alpha = 0.92f))) {
+        Column(Modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))) {
             actions.forEachIndexed { index, action ->
                 if (index > 0) UiV2SettingsDivider()
                 XiaoxuSheetActionRow(action)
@@ -202,9 +203,7 @@ internal fun XiaoxuBottomActionSheet(
 private fun XiaoxuSheetPill(
     label: String,
     onClick: () -> Unit,
-    destructive: Boolean = false,
-    enabled: Boolean = true,
-    selected: Boolean = false
+    enabled: Boolean = true
 ) {
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -217,33 +216,16 @@ private fun XiaoxuSheetPill(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
                 onClick = onClick
-            ).semantics { if (selected) stateDescription = "已选择" }
+            )
             .padding(horizontal = 18.dp, vertical = 13.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                color = when {
-                    !enabled -> XiaoxuPalette.Ink3
-                    destructive -> XiaoxuPalette.Danger
-                    selected -> XiaoxuPalette.BrandDeep
-                    else -> XiaoxuPalette.Ink
-                },
-                textAlign = TextAlign.Center
-            )
-            if (selected) {
-                Icon(
-                    Icons.Outlined.Check,
-                    contentDescription = null,
-                    tint = XiaoxuPalette.BrandDeep
-                )
-            }
-        }
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) XiaoxuPalette.Ink else XiaoxuPalette.Ink3,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
