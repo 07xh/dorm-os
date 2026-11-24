@@ -2247,8 +2247,8 @@ assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
 
 assert.match(panels, /fun ProfileHeroCard\(/,
   '真实账户概览保留在数据连接二级页，不在我的首页复制卡片');
-assert.match(panels, /XiaoxuCard\(contentPadding = 14\.dp\)/,
-  '我的页面账户信息应为紧凑白色状态卡');
+assert.match(panels, /private fun ProfileHeroCard\([\s\S]*?UiV2HomeSurface \{/,
+  '账户概览复用 V2 共享表面');
 assert.doesNotMatch(panels, /我的学习空间|学校账号各自授权；本机读取不依赖校序云端登录/,
   '账户区不得恢复大面积旧版宣传卡及解释文字');
 assert.match(profileSettings, /"connections" -> item \{/,
@@ -2360,7 +2360,7 @@ assert.match(profileMetricSource, /MaterialTheme\.typography\.titleMedium/,
 assert.match(panels, /fun SettingRow\(/, '我的页分组设置行');
 assert.match(panels, /fun PlatformStatusCard\(/, '三个学校平台需真实状态卡');
 assert.match(panels, /通用头像（未接入真实头像）/, '没有真实头像时只放通用图标');
-assert.match(panels, /maxWidth >= 600\.dp/, '我的页平板双列');
+assert.match(panels, /maxWidth >= 720\.dp && LocalDensity\.current\.fontScale <= 1\.3f/, '仅有足够宽度及正常字号才使用连接双列');
 assert.match(panels, /count \{ it\.sessionState == "active" \}/, '平台计数只数真实 active 会话');
 assert.match(panels, /"（快照）"/, '未刷新的云端任务必须标注快照');
 assert.doesNotMatch(panels, /示例学号|演示头像|张三|同学您好/,
@@ -2670,3 +2670,16 @@ assert.match(taskDetailV2, /UiV2SettingsEntry\(title = "从本机任务列表移
 assert.match(taskDetailV2, /Text\("删除本机任务", color = XiaoxuPalette\.Danger\)/);
 const taskRowV2 = workspace.slice(workspace.indexOf('private fun TaskRow('), workspace.indexOf('private fun SnapshotRow('));
 assert.match(taskRowV2, /IconButton\(onClick = onQuickDate, enabled = actionEnabled,\s*modifier = Modifier\.size\(48\.dp\)/);
+
+const messageMainV2 = messageCenter.slice(messageCenter.indexOf('fun MessageCenterPanel('),
+  messageCenter.indexOf('private fun LocalReminderSummary('));
+assert.match(messageMainV2, /MessageHeader\(onRefresh = refresh, onBack = onBack\)[\s\S]*?XiaoxuSegmentedControl\([\s\S]*?LazyColumn\(/,
+  '返回刷新和来源切换固定在消息列表之外');
+assert.match(messageMainV2, /modifier = Modifier\.weight\(1f\)\.fillMaxWidth\(\)/);
+assert.match(messageMainV2, /if \(!showWechat\) item\(key = "local-reminders"\)/,
+  '微信审核不重复展示本机提醒，但官方通知页保留入口');
+const accountOverviewV2 = panels.slice(panels.indexOf('private fun ProfileHeroCard('),
+  panels.indexOf('private fun ProfileMetric('));
+assert.match(accountOverviewV2, /if \(state\.authenticated\) \{\s*HorizontalDivider/);
+assert.match(accountOverviewV2, /if \(maxWidth < 300\.dp \|\| LocalDensity\.current\.fontScale > 1\.3f\)/);
+assert.match(accountOverviewV2, /else \{\s*Text\("本机功能无需连接云端"/);
