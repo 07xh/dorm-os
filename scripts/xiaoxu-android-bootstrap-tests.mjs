@@ -2724,3 +2724,12 @@ assert.match(liveGlassPreferencesV2, /prefs\.edit\(\)\.putBoolean\("live_glass",
 assert.match(liveGlassPreferencesV2, /LocalUiV2LiveGlass provides liveGlass/);
 assert.match(v2Shell, /if \(liveGlass && !rail && showNavigation && Build\.VERSION\.SDK_INT >= 33\) \{\s*rememberLayerBackdrop\(\)/,
   'lightweight mode skips the entire live backdrop capture, not just animation');
+
+const sharedWorkspaceProjection = main.slice(main.indexOf('val workspaceRecords = remember('),
+  main.indexOf('// A Room checkbox update'));
+assert.match(sharedWorkspaceProjection, /derivedStateOf \{\s*combineWorkspaceTasks\(workspaceLocalTasks\.value, cloud\.state\.tasks, workspaceSchoolRows\.value\)/,
+  'canonical task projection survives navigation and is read only by active consumers');
+assert.equal((main.match(/allRecords = workspaceRecords\.value/g) || []).length, 2);
+assert.equal((workspace.match(/\bcombineWorkspaceTasks\(/g) || []).length, 1,
+  'neither tab independently recomputes canonical identity joins');
+assert.equal((workspace.match(/allRecords: List<WorkspaceTask>/g) || []).length, 2);
