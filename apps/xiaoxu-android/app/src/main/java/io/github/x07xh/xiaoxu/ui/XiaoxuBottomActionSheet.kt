@@ -10,22 +10,23 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.runtime.LaunchedEffect
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
@@ -45,6 +46,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetHandle
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
+import io.github.x07xh.xiaoxu.ui.v2.rememberUiV2SheetDragState
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SheetMotion
+import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 
 /**
  * SleepDown 参考的轻量底部浮层。只承载链接、选择、确认等短内容；
@@ -64,10 +70,15 @@ internal fun XiaoxuBottomSheet(
 ) {
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(XiaoxuRadius.modal)
+    val shape = RoundedCornerShape(UiV2SheetPolicy.CornerDp.dp)
+    val dragState = rememberUiV2SheetDragState()
     Dialog(
         onDismissRequest = { if (dismissEnabled) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = dismissEnabled,
+            dismissOnClickOutside = dismissEnabled
+        )
     ) {
         XiaoxuDialogDim(dimAmount = 0.26f)
         // Size against the usable dialog window, not the full screen.
@@ -83,38 +94,48 @@ internal fun XiaoxuBottomSheet(
                     indication = null,
                     onClick = onDismiss
                 )
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = UiV2Theme.PageGutter, vertical = 12.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
-            val sheetMaxHeight = maxHeight * 0.88f
+            val compactHeight = maxHeight.value < UiV2SheetPolicy.CompactHeightDp
+            val sheetMaxHeight = maxHeight * UiV2SheetPolicy.heightFraction(maxHeight.value)
+            LaunchedEffect(compactHeight) { if (compactHeight) dragState.offset = 0f }
             Column(
-                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                modifier = Modifier.widthIn(max = UiV2SheetPolicy.MaxWidthDp.dp).fillMaxWidth()
                     .heightIn(max = sheetMaxHeight)
+                    .uiV2SheetMotion(dragState)
                     .clip(shape)
                     .background(XiaoxuPalette.GlassModalFallback)
                     .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
                     .clickable(interactionSource = innerInteraction, indication = null, onClick = {})
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                    .padding(horizontal = UiV2SheetPolicy.GutterDp.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(if (compactHeight) 6.dp else 10.dp)
             ) {
-                Box(
-                    Modifier.width(36.dp).height(4.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(XiaoxuPalette.Ink3.copy(alpha = 0.28f))
+                if (!compactHeight) UiV2SheetHandle(
+                    state = dragState,
+                    enabled = dismissEnabled,
+                    onDismiss = onDismiss,
+                    color = XiaoxuPalette.Ink3.copy(alpha = 0.35f)
                 )
-                Text(
-                    title, style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().semantics { heading() }
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        title, style = MaterialTheme.typography.titleLarge,
+                        color = XiaoxuPalette.Ink,
+                        modifier = Modifier.weight(1f).semantics { heading() }
+                    )
+                    if (compactHeight && dismissEnabled) {
+                        XiaoxuSoftIconButton(onClick = onDismiss) {
+                            Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                        }
+                    }
+                }
                 if (!subtitle.isNullOrBlank()) {
                     Text(
                         subtitle, style = MaterialTheme.typography.bodyMedium,
                         color = XiaoxuPalette.Ink2,
-                        textAlign = TextAlign.Center,
-                        maxLines = 3,
+                        textAlign = TextAlign.Start,
+                        maxLines = if (compactHeight) 2 else 3,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -165,14 +186,12 @@ internal fun XiaoxuBottomActionSheet(
         showCancel = showCancel,
         dismissEnabled = dismissEnabled
     ) {
-        actions.forEach { action ->
-            XiaoxuSheetPill(
-                label = action.label,
-                selected = action.selected,
-                onClick = action.onClick,
-                destructive = action.destructive,
-                enabled = action.enabled
-            )
+        Column(Modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
+            .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))) {
+            actions.forEachIndexed { index, action ->
+                if (index > 0) UiV2SettingsDivider()
+                XiaoxuSheetActionRow(action)
+            }
         }
     }
 }
@@ -181,46 +200,61 @@ internal fun XiaoxuBottomActionSheet(
 private fun XiaoxuSheetPill(
     label: String,
     onClick: () -> Unit,
-    destructive: Boolean = false,
-    enabled: Boolean = true,
-    selected: Boolean = false
+    enabled: Boolean = true
 ) {
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(999.dp))
+            .uiV2Press(interaction, enabled)
+            .clip(RoundedCornerShape(UiV2Theme.PillRadius))
             .background(Color.White.copy(alpha = if (enabled) 0.82f else 0.42f))
             .clickable(
                 enabled = enabled, role = Role.Button,
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
                 onClick = onClick
-            ).semantics { if (selected) stateDescription = "已选择" }
+            )
             .padding(horizontal = 18.dp, vertical = 13.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                color = when {
-                    !enabled -> XiaoxuPalette.Ink3
-                    destructive -> XiaoxuPalette.Danger
-                    selected -> XiaoxuPalette.BrandDeep
-                    else -> XiaoxuPalette.Ink
-                },
-                textAlign = TextAlign.Center
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) XiaoxuPalette.Ink else XiaoxuPalette.Ink3,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/** Compact grouped action rows, independent of caller-owned callbacks and selection. */
+@Composable
+private fun XiaoxuSheetActionRow(action: XiaoxuSheetAction) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .uiV2Press(interaction, action.enabled)
+            .clickable(
+                enabled = action.enabled, role = Role.Button,
+                interactionSource = interaction,
+                indication = ripple(bounded = true, color = XiaoxuPalette.PressTint),
+                onClick = action.onClick
             )
-            if (selected) {
-                Icon(
-                    Icons.Outlined.Check,
-                    contentDescription = null,
-                    tint = XiaoxuPalette.BrandDeep
-                )
+            .semantics { if (action.selected) stateDescription = "已选择" }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            action.label, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = when {
+                !action.enabled -> XiaoxuPalette.Ink3
+                action.destructive -> XiaoxuPalette.Danger
+                action.selected -> XiaoxuPalette.BrandDeep
+                else -> XiaoxuPalette.Ink
             }
-        }
+        )
+        if (action.selected) Icon(Icons.Outlined.Check, contentDescription = null,
+            tint = XiaoxuPalette.BrandDeep)
     }
 }

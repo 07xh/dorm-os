@@ -1,5 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -46,10 +49,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
@@ -57,8 +60,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -81,8 +84,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.x07xh.xiaoxu.data.CloudClient
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SheetPolicy
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
+import io.github.x07xh.xiaoxu.data.CloudClient
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
 import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
@@ -105,14 +109,19 @@ import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 
 /*
- * 本地课表与学校可信只读课表分别展示；学校同步不写入本机编辑存储。
+ * 课表仅渲染本机导入的 localLessons；旧云端课表状态不再控制此页面。
+ * CloudClient 的任务、连接状态与学校会话逻辑仍由对应模块负责。
  */
 
 /** 本机导入课程和来源标签，永不冒充学校实时核验结果。 */
 data class LocalImportedScheduleView(
     val lessons: List<VerifiedLesson>,
     val sourceLabel: String
-)
+) {
+    // Reuse formatted course labels and keys across timetable tab re-entry.
+    // The underlying imported snapshot changes only when the actual lessons change.
+    internal val displayLessons: List<LessonUi> by lazy { lessons.map { it.toUi() } }
+}
 
 fun localImportedScheduleView(lessons: List<VerifiedLesson>) =
     LocalImportedScheduleView(
@@ -154,7 +163,7 @@ private fun weekdayLong(weekday: Int): String =
 
 /** VerifiedLesson 含 List<Int>，Compose 无法推断稳定性；UI 侧显式声明不可变。 */
 @Immutable
-private data class LessonUi(
+internal data class LessonUi(
     val key: String,
     val sourceId: String,
     val colorKey: String,
@@ -169,8 +178,11 @@ private data class LessonUi(
     val endSection: Int
 )
 
+private fun VerifiedLesson.uiKey(): String =
+    (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday"
+
 private fun VerifiedLesson.toUi(): LessonUi = LessonUi(
-    key = (if (id.isBlank()) "$weekday-$startSection-$endSection-$title" else id) + "-$weekday",
+    key = uiKey(),
     sourceId = id,
     // 与首页 CourseTile 共用相同的稳定课程标识，跨页面保持六色一致。
     colorKey = id.ifBlank { title },
@@ -202,23 +214,31 @@ fun CloudTimetablePanel(
     onSettingsClosed: () -> Unit = {},
     onSettingsFileAction: () -> Unit = {},
     onEditorClosed: () -> Unit = {},
+    onNavigation: (() -> Unit)? = null,
     focusLessonId: String? = null,
     focusWeekday: Int = 0,
     onFocusConsumed: () -> Unit = {},
+    preparedSchedule: LocalImportedScheduleView? = null,
     cloud: CloudClient? = null,
     schoolOpenRequest: Int = 0
 ) {
+    // NativeShell owns the long-lived imported snapshot; standalone callers
+    // can still use the original local-only entry without supplying a cache.
+    val scheduleData = preparedSchedule ?: remember(localLessons) { localImportedScheduleView(localLessons) }
     // Both timetable and settings occupy the same native Activity content window.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val expanded = maxWidth >= 840.dp
+        val detailWidth = uiV2DetailWidth(maxWidth.value.coerceAtMost(XiaoxuPageLayout.ScheduleMaxWidth.value),
+            maxHeight.value, mainMin = 480f, detailMin = 280f, detailMax = 400f,
+            gap = 12f, horizontalPadding = 36f)
         ScheduleVerifiedContent(
-            data = localImportedScheduleView(localLessons),
-            expanded = expanded,
+            data = scheduleData,
+            detailWidthDp = detailWidth,
             openFileImport = openFileImport,
             openFileExport = openFileExport,
             localScheduleRevision = localScheduleRevision,
             onLocalLessonsChanged = onLocalLessonsChanged,
             onMessages = onMessages,
+            onNavigation = onNavigation,
             settingsOpen = settingsOpen,
             onSettingsOpenChanged = onSettingsOpenChanged,
             onSettingsClosed = onSettingsClosed,
@@ -239,12 +259,14 @@ private fun SchedulePageHeading(
     onMessages: () -> Unit,
     sourceLabel: String? = null,
     onAdd: (() -> Unit)? = null,
-    onSettings: (() -> Unit)? = null
+    onSettings: (() -> Unit)? = null,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        XiaoxuNavigationAction(onNavigation)
         Column(Modifier.weight(1f)) {
             Text(
                 "我的课表", modifier = Modifier.semantics { heading() },
@@ -281,33 +303,29 @@ private fun SchedulePageHeading(
 
 @Composable
 private fun LocalTimetableEmptyState(
-    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
+    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit, onImport: () -> Unit,
+    onNavigation: (() -> Unit)?
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
+        modifier = Modifier.xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看",
-            onSettings = onSettings, onAdd = onAdd)
-        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
-            Icon(Icons.Outlined.DateRange, contentDescription = null,
-                modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
-            Spacer(Modifier.height(12.dp))
-            Text("还没有导入课表", style = MaterialTheme.typography.titleLarge,
+            onSettings = onSettings, onAdd = onAdd, onNavigation = onNavigation)
+        UiV2HomeSurface {
+            Text("暂无课表", style = MaterialTheme.typography.titleMedium,
                 color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Text("选择手机中的课表文件，预览课程、教室、节次及周次后保存。",
-                style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+            Text("支持 .ics 和 .json 文件", style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("导入课表")
+            }
+            TextButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("手动添加课程")
+            }
         }
-        Button(onClick = onSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text("打开课表设置")
-        }
-        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("手动添加第一门课程")
-        }
-        Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
-            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
 
@@ -318,12 +336,13 @@ private fun LocalTimetableEmptyState(
 @Composable
 private fun ScheduleVerifiedContent(
     data: LocalImportedScheduleView,
-    expanded: Boolean,
+    detailWidthDp: Float?,
     openFileImport: () -> Unit,
     openFileExport: () -> Unit,
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     onMessages: () -> Unit,
+    onNavigation: (() -> Unit)?,
     settingsOpen: Boolean,
     onSettingsOpenChanged: (Boolean) -> Unit,
     onSettingsClosed: () -> Unit,
@@ -357,7 +376,7 @@ private fun ScheduleVerifiedContent(
     var editingBusy by remember { mutableStateOf(false) }
     var editingError by remember { mutableStateOf<String?>(null) }
     val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
-    val lessons = remember(data.lessons) { data.lessons.map { it.toUi() } }
+    val lessons = data.displayLessons
     val weekNumbers = remember(data.lessons, calendar) {
         selectableTeachingWeeks(data.lessons, calendar)
     }
@@ -387,14 +406,20 @@ private fun ScheduleVerifiedContent(
         selectedWeek = currentWeek?.takeIf { it in target.weeks && it in weekNumbers }
             ?: target.weeks.firstOrNull { it in weekNumbers } ?: selectedWeek
         selectedWeekday = target.weekday
-        selectedCourseKey = target.toUi().key
+        selectedCourseKey = target.uiKey()
         onFocusConsumed()
     }
 
     // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
-    val allowedKeys = remember(data.lessons, selectedWeek) {
+    // Reuse the same week selection for the grid and the list key lookup.
+    // A key lookup must not allocate a full LessonUi or format its week label.
+    val weekLessons = remember(data.lessons, selectedWeek) {
+        if (selectedWeek == ALL_WEEKS) data.lessons
+        else data.lessons.filter { selectedWeek in it.weeks }
+    }
+    val allowedKeys = remember(weekLessons, selectedWeek) {
         if (selectedWeek == ALL_WEEKS) null
-        else data.lessons.filter { selectedWeek in it.weeks }.map { it.toUi().key }.toSet()
+        else weekLessons.map { it.uiKey() }.toSet()
     }
     val filtered = remember(lessons, allowedKeys) {
         if (allowedKeys == null) lessons else lessons.filter { it.key in allowedKeys }
@@ -438,7 +463,7 @@ private fun ScheduleVerifiedContent(
         }
     }
     if (showSchoolSchedule && cloud != null) {
-        SchoolReadOnlyTimetable(cloud, onSettings = { onSettingsOpenChanged(true) }, onMessages = onMessages)
+        SchoolReadOnlyTimetable(cloud, onSettings = { onSettingsOpenChanged(true) }, onMessages = onMessages, onNavigation = onNavigation)
     } else if (data.lessons.isEmpty()) {
         LocalTimetableEmptyState(
             onSettings = { onSettingsOpenChanged(true) },
@@ -447,18 +472,20 @@ private fun ScheduleVerifiedContent(
                 editingError = null
                 showingCourseEditor = true
             },
-            onMessages = onMessages
+            onMessages = onMessages,
+            onImport = openFileImport,
+            onNavigation = onNavigation
         )
     } else {
     Column(
         Modifier
-            .fillMaxWidth()
-            .xiaoxuPageWidth(XiaoxuPageLayout.ContentMaxWidth)
+            .xiaoxuPageWidth(XiaoxuPageLayout.ScheduleMaxWidth)
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         SchedulePageHeading(
             onMessages = onMessages,
             sourceLabel = "本机导入 · 待本人核对",
+            onNavigation = onNavigation,
             onAdd = {
                 editOriginal = null
                 editingError = null
@@ -466,10 +493,11 @@ private fun ScheduleVerifiedContent(
             },
             onSettings = { onSettingsOpenChanged(true) }
         )
-        if (weekNumbers.size > 1 && showWeekPicker) {
-            WeekSelector(weeks = weekNumbers, selected = selectedWeek,
-                onSelect = { selectedWeek = it; showWeekPicker = false })
-        }
+        val monday = calendar?.dateFor(selectedWeek, 1)
+        val sunday = calendar?.dateFor(selectedWeek, 7)
+        val weekDateLabel = if (selectedWeek != ALL_WEEKS && monday != null && sunday != null)
+            "${monday.monthValue}月${monday.dayOfMonth}日 — ${sunday.monthValue}月${sunday.dayOfMonth}日"
+            else null
         if (weekNumbers.isNotEmpty()) {
             // Without term settings, only imported weeks are selectable.
             // Explicitly configured semesters also expose empty teaching weeks.
@@ -479,7 +507,6 @@ private fun ScheduleVerifiedContent(
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(XiaoxuRadius.tile))
-                    .background(XiaoxuPalette.GlassCard)
                     .background(XiaoxuPalette.GlassControlSurface)
                     .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim,
                         RoundedCornerShape(XiaoxuRadius.tile))
@@ -494,82 +521,94 @@ private fun ScheduleVerifiedContent(
                     Icon(Icons.Outlined.ChevronLeft, contentDescription = "上一周")
                 }
                 TextButton(
-                    onClick = { showWeekPicker = !showWeekPicker },
+                    onClick = { showWeekPicker = true },
                     enabled = weekNumbers.size > 1,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
-                    Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = XiaoxuPalette.Ink)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (currentIndex >= 0) "第 $selectedWeek 周 ▾" else "选择周次 ▾",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, color = XiaoxuPalette.Ink)
+                        if (weekDateLabel != null) {
+                            Text(weekDateLabel, style = MaterialTheme.typography.labelSmall,
+                                color = XiaoxuPalette.Ink2, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
                 XiaoxuSoftIconButton(
                     onClick = { selectedWeek = weekNumbers[currentIndex + 1] },
-                    enabled = currentIndex < weekNumbers.lastIndex
+                    enabled = currentIndex >= 0 && currentIndex < weekNumbers.lastIndex
                 ) {
                     Icon(Icons.Outlined.ChevronRight, contentDescription = "下一周")
                 }
             }
         }
-        if (calendar != null && selectedWeek != ALL_WEEKS) {
-            val monday = calendar?.dateFor(selectedWeek, 1)
-            val sunday = calendar?.dateFor(selectedWeek, 7)
-            if (monday != null && sunday != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "${monday.monthValue}月${monday.dayOfMonth}日 — " +
-                            "${sunday.monthValue}月${sunday.dayOfMonth}日",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = XiaoxuPalette.Ink2
-                    )
-                    if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
-                        selectedWeek != actualCurrentWeek) {
-                        TextButton(onClick = { selectedWeek = actualCurrentWeek!! }) {
-                            Text("返回本周")
-                        }
+        if (weekNumbers.size > 1 && showWeekPicker) {
+            XiaoxuBottomSheet(
+                title = "选择教学周",
+                subtitle = "当前查看第 $selectedWeek 周",
+                onDismiss = { showWeekPicker = false },
+                showCancel = false
+            ) {
+                WeekSelector(weeks = weekNumbers, selected = selectedWeek,
+                    onSelect = { selectedWeek = it; showWeekPicker = false })
+                if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                    selectedWeek != actualCurrentWeek) {
+                    TextButton(onClick = { selectedWeek = actualCurrentWeek; showWeekPicker = false },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text("返回本周")
                     }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                val nextMode = if (viewMode == "week") "day" else "week"
+                LocalSemesterConfigStore.saveViewMode(context, nextMode)
+                viewMode = nextMode
+            }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (viewMode == "week") "切换日视图" else "切换周视图",
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(Modifier.weight(1f))
+            if (actualCurrentWeek != null && actualCurrentWeek in weekNumbers &&
+                selectedWeek != actualCurrentWeek) {
+                TextButton(onClick = { selectedWeek = actualCurrentWeek!!; showWeekPicker = false }) {
+                    Text("返回本周")
                 }
             }
         }
         val openCourse: (String) -> Unit = { key -> selectedCourseKey = key }
         if (viewMode == "week") {
-            if (expanded) {
+            if (detailWidthDp != null) {
                 // 平板：左七日网格 + 右当日列表。表头选中哪天就显示那天（空日走空态），
                 // 不做"跳回最近有课日"，否则点了周六却显示周三，选中态也对不上。
                 val tabletWeekday = selectedWeekday
-                val tabletDayLessons = remember(filtered, tabletWeekday) {
-                    filtered.filter { it.weekday == tabletWeekday }.sortedBy { it.startSection }
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(
-                        modifier = Modifier.weight(1.35f),
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (selectedWeek != ALL_WEEKS) {
-                            val weekLessons = remember(data.lessons, selectedWeek) {
-                                data.lessons.filter { selectedWeek in it.weeks }
-                            }
                             WeeklyTimetableGrid(
                                 lessons = weekLessons,
                                 dailySections = visibleSections,
                                 selectedWeekday = tabletWeekday,
                                 onSelectWeekday = { selectedWeekday = it }
                             ) { item ->
-                                openCourse(item.toUi().key)
+                                openCourse(item.uiKey())
                             }
                         }
                     }
                     DayLessonList(
-                        dayLessons = tabletDayLessons,
+                        dayLessons = dayLessons,
                         selectedWeek = selectedWeek,
                         weekday = tabletWeekday,
                         todayWeekday = todayWeekday,
                         onOpen = openCourse,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp)
+                        modifier = Modifier.width(detailWidthDp.dp)
                     )
                 }
             } else {
@@ -578,21 +617,18 @@ private fun ScheduleVerifiedContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (selectedWeek != ALL_WEEKS) {
-                        val weekLessons = remember(data.lessons, selectedWeek) {
-                            data.lessons.filter { selectedWeek in it.weeks }
-                        }
                         WeeklyTimetableGrid(
                             lessons = weekLessons,
                             dailySections = visibleSections,
                             selectedWeekday = selectedWeekday,
                             onSelectWeekday = { selectedWeekday = it }
                         ) { item ->
-                            openCourse(item.toUi().key)
+                            openCourse(item.uiKey())
                         }
                     }
                 }
             }
-        } else if (expanded) {
+        } else if (detailWidthDp != null) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 WeekdaySideBar(
                     counts = counts, selected = effectiveWeekday, today = todayWeekday,
@@ -634,7 +670,7 @@ private fun ScheduleVerifiedContent(
             lesson = opened,
             timeLabel = calendar?.periodLabel(opened.startSection, opened.endSection),
             onEdit = {
-                editOriginal = data.lessons.firstOrNull { it.toUi().key == opened.key }
+                editOriginal = data.lessons.firstOrNull { it.uiKey() == opened.key }
                 editingError = null
                 selectedCourseKey = null
                 showingCourseEditor = editOriginal != null
@@ -778,9 +814,8 @@ private fun ScheduleVerifiedContent(
     }
 }
 
-/** Same weekly grid, separate source, no edit or local reminder mutation. */
 @Composable
-private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, onMessages: () -> Unit) {
+private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, onMessages: () -> Unit, onNavigation: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
     val snapshot = cloud.state.ncwuSchedule
     val authorized = cloud.canCheckNcwuBusiness()
@@ -790,7 +825,7 @@ private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, 
     LaunchedEffect(weeks) { if (weeks.isNotEmpty() && selectedWeek !in weeks) selectedWeek = weeks.first() }
     Column(Modifier.fillMaxWidth().xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SchedulePageHeading(onMessages, sourceLabel = "学校课表 · 只读", onSettings = onSettings)
+        SchedulePageHeading(onMessages, sourceLabel = "学校课表 · 只读", onSettings = onSettings, onNavigation = onNavigation)
         OutlinedButton(onClick = { scope.launch { cloud.refreshNcwuSchedule(manual = true) } },
             enabled = authorized && !cloud.state.busy && cloud.state.schoolSyncBusyProvider == null,
             modifier = Modifier.fillMaxWidth()) { Text("同步学校课表") }
@@ -860,13 +895,7 @@ private fun WeekSelector(weeks: List<Int>, selected: Int, onSelect: (Int) -> Uni
             weekListState.scrollToItem((selectedIndex - 2).coerceAtLeast(0))
         }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = "周次",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(8.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         LazyRow(state = weekListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(count = weeks.size, key = { index -> weeks[index] }) { index ->
                 val week = weeks[index]
@@ -1201,9 +1230,9 @@ private fun CourseDetailBottomSheet(
         dragHandle = {
             Box(
                 Modifier.padding(top = 12.dp, bottom = 12.dp)
-                    .size(width = 48.dp, height = 5.dp)
+                    .size(width = UiV2SheetPolicy.HandleWidthDp.dp, height = UiV2SheetPolicy.HandleHeightDp.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFDADFE9))
+                    .background(XiaoxuPalette.Ink3.copy(alpha = 0.35f))
             )
         }
     ) {
@@ -1291,7 +1320,8 @@ private fun CourseDetailBottomSheet(
                     Text("课程提醒", color = XiaoxuPalette.Ink,
                         style = MaterialTheme.typography.titleMedium)
                     Text(
-                        (if (reminderSelected) "已开启" else "未开启") + " · 上课前 15 分钟",
+                        (if (reminderSelected) "已开启" else "未开启") +
+                            " · 上课前 ${LocalCourseReminders.leadMinutes(context)} 分钟",
                         color = XiaoxuPalette.Ink2,
                         style = MaterialTheme.typography.bodyMedium
                     )

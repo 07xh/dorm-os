@@ -94,7 +94,9 @@ assert.match(screen, /weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumber
   '导入数据变化时必须恢复有效的具体教学周');
 assert.match(screen, /个课块/);
 
-assert.match(screen, /Text\("打开课表设置"\)/);
+assert.match(screen, /Button\(onClick = onImport,[\s\S]*?Text\("导入课表"\)/);
+assert.match(screen, /onImport = openFileImport/, '空课表直接沿用原文件选择器');
+assert.match(screen, /TextButton\(onClick = onAdd/);
 const currentTimetableEntry = screen.slice(
   screen.indexOf('fun CloudTimetablePanel('),
   screen.indexOf('private fun ScheduleVerifiedContent(')

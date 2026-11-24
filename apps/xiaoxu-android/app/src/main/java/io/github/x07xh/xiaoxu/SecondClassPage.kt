@@ -56,6 +56,8 @@ import kotlinx.coroutines.launch
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsDivider
 import io.github.x07xh.xiaoxu.ui.XiaoxuSpacing
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -226,7 +228,7 @@ fun SecondClassPage(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "points_header") {
             Row(
@@ -281,7 +283,7 @@ fun SecondClassPage(
                         }
                     }
                 }
-                IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                XiaoxuSoftIconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
                     Icon(Icons.Outlined.Refresh,
                         contentDescription = "手动同步第二课堂")
                 }
@@ -320,24 +322,19 @@ fun SecondClassPage(
                         Modifier.weight(1f)
                     )
                 }
-            }
-        }
-        item(key = "term_breakdown") {
-            // 默认折叠为单行，明细只在居中玻璃弹窗内展示；
-            // 不插入六条内容把页面和底栏向下推。
-            XiaoxuCard(
-                onClick = if (selectedTerm != null) ({
-                    detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
-                }) else null,
-                contentPadding = 16.dp
-            ) {
+                UiV2SettingsDivider()
+                // One card, one direct entry; detail continues to use the original dialog.
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(enabled = selectedTerm != null) {
+                            selectedTerm?.let { detailKey = it.kind + ":" + it.fingerprint }
+                        }
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("积分明细", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.bodyLarge, color = XiaoxuPalette.Ink)
                     if (selectedTerm == null) {
                         Text("暂未获取", style = MaterialTheme.typography.labelSmall,
                             color = XiaoxuPalette.Ink2)
@@ -384,7 +381,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -426,7 +423,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -442,19 +439,21 @@ fun SecondClassPage(
             }
         } else {
             item(key = "catalog_status") {
-                XiaoxuCard {
-                    Text(
-                        if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = XiaoxuPalette.Ink
-                    )
-                    if (catalogRecord != null) {
-                        Text("更新于 " + DateFormat.getDateTimeInstance()
-                            .format(Date(catalogRecord.capturedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2)
+                XiaoxuCard(contentPadding = 12.dp) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink)
+                            if (catalogRecord != null) {
+                                Text("更新于 " + DateFormat.getDateTimeInstance()
+                                    .format(Date(catalogRecord.capturedAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = XiaoxuPalette.Ink2)
+                            }
+                        }
+                        TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                     }
-                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                 }
             }
         }

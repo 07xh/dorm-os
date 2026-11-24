@@ -8,6 +8,10 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsGroup
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsEntry
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -194,7 +198,7 @@ fun ConnectionsPanel(
     }
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth >= 600.dp) {
+        if (maxWidth >= 720.dp && LocalDensity.current.fontScale <= 1.3f) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -224,7 +228,7 @@ fun ConnectionsPanel(
 }
 
 /**
- * 账号头图：渐变蓝卡 + 通用头像 + 真实会话状态 + 三格真实指标。
+ * 账户概览：紧凑真实会话状态；登录后显示三项真实指标。
  *
  * 没有真实头像来源（学校头像接口未接入、云端也不保存头像），因此只用通用人形图标，
  * 不画虚构头像、不编造学号；三格数字全部来自 CloudUiState 已有字段。
@@ -250,7 +254,7 @@ private fun ProfileHeroCard(state: CloudUiState) {
         else -> state.tasks.size.toString() + "（快照）"
     }
     // Real account state without a fabricated avatar, name, school or demo numbers.
-    XiaoxuCard(contentPadding = 14.dp) {
+    UiV2HomeSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
@@ -277,17 +281,26 @@ private fun ProfileHeroCard(state: CloudUiState) {
                 }
             )
         }
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ProfileMetric(label = "学校平台", value = platformCaption,
-                modifier = Modifier.weight(1f))
-            ProfileMetric(label = "微信待审核", value = reviewCaption,
-                modifier = Modifier.weight(1f))
-            ProfileMetric(label = "云端任务", value = taskCaption,
-                modifier = Modifier.weight(1f))
+        if (state.authenticated) {
+            HorizontalDivider(color = XiaoxuPalette.Line, thickness = 0.5.dp)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f) {
+                    Column(Modifier.fillMaxWidth()) {
+                        ProfileMetric("学校平台", platformCaption, Modifier.fillMaxWidth())
+                        ProfileMetric("微信待审核", reviewCaption, Modifier.fillMaxWidth())
+                        ProfileMetric("云端任务", taskCaption, Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ProfileMetric("学校平台", platformCaption, Modifier.weight(1f))
+                        ProfileMetric("微信待审核", reviewCaption, Modifier.weight(1f))
+                        ProfileMetric("云端任务", taskCaption, Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
+            Text("本机功能无需连接云端", style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -296,14 +309,14 @@ private fun ProfileHeroCard(state: CloudUiState) {
 private fun ProfileMetric(label: String, value: String, modifier: Modifier = Modifier) {
     // 数字直接排在唯一的账户玻璃卡中，不再叠加三张灰底小卡。
     Column(
-        modifier = modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(value, style = MaterialTheme.typography.titleMedium,
-            color = XiaoxuPalette.Ink, maxLines = 1,
+            color = XiaoxuPalette.Ink, maxLines = 2,
             overflow = TextOverflow.Ellipsis)
         Text(label, style = MaterialTheme.typography.labelSmall,
-            color = XiaoxuPalette.Ink2, maxLines = 1,
+            color = XiaoxuPalette.Ink2, maxLines = 2,
             overflow = TextOverflow.Ellipsis)
     }
 }
@@ -327,24 +340,12 @@ private fun CloudAuthorizationSection(
     onToggleAdvanced: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(
-            title = "云端同步",
-            actionLabel = "管理",
-            onAction = onToggleAdvanced
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                if (state.authenticated) "校序云端已连接" else "校序云端未连接",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink2
-            )
-            SourceBadge(
-                text = if (state.authenticated) "已连接" else "未连接",
-                tone = if (state.authenticated) XiaoxuTone.Success else XiaoxuTone.Neutral
+        UiV2SettingsGroup(title = "云端同步") {
+            UiV2SettingsEntry(
+                title = "校序云端",
+                icon = Icons.Outlined.Cloud,
+                statusLabel = if (state.authenticated) "已连接" else "未连接",
+                onClick = onToggleAdvanced
             )
         }
         if (cloudAdvanced) XiaoxuBottomSheet(

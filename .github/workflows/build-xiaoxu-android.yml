@@ -122,7 +122,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Compile navigation frame benchmark instrumentation
-        run: gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon
+        run: |
+          set -euo pipefail
+          # Retry once with refreshed metadata if a cached/missing Maven artifact
+          # blocks resolution. The second failure remains a hard build failure.
+          gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon ||
+            gradle -p apps/xiaoxu-android :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease --no-daemon --refresh-dependencies
       - name: Validate APK archive and produce verifiable SHA-256
         run: |
           set -euo pipefail
