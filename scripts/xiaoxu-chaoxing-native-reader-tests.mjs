@@ -42,6 +42,17 @@ assert.match(httpSync,/boundSessionToken = token/);
 assert.match(httpSync,/epoch == sessionEpoch && state\.authenticated && state\.ownerId == owner/);
 assert.match(httpSync,/state\.tasksFresh && expected\.all/);
 assert.match(httpSync,/successful == total && reconciled/);
+assert.match(httpSync,/it\.authorization == "verified_session"/);
+assert.match(panels,/label = if \(canRead\) "管理学习通授权" else "连接学习通账号"/);
+assert.match(panels,/\{ startSchoolAuthorization\(id\) \}/);
+const authReturn=cloud.slice(cloud.indexOf('suspend fun completeSchoolReturn'),cloud.indexOf('suspend fun reviewWechatCandidate'));
+assert.match(authReturn,/setOf\("chaoxing", "ncwu", "second_class"\)/);
+assert.match(authReturn,/refreshPrivate\(\)/);
+assert.match(authReturn,/state\.connectionsFresh/);
+assert.match(authReturn,/platform\?\.authorization != "verified_session"/);
+assert.ok(authReturn.indexOf('refreshPrivate()')<authReturn.indexOf('已核对学习通授权会话'));
+assert.doesNotMatch(authReturn,/syncChaoxingHomeworkHttp\(\)/,
+ 'navigation callback must not trigger bulk upstream sync without explicit user action');
 assert.doesNotMatch(httpSync,/WebView|CookieManager|evaluateJavascript|openLocalSchool/);
 assert.doesNotMatch(reader+session,/api\/v1|CloudClient|addJavascriptInterface|readProgress|saveStatus|submitForm.*POST/);
 assert.match(storage,/if \(old != accountHash \|\| complete\) \{/);
