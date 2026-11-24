@@ -467,10 +467,15 @@ assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /XiaoxuSegmentOption\("0", "报名中"\)/,
  '活动类别须保留报名中筛选');
-assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
- '共享分段控件必须等宽且具有至少44dp触控高度');
-assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
- '一级页面共用20sp字级与26sp行高');
+const v2Segments = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SegmentedControl.kt');
+const v2Theme = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Theme.kt');
+assert.match(designSystem, /UiV2SegmentedControl\(/, '原业务调用必须进入 V2 统一分段控件');
+assert.match(v2Segments, /Modifier\.weight\(1f\)\.heightIn\(min = 48\.dp\)/,
+ '共享分段控件等宽且至少48dp触控高度');
+assert.match(v2Segments, /drawBehind[\s\S]*?thumb\.value/, '滑块只在绘制阶段读取动画值');
+assert.match(v2Segments, /selectedKey == option\.key/, '选中状态来自调用方');
+assert.match(v2Theme, /titleLarge = type\(20, 26, true\)/, '一级页面保持20sp字级与26sp行高');
+assert.match(designSystem, /typography = UiV2Theme\.Typography/, '全局主题须接入 V2 字阶');
 assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '课表标题从统一主题取得字级');
 assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,

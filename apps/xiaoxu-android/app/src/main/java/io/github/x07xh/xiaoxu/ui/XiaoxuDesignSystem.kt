@@ -1,9 +1,10 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SegmentedControl
 import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,7 +31,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,11 +45,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -107,15 +105,8 @@ object XiaoxuPalette {
     /** 页面背景 */
     val Bg = Color(0xFFF4F7FD)
 
-    /** 全页面轻蓝紫底色，不在每个页面独立叠加渐变卡片。 */
-    val PageGradient = Brush.linearGradient(
-        0.00f to Color(0xFFF2F8FF),
-        0.22f to Color(0xFFE4EEFF),
-        0.44f to Color(0xFFF2ECFF),
-        0.68f to Color(0xFFE7F4F4),
-        0.86f to Color(0xFFF5EEFC),
-        1.00f to Color(0xFFFAF8FF)
-    )
+    /** V2 neutral reading surface; existing glass and course palettes remain stable. */
+    val PageGradient = UiV2Theme.PageSurface
 
     /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
     val GlassCard = Color.White.copy(alpha = 0.95f)
@@ -292,41 +283,13 @@ private val XiaoxuColorScheme = lightColorScheme(
     surfaceTint = XiaoxuPalette.Brand
 )
 
-private val XiaoxuTypography = Typography(
-    headlineMedium = TextStyle(
-        fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineSmall = TextStyle(
-        fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.2).sp
-    ),
-    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
-    labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp)
-)
-
-private val XiaoxuShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(XiaoxuRadius.card),
-    large = RoundedCornerShape(XiaoxuRadius.hero),
-    extraLarge = RoundedCornerShape(28.dp)
-)
-
 /** 全 App 唯一主题入口：颜色 / 字级 / 圆角一次装好，页面不再自带配色。 */
 @Composable
 fun XiaoxuTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = XiaoxuColorScheme,
-        typography = XiaoxuTypography,
-        shapes = XiaoxuShapes,
+        typography = UiV2Theme.Typography,
+        shapes = UiV2Theme.Shapes,
         content = {
             // Default Compose clickable/selectable rows receive the same bounded
             // low-contrast ripple; individually clipped shapes retain their outline.
@@ -465,53 +428,10 @@ fun XiaoxuSegmentedControl(
     fillWidth: Boolean = true,
     compact: Boolean = false
 ) {
-    if (options.isEmpty()) return
-    val track = RoundedCornerShape(999.dp)
-    Row(
-        modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).clip(track)
-            .background(if (compact) XiaoxuPalette.SurfaceAlt else XiaoxuPalette.GlassTrack)
-            .then(if (compact) Modifier.border(
-                XiaoxuSpacing.glassStroke, Color(0xFFD6E0F0), track
-            ) else Modifier.background(XiaoxuPalette.GlassControlSurface)
-                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, track))
-            .padding(if (compact) 3.dp else 4.dp).selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        options.forEach { option ->
-            val selected = selectedKey == option.key
-            val itemShape = RoundedCornerShape(999.dp)
-            val itemColor = animateColorAsState(
-                targetValue = if (selected) {
-                    if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
-                } else Color.Transparent,
-                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing), label = "xiaoxu-segment-bg"
-            ).value
-            val inkColor = animateColorAsState(
-                targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing), label = "xiaoxu-segment-text"
-            ).value
-            Box(
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
-                    .clip(itemShape).background(itemColor)
-                    // The track owns the outline: avoid a second dark rim
-                    // around ordinary selected tabs while retaining compact styling.
-                    .then(
-                        if (selected && compact) Modifier.border(
-                            XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
-                        ) else if (selected) Modifier.border(
-                            XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, itemShape
-                        ) else Modifier
-                    )
-                    .selectable(selected = selected, role = Role.Tab,
-                        onClick = { if (!selected) onSelected(option.key) }),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(option.label, style = MaterialTheme.typography.titleSmall,
-                    color = inkColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
+    UiV2SegmentedControl(
+        options = options, selectedKey = selectedKey, onSelected = onSelected,
+        modifier = modifier, fillWidth = fillWidth, compact = compact
+    )
 }
 
 /**

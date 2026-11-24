@@ -35,3 +35,9 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 - `UiV2SheetPolicy` 统一短内容浮层几何与下拉判定；`UiV2SheetDrag` 实现把手跟手平移、释放后回位、位置/速度关闭判定以及点击关闭。参考 DSH Go 的 MIT 标注 [app_sheet.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/common/app_sheet.dart)，为独立 Compose 实现，非 Dart 文件复制。
 - 兼容入口 `XiaoxuBottomSheet` 保持既有签名；耗时操作的关闭保护覆盖遮罩、返回键与把手，内容滚动不抢手势。不接入长表单及课程专用 ModalBottomSheet，暂不加入实时模糊。
 - 静态回归检查迁移至真实 V2 Shell 位置，保留唯一底栏、侧栏、Scaffold 和显隐规则；增加弹层判定边界单测。仍需构建、无障碍、真机与性能验收。
+
+## 第三批：主题与分段控件
+
+- `UiV2Theme` 提供统一系统无衬线字阶、400/600 字重及 6/10/14/20/28dp Material 形状阶梯；原业务页标题保持 20sp/26sp，北化导航和课程专用圆角仍保留以供后续逐页迁移。中性浅色背景替代原多色渐变，校序品牌蓝和课程色板不变。未声明全局暗色支持。
+- `UiV2SegmentedControl` 采用单一绘制层滑动选中胶囊，保持等宽、48dp触控区、RTL 与可访问选中语义。保留调用者的真实筛选状态；本阶段仅点击切换，未实现 DSH Go 的水平拖拽与液态形变。
+- 上游参考（固定提交）：[typography.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/theme/typography.dart)、[shapes.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/theme/shapes.dart)（MIT 标注）；[segmented_pill.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/common/segmented_pill.dart)（交互参考，独立 Compose 绘制实现）。未直接复制 Dart 代码或受限素材。

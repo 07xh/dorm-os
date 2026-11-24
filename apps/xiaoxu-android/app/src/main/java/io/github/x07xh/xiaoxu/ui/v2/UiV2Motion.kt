@@ -18,6 +18,7 @@ internal object UiV2Motion {
     const val PressMs = 90
     const val ReleaseMs = 150
     const val QuickMs = 160
+    const val StandardMs = 240
     const val SheetSettleMs = 260
     const val PressScale = 0.97f
     val Easing = FastOutSlowInEasing
