@@ -2650,3 +2650,15 @@ assert.match(workspace, /title = if \(pending > 0\) "暂无可直接执行的任
   '存在待完成但不可执行的任务时，不误报无待办');
 assert.match(workspace, /private fun HomeCompactLink\([\s\S]*?heightIn\(min = 48\.dp\)[\s\S]*?onClick = onOpen/);
 assert.match(workspace, /upcoming\.forEachIndexed \{ index, task ->\s*if \(index > 0\) HorizontalDivider/);
+
+const taskDetailV2 = workspace.slice(workspace.indexOf('internal fun WorkspaceTaskDetailSheet('),
+  workspace.indexOf('private fun TaskStatusTab('));
+assert.match(taskDetailV2, /FlowRow\(/, '来源与状态标签在窄屏及大字体下可以换行');
+assert.match(taskDetailV2, /XiaoxuDialogPrimaryButton\(onClick = onManage\)[\s\S]*?Text\("来源与日期"/,
+  '本机任务编辑入口优先于长详情');
+assert.match(taskDetailV2, /XiaoxuDialogPrimaryButton\(onClick = onVerifyChaoxing\)/);
+assert.equal((taskDetailV2.match(/Text\("打开学习通核对"\)/g) || []).length, 1, '同一个核对入口不重复渲染');
+assert.match(taskDetailV2, /UiV2SettingsEntry\(title = "从本机任务列表移出", onClick = onArchive\)/);
+assert.match(taskDetailV2, /Text\("删除本机任务", color = XiaoxuPalette\.Danger\)/);
+const taskRowV2 = workspace.slice(workspace.indexOf('private fun TaskRow('), workspace.indexOf('private fun SnapshotRow('));
+assert.match(taskRowV2, /IconButton\(onClick = onQuickDate, enabled = actionEnabled,\s*modifier = Modifier\.size\(48\.dp\)/);
