@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SecondClassAutoRefresh
+import io.github.x07xh.xiaoxu.data.SecondClassNativeQaSession
 
 @Composable
 fun SecondClassAutoReadControls(snapshotAt: Long? = null) {
@@ -42,6 +43,19 @@ fun SecondClassAutoReadControls(snapshotAt: Long? = null) {
         XiaoxuSettingsSwitch(checked = background, enabled = enabled, onCheckedChange = {
             SecondClassAutoRefresh.configure(c, enabled, it)
         })
+    }
+    if (SecondClassNativeQaSession.available(c)) {
+        val qaEnabled = remember(revision) { SecondClassNativeQaSession.enabled(c) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text("原生 HTTP 验证（仅测试版）", style = MaterialTheme.typography.bodyMedium)
+                Text("本人已在校序登录并获准使用学校接口后开启；失败不回退网页。",
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            XiaoxuSettingsSwitch(checked = qaEnabled, enabled = snapshotAt != null && SecondClassAutoRefresh.status(c) != "reading",
+                onCheckedChange = { SecondClassNativeQaSession.configure(c, it) })
+        }
     }
     val status = remember(revision) { SecondClassAutoRefresh.status(c) }
     val message = when (status) {

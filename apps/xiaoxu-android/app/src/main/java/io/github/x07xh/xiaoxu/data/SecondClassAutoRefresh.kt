@@ -49,6 +49,7 @@ object SecondClassAutoRefresh {
         releaseScope.launch { saving?.join(); manualUsers = (manualUsers - 1).coerceAtLeast(0) }
     }
     fun onManualSave(c: Context) {
+        SecondClassNativeQaSession.clear(c)
         prefs(c).edit().putString("status", "updated").apply()
         reconcile(c)
     }

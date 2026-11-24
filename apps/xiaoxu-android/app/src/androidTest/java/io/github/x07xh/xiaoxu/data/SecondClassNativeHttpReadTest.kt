@@ -93,6 +93,27 @@ class SecondClassNativeHttpReadTest {
         assertTrue(parseLocalSecondClassCatalogActivities(result, 1).isEmpty())
     }
 
+    @Test fun nativeSessionAdapterIsUnavailableInOfflineRuntimeAndNormalPackages() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertFalse(SecondClassNativeQaSession.available(context))
+        SecondClassNativeQaSession.configure(context, true)
+        assertFalse(SecondClassNativeQaSession.enabled(context))
+        assertNull(SecondClassNativeQaSession.acquire(context, hash))
+    }
+
+    @Test fun nativeSessionOnlyAcceptsUnambiguousScopedCookie() {
+        val synthetic = "sid=00000000-0000-4000-8000-000000000000"
+        assertEquals(synthetic, selectSecondClassSessionCookie("unrelated=fixture; " + synthetic))
+        assertNull(selectSecondClassSessionCookie(synthetic + "; " + synthetic))
+        assertNull(selectSecondClassSessionCookie("sid=invalid"))
+        assertNull(selectSecondClassSessionCookie(null))
+        assertTrue(isScopedSecondClassSessionUpdate(synthetic + "; Path=/; Secure; HttpOnly"))
+        assertTrue(isScopedSecondClassSessionUpdate(synthetic + "; Domain=dekt.ncwu.edu.cn"))
+        assertFalse(isScopedSecondClassSessionUpdate(synthetic + "; Domain=.ncwu.edu.cn"))
+        assertFalse(isScopedSecondClassSessionUpdate("unrelated=fixture"))
+        assertFalse(isScopedSecondClassSessionUpdate(synthetic + "; Domain=example.invalid"))
+    }
+
     @Test fun onlyKnownSchoolLoginRedirectMeansReconnect() {
         assertTrue(isSecondClassLoginRedirect(302, "/login"))
         assertTrue(isSecondClassLoginRedirect(302, "https://dekt.ncwu.edu.cn/login"))

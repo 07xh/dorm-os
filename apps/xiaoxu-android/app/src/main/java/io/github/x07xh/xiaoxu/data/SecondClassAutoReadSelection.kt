@@ -7,11 +7,11 @@ import org.json.JSONObject
 internal data class SecondClassReadResult(val payload: JSONObject, val transport: String)
 
 /** There is no verified school-issued native session in the production app yet.
- * Do not copy credentials from the browser, infer permission from a cached hash,
- * or replace the existing official authorization route. */
+ * Only the isolated owner-authorized QA build may attempt the same-app
+ * session adapter; normal builds keep the official authorization route. */
 internal suspend fun readSecondClassFromAuthorizedSession(
     context: Context, salt: String, expected: String,
-    acquire: suspend (Context, String) -> SecondClassAuthorizedHttpSession? = { _, _ -> null }
+    acquire: suspend (Context, String) -> SecondClassAuthorizedHttpSession? = { c, account -> SecondClassNativeQaSession.acquire(c, account) }
 ): JSONObject? {
     val session = acquire(context.applicationContext, expected) ?: return null
     return withTimeout(90_000) {
