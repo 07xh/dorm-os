@@ -102,8 +102,8 @@ internal fun Modifier.uiV2SelectionThumb(
     onDragSelected: ((Int) -> Unit)? = null
 ): Modifier {
     val thumb = remember(count) { Animatable(index.coerceAtLeast(0).toFloat()) }
-    val drag = remember(index, count) { mutableFloatStateOf(Float.NaN) }
-    val settle = remember(index, count) { mutableIntStateOf(0) }
+    val drag = remember(count) { mutableFloatStateOf(Float.NaN) }
+    val settle = remember(count) { mutableIntStateOf(0) }
     val callback = rememberUpdatedState(onDragSelected)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     LaunchedEffect(index, count, settle.intValue) {
