@@ -2705,3 +2705,9 @@ assert.match(v2Shell, /val closeDrawer: \(\) -> Unit = remember\(scope, drawerSt
 const pressMotionV2Source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Motion.kt');
 assert.match(pressMotionV2Source, /if \(!enabled \|\| mode == UiV2MotionMode\.Reduced\) return this\s*val pressed by source\.collectIsPressedAsState\(\)/,
   'disabled or reduced-motion controls skip press animation collection');
+
+assert.match(glassChrome, /vibrancy\(\)\s*\/\/ The original refraction floor is zero[\s\S]*?if \(press > 0f && Build\.VERSION\.SDK_INT >= 33 && size\.minDimension > 0f\) \{\s*val speedDp = velocityPx\(\) \/ density/,
+  '静止状态保留玻璃材质但跳过零幅度折射计算');
+assert.match(primaryNavigation, /val latestOnSelect = rememberUpdatedState\(onSelect\)/);
+assert.match(primaryNavigation, /val selectIndex: \(Int\) -> Unit = remember \{[\s\S]*?PrimaryTabs\.getOrNull\(index\)\?\.let \{ latestOnSelect\.value\(it\) \}/);
+assert.match(primaryNavigation, /onSelect = selectIndex/);
