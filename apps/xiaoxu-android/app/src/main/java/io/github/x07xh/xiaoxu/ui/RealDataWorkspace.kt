@@ -516,7 +516,7 @@ internal fun waitingWorkspaceTasks(
  * 手机、平板共享单一滚动状态，不创建独立的海报或模拟页面。
  */
 @Composable
-fun RealAcademicHome(
+internal fun RealAcademicHome(
     localTasks: List<LocalTask>,
     client: CloudClient,
     localLessons: List<VerifiedLesson> = emptyList(),
@@ -532,7 +532,8 @@ fun RealAcademicHome(
     openSecondClass: () -> Unit,
     openArticle: (String) -> Unit,
     homeDependencies: List<LocalTaskDependency>,
-    nativeRows: List<NativeSchoolRecord>
+    nativeRows: List<NativeSchoolRecord>,
+    allRecords: List<WorkspaceTask>
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -542,9 +543,8 @@ fun RealAcademicHome(
     val localHomework = remember(nativeRows) {
         nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
-    val all = remember(localTasks, state.tasks, nativeRows, archivedKeys) {
-        visibleWorkspaceTasks(combineWorkspaceTasks(localTasks,
-            state.tasks, nativeRows), archivedKeys)
+    val all = remember(allRecords, archivedKeys) {
+        visibleWorkspaceTasks(allRecords, archivedKeys)
     }
 
     // Both Home and Schedule use the SAME locally imported timetable. Never fall
@@ -1111,7 +1111,7 @@ private fun HomeTaskRow(task: WorkspaceTask, today: LocalDate, onOpen: () -> Uni
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RealAcademicTaskHub(
+internal fun RealAcademicTaskHub(
     localTasks: List<LocalTask>, dao: LocalTaskDao, client: CloudClient,
     openWebsite: () -> Unit,
     openLocalSchool: (String) -> Unit = {},
@@ -1121,7 +1121,8 @@ fun RealAcademicTaskHub(
     onReminderConsumed: () -> Unit = {},
     onNavigation: (() -> Unit)? = null,
     dependencies: List<LocalTaskDependency>,
-    schoolRows: List<NativeSchoolRecord>
+    schoolRows: List<NativeSchoolRecord>,
+    allRecords: List<WorkspaceTask>
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -1150,9 +1151,6 @@ fun RealAcademicTaskHub(
     val capturedExamNotices = remember(schoolRows) {
         schoolRows.filter { it.provider == "chaoxing" && it.kind == "exam_notice" &&
             nativeChaoxingExamNoticeSourceId(it) != null }
-    }
-    val allRecords = remember(localTasks, state.tasks, schoolRows) {
-        combineWorkspaceTasks(localTasks, state.tasks, schoolRows)
     }
     val all = remember(allRecords, archivedKeys) {
         visibleWorkspaceTasks(allRecords, archivedKeys)
