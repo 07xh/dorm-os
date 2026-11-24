@@ -212,10 +212,6 @@ fun pendingWechatShortLabel(count: Int?, authenticated: Boolean, wechatError: St
 
 private val CardShape = RoundedCornerShape(XiaoxuRadius.list)
 
-private val ExamTile = XiaoxuPalette.WarningSoft
-private val ExamInk = XiaoxuPalette.Warning
-private val NoticeTile = XiaoxuPalette.BrandSoft
-private val NoticeInk = XiaoxuPalette.Brand
 
 // ---------------------------------------------------------------------------
 // 入口：MainActivity 消息页直接调用
