@@ -43,8 +43,8 @@ internal fun UiV2HomeSurface(
 
 @Composable
 internal fun UiV2HomeSection(
-    title: String, caption: String?, actionLabel: String?,
-    onAction: (() -> Unit)?, content: @Composable () -> Unit
+    title: String, caption: String? = null, actionLabel: String? = null,
+    onAction: (() -> Unit)? = null, content: @Composable () -> Unit
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(UiV2Theme.GroupGap)) {
         SectionHeader(title = title, caption = caption,
