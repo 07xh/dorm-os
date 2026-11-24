@@ -90,12 +90,12 @@ internal fun UiV2SettingsHeader(
 }
 
 @Composable
-internal fun UiV2SettingsGroup(title: String, content: @Composable () -> Unit) {
+internal fun UiV2SettingsGroup(title: String? = null, content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
+        if (!title.isNullOrBlank()) Text(
             title,
             modifier = Modifier.padding(start = UiV2SettingsMetrics.Inset).semantics { heading() },
             style = MaterialTheme.typography.labelLarge,
@@ -162,7 +162,7 @@ private fun UiV2SettingsRow(
 
 @Composable
 internal fun UiV2SettingsEntry(
-    title: String, icon: ImageVector, subtitle: String? = null, statusLabel: String? = null,
+    title: String, icon: ImageVector? = null, subtitle: String? = null, statusLabel: String? = null,
     onClick: () -> Unit,
     iconContainer: Color = XiaoxuPalette.BrandSoft,
     iconTint: Color = XiaoxuPalette.BrandDeep,

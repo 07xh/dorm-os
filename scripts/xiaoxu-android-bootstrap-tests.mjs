@@ -1144,9 +1144,9 @@ assert.match(v2SettingsIndex, /UiV2Setting\("backup", "备份与恢复", "账户
 const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
 assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
   '关于校序应使用单独的品牌信息页面');
-assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\)/,
+assert.match(aboutPage, /UiV2SettingsEntry\("开源许可", onClick = onOpenLicenses\)/,
   '开源许可从关于页进入，不在设置首页重复');
-assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
+assert.match(aboutPage, /UiV2SettingsGroup\(title = "项目致谢"\)/,
   '关于页保留开源署名入口');
 assert.match(v2SettingsIndex, /"账户与数据"/,
   '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
@@ -2507,3 +2507,7 @@ assert.match(dockDragMotion, /SupervisorJob\(animationScope\.coroutineContext\[J
 assert.match(floatingBar, /DisposableEffect\(drag\) \{ onDispose \{ drag\.dispose\(\) \} \}/);
 assert.match(floatingBar, /drag\.normalizedVelocity \/ 6f/);
 assert.match(floatingBar, /velocityPx = \{ drag\.velocity \* cellWidthPx \}/);
+
+assert.doesNotMatch(aboutPage, /fun AboutInfoRow\(|fun AboutLine\(|height\(254\.dp\)/);
+assert.match(aboutPage, /UiV2SettingsEntry\("版本信息", statusLabel = version, onClick = onVersionClick\)/);
+assert.match(aboutPage, /"DSH Go", "V2 布局与交互设计参考"/);
