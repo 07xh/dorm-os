@@ -52,6 +52,7 @@ import io.github.x07xh.xiaoxu.data.LocalTaskDatabase
 import io.github.x07xh.xiaoxu.ui.XiaoxuCard
 import io.github.x07xh.xiaoxu.ui.XiaoxuGlassDialog
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
+import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
 import io.github.x07xh.xiaoxu.ui.XiaoxuSpacing
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentOption
 import io.github.x07xh.xiaoxu.ui.XiaoxuSegmentedControl
@@ -178,7 +179,7 @@ fun SecondClassPage(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "points_header") {
             Row(
@@ -233,7 +234,7 @@ fun SecondClassPage(
                         }
                     }
                 }
-                IconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
+                XiaoxuSoftIconButton(onClick = ::refreshPersonalRecords, enabled = !refreshing) {
                     Icon(Icons.Outlined.Refresh,
                         contentDescription = "从学校重新读取第二课堂")
                 }
@@ -274,10 +275,10 @@ fun SecondClassPage(
                 onClick = if (selectedTerm != null) ({
                     detailKey = selectedTerm.kind + ":" + selectedTerm.fingerprint
                 }) else null,
-                contentPadding = 16.dp
+                contentPadding = 8.dp
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("积分明细", modifier = Modifier.weight(1f),
@@ -329,7 +330,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -371,7 +372,7 @@ fun SecondClassPage(
                     onClick = {
                         detailKey = record.kind + ":" + record.fingerprint
                     },
-                    contentPadding = 16.dp
+                    contentPadding = 12.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(record.title, modifier = Modifier.weight(1f),
@@ -387,19 +388,21 @@ fun SecondClassPage(
             }
         } else {
             item(key = "catalog_status") {
-                XiaoxuCard {
-                    Text(
-                        if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = XiaoxuPalette.Ink
-                    )
-                    if (catalogRecord != null) {
-                        Text("更新于 " + DateFormat.getDateTimeInstance()
-                            .format(Date(catalogRecord.capturedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XiaoxuPalette.Ink2)
+                XiaoxuCard(contentPadding = 12.dp) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = XiaoxuPalette.Ink)
+                            if (catalogRecord != null) {
+                                Text("更新于 " + DateFormat.getDateTimeInstance()
+                                    .format(Date(catalogRecord.capturedAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = XiaoxuPalette.Ink2)
+                            }
+                        }
+                        TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                     }
-                    TextButton(onClick = ::openOfficialSite) { Text("学校官网") }
                 }
             }
         }

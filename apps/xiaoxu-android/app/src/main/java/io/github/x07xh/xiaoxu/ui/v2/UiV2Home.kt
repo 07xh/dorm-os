@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -29,13 +26,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.ui.SectionHeader
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
-import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
 
 /** Shared static surfaces; only the navigation chrome samples the live backdrop. */
 @Composable
@@ -60,27 +54,6 @@ internal fun UiV2HomeSection(
             actionLabel = actionLabel, onAction = onAction,
             modifier = Modifier.padding(horizontal = 4.dp))
         UiV2HomeSurface(content = content)
-    }
-}
-
-@Composable
-internal fun UiV2HomeGreeting(date: String, greeting: String, onMessages: () -> Unit, onProfile: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(date, style = MaterialTheme.typography.labelLarge, color = XiaoxuPalette.Ink2)
-            Text(greeting, style = MaterialTheme.typography.headlineSmall,
-                color = XiaoxuPalette.Ink, modifier = Modifier.semantics { heading() })
-        }
-        XiaoxuSoftIconButton(onClick = onMessages) {
-            Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
-        }
-        XiaoxuSoftIconButton(onClick = onProfile) {
-            Icon(Icons.Outlined.PersonOutline, contentDescription = "设置")
-        }
     }
 }
 

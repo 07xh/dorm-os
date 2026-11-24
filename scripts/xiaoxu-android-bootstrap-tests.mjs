@@ -505,7 +505,7 @@ assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 3,
  '任务中心只保留搜索、新建和更多三个统一工具按钮');
 assert.match(workspace, /label = "更多任务操作"/,
  '低频操作必须收进可发现的更多菜单');
-assert.match(workspace, /expanded = taskMenuOpen/,
+assert.match(workspace, /if \(taskMenuOpen\) \{[\s\S]*?XiaoxuBottomActionSheet\(/,
  '更多菜单必须有明确展开与关闭状态');
 assert.match(workspace, /本周暂无可做的本机任务/,
  '本周无数据必须明确说明，而非误报任务消失');
@@ -615,7 +615,8 @@ assert.match(localTimetableEntry, /onMessages = onMessages/, '课表消息入口
 assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
 assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
   '课表不依赖云端、没有旧版重复登录/同步动作');
-assert.match(schedulePanel, /Text\("打开课表设置"\)/);
+assert.match(schedulePanel, /Button\(onClick = onImport,[\s\S]*?Text\("导入课表"\)/);
+assert.match(schedulePanel, /onImport = openFileImport/);
 assert.doesNotMatch(schedulePanel, /label = "重新导入课表"/);
 assert.match(schedulePanel, /label = "新增课程"/);
 assert.match(schedulePanel, /label = "课表设置"/);
@@ -1292,7 +1293,7 @@ assert.match(workspace, /学习通 · 本机读取/);
 // Only source-ID-verified official records may affect task completion.
 assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
 assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
-assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
+assert.match(workspace, /Text\(if \(capturedHomework\.isEmpty\(\)\) "读取学习通"/);
 
 // Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
 assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
@@ -1767,17 +1768,10 @@ assert.match(appGradle, /xiaoxuRuntimeTest/,
 
 assert.match(primaryNavigation, /NavigationRailItemDefaults\.colors/,
   '侧栏选中态须统一配色，不在 MainActivity 重复维护');
-assert.match(workspace, /private fun HomeGreeting\(/, '首页须有日期与问候区');
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\) \{[\s\S]*?XiaoxuTopBar\(\s*title = "今日",\s*subtitle = null/,
+assert.doesNotMatch(workspace, /private fun HomeGreeting\(/, '删除与固定页头重复的问候组件');
+assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\) \{[\s\S]*?XiaoxuTopBar\(\s*title = "今日",\s*subtitle = java\.time\.LocalDate\.now/,
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
-const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
-    workspace.indexOf('private fun HomeSection(', workspace.indexOf('private fun HomeGreeting(')));
-assert.match(compactGreeting, /UiV2HomeGreeting\(/, '日期与问候使用 V2 展示组件');
-assert.match(v2Home, /style = MaterialTheme\.typography\.headlineSmall/, '首页页头压缩，课程和待办优先');
-assert.match(v2Home, /XiaoxuSoftIconButton\(onClick = onMessages\)/);
-assert.match(v2Home, /XiaoxuSoftIconButton\(onClick = onProfile\)/);
-assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
-  '首页问候不得在全局标题下重复显示一个大标题');
+assert.doesNotMatch(v2Home, /fun UiV2HomeGreeting\(/, '首页仅保留固定页头');
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
 assert.match(homeQuickEntry, /background\(XiaoxuPalette\.GlassCard\)/,
   '首页学业入口和全 App 普通卡片使用同一轻玻璃材质');

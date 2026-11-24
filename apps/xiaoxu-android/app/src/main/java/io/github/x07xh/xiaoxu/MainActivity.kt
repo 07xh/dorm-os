@@ -650,7 +650,8 @@ private fun NativeShell(
             MainDestination.HOME -> Column(Modifier.fillMaxSize()) {
                 XiaoxuTopBar(
                     title = "今日",
-                    subtitle = null,
+                    subtitle = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+                        .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 · EEEE", java.util.Locale.CHINA)),
                     refreshing = cloud.state.busy,
                     onRefresh = { scope.launch { cloud.refresh() } },
                     onMessages = { messagesOpen = true },

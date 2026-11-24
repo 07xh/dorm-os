@@ -1,7 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.widget.Toast
-import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeGreeting
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SelectionThumb
@@ -137,7 +136,6 @@ import io.github.x07xh.xiaoxu.data.NativeSchoolRecord
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.text.DateFormat
@@ -639,7 +637,6 @@ fun RealAcademicHome(
                 vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item(key = "greeting") { HomeGreeting(today, weekdayLabel, openMessages, openProfile) }
             if (homeDetailWidth != null) {
                 item(key = "dashboard-primary") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -702,25 +699,6 @@ private fun homeLessonKey(lesson: VerifiedLesson): String =
 
 /** 按原始顺序截取首页最多四条真实课程记录。 */
 internal fun <T> homeCoursePreview(records: List<T>): List<T> = records.take(4)
-
-/** 日期与问候：只报今天，不写"第几教学周"（没有开学日期就无法得出）。 */
-@Composable
-private fun HomeGreeting(today: LocalDate, weekdayLabel: String, onMessages: () -> Unit, onProfile: () -> Unit) {
-    val hour = remember { LocalTime.now(SchoolZone).hour }
-    val greeting = when (hour) {
-        in 5..10 -> "早上好"
-        in 11..12 -> "中午好"
-        in 13..17 -> "下午好"
-        in 18..22 -> "晚上好"
-        else -> "夜深了"
-    }
-    UiV2HomeGreeting(
-        date = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-        greeting = greeting,
-        onMessages = onMessages,
-        onProfile = onProfile
-    )
-}
 
 /** 编辑式分区：细分隔线、标题、内容同层布局，减少连续卡片带来的视觉噪音。 */
 @Composable
@@ -1483,55 +1461,7 @@ fun RealAcademicTaskHub(
                         label = "更多任务操作",
                         onClick = { taskMenuOpen = true }
                     )
-                    DropdownMenu(
-                        expanded = taskMenuOpen,
-                        onDismissRequest = { taskMenuOpen = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("消息中心") },
-                            onClick = { taskMenuOpen = false; onMessages() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("刷新云端任务") },
-                            enabled = state.authenticated && !state.busy,
-                            onClick = {
-                                taskMenuOpen = false
-                                taskScope.launch { client.refreshPrivate() }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("管理本机任务") },
-                            onClick = { taskMenuOpen = false; filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("新增云端任务") },
-                            onClick = { taskMenuOpen = false; showCloudEditor = true }
-                        )
-                        DropdownMenuItem(text = { Text("备份与恢复") }, onClick = { taskMenuOpen = false; showTaskBackup = true })
-                        DropdownMenuItem(
-                            text = { Text("本机任务关系图") },
-                            onClick = { taskMenuOpen = false; showDependencyGraph = true }
-                        )
-                        val submitted = all.filter {
-                            it.storage == "cloud" && it.provider == "chaoxing" &&
-                                it.officialStatus in setOf("submitted", "graded")
-                        }
-                        DropdownMenuItem(
-                            text = { Text("清理已提交 (${submitted.size})") },
-                            enabled = submitted.isNotEmpty(),
-                            onClick = {
-                                taskMenuOpen = false
-                                archiveStore.archiveAll(submitted.map { it.key })
-                                Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条",
-                                    Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("恢复已清理 (${archivedRows.size})") },
-                            enabled = archivedRows.isNotEmpty(),
-                            onClick = { taskMenuOpen = false; showArchiveSheet = true }
-                        )
-                    }
+
                 }
             }
         }
@@ -2082,23 +2012,16 @@ fun RealAcademicTaskHub(
                 title = "学习通 · 本机读取",
                 count = capturedHomework.size,
                 badge = "本机读取记录",
-                note = "通知、学习计划和课程作业共用本机读取结果，已完成 $visibleCompleted 条。"
+                note = if (capturedHomework.isEmpty()) "" else "已完成 $visibleCompleted 条"
             )
             OutlinedButton(
                 onClick = { openLocalSchool("chaoxing") },
                 modifier = Modifier.heightIn(min = 48.dp).padding(top = 4.dp)
             ) {
-                Text(if (capturedHomework.isEmpty()) "在 App 内读取学习通作业"
-                     else "更新本机学习通作业")
+                Text(if (capturedHomework.isEmpty()) "读取学习通" else "更新学习通")
             }
         }
-        if (capturedHomework.isEmpty()) {
-            item {
-                Text("暂无本机作业记录；可到「我的」使用 App 内学习通读取。",
-                    modifier = Modifier.padding(top = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
+        if (capturedHomework.isNotEmpty()) {
             // Bounded Room pagination allows 500 stored records; LazyColumn
             // must not silently hide pages after the first 120.
             items(count = minOf(capturedHomework.size, 5000),
@@ -2138,7 +2061,7 @@ fun RealAcademicTaskHub(
                     contentPadding = 8.dp) { SnapshotRow(capturedExamNotices[index]) }
             }
         }
-        item {
+        if (schoolRows.any { it.kind == "course" }) item {
             TaskSectionHeader(
                 title = "本机其他已读取记录",
                 count = 0,
@@ -2147,14 +2070,14 @@ fun RealAcademicTaskHub(
                 showCount = false
             )
         }
-        item {
+        if (schoolRows.any { it.kind == "course" }) item {
             Box(Modifier.padding(top = 12.dp)) {
                 LocalSchoolRecordSection(setOf("course"))
             }
         }
 
-         item {
-            Text("学习通官方状态只在已核验读取后显示，个人已完成不代表学校已提交。",
+         if (capturedHomework.isNotEmpty() || capturedStudyTasks.isNotEmpty()) item {
+            Text("个人完成不代表学校已提交。",
                 modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2162,6 +2085,39 @@ fun RealAcademicTaskHub(
         }
     }
 
+    if (taskMenuOpen) {
+        val submitted = all.filter {
+            it.storage == "cloud" && it.provider == "chaoxing" &&
+                it.officialStatus in setOf("submitted", "graded")
+        }
+        XiaoxuBottomActionSheet(
+            title = "任务操作",
+            onDismiss = { taskMenuOpen = false },
+            actions = buildList {
+                if (state.authenticated && !state.busy) add(XiaoxuSheetAction("刷新云端任务", {
+                    taskMenuOpen = false
+                    taskScope.launch { client.refreshPrivate() }
+                }))
+                add(XiaoxuSheetAction("管理本机任务", {
+                    taskMenuOpen = false
+                    filter = "all"; sourceFilter = "local"; onlyThisWeek = false; searchQuery = ""; showPersonalTasks = true
+                }))
+                add(XiaoxuSheetAction("新增云端任务", { taskMenuOpen = false; showCloudEditor = true }))
+                add(XiaoxuSheetAction("任务关系图", { taskMenuOpen = false; showDependencyGraph = true }))
+                add(XiaoxuSheetAction("备份与恢复", { taskMenuOpen = false; showTaskBackup = true }))
+                if (submitted.isNotEmpty()) add(XiaoxuSheetAction("清理已提交 (${submitted.size})", {
+                    taskMenuOpen = false
+                    archiveStore.archiveAll(submitted.map { it.key })
+                    Toast.makeText(context, "已从本机列表移出 ${submitted.size} 条", Toast.LENGTH_SHORT).show()
+                }))
+                if (archivedRows.isNotEmpty()) add(XiaoxuSheetAction("恢复已清理 (${archivedRows.size})", {
+                    taskMenuOpen = false; showArchiveSheet = true
+                }))
+                add(XiaoxuSheetAction("消息中心", { taskMenuOpen = false; onMessages() }))
+            },
+            showCancel = false
+        )
+    }
     if (showDependencyGraph) {
         LocalTaskDependencyGraphDialog(
             tasks = localTasks,

@@ -1,6 +1,7 @@
 package io.github.x07xh.xiaoxu.ui
 
 import io.github.x07xh.xiaoxu.ui.v2.uiV2DetailWidth
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -281,7 +282,7 @@ private fun SchedulePageHeading(
 
 @Composable
 private fun LocalTimetableEmptyState(
-    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit
+    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit, onImport: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
@@ -290,24 +291,19 @@ private fun LocalTimetableEmptyState(
     ) {
         SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看",
             onSettings = onSettings, onAdd = onAdd)
-        XiaoxuCard(modifier = Modifier.fillMaxWidth(), contentPadding = 22.dp) {
-            Icon(Icons.Outlined.DateRange, contentDescription = null,
-                modifier = Modifier.size(36.dp), tint = XiaoxuPalette.Brand)
-            Spacer(Modifier.height(12.dp))
-            Text("还没有导入课表", style = MaterialTheme.typography.titleLarge,
+        UiV2HomeSurface {
+            Text("暂无课表", style = MaterialTheme.typography.titleMedium,
                 color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Text("选择手机中的课表文件，预览课程、教室、节次及周次后保存。",
-                style = MaterialTheme.typography.bodyMedium, color = XiaoxuPalette.Ink2)
+            Text("支持 .ics 和 .json 文件", style = MaterialTheme.typography.bodySmall,
+                color = XiaoxuPalette.Ink2)
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("导入课表")
+            }
+            TextButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("手动添加课程")
+            }
         }
-        Button(onClick = onSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text("打开课表设置")
-        }
-        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("手动添加第一门课程")
-        }
-        Text("支持 .ics 和标准 .json；文件只在当前设备解析和存储。成绩仍在教务页独立连接。",
-            style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
     }
 }
 
@@ -424,7 +420,8 @@ private fun ScheduleVerifiedContent(
                 editingError = null
                 showingCourseEditor = true
             },
-            onMessages = onMessages
+            onMessages = onMessages,
+            onImport = openFileImport
         )
     } else {
     Column(
