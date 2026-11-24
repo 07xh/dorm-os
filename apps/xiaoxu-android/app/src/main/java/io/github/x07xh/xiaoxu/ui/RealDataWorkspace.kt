@@ -78,7 +78,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -531,17 +530,15 @@ fun RealAcademicHome(
     openGrades: () -> Unit,
     openExams: () -> Unit,
     openSecondClass: () -> Unit,
-    openArticle: (String) -> Unit
+    openArticle: (String) -> Unit,
+    homeDependencies: List<LocalTaskDependency>,
+    nativeRows: List<NativeSchoolRecord>
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
     val context = LocalContext.current
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
-    val localDependencyDao = remember(context) { LocalTaskDatabase.open(context).tasks() }
-    val homeDependencies by localDependencyDao.observeDependencies().collectAsState(initial = emptyList())
-    val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
     val localHomework = remember(nativeRows) {
         nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
@@ -1122,16 +1119,15 @@ fun RealAcademicTaskHub(
     reminderTaskId: Long? = null,
     reminderTaskToken: Int = 0,
     onReminderConsumed: () -> Unit = {},
-    onNavigation: (() -> Unit)? = null
+    onNavigation: (() -> Unit)? = null,
+    dependencies: List<LocalTaskDependency>,
+    schoolRows: List<NativeSchoolRecord>
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
     val context = LocalContext.current
     val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
     val archivedKeys = archiveStore.archivedKeys
-    val dependencies by dao.observeDependencies().collectAsState(initial = emptyList())
-    val schoolDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val schoolRows by schoolDao.observe().collectAsState(initial = emptyList())
     val executionDao = remember(context) { LocalTaskDatabase.open(context).executions() }
     val taskSteps by rememberLocalRows(executionDao) { executionDao.observeSteps() }
     val stepEdges by rememberLocalRows(executionDao) { executionDao.observeEdges() }
