@@ -282,7 +282,7 @@ assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
 assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/, '首页只匹配本机导入课表星期');
+assert.match(workspace, /val sameWeekday = remember\(projectionCache, localLessons, today\) \{[\s\S]*?projectionCache\.courses\(localLessons, today\.dayOfWeek\.value\)/, '首页只匹配本机导入课表星期');
 assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
   /本机导入 · 待本人核对/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
@@ -1295,7 +1295,7 @@ assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevatio
   '删除本机连接中的旧 Material 灰色卡片阴影');
 assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
 assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(projectionCache, localLessons, today\) \{[\s\S]*?projectionCache\.courses\(localLessons, today\.dayOfWeek\.value\)/,
   '主页必须只展示已导入的本机课表，不可回退云端');
 assert.match(main, /val workspaceSchoolRows = rememberLocalRows\(workspaceNativeDao\) \{ workspaceNativeDao\.observe\(\) \}/);
 assert.match(main, /val workspaceDependencies = rememberLocalRows\(dao\) \{ dao\.observeDependencies\(\) \}/);
@@ -1899,7 +1899,7 @@ assert.match(workspace, /UiV2HomeQuickAction\("成绩"/, '首页学业入口须�
 assert.match(workspace, /UiV2HomeQuickAction\("考试"/);
 assert.match(workspace, /UiV2HomeQuickAction\("第二课堂"/);
 assert.match(workspace, /UiV2HomeQuickAction\("学习通"/);
-assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
+assert.match(workspace, /val sameWeekday = remember\(projectionCache, localLessons, today\) \{[\s\S]*?projectionCache\.courses\(localLessons, today\.dayOfWeek\.value\)/,
   '首页只能依据本机导入课表进行星期匹配');
 assert.match(workspace, /title = "课程记录"/, '未知教学周只能称课程记录而非今日真实课表');
 assert.match(workspace, /XiaoxuTone\.Neutral/, '无课表时须展示明确空态');
@@ -2759,3 +2759,7 @@ assert.match(profileSettings, /val groups = settingsHomeGroups/);
 assert.match(workspace, /val progressByRoot = remember\(taskSteps\) \{[\s\S]*?executionProgressIndex\(taskSteps\)/);
 assert.match(workspace, /resolveExecution\(row\)\?\.let \{ progressByRoot\[it\] \}/);
 assert.match(workspace, /val authenticatedOwnerId = state\.ownerId\.takeIf \{ state\.authenticated \}/);
+
+assert.match(workspace, /val result = localLessons\.filter \{ it\.weekday == weekday \}\.sortedBy \{ it\.startSection \}/);
+assert.match(main, /val homeProjectionCache = remember \{ HomeProjectionCache\(\) \}/);
+assert.match(main, /projectionCache = homeProjectionCache/);

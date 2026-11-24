@@ -530,6 +530,55 @@ internal fun waitingWorkspaceTasks(
         .toList()
 }
 
+internal data class HomeTaskProjection(
+    val all: List<WorkspaceTask>,
+    val pending: Int,
+    val attention: Int,
+    val deadlineHistogram: List<Int>,
+    val upcoming: List<WorkspaceTask>
+)
+
+/** A shell-owned, single-entry cache per projection. Never persisted to disk. */
+internal class HomeProjectionCache {
+    private data class TaskInput(
+        val records: List<WorkspaceTask>, val archivedKeys: Set<String>,
+        val local: List<LocalTask>, val dependencies: List<LocalTaskDependency>,
+        val today: LocalDate
+    )
+    private data class CourseInput(val lessons: List<VerifiedLesson>, val weekday: Int)
+    private var taskInput: TaskInput? = null
+    private var taskOutput: HomeTaskProjection? = null
+    private var courseInput: CourseInput? = null
+    private var courseOutput: List<VerifiedLesson> = emptyList()
+
+    fun tasks(records: List<WorkspaceTask>, archivedKeys: Set<String>,
+        local: List<LocalTask>, dependencies: List<LocalTaskDependency>,
+        today: LocalDate): HomeTaskProjection {
+        val input = TaskInput(records, archivedKeys, local, dependencies, today)
+        if (input == taskInput) taskOutput?.let { return it }
+        val all = visibleWorkspaceTasks(records, archivedKeys)
+        val result = HomeTaskProjection(
+            all = all,
+            pending = all.count(::isActionableWorkspaceTask),
+            attention = countUpcomingLocalDeadlines(all, today),
+            deadlineHistogram = personalDeadlineHistogram(all, today),
+            upcoming = readyWorkspaceTasks(all, local, dependencies).take(3)
+        )
+        taskInput = input
+        taskOutput = result
+        return result
+    }
+
+    fun courses(localLessons: List<VerifiedLesson>, weekday: Int): List<VerifiedLesson> {
+        val input = CourseInput(localLessons, weekday)
+        if (input == courseInput) return courseOutput
+        val result = localLessons.filter { it.weekday == weekday }.sortedBy { it.startSection }
+        courseInput = input
+        courseOutput = result
+        return result
+    }
+}
+
 /**
  * 首页 V2：本机课程、真实任务、公告和学业入口组成唯一学习工作台。
  * 不推断当前教学周、上课时间或学校提交状态；云端任务保留快照标识。
@@ -553,7 +602,8 @@ internal fun RealAcademicHome(
     openArticle: (String) -> Unit,
     homeDependencies: List<LocalTaskDependency>,
     nativeRows: List<NativeSchoolRecord>,
-    allRecords: List<WorkspaceTask>
+    allRecords: List<WorkspaceTask>,
+    projectionCache: HomeProjectionCache
 ) {
     val state = client.state
     val today = LocalDate.now(SchoolZone)
@@ -563,24 +613,24 @@ internal fun RealAcademicHome(
     val localHomework = remember(nativeRows) {
         nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
     }
-    val all = remember(allRecords, archivedKeys) {
-        visibleWorkspaceTasks(allRecords, archivedKeys)
+    val projection = remember(projectionCache, allRecords, archivedKeys, localTasks, homeDependencies, today) {
+        traceWorkspace("Xiaoxu.home.tasks") {
+            projectionCache.tasks(allRecords, archivedKeys, localTasks, homeDependencies, today)
+        }
     }
-
+    val all = projection.all
     // Both Home and Schedule use the SAME locally imported timetable. Never fall
     // back to cloud course snapshots; the timetable is available while offline.
-    val sameWeekday = remember(localLessons, today) {
-        localLessons.filter { it.weekday == today.dayOfWeek.value }.sortedBy { it.startSection }
+    val sameWeekday = remember(projectionCache, localLessons, today) {
+        traceWorkspace("Xiaoxu.home.courses") {
+            projectionCache.courses(localLessons, today.dayOfWeek.value)
+        }
     }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = remember(all) { all.count(::isActionableWorkspaceTask) }
-    // Only personally entered, future dates can be counted as upcoming.
-    // Unverified cloud dates and overdue dates must not inflate "近期截止".
-    val attention = remember(all, today) { countUpcomingLocalDeadlines(all, today) }
-    val deadlineHistogram = remember(all, today) { personalDeadlineHistogram(all, today) }
-    val upcoming = remember(all, localTasks, homeDependencies) {
-        readyWorkspaceTasks(all, localTasks, homeDependencies).take(3)
-    }
+    val pending = projection.pending
+    val attention = projection.attention
+    val deadlineHistogram = projection.deadlineHistogram
+    val upcoming = projection.upcoming
     val cloudSnapshotRows = state.tasks.size
     // 正常时不把来源解释反复铺在首页；云端快照不新鲜时必须保留提醒。
     // One provenance hint in the task section; do not repeat the same technical
@@ -678,7 +728,9 @@ internal fun RealAcademicHome(
             }
         }
     }
-    val selectedLesson = localLessons.firstOrNull { homeLessonKey(it) == openedLessonKey }
+    val selectedLesson = openedLessonKey?.let { key ->
+        localLessons.firstOrNull { homeLessonKey(it) == key }
+    }
     if (selectedLesson != null) {
         HomeCourseDetailSheet(selectedLesson, onDismiss = { openedLessonKey = null })
     }

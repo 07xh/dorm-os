@@ -93,6 +93,7 @@ import io.github.x07xh.xiaoxu.ui.localImportedScheduleView
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
+import io.github.x07xh.xiaoxu.ui.HomeProjectionCache
 import io.github.x07xh.xiaoxu.ui.combineWorkspaceTasks
 import io.github.x07xh.xiaoxu.ui.traceWorkspace
 import io.github.x07xh.xiaoxu.ui.RealAcademicTaskHub
@@ -527,6 +528,7 @@ private fun NativeShell(
         !(current == MainDestination.PROFILE && profileSettingsRoute != "home")
     val pageStateHolder = rememberSaveableStateHolder()
     val preparedSchedule = remember(localLessons) { localImportedScheduleView(localLessons) }
+    val homeProjectionCache = remember { HomeProjectionCache() }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
@@ -722,7 +724,8 @@ private fun NativeShell(
                 openArticle = openArticle,
                 homeDependencies = workspaceDependencies.value,
                 nativeRows = workspaceSchoolRows.value,
-                allRecords = workspaceRecords.value)
+                allRecords = workspaceRecords.value,
+                projectionCache = homeProjectionCache)
                 }
             }
             MainDestination.SCHEDULE -> CloudTimetablePanel(
