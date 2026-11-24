@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.x07xh.xiaoxu.ui.XiaoxuNavigationAction
 import io.github.x07xh.xiaoxu.ui.XiaoxuPalette
 import io.github.x07xh.xiaoxu.ui.XiaoxuSettingsSwitch
 import io.github.x07xh.xiaoxu.ui.XiaoxuSoftIconButton
@@ -57,7 +58,8 @@ internal fun UiV2SettingsHeader(
     onRefresh: (() -> Unit)?,
     refreshing: Boolean,
     onMessages: (() -> Unit)?,
-    compact: Boolean = false
+    compact: Boolean = false,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         Modifier.xiaoxuPageWidth()
@@ -71,6 +73,7 @@ internal fun UiV2SettingsHeader(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         }
+        if (onBack == null) XiaoxuNavigationAction(onNavigation)
         Text(
             title,
             modifier = Modifier.weight(1f).semantics { heading() },
