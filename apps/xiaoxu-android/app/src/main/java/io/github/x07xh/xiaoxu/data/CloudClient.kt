@@ -544,7 +544,8 @@ class CloudClient(context: Context) {
         val provider = "chaoxing"
         if (!state.authenticated || !state.connectionsFresh || state.busy ||
             state.schoolSyncBusyProvider != null ||
-            state.platforms.none { it.id == provider && it.sessionState == "active" }) return false
+            state.platforms.none { it.id == provider && it.sessionState == "active" &&
+                it.authorization == "verified_session" }) return false
         val epoch = sessionEpoch
         val owner = state.ownerId ?: return false
         state = state.copy(schoolSyncBusyProvider = provider, schoolSyncResultProvider = provider,
@@ -748,7 +749,8 @@ class CloudClient(context: Context) {
             return
         }
         val platform = state.platforms.firstOrNull { it.id == provider }
-        if (platform?.sessionState != "active") {
+        if (platform?.sessionState != "active" ||
+            (provider == "chaoxing" && platform?.authorization != "verified_session")) {
             state = state.copy(schoolSyncResultProvider = provider,
                 schoolSyncMessage = if (platform?.sessionState == "review_pending")
                     "青果课表仍需要在学校连接中心确认预览；未标记已连接"
