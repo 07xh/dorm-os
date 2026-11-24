@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionProvider
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.UiV2SegmentedControl
 import io.github.x07xh.xiaoxu.ui.v2.uiV2Press
@@ -486,7 +487,7 @@ fun XiaoxuExpandableGlassRow(
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
-        animationSpec = tween(XiaoxuMotion.SelectionMs, easing = UiV2Motion.Easing),
+        animationSpec = UiV2Motion.spec(LocalUiV2Motion.current, XiaoxuMotion.SelectionMs),
         label = "glass-row-chevron"
     )
     XiaoxuCard(modifier = modifier, contentPadding = 0.dp) {

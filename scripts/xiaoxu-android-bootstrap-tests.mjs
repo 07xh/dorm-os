@@ -1732,6 +1732,12 @@ assert.match(floatingBar, /rememberCombinedBackdrop\(backdrop, tintLayer\)/,
   '透镜必须合并当前页面与原版前景采样');
 assert.match(floatingBar, /Modifier\.northGlassTrack\(/);
 assert.match(floatingBar, /Modifier\.northGlassIndicator\(/);
+const dockDragMotion = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/nav/DampedDragAnimation.kt');
+assert.match(floatingBar, /rememberNorthNavigationIconPlayback\(count, safeIndex, reducedMotion\)/);
+assert.match(floatingBar, /reducedMotion = reducedMotion/);
+assert.match(dockDragMotion, /if \(reducedMotion\) \{\s*directValue\.floatValue = targetValue\s*return/);
+assert.match(dockDragMotion, /fun press\(\) \{\s*if \(reducedMotion\) return/);
+
 assert.match(floatingBar, /onDragCancel = \{/);
 assert.match(floatingBar, /drag\.updateValue\(currentIndex\.toFloat\(\)\)/,
   '中断拖拽不能误选新页面');

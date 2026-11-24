@@ -10,6 +10,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatorMutex
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -32,6 +33,7 @@ class DampedDragAnimation(
     val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit,
     val onDragStopped: DampedDragAnimation.() -> Unit,
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
+    private val reducedMotion: Boolean = false,
 ) {
 
     private val valueAnimationSpec =
@@ -60,9 +62,11 @@ class DampedDragAnimation(
 
     private val velocityTracker = VelocityTracker()
 
-    val value: Float get() = valueAnimation.value
+    private val directValue = mutableFloatStateOf(initialValue)
+
+    val value: Float get() = if (reducedMotion) directValue.floatValue else valueAnimation.value
     val progress: Float get() = (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
-    val targetValue: Float get() = valueAnimation.targetValue
+    val targetValue: Float get() = if (reducedMotion) directValue.floatValue else valueAnimation.targetValue
     val pressProgress: Float get() = pressProgressAnimation.value
     val scaleX: Float get() = scaleXAnimation.value
     val scaleY: Float get() = scaleYAnimation.value
@@ -88,6 +92,7 @@ class DampedDragAnimation(
     }
 
     fun press() {
+        if (reducedMotion) return
         velocityTracker.resetTracking()
         animationScope.launch {
             launch { pressProgressAnimation.animateTo(1f, pressProgressAnimationSpec) }
@@ -97,6 +102,7 @@ class DampedDragAnimation(
     }
 
     fun release() {
+        if (reducedMotion) return
         animationScope.launch {
             awaitFrame()
             if (value != targetValue) {
@@ -113,12 +119,17 @@ class DampedDragAnimation(
 
     fun updateValue(value: Float) {
         val targetValue = value.coerceIn(valueRange)
+        if (reducedMotion) {
+            directValue.floatValue = targetValue
+            return
+        }
         animationScope.launch {
             launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() } }
         }
     }
 
     fun animateToValue(value: Float) {
+        if (reducedMotion) { updateValue(value); return }
         animationScope.launch {
             mutatorMutex.mutate {
                 press()

@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.os.Build
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionMode
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -176,6 +178,7 @@ fun FloatingBottomBar(
     val safeIndex = selectedIndex.coerceIn(0, count - 1)
     // Original v1.0.83 glass geometry only on supported real lens platforms.
     val useNorthGlass = backdrop != null && Build.VERSION.SDK_INT >= 33
+    val reducedMotion = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     // 北化课表 1.0.83: the indicator refracts a SECOND, sharply tinted icon/label
     // source combined with the page, not the page backdrop alone. Recording the
     // tint source once here keeps it in the same dock; it owns no click/route state.
@@ -183,7 +186,7 @@ fun FloatingBottomBar(
     val indicatorBackdrop = if (backdrop != null && tintLayer != null) {
         rememberCombinedBackdrop(backdrop, tintLayer)
     } else backdrop
-    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, false) else null
+    val iconPlayback = if (useNorthGlass) rememberNorthNavigationIconPlayback(count, safeIndex, reducedMotion) else null
     val geometry = rememberPrimaryBottomGeometry(useNorthGlass)
     val visualHeight = geometry.trackHeight
     val horizontalInset = geometry.horizontalPadding
@@ -216,10 +219,10 @@ fun FloatingBottomBar(
         val cellWidthDp = with(LocalDensity.current) { cellWidthPx.toDp() }
 
         val scope = rememberCoroutineScope()
-        val dragState = remember(count, useNorthGlass) { DragGestureState() }
+        val dragState = remember(count, useNorthGlass, reducedMotion) { DragGestureState() }
 
         // 驱动只负责「索引浮点值 + 压感」，手势事件由下方 pointerInput 精确分发。
-        val drag = remember(count, useNorthGlass) {
+        val drag = remember(count, useNorthGlass, reducedMotion) {
             DampedDragAnimation(
                 animationScope = scope,
                 initialValue = safeIndex.toFloat(),
@@ -229,7 +232,8 @@ fun FloatingBottomBar(
                 pressedScale = if (useNorthGlass) NorthGlassPressedScale else PressedScale,
                 onDragStarted = {},
                 onDragStopped = {},
-                onDrag = { _, _ -> }
+                onDrag = { _, _ -> },
+                reducedMotion = reducedMotion
             )
         }
 
@@ -308,7 +312,7 @@ fun FloatingBottomBar(
         // 外部选中变化（点击、返回、状态恢复、进程重建）时让指示器跟上。
         // 用 updateValue 而不是 animateToValue：后者会 press()/release()，
         // 快速连点时会打断上一个 release，压感永久停在放大态。
-        LaunchedEffect(safeIndex, count) {
+        LaunchedEffect(safeIndex, count, drag) {
             if (!dragState.moved) drag.updateValue(safeIndex.toFloat())
         }
 
@@ -462,9 +466,10 @@ private fun FloatingBarCell(
 ) {
     // 每 cell 独立交互源：按压只让本 cell 重组，不牵动整条 dock。
     val interactionSource = remember { MutableInteractionSource() }
+    val reducedMotion = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     val contentColor by animateColorAsState(
         targetValue = if (selected) selectedContentColor else unselectedContentColor,
-        animationSpec = tween(ColorAnimMs),
+        animationSpec = tween(if (reducedMotion) 0 else ColorAnimMs),
         label = "barCellColor"
     )
 
@@ -507,7 +512,7 @@ private fun FloatingBarCell(
                     modifier = Modifier
                         .size(22.dp)
                         .graphicsLayer {
-                            val scale = if (selected) PressedScale else 1f
+                            val scale = if (selected && !reducedMotion) PressedScale else 1f
                             scaleX = scale
                             scaleY = scale
                         }

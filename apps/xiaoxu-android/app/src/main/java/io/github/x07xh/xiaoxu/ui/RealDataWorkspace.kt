@@ -6,6 +6,7 @@ import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Theme
 import io.github.x07xh.xiaoxu.ui.v2.uiV2SelectionThumb
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
 import androidx.compose.ui.graphics.graphicsLayer
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSection
 import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
@@ -2504,7 +2505,7 @@ private fun TaskGroupHeader(
     ) else RoundedCornerShape(XiaoxuRadius.group)
     val chevronRotation = animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(UiV2Motion.QuickMs, easing = UiV2Motion.Easing),
+        animationSpec = UiV2Motion.spec(LocalUiV2Motion.current, UiV2Motion.QuickMs),
         label = "task-group-chevron"
     )
     Row(

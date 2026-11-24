@@ -6,6 +6,11 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -62,15 +67,15 @@ internal fun UiV2MotionSettingsPage() {
     val preference = LocalMotionPreference.current
     val effective = LocalUiV2Motion.current
     UiV2SettingsGroup("交互动效") {
-        Column {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             XiaoxuSegmentedControl(
                 options = UiV2MotionMode.entries.map { XiaoxuSegmentOption(it.name, it.title) },
                 selectedKey = preference.selected.name,
                 onSelected = { preference.change(UiV2MotionMode.parse(it)) }
             )
-            Text(preference.selected.description)
+            Text(preference.selected.description, style = MaterialTheme.typography.bodyMedium)
             if (effective != preference.selected) Text("系统已关闭动画，当前使用减少动画模式。")
-            Text("目前应用于 V2 按压、分段滑块、弹层回位和返回预览。")
+            Text("V2 控件遵循所选模式。减少动画时，底栏停用图标回放和惯性回弹；原有玻璃材质保留。", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
