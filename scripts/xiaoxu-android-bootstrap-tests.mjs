@@ -25,6 +25,8 @@ for (const path of obsoleteUiPaths) {
     '淘汰代码或构建请求不可从旧 UI 分支恢复: ' + path);
 }
 
+const v2Settings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Settings.kt');
+const v2Home = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Home.kt');
 const v2SettingsIndex = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SettingsIndex.kt');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
@@ -241,7 +243,7 @@ assert.match(profileSettings, /private fun ReminderToggleRow\(/,
   'Course and deadline reminders must share one settings row');
 assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 6,
   'Course, deadline, two date phases and local quiet hours share one toggle implementation');
-assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
+assert.equal((v2Settings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
@@ -275,7 +277,7 @@ assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
 assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
 assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
+assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/, '首页只匹配本机导入课表星期');
 assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
   /本机导入 · 待本人核对/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
@@ -1747,8 +1749,8 @@ assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)
   '首页只保留一个今日主标题，不重复品牌、副标题和问候大标题');
 const compactGreeting = workspace.slice(workspace.indexOf('private fun HomeGreeting('),
     workspace.indexOf('private fun HomeSection(', workspace.indexOf('private fun HomeGreeting(')));
-assert.match(compactGreeting, /Row\(/,
-  '日期和问候同排展示，不额外占用一层大标题');
+assert.match(compactGreeting, /UiV2HomeGreeting\(/, '日期与问候使用 V2 展示组件');
+assert.match(v2Home, /style = MaterialTheme\.typography\.headlineLarge/, '参考图的大字号层级');
 assert.doesNotMatch(compactGreeting, /headlineMedium|headlineLarge/,
   '首页问候不得在全局标题下重复显示一个大标题');
 const homeQuickEntry = design.slice(design.indexOf('fun QuickEntry('));
@@ -1761,8 +1763,9 @@ assert.match(homeQuickEntry, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\
 // surrounding every status or list with another glass card.
 const editorialHome = workspace.slice(workspace.indexOf('private fun HomeMetricsBlock('),
   workspace.indexOf('private fun HomeTaskRow('));
-assert.match(editorialHome, /HorizontalDivider\(color = XiaoxuPalette\.Ink, thickness = 1\.dp\)/,
-  '首页开放式统计区须保留明确视觉分界');
+assert.match(editorialHome, /UiV2HomeSurface \{/, '统计区使用唯一 V2 轻量表面');
+assert.match(v2Home, /clip\(RoundedCornerShape\(24\.dp\)\)/);
+assert.match(v2Home, /UiV2HomeSurface\(content = content\)/);
 assert.match(editorialHome, /if \(maxWidth < 420\.dp\)/,
   '小屏学业入口应自动降为双列');
 for (const [start, end, label] of [
@@ -1828,7 +1831,7 @@ assert.match(homeCourseBlock, /if \(hasTimetable && lessons\.isEmpty\(\)\) \{/,
   '首页有课表但当天无课时，应显示紧凑提示而非多余的厚玻璃空卡');
 assert.match(homeCourseBlock, /暂无本机课程记录/,
   '未知当前教学周时仅描述本机记录，不推定学校官方无课');
-assert.match(homeCourseBlock, /else \{\s*HomeSection\([\s\S]*?XiaoxuCard\(contentPadding = 12\.dp\)/,
+assert.match(homeCourseBlock, /else \{\s*HomeSection\([\s\S]*?Column\(Modifier\.fillMaxWidth\(\)\)/,
   '仅有课程记录或未导入课表时渲染实际列表或导入入口');
 assert.match(homeCourseBlock, /if \(hasTimetable && lessons.isEmpty\(\)\) \{\s*[\s\S]*?Row\(/,
   '本机当日无课时用单行对齐提示替代独立厚卡');
@@ -2270,7 +2273,7 @@ for (const label of ['学习与课程', '账户与数据', '其他']) {
   assert.ok(v2SettingsIndex.includes('"' + label + '"'),
     label + ' 原有导航分组需完整保留');
 }
-const v2Settings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Settings.kt');
+
 assert.match(profileSettings, /UiV2SettingsGroup\(title, content\)/, '设置分组使用唯一 V2 容器');
 assert.match(v2Settings, /val SingleLine = 52\.dp/);
 assert.match(profileSettings, /UiV2SettingsConnectionCard\([\s\S]*?authenticated = client\.state\.authenticated/);

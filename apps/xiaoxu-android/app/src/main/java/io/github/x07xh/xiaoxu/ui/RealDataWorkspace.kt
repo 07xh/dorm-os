@@ -1,6 +1,12 @@
 package io.github.x07xh.xiaoxu.ui
 
 import android.widget.Toast
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeGreeting
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSection
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeSurface
+import io.github.x07xh.xiaoxu.ui.v2.UiV2HomeQuickAction
+import io.github.x07xh.xiaoxu.ui.v2.UiV2Window
+import io.github.x07xh.xiaoxu.ui.v2.uiV2Window
 import io.github.x07xh.xiaoxu.data.withExecutionAction
 import io.github.x07xh.xiaoxu.data.withOwnerExecutionAction
 import io.github.x07xh.xiaoxu.data.TaskStep
@@ -541,7 +547,9 @@ fun RealAcademicHome(
     val homeDependencies by localDependencyDao.observeDependencies().collectAsState(initial = emptyList())
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val nativeRows by nativeDao.observe().collectAsState(initial = emptyList())
-    val localHomework = nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    val localHomework = remember(nativeRows) {
+        nativeRows.filter { it.provider == "chaoxing" && it.kind == "homework" }
+    }
     val all = remember(localTasks, state.tasks, nativeRows, archivedKeys) {
         visibleWorkspaceTasks(combineWorkspaceTasks(localTasks,
             state.tasks, nativeRows), archivedKeys)
@@ -549,13 +557,14 @@ fun RealAcademicHome(
 
     // Both Home and Schedule use the SAME locally imported timetable. Never fall
     // back to cloud course snapshots; the timetable is available while offline.
-    val sameWeekday = localLessons.filter { it.weekday == today.dayOfWeek.value }
-        .sortedBy { it.startSection }
+    val sameWeekday = remember(localLessons, today) {
+        localLessons.filter { it.weekday == today.dayOfWeek.value }.sortedBy { it.startSection }
+    }
     val weekdayLabel = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[today.dayOfWeek.value - 1]
-    val pending = all.count(::isActionableWorkspaceTask)
+    val pending = remember(all) { all.count(::isActionableWorkspaceTask) }
     // Only personally entered, future dates can be counted as upcoming.
     // Unverified cloud dates and overdue dates must not inflate "近期截止".
-    val attention = countUpcomingLocalDeadlines(all, today)
+    val attention = remember(all, today) { countUpcomingLocalDeadlines(all, today) }
     val deadlineHistogram = remember(all, today) { personalDeadlineHistogram(all, today) }
     val upcoming = remember(all, localTasks, homeDependencies) {
         readyWorkspaceTasks(all, localTasks, homeDependencies).take(3)
@@ -608,17 +617,17 @@ fun RealAcademicHome(
 
     val homeListState = rememberLazyListState()
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        val wideLayout = maxWidth >= 700.dp
+        val wideLayout = uiV2Window(maxWidth.value, maxHeight.value) == UiV2Window.Expanded
         // Keep a single scroll owner; center the bounded reading column on large tablets.
         // One scroll owner on phones AND tablets; neither column scrolls separately.
         LazyColumn(
             state = homeListState,
             modifier = Modifier.widthIn(max = 1200.dp).fillMaxWidth().fillMaxHeight(),
-            contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 18.dp,
-                vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = if (wideLayout) 20.dp else 16.dp,
+                vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            item { HomeGreeting(today, weekdayLabel) }
+            item(key = "greeting") { HomeGreeting(today, weekdayLabel) }
             if (wideLayout) {
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -631,7 +640,7 @@ fun RealAcademicHome(
                         Column(Modifier.weight(1f)) { tasks() }
                     }
                 }
-                item { academic() }
+                item(key = "services") { academic() }
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.Top) {
@@ -690,36 +699,10 @@ private fun HomeGreeting(today: LocalDate, weekdayLabel: String) {
         in 18..22 -> "晚上好"
         else -> "夜深了"
     }
-    // 参考编辑式报告的信息层级：日期成为首屏阅读锚点，不复制 Shell 的「今日」标题。
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                "学业速览",
-                style = MaterialTheme.typography.labelSmall,
-                color = XiaoxuPalette.Ink3
-            )
-            Text(
-                text = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = XiaoxuPalette.Ink,
-                modifier = Modifier.semantics { heading() }
-            )
-        }
-        Text(
-            text = greeting,
-            style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink3,
-            modifier = Modifier.padding(bottom = 3.dp)
-        )
-    }
+    UiV2HomeGreeting(
+        date = today.monthValue.toString() + "月" + today.dayOfMonth + "日 · " + weekdayLabel,
+        greeting = greeting
+    )
 }
 
 /** 编辑式分区：细分隔线、标题、内容同层布局，减少连续卡片带来的视觉噪音。 */
@@ -731,17 +714,7 @@ private fun HomeSection(
     onAction: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        HorizontalDivider(color = XiaoxuPalette.Line, thickness = 1.dp)
-        SectionHeader(
-            title = title, caption = caption,
-            actionLabel = actionLabel, onAction = onAction
-        )
-        content()
-    }
+    UiV2HomeSection(title, caption, actionLabel, onAction, content)
 }
 
 /**
@@ -777,7 +750,7 @@ private fun HomeCourseList(
             actionLabel = if (hasTimetable) "查看课表" else null,
             onAction = if (hasTimetable) openSchedule else null
         ) {
-            XiaoxuCard(contentPadding = 12.dp) {
+            Column(Modifier.fillMaxWidth()) {
                 when {
                     lessons.isNotEmpty() -> {
                         homeCoursePreview(lessons).forEachIndexed { index, lesson ->
@@ -846,11 +819,11 @@ private fun HomeMetricsBlock(
     today: LocalDate,
     openTasks: () -> Unit
 ) {
+    UiV2HomeSurface {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        HorizontalDivider(color = XiaoxuPalette.Ink, thickness = 1.dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -942,6 +915,7 @@ private fun HomeMetricsBlock(
             }
         }
     }
+    }
 }
 
 /** Low-frequency services share one lightweight strip instead of four large cards. */
@@ -986,19 +960,7 @@ private fun HomeQuickBlock(
 private fun HomeQuickAction(
     title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit
 ) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .clickable(onClickLabel = "打开$title", onClick = onClick)
-            .heightIn(min = 70.dp).padding(horizontal = 2.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
-            tint = XiaoxuPalette.Ink2)
-        Text(title, style = MaterialTheme.typography.labelMedium,
-            color = XiaoxuPalette.Ink, maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
-    }
+    UiV2HomeQuickAction(title, icon, modifier, onClick)
 }
 
 @Composable
