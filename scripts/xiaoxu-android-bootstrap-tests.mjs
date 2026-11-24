@@ -2745,3 +2745,10 @@ assert.equal((main.match(/preparedSchedule = preparedSchedule/g) || []).length, 
 assert.match(schedulePanel, /internal val displayLessons: List<LessonUi> by lazy \{ lessons\.map \{ it\.toUi\(\) \} \}/);
 assert.match(schedulePanel, /val lessons = data\.displayLessons/);
 assert.match(localTimetableEntry, /val scheduleData = preparedSchedule \?: remember\(localLessons\)/);
+
+assert.match(v2Shell, /showContents = drawerEnabled &&\s*\(drawerState\.currentValue == DrawerValue\.Open \|\| drawerState\.targetValue == DrawerValue\.Open\)/,
+  'closed drawer must not compose rows on every tab switch; opening and closing retain content');
+assert.match(primaryNavigation, /modifier = Modifier\.width\(320\.dp\),/);
+assert.match(primaryNavigation, /if \(showContents\) \{\s*Column\(/);
+assert.match(profileSettings, /private val settingsHomeGroups = uiV2SettingsIndex\.filter/);
+assert.match(profileSettings, /val groups = settingsHomeGroups/);
