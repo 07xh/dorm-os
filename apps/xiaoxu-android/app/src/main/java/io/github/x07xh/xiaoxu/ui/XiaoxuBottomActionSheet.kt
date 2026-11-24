@@ -64,7 +64,7 @@ internal fun XiaoxuBottomSheet(
 ) {
     val outerInteraction = remember { MutableInteractionSource() }
     val innerInteraction = remember { MutableInteractionSource() }
-    val shape = RoundedCornerShape(32.dp)
+    val shape = RoundedCornerShape(XiaoxuRadius.modal)
     Dialog(
         onDismissRequest = { if (dismissEnabled) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)

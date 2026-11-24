@@ -1,0 +1,42 @@
+/* Shared Web design tokens. Loaded after legacy base styles during staged migration.
+ * Existing unlayered CSS stays unlayered to preserve cascade priority. */
+:root {
+  color-scheme: light;
+  --xu-bg: #f5f7fb;
+  --xu-surface: #fff;
+  --xu-soft: #eef3fc;
+  --xu-ink: #18263d;
+  --xu-muted: #64748b;
+  --xu-line: #e5eaf1;
+  --xu-brand: #285de5;
+  --xu-ring: #91adff;
+  --xu-radius: 13px;
+  --xu-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  --xu-danger: #b4232e;
+  --xu-warn: #92400e;
+  --xu-success: #166534;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --xu-bg: #0e1726;
+  --xu-surface: #17243a;
+  --xu-soft: #22334e;
+  --xu-ink: #e8effa;
+  --xu-muted: #a4b4cc;
+  --xu-line: #33455e;
+  --xu-brand: #92b5ff;
+  --xu-danger: #ff9ca3;
+  --xu-warn: #f9be71;
+  --xu-success: #81d8a5;
+}
+/* Compatibility aliases while older components still use these property names. */
+html.theme-light,
+html:not(.theme-light) {
+  --base: var(--xu-bg);
+  --surface: var(--xu-surface);
+  --surface2: var(--xu-soft);
+  --text: var(--xu-ink);
+  --muted: var(--xu-muted);
+  --border: var(--xu-line);
+  --blue: var(--xu-brand);
+}

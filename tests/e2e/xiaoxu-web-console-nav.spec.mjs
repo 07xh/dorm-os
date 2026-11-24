@@ -10,7 +10,7 @@ test('desktop gets workspace sidebar; mobile retains five-button navigation',asy
  if(desktop){
   await expect(page.locator('.xu-webnav-heading')).toBeVisible();
   await expect(sidebar.locator('button[data-page]')).toHaveCount(5);
-  await expect(sidebar).toHaveCSS('position','fixed');
+  await expect(sidebar).toHaveCSS('position','sticky');
   await expect(review).toBeVisible();
   await expect(connection).toBeVisible();
   const navBox=await sidebar.boundingBox(),mainBox=await page.locator('main#app').boundingBox();

@@ -270,7 +270,7 @@ object LocalCourseReminders {
     }
 
     internal fun deliver(context: Context, lesson: VerifiedLesson) {
-        if (!enabledForCourse(context, lesson.id) || !canNotify(context)) return
+        if (!enabledForCourse(context, lesson.id) || !canNotify(context) || LocalReminderQuietHours.suppressNow(context)) return
         val app = context.applicationContext
         val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
@@ -278,16 +278,20 @@ object LocalCourseReminders {
         )
         val intent = Intent(app, MainActivity::class.java).apply {
             putExtra("xiaoxu_open_schedule_from_reminder", true)
+            putExtra("xiaoxu_open_lesson_id", lesson.id)
+            putExtra("xiaoxu_open_lesson_weekday", lesson.weekday)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
-            app, 17015, intent,
+            app, ("class-" + lesson.id + "-" + lesson.weekday).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val detail = "第" + lesson.startSection + "–" + lesson.endSection + "节" +
+            (lesson.location.takeIf { it.isNotBlank() }?.let { " · " + it } ?: "")
         val alert = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("即将上课 · ${lesson.title}")
-            .setContentText("来自本机课表，点此查看课程和教室；通知可能受省电策略延后。")
+            .setContentText(detail)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -327,6 +331,11 @@ class LocalCourseReminderWorker(context: Context, params: WorkerParameters) : Wo
         if (now.toInstant().isBefore(plannedAt.minusSeconds(3 * 60L)) ||
             now.toInstant().isAfter(plannedAt.plusSeconds(10 * 60L)) ||
             !now.toInstant().isBefore(startAt.plusSeconds(5 * 60L))) return Result.success()
+        // WorkManager can run late: the originally intended time also honors quiet hours.
+        val plannedLocal = plannedAt.atZone(now.zone).toLocalTime()
+        val quiet = LocalReminderQuietHours.load(applicationContext)
+        if (isQuietMinute(plannedLocal.hour * 60 + plannedLocal.minute, quiet))
+            return Result.success()
         LocalCourseReminders.deliver(applicationContext, lesson)
         return Result.success()
     }
