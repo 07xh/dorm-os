@@ -205,6 +205,7 @@ fun CloudTimetablePanel(
     onSettingsClosed: () -> Unit = {},
     onSettingsFileAction: () -> Unit = {},
     onEditorClosed: () -> Unit = {},
+    onNavigation: (() -> Unit)? = null,
     focusLessonId: String? = null,
     focusWeekday: Int = 0,
     onFocusConsumed: () -> Unit = {}
@@ -222,6 +223,7 @@ fun CloudTimetablePanel(
             localScheduleRevision = localScheduleRevision,
             onLocalLessonsChanged = onLocalLessonsChanged,
             onMessages = onMessages,
+            onNavigation = onNavigation,
             settingsOpen = settingsOpen,
             onSettingsOpenChanged = onSettingsOpenChanged,
             onSettingsClosed = onSettingsClosed,
@@ -240,12 +242,14 @@ private fun SchedulePageHeading(
     onMessages: () -> Unit,
     sourceLabel: String? = null,
     onAdd: (() -> Unit)? = null,
-    onSettings: (() -> Unit)? = null
+    onSettings: (() -> Unit)? = null,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        XiaoxuNavigationAction(onNavigation)
         Column(Modifier.weight(1f)) {
             Text(
                 "我的课表", modifier = Modifier.semantics { heading() },
@@ -282,7 +286,8 @@ private fun SchedulePageHeading(
 
 @Composable
 private fun LocalTimetableEmptyState(
-    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit, onImport: () -> Unit
+    onSettings: () -> Unit, onAdd: () -> Unit, onMessages: () -> Unit, onImport: () -> Unit,
+    onNavigation: (() -> Unit)?
 ) {
     Column(
         modifier = Modifier.xiaoxuPageWidth(XiaoxuPageLayout.StateMaxWidth)
@@ -290,7 +295,7 @@ private fun LocalTimetableEmptyState(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SchedulePageHeading(onMessages, sourceLabel = "本机课表 · 离线查看",
-            onSettings = onSettings, onAdd = onAdd)
+            onSettings = onSettings, onAdd = onAdd, onNavigation = onNavigation)
         UiV2HomeSurface {
             Text("暂无课表", style = MaterialTheme.typography.titleMedium,
                 color = XiaoxuPalette.Ink, fontWeight = FontWeight.SemiBold)
@@ -320,6 +325,7 @@ private fun ScheduleVerifiedContent(
     localScheduleRevision: Int,
     onLocalLessonsChanged: (List<VerifiedLesson>) -> Unit,
     onMessages: () -> Unit,
+    onNavigation: (() -> Unit)?,
     settingsOpen: Boolean,
     onSettingsOpenChanged: (Boolean) -> Unit,
     onSettingsClosed: () -> Unit,
@@ -421,7 +427,8 @@ private fun ScheduleVerifiedContent(
                 showingCourseEditor = true
             },
             onMessages = onMessages,
-            onImport = openFileImport
+            onImport = openFileImport,
+            onNavigation = onNavigation
         )
     } else {
     Column(
@@ -432,6 +439,7 @@ private fun ScheduleVerifiedContent(
         SchedulePageHeading(
             onMessages = onMessages,
             sourceLabel = "本机导入 · 待本人核对",
+            onNavigation = onNavigation,
             onAdd = {
                 editOriginal = null
                 editingError = null
