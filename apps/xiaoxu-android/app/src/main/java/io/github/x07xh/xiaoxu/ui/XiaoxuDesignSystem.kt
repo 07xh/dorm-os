@@ -1,7 +1,6 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Motion
 import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionProvider
 import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
@@ -47,7 +46,6 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -77,12 +75,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * 校序统一 UI 设计系统 v1（Issue #268 第一阶段）。
