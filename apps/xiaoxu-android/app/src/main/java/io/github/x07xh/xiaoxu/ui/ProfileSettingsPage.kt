@@ -44,6 +44,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalFocusManager
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsSearchField
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsConnectionCard
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SettingsIndexedEntry
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SearchSettings
+import io.github.x07xh.xiaoxu.ui.v2.uiV2SettingsIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
@@ -89,7 +96,13 @@ fun ProfileSettingsPage(
     onMessages: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val context = LocalContext.current
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
+    val focus = LocalFocusManager.current
+    val openSetting: (String) -> Unit = { target ->
+        focus.clearFocus()
+        settingsQuery = ""
+        if (target == "timetable-settings") onScheduleSettings() else onRouteChange(target)
+    }
     androidx.compose.animation.AnimatedContent(
         targetState = route,
         transitionSpec = {
@@ -126,36 +139,50 @@ fun ProfileSettingsPage(
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier.weight(1f).xiaoxuPageWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 18.dp, end = 18.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                start = 16.dp, end = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             when (animatedRoute) {
                 "home" -> {
-                    item {
-                        SettingsEditorialSection(title = "学习与课程") {
-                            SettingsEntry("课表设置", Icons.Outlined.DateRange,
-                                onClick = onScheduleSettings)
-                            SettingsDivider()
-                            SettingsEntry("通知与提醒", Icons.Outlined.NotificationsNone) {
-                                onRouteChange("notifications")
+                    item(key = "settings-search") {
+                        UiV2SettingsSearchField(settingsQuery) { settingsQuery = it }
+                    }
+                    if (settingsQuery.isBlank()) {
+                        item(key = "connection-card") {
+                            UiV2SettingsConnectionCard(
+                                authenticated = client.state.authenticated,
+                                busy = client.state.busy,
+                                onOpen = { openSetting("connections") }
+                            )
+                        }
+                        val groups = uiV2SettingsIndex.filter {
+                            it.group in listOf("学习与课程", "账户与数据", "其他") &&
+                                it.route != "connections"
+                        }.groupBy { it.group }
+                        groups.forEach { (group, entries) ->
+                            item(key = group) {
+                                SettingsEditorialSection(title = group) {
+                                    entries.forEachIndexed { index, entry ->
+                                        if (index > 0) SettingsDivider()
+                                        UiV2SettingsIndexedEntry(entry, onOpen = openSetting)
+                                    }
+                                }
                             }
                         }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "账户与数据") {
-                            SettingsEntry("数据连接", Icons.Outlined.School) {
-                                onRouteChange("connections")
-                            }
-                            SettingsDivider()
-                            SettingsEntry("备份与恢复", Icons.Outlined.CheckCircle) {
-                                onRouteChange("backup")
-                            }
-                        }
-                    }
-                    item {
-                        SettingsEditorialSection(title = "其他") {
-                            SettingsEntry("关于校序", Icons.Outlined.Info) {
-                                onRouteChange("about")
+                    } else {
+                        val results = uiV2SearchSettings(settingsQuery)
+                        item(key = "settings-results") {
+                            if (results.isEmpty()) {
+                                Text("没有匹配的设置", Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = XiaoxuPalette.Ink2)
+                            } else {
+                                SettingsEditorialSection(title = "搜索结果") {
+                                    results.forEachIndexed { index, entry ->
+                                        if (index > 0) SettingsDivider()
+                                        UiV2SettingsIndexedEntry(entry, showPath = true, onOpen = openSetting)
+                                    }
+                                }
                             }
                         }
                     }

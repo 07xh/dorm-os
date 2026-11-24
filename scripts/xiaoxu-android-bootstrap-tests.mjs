@@ -25,6 +25,7 @@ for (const path of obsoleteUiPaths) {
     '淘汰代码或构建请求不可从旧 UI 分支恢复: ' + path);
 }
 
+const v2SettingsIndex = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SettingsIndex.kt');
 const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
@@ -1122,7 +1123,7 @@ const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/x
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
 assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/,
   '本机备份与恢复只能由账户与数据二级页面打开');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+assert.match(v2SettingsIndex, /UiV2Setting\("backup", "备份与恢复", "账户与数据"/,
   '本机备份仍可通过唯一入口进入');
 const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
 assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
@@ -1131,7 +1132,7 @@ assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\
   '开源许可从关于页进入，不在设置首页重复');
 assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
   '关于页保留开源署名入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "账户与数据"\)/,
+assert.match(v2SettingsIndex, /"账户与数据"/,
   '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
 assert.doesNotMatch(main, /if \(showLocalBackup\) item|CompactActionRow\("第二课堂记录"/,
   '移除退役的旧工具入口和向下展开式备份');
@@ -1647,7 +1648,7 @@ assert.match(profileSettings, /modifier = Modifier\.weight\(1f\)\.xiaoxuPageWidt
   '设置二级页面复用统一内容宽度');
 assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
   '设置首页不应保留重复品牌入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
+assert.match(v2SettingsIndex, /"其他"/,
   '关于校序必须保留在「其他」分组，不占据设置首页首屏');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
@@ -2266,12 +2267,15 @@ assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
 assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
   '设置首页保留统一分组适配入口');
 for (const label of ['学习与课程', '账户与数据', '其他']) {
-  assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
+  assert.ok(v2SettingsIndex.includes('"' + label + '"'),
     label + ' 原有导航分组需完整保留');
 }
 const v2Settings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2Settings.kt');
 assert.match(profileSettings, /UiV2SettingsGroup\(title, content\)/, '设置分组使用唯一 V2 容器');
 assert.match(v2Settings, /val SingleLine = 52\.dp/);
+assert.match(profileSettings, /UiV2SettingsConnectionCard\([\s\S]*?authenticated = client\.state\.authenticated/);
+assert.match(profileSettings, /uiV2SearchSettings\(settingsQuery\)/);
+assert.match(profileSettings, /if \(target == "timetable-settings"\) onScheduleSettings\(\) else onRouteChange\(target\)/);
 assert.match(v2Settings, /val TwoLine = 64\.dp/);
 assert.match(v2Settings, /onClickLabel = "打开\$title"/);
 assert.match(v2Settings, /XiaoxuSettingsSwitch\(checked = checked, onCheckedChange = onCheckedChange\)/);
@@ -2279,7 +2283,7 @@ assert.match(main, /profileSettingsRoute = uiV2SettingsParent\(profileSettingsRo
 assert.match(profileSettings, /onRouteChange\(uiV2SettingsParent\(animatedRoute\)\)/);
 assert.match(profileSettings, /"connections" -> item \{/,
   '实际连接页必须继续在原二级路由内');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+assert.match(v2SettingsIndex, /UiV2Setting\("backup", "备份与恢复", "账户与数据"/,
   '备份恢复入口仍可达');
 
 

@@ -45,3 +45,10 @@ DSH Go 固定参考提交： https://github.com/ccch1mneyyy/dsh-Go/tree/a99b5e19
 ## 第四批：设置页面与返回规则
 
 参考 DSH Go MIT 标注 [settings_widgets.dart](https://github.com/ccch1mneyyy/dsh-Go/blob/a99b5e1906e6084d4d0876fad1cc1f35bb296ff0/app/lib/ui/settings/settings_widgets.dart) 的 SettingsMetrics，独立 Compose 实现统一的 52/64dp 行、32dp 图标槽、16dp 内边距、20dp 分组面和共享标题栏。迁移设置入口及通知开关展示，保留权限检查、备份、连接等原业务回调。系统返回和标题栏共享父路由映射，修正通知子页返回设置首页的问题；不引入两棵重型页面同时渲染的转场。新增父路由单测。未完成真机视觉与 APK 验收。
+
+## 第五批：按实机参考图重构设置首页
+
+- 用户提供的 DSH Go 设置页截图作为布局基准：独立大标题、圆形工具键、胶囊搜索、账号状态卡、按组配色的圆形图标、24dp 连续分组及 24dp 区块间距。校序设置为一级标签，不添加无意义的返回按钮；二级页保留返回键。
+- 账号卡使用 CloudClient 的真实 authenticated/busy 状态，不显示虚构 AI 引擎或登录状态；入口仍打开真实数据连接页面。
+- 设置索引与搜索接通现有八条路由，支持空白、全半角、大小写、同义词匹配和标题优先；未实现的设置不进入目录。参考 DSH Go settings_search.dart 的交互思路，自行实现 Kotlin 索引，不复制其源码或受限素材。
+- 新增搜索规则测试，并保留原提醒、备份、连接、课表功能入口。仍需实际 APK 和截图验收。

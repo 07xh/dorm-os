@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -57,8 +58,9 @@ internal fun UiV2SettingsHeader(
     refreshing: Boolean,
     onMessages: (() -> Unit)?
 ) {
+    Column(Modifier.xiaoxuPageWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
     Row(
-        Modifier.xiaoxuPageWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {
@@ -66,15 +68,7 @@ internal fun UiV2SettingsHeader(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         }
-        Text(
-            title,
-            modifier = Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp)
-                .semantics { heading() },
-            style = MaterialTheme.typography.headlineMedium,
-            color = XiaoxuPalette.Ink,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        Spacer(Modifier.weight(1f))
         if (onRefresh != null) {
             XiaoxuSoftIconButton(onClick = onRefresh, enabled = !refreshing) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
@@ -85,6 +79,13 @@ internal fun UiV2SettingsHeader(
                 Icon(Icons.Outlined.NotificationsNone, contentDescription = "消息中心")
             }
         }
+    }
+    Text(
+        title, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 12.dp)
+            .semantics { heading() },
+        style = MaterialTheme.typography.headlineLarge,
+        color = XiaoxuPalette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis
+    )
     }
 }
 
@@ -101,8 +102,8 @@ internal fun UiV2SettingsGroup(title: String, content: @Composable () -> Unit) {
             color = XiaoxuPalette.Ink2
         )
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                .background(XiaoxuPalette.Surface),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(XiaoxuPalette.Surface.copy(alpha = 0.9f)),
             content = { content() }
         )
     }
@@ -122,12 +123,15 @@ private fun UiV2SettingsRow(
     subtitle: String?,
     icon: ImageVector?,
     onClick: (() -> Unit)?,
+    iconContainer: Color = XiaoxuPalette.BrandSoft,
+    iconTint: Color = XiaoxuPalette.BrandDeep,
+    prominent: Boolean = false,
     trailing: @Composable () -> Unit
 ) {
     val m = UiV2SettingsMetrics
     val twoLines = !subtitle.isNullOrBlank()
     Row(
-        Modifier.fillMaxWidth().heightIn(min = if (twoLines) m.TwoLine else m.SingleLine)
+        Modifier.fillMaxWidth().heightIn(min = if (prominent) 82.dp else if (twoLines) m.TwoLine else m.SingleLine)
             .then(if (onClick != null) Modifier.clickable(
                 role = Role.Button, onClickLabel = "打开$title", onClick = onClick
             ) else Modifier)
@@ -136,16 +140,16 @@ private fun UiV2SettingsRow(
     ) {
         if (icon != null) {
             Box(
-                Modifier.size(m.IconSize).clip(CircleShape).background(XiaoxuPalette.BrandSoft),
+                Modifier.size(if (prominent) 52.dp else m.IconSize).clip(CircleShape).background(iconContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = XiaoxuPalette.BrandDeep,
-                    modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = iconTint,
+                    modifier = Modifier.size(if (prominent) 26.dp else 18.dp))
             }
             Spacer(Modifier.width(m.IconGap))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            Text(title, style = if (prominent) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                 color = XiaoxuPalette.Ink)
             if (twoLines && subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XiaoxuPalette.Ink2)
@@ -159,9 +163,12 @@ private fun UiV2SettingsRow(
 @Composable
 internal fun UiV2SettingsEntry(
     title: String, icon: ImageVector, subtitle: String?, statusLabel: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    iconContainer: Color = XiaoxuPalette.BrandSoft,
+    iconTint: Color = XiaoxuPalette.BrandDeep,
+    prominent: Boolean = false
 ) {
-    UiV2SettingsRow(title, subtitle, icon, onClick) {
+    UiV2SettingsRow(title, subtitle, icon, onClick, iconContainer, iconTint, prominent) {
         if (!statusLabel.isNullOrBlank()) {
             Text(statusLabel, modifier = Modifier.widthIn(max = 112.dp),
                 style = MaterialTheme.typography.labelSmall, color = XiaoxuPalette.Ink2,
