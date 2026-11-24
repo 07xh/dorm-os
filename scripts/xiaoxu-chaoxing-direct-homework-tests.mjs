@@ -3,6 +3,7 @@ import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
  parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
+import {normalizeVerifiedChaoxingHomework} from '../lib/academic-chaoxing-homework-sync.mjs';
 globalThis.crypto??=webcrypto;
 const courseHtml='<a href="/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"></a>'+
  '<span class="course-name" title="Python 基础"></span>';
@@ -118,6 +119,32 @@ assert.ok(!JSON.stringify(detail).includes('signedTask'));
 assert.ok(!JSON.stringify(detail).includes('sandbox-session'));
 assert.ok(requests.every(x=>x.method==='GET'));
 assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
+
+ // Full-year timing is attached to the exact official row and passed to the
+ // existing D1 normalizer. Yearless, hidden or malformed evidence cannot set a date.
+ const timingKeys={courseId:'123',classId:'456',cpi:'789'};
+ const datedHtml=workHtml.replace('</li>','<p>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</p></li>');
+ const timedAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>
+  new URL(raw).pathname==='/mooc2/work/list'?response(datedHtml):fakeFetch(raw,options)});
+ const timedRead=await timedAdapter.forSession({session,userId:'owner1'});
+ await timedRead.verifySession();
+ const timedList=await timedRead.readHomeworkList(timingKeys);
+ assert.equal(timedList.items[0].due,'2026-12-01');
+ assert.equal(timedList.items[0].dueAt,'2026-12-01T23:59:00+08:00');
+ const normalized=normalizeVerifiedChaoxingHomework(timingKeys,timedList);
+ assert.equal(normalized.tasks[0].dueAt,'2026-12-01T23:59:00+08:00');
+ for(const metadata of [
+  '<p>作答时间：11-03 08:15 至 12-01 23:59</p>',
+  '<p hidden>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</p>',
+  '<p>作答时间：2026-02-30 08:15 至 2026-12-01 23:59</p>',
+  '<p>作答时间：2026-12-03 08:15 至 2026-12-01 23:59</p>'
+ ]){
+  const parsed=parseChaoxingWorkList(workHtml.replace('</li>',metadata+'</li>'),timingKeys);
+  assert.equal(parsed.items[0].timing?.dueAt,undefined);
+ }
+ const invalid={...timedList,items:timedList.items.map(item=>({...item,due:'2026-02-30',dueAt:'2026-02-30T23:59:00+08:00'}))};
+ assert.equal(normalizeVerifiedChaoxingHomework(timingKeys,invalid).tasks[0].dueAt,'');
+
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
 
 const missingFidProfile='<div aria-label="账号：虚构测试人"></div>'+
