@@ -103,3 +103,10 @@ assert.match(workspace,/"native", "chaoxing", provider = "chaoxing"/);
 assert.match(workspace,/title = if \(filter == "verify"\) "学习通待核对" else "学习通任务"/);
 assert.match(workspace,/shown\.filter \{ it\.category == "chaoxing" \}/);
 assert.match(workspace,/"chaoxing" to "学习通任务"/);
+
+// Keep the local reader receipt useful when the official source has only plans or exam notices.
+const receiptMain = readFileSync(base+'java/io/github/x07xh/xiaoxu/MainActivity.kt','utf8');
+const receiptPanels = readFileSync(base+'java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt','utf8');
+assert.match(receiptMain,/"chaoxing" -> kind in setOf\("course", "homework", "study_task", "exam_notice"\)/);
+assert.match(receiptPanels,/"study_task" -> "学习计划"/);
+assert.match(receiptPanels,/"exam_notice" -> "考试通知"/);
