@@ -926,6 +926,18 @@ internal fun XiaoxuToolbarAction(
     }
 }
 
+/** One optional menu action; absent on child routes and wide persistent rails. */
+@Composable
+internal fun XiaoxuNavigationAction(onNavigation: (() -> Unit)?) {
+    if (onNavigation != null) {
+        XiaoxuSoftIconButton(onClick = onNavigation, glassChrome = true) {
+            Icon(Icons.Outlined.Menu, contentDescription = "打开导航",
+                tint = XiaoxuPalette.Ink2)
+        }
+        Spacer(Modifier.width(8.dp))
+    }
+}
+
 /** 统一顶栏：品牌标记 + 页面名 + 刷新。不用 TopAppBar，避免五个页面各调一次主题。 */
 @Composable
 fun XiaoxuTopBar(
@@ -947,13 +959,7 @@ fun XiaoxuTopBar(
             .padding(start = XiaoxuSpacing.page, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (onNavigation != null) {
-            XiaoxuSoftIconButton(onClick = onNavigation, glassChrome = true) {
-                Icon(Icons.Outlined.Menu, contentDescription = "打开导航",
-                    tint = XiaoxuPalette.Ink2)
-            }
-            Spacer(Modifier.width(8.dp))
-        }
+        XiaoxuNavigationAction(onNavigation)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = title,
