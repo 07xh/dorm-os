@@ -98,6 +98,7 @@ import io.github.x07xh.xiaoxu.ui.XiaoxuTheme
 import io.github.x07xh.xiaoxu.ui.xiaoxuSettingsRouteTransition
 import io.github.x07xh.xiaoxu.ui.XiaoxuGroupedSection
 import io.github.x07xh.xiaoxu.ui.XiaoxuEmpty
+import io.github.x07xh.xiaoxu.ui.XiaoxuNavigationAction
 import io.github.x07xh.xiaoxu.ui.XiaoxuTopBar
 import io.github.x07xh.xiaoxu.ui.v2.UiV2Shell
 import io.github.x07xh.xiaoxu.ui.v2.UiV2PredictiveBack
@@ -702,11 +703,13 @@ private fun NativeShell(
                 localScheduleRevision = localScheduleRevision,
                 onLocalLessonsChanged = onLocalLessonsChanged,
                 onMessages = { messagesOpen = true },
+                onNavigation = openNavigation,
                 settingsOpen = scheduleSettingsOpen,
                 onSettingsOpenChanged = { scheduleSettingsOpen = it })
             MainDestination.ACADEMIC -> AcademicPage(academic, { academic = it },
                 openWebsite, openProfile = { current = MainDestination.PROFILE },
-                cloud = cloud, onMessages = { messagesOpen = true })
+                cloud = cloud, onMessages = { messagesOpen = true },
+                onNavigation = openNavigation)
             MainDestination.TASKS -> RealAcademicTaskHub(localTasks, dao, cloud, openWebsite,
                 reminderTaskId = inboxTaskId ?: reminderTaskId,
                 reminderTaskToken = taskReminderOpenCount + inboxTaskSerial,
@@ -715,7 +718,8 @@ private fun NativeShell(
                     onReminderTaskConsumed()
                 },
                 openLocalSchool = openLocalSchool,
-                onMessages = { messagesOpen = true })
+                onMessages = { messagesOpen = true },
+                onNavigation = openNavigation)
             MainDestination.PROFILE -> {
                 // Reuse the settings child route for the timetable
                 // child. It must not bypass the settings host on entry/back.
@@ -775,7 +779,8 @@ private fun NativeShell(
                         recentImport = localCaptureReturn,
                         localTasks = localTasks,
                         onMessages = { messagesOpen = true },
-                        onRefresh = { scope.launch { cloud.refresh() } }
+                        onRefresh = { scope.launch { cloud.refresh() } },
+                        onNavigation = openNavigation
                     )
                 }
                     }
@@ -812,12 +817,14 @@ private fun CompactPageHeading(
     title: String,
     onMessages: () -> Unit,
     onRefresh: (() -> Unit)? = null,
-    refreshing: Boolean = false
+    refreshing: Boolean = false,
+    onNavigation: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        XiaoxuNavigationAction(onNavigation)
         Text(title,
             style = MaterialTheme.typography.headlineSmall,
             color = XiaoxuPalette.Ink, modifier = Modifier.weight(1f).semantics { heading() })
@@ -841,7 +848,8 @@ private fun AcademicPage(
     openWebsite: () -> Unit,
     openProfile: () -> Unit,
     cloud: CloudClient,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    onNavigation: (() -> Unit)? = null
 ) {
     val tabStateHolder = rememberSaveableStateHolder()
     // A single academic child host without page-level motion.
@@ -883,7 +891,8 @@ private fun AcademicPage(
                             AcademicDestination.SECOND_CLASS -> "第二课堂"
                             AcademicDestination.SERVICES -> "校园服务"
                         },
-                        onMessages = onMessages
+                        onMessages = onMessages,
+                        onNavigation = if (academicRoute == AcademicDestination.OVERVIEW) onNavigation else null
                     )
                 }
             }
