@@ -112,10 +112,15 @@ class CampusUtilitiesSyncCoordinatorTest {
     @Test fun changedBindingNeverPublishesOldResult() = runBlocking {
         val store = MemoryStore()
         var active: CampusUtilitiesSyncBinding? = binding
-        val client = readClient { active = null }
+        val paths = mutableListOf<String>()
+        val client = readClient { path ->
+            paths += path
+            active = null
+        }
         val c = CampusUtilitiesSyncCoordinator({ active }, client, store)
         assertEquals(CampusUtilitiesSyncState.NotAuthorized,
             c.refreshIfDue(true, month, start))
+        assertEquals(listOf("/utilities/config"), paths)
         assertTrue(store.snapshots.isEmpty())
     }
 }
