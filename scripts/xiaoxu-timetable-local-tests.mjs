@@ -73,7 +73,7 @@ runInNewContext('selectTimetableDay(4)',ctx);
 assert.equal(ctx.timetableDay,4);
 assert.equal(dayContent.innerHTML,'panel:4:2026-11-23');
 assert.equal(active.innerHTML,'initial view','Day changes should not replace the picker');
-assert.equal(picker[4].attrs['aria-pressed'],'true');
+assert.equal(picker[3].attrs['aria-pressed'],'true');
 assert.equal(ctx.renders,0);
 runInNewContext("setTimetableMode('week')",ctx);
 assert.equal(ctx.timetableMode,'week');
