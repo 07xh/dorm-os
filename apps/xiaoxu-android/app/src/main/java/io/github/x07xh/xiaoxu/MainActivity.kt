@@ -88,6 +88,7 @@ import io.github.x07xh.xiaoxu.data.LocalTimetableBackup
 import io.github.x07xh.xiaoxu.data.LocalCourseReminders
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.ui.CloudTimetablePanel
+import io.github.x07xh.xiaoxu.ui.localImportedScheduleView
 import io.github.x07xh.xiaoxu.ui.ProfileSettingsPage
 import io.github.x07xh.xiaoxu.ui.LocalSchoolImportReceipt
 import io.github.x07xh.xiaoxu.ui.RealAcademicHome
@@ -523,6 +524,7 @@ private fun NativeShell(
         !(current == MainDestination.SCHEDULE && scheduleSettingsOpen) &&
         !(current == MainDestination.PROFILE && profileSettingsRoute != "home")
     val pageStateHolder = rememberSaveableStateHolder()
+    val preparedSchedule = remember(localLessons) { localImportedScheduleView(localLessons) }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > 0) {
             current = MainDestination.TASKS
@@ -719,6 +721,7 @@ private fun NativeShell(
                 }
             }
             MainDestination.SCHEDULE -> CloudTimetablePanel(
+                preparedSchedule = preparedSchedule,
                 focusLessonId = inboxLessonId ?: reminderLessonId,
                 focusWeekday = if (inboxLessonId != null) inboxLessonWeekday
                     else reminderLessonWeekday,
@@ -778,6 +781,7 @@ private fun NativeShell(
                     // Keeping current == PROFILE avoids AnimatedContent rendering a
                     // second full timetable page and glass dock during entry.
                     CloudTimetablePanel(
+                        preparedSchedule = preparedSchedule,
                         localLessons = localLessons,
                         openFileImport = openFileImport,
                         openFileExport = openFileExport,
