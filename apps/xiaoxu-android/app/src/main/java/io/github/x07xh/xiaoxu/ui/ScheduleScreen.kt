@@ -118,7 +118,38 @@ data class LocalImportedScheduleView(
     // Reuse formatted course labels and keys across timetable tab re-entry.
     // The underlying imported snapshot changes only when the actual lessons change.
     internal val displayLessons: List<LessonUi> by lazy { lessons.map { it.toUi() } }
+
+    // Only the four most recently visited weeks survive tab disposal. The
+    // snapshot owns this cache, so replacing imported lessons drops it entirely.
+    private val weekCache = LinkedHashMap<Int, LocalWeekDisplay>(4, 0.75f, true)
+
+    @Synchronized
+    internal fun weekDisplay(week: Int): LocalWeekDisplay {
+        weekCache[week]?.let { return it }
+        val originals = if (week == ALL_WEEKS) lessons else lessons.filter { week in it.weeks }
+        // Preserve existing source-key matching semantics, including imports
+        // that contain multiple records with the same source key.
+        val allowedKeys = if (week == ALL_WEEKS) null else originals.map { it.uiKey() }.toSet()
+        val filtered = if (allowedKeys == null) displayLessons else displayLessons.filter { it.key in allowedKeys }
+        val grouped = filtered.groupBy { it.weekday }
+        val result = LocalWeekDisplay(
+            originals = originals,
+            lessons = filtered,
+            counts = grouped.mapValues { it.value.size },
+            byWeekday = grouped.mapValues { (_, day) -> day.sortedBy { it.startSection } }
+        )
+        if (weekCache.size >= 4) weekCache.remove(weekCache.keys.first())
+        weekCache[week] = result
+        return result
+    }
 }
+
+internal data class LocalWeekDisplay(
+    val originals: List<VerifiedLesson>,
+    val lessons: List<LessonUi>,
+    val counts: Map<Int, Int>,
+    val byWeekday: Map<Int, List<LessonUi>>
+)
 
 fun localImportedScheduleView(lessons: List<VerifiedLesson>) =
     LocalImportedScheduleView(
@@ -358,7 +389,6 @@ private fun ScheduleVerifiedContent(
     var editingBusy by remember { mutableStateOf(false) }
     var editingError by remember { mutableStateOf<String?>(null) }
     val actualCurrentWeek = calendar?.currentWeek(LocalDate.now())
-    val lessons = data.displayLessons
     val weekNumbers = remember(data.lessons, calendar) {
         selectableTeachingWeeks(data.lessons, calendar)
     }
@@ -392,29 +422,19 @@ private fun ScheduleVerifiedContent(
         onFocusConsumed()
     }
 
-    // 周次筛选回查原始 weeks，避免 UI 模型丢失周次后无法判定。
-    // Reuse the same week selection for the grid and the list key lookup.
-    // A key lookup must not allocate a full LessonUi or format its week label.
-    val weekLessons = remember(data.lessons, selectedWeek) {
-        if (selectedWeek == ALL_WEEKS) data.lessons
-        else data.lessons.filter { selectedWeek in it.weeks }
+    // Cache week projections across main-tab re-entry, not merely recomposition.
+    // The selected weekday and scroll state still belong to the existing UI.
+    val weekDisplay = remember(data, selectedWeek) {
+        traceWorkspace("Xiaoxu.schedule.weekDisplay") { data.weekDisplay(selectedWeek) }
     }
-    val allowedKeys = remember(weekLessons, selectedWeek) {
-        if (selectedWeek == ALL_WEEKS) null
-        else weekLessons.map { it.uiKey() }.toSet()
-    }
-    val filtered = remember(lessons, allowedKeys) {
-        if (allowedKeys == null) lessons else lessons.filter { it.key in allowedKeys }
-    }
-    val counts = remember(filtered) { filtered.groupingBy { it.weekday }.eachCount() }
-    val todayWeekday = remember { LocalDate.now().dayOfWeek.value }
+    val weekLessons = weekDisplay.originals
+    val filtered = weekDisplay.lessons
+    val counts = weekDisplay.counts
+    val todayWeekday = LocalDate.now().dayOfWeek.value
 
-    // Selection must stay on the user's chosen weekday, even if it is empty.
-    // Never silently jump from Saturday to an unrelated class day.
+    // Never jump from an explicitly selected empty weekday.
     val effectiveWeekday = selectedWeekday
-    val dayLessons = remember(filtered, effectiveWeekday) {
-        filtered.filter { it.weekday == effectiveWeekday }.sortedBy { it.startSection }
-    }
+    val dayLessons = weekDisplay.byWeekday[effectiveWeekday].orEmpty()
 
     // Keep the timetable's scroll offset while switching to its real settings route.
     val timetableScroll = rememberScrollState()

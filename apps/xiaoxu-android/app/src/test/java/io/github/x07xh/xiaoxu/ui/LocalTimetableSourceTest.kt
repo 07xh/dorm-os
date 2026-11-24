@@ -31,6 +31,33 @@ class LocalTimetableSourceTest {
         assertFalse(view.sourceLabel.contains("可信只读"))
     }
 
+    @Test fun weekProjectionReusesSnapshotAndKeepsDayOrder() {
+        val early = lesson("早课").copy(id="early",startSection=1,endSection=2,weeks=listOf(9))
+        val late = lesson("晚课").copy(id="late",startSection=5,endSection=6,weeks=listOf(9,10))
+        val other = lesson("周五").copy(id="other",weekday=5,weeks=listOf(10))
+        val view = localImportedScheduleView(listOf(late,early,other))
+        val ninth = view.weekDisplay(9)
+        assertSame(ninth, view.weekDisplay(9))
+        assertEquals(listOf(late,early),ninth.originals)
+        assertEquals(mapOf(4 to 2),ninth.counts)
+        assertEquals(listOf("早课","晚课"),ninth.byWeekday[4]!!.map { it.title })
+        assertTrue(ninth.byWeekday[6].orEmpty().isEmpty())
+        assertEquals(listOf(late,other),view.weekDisplay(10).originals)
+        assertEquals(3,view.weekDisplay(0).lessons.size)
+        assertTrue(view.weekDisplay(99).lessons.isEmpty())
+    }
+
+    @Test fun weekProjectionCacheIsBoundedAndDoesNotSurviveNewImport() {
+        val view = localImportedScheduleView(listOf(lesson("旧课表")))
+        val ninth = view.weekDisplay(9)
+        for (week in 10..13) view.weekDisplay(week)
+        val rebuilt = view.weekDisplay(9)
+        assertTrue(ninth !== rebuilt)
+        assertEquals(ninth,rebuilt)
+        val updated = localImportedScheduleView(listOf(lesson("新课表")))
+        assertEquals("新课表",updated.weekDisplay(9).lessons.single().title)
+    }
+
     @Test fun missingImportDoesNotSynthesizeCourses() {
         val view = localImportedScheduleView(emptyList())
         assertTrue(view.lessons.isEmpty())

@@ -2743,7 +2743,9 @@ assert.doesNotMatch(workspace, /rememberLocalRows\(executionDao\)/);
 assert.match(main, /val preparedSchedule = remember\(localLessons\) \{ localImportedScheduleView\(localLessons\) \}/);
 assert.equal((main.match(/preparedSchedule = preparedSchedule/g) || []).length, 2);
 assert.match(schedulePanel, /internal val displayLessons: List<LessonUi> by lazy \{ lessons\.map \{ it\.toUi\(\) \} \}/);
-assert.match(schedulePanel, /val lessons = data\.displayLessons/);
+assert.match(schedulePanel, /data\.weekDisplay\(selectedWeek\)/);
+assert.match(schedulePanel, /if \(weekCache\.size >= 4\) weekCache\.remove\(weekCache\.keys\.first\(\)\)/);
+assert.match(schedulePanel, /val dayLessons = weekDisplay\.byWeekday\[effectiveWeekday\]\.orEmpty\(\)/);
 assert.match(localTimetableEntry, /val scheduleData = preparedSchedule \?: remember\(localLessons\)/);
 
 assert.match(v2Shell, /showContents = drawerEnabled &&\s*\(drawerState\.currentValue == DrawerValue\.Open \|\| drawerState\.targetValue == DrawerValue\.Open\)/,
