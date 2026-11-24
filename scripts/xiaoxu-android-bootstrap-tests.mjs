@@ -2548,7 +2548,20 @@ assert.match(v2Theme, /val GroupShape = RoundedCornerShape\(24\.dp\)/);
 assert.match(v2Settings, /clip\(UiV2Theme\.GroupShape\)/);
 assert.match(v2SearchField, /background\(UiV2Theme\.SearchSurface\)/);
 assert.match(profileSettings, /compact = animatedRoute != "home" \|\| compactSettingsHeader/);
-assert.match(v2Settings, /if \(!compact\) Text\(/);
+const settingsToolbar = v2Settings.slice(v2Settings.indexOf('internal fun UiV2SettingsHeader('),
+    v2Settings.indexOf('internal fun UiV2SettingsGroup('));
+assert.match(settingsToolbar, /Row\(\s*Modifier\.xiaoxuPageWidth\(\)/);
+assert.match(settingsToolbar, /style = if \(compact\) MaterialTheme\.typography\.titleLarge else MaterialTheme\.typography\.headlineLarge/);
+assert.equal((settingsToolbar.match(/Text\(/g) || []).length, 1, '设置标题与工具操作必须同一行');
+assert.match(settingsToolbar, /heightIn\(min = 48\.dp\)/);
+const settingsHubV2Source = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SettingsHub.kt');
+const connectionEntryV2 = settingsHubV2Source.slice(settingsHubV2Source.indexOf('internal fun UiV2SettingsConnectionCard('),
+    settingsHubV2Source.indexOf('private fun settingIcon('));
+assert.match(connectionEntryV2, /UiV2SettingsGroup \{\s*UiV2SettingsEntry\(/);
+assert.match(connectionEntryV2, /busy -> "正在同步"/);
+assert.match(connectionEntryV2, /authenticated -> "云端已登录"/);
+assert.match(connectionEntryV2, /onClick = onOpen/);
+assert.doesNotMatch(connectionEntryV2, /UiV2SettingsDivider\(|\bRow\(/, '账户状态不占独立重复行');
 assert.match(scheduleUi, /maxWidth\.value\.coerceAtMost\(XiaoxuPageLayout\.ScheduleMaxWidth\.value\)/);
 assert.match(designSystem, /val ScheduleMaxWidth: Dp = 1200\.dp/);
 
