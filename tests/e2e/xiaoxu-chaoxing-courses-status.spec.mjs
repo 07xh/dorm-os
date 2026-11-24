@@ -59,14 +59,18 @@ test('verified owner reads courses then official homework statuses in one click'
  await expect(host).toContainText('官方显示：已提交 / 待批阅');
  await expect(host).toContainText('官方显示：未提交');
  expect(requests.slice(0,2)).toEqual(['courses:','list:123']);
+ // The initial explicit course load must sync all courses even before the
+ // owner manually selects another course or clicks bulk sync.
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('全部 2 门课程已核实');
+ expect(requests).toContain('list:321');
  await host.locator('[data-xu-work-select]').selectOption('321:654:987');
  await expect(host).toContainText('三视图练习');
  await expect(host).toContainText('官方状态未知');
  await expect(host).not.toContainText('循环练习');
  expect(requests).toContain('list:321');
  await host.locator('[data-xu-work-all]').click();
- await expect(host.locator('[data-xu-work-bulk]')).toContainText('已处理 2 / 2');
- await expect(host.locator('[data-xu-work-bulk]')).toContainText('成功 2 门');
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('全部 2 门课程已核实');
+ await expect(host.locator('[data-xu-work-bulk]')).toContainText('待处理 1 份');
  expect(requests.filter(x=>x==='list:123').length).toBeGreaterThanOrEqual(2);
  expect(requests.filter(x=>x==='list:321').length).toBeGreaterThanOrEqual(2);
 });

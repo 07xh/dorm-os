@@ -92,4 +92,21 @@ class LocalDeadlineRemindersTest {
         assertEquals(LocalDate.of(2026, 11, 6), plans[0].deliverOn)
         assertEquals(30L * 60L * 1000L, plans[0].delayMillis)
     }
+    @Test fun customScheduleSupportsSinglePhaseAndHalfHour() {
+        val task = LocalTask(id = 51, title = "定时", due = "2026-11-08")
+        val plan = planLocalReminders(listOf(task), now,
+            DeadlineReminderSchedule(dayBefore = false, dueDay = true,
+                hour = 18, minute = 30))
+        assertEquals(listOf("today"), plan.map { it.phase })
+        val target = LocalDate.of(2026, 11, 8).atTime(18, 30).atZone(zone)
+        assertEquals(target.toInstant().toEpochMilli() - now.toInstant().toEpochMilli(),
+            plan.single().delayMillis)
+    }
+
+    @Test fun disablingBothPhasesSkipsNotifications() {
+        val task = LocalTask(id = 53, title = "暂缓", due = "2026-11-08")
+        assertTrue(planLocalReminders(listOf(task), now,
+            DeadlineReminderSchedule(false, false)).isEmpty())
+    }
+
 }

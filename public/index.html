@@ -9,10 +9,13 @@
   <!-- Scrub App navigation nonce before the SPA parses its hash route. -->
   <script src="/xiaoxu-android-return.js"></script>
   <script src="/xiaoxu-updates.js"></script>
+  <!-- Apply saved theme before styles are painted. -->
+  <script src="/xiaoxu-theme-bootstrap.js"></script>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/dorm-os.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
       <link rel="stylesheet" href="/xiaoxu-base.css">
+  <link rel="stylesheet" href="/xiaoxu-tokens.css">
 
 
   <link rel="stylesheet" href="/xiaoxu-academic.css">
@@ -29,19 +32,20 @@
   <header class="x-v7-header">
     <div class="x-v7-header-inner">
       <a class="x-v7-brand" href="#dashboard" aria-label="校序总览"><span class="x-v7-brand-mark" aria-hidden="true">序</span><span class="x-v8-brand-text">校序</span></a>
-      <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="顶部主导航">
-        <span class="xu-webnav-heading" aria-hidden="true">学业工作台</span>
-        <button type="button" data-page="dashboard" class="nav-link active"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-5v-7H9v7H3z"/></svg>总览</button>
-        <button type="button" data-page="timetable" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3"/></svg>课表</button>
-        <button type="button" data-page="academic" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V7l8-4 8 4v12M2 21h20M9 21v-6h6v6"/></svg>教务</button>
-        <button type="button" data-page="tasks" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="m8 11 2 2 4-4M8 17h8"/></svg>任务</button>
-        <a href="#review" class="nav-link xu-web-only" data-console-route="review" data-active="false"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 10h6"/></svg>消息审核</a>
-        <a href="#settings" class="nav-link xu-web-only" data-console-route="settings"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h8"/></svg>数据连接</a>
-        <button type="button" data-page="profile" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>我的</button>
-      </nav>
+
       <div class="x-v8-header-actions"><div class="xu-header-tools"><span id="breadcrumb" hidden></span><span id="dateChip" class="header-date">—</span><span hidden id="campusChip" class="campus-chip">江淮校区</span><button type="button" class="header-action search-action" data-action="global-search" title="全站搜索（Ctrl / ⌘ K）" aria-label="全站搜索"><svg class="dorm-ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#dicon-search"></use></svg><span class="x-v8-search-label">搜索</span><kbd class="x-v8-shortcut">Ctrl K</kbd></button><button type="button" id="quickAdd" class="header-action v4-add" data-action="add-task" title="新增" aria-label="新增任务">＋<span class="v4-add-label">新增</span></button></div><button type="button" class="x-v8-header-theme" data-action="theme-v8" aria-label="切换深浅色主题" title="切换深浅色主题"><svg class="dorm-ui-icon x-v8-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.1A8.5 8.5 0 0 1 9.9 3.6 8.5 8.5 0 1 0 20.4 14.1Z"/></svg><svg class="dorm-ui-icon x-v8-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button></div>
     </div>
   </header>
+  <nav class="main-nav x-v7-primary-nav" id="sidebarNav" aria-label="主导航">
+    <span class="xu-webnav-heading" aria-hidden="true">学业工作台</span>
+    <button type="button" data-page="dashboard" class="nav-link active"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10h-5v-7H9v7H3z"/></svg>总览</button>
+    <button type="button" data-page="timetable" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3"/></svg>课表</button>
+    <button type="button" data-page="academic" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V7l8-4 8 4v12M2 21h20M9 21v-6h6v6"/></svg>教务</button>
+    <button type="button" data-page="tasks" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="m8 11 2 2 4-4M8 17h8"/></svg>任务</button>
+    <button type="button" data-page="profile" class="nav-link"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>我的</button>
+    <a href="#review" class="nav-link xu-web-only" data-console-route="review" data-active="false"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 10h6"/></svg>消息审核</a>
+    <a href="#settings" class="nav-link xu-web-only" data-console-route="settings"><svg class="xu-nav-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h8"/></svg>数据连接</a>
+  </nav>
   <div class="workspace">
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>当前离线：已保存的课程、任务和个人场景仍可使用；天气与外部服务暂不可用。</div>
     <main id="app" tabindex="-1"></main>
@@ -551,15 +555,74 @@ function timetableDayPanel(day,weekStart){
  const p=now(),date=addDays(weekStart,(day+6)%7),arr=XiaoxuWorkspace.courses(state,date,day);
  return `<section class="weekday v42-day-card ${p.date===date?'today':''}" aria-label="${WEEKDAYS[day]}课程"><div class="weekday-title"><strong>${WEEKDAYS[day]}</strong>${p.date===date?badge('今天','green'):badge(arr.length+' 节')}</div>${arr.length?arr.map(c=>c.origin==='calendar'?calendarCourseCard(c):timetableCourseCard(c)).join(''):'<div class="v42-week-empty">暂无课程</div>'}</section>`;
 }
+function timetableViewMarkup(p,weekStart){
+ const day=timetableDay===null?p.day:timetableDay,days=[1,2,3,4,5,6,0];
+ return `${timetableMode==='day'?`<div class="v42-day-picker" role="group" aria-label="选择星期">${days.map(d=>`<button type="button" data-timetable-day="${d}" class="${day===d?'selected':''}" aria-pressed="${day===d}">${WEEKDAYS[d].slice(1)}${d===p.day?'<span>·</span>':''}</button>`).join('')}</div><div class="v42-day-content">${timetableDayPanel(day,weekStart)}</div>`:`<div class="weekday-grid v42-week-grid">${days.map(d=>timetableDayPanel(d,weekStart)).join('')}</div>`}`;
+}
+/* Keep official academic schedule, imports and panels mounted when only the
+ * local day/week window changes. Change just the calendar view and controls. */
+function patchTimetableView(dayOnly=false){
+ if(page!=='timetable')return false;
+ const app=$('app'),active=app?.querySelector('[data-timetable-view]');
+ const modes=app?.querySelectorAll('.v42-segments [data-timetable-mode]');
+ const week=app?.querySelector('[aria-label="课表周次"]');
+ const range=week?.querySelector('[data-timetable-range]');
+ const reset=week?.querySelector('[data-timetable-week="0"]');
+ if(!active||modes?.length!==2||!range||!reset)return false;
+ const p=now(),weekStart=addDays(p.date,-((p.day+6)%7)+timetableWeekOffset*7);
+ range.textContent=fmtDate(weekStart)+' – '+fmtDate(addDays(weekStart,6))+(timetableWeekOffset===0?' · 本周':'');
+ reset.hidden=timetableWeekOffset===0;
+ modes.forEach(button=>{
+  const selected=button.dataset.timetableMode===timetableMode;
+  button.classList.toggle('active',selected);
+  button.setAttribute('aria-pressed',String(selected));
+ });
+ const dayContent=dayOnly&&timetableMode==='day'?active.querySelector('.v42-day-content'):null;
+ const dayButtons=dayContent?active.querySelectorAll('[data-timetable-day]'):null;
+ if(dayContent&&dayButtons?.length===7){
+  const day=timetableDay===null?p.day:timetableDay;
+  dayContent.innerHTML=timetableDayPanel(day,weekStart);
+  dayButtons.forEach(button=>{
+   const selected=Number(button.dataset.timetableDay)===day;
+   button.classList.toggle('selected',selected);
+   button.setAttribute('aria-pressed',String(selected));
+  });
+  return true;
+ }
+ active.innerHTML=timetableViewMarkup(p,weekStart);
+ return true;
+}
+function setTimetableMode(next){
+ if(!['day','week'].includes(next)||timetableMode===next)return;
+ timetableMode=next;
+ if(!patchTimetableView())render();
+}
+function shiftTimetableWeek(move){
+ if(!Number.isInteger(move)||![-1,0,1].includes(move))return;
+ const next=move===0?0:Math.max(-52,Math.min(52,timetableWeekOffset+move));
+ if(next===timetableWeekOffset)return;
+ const wasReset=move===0&&document.activeElement?.matches?.('[data-timetable-week="0"]');
+ timetableWeekOffset=next;
+ if(!patchTimetableView())render();
+ if(wasReset)$('app')?.querySelector('[data-timetable-week="1"]')?.focus({preventScroll:true});
+}
+function selectTimetableDay(chosen){
+ if(!Number.isInteger(chosen)||chosen<0||chosen>6)return;
+ if(timetableDay===chosen&&timetableMode==='day')return;
+ timetableDay=chosen;
+ const dayOnly=timetableMode==='day';
+ timetableMode='day';
+ if(!patchTimetableView(dayOnly))render();
+}
 function timetable(){
- const p=now(),day=timetableDay===null?p.day:timetableDay,days=[1,2,3,4,5,6,0],weekStart=addDays(p.date,-((p.day+6)%7)+timetableWeekOffset*7);
+ const p=now(),weekStart=addDays(p.date,-((p.day+6)%7)+timetableWeekOffset*7);
  return `${titleBlock('','我的课表')}
  <div class="v42-schedule-toolbar"><div class="v42-segments" role="group" aria-label="课表视图">
  <button type="button" data-timetable-mode="day" aria-pressed="${timetableMode==='day'}" class="${timetableMode==='day'?'active':''}">单日</button>
  <button type="button" data-timetable-mode="week" aria-pressed="${timetableMode==='week'}" class="${timetableMode==='week'?'active':''}">整周</button>
  </div><details class="v4-import-tools"><summary>导入课表 ›</summary><div class="v4-import-panel"><button type="button" data-action="csv-template" class="secondary">CSV 模板</button><button type="button" data-action="csv-import" class="secondary">导入 CSV</button><button type="button" data-action="ics-import" class="secondary">导入 .ics</button></div></details></div>
- <div class="button-row" style="flex-wrap:wrap;align-items:center;gap:8px" role="group" aria-label="课表周次"><button type="button" class="secondary" data-timetable-week="-1">上一周</button><span aria-live="polite">${esc(fmtDate(weekStart))} – ${esc(fmtDate(addDays(weekStart,6)))}${timetableWeekOffset===0?" · 本周":""}</span><button type="button" class="secondary" data-timetable-week="1">下一周</button>${timetableWeekOffset!==0?`<button type="button" class="secondary" data-timetable-week="0">回本周</button>`:""}</div>
- ${timetableMode==='day'?`<div class="v42-day-picker" role="group" aria-label="选择星期">${days.map(d=>`<button type="button" data-timetable-day="${d}" class="${day===d?'selected':''}" aria-pressed="${day===d}">${WEEKDAYS[d].slice(1)}${d===p.day?'<span>·</span>':''}</button>`).join('')}</div><div class="v42-day-content">${timetableDayPanel(day,weekStart)}</div>`:`<div class="weekday-grid v42-week-grid">${days.map(d=>timetableDayPanel(d,weekStart)).join('')}</div>`}
+ <div class="button-row" style="flex-wrap:wrap;align-items:center;gap:8px" role="group" aria-label="课表周次"><button type="button" class="secondary" data-timetable-week="-1">上一周</button><span data-timetable-range aria-live="polite">${esc(fmtDate(weekStart))} – ${esc(fmtDate(addDays(weekStart,6)))}${timetableWeekOffset===0?" · 本周":""}</span><button type="button" class="secondary" data-timetable-week="1">下一周</button><button type="button" class="secondary" data-timetable-week="0" ${timetableWeekOffset===0?'hidden':''}>回本周</button></div>
+ <div data-timetable-view>${timetableViewMarkup(p,weekStart)}</div>
  ${state.calendarEvents.length?`<details class="v42-imported"><summary>按日期导入的课程 <span>${state.calendarEvents.length} 条</span></summary><section class="card">${calendarPreview(12)}</section></details>`:''}
  ${XiaoxuAcademic.panel('schedule')}
  <p class="v42-schedule-hint">本地每周课程和按日期导入的日历课程会在所选周一同显示，但仍分别保存；授权课表按原始节次展示，不猜测学校作息。</p>`;
@@ -615,6 +678,25 @@ function publicNoticeList(limit=18){
   +'</div>';
  }).join('')+'</div>':
  '<p class="small muted">'+(noticeQuery?'没有匹配的已核验通知，请调整关键词。':noticeFilter==='unread'?'没有未读新通知。':'没有该分类的已验证公告，请以学校官网为准。')+'</p>';
+}
+/* A notice category change only affects the controls and the results list.
+ * Preserve the search input, active tab, and surrounding connection widgets. */
+function selectNoticeFilter(next){
+ if(!['all','unread','notice','exam'].includes(next)||noticeFilter===next)return;
+ noticeFilter=next;
+ const host=$('publicNoticeList');
+ const buttons=$('app')?.querySelectorAll('[data-notice-filter]');
+ if(page==='academic'&&academicTab==='notices'&&host&&buttons?.length===4){
+  host.innerHTML=publicNoticeList();
+  buttons.forEach(button=>{
+   const selected=button.dataset.noticeFilter===next;
+   button.classList.toggle('selected',selected);
+   button.setAttribute('aria-pressed',String(selected));
+  });
+  return;
+ }
+ // Fall back to the existing full render if an old/incomplete DOM is present.
+ render();
 }
 // An explicit user gesture is required to request Notification permission.
 // This is a foreground page-check alert, NOT a server push subscription.
@@ -765,6 +847,39 @@ function campusPage(){
 }
 function campusLinkDialog(){openDialog(formFrame('添加校园服务入口',`<div class="form-field"><label>服务名称</label><input name="name" maxlength="40" required placeholder="例如：学校官方教务平台"></div><div class="form-field"><label>官方网址（HTTPS）</label><input name="url" type="url" maxlength="300" required placeholder="https://..."></div><p class="small muted">只保存链接，不保存账号或密码。</p>`));$('modalForm').dataset.form='campus-link';}
 async function icsImport(){const f=$('icsInput');f.value='';f.click();}
+/* Only the visible task rows and filter controls depend on ordinary filter/source choices.
+ * Keep reminders, study-platform panels, tools and the live select node intact. */
+function patchTaskList(){
+ if(page!=='tasks'||taskFilter==='review')return false;
+ const app=$('app'), view=app?.querySelector('[data-task-list-view]');
+ const list=view?.querySelector('.v4-task-list'), count=view?.querySelector('[data-workspace-count]');
+ const filters=app?.querySelectorAll('.v4-task-toolbar [data-filter]');
+ if(!view||view.hidden||!list||!count||filters?.length!==4)return false;
+ const rows=workspaceTasks(taskFilter);
+ list.innerHTML=rows.length?rows.map(row=>workspaceTaskRow(row)).join(''):'<div class="empty">当前筛选下暂无任务。</div>';
+ count.textContent=rows.length+' 项任务';
+ filters.forEach(button=>{
+  const selected=button.dataset.filter===taskFilter;
+  button.classList.toggle('active',selected);
+  button.setAttribute('aria-pressed',String(selected));
+ });
+ return true;
+}
+function selectTaskFilter(next){
+ if(!['all','open','done','review'].includes(next))return;
+ const prior=taskFilter;
+ taskFilter=next;
+ history.replaceState(null,'',XiaoxuWebRouter.taskFilterHash(taskFilter));
+ // Review uses separate live panels; preserve its original full-render lifecycle.
+ if(prior==='review'||next==='review'||!patchTaskList())render();
+}
+function selectTaskSource(next){
+ taskSource=next;
+ if(!patchTaskList()){
+  render();
+  $('app').querySelector('[data-task-source]')?.focus({preventScroll:true});
+ }
+}
 function tasksPage(){
  const rows=workspaceTasks(taskFilter),review=taskFilter==='review';
  return `${titleBlock('','我的任务')}
@@ -990,6 +1105,13 @@ function lifePage(){
 }
 function reminderDialog(id){const r=state.reminders.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人提醒':'添加个人提醒',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="reminderText">提醒内容</label><input id="reminderText" name="text" maxlength="100" required placeholder="例如：周末洗衣服" value="${esc(r?.text||'')}"></div><div class="form-field"><label for="reminderDue">日期（可选）</label><input id="reminderDue" type="date" name="due" value="${esc(r?.due||'')}"></div><p class="small muted">这是站内清单，不会在浏览器关闭后自动弹出通知。</p>`,'reminder'));}
 function itemDialog(id){const r=state.items.find(x=>x.id===id);openDialog(formFrame(r?'编辑个人物品':'添加个人物品',`<input type="hidden" name="id" value="${esc(r?.id||'')}"><div class="form-field"><label for="itemName">物品名称</label><input id="itemName" name="name" maxlength="80" required placeholder="例如：蓝牙耳机" value="${esc(r?.name||'')}"></div><div class="form-field"><label for="itemPlace">存放位置（可选）</label><input id="itemPlace" name="place" maxlength="80" placeholder="例如：书桌抽屉" value="${esc(r?.place||'')}"></div>`,'item'));}
+/* UI-only preference changes should not discard the current page DOM or focus. */
+function applyTheme(){
+ const theme=state.settings.theme==='dark'?'dark':'light';
+ const root=document.documentElement;
+ root.dataset.theme=theme;
+ root.classList.toggle('theme-light',theme==='light');
+}
 function render(){const previousApp=$('app');const focusedEl=document.activeElement;const focusAttrs=['data-task-source','data-action','data-home-day','data-timetable-mode','data-timetable-day','data-filter','data-academic-tab','data-notice-filter','data-life-tab','data-task-toggle','data-owner-duration-toggle','data-owner-duration-choice'];const renderFocus=previousApp.contains(focusedEl)?focusAttrs.map(attr=>[attr,focusedEl?.getAttribute(attr)]).find(([,value])=>value!==null):null;const restoreNoticeSearch=page==='academic'&&focusedEl?.id==='noticeSearch'&&previousApp.contains(focusedEl);const taskFocusIndex=page==='tasks'&&focusedEl?.matches?.('.v4-task-list [data-task-toggle]')?Array.from(previousApp.querySelectorAll('.v4-task-list [data-task-toggle]')).indexOf(focusedEl):-1;const taskScroll=window.scrollY;const preserveTaskTools=previousApp.querySelector('.xu-task-tools')?.open===true;const preserveWechatOpen=previousApp.querySelector('.xu-wc-details')?.open===true;const preserveInboxOpen=previousApp.querySelector('.xu-inbox-details')?.open===true;const preserveHomeworkOpen=page==='tasks'&&previousApp.querySelector('.xu-work-details')?.open===true;const preserveLegacyOpen=page==='profile'&&Boolean(previousApp.querySelector('.x-v7-legacy-links')?.open);const preserveCourseId=page==='timetable'?previousApp.querySelector('.v42-row-more[open] [data-class-delete]')?.dataset.classDelete:null;const preserveAdvanced=page==='settings'?[...previousApp.querySelectorAll('.xu-advanced-tools')].map((el,i)=>el.open?i:-1).filter(i=>i>=0):[];const preserveSchoolManage=page==='settings'?[...previousApp.querySelectorAll('.xu-school-manage[open]')].map(el=>el.dataset.xuSchoolProvider).filter(Boolean):[];const preserveConnectionMore=page==='settings'&&previousApp.querySelector('.xu-connection-more')?.open===true;const preserveConnectionDiagnostic=page==='settings'&&previousApp.querySelector('.xu-connection-diagnostics')?.open===true;const preserveSchoolAuthOpen=page==='settings'?
  [...previousApp.querySelectorAll('.xu-school-manage')].flatMap(group=>{
   const details=[...group.querySelectorAll('details')],provider=group.dataset.xuSchoolProvider;
@@ -999,7 +1121,7 @@ function render(){const previousApp=$('app');const focusedEl=document.activeElem
   .find(el=>el.dataset.xuSchoolProvider===item.provider);
  const panel=group?.querySelectorAll('details')[item.index];
  if(panel)panel.open=true;
-}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');document.documentElement.classList.toggle('theme-light',state.settings.theme==='light');tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
+}const selected=XiaoxuWebRouter.selected(page);document.querySelectorAll('[data-page]').forEach(b=>{const active=b.dataset.page===selected;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false');});const reviewNav=document.querySelector('#sidebarNav [data-console-route="review"]');if(reviewNav)reviewNav.dataset.active=page==='tasks'&&taskFilter==='review'?'true':'false';$('breadcrumb').textContent=nameMap[page];$('campusChip').textContent=CAMPUSES[state.settings.campus].name;const quick=$('quickAdd'),action=({dashboard:'add-task',tasks:'add-task',timetable:'add-class'})[page]||'quick-add';quick.dataset.action=action;quick.hidden=page==='nfc'||page==='study'||page==='life'||page==='academic'||page==='campus'||page==='profile'||page==='settings';quick.setAttribute('aria-label',({dashboard:'新增任务',tasks:'新增任务',timetable:'新增课程'})[page]||'新增项目');applyTheme();tick();if(page==='tasks')queueMicrotask(()=>{if(page==='tasks')void XiaoxuWechat.refreshIfStale();});if(noticeStatus==='idle'&&(page==='dashboard'||page==='academic'&&academicTab==='notices')){restorePublicNotices();queueMicrotask(()=>loadPublicNotices());}}
 
 
  // After owner authentication, the connection-center page may read its status.
@@ -1290,11 +1412,11 @@ function clickAction(action){
   XiaoxuReminders.mark(key,value==='true').then(()=>{render();toast('云端已读状态已更新');}).catch(e=>toast(String(e.message)));return;
  }
  
- if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();render();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-alert-toggle')toggleNoticeBrowserAlerts();else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
+ if(action==='theme-v8'){state.settings.theme=state.settings.theme==='light'?'dark':'light';persist();applyTheme();return;}if(action==='quick-add')quickAddDialog();else if(action.startsWith('quick-'))chooseQuickAdd(action.slice(6));else if(action==='global-search')openGlobalSearch();else if(action==='home-layout')homeLayoutDialog();else if(action==='home-layout-save')saveHomeLayout();else if(action==='home-layout-reset'){homeLayoutDraft=defaultHomeLayout();renderHomeLayoutDialog();}else if(action==='add-task')taskDialog();else if(action==='add-class')classDialog();else if(action==='balance')balanceDialog();else if(action==='close-modal'){homeLayoutDraft=null;$('editor').classList.remove('home-layout-dialog');$('editor').close();}else if(action==='refresh-notices')loadPublicNotices(true);else if(action==='notice-alert-toggle')toggleNoticeBrowserAlerts();else if(action==='notice-mark-all')markAllNoticesRead();else if(action==='refresh-weather')fetchWeather(true);else if(action==='export-encrypted')encryptedExportDialog();else if(action==='export'){download(`dorm-os-backup-${now().date}.json`,exportedBackup());toast('已下载备份文件');}else if(action==='import')$('importInput').click();else if(action==='eink-export'){download(`dorm-os-eink-${now().date}.json`,JSON.stringify(eInkPayload(state,weather),null,2));toast('已导出墨水屏数据快照（非实时接口）');}else if(action==='csv-template'){download('dorm-os-course-template.csv','day,subject,start,end,location\n1,示例课程,08:00,09:40,示例教室\n','text/csv');toast('已下载 CSV 模板，请替换示例内容');}else if(action==='csv-import')csvImport();else if(action==='import-task-batch'){$('taskImportInput').value='';$('taskImportInput').click();}else if(action==='export-deadlines')exportPersonalCalendarFile();else if(action==='ics-import')icsImport();else if(action==='add-campus-link')campusLinkDialog();else if(action==='clear-calendar'){if(state.calendarEvents.length&&confirm('确定删除当前浏览器中全部导入的日历课程？')){state.calendarEvents=[];log('清空导入的日历课程');persist();render();toast('已清空导入课程');}}else if(action==='reset'){if(confirm('确定删除本浏览器所有 DORM OS 课程、任务和设置吗？此操作不能撤销。')){state=structuredClone(DEFAULT_STATE);restoreTimerState();persist();weather=null;loadWeather();setPage('dashboard');toast('已清空本地数据');}}else if(action==='tag-add')tagDialog();else if(action==='scene-link-add')sceneLinkDialog();else if(action==='scene-copy')copyPersonalSceneLink();else if(action==='reminder-add')reminderDialog();else if(action==='item-add')itemDialog();else if(action==='pwa-install')installPwa();else if(action==='nfc-start')startNfcScan();else if(action==='nfc-stop')stopNfcScan();else if(action==='nfc-cancel-write')stopNfcWrite();else if(action==='timer-toggle'){timer.running?timerStop():timerStart();render();}else if(action==='timer-reset')timerReset();}
 document.addEventListener('click',e=>{const summary=e.target.closest('.v41-tag-more summary');if(summary){const details=summary.parentElement;expandedNfcTagMenu=details.open?'':details.dataset.tagMenu;}});
 document.addEventListener('click',e=>{const target=e.target.closest('[data-action], [data-search-open], [data-search-edit], [data-home-widget-toggle], [data-home-widget-up], [data-home-widget-down], [data-nfc-filter], [data-timetable-mode], [data-timetable-week], [data-timetable-day], [data-home-day], [data-academic-tab], [data-notice-filter], [data-notice-read], [data-notice-open], [data-life-tab], [data-life-more], [data-page], [data-scene], [data-task-edit], [data-task-delete], [data-class-edit], [data-class-delete], [data-campus-link-delete], [data-filter], [data-tag-edit], [data-tag-delete], [data-tag-write], [data-tag-copy], [data-tag-test], [data-reminder-edit], [data-reminder-delete], [data-item-edit], [data-item-delete], [data-timer-duration], [data-scene-link-edit], [data-scene-link-delete]');if(!target)return;
-  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeRead){markNoticeRead(target.dataset.noticeRead);}else if(target.dataset.noticeOpen){markNoticeRead(target.dataset.noticeOpen,true);}else if(target.dataset.noticeFilter){if(['all','unread','notice','exam'].includes(target.dataset.noticeFilter)){noticeFilter=target.dataset.noticeFilter;render();}}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){timetableMode=target.dataset.timetableMode==='week'?'week':'day';render();}else if(target.dataset.timetableWeek!==undefined){const move=Number(target.dataset.timetableWeek);if(Number.isInteger(move)&&[-1,0,1].includes(move)){timetableWeekOffset=move===0?0:Math.max(-52,Math.min(52,timetableWeekOffset+move));render();}}else if(target.dataset.timetableDay!==undefined){const chosen=Number(target.dataset.timetableDay);if(Number.isInteger(chosen)&&chosen>=0&&chosen<=6){timetableDay=chosen;timetableMode='day';render();}}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){taskFilter=target.dataset.filter;history.replaceState(null,'',XiaoxuWebRouter.taskFilterHash(taskFilter));render();}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
-document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-task-source]')){taskSource=el.value;render();$('app').querySelector('[data-task-source]')?.focus({preventScroll:true});}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();render();}});
+  if(target.dataset.homeWidgetToggle){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetToggle,hidden=new Set(homeLayoutDraft.hidden);if(hidden.has(id))hidden.delete(id);else if(HOME_WIDGETS.filter(x=>!hidden.has(x.id)).length<=1){toast('至少保留一个首页模块');return;}else hidden.add(id);homeLayoutDraft.hidden=[...hidden];renderHomeLayoutDialog();}else if(target.dataset.homeWidgetUp||target.dataset.homeWidgetDown){if(!homeLayoutDraft)return;const id=target.dataset.homeWidgetUp||target.dataset.homeWidgetDown,index=homeLayoutDraft.order.indexOf(id),next=index+(target.dataset.homeWidgetUp?-1:1);if(index>=0&&next>=0&&next<homeLayoutDraft.order.length){[homeLayoutDraft.order[index],homeLayoutDraft.order[next]]=[homeLayoutDraft.order[next],homeLayoutDraft.order[index]];renderHomeLayoutDialog();}}else if(target.dataset.searchOpen){navigateSearchResult(target.dataset.searchOpen,target.dataset.searchId,false);}else if(target.dataset.searchEdit){navigateSearchResult(target.dataset.searchEdit,target.dataset.searchId,true);}else if(target.dataset.page){e.preventDefault();setPage(target.dataset.page);}else if(target.dataset.homeDay!==undefined){const offset=Number(target.dataset.homeDay);if(Number.isInteger(offset)&&offset>=0&&offset<=2){homeDayOffset=offset;render();}}else if(target.dataset.academicTab){if(ACADEMIC_TABS.some(t=>t.id===target.dataset.academicTab)){academicTab=target.dataset.academicTab;render();}}else if(target.dataset.noticeRead){markNoticeRead(target.dataset.noticeRead);}else if(target.dataset.noticeOpen){markNoticeRead(target.dataset.noticeOpen,true);}else if(target.dataset.noticeFilter){selectNoticeFilter(target.dataset.noticeFilter);}else if(target.dataset.nfcFilter){nfcTagFilter=target.dataset.nfcFilter;render();}else if(target.dataset.timetableMode){setTimetableMode(target.dataset.timetableMode);}else if(target.dataset.timetableWeek!==undefined){shiftTimetableWeek(Number(target.dataset.timetableWeek));}else if(target.dataset.timetableDay!==undefined){selectTimetableDay(Number(target.dataset.timetableDay));}else if(target.dataset.lifeTab){lifeTab=target.dataset.lifeTab==='items'?'items':'reminders';expandedLifeMenu='';render();}else if(target.dataset.lifeMore){expandedLifeMenu=expandedLifeMenu===target.dataset.lifeMore?'':target.dataset.lifeMore;render();}else if(target.dataset.action)clickAction(target.dataset.action);else if(target.dataset.filter){selectTaskFilter(target.dataset.filter);}else if(target.dataset.timerDuration){timerSetDuration(Number(target.dataset.timerDuration));}else if(target.dataset.scene){const onHome=page==='dashboard';activateScene(target.dataset.scene,'网页按钮');if(onHome)setPage('scenes');toast('网站场景已切换');}else if(target.dataset.sceneLinkEdit)sceneLinkDialog(target.dataset.sceneLinkEdit);else if(target.dataset.sceneLinkDelete){const item=state.sceneLinks.find(x=>x.id===target.dataset.sceneLinkDelete);if(item&&confirm('删除场景入口「'+item.name+'」？')){state.sceneLinks=state.sceneLinks.filter(x=>x.id!==item.id);log('删除场景入口：'+item.name);persist();render();}}else if(target.dataset.tagEdit)tagDialog(target.dataset.tagEdit);else if(target.dataset.tagWrite)writeNfcTag(target.dataset.tagWrite);else if(target.dataset.tagCopy)copyTagLink(target.dataset.tagCopy);else if(target.dataset.tagTest)testTagLink(target.dataset.tagTest);else if(target.dataset.tagDelete){const t=state.nfcTags.find(x=>x.id===target.dataset.tagDelete);if(t&&confirm(`删除标签配置「${t.name}」？此操作不会擦除实体标签。`)){state.nfcTags=state.nfcTags.filter(x=>x.id!==t.id);persist();render();}}else if(target.dataset.reminderEdit)reminderDialog(target.dataset.reminderEdit);else if(target.dataset.itemEdit)itemDialog(target.dataset.itemEdit);else if(target.dataset.reminderDelete){const r=state.reminders.find(x=>x.id===target.dataset.reminderDelete);if(r&&confirm(`删除提醒「${r.text}」？`)){state.reminders=state.reminders.filter(x=>x.id!==r.id);expandedLifeMenu='';log(`删除提醒：${r.text}`);persist();render();}}else if(target.dataset.itemDelete){const item=state.items.find(x=>x.id===target.dataset.itemDelete);if(item&&confirm(`删除物品「${item.name}」？`)){state.items=state.items.filter(x=>x.id!==item.id);expandedLifeMenu='';log(`删除物品：${item.name}`);persist();render();}}else if(target.dataset.taskEdit)taskDialog(target.dataset.taskEdit);else if(target.dataset.classEdit)classDialog(target.dataset.classEdit);else if(target.dataset.taskDelete){const t=state.tasks.find(x=>x.id===target.dataset.taskDelete);if(t&&confirm(`删除任务「${t.title}」？`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);log(`删除任务：${t.title}`);persist();render();}}else if(target.dataset.campusLinkDelete){const link=state.campusLinks.find(x=>x.id===target.dataset.campusLinkDelete);if(link&&confirm(`删除校园服务「${link.name}」？`)){state.campusLinks=state.campusLinks.filter(x=>x.id!==link.id);persist();render();toast('服务入口已删除');}}else if(target.dataset.classDelete){const c=state.classes.find(x=>x.id===target.dataset.classDelete);if(c&&confirm(`删除课程「${c.subject}」？`)){state.classes=state.classes.filter(x=>x.id!==c.id);log(`删除课程：${c.subject}`);persist();render();}}});
+document.addEventListener('change',e=>{const el=e.target;if(el.matches('[data-task-source]')){selectTaskSource(el.value);}else if(el.matches('[data-away-check]')){const key=el.dataset.awayCheck;if(!AWAY_ITEMS.some(x=>x.id===key))return;const today=now().date;const checked=new Set(awayChecksForDate(state.awayChecklist,today));if(el.checked)checked.add(key);else checked.delete(key);state.awayChecklist={date:today,checked:[...checked]};persist();render();}else if(el.matches('[data-reminder-toggle]')){const r=state.reminders.find(x=>x.id===el.dataset.reminderToggle);if(r){r.done=el.checked;persist();render();}}else if(el.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===el.dataset.taskToggle);if(t){t.done=el.checked;log(`${t.done?'完成':'恢复'}任务：${t.title}`);persist();if(page==='dashboard'){el.closest('.x-v7-task-preview')?.classList.add('is-completing');toast('已更新个人任务状态');setTimeout(()=>{if(page==='dashboard')render();},200);}else render();}}else if(el.id==='campusSelect'){state.settings.campus=el.value in CAMPUSES?el.value:'jianghuai';persist();weather=null;loadWeather();render();fetchWeather();}else if(el.id==='themeSelect'){state.settings.theme=el.value==='light'?'light':'dark';persist();applyTheme();}});
 document.addEventListener('submit',e=>{if(e.target.id==='modalForm'){e.preventDefault();processForm(e.target);}});
 
 document.addEventListener('keydown', e=>{
