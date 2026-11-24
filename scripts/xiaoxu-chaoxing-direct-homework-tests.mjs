@@ -145,6 +145,49 @@ assert.ok(requests.every(x=>x.cookie.includes('cx_s=sandbox-session')));
  const invalid={...timedList,items:timedList.items.map(item=>({...item,due:'2026-02-30',dueAt:'2026-02-30T23:59:00+08:00'}))};
  assert.equal(normalizeVerifiedChaoxingHomework(timingKeys,invalid).tasks[0].dueAt,'');
 
+
+ // Deadline-only detail enrichment never opens an answer page and never
+ // turns optional detail failures into lost official list records.
+ const fullDetail='<body><section>作答时间：2026-11-03 08:15 至 2026-12-01 23:59</section></body>';
+ const threeWorkHtml='<ul>'+['987','988','989'].map(id=>
+  workHtml.slice(4,-5).replace('workId=987','workId='+id)).join('')+'</ul>';
+ async function metadataReader(getDetail){
+  const visited=[];
+  const metadataAdapter=createChaoxingSchoolAdapter({fetchImpl:async(raw,options)=>{
+   const u=new URL(raw);
+   if(u.pathname==='/mooc2/work/list')return response(threeWorkHtml);
+   if(u.pathname==='/mooc-ans/mooc2/work/task'){
+    visited.push(u.searchParams.get('workId'));return getDetail(u);
+   }
+   if(u.pathname.includes('/work/dowork'))throw Error('must not enter answer page');
+   return fakeFetch(raw,options);
+  }});
+  const reader=await metadataAdapter.forSession({session,userId:'owner1'});
+  await reader.verifySession();
+  return {reader,visited};
+ }
+ const metadata=await metadataReader(()=>response(fullDetail));
+ const normal=await metadata.reader.readHomeworkList(timingKeys);
+ assert.equal(normal.items.length,3);
+ assert.equal(metadata.visited.length,0,'ordinary list read must not fetch details');
+ const enriched=await metadata.reader.readHomeworkList(timingKeys,{includeDeadlines:true});
+ assert.equal(enriched.items.length,3);
+ assert.deepEqual(metadata.visited,['987','988']);
+ assert.equal(enriched.items[0].dueAt,'2026-12-01T23:59:00+08:00');
+ assert.equal(enriched.items[2].dueAt,undefined);
+ const throttled=await metadataReader(()=>new Response('',{status:429}));
+ assert.equal((await throttled.reader.readHomeworkList(timingKeys,{includeDeadlines:true})).items.length,3);
+ assert.equal(throttled.visited.length,1,'no further optional reads after throttling');
+ const expired=await metadataReader(()=>new Response('',{status:302,
+  headers:{location:'https://passport2.chaoxing.com/login'}}));
+ await assert.rejects(()=>expired.reader.readHomeworkList(timingKeys,{includeDeadlines:true}),
+  e=>e.code==='authorization_failed');
+ const redirectAnswer=await metadataReader(u=>new Response('',{status:302,
+  headers:{location:u.href.replace('/work/task','/work/dowork')}}));
+ const protectedList=await redirectAnswer.reader.readHomeworkList(timingKeys,{includeDeadlines:true});
+ assert.equal(protectedList.items.length,3);
+ assert.ok(protectedList.items.every(x=>x.dueAt===undefined));
+
 console.log('Chaoxing direct homework: discovery, session ownership, signed-link isolation, question preview passed');
 
 const missingFidProfile='<div aria-label="账号：虚构测试人"></div>'+
