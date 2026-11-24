@@ -1,5 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
+import io.github.x07xh.xiaoxu.ui.v2.UiV2SearchField
+import io.github.x07xh.xiaoxu.ui.v2.LocalUiV2Motion
+import io.github.x07xh.xiaoxu.ui.v2.UiV2MotionMode
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -45,8 +49,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
@@ -655,67 +657,13 @@ private fun SourceSectionHeader(
 // 搜索 / 筛选
 // ---------------------------------------------------------------------------
 
-/** 白底圆角搜索条：与海报一致的填充样式，触控高度 ≥52dp。 */
+/** Shared V2 search field; retains the official-notice query semantics. */
 @Composable
 private fun MessageSearchField(query: String, onQueryChange: (String) -> Unit) {
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(XiaoxuRadius.tile))
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder,
-                RoundedCornerShape(XiaoxuRadius.tile))
-            .semantics { contentDescription = "搜索官方公告：标题或日期" },
-        singleLine = true,
-        placeholder = {
-            Text(
-                text = "搜索官方公告标题或日期",
-                style = MaterialTheme.typography.bodyMedium,
-                color = XiaoxuPalette.Ink3
-            )
-        },
-        leadingIcon = {
-            Icon(
-                Icons.Outlined.Search,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = XiaoxuPalette.Ink3
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = { onQueryChange("") }, role = Role.Button)
-                        .semantics { contentDescription = "清空搜索" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = XiaoxuPalette.Ink2
-                    )
-                }
-            }
-        },
-        textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(XiaoxuRadius.tile),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = XiaoxuPalette.GlassCard,
-            unfocusedContainerColor = XiaoxuPalette.GlassCard,
-            disabledContainerColor = XiaoxuPalette.GlassCard,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            focusedTextColor = XiaoxuPalette.Ink,
-            unfocusedTextColor = XiaoxuPalette.Ink,
-            cursorColor = XiaoxuPalette.Brand
-        )
+    UiV2SearchField(
+        query = query,
+        onQuery = onQueryChange,
+        placeholder = "搜索官方公告标题或日期"
     )
 }
 
@@ -751,16 +699,17 @@ private fun MessagePill(
     a11yLabel: String,
     onClick: () -> Unit
 ) {
+    val reduced = LocalUiV2Motion.current == UiV2MotionMode.Reduced
     val background by animateColorAsState(
         targetValue = if (isSelected) XiaoxuPalette.GlassIndicator
         else XiaoxuPalette.GlassTrack,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(if (reduced) 0 else XiaoxuMotion.SelectionMs),
         label = "message-pill-bg"
     )
     val foreground by animateColorAsState(
         targetValue = if (isSelected) XiaoxuPalette.BrandDeep
         else XiaoxuPalette.Ink2,
-        animationSpec = tween(XiaoxuMotion.SelectionMs),
+        animationSpec = tween(if (reduced) 0 else XiaoxuMotion.SelectionMs),
         label = "message-pill-fg"
     )
     Row(

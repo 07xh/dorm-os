@@ -921,10 +921,11 @@ assert.match(statusTabSource, /XiaoxuRadius\.tile/,
 const messageSearchSource = messageUi.slice(
     messageUi.indexOf('private fun MessageSearchField('),
     messageUi.indexOf('private fun FilterRow('));
-assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
-  '消息搜索框需与列表共用玻璃材质');
-assert.match(messageSearchSource, /GlassBorder/,
-  '消息搜索框描边须取自唯一组件调色板');
+const v2SearchField = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/v2/UiV2SearchField.kt');
+assert.match(messageSearchSource, /UiV2SearchField\(/, '官方消息复用统一搜索框');
+assert.match(messageSearchSource, /placeholder = "搜索官方公告标题或日期"/, '保留公告查询语义');
+assert.match(v2SearchField, /value = query, onValueChange = onQuery/, '输入由业务调用方控制');
+assert.match(v2SearchField, /onClick = \{ onQuery\(""\) \}/, '保留清空操作');
 assert.equal((timetableSettings.match(/XiaoxuGroupSurface\s*\{/g) || []).length, 3,
   '课表设置的三个分组必须直接复用设计系统的玻璃容器');
 assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
@@ -962,6 +963,7 @@ const messagePillSource = messageCenter.slice(
   messageCenter.indexOf('private fun MessageCountLine('));
 assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
   '官方消息筛选未选中态与导航共用轻玻璃材质');
+assert.match(messagePillSource, /tween\(if \(reduced\) 0 else XiaoxuMotion\.SelectionMs\)/, '消息分类遵循减少动画模式');
 assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
   '官方消息筛选不可恢复旧1dp灰色硬描边');
 
@@ -2212,7 +2214,7 @@ assert.match(workspace, /maxLines = 2,[\s\S]*?modifier = Modifier\.weight\(1f\)\
 assert.doesNotMatch(messageCenter, /MESSAGE CENTER/,
   '消息顶栏不再重复展示英文装饰标题');
 assert.match(messageCenter, /messageFilterIcon\(/, '四枚筛选 pill 需带图标');
-assert.match(messageCenter, /TextFieldDefaults\.colors\(/, '搜索条改为无边框填充样式');
+assert.match(messageCenter, /UiV2SearchField\(/, '搜索条统一复用 V2 胶囊输入');
 assert.match(messageCenter, /fun MessageSearchField\(/, '搜索条抽成独立组件');
 assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
