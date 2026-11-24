@@ -122,7 +122,7 @@ assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
 assert.match(v2Shell, /PrimaryBottomNavigation\(selected = selected, backdrop = backdrop, onSelect = onSelect\)/,
   '主壳层须只放一套可折射玻璃底栏');
-assert.match(v2Shell, /PrimarySideNavigation\(selected = selected, onSelect = onSelect,\s*canExpand = maxWidth\.value >= 1100f\)/,
+assert.match(v2Shell, /PrimarySideNavigation\(selected = selected, onSelect = onSelect,\s*canExpand = canExpandSidebar\)/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"/);
@@ -2619,3 +2619,14 @@ assert.match(primaryNavigation, /if \(canExpand && expanded\) \{/);
 assert.match(primaryNavigation, /NavigationDrawerItem\(\s*label = \{ Text\(page\.primaryTabLabel\) \},\s*selected = selected == page,\s*onClick = \{ onSelect\(page\) \}/);
 assert.match(primaryNavigation, /contentDescription = "展开侧栏"/);
 assert.match(primaryNavigation, /contentDescription = "收起侧栏"/);
+
+assert.match(v2Shell, /val canExpandSidebar = maxWidth\.value >= 1100f/, '在 BoxWithConstraints 作用域读取宽度，避免 Compose DSL 接收者错误');
+assert.match(v2Shell, /val drawerEnabled = !rail && showNavigation/);
+assert.match(v2Shell, /ModalNavigationDrawer\(/);
+assert.match(v2Shell, /gesturesEnabled = drawerEnabled && drawerState\.isOpen/, '关闭时不抢课表和底栏横向手势');
+assert.match(v2Shell, /if \(!drawerEnabled\) drawerState\.snapTo\(DrawerValue\.Closed\)/);
+assert.match(v2Shell, /BackHandler\(enabled = drawerState\.isOpen\)/);
+assert.match(main, /onNavigation = openNavigation/);
+assert.match(designSystem, /contentDescription = "打开导航"/);
+assert.match(primaryNavigation, /fun PrimaryNavigationDrawer\([\s\S]*?ModalDrawerSheet\(/);
+assert.match(primaryNavigation, /fun PrimaryNavigationDrawer\([\s\S]*?PrimaryTabs\.forEach/);
