@@ -162,7 +162,7 @@ private fun UiV2SettingsRow(
 
 @Composable
 internal fun UiV2SettingsEntry(
-    title: String, icon: ImageVector, subtitle: String?, statusLabel: String?,
+    title: String, icon: ImageVector, subtitle: String? = null, statusLabel: String? = null,
     onClick: () -> Unit,
     iconContainer: Color = XiaoxuPalette.BrandSoft,
     iconTint: Color = XiaoxuPalette.BrandDeep,

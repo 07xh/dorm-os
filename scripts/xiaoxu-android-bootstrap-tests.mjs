@@ -244,9 +244,9 @@ assert.equal((workspace.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
   'Local and approved WeChat task rows must reuse the shared checkbox');
 assert.doesNotMatch(workspace, /\bCheckbox\(/,
   'Unified task list must not maintain duplicate Material checkbox chrome');
-assert.match(profileSettings, /private fun ReminderToggleRow\(/,
-  'Course and deadline reminders must share one settings row');
-assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 6,
+assert.doesNotMatch(profileSettings, /private fun ReminderToggleRow\(/,
+  'Remove redundant local toggle adapter after V2 migration');
+assert.equal((profileSettings.match(/UiV2SettingsToggle\(/g) || []).length, 5,
   'Course, deadline, two date phases and local quiet hours share one toggle implementation');
 assert.equal((v2Settings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
@@ -2290,14 +2290,18 @@ assert.match(v2Settings, /onClickLabel = "打开\$title"/, '共享入口保留�
 assert.match(workspace, /UiV2SearchField\([\s\S]*?query = searchQuery/, '任务搜索接入共享组件');
 assert.match(workspace, /val pendingCount = remember\(all\)/);
 assert.match(workspace, /val completedCount = remember\(all\)/);
-assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
-  '设置首页保留统一分组适配入口');
+assert.doesNotMatch(profileSettings, /private fun SettingsEditorialSection\(/,
+  '设置首页不再保留无业务逻辑的分组包装');
+assert.match(profileSettings, /private fun SettingsIndexedGroup\(/);
+assert.match(profileSettings, /UiV2SettingsGroup\(title\) \{/);
+assert.match(profileSettings, /settingsTwoColumns = uiV2DetailWidth\(/);
+assert.match(profileSettings, /groups\.entries\.toList\(\)\.chunked\(2\)/);
 for (const label of ['学习与课程', '账户与数据', '其他']) {
   assert.ok(v2SettingsIndex.includes('"' + label + '"'),
     label + ' 原有导航分组需完整保留');
 }
 
-assert.match(profileSettings, /UiV2SettingsGroup\(title, content\)/, '设置分组使用唯一 V2 容器');
+assert.match(profileSettings, /UiV2SettingsGroup\(title\) \{/, '设置分组使用唯一 V2 容器');
 assert.match(v2Settings, /val SingleLine = 52\.dp/);
 assert.match(profileSettings, /UiV2SettingsConnectionCard\([\s\S]*?authenticated = client\.state\.authenticated/);
 assert.match(profileSettings, /uiV2SearchSettings\(settingsQuery\)/);
