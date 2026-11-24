@@ -176,25 +176,25 @@ object XiaoxuPalette {
  * Keep navigation-dock geometry independent of these content-only tokens.
  */
 object XiaoxuRadius {
-    val group: Dp = 20.dp
-    val card: Dp = 18.dp
-    val list: Dp = 14.dp
-    val tile: Dp = 12.dp
-    val hero: Dp = 28.dp
-    val modal: Dp = 28.dp
-    val pill: Dp = 999.dp
+    val group: Dp = UiV2Theme.GroupRadius
+    val card: Dp = UiV2Theme.CardRadius
+    val list: Dp = UiV2Theme.ListRadius
+    val tile: Dp = UiV2Theme.TileRadius
+    val hero: Dp = UiV2Theme.ModalRadius
+    val modal: Dp = UiV2Theme.ModalRadius
+    val pill: Dp = UiV2Theme.PillRadius
 }
 
-/** 间距：页面 18dp，区块 14dp，卡内 16dp，元素 8dp。 */
+/** Compatibility names for shared V2 spacing tokens; dock geometry stays independent. */
 object XiaoxuSpacing {
-    val page: Dp = 18.dp
-    val section: Dp = 14.dp
-    val card: Dp = 16.dp
-    val gap: Dp = 8.dp
+    val page: Dp = UiV2Theme.PageGutter
+    val section: Dp = UiV2Theme.SectionGap
+    val card: Dp = UiV2Theme.PageGutter
+    val gap: Dp = UiV2Theme.GroupGap
 
     /** 北化式紧凑列表统一起始高度；长标题仍由内容自行撑开。 */
-    val listRowMin: Dp = 68.dp
-    val glassStroke: Dp = 0.5.dp
+    val listRowMin: Dp = UiV2Theme.ListRowMin
+    val glassStroke: Dp = UiV2Theme.Hairline
 }
 
 /** Local selection and feedback only; full-screen route switches are immediate. */
@@ -793,7 +793,7 @@ internal fun XiaoxuDialogPrimaryButton(
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(XiaoxuRadius.pill),
         content = content
     )
 }
