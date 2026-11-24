@@ -37,7 +37,7 @@ internal fun UiV2HomeSurface(
     Column(
         modifier.fillMaxWidth().clip(UiV2Theme.GroupShape)
             .background(XiaoxuPalette.Surface.copy(alpha = UiV2Theme.GroupOpacity))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = UiV2Theme.PageGutter, vertical = UiV2Theme.TileRadius)
     ) { content() }
 }
 
@@ -72,7 +72,7 @@ internal fun UiV2HomeQuickAction(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(container),
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(UiV2Theme.TileRadius)).background(container),
             contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
         }
