@@ -873,8 +873,11 @@ assert.match(main, /AcademicDestination\.GRADES -> tabStateHolder\.SaveableState
   '成绩仍由唯一教务成绩入口承载');
 assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
   '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades")'),
-    main.indexOf('AcademicDestination.SERVICES -> Content('));
+const academicGradeStart = main.indexOf('AcademicDestination.GRADES -> tabStateHolder.SaveableStateProvider("grades")');
+const academicGradeEnd = main.indexOf('AcademicDestination.SERVICES -> Content {', academicGradeStart);
+assert.ok(academicGradeStart >= 0 && academicGradeEnd > academicGradeStart,
+  '必须定位真实成绩与考试路由边界，不得将共享面板定义计入路由');
+const academicGradeArea = main.slice(academicGradeStart, academicGradeEnd);
 assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 1,
   '学习通未授权仍使用共享空态');
 assert.match(academicGradeArea, /XiaoxuSegmentOption\("ncwu", "青果教务"\)/);
