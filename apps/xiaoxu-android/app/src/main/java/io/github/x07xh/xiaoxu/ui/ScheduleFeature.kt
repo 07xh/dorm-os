@@ -50,6 +50,7 @@ internal fun ColumnScope.ScheduleFeature(
         FilterChip(selected = viewMode == "week", onClick = { selectView("week") }, label = { Text("周") })
     }
     AppSnapshotContent(data.lessons) { lessons ->
+        AppNotice(localImportedScheduleView(lessons).sourceLabel)
         if (lessons.isEmpty()) {
             SystemEmptyState("本机尚无课程", "导入课表后在这里查看课程。")
         } else {

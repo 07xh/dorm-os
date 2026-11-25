@@ -70,7 +70,13 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
         item {
             AppSnapshotContent(data.lessons) {
-                AppEntry("本机课表", "${it.size} 个课块", onClick = { actions.navigate(AppRoute.SCHEDULE) })
+                InsetGroupedSection(header = "本机课表") {
+                    AppGroupedEntry("全部课表", "${it.size} 个课块", onClick = { actions.navigate(AppRoute.SCHEDULE) })
+                    homeCoursePreview(it).forEachIndexed { index, lesson ->
+                        InsetGroupedRow(title = lesson.title, subtitle = "星期${lesson.weekday} · 第${lesson.startSection}–${lesson.endSection}节",
+                            showDivider = index < homeCoursePreview(it).lastIndex)
+                    }
+                }
             }
         }
         item {
@@ -86,7 +92,13 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
         }
         item { SystemSectionHeader("校园通知") }
         if (data.cloud.notices.isEmpty()) item {
-            AppNotice(data.cloud.publicError ?: if (data.cloud.busy) "正在读取通知" else "尚无已读取通知")
+            when (val phase = deriveMessagePhase(data.cloud)) {
+                MessagePhase.Loading -> AppNotice("正在读取通知")
+                MessagePhase.NotConnected -> AppNotice("尚未读取通知")
+                MessagePhase.Empty -> AppNotice("已读取，暂无通知")
+                is MessagePhase.Failed -> AppNotice(phase.message, error = true)
+                is MessagePhase.Content -> Unit
+            }
         }
         if (data.cloud.noticesPartial) item { AppNotice("通知来源部分可用，可能不是完整列表。") }
         items(data.cloud.notices.take(5), key = { it.url }) { notice ->

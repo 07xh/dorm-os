@@ -88,7 +88,7 @@ private class GridScrollAnchor {
 }
 
 @Composable
-internal fun rememberFullCoursePeriodHeight(courses: List<ScheduleCourseUi>, columnWidth: Int, minimum: Dp): Dp {
+internal fun rememberFullCoursePeriodHeight(courses: List<ScheduleCourseUi>, columnWidth: Dp, minimum: Dp): Dp {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer(cacheSize = 128)
     val base = androidx.compose.material3.LocalTextStyle.current.merge(MaterialTheme.typography.labelSmall)
