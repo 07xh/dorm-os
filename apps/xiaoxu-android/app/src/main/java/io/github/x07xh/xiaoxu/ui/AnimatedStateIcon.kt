@@ -36,7 +36,7 @@ fun rememberActionIconProgress(event: Int): Float {
 
 @Composable
 fun AnimatedStateIcon(spec: AppSymbolSpec, progress: Float, tint: Color, modifier: Modifier = Modifier) {
-    PhosphorNavigationIcon(spec = spec, selection = progress.coerceIn(0f, 1f), phase = 0f, tint = tint, modifier = modifier)
+    PhosphorNavigationIcon(spec = spec, selection = progress.coerceIn(0f, 1f), phase = { 0f }, tint = tint, modifier = modifier)
 }
 
 @Composable
