@@ -3,7 +3,11 @@ package io.github.x07xh.xiaoxu.ui
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.animation.ValueAnimator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -42,7 +46,7 @@ internal fun rememberNavigationMaterialTier(): NavigationMaterialTier {
     }
 }
 
-/** Single overlay dock. Route changes are immediate; only selected colors animate.
+/** Single overlay dock. Route changes are immediate; upstream components animate the glyph and label.
  * No second page capture, animated page bitmap, or separate navigation state.
  */
 @Composable
@@ -51,6 +55,10 @@ internal fun RebuildCapsuleDock(
     tier: NavigationMaterialTier, backdrop: Backdrop, modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
+    val selectedIndex = MainDestination.entries.indexOf(selected)
+    val reduced = !ValueAnimator.areAnimatorsEnabled()
+    val playback = rememberNavigationIconPlayback(MainDestination.entries.size, selectedIndex, reduced)
+    val haptics = LocalHapticFeedback.current
     val shape = RoundedCornerShape(32.dp)
     val tint = scheme.surface.copy(alpha = if (tier == NavigationMaterialTier.Opaque) 1f else 0.90f)
     val material = if (tier == NavigationMaterialTier.Refractive) {
@@ -68,25 +76,21 @@ internal fun RebuildCapsuleDock(
             .border(0.5.dp, scheme.outlineVariant, shape)
             .padding(4.dp).selectableGroup(),
             verticalAlignment = Alignment.CenterVertically) {
-            MainDestination.entries.forEach { destination ->
-                val active = selected == destination
-                val indicator by animateColorAsState(
-                    if (active) scheme.primaryContainer else Color.Transparent,
-                    label = "dock-indicator")
-                val ink by animateColorAsState(
-                    if (active) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
-                    label = "dock-ink")
-                Column(Modifier.weight(1f).fillMaxHeight().clip(shape)
-                    .background(indicator)
-                    .selectable(selected = active, role = Role.Tab,
-                        onClick = { if (!active) onSelect(destination) }),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(destination.icon, contentDescription = null, tint = ink,
-                        modifier = Modifier.size(22.dp))
-                    Text(destination.label, color = ink, maxLines = 1,
-                        style = MaterialTheme.typography.labelSmall)
-                }
+            MainDestination.entries.forEachIndexed { index, destination ->
+                val active = selectedIndex == index
+                val weight by animateFloatAsState(if (active) 1f else 0f,
+                    tween(if (reduced) 0 else 220), label = "nav-selection-$index")
+                UpstreamNavTab(
+                    item = destination, selected = active, accent = scheme.primary,
+                    selectionWeight = weight, iconPhase = { playback.phase(index) },
+                    onClick = {
+                        if (active) playback.replay(index)
+                        else {
+                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onSelect(destination)
+                        }
+                    }
+                )
             }
         }
     }

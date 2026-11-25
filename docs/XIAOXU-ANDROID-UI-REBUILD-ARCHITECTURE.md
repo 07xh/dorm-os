@@ -16,3 +16,7 @@ R4 采用一个 Shell、一个页面框架和一个共享读模型，不另建�
 ## R5 源码复用优先（固定开发原则）
 上游存在成熟组件时直接移植，仅修改包名、依赖、主题/数据绑定和必要兼容层。不得重新实现同等组件或新增另一套架构。保持 AppRoute、AppPageFrame、AppWorkspaceState、AppPageActions 不变。
 固定来源：znjhahaha/zhengfang-apk@bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed。已移植 GlassKit 四个公共组件及完整 GlassPerformancePolicy，现有 AppEntry 与主题分组统一委托给上游组件。后续课表、成绩、设置继续按上游组件依赖迁移，保留测试及发布门禁。
+
+
+## R6 现有自研组件替换原则
+R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 NavTab、PhosphorNavigationIcon、NavigationIconPlayback、NavigationIconMotion 原实现，并移植上游动作测试。仅保留路由映射、主题绑定及外层 backdrop 与安全区；完整物理折射、拖拽和最小化依赖待继续移植。禁止并存两套同功能 UI。校序独有业务保留原业务逻辑，成熟上游同功能 UI 优先替换。
