@@ -42,6 +42,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
     var editTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var graphOpen by rememberSaveable { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var lastCompletedLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
     val filters = listOf("pending" to "待办", "verify" to "待核验", "done" to "已完成", "all" to "全部")
     val today = LocalDate.now(ZoneId.of("Asia/Shanghai"))
     AppSnapshotContent(data.localTasks) { local ->
@@ -81,7 +82,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             "已完成" to combined.count(::considerCompleteInTaskList).toString()))
         LiquidSegmentedControl(options = filters.map { it.second },
             selectedIndex = filters.indexOfFirst { it.first == filter }.coerceAtLeast(0),
-            onSelect = { filter = filters[it].first }, height = 40.dp)
+            onSelect = { filter = filters[it].first }, height = 48.dp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { showArchived = true }) { Text("归档 (${archivedRows.size})") }
             TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
@@ -129,7 +130,32 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         error?.let { AppNotice(it, error = true) }
         if (data.nativeRecords == PageSnapshot.Loading) AppNotice("正在读取本机平台记录")
         if (data.cloud.authenticated && !data.cloud.tasksFresh) AppNotice("云端任务尚未核验最新状态")
-        if (visible.isEmpty()) SystemEmptyState("当前筛选暂无任务", "仅显示已读取的任务，不推断平台状态。")
+        val undoId = lastCompletedLocalId
+        val undoTask = local.firstOrNull { it.id == undoId && it.completed }
+        if (undoTask != null) {
+            InsetGroupedSection {
+                InsetGroupedRow(title = "刚完成：" + undoTask.title, showDivider = false,
+                    trailing = {
+                        TextButton(enabled = !saving, onClick = {
+                            saving = true
+                            scope.launch {
+                                try {
+                                    if (actions.updateLocalTask(undoTask.id, false)) {
+                                        lastCompletedLocalId = null
+                                        error = null
+                                    } else error = "未能撤销，请核对任务状态"
+                                } catch (cancel: CancellationException) { throw cancel }
+                                catch (_: Exception) { error = "撤销失败" }
+                                finally { saving = false }
+                            }
+                        }) { Text("撤销") }
+                    })
+            }
+        }
+        if (visible.isEmpty()) {
+            SystemEmptyState("当前筛选暂无任务", "仅显示已读取的任务，不推断平台状态。")
+            if (onlyThisWeek) TextButton(onClick = { onlyThisWeek = false }) { Text("查看全部待办") }
+        }
         LazyColumn(Modifier.weight(1f), state = listState,
             verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
             items(visible, key = { it.key }) { task ->
@@ -149,7 +175,10 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                                 saving = true
                                 scope.launch {
                                     try {
-                                        error = if (actions.updateLocalTask(localId, value)) null else "请先完成前置任务或步骤"
+                                        val saved = actions.updateLocalTask(localId, value)
+                                        error = if (saved) null else "请先完成前置任务或步骤"
+                                        if (saved && value) lastCompletedLocalId = localId
+                                        else if (saved && lastCompletedLocalId == localId) lastCompletedLocalId = null
                                     } catch (cancel: CancellationException) { throw cancel }
                                     catch (_: Exception) { error = "保存失败" }
                                     finally { saving = false }
