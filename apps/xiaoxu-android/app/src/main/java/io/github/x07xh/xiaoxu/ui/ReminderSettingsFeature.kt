@@ -101,7 +101,7 @@ private fun ReminderToggleRow(
             if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        LiquidSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -288,38 +288,16 @@ internal fun NotificationSettingsContent(tasks: List<LocalTask>) {
     if (quietTimePicker != 0) {
         val pickingStart = quietTimePicker == 1
         val chosen = if (pickingStart) quietHours.startMinutes else quietHours.endMinutes
-        AlertDialog(
-            onDismissRequest = { quietTimePicker = 0 },
-            title = { Text(if (pickingStart) "免打扰开始时间" else "免打扰结束时间") },
-            text = {
-                val listState = rememberLazyListState(
-                    initialFirstVisibleItemIndex = (chosen / 30 - 2).coerceAtLeast(0))
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
-                    state = listState
-                ) {
-                    items((0..47).toList()) { slot ->
-                        val minutes = slot * 30
-                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .clickable {
-                                quietTimePicker = 0
-                                if (chosen != minutes) {
-                                    updateQuietHours(if (pickingStart)
-                                        quietHours.copy(startMinutes = minutes)
-                                    else quietHours.copy(endMinutes = minutes))
-                                }
-                            }.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text("%02d:%02d".format(minutes / 60, minutes % 60),
-                                modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                            if (minutes == chosen) Icon(Icons.Outlined.CheckCircle,
-                                contentDescription = "已选择", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { quietTimePicker = 0 }) { Text("关闭") } }
-        )
+        GlassTimePickerDialog(initialTime = "%02d:%02d".format(chosen / 60, chosen % 60),
+            title = if (pickingStart) "免打扰开始时间" else "免打扰结束时间",
+            minuteStep = 30, preserveInitial = true, onDismiss = { quietTimePicker = 0 },
+            onConfirm = { value ->
+                val time = java.time.LocalTime.parse(value)
+                val minutes = time.hour * 60 + time.minute
+                quietTimePicker = 0
+                if (minutes != chosen) updateQuietHours(if (pickingStart)
+                    quietHours.copy(startMinutes = minutes) else quietHours.copy(endMinutes = minutes))
+            })
     }
 
     if (leadPickerOpen) {
@@ -346,48 +324,14 @@ internal fun NotificationSettingsContent(tasks: List<LocalTask>) {
 
     }
         if (taskTimePickerOpen) {
-        AlertDialog(
-            onDismissRequest = { taskTimePickerOpen = false },
-            title = { Text("任务提醒时间") },
-            text = {
-                val selectedSlot = reminderSchedule.hour * 2 + reminderSchedule.minute / 30
-                val listState = rememberLazyListState(
-                    initialFirstVisibleItemIndex = (selectedSlot - 2).coerceAtLeast(0)
-                )
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)
-                ) {
-                    items((0..47).toList()) { slot ->
-                        val hour = slot / 2
-                        val minute = (slot % 2) * 30
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .clickable {
-                                    taskTimePickerOpen = false
-                                    if (hour != reminderSchedule.hour ||
-                                        minute != reminderSchedule.minute) {
-                                        updateReminderSchedule(reminderSchedule.copy(
-                                            hour = hour, minute = minute))
-                                    }
-                                }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("%02d:%02d".format(hour, minute),
-                                modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                            if (hour == reminderSchedule.hour && minute == reminderSchedule.minute) {
-                                Icon(Icons.Outlined.CheckCircle, contentDescription = "已选择",
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { taskTimePickerOpen = false }) { Text("关闭") }
-            }
-        )
+        GlassTimePickerDialog(initialTime = "%02d:%02d".format(reminderSchedule.hour, reminderSchedule.minute),
+            title = "任务提醒时间", minuteStep = 30, preserveInitial = true,
+            onDismiss = { taskTimePickerOpen = false },
+            onConfirm = { value ->
+                val time = java.time.LocalTime.parse(value)
+                taskTimePickerOpen = false
+                if (time.hour != reminderSchedule.hour || time.minute != reminderSchedule.minute)
+                    updateReminderSchedule(reminderSchedule.copy(hour = time.hour, minute = time.minute))
+            })
     }
-
 }
