@@ -301,3 +301,15 @@ fallback renderers are retained. Xiaoxu currently enables optical navigation
 only on its existing supported API 33+ tier; no API 31/32 expansion or
 scroll-driven minimization is claimed. License compatibility, compilation
 and device validation remain pending before any public APK distribution.
+
+------------------------------------------------------------------
+2026-11-25 application host consolidation
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. NavScrollIntent.kt,
+PageDataState.kt, InitialPageLoad.kt and original regression tests imported.
+MainActivity.kt shell pattern adapted to Xiaoxu routes, account-scoped UI
+state and one window/overlay host. No new business data store or network
+preparation; existing workspace remains responsible for reads. Existing
+single-live-page policy and physical bottom inset reserve retained.
+ScheduleGrid and collapsing header source adaptations also retain verified
+local dates and school data only. Build/device verification pending.
