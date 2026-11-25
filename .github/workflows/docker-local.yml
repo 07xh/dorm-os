@@ -1,0 +1,49 @@
+name: Docker local runtime
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - wrangler.local.toml
+      - 'docker/**'
+      - 'functions/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'migrations/**'
+      - package.json
+      - '.github/workflows/docker-local.yml'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable local credentials
+        run: printf 'OWNER_LOGIN_SECRET="%s"\n' "$(openssl rand -hex 32)" > .env.docker
+      - name: Build and start local runtime
+        run: |
+          docker compose config --quiet
+          docker compose up -d --build --wait --wait-timeout 240
+      - name: Verify private readiness and repeatable startup
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          const base='http://localhost:8788';
+          const passphrase=readFileSync('.env.docker','utf8').match(/"([a-f0-9]+)"/)[1];
+          const anon=await fetch(base+'/api/v1/health');
+          if(anon.status!==401) throw Error('Anonymous private endpoint not rejected');
+          const login=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({passphrase})});
+          if(!login.ok) throw Error('Owner login failed: '+login.status);
+          const cookie=login.headers.get('set-cookie')?.split(';')[0];
+          if(!cookie) throw Error('Missing session cookie');
+          const health=await fetch(base+'/api/v1/health',{headers:{cookie}});
+          if(!health.ok || !(await health.json()).databaseReady) throw Error('Local D1 schema incomplete');
+          JS
+          docker compose restart
+          docker compose up -d --wait --wait-timeout 120
+      - name: Clean up disposable CI container and data
+        if: always()
+        run: docker compose down -v
