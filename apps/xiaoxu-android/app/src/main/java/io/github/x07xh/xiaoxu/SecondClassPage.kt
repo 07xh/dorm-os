@@ -45,17 +45,18 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val reader = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         refreshing = false
-        val receipt = if(result.resultCode == Activity.RESULT_OK) SecondClassSaveReceipt.validate(
+        val receipt = if (result.resultCode == Activity.RESULT_OK) SecondClassSaveReceipt.validate(
             result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_PROVIDER),
             result.data?.getStringExtra(NativeSchoolConnectActivity.EXTRA_RETURN_KIND),
             result.data?.getIntExtra(NativeSchoolConnectActivity.EXTRA_SAVED_COUNT, 0) ?: 0
         ) else null
-        error = if(receipt == null) "本次未更新" else null
-        onRefreshResult?.invoke(receipt != null)
+        val succeeded = receipt != null
+        error = if (succeeded) null else "本次未更新"
+        onRefreshResult?.invoke(succeeded)
         receipt?.let { onSavedReceipt?.invoke(it) }
     }
     fun refresh() {
-        if(refreshing) return
+        if (refreshing) return
         refreshing = true
         error = null
         try {
@@ -98,6 +99,13 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
             val activities = personal.filter { it.kind == "activity" }
             val catalog = records.filter { it.kind in setOf("catalog_empty", "catalog_activity") }
             val catalogTime = catalog.map { it.capturedAt }.distinct().singleOrNull()
+            val catalogKeys = listOf("报名中", "待验证", "即将开始报名")
+            var catalogFilter by rememberSaveable(binding!!.details) { mutableIntStateOf(0) }
+            val activeCatalogFilter = catalogKeys[catalogFilter.coerceIn(0, catalogKeys.lastIndex)]
+            val catalogRecord = catalog.singleOrNull { it.kind == "catalog_empty" && it.title == activeCatalogFilter }
+            val visibleCatalogActivities = catalog.filter {
+                it.kind == "catalog_activity" && it.details.startsWith("筛选：$activeCatalogFilter\n")
+            }
             var detailKey by rememberSaveable(binding!!.details) { mutableStateOf<String?>(null) }
             val detail = (credits + activities + catalog).firstOrNull { it.kind + ":" + it.fingerprint == detailKey }
             AppNotice("本机学校读取快照 · " + DateFormat.getDateTimeInstance().format(Date(stamp)))
@@ -111,20 +119,23 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                     }
                 }
                 item(key = "credits-summary") {
+                    SystemStatStrip(items = listOf(
+                        "学校累计" to (secondClassPoints(total) ?: "—"),
+                        (if (selected == null) "素质分" else "所选学期") to (secondClassPoints(chosen) ?: "—"),
+                        "我的活动" to (if (summary != null) activities.size.toString() else "—")
+                    ))
                     if (chosen == null) AppNotice("学校未提供积分合计；请选择已读取的学期。")
-                    else {
-                        val score = Regex("素质分：([0-9.]+)").find(chosen.details)?.groupValues?.get(1)
-                        val hours = Regex("志愿服务时长：([0-9.]+)").find(chosen.details)?.groupValues?.get(1)
-                        InsetGroupedSection {
-                            SystemStatStrip(items = listOf("素质分" to (score ?: "未记录"),
-                                "志愿服务时长" to (hours ?: "未记录")))
-                            InsetGroupedRow(title = chosen.title,
-                                subtitle = chosen.details.substringAfter("\n", "").ifBlank { null },
-                                showDivider = false, onClick = { detailKey = chosen.kind + ":" + chosen.fingerprint })
-                        }
+                }
+                item(key = "credits-detail") {
+                    InsetGroupedSection {
+                        InsetGroupedRow(title = "积分明细",
+                            subtitle = if (chosen == null) "暂未获取" else chosen.title,
+                            showDivider = false, onClick = {
+                                if (chosen != null) detailKey = chosen.kind + ":" + chosen.fingerprint
+                            })
                     }
                 }
-                item(key = "activity-header") { SystemSectionHeader("本人报名活动") }
+                item(key = "activity-header") { SystemSectionHeader("我的活动") }
                 if (summary == null) item(key = "activity-unknown") { AppNotice("尚无已确认活动快照") }
                 else {
                     item(key = "activity-summary") { AppNotice(summary.details) }
@@ -136,23 +147,40 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                     }
                 }
                 item(key = "catalog-header") {
-                    SystemSectionHeader("活动目录")
+                    SystemSectionHeader("活动广场")
                     if (catalogTime != null && catalogTime != stamp) AppNotice("目录为上次保存的快照")
                 }
-                if (catalog.isEmpty() || catalogTime == null) item(key = "catalog-unknown") {
-                    AppNotice("尚无完整活动目录快照")
-                } else items(catalog, key = { "${it.kind}:${it.fingerprint}" }) { row ->
+                item(key = "catalog-filter") {
+                    LiquidSegmentedControl(listOf("报名中", "待验证", "即将报名"), catalogFilter,
+                        onSelect = { catalogFilter = it })
+                }
+                if (catalogTime == null || visibleCatalogActivities.isEmpty()) item(key = "catalog-status") {
+                    AppNotice(if (catalogTime != null && catalogRecord != null) "上次读取：暂无活动" else "活动暂未获取")
+                    TextButton(onClick = {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://dekt.ncwu.edu.cn/"))) }
+                            .onFailure { error = "无法打开学校官网" }
+                    }) { Text("学校官网") }
+                } else items(visibleCatalogActivities, key = { "${it.kind}:${it.fingerprint}" }) { row ->
                     InsetGroupedSection {
                         InsetGroupedRow(title = row.title, subtitle = row.details, showDivider = false,
-                                onClick = { detailKey = row.kind + ":" + row.fingerprint })
+                            onClick = { detailKey = row.kind + ":" + row.fingerprint })
                     }
                 }
             }
             detail?.let { row ->
-                AlertDialog(onDismissRequest = { detailKey = null },
+                AppDialog(onDismissRequest = { detailKey = null },
                     title = { Text(row.title) },
                     text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                        Text(row.details)
+                        if (row.kind == "credits") {
+                            Text("素质分：" + (secondClassPoints(row) ?: "—"), style = MaterialTheme.typography.titleMedium)
+                            secondClassCategories(row).forEach { (name, points) ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(name, Modifier.weight(1f)); Text(points)
+                                }
+                            }
+                            row.details.substringAfter("志愿服务时长：", "").substringBefore("\n").takeIf { it.isNotBlank() }?.let { Text("志愿服务时长：$it") }
+                        } else Text(row.details)
                         AppNotice("快照时间：" + DateFormat.getDateTimeInstance().format(Date(row.capturedAt)))
                     } },
                     confirmButton = { TextButton(onClick = { detailKey = null }) { Text("关闭") } })
@@ -160,3 +188,20 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
         }
     }
 }
+
+private fun secondClassPoints(record: io.github.x07xh.xiaoxu.data.NativeSchoolRecord?): String? {
+    val raw = record?.details?.substringAfter("素质分：", "")
+        ?.substringBefore(" · ")?.trim() ?: return null
+    return raw.takeIf { it.matches(Regex("[0-9]+(?:\\.[0-9]+)?")) }
+}
+
+private fun secondClassCategories(
+    record: io.github.x07xh.xiaoxu.data.NativeSchoolRecord
+): List<Pair<String, String>> {
+    return record.details.substringAfter("\n", "").split(" · ").mapNotNull { item ->
+        val index = item.indexOf('：')
+        if (index < 1 || index >= item.lastIndex) null
+        else item.substring(0, index) to item.substring(index + 1)
+    }
+}
+
