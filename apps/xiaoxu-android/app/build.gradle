@@ -38,6 +38,7 @@ android {
     }
     buildFeatures {
         compose true
+        buildConfig true // Upstream lens debug-only diagnostics.
     }
     // Offline runtime fixtures have independent storage and no INTERNET permission.
     if (project.hasProperty('xiaoxuRuntimeTest')) {

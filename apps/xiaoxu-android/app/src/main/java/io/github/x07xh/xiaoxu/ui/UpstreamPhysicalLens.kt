@@ -4,6 +4,8 @@ package io.github.x07xh.xiaoxu.ui
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, glass/PhysicalLensSurface.kt and GlassCompat.kt.
 // Platform-only optics; existing Xiaoxu performance tier gates all calls.
 import android.os.Build
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
@@ -184,3 +186,124 @@ fun motionIntensityFromVelocity(
     velocityX: Float,
     fullEffectVelocity: Float
 ): Float = (abs(velocityX) / fullEffectVelocity.coerceAtLeast(1f)).coerceIn(0f, 1f)
+
+fun glassLensOpticsFrom(
+    material: GlassMaterialSpec,
+    density: Density,
+    cornerRadiusPx: Float,
+    /** 元素较短边的像素长度，用来把 dp 配方换成比例 */
+    minDimensionPx: Float,
+    interactionProgress: Float = 0f,
+    motionIntensity: Float = 0f,
+    /** true：静止保留 floor 折射，按压抬到满额（选中透镜）。 */
+    pressScalesRefraction: Boolean = false,
+    refractionFloor: Float = 0.55f,
+    /** 静止是否保留弱色散。选中透镜给 true，静态面板给 false。 */
+    chromaticAberrationAtRest: Boolean = false,
+    /**
+     * 饱和度提升，必须与调用点在 33+ 那条路上**是否调了 `vibrancy()`** 一致。
+     * 详见 [GlassLensOptics.vibrancy]。
+     */
+    vibrancy: Float = 1.28f,
+    /** Explicit material profiles can use the same displacement bound as the AGSL renderer. */
+    maxRefractionAmountPx: Float = Float.POSITIVE_INFINITY
+): GlassLensOptics = with(density) {
+    val progress = interactionProgress.coerceIn(0f, 1f)
+    val motion = motionIntensity.coerceIn(0f, 1f)
+
+    // 与 resolvePhysicalLens 读**同一个** lensScales：两条路的曲线逐帧相同
+    val (heightScale, amountScale) = lensScales(
+        pressScalesRefraction, refractionFloor, progress, motion
+    )
+
+    // 上限不在这里施加：斜坡上限要按元素**实测**尺寸算，而这里只有标称尺寸。
+    // 见 Modifier.glassLens —— 它夹斜坡时会把位移同比例缩，形状不变。
+    val heightPx = material.refractionHeightDp.dp.toPx() * heightScale
+
+    // 位移**照库的原值**，不再压。
+    //
+    // 曾经这里有 `.coerceAtMost(heightPx * 0.5f)`，理由是"锐利采样源经不起大位移"。
+    // 这条推理链整个是错的，已在 API 35 上截库自己的实现验证：
+    //   - 库的 LiquidBottomTabs 指示器是 `lens(10dp, 14dp)`，amount/height = 1.4；
+    //     Glass playground 默认 amount = 2× height。位移大于斜坡是**常态**。
+    //   - 库采的也是 blur(8dp) 过的 backdrop（LiquidBottomTabs.kt:242），
+    //     和这边一样，并没有更"锐利"的源。
+    //   - 那道鱼眼鼓包的真凶是**静止态也在折射**（refractionFloor 0.42）。库静止
+    //     态 lens 参数全乘 pressProgress = 0，压根不折射，所以不可能有这个问题。
+    // 只保留一条防御：位移不超过元素短边，避免采样跑到底图之外。
+    val amountPx = (material.refractionAmountDp.dp.toPx() * amountScale)
+        .coerceIn(0f, minOf(minDimensionPx, maxRefractionAmountPx))
+
+    // 色散：库那边是布尔开关（开 = 1.0）。这里做成连续量，静止弱、交互强，
+    // 滑动时蓝黄边随速度浮现而不是硬跳。
+    val restDispersion = if (chromaticAberrationAtRest) 0.55f else 0f
+    val dispersion = if (material.chromaticAberration) {
+        (restDispersion + progress * 0.8f + motion * 0.7f).coerceIn(0f, 1.6f)
+    } else {
+        0f
+    }
+
+    GlassLensOptics(
+        cornerRadiusPx = cornerRadiusPx,
+        thicknessPx = heightPx,
+        lensAmountPx = amountPx,
+        dispersion = dispersion,
+        // 库的底部标签栏不开 depthEffect（LiquidBottomTabs.kt:246 只有两个位置参数）。
+        // 开了会把梯度混向径向，胶囊中部也跟着位移，观感是一颗球而不是一片玻璃。
+        depthEffect = 0f,
+        vibrancy = vibrancy
+    )
+}
+
+
+fun lensCornerRadiusPx(
+    shape: androidx.compose.ui.graphics.Shape,
+    widthPx: Float,
+    heightPx: Float,
+    density: Density
+): Float {
+    return lensCornerRadiiPx(shape, widthPx, heightPx, density, LayoutDirection.Ltr).minimum
+}
+
+/** Resolve the same measured outline used by Compose, including asymmetric and RTL corners. */
+fun lensCornerRadiiPx(
+    shape: androidx.compose.ui.graphics.Shape,
+    widthPx: Float,
+    heightPx: Float,
+    density: Density,
+    layoutDirection: LayoutDirection
+): GlassLensCorners {
+    // Backdrop observes effects during onAttach, before a measured size exists.
+    // Compose's percentage-corner normalization cannot accept zero/unspecified sizes.
+    if (!widthPx.isFinite() || !heightPx.isFinite() || widthPx <= 0f || heightPx <= 0f) {
+        return GlassLensCorners.uniform(0f)
+    }
+    val halfMin = minOf(widthPx, heightPx) / 2f
+    val size = androidx.compose.ui.geometry.Size(widthPx, heightPx)
+    if (shape is androidx.compose.foundation.shape.CornerBasedShape) {
+        if (shape is androidx.compose.foundation.shape.RoundedCornerShape ||
+            shape is androidx.compose.foundation.shape.AbsoluteRoundedCornerShape) {
+            val outline = shape.createOutline(size, layoutDirection, density)
+            if (outline is androidx.compose.ui.graphics.Outline.Rounded) {
+                val rect = outline.roundRect
+                return GlassLensCorners(rect.topLeftCornerRadius.x, rect.topRightCornerRadius.x,
+                    rect.bottomRightCornerRadius.x, rect.bottomLeftCornerRadius.x).fit(widthPx, heightPx)
+            }
+            if (outline is androidx.compose.ui.graphics.Outline.Rectangle) return GlassLensCorners.uniform(0f)
+        }
+        // Cut-corner controls keep the existing rounded optical approximation.
+        val startTop = shape.topStart.toPx(size, density)
+        val endTop = shape.topEnd.toPx(size, density)
+        val endBottom = shape.bottomEnd.toPx(size, density)
+        val startBottom = shape.bottomStart.toPx(size, density)
+        return (if (layoutDirection == LayoutDirection.Ltr) GlassLensCorners(startTop, endTop, endBottom, startBottom)
+            else GlassLensCorners(endTop, startTop, startBottom, endBottom)).fit(widthPx, heightPx)
+    }
+    if (shape is com.kyant.shapes.RoundedRectangularShape) {
+        val corners = shape.corners(size, layoutDirection, density)
+        return GlassLensCorners(corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft)
+            .fit(widthPx, heightPx)
+    }
+    return GlassLensCorners.uniform(halfMin)
+}
+
