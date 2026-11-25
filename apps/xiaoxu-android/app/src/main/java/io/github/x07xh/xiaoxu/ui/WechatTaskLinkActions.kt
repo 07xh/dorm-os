@@ -37,19 +37,19 @@ internal fun WechatTaskLinkActions(links: List<String>) {
         safeLinks.forEachIndexed { index, link ->
             Column(
                 modifier = Modifier.fillMaxWidth()
-                    .background(XiaoxuPalette.SurfaceAlt, RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     if (safeLinks.size == 1) "消息链接" else "消息链接 ${index + 1}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = XiaoxuPalette.Ink2
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     link,
                     style = MaterialTheme.typography.bodySmall,
-                    color = XiaoxuPalette.Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
