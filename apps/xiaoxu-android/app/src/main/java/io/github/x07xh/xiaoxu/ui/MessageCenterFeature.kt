@@ -194,6 +194,7 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
     val officialList = rememberLazyListState()
     val reviewList = rememberLazyListState()
     val filtered = remember(state.notices, query, filter) { filterNotices(state.notices, query, filter).distinctBy { it.url } }
+    var reviewingCandidate by remember(state.ownerId) { mutableStateOf<WechatCandidate?>(null) }
     val showWechat = source == MSG_FILTER_WECHAT
     val opened = state.notices.firstOrNull { it.url == openedUrl }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -223,7 +224,13 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
                     }
                     if (state.authenticated) {
                         items(state.wechatCandidates, key = { it.id }) { candidate ->
-                            WechatCandidateReview(candidate, state, actions)
+                            InsetGroupedSection {
+                                InsetGroupedRow(title = candidate.title,
+                                    subtitle = listOfNotNull(wechatCandidateKind(candidate), candidate.chatLabel,
+                                        candidate.dueLocalDate).joinToString(" · "),
+                                    enabled = state.wechatReviewingId == null, showDivider = false,
+                                    onClick = { reviewingCandidate = candidate })
+                            }
                         }
                     }
                 } else {
@@ -267,6 +274,15 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
                 confirmButton = { TextButton(onClick = { openedUrl = null }) { Text("关闭") } })
         }
     }
+    // Keep the transaction outside LazyColumn: confirmed removal of a row must
+    // not cancel its coroutine before the server task ledger has refreshed.
+    reviewingCandidate?.let { candidate ->
+        if (state.authenticated && state.ownerId != null) {
+            key(state.ownerId, candidate.id) {
+                WechatCandidateReview(candidate, state, actions, onDismiss = { reviewingCandidate = null })
+            }
+        }
+    }
 }
 
 @Composable
@@ -284,28 +300,27 @@ private fun NoticeDetails(notice: AcademicNotice, openArticle: (String) -> Unit)
 /** Reuses the existing owner-scoped CloudClient review transaction.
  * Candidates are not official assignments; only deliberate, fresh review may mutate them.
  */
+private fun wechatCandidateKind(item: WechatCandidate): String = when (item.kind) {
+    "homework" -> "作业候选"
+    "exam" -> "考试候选"
+    "activity" -> "活动候选"
+    "signup" -> "报名候选"
+    else -> "其他候选"
+}
+
 @Composable
-private fun WechatCandidateReview(item: WechatCandidate, state: CloudUiState, actions: AppPageActions) {
+private fun WechatCandidateReview(item: WechatCandidate, state: CloudUiState, actions: AppPageActions, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var opened by rememberSaveable(state.ownerId, item.id) { mutableStateOf(false) }
-    var pendingDecision by remember(state.ownerId, item.id) { mutableStateOf<String?>(null) }
-    var failed by remember(state.ownerId, item.id) { mutableStateOf(false) }
-    val reviewing = state.wechatReviewingId != null
-    val fresh = state.authenticated && state.pendingWechatCount != null && state.wechatError == null
-    val kind = when (item.kind) {
-        "homework" -> "作业候选"
-        "exam" -> "考试候选"
-        "activity" -> "活动候选"
-        "signup" -> "报名候选"
-        else -> "其他候选"
-    }
-    InsetGroupedSection {
-        InsetGroupedRow(title = item.title,
-            subtitle = listOfNotNull(kind, item.chatLabel, item.dueLocalDate).joinToString(" · "),
-            showDivider = false, onClick = { pendingDecision = null; failed = false; opened = true })
-    }
-    if (opened && state.authenticated) AppDialog(
-        onDismissRequest = { if (!reviewing) { opened = false; pendingDecision = null } },
+    val owner = state.ownerId ?: return
+    var pendingDecision by remember { mutableStateOf<String?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var submitting by remember { mutableStateOf(false) }
+    val reviewing = submitting || state.wechatReviewingId != null
+    val fresh = state.authenticated && state.pendingWechatCount != null && state.wechatError == null &&
+        state.wechatCandidates.any { it == item }
+    val kind = wechatCandidateKind(item)
+    AppDialog(
+        onDismissRequest = { if (!reviewing) onDismiss() },
         title = { Text("核对微信候选") },
         text = {
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
@@ -334,12 +349,17 @@ private fun WechatCandidateReview(item: WechatCandidate, state: CloudUiState, ac
         confirmButton = {
             val decision = pendingDecision
             if (decision != null) Button(enabled = fresh && !reviewing && !failed, onClick = {
+                submitting = true
                 scope.launch {
-                    if (actions.reviewWechatCandidate(item.id, decision)) opened = false
-                    else { failed = true; pendingDecision = null }
+                    try {
+                        if (actions.reviewWechatCandidate(item.id, decision, owner)) onDismiss()
+                        else { failed = true; pendingDecision = null }
+                    } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                    catch (_: Exception) { failed = true; pendingDecision = null }
+                    finally { submitting = false }
                 }
             }) { Text(if (reviewing) "正在提交" else "确认") }
-            else TextButton(enabled = !reviewing, onClick = { opened = false }) { Text("关闭") }
+            else TextButton(enabled = !reviewing, onClick = onDismiss) { Text("关闭") }
         }
     )
 }
