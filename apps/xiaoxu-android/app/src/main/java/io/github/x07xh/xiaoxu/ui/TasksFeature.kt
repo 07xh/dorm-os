@@ -31,6 +31,9 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var query by rememberSaveable { mutableStateOf("") }
+    var sourceFilter by rememberSaveable { mutableStateOf("all") }
+    var sourceMenuOpen by remember { mutableStateOf(false) }
+    var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
     var editTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -47,12 +50,17 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         val allRecords = remember(local, records, cloud) { combineWorkspaceTasks(local, cloud, records) }
         val combined = remember(allRecords, archivedKeys) { visibleWorkspaceTasks(allRecords, archivedKeys) }
         val archivedRows = remember(allRecords, archivedKeys) { allRecords.filter { it.key in archivedKeys } }
-        val visible = remember(combined, filter, query, today) { searchWorkspaceTasks(combined, filter, query, today) }
+        val visible = remember(combined, filter, query, sourceFilter, onlyThisWeek, today) {
+            facetWorkspaceTasks(searchWorkspaceTasks(combined, filter, query, today),
+                sourceFilter, onlyThisWeek, today)
+        }
         val listState = rememberLazyListState()
         LaunchedEffect(target, combined) {
             if (target != null && combined.any { it.key == "local:$target" }) {
                 filter = "all"
                 query = ""
+                sourceFilter = "all"
+                onlyThisWeek = false
             }
         }
         LaunchedEffect(target, visible, filter, query) {
@@ -77,6 +85,37 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             TextButton(onClick = { adding = true }) { Text("新建任务") }
         }
         GlassFormField(query, { query = it }, "搜索任务", Modifier.fillMaxWidth(), placeholder = "任务名称")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.weight(1f)) {
+                TextButton(onClick = { sourceMenuOpen = true },
+                    modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(when (sourceFilter) {
+                        "local" -> "本机来源"
+                        "cloud" -> "云端来源"
+                        "wechat" -> "微信任务"
+                        "chaoxing" -> "学习通任务"
+                        else -> "全部来源"
+                    })
+                }
+                DropdownMenu(expanded = sourceMenuOpen, onDismissRequest = { sourceMenuOpen = false }) {
+                    listOf("all" to "全部来源", "cloud" to "云端来源",
+                        "wechat" to "微信任务", "chaoxing" to "学习通任务",
+                        "local" to "本机来源").forEach { (source, label) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = {
+                            sourceFilter = source
+                            sourceMenuOpen = false
+                        })
+                    }
+                }
+            }
+            FilterChip(selected = onlyThisWeek, onClick = { onlyThisWeek = !onlyThisWeek },
+                label = { Text("本周日期") })
+            if (sourceFilter != "all" || onlyThisWeek || query.isNotBlank()) {
+                TextButton(onClick = { sourceFilter = "all"; onlyThisWeek = false; query = "" }) {
+                    Text("清除")
+                }
+            }
+        }
         error?.let { AppNotice(it, error = true) }
         if (data.nativeRecords == PageSnapshot.Loading) AppNotice("正在读取本机平台记录")
         if (data.cloud.authenticated && !data.cloud.tasksFresh) AppNotice("云端任务尚未核验最新状态")
@@ -147,7 +186,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             val deps = data.dependencies
             if (deps is PageSnapshot.Ready) LocalTaskDependencyGraphDialog(local, deps.value,
                 onEditTask = { graphOpen = false; editTaskId = it },
-                onManageTasks = { graphOpen = false; filter = "all"; query = "" },
+                onManageTasks = { graphOpen = false; filter = "all"; query = ""; sourceFilter = "local"; onlyThisWeek = false },
                 onDismiss = { graphOpen = false })
         }
         local.firstOrNull { it.id == editTaskId }?.let { task ->
@@ -195,6 +234,8 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             adding = false
             filter = "pending"
             query = ""
+            sourceFilter = "all"
+            onlyThisWeek = false
             error = null
         })
 }
