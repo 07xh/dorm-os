@@ -2,13 +2,17 @@ name: Android UI rebuild compile gate
 on:
   push:
     branches: [refactor/android-ui-clean-rebuild]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 permissions:
   contents: read
 concurrency:
   group: android-ui-rebuild-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   compile-and-test:
+    if: github.event_name == 'push' || github.head_ref == 'refactor/android-ui-clean-rebuild'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
