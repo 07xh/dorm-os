@@ -28,7 +28,8 @@ internal class AppPageActions(
     val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean,
     val readGrades: suspend () -> Unit,
     val readExams: suspend () -> Unit,
-    val addLocalTask: suspend (String, String?) -> Long
+    val addLocalTask: suspend (String, String?) -> Long,
+    val executionDao: TaskExecutionDao
 )
 
 @Composable

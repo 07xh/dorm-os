@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -98,13 +100,27 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         }
         combined.firstOrNull { it.key == detailKey }?.let { task ->
             AlertDialog(onDismissRequest = { detailKey = null }, title = { Text(task.title) },
-                text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                text = { Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(task.origin)
                     task.date?.let { Text("日期：$it · ${task.dateSource}") }
                     task.officialDeadline?.let { Text(it) }
                     task.officialStatusRaw?.let { Text(it) }
                     officialTaskStatusLabel(task.officialStatus)?.let { Text(it) }
                     if (task.storage != "local") AppNotice("平台记录只读，不修改学校提交状态。")
+                    else {
+                        val id = task.key.removePrefix("local:").toLongOrNull()
+                        if (id != null) {
+                            val blocked = when (val deps = data.dependencies) {
+                                is PageSnapshot.Ready -> id in waitingLocalTaskIds(local, deps.value)
+                                else -> true
+                            }
+                            HorizontalDivider()
+                            TaskExecutionPanel(ExecutionRoot("device", task.key), task.done, actions.executionDao,
+                                onFinish = { actions.updateLocalTask(id, true) },
+                                onReopen = { actions.updateLocalTask(id, false) }, rootBlocked = blocked)
+                        }
+                    }
                 } }, confirmButton = { TextButton(onClick = { detailKey = null }) { Text("关闭") } })
         }
     }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 /** App-scoped read model. No second database or school client is created by a page. */
 internal class AppWorkspaceState(
     val localTasks: PageSnapshot<List<LocalTask>>,
+    val dependencies: PageSnapshot<List<LocalTaskDependency>>,
     val lessons: PageSnapshot<List<VerifiedLesson>>,
     val nativeRecords: PageSnapshot<List<NativeSchoolRecord>>,
     val cloud: CloudUiState,
@@ -38,6 +39,7 @@ internal fun rememberAppWorkspace(
     val context = LocalContext.current.applicationContext
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val tasks by rememberSnapshotRows(dao) { dao.observe() }
+    val dependencies by rememberSnapshotRows(dao) { dao.observeDependencies() }
     val records by rememberSnapshotRows(nativeDao) { nativeDao.observe() }
     val settings by produceState<Pair<SemesterCalendar?, Int>?>(initialValue = null,
         key1 = context, key2 = scheduleRevision, key3 = settingsRevision) {
@@ -70,6 +72,7 @@ internal fun rememberAppWorkspace(
     }
     return AppWorkspaceState(
         localTasks = pageSnapshot(tasks),
+        dependencies = pageSnapshot(dependencies),
         lessons = pageSnapshot(lessons.takeIf { scheduleRevision > 0 || it.isNotEmpty() }),
         nativeRecords = pageSnapshot(records),
         cloud = cloud.state,

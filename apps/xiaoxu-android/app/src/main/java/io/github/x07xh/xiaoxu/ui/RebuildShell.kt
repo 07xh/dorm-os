@@ -70,6 +70,7 @@ internal fun NativeShell(
         openArticle = openArticle,
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
+        executionDao = remember(context) { LocalTaskDatabase.open(context).executions() },
         addLocalTask = { title, due -> dao.insert(LocalTask(title = title, source = TASK_SOURCE_LOCAL, due = due)) },
         saveScheduleSettings = { calendar, sections ->
             require(sections in 1..24)
@@ -81,9 +82,9 @@ internal fun NativeShell(
             }
         }
     )
-    var consumedTaskEvent by rememberSaveable { mutableIntStateOf(0) }
-    var consumedScheduleEvent by rememberSaveable { mutableIntStateOf(0) }
-    var consumedCapture by rememberSaveable { mutableLongStateOf(0L) }
+    var consumedTaskEvent by remember { mutableIntStateOf(0) }
+    var consumedScheduleEvent by remember { mutableIntStateOf(0) }
+    var consumedCapture by remember { mutableLongStateOf(0L) }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > consumedTaskEvent) {
             route = AppRoute.TASKS
