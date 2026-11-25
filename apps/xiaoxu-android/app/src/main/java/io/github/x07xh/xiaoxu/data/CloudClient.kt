@@ -18,6 +18,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HttpsURLConnection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -259,6 +260,7 @@ class CloudClient(context: Context) {
     var state by mutableStateOf(CloudUiState())
         private set
     private var sessionEpoch: Long = 0L
+    private var signingOut = false
     // Out-of-order HTTPS results must not overwrite a newer owner snapshot.
     private var privateSnapshotReadId: Long = 0L
     private var secondClassReadId: Long = 0L
@@ -337,7 +339,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun refresh() {
-        if (state.busy || state.schoolSyncBusyProvider != null) return
+        if (signingOut || state.busy || state.schoolSyncBusyProvider != null) return
         lastForegroundRefreshMs = android.os.SystemClock.elapsedRealtime()
         state = state.copy(busy = true)
         try {
@@ -403,6 +405,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun refreshPrivate() {
+        if (signingOut) return
         val epoch = sessionEpoch
         val snapshotRead = ++privateSnapshotReadId
         // The previous snapshot remains visible, but a failed current read
@@ -1432,7 +1435,7 @@ class CloudClient(context: Context) {
     }
 
     suspend fun signIn(passphrase: String): Boolean {
-        if (passphrase.isBlank() || state.signingIn) return false
+        if (passphrase.isBlank() || state.signingIn || signingOut) return false
         state = state.copy(signingIn = true)
         return try {
             val r = withContext(Dispatchers.IO) {
@@ -1620,18 +1623,30 @@ class CloudClient(context: Context) {
     }
 
     suspend fun signOut() {
+        if (signingOut || state.signingIn) return
+        signingOut = true
         sessionEpoch++
-        state = clearAccountSnapshots()
-        try {
-            withContext(Dispatchers.IO) {
-                request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true)
-            }
-        } catch (_: Exception) { /* Always clear local token even if offline. */ }
-        session.clear()
-        state = state.copy(authenticated = false, authMessage = "已退出校序云端",
+        // Hide all owner-scoped data before any network suspension.
+        state = clearAccountSnapshots().copy(
+            authenticated = false, authMessage = "已退出校序云端",
             tasks = emptyList(), platforms = emptyList(), pendingWechatCount = null,
-            wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
             privateError = null, lastSyncAt = null,
             secondClass = null, secondClassError = null, secondClassBusy = false)
+        try {
+            // Local logout must finish even if the settings page leaves composition.
+            val token = withContext(NonCancellable + Dispatchers.IO) {
+                try { session.load() } finally { session.clear() }
+            }
+            if (token != null) withContext(Dispatchers.IO) {
+                request("/api/v1/auth/logout", "POST", JSONObject(), authenticated = true,
+                    boundSessionToken = token)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Local logout is complete; server revocation is best effort when offline.
+        } finally {
+            signingOut = false
+        }
     }
 }

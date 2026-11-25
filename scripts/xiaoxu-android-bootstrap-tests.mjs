@@ -2255,6 +2255,12 @@ assert.doesNotMatch(foregroundRefreshGate, /lastForegroundRefreshMs\s*=\s*now/, 
 const courseReadGate = cloud.slice(cloud.indexOf('private suspend fun readChaoxingCourseData('), cloud.indexOf('suspend fun syncChaoxingNoticesHttp('));
 assert.match(courseReadGate, /if \(token == null\) \{[\s\S]*?refreshPrivate\(\)\s*return false/);
 assert.match(courseReadGate, /if \(response\.code == 401\) \{\s*refreshPrivate\(\)\s*return false/);
+const ownerLogout = cloud.slice(cloud.indexOf('suspend fun signOut()'));
+assert.ok(ownerLogout.indexOf('authenticated = false') < ownerLogout.indexOf('withContext('), '退出须先隐藏本人数据');
+assert.match(ownerLogout, /withContext\(NonCancellable \+ Dispatchers\.IO\) \{\s*try \{ session\.load\(\) \} finally \{ session\.clear\(\) \}/, '离开页面也必须完成本机会话清理');
+assert.match(ownerLogout, /boundSessionToken = token/);
+assert.match(cloud, /suspend fun refreshPrivate\(\) \{\s*if \(signingOut\) return/);
+assert.match(cloud, /if \(passphrase\.isBlank\(\) \|\| state\.signingIn \|\| signingOut\) return false/);
 assert.match(workspace, /taskScope\.launch \{ client\.readChaoxingCourseProgress\(course\) \}/);
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
