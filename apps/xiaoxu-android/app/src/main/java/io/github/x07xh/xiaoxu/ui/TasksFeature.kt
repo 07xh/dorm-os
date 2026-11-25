@@ -124,6 +124,9 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
             items(visible, key = { it.key }) { task ->
                 val localId = task.key.removePrefix("local:").toLongOrNull().takeIf { task.storage == "local" }
+                val ownerId = data.cloud.ownerId
+                val canToggleWechat = task.storage == "cloud" && task.provider == "wechat" &&
+                    task.revision >= 0 && data.cloud.authenticated && data.cloud.tasksFresh && !ownerId.isNullOrBlank()
                 val stateLabel = task.officialStatusRaw ?: officialTaskStatusLabel(task.officialStatus)
                     ?: if (task.done) "个人已完成" else if (requiresChaoxingVerification(task)) "待核验" else null
                 InsetGroupedSection {
@@ -142,6 +145,20 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                                     finally { saving = false }
                                 }
                             })
+                            else if (canToggleWechat && ownerId != null) TaskCompletionCheckbox(
+                                checked = task.done, enabled = !saving,
+                                description = "标记微信任务" + task.title + if (task.done) "为未完成" else "为完成",
+                                onCheckedChange = { value ->
+                                    saving = true
+                                    scope.launch {
+                                        try {
+                                            val saved = actions.updateWechatTask(task.key.removePrefix("cloud:"), task.revision, value, ownerId)
+                                            error = if (saved) null else "未确认云端任务更新，请刷新后重试"
+                                        } catch (cancel: CancellationException) { throw cancel }
+                                        catch (_: Exception) { error = "云端更新失败，请刷新后重试" }
+                                        finally { saving = false }
+                                    }
+                                })
                             else Text(if (considerCompleteInTaskList(task)) "已完成" else if (requiresChaoxingVerification(task)) "待核验" else "待处理",
                                 style = MaterialTheme.typography.labelSmall)
                         })
@@ -203,7 +220,10 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                     task.officialStatusRaw?.let { Text(it) }
                     officialTaskStatusLabel(task.officialStatus)?.let { Text(it) }
                     if (task.storage != "local") {
-                        AppNotice("平台记录只读，不修改学校提交状态。")
+                        if (task.storage == "cloud" && task.provider == "wechat") {
+                            AppNotice("微信任务完成状态仅为本人整理，不代表学校提交状态。")
+                            WechatTaskLinkActions(task.links)
+                        } else AppNotice("平台记录只读，不修改学校提交状态。")
                         if (task.storage == "cloud" && task.provider == "chaoxing" && considerCompleteInTaskList(task)) {
                             TextButton(onClick = { archiveStore.archive(task.key); detailKey = null }) { Text("移至本机归档") }
                         }
