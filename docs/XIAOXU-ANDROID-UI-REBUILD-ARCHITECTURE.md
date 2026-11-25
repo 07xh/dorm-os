@@ -80,3 +80,6 @@ R27 CI 45575569306 全部通过。移植上游 LiquidSelectionComponents.kt 的�
 
 ## R29 离屏光学引擎整组移植
 R28 CI 45576163019 全部通过。直接移植上游 EGL/ES2 引擎、渲染器、着色器、捕获、帧队列、区域和锚点生命周期、几何及帧身份模块，补齐 PhysicalLensSurface 参数与 ChipAppearance。保留上游五组纯 JVM 测试。主题变化适配系统主题，启用 BuildConfig 供调试诊断。当前仅加入源码和测试，不连接任何页面采样路径；不放宽现有设备性能档位，不启用 API31/32 折射。上游 Robolectric 测试依赖当前项目不存在，暂不移植，后续用现有仪器测试架构验证原生路径。待本批编译通过后再统一接入导航、弹层、开关与分段控件，避免未经验证的捕获自循环。
+
+## R30 光学引擎离线运行验收
+R29 CI 45576797300 已全部通过（主程序编译、JVM 测试、仪器测试源码编译）。直接迁移上游 GlassLensRendererTest、GlassLensGeometryDeviceTest、GlassLensCaptureDeviceTest，保留原断言并仅适配包名和 MaterialTheme。复用现有 xiaoxuRuntimeTest 离线隔离构建，在 API32 模拟器上运行三组光学测试；不使用学校账户、真实业务数据或签名发布。编译门禁不再主动取消运行中的测试。离屏渲染目前仍未接入正式页面，须在实际运行验证后再接入；本批 CI 尚未验收。

@@ -6,7 +6,7 @@ permissions:
   contents: read
 concurrency:
   group: android-ui-rebuild-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   compile-and-test:
     runs-on: ubuntu-latest

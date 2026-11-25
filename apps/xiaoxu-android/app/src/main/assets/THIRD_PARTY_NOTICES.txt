@@ -230,3 +230,10 @@ GlassLensEngine, GlassLensRenderer, GlassLensShader, GlassLensCapture,
 GlassLensFrameIdentity, GlassLensGeometry, GlassLensFreshness, GlassLensRegion,
 GlassChipAppearance, remaining PhysicalLensSurface functions and corresponding
 pure JVM tests reused; package, theme invalidation and diagnostics adapted.
+
+------------------------------------------------------------------
+2026-11-25 offscreen glass device tests
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassLensRendererTest,
+GlassLensGeometryDeviceTest and GlassLensCaptureDeviceTest reused with
+package/theme adaptation and existing isolated runtime build.
