@@ -68,8 +68,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
             TextButton(onClick = { adding = true }) { Text("新建任务") }
         }
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-            label = { Text("搜索任务") })
+        GlassFormField(query, { query = it }, "搜索任务", Modifier.fillMaxWidth(), placeholder = "任务名称")
         error?.let { AppNotice(it, error = true) }
         if (data.nativeRecords == PageSnapshot.Loading) AppNotice("正在读取本机平台记录")
         if (data.cloud.authenticated && !data.cloud.tasksFresh) AppNotice("云端任务尚未核验最新状态")
@@ -144,8 +143,8 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         var inputError by rememberSaveable { mutableStateOf<String?>(null) }
         AlertDialog(onDismissRequest = { if (!saving) adding = false }, title = { Text("新建本机任务") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("任务名称") }, singleLine = true)
-                OutlinedTextField(due, { due = it }, label = { Text("个人截止日期（可空）") }, placeholder = { Text("YYYY-MM-DD") }, singleLine = true)
+                GlassFormField(title, { title = it }, "任务名称", Modifier.fillMaxWidth())
+                GlassFormField(due, { due = it }, "个人截止日期（可空）", Modifier.fillMaxWidth(), placeholder = "YYYY-MM-DD")
                 inputError?.let { AppNotice(it, error = true) }
             } }, confirmButton = { TextButton(enabled = !saving, onClick = {
                 val date = due.trim()

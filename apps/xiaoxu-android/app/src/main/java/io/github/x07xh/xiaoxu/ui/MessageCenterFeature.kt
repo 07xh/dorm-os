@@ -195,8 +195,8 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
     val showWechat = source == MSG_FILTER_WECHAT
     val opened = state.notices.firstOrNull { it.url == openedUrl }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        FilterChip(selected = !showWechat, onClick = { source = MSG_FILTER_NOTICE }, label = { Text("官方通知") })
-        FilterChip(selected = showWechat, onClick = { source = MSG_FILTER_WECHAT }, label = { Text("微信审核") })
+        GlassFilterCapsule(label = "官方通知", selected = !showWechat, onClick = { source = MSG_FILTER_NOTICE })
+        GlassFilterCapsule(label = "微信审核", selected = showWechat, onClick = { source = MSG_FILTER_WECHAT })
         AcademicReadAction("刷新", state.busy) { scope.launch { actions.refreshCloud() } }
     }
     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -215,12 +215,11 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
                         }
                     }
                 } else {
-                    item { OutlinedTextField(query, { query = it.take(60) }, Modifier.fillMaxWidth(),
-                        label = { Text("搜索公告") }, singleLine = true) }
+                    item { GlassFormField(query, { query = it.take(60) }, "搜索公告", Modifier.fillMaxWidth(), placeholder = "标题或日期") }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             MESSAGE_FILTERS.forEach { option ->
-                                FilterChip(filter == option.key, { filter = option.key }, label = { Text(option.label) })
+                                GlassFilterCapsule(label = option.label, selected = filter == option.key, onClick = { filter = option.key })
                             }
                         }
                     }

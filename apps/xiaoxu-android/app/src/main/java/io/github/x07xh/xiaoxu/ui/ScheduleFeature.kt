@@ -56,9 +56,9 @@ internal fun ColumnScope.ScheduleFeature(
         TextButton(onClick = actions.exportTimetable) { Text("导出") }
         TextButton(onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) }) { Text("设置") }
         Spacer(Modifier.weight(1f))
-        FilterChip(selected = viewMode == "day", onClick = { selectView("day") }, label = { Text("日") })
+        GlassFilterCapsule(label = "日", selected = viewMode == "day", onClick = { selectView("day") })
         Spacer(Modifier.width(6.dp))
-        FilterChip(selected = viewMode == "week", onClick = { selectView("week") }, label = { Text("周") })
+        GlassFilterCapsule(label = "周", selected = viewMode == "week", onClick = { selectView("week") })
     }
     AppSnapshotContent(data.lessons) { lessons ->
         TextButton(onClick = {

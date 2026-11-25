@@ -65,3 +65,6 @@ R17 提交 e60d2ae 的 CI 45572257841 主程序 Kotlin 编译与 JVM 测试通�
 
 ## R24 导航光学及拖动移植
 第六轮 CI 45574185666（通知中心）全部通过。直接移植上游 DampedDragAnimation、DragGestureInspector、GlassMaterial，以及 PhysicalLensSurface 与 GlassCompat 的平台折射解析和安全形状检查；适配原五路由、共享材质档位和单一页面采样，加入滑动选中胶囊、速度形变、按压折射、高光及阴影，保留低性能、减少动态效果及高对比度回退。未移植 API31/32 离屏 GL、隐藏 tint 文字采样层或最小化导航，不能声称完整上游 1:1 光学。需重新编译、真机验证手势与帧时间。
+
+## R25 统一表单和筛选胶囊
+第七轮 CI 45574549658（导航光学）全部通过。移植上游 GlassFilterCapsule、GlassFormField 及 GlassKit 中 GlassTextField，使用本项目主题、按压交互源与无障碍动效策略，暂不移植嵌套实时光学读取层。课表日周切换、课程编辑、通知来源/类别筛选与搜索、任务搜索与新建共享这套组件。保留原业务校验及数据来源；新提交需重新编译及交互验证。

@@ -200,3 +200,10 @@ GPL-3.0, original authors and contributors. DampedDragAnimation.kt,
 DragGestureInspector.kt, GlassMaterial.kt, platform optics from
 PhysicalLensSurface.kt / GlassCompat.kt and CapsuleNavigationBar gesture
 and velocity deformation logic reused; local route and fallback adapters.
+
+------------------------------------------------------------------
+2026-11-25 common input components
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. GlassFilterCapsule.kt,
+GlassFormField.kt and GlassTextField from GlassKit.kt reused with local theme,
+accessibility and non-nested optical fallback.

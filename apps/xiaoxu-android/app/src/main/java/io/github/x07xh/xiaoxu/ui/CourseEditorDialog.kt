@@ -178,8 +178,7 @@ internal fun CourseEditorDialog(
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             "一二三四五六日".forEachIndexed { index, label ->
                                 val key = (index + 1).toString()
-                                FilterChip(selected = weekday == key, onClick = { weekday = key },
-                                    enabled = !busy, label = { Text(label.toString()) })
+                                GlassFilterCapsule(label = label.toString(), selected = weekday == key, onClick = { weekday = key }, enabled = !busy)
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -262,26 +261,6 @@ private fun EditorField(
     numeric: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text
-        ),
-        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        )
-    )
+    GlassFormField(value, onChange, label, modifier.fillMaxWidth(), enabled = enabled,
+        keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text))
 }
