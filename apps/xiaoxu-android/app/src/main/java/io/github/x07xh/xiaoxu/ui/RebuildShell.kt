@@ -89,6 +89,7 @@ internal fun NativeShell(
         authorize = startSchoolAuthorization, connectLocal = openLocalSchool, openWebsite = openWebsite,
         refreshCloud = { cloud.refresh() }, signInCloud = { cloud.signIn(it) }, signOutCloud = { cloud.signOut() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
         openArticle = openArticle,
+        reviewWechatCandidate = { id, decision -> cloud.reviewWechatCandidate(id, decision) },
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
         localTaskDao = dao,
