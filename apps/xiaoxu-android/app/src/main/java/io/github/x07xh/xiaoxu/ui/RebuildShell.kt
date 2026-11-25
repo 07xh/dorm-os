@@ -91,6 +91,8 @@ internal fun NativeShell(
         openArticle = openArticle,
         reviewWechatCandidate = { id, decision -> cloud.reviewWechatCandidate(id, decision) },
         updateWechatTask = { id, revision, completed, owner -> cloud.setWechatTaskCompleted(id, revision, completed, owner) },
+        addCloudTask = { title, owner -> cloud.addCloudTask(title, owner) },
+        syncAuthorizedSchool = { provider -> cloud.syncAuthorizedSchool(provider) },
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
         localTaskDao = dao,
