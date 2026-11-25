@@ -131,7 +131,8 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                         subtitle = listOfNotNull(task.origin, task.officialDeadline ?: task.date?.toString(), stateLabel).joinToString(" · "),
                         showDivider = false, onClick = { detailKey = task.key },
                         trailing = {
-                            if (localId != null) Checkbox(task.done, enabled = !saving, onCheckedChange = { value ->
+                            if (localId != null) TaskCompletionCheckbox(checked = task.done, enabled = !saving,
+                                description = "标记" + task.title + if (task.done) "为未完成" else "为完成", onCheckedChange = { value ->
                                 saving = true
                                 scope.launch {
                                     try {
