@@ -457,50 +457,22 @@ assert.match(secondClassMain, /onSelect = \{ catalogFilter = it \}/,
  '活动筛选继续保持所选官方目录类别');
 assert.match(secondClassMain, /val catalogKeys = listOf\("报名中", "待验证", "即将开始报名"\)/,
  '活动类别须保留报名中筛选');
-assert.match(designSystem, /Modifier\.weight\(1f\)\.heightIn\(min = 44\.dp\)/,
- '共享分段控件必须等宽且具有至少44dp触控高度');
-assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeight = 26\.sp/,
- '一级页面共用20sp字级与26sp行高');
-assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '课表标题从统一主题取得字级');
-assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
- '消息标题从统一主题取得字级');
-assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '任务页使用简短标题与统一主题字级');
-assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
- '三态数字同卡保留内容且压缩多余高度');
-assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
- '任务顶部四个工具按钮必须复用唯一组件');
-assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
- '共享工具按钮必须具有统一42dp几何尺寸');
-assert.equal((workspace.match(/XiaoxuToolbarAction\(/g) || []).length, 3,
- '任务中心只保留搜索、新建和更多三个统一工具按钮');
-assert.match(workspace, /label = "更多任务操作"/,
- '低频操作必须收进可发现的更多菜单');
-assert.match(workspace, /expanded = taskMenuOpen/,
- '更多菜单必须有明确展开与关闭状态');
-assert.match(workspace, /本周暂无可做的本机任务/,
- '本周无数据必须明确说明，而非误报任务消失');
-assert.match(workspace, /onlyThisWeek -> "查看全部待办"/,
- '本周无任务时必须提供一次点击恢复入口');
-assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/,
- '不应回退为多层筛选和冗余管理栏');
-assert.match(workspace, /val onTaskTap: \(WorkspaceTask\) -> Unit/,
- '本机任务需支持直接进入已有编辑页');
-assert.match(workspace, /if \(showSearch\) searchQuery = ""/,
- '关闭搜索框必须清理隐藏搜索词，避免任务无故消失');
-assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/,
- '只有已解析的学习通官方截止日期可用于排序');
-assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/,
- '官方截止文字无法解析时，旧云端日期不能冒充已核实截止');
-assert.match(workspace, /item\(key = "task:undo-last"\)/,
- '个人任务完成后需要保留一键撤销操作');
-assert.match(workspace, /if \(!dao\.trySetCompleted\(id, checked\)\)[\s\S]*?else \{[\s\S]*?if \(checked\) lastCompletedLocalId = id/,
- '必须在 Room 成功保存之后才展示刚完成任务');
-assert.match(workspace, /toggleLocal\(row, false\)/,
- '撤销必须复用本机任务完成状态写入流程');
-assert.match(workspace, /enabled = !pendingLocalTaskUpdates\.containsKey\(/,
- '前一笔本机状态更新未确认时不得执行撤销');
+const segmentControl = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidSegmentedControl.kt');
+assert.match(segmentControl, /height: Dp = 48\.dp/, "上游分段控件默认48dp");
+assert.match(segmentControl, /\/ optionCount\)\.coerceAtLeast\(1f\)/, "按分段数量平均分配宽度");
+assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/, "分段等宽且有标签语义");
+assert.match(taskWorkspaceForComposerGate, /onSelect = \{ filter = filters\[it\]\.first \}, height = 48\.dp\)/, "任务页使用48dp分段控件");
+assert.match(taskWorkspaceForComposerGate, /SystemStatStrip\(items = listOf\("待办"[\s\S]*?"待核验"[\s\S]*?"已完成"/, "统一三态统计");
+assert.match(taskWorkspaceForComposerGate, /DropdownMenu\(expanded = sourceMenuOpen/, "来源筛选可关闭");
+assert.match(taskWorkspaceForComposerGate, /if \(onlyThisWeek\) TextButton\(onClick = \{ onlyThisWeek = false \}\)/, "本周筛选可直接解除");
+assert.match(taskWorkspaceForComposerGate, /onClick = \{ detailKey = task\.key \}/, "任务直接进入详情");
+assert.match(taskWorkspaceForComposerGate, /sourceFilter = "all"; onlyThisWeek = false; query = ""/, "清除筛选及搜索词");
+assert.match(taskWorkspaceForComposerGate, /val saved = actions\.updateLocalTask\(localId, value\)[\s\S]*?if \(saved && value\) lastCompletedLocalId = localId/, "仅实际写入成功后提供撤销");
+assert.match(taskWorkspaceForComposerGate, /TextButton\(enabled = !saving,[\s\S]*?actions\.updateLocalTask\(undoTask\.id, false\)/, "撤销使用同一真实Room写入，保存期间禁用");
+assert.match(workspace, /row\.storage == "cloud" && row\.dateSource == "学习通本机官方截止"/, "仅经核验学习通官方截止参与排序");
+assert.match(workspace, /if\(observedDeadline\?\.date != null\) "学习通本机官方截止"/, "不能将旧云端日期冒充官方截止");
+assert.doesNotMatch(workspace, /showAdvancedFilters|showManager/, '不恢复旧多层管理栏');
+assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = lift/);
 assert.match(secondClassMain, /fun refresh\(\)/, '授权读取仍有效');
 assert.match(secondClassMain, /if \(catalogTime != null && catalogRecord != null\) "上次读取：暂无活动" else "活动暂未获取"/,
  '仅已核验空结果可标暂无活动；非空列表暂未有可映射的安全数据');
