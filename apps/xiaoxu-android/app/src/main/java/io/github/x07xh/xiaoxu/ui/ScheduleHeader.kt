@@ -79,8 +79,7 @@ internal fun WeekHeaderCompact(
     actualWeek: Int?, actualDay: Int,
     dayView: Boolean, onDayView: (Boolean) -> Unit,
     onDayClick: (Int) -> Unit, onWeekSelect: (Int) -> Unit,
-    onTodayClick: () -> Unit, onImportClick: () -> Unit,
-    onExportClick: () -> Unit, onSettingsClick: () -> Unit,
+    onTodayClick: () -> Unit, onSettingsClick: () -> Unit,
     onAddClick: (() -> Unit)?, collapseFraction: Float,
     sampleBackdrop: Backdrop? = LocalAppBackdrop.current
 ) {
@@ -166,8 +165,6 @@ internal fun WeekHeaderCompact(
     }
     if (toolsOpen) AppDialog(onDismissRequest = { toolsOpen = false }, title = { Text("课表操作") },
         text = { Column {
-            TextButton(onClick = { toolsOpen = false; onImportClick() }) { Text("导入课表") }
-            TextButton(onClick = { toolsOpen = false; onExportClick() }) { Text("导出课表") }
             if (onAddClick != null) TextButton(onClick = { toolsOpen = false; onAddClick() }) { Text("添加课程") }
             TextButton(onClick = { toolsOpen = false; onSettingsClick() }) { Text("课表设置") }
         } }, confirmButton = { TextButton(onClick = { toolsOpen = false }) { Text("关闭") } })
