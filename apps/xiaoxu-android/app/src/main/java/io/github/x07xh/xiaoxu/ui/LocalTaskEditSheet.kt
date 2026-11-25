@@ -212,3 +212,74 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
             onConfirm = { date -> due = date.toString(); pickerOpen = false; error = null })
     }
 }
+
+
+@Composable
+internal fun LocalTaskCreateSheet(
+    dao: LocalTaskDao,
+    onDismiss: () -> Unit,
+    onCreated: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var title by rememberSaveable { mutableStateOf("") }
+    var source by rememberSaveable { mutableStateOf<String?>(TASK_SOURCE_LOCAL) }
+    var due by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickerOpen by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun create() {
+        val clean = title.trim()
+        if (clean.isEmpty() || saving) return
+        val sourceValue = source
+        val dueValue = due
+        saving = true
+        error = null
+        scope.launch {
+            try {
+                dao.insert(LocalTask(title = clean, source = sourceValue, due = dueValue))
+                onCreated()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                error = "保存到本机失败，请重试"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    AppDialog(onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("新建本机任务") },
+        text = {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppNotice("分类和截止日期可选，仅用于本机个人整理。")
+                GlassFormField(title, { title = it.take(120); error = null }, "任务名称",
+                    Modifier.fillMaxWidth(), enabled = !saving)
+                LocalTaskSourcePicker(source = source, onSelect = { source = it }, enabled = !saving)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { pickerOpen = true }, enabled = !saving,
+                        modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(due ?: "添加截止日期（可选）")
+                    }
+                    if (due != null) TextButton(onClick = { due = null }, enabled = !saving) { Text("清除") }
+                }
+                error?.let { AppNotice(it, error = true) }
+            }
+        },
+        confirmButton = {
+            Button(onClick = ::create, enabled = !saving && title.isNotBlank()) {
+                Text(if (saving) "保存中…" else "添加任务")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("取消") } }
+    )
+    if (pickerOpen) {
+        GlassDatePickerDialog(initialDate = parseDue(due) ?: LocalDate.now(),
+            title = "选择截止日期", preserveInitial = true,
+            onDismiss = { pickerOpen = false },
+            onConfirm = { date -> due = date.toString(); pickerOpen = false; error = null })
+    }
+}
