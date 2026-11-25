@@ -204,8 +204,12 @@ assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, valu
   '本机截止通知的已有授权状态仅在通知设置中切换');
 assert.doesNotMatch(localTaskUi, /LocalDeadlineReminders\.setEnabled|rememberLauncherForActivityResult/,
   '任务编辑页不再保留第二套截止通知总开关');
-assert.match(main, /LocalDeadlineReminders\.reconcile\([\s\S]*?reminderContext, localTasks, previousTasks = previous/,
-  'Room edits must re-plan notifications even when the task manager is collapsed');
+const appWorkspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppWorkspaceState.kt');
+assert.match(rebuildShell, /val data = rememberAppWorkspace\(dao, cloud,/,
+  'Reminder observer must be owned by the application shell rather than a task page');
+assert.match(appWorkspace, /val tasks by rememberSnapshotRows\(dao\) \{ dao\.observe\(\) \}/);
+assert.match(appWorkspace, /LaunchedEffect\(tasks\) \{\s*val snapshot = tasks \?: return@LaunchedEffect[\s\S]*?LocalDeadlineReminders\.reconcile\(context, snapshot, previousTasks = previous\)[\s\S]*?previousTasks = snapshot/,
+  'Room edits must re-plan notifications, including when the task page is absent, without inventing an initial empty snapshot');
 
 assert.match(ci, /assembleDebug/);
 assert.match(ci, /upload-artifact/);
