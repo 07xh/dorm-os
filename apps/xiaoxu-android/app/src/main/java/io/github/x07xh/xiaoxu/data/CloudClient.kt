@@ -678,19 +678,24 @@ class CloudClient(context: Context) {
 
     }
 
-    suspend fun reviewWechatCandidate(candidateId: String, decision: String): Boolean {
-        if (!state.authenticated || state.wechatReviewingId != null ||
+    suspend fun reviewWechatCandidate(candidateId: String, decision: String, expectedOwnerId: String): Boolean {
+        if (!state.authenticated || expectedOwnerId.isBlank() || state.ownerId != expectedOwnerId ||
+            state.pendingWechatCount == null || state.wechatError != null || state.wechatReviewingId != null ||
             decision !in setOf("accept", "dismiss") ||
             !Regex("^[A-Za-z0-9_-]{12,128}$").matches(candidateId) ||
             state.wechatCandidates.none { it.id == candidateId }) return false
         val epoch = sessionEpoch
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == expectedOwnerId
+        if (!current() || state.wechatReviewingId != null || state.wechatError != null ||
+            state.wechatCandidates.none { it.id == candidateId }) return false
         state = state.copy(wechatReviewingId = candidateId, wechatError = null)
         try {
             val result = withContext(Dispatchers.IO) {
                 request("/api/v1/wechat/candidates/$candidateId", "POST",
-                    JSONObject().put("decision", decision), authenticated = true)
+                    JSONObject().put("decision", decision), authenticated = true, boundSessionToken = token)
             }
-            if (epoch != sessionEpoch) return false
+            if (!current()) return false
             if (result.code != 200 ||
                 result.json.optString("id") != candidateId ||
                 result.json.optString("status") != if (decision == "accept") "accepted" else "dismissed") {
@@ -711,13 +716,15 @@ class CloudClient(context: Context) {
                 pendingWechatCount = state.pendingWechatCount?.let { (it - 1).coerceAtLeast(0) }
             )
             refreshPrivate()
-            return true
+            return current()
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
         } catch (_: Exception) {
-            if (epoch == sessionEpoch)
+            if (current())
                 state = state.copy(wechatError = "审核请求失败，状态未确认；请先刷新以免重复操作")
             return false
         } finally {
-            if (epoch == sessionEpoch) state = state.copy(wechatReviewingId = null)
+            if (current()) state = state.copy(wechatReviewingId = null)
         }
     }
 
