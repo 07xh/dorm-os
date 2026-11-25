@@ -140,8 +140,25 @@ internal fun SecondClassContent(snapshot: PageSnapshot<List<NativeSchoolRecord>>
                 else {
                     item(key = "activity-summary") { AppNotice(summary.details) }
                     items(activities, key = { "activity:${it.fingerprint}" }) { row ->
+                        val points = secondClassActivityPoints(row)
+                        val time = row.details.lineSequence().firstOrNull { it.startsWith("开始时间：") }
+                            ?.removePrefix("开始时间：")?.takeUnless { it == "学校未提供" }
+                        val settlement = row.details.lineSequence()
+                            .firstOrNull { it.startsWith("报名：") }
+                            ?.substringAfter("结算：", "")?.takeIf { it.isNotBlank() }
                         InsetGroupedSection {
-                            InsetGroupedRow(title = row.title, subtitle = row.details, showDivider = false,
+                            InsetGroupedRow(title = row.title,
+                                subtitle = listOfNotNull(time, settlement).joinToString(" · ").ifBlank { "学校未提供活动状态" },
+                                trailing = {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(points ?: "—", style = MaterialTheme.typography.titleMedium,
+                                            color = if (points != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(if (points != null) "已结算分" else "分数未获取",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                },
+                                showDivider = false,
                                 onClick = { detailKey = row.kind + ":" + row.fingerprint })
                         }
                     }
@@ -205,3 +222,20 @@ private fun secondClassCategories(
     }
 }
 
+
+
+/** The parser records a score only when the school's activity is settled.
+ * Catalog rewards, signup states, and aggregate scores cannot substitute for earned points. */
+internal fun secondClassActivityPoints(record: NativeSchoolRecord): String? {
+    if (record.provider != "second_class" || record.kind != "activity" ||
+        record.sourceHost != "dekt.ncwu.edu.cn") return null
+    val settlement = record.details.lineSequence().singleOrNull { it.startsWith("报名：") }
+        ?.substringAfter("结算：", "") ?: return null
+    if (settlement != "已结算") return null
+    val raw = record.details.lineSequence().singleOrNull { it.startsWith("已结算素质分：") }
+        ?.removePrefix("已结算素质分：")?.trim() ?: return null
+    if (!raw.matches(Regex("[0-9]+(?:\\.[0-9]+)?"))) return null
+    return raw.takeIf { it.toBigDecimalOrNull()?.let { value ->
+        value.signum() >= 0 && value <= java.math.BigDecimal("100000")
+    } == true }
+}
