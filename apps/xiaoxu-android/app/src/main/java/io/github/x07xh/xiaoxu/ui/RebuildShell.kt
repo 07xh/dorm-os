@@ -65,16 +65,23 @@ internal fun NativeShell(
 ) {
     var route by rememberSaveable { mutableStateOf(AppRoute.HOME) }
     var routeTrail by rememberSaveable { mutableStateOf("") }
+    val reducedMotion = rememberGlassAccessibilityMode().reduceMotion ||
+        !android.animation.ValueAnimator.areAnimatorsEnabled()
+    val navigationMotion = rememberNavigationMotionState(route.ordinal, "xiaoxu-routes", reducedMotion)
     fun goTo(next: AppRoute) {
         if (route == next) return
         routeTrail = if (next.parent == null) "" else listOf(routeTrail, route.name).filter { it.isNotEmpty() }.joinToString("/")
+        navigationMotion.select(next.ordinal, reducedMotion)
         route = next
     }
     fun goBack() {
         val parent = routeTrail.substringAfterLast('/').takeIf { it.isNotEmpty() }
             ?.let { value -> AppRoute.entries.firstOrNull { it.name == value } } ?: route.parent
         routeTrail = routeTrail.substringBeforeLast('/', "")
-        if (parent != null) route = parent
+        if (parent != null) {
+            navigationMotion.select(parent.ordinal, reducedMotion)
+            route = parent
+        }
     }
     val pageState = rememberSaveableStateHolder()
     var inboxTaskId by remember { mutableStateOf<Long?>(null) }
@@ -170,12 +177,17 @@ internal fun NativeShell(
                     Scaffold(containerColor = Color.Transparent) { padding ->
                         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                             .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
-                            pageState.SaveableStateProvider(route.name) {
-                                CompositionLocalProvider(LocalLoadingRoute provides route.name.lowercase()) {
-                                    AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
-                                        { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
-                                        { inboxLessonId = null; onReminderCourseConsumed() },
-                                        back = if (route.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
+                            // Reuse the upstream navigation timeline; only the active business
+                            // page is composed to avoid duplicate readers, reminders and dialog hosts.
+                            NavigationPages(navigationMotion, activePage = route.ordinal, retainOutgoing = false) { index ->
+                                val pageRoute = AppRoute.entries[index]
+                                pageState.SaveableStateProvider(pageRoute.name) {
+                                    CompositionLocalProvider(LocalLoadingRoute provides pageRoute.name.lowercase()) {
+                                        AppFeaturePage(pageRoute, data, actions, inboxTaskId ?: reminderTaskId,
+                                            { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
+                                            { inboxLessonId = null; onReminderCourseConsumed() },
+                                            back = if (pageRoute.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
+                                    }
                                 }
                             }
                         }
