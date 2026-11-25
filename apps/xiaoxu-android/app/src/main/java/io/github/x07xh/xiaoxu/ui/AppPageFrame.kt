@@ -5,7 +5,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,9 +29,29 @@ internal fun AppPageFrame(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
-    GlassPageScaffold(title = title, onBack = onBack, actions = actions) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-            .padding(horizontal = 20.dp),
+    // Share the upstream SettingsScreen/SystemTopBar collapse treatment.
+    // Observe consumed vertical motion without taking scroll away from the child.
+    val travel = with(LocalDensity.current) { 64.dp.toPx() }.coerceAtLeast(1f)
+    var lift by remember { mutableFloatStateOf(0f) }
+    val observer = remember(travel) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                lift = (lift - consumed.y / travel).coerceIn(0f, 1f)
+                return Offset.Zero
+            }
+        }
+    }
+    GlassPageScaffold(title = title, onBack = onBack, actions = actions, topBar = {
+        Box(Modifier.moduleEntrance(0)) {
+            SystemTopBar(title = title, collapseFraction = lift, navigationIcon = {
+                if (onBack != null) IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
+                }
+            }, actions = actions)
+        }
+    }) { padding ->
+        Column(Modifier.fillMaxSize().nestedScroll(observer).padding(padding).consumeWindowInsets(padding)
+            .padding(horizontal = AppSpacing.pageHorizontal),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.item), content = content)
     }
 }
