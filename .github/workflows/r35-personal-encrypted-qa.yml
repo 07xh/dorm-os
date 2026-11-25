@@ -1,0 +1,64 @@
+name: R35 personal encrypted QA
+on:
+  push:
+    branches: [qa/r35-personal-20261125]
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build separately installable personal QA
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon --stacktrace
+      - name: Verify and encrypt personal test package
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          apk=apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > "$work/badging.txt"
+          grep -F "package: name='io.github.x07xh.xiaoxu.unifiedqa'" "$work/badging.txt"
+          cp "$apk" "$work/xiaoxu-R35-qa.apk"
+          (cd "$work" && sha256sum xiaoxu-R35-qa.apk > xiaoxu-R35-qa.apk.sha256 && zip -q payload.zip xiaoxu-R35-qa.apk xiaoxu-R35-qa.apk.sha256)
+          cat > "$work/recipient.pem" <<'PEM'
+          -----BEGIN PUBLIC KEY-----
+          MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAwN85K2Vx1lZkenlK5xy0
+          Dv0wNRGc+xpCOL4BhwkhjkT/ZH4xzkT2l74kjDHZPcxLcgPiMFnav/cQjc5mA+1f
+          UHNWFMYUkD5EIHzk6Nkkcow07zQdQoa1AWhmbtMyW1oorgy3eGUK0jUOBjG0Xuhe
+          9rCC5mvtQE5BrlpMGsGfVV554l0UC0qBwY2wkDtB64QBa49sr18Kaa451kUDGTHL
+          H6G8RYrQOkdqKx7DcNNMP4+X18kVmIzi9NxJfPCgZi/W0IHzxmbv/Et86l6ujFYG
+          VXkGBdUZlJKzW8X2qmKyC5AWCNT2ZKFZTOPisc8qwABD/imBGjPuPlu3iOsA++Xu
+          YST8YKXrgxvWcxl+SqZS0rib3mfrOwf6b2EToL+7BeVEtgZ1P7ojnXdWPrFHum6y
+          BfHru1MiPPOtnYXQP7GgmUls3pitC2AOdyoA1gouUXSx+CLAt8zINY6BRyGONXs6
+          JKsr75B8GeI4deOtap7CTmiebWm0NQm1jk/IzCz0p8iDAgMBAAE=
+          -----END PUBLIC KEY-----
+          PEM
+          openssl rand -out "$work/material.bin" 80
+          aeskey=$(xxd -p -l 32 -c 80 "$work/material.bin")
+          iv=$(xxd -p -s 32 -l 16 -c 80 "$work/material.bin")
+          hmkey=$(xxd -p -s 48 -l 32 -c 80 "$work/material.bin")
+          mkdir -p encrypted-qa
+          openssl enc -aes-256-cbc -K "$aeskey" -iv "$iv" -in "$work/payload.zip" -out encrypted-qa/package.enc
+          openssl dgst -sha256 -mac HMAC -macopt "hexkey:$hmkey" -binary -out encrypted-qa/package.hmac encrypted-qa/package.enc
+          openssl pkeyutl -encrypt -pubin -inkey "$work/recipient.pem" -pkeyopt rsa_padding_mode:oaep -in "$work/material.bin" -out encrypted-qa/key.bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-R35-personal-encrypted
+          path: encrypted-qa/
+          retention-days: 3
+          if-no-files-found: error
