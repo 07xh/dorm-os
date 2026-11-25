@@ -4,6 +4,17 @@ package io.github.x07xh.xiaoxu.ui
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, LiquidComponents.kt (LiquidSwitch fallback).
 // Original authors and contributors. Controlled-state adapter for async permission and storage.
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.drawscope.scale
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
+import com.kyant.backdrop.shadow.InnerShadow
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -125,6 +136,20 @@ fun LiquidSwitch(
         }
     }
 
+    // Only capture the immobile track, never the parent page or the thumb itself.
+    val optical = rememberNavigationMaterialTier() == NavigationMaterialTier.Refractive &&
+        !accessibility.highContrast && !accessibility.reduceMotion && enabled
+    val trackBackdrop = rememberLayerBackdrop()
+    val backingColor = MaterialTheme.colorScheme.surface
+    val scaledTrackBackdrop = rememberBackdrop(trackBackdrop) { drawTrackBackdrop ->
+        val progress = dragAnimation.pressProgress
+        drawRect(backingColor)
+        val scaleX = androidx.compose.ui.util.lerp(2f / 3f, 0.75f, progress)
+        val scaleY = androidx.compose.ui.util.lerp(0f, 0.75f, progress)
+        scale(scaleX, scaleY) { drawTrackBackdrop() }
+    }
+    val switchLensMaterial = remember { thumbLensMaterial(5f, 10f) }
+
     Box(
         modifier = modifier
             .width(64.dp)
@@ -148,6 +173,7 @@ fun LiquidSwitch(
     ) {
         Box(
             modifier = Modifier
+                .then(if (optical) Modifier.layerBackdrop(trackBackdrop) else Modifier)
                 .clip(Capsule())
                 .drawBehind {
                     drawRect(
@@ -176,6 +202,30 @@ fun LiquidSwitch(
             }
             .testTag("liquid-switch-thumb")
 
+        if (optical) {
+            Box(thumbModifier.drawBackdrop(
+                backdrop = scaledTrackBackdrop, shape = { Capsule() },
+                effects = {
+                    val press = dragAnimation.pressProgress
+                    val minDim = size.minDimension.coerceAtLeast(0f)
+                    val params = resolvePhysicalLens(this, switchLensMaterial, minDim / 2f, minDim,
+                        interactionProgress = press, enableBlur = false,
+                        pressScalesRefraction = true, refractionFloor = 0f)
+                    blur(8.dp.toPx() * (1f - press))
+                    if (params.useLens) lens(params.refractionHeightPx, params.refractionAmountPx,
+                        chromaticAberration = params.chromaticAberration)
+                },
+                highlight = { Highlight.Ambient.copy(width = Highlight.Ambient.width / 1.5f,
+                    blurRadius = Highlight.Ambient.blurRadius / 1.5f, alpha = dragAnimation.pressProgress) },
+                shadow = { Shadow(radius = 4.dp, color = Color.Black.copy(alpha = 0.05f)) },
+                innerShadow = { InnerShadow(radius = 4.dp * dragAnimation.pressProgress, alpha = dragAnimation.pressProgress) },
+                layerBlock = {
+                    val t = thumbLensTransform(dragAnimation, 50f, accessibility.reduceMotion)
+                    scaleX = t.scaleX; scaleY = t.scaleY
+                },
+                onDrawSurface = { drawRect(thumbColor.copy(alpha = 1f - 0.85f * dragAnimation.pressProgress)) }
+            ).size(40.dp, 24.dp))
+        } else {
             Box(
                 modifier = thumbModifier
                     .graphicsLayer {
@@ -191,5 +241,6 @@ fun LiquidSwitch(
                     .background(thumbColor)
                     .size(40.dp, 24.dp)
             )
+        }
     }
 }

@@ -244,3 +244,10 @@ Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544b
 GPL-3.0, original authors and contributors. DialogHost.kt,
 ScheduleBottomSheetState.kt, GlassSheetSurface.kt and DialogHostStateTest.kt
 reused with local package/theme and gated native-window fallback.
+
+------------------------------------------------------------------
+2026-11-25 thumb and segmented optical rendering
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. ThumbLens.kt and upstream
+switch/segment platform effects adapted to isolated track-only sources and
+existing performance and accessibility policy.

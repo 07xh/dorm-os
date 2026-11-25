@@ -86,3 +86,6 @@ R29 CI 45576797300 已全部通过（主程序编译、JVM 测试、仪器测试
 
 ## R31 同窗口光学弹层整组接入
 R30 编译门禁 45577309278 全部通过，API32 离线 GPU 测试 45577309613 仍运行。直接移植 DialogHost、ScheduleBottomSheetState、GlassSheetSurface 和 DialogHostStateTest，适配已复用的 MotionProfile、材质及现有页面采样。仅性能档位允许的 Android 13+ 手机启用同窗滚轮和公告详情；其他设备、编辑表单及嵌套原生窗口继续使用原生 Dialog。页面采样与弹层为兄弟节点，关闭时停止额外采样，阻挡底层触摸及无障碍访问；未经设备验证，不启用 Android12 离屏折射或嵌套控件捕获。离线引擎工作流限定引擎、测试及构建相关路径，不主动取消运行中的测试。新提交待编译、交互和性能验证。
+
+## R32 开关及分段控件光学接入、APK 构建阻塞修复
+R30 离线 GPU 验收 45577309613 在 :app:dexBuilderDebug 失败，D8 明确定位 AcademicSnapshotListKt.class 的 NON_LOCAL_RETURN 标记；尚未运行渲染测试。将 Compose key 内 return@key 改为等价条件分支，保留 owner、快照状态和真实数据逻辑；常规 CI 增加 assembleDebug，不发布 APK。移植上游 ThumbLens.kt 及开关、分段选中透镜的折射、高光、阴影、形变参数；仅性能档位允许的 API33+、非高对比度和非减少动效状态启用，采样源为各自独立轨道，不捕获页面自身或标签层，保留静态文字。开关合成表面使用主题色作为背景，不是上游完整环境采样。API31/32 路径仍关闭，待实际 GPU 测试和新构建通过后再启用。R31 Kotlin/JVM 已通过，仪器源码门禁继续执行。本次修复与新光学控件待验收。

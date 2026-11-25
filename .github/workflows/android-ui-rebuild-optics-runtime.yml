@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/xiaoxu-android/app/src/main/java/**/GlassLens*.kt'
       - 'apps/xiaoxu-android/app/src/main/java/**/GlassFrameQueue.kt'
+      - 'apps/xiaoxu-android/app/src/main/java/**/AcademicSnapshotList.kt'
       - 'apps/xiaoxu-android/app/src/main/java/**/UpstreamPhysicalLens.kt'
       - 'apps/xiaoxu-android/app/src/androidTest/**/GlassLens*Test.kt'
       - 'apps/xiaoxu-android/app/src/runtimeVerification/**'

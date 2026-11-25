@@ -4,6 +4,15 @@ package io.github.x07xh.xiaoxu.ui
 // Source: znjhahaha/zhengfang-apk @ bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, LiquidSelectionComponents.kt.
 // Original authors and contributors. Reuse fallback geometry, drag state and selection.
 import androidx.compose.animation.core.spring
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.shapes.Capsule
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -49,6 +58,10 @@ internal fun LiquidSegmentedControl(options: List<String>, selectedIndex: Int,
     val latestSelectedIndex by rememberUpdatedState(clampedSelectedIndex)
     val latestOnSelect by rememberUpdatedState(onSelect)
     val haptics = LocalHapticFeedback.current
+    val optical = rememberNavigationMaterialTier() == NavigationMaterialTier.Refractive &&
+        !accessibility.highContrast && !accessibility.reduceMotion && enabled
+    val trackBackdrop = rememberLayerBackdrop()
+    val indicatorMaterial = GlassMaterials.resolve(GlassMaterialRole.Interactive, accessibility)
     val pressedScale = GlassRecipe.SegIndicatorPressedScale
     val indicatorShape = RoundedCornerShape(percent = 50)
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
@@ -67,8 +80,8 @@ internal fun LiquidSegmentedControl(options: List<String>, selectedIndex: Int,
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
                 pressedScale = pressedScale,
-                settleAnimationSpec = spring(dampingRatio = .5f, stiffness = 340f),
-                releaseScaleAnimationSpec = spring(dampingRatio = .34f, stiffness = 280f),
+                settleAnimationSpec = MotionSpring.segmentedSettle(),
+                releaseScaleAnimationSpec = MotionSpring.segmentedRelease(),
                 pressScaleAnimationSpec = spring(dampingRatio = 0.64f, stiffness = 680f),
                 onDragStarted = {},
                 onDragStopped = {},
@@ -229,6 +242,39 @@ internal fun LiquidSegmentedControl(options: List<String>, selectedIndex: Int,
             }
         }
         }
+        if (optical) {
+            // The track alone is a sibling source; text and indicator are never captured recursively.
+            Box(Modifier.fillMaxSize().layerBackdrop(trackBackdrop).clip(indicatorShape)
+                .background(colors.surfaceContainerHigh).border(0.75.dp, colors.outlineVariant, indicatorShape))
+            Box(Modifier.width(with(density) { segmentWidthPx.toDp() }).height(indicatorHeight)
+                .align(Alignment.CenterStart).graphicsLayer {
+                    translationX = horizontalPaddingPx + dragAnimation.value * segmentWidthPx
+                }.drawBackdrop(
+                    backdrop = trackBackdrop, shape = { Capsule() },
+                    effects = {
+                        vibrancy()
+                        val minDim = size.minDimension.coerceAtLeast(0f)
+                        val params = resolvePhysicalLens(this, indicatorMaterial, minDim / 2f, minDim,
+                            interactionProgress = dragAnimation.pressProgress,
+                            motionIntensity = motionIntensityFromVelocity(dragAnimation.velocity * segmentWidthPx,
+                                indicatorMaterial.optics.velocityForFullEffect),
+                            enableBlur = false, pressScalesRefraction = true,
+                            refractionFloor = if (compact) 0.30f else 0.42f,
+                            chromaticAberrationAtRest = true)
+                        if (params.useLens) lens(params.refractionHeightPx, params.refractionAmountPx,
+                            chromaticAberration = params.chromaticAberration)
+                    },
+                    highlight = { Highlight.Default.copy(alpha = GlassRecipe.SegSelectedRimAlpha + dragAnimation.pressProgress * 0.22f) },
+                    shadow = { Shadow(alpha = GlassRecipe.SegSelectedShadowAlpha + dragAnimation.pressProgress * 0.12f) },
+                    innerShadow = { InnerShadow(radius = 4.dp * dragAnimation.pressProgress, alpha = dragAnimation.pressProgress * 0.5f) },
+                    layerBlock = {
+                        val (sx, sy) = segIndicatorScale(dragAnimation)
+                        scaleX = sx; scaleY = sy
+                    },
+                    onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.78f - dragAnimation.pressProgress * 0.35f)) }
+                ))
+            segmentLabels()
+        } else {
         Box(Modifier.fillMaxSize().clip(indicatorShape)
             .background(colors.surfaceContainerHigh)
             .border(0.75.dp, colors.outlineVariant, indicatorShape)
@@ -243,6 +289,7 @@ internal fun LiquidSegmentedControl(options: List<String>, selectedIndex: Int,
                         androidx.compose.ui.geometry.CornerRadius(h / 2f))
                 }
             }) { segmentLabels() }
+        }
     }
 }
 

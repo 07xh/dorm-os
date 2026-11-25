@@ -27,3 +27,5 @@ jobs:
         run: gradle -p apps/xiaoxu-android :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon --stacktrace
       - name: Compile instrumentation sources without running an emulator
         run: gradle -p apps/xiaoxu-android :app:compileDebugAndroidTestKotlin --no-daemon --stacktrace
+      - name: Verify debug APK dexing and packaging without publishing
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon --stacktrace
