@@ -1256,7 +1256,8 @@ internal object RebuildDockMetrics {
 @Composable
 internal fun RebuildCapsuleDock(
     selected: MainDestination, onSelect: (MainDestination) -> Unit,
-    tier: NavigationMaterialTier, backdrop: Backdrop, modifier: Modifier = Modifier
+    tier: NavigationMaterialTier, backdrop: Backdrop?, modifier: Modifier = Modifier,
+    minimized: Boolean = false, onExpandRequest: () -> Unit = {}
 ) {
     val destinations = MainDestination.entries
     val items = remember { destinations.map { BottomNavItem(it.label, it.upstreamSymbol) } }
@@ -1268,6 +1269,7 @@ internal fun RebuildCapsuleDock(
         CapsuleNavigationBar(
             items = items, selectedTab = selectedIndex,
             onTabSelect = { index -> destinations.getOrNull(index)?.let(onSelect) },
+            minimized = minimized, onExpandRequest = onExpandRequest,
             backdrop = backdrop.takeIf { tier == NavigationMaterialTier.Refractive && !accessibility.highContrast },
             modifier = modifier
         )
