@@ -45,7 +45,9 @@ internal fun ColumnScope.StudyProgressFeature(data: AppWorkspaceState, actions: 
     }
     AppNotice("官方课程进度需要本人学习通云端授权。本机课程目录仍可单独使用。")
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(onClick = actions.openWebsite) { Text("学校连接中心") }
+        TextButton(onClick = { actions.navigate(if (owner == null) AppRoute.ACCOUNT else AppRoute.CONNECTIONS) }) {
+            Text(if (owner == null) "连接云端账户" else "数据连接")
+        }
         val scope = rememberCoroutineScope()
         AcademicReadAction("刷新连接", state.busy) { scope.launch { actions.refreshCloud() } }
     }
@@ -79,7 +81,8 @@ private fun ColumnScope.AuthorizedStudyProgress(data: AppWorkspaceState, actions
     val state = data.cloud
     val scope = rememberCoroutineScope()
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var attempted by remember { mutableStateOf(false) }
+    var attempted by rememberSaveable { mutableStateOf(false) }
+    var readFailed by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val courses = state.chaoxingProgressCourses.takeIf { state.chaoxingProgressOwner == state.ownerId }.orEmpty()
     val selected = courses.firstOrNull { it.key == selectedKey }
@@ -89,17 +92,24 @@ private fun ColumnScope.AuthorizedStudyProgress(data: AppWorkspaceState, actions
         Text("学习通 · 官方任务点", style = MaterialTheme.typography.titleMedium)
         AcademicReadAction("读取课程", reading) {
             busy = true
+            readFailed = false
+            attempted = false
             selectedKey = null
             scope.launch {
-                try { attempted = actions.readChaoxingProgress(null) }
+                try {
+                    attempted = actions.readChaoxingProgress(null)
+                    readFailed = !attempted
+                } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                catch (_: Exception) { readFailed = true }
                 finally { busy = false }
             }
         }
     }
     state.chaoxingProgressError?.let { AppNotice(it, error = true) }
+    if (readFailed && state.chaoxingProgressError == null) AppNotice("查询未确认成功，请刷新连接后重试。", error = true)
     LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
         item { AppNotice("仅查询官方任务点总数与完成数，不提交学习记录。") }
-        if (courses.isEmpty() && !reading && state.chaoxingProgressError == null) item {
+        if (courses.isEmpty() && !reading && !readFailed && state.chaoxingProgressError == null) item {
             SystemEmptyState(if (attempted) "已读取，暂无课程" else "尚未读取课程", "点击读取课程获取本人官方列表。")
         }
         items(courses, key = { it.key }) { course ->
@@ -109,7 +119,13 @@ private fun ColumnScope.AuthorizedStudyProgress(data: AppWorkspaceState, actions
                     onClick = {
                         selectedKey = course.key
                         busy = true
-                        scope.launch { try { actions.readChaoxingProgress(course) } finally { busy = false } }
+                        readFailed = false
+                        scope.launch {
+                            try { readFailed = !actions.readChaoxingProgress(course) }
+                            catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                            catch (_: Exception) { readFailed = true }
+                            finally { busy = false }
+                        }
                     })
                 if (selectedKey == course.key && progress != null) {
                     SystemStatStrip(items = listOf("已完成任务点" to progress.completed.toString(),
