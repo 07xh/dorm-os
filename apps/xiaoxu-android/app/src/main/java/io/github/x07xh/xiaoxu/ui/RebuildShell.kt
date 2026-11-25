@@ -60,6 +60,18 @@ internal fun NativeShell(
     openWebsite: () -> Unit, openArticle: (String) -> Unit
 ) {
     var route by rememberSaveable { mutableStateOf(AppRoute.HOME) }
+    var routeTrail by rememberSaveable { mutableStateOf("") }
+    fun goTo(next: AppRoute) {
+        if (route == next) return
+        routeTrail = if (next.parent == null) "" else listOf(routeTrail, route.name).filter { it.isNotEmpty() }.joinToString("/")
+        route = next
+    }
+    fun goBack() {
+        val parent = routeTrail.substringAfterLast('/').takeIf { it.isNotEmpty() }
+            ?.let { value -> AppRoute.entries.firstOrNull { it.name == value } } ?: route.parent
+        routeTrail = routeTrail.substringBeforeLast('/', "")
+        if (parent != null) route = parent
+    }
     val pageState = rememberSaveableStateHolder()
     var inboxTaskId by remember { mutableStateOf<Long?>(null) }
     var inboxLessonId by remember { mutableStateOf<String?>(null) }
@@ -68,15 +80,15 @@ internal fun NativeShell(
     val data = rememberAppWorkspace(dao, cloud, localLessons, localScheduleRevision, settingsRevision,
         appLifecycle, returnedSchool, consumeWebsiteReturn)
     val actions = AppPageActions(
-        navigate = { route = it }, importTimetable = openFileImport, exportTimetable = openFileExport,
+        navigate = ::goTo, importTimetable = openFileImport, exportTimetable = openFileExport,
         authorize = startSchoolAuthorization, connectLocal = openLocalSchool, openWebsite = openWebsite,
         refreshCloud = { cloud.refresh() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
         openArticle = openArticle,
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
         localTaskDao = dao,
-        openLocalTask = { id -> inboxTaskId = id; route = AppRoute.TASKS },
-        openLocalCourse = { id, _ -> inboxLessonId = id; route = AppRoute.SCHEDULE },
+        openLocalTask = { id -> inboxTaskId = id; goTo(AppRoute.TASKS) },
+        openLocalCourse = { id, _ -> inboxLessonId = id; goTo(AppRoute.SCHEDULE) },
         saveCourseChanges = { expected, changed, originalId ->
             val (fresh, reminderOk) = withContext(Dispatchers.IO) {
                 require(LocalScheduleStore.load(context) == expected) { "课表已经变化，请重新打开编辑器" }
@@ -110,30 +122,30 @@ internal fun NativeShell(
     var consumedCapture by remember { mutableLongStateOf(0L) }
     LaunchedEffect(taskReminderOpenCount) {
         if (taskReminderOpenCount > consumedTaskEvent) {
-            route = AppRoute.TASKS
+            goTo(AppRoute.TASKS)
             consumedTaskEvent = taskReminderOpenCount
         }
     }
     LaunchedEffect(scheduleReminderOpenCount) {
         if (scheduleReminderOpenCount > consumedScheduleEvent) {
-            route = AppRoute.SCHEDULE
+            goTo(AppRoute.SCHEDULE)
             consumedScheduleEvent = scheduleReminderOpenCount
         }
     }
     LaunchedEffect(localCaptureReturn) {
         val receipt = localCaptureReturn ?: return@LaunchedEffect
         if (receipt.serial != consumedCapture) {
-            route = if (receipt.provider == "chaoxing") AppRoute.TASKS else AppRoute.SECOND_CLASS
+            goTo(if (receipt.provider == "chaoxing") AppRoute.TASKS else AppRoute.SECOND_CLASS)
             consumedCapture = receipt.serial
         }
     }
     LaunchedEffect(returnedSchool) {
         val provider = returnedSchool ?: return@LaunchedEffect
-        route = AppRoute.CONNECTIONS
+        goTo(AppRoute.CONNECTIONS)
         try { cloud.completeSchoolReturn(provider) }
         finally { onSchoolReturnConsumed() }
     }
-    BackHandler(enabled = route.parent != null) { route.parent?.let { route = it } }
+    BackHandler(enabled = route.parent != null || routeTrail.isNotEmpty()) { goBack() }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 700.dp
@@ -142,7 +154,7 @@ internal fun NativeShell(
             if (wide) NavigationRail {
                 MainDestination.entries.forEach { dest ->
                     NavigationRailItem(selected = route.primary == dest,
-                        onClick = { route = AppRoute.root(dest) },
+                        onClick = { goTo(AppRoute.root(dest)) },
                         icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
                 }
             }
@@ -167,12 +179,13 @@ internal fun NativeShell(
                             pageState.SaveableStateProvider(route.name) {
                                 AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
                                     { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
-                                    { inboxLessonId = null; onReminderCourseConsumed() })
+                                    { inboxLessonId = null; onReminderCourseConsumed() },
+                                    back = if (route.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
                             }
                         }
                     }
                     if (!wide && showPrimary) RebuildCapsuleDock(
-                        selected = route.primary, onSelect = { route = AppRoute.root(it) }, tier = tier,
+                        selected = route.primary, onSelect = { goTo(AppRoute.root(it)) }, tier = tier,
                         backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter).then(backgroundSemantics)
                     )
                     // Sibling to the source layer: never include the optical surface in its own backdrop.

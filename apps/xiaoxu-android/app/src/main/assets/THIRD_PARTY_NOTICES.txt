@@ -251,3 +251,9 @@ Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544b
 GPL-3.0, original authors and contributors. ThumbLens.kt and upstream
 switch/segment platform effects adapted to isolated track-only sources and
 existing performance and accessibility policy.
+
+------------------------------------------------------------------
+2026-11-25 timetable period labels
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. ScheduleScreen.kt period-time
+column layout reused with existing local schedule and calendar data.

@@ -47,24 +47,23 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                 query = ""
             }
         }
-        LaunchedEffect(target, visible) {
+        LaunchedEffect(target, visible, filter, query) {
             if (target != null) {
                 val index = visible.indexOfFirst { it.key == "local:$target" }
-                if (index >= 0) { listState.scrollToItem(index); consume() }
+                if (index >= 0 && filter == "all" && query.isEmpty()) {
+                    listState.scrollToItem(index)
+                    detailKey = visible[index].key
+                    consume()
+                }
             }
         }
         SystemStatStrip(items = listOf("待办" to combined.count(::isActionableWorkspaceTask).toString(),
             "待核验" to combined.count(::requiresChaoxingVerification).toString(),
             "已完成" to combined.count(::considerCompleteInTaskList).toString()))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Box {
-                var menu by remember { mutableStateOf(false) }
-                TextButton(onClick = { menu = true }) { Text(filters.firstOrNull { it.first == filter }?.second ?: "全部") }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    filters.forEach { (value, label) -> DropdownMenuItem(text = { Text(label) },
-                        onClick = { filter = value; menu = false }) }
-                }
-            }
+        LiquidSegmentedControl(options = filters.map { it.second },
+            selectedIndex = filters.indexOfFirst { it.first == filter }.coerceAtLeast(0),
+            onSelect = { filter = filters[it].first }, height = 40.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
             TextButton(onClick = { adding = true }) { Text("新建任务") }
         }

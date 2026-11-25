@@ -1,6 +1,10 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
@@ -51,20 +55,27 @@ internal fun ColumnScope.ScheduleFeature(
         viewMode = mode
         LocalSemesterConfigStore.saveViewMode(context, mode)
     }
-    Row {
-        TextButton(onClick = actions.importTimetable) { Text("导入") }
-        TextButton(onClick = actions.exportTimetable) { Text("导出") }
-        TextButton(onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) }) { Text("设置") }
-        LiquidSegmentedControl(options = listOf("日", "周"), selectedIndex = if (viewMode == "day") 0 else 1,
+    var toolsOpen by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LiquidSegmentedControl(options = listOf("日课表", "周课表"), selectedIndex = if (viewMode == "day") 0 else 1,
             onSelect = { selectView(if (it == 0) "day" else "week") }, modifier = Modifier.weight(1f), height = 42.dp)
-    }
-    AppSnapshotContent(data.lessons) { lessons ->
-        TextButton(onClick = {
+        TextButton(enabled = data.lessons is PageSnapshot.Ready, onClick = {
             editingId = null
             editingWeek = requestedWeek.takeIf { it > 0 } ?: data.semesterCalendar?.currentWeek(LocalDate.now())
             editorError = null
             editorOpen = true
-        }) { Text("新增课程") }
+        }) { Text("新增") }
+        Box {
+            IconButton(onClick = { toolsOpen = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "课表操作") }
+            DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                DropdownMenuItem(text = { Text("导入课表") }, onClick = { toolsOpen = false; actions.importTimetable() })
+                DropdownMenuItem(text = { Text("导出课表") }, onClick = { toolsOpen = false; actions.exportTimetable() })
+                DropdownMenuItem(text = { Text("课表设置") }, onClick = { toolsOpen = false; actions.navigate(AppRoute.SCHEDULE_SETTINGS) })
+            }
+        }
+    }
+    AppSnapshotContent(data.lessons) { lessons ->
         if (editorOpen) {
             val original = lessons.firstOrNull { it.id == editingId }
             if (editingId != null && original == null) {
@@ -198,7 +209,7 @@ internal fun ColumnScope.ScheduleFeature(
                         val periods = maxOf(data.timetableSections, courses.maxOfOrNull { it.endPeriod } ?: 1)
                             .coerceIn(1, 24)
                         val rowLabels = listOf("一", "二", "三", "四", "五", "六", "日")
-                        val timeWidth = 36.dp
+                        val timeWidth = 40.dp
                         val scroll = rememberScrollState()
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             if (viewMode == "week") Spacer(Modifier.width(timeWidth))
@@ -243,17 +254,49 @@ internal fun ColumnScope.ScheduleFeature(
                                     rememberScreenMetrics().tall(84.dp, 68.dp))
                                 Row(Modifier.fillMaxSize().verticalScroll(scroll)) {
                                     Column(Modifier.width(timeWidth)) {
-                                        repeat(periods) { i ->
-                                            Box(Modifier.height(rowHeight).fillMaxWidth(),
-                                                contentAlignment = Alignment.TopCenter) {
-                                                Text((i + 1).toString(), style = MaterialTheme.typography.labelSmall,
-                                                    modifier = Modifier.padding(top = 4.dp))
-                                            }
-                                        }
+                                        // Upstream ScheduleScreen.kt time-column layout.
+                                        for (i in 1..periods) {
+                        val periodTime = periodTimes.find { it.period == i }
+                        Box(
+                            modifier = Modifier
+                                .height(rowHeight)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(top = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                Text(
+                                    text = i.toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (periodTime != null) {
+                                    Text(
+                                        text = periodTime.startTime,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 9.sp,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = periodTime.endTime,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 9.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
                                     }
                                     Box(Modifier.weight(1f).height(rowHeight * periods)) {
                                         TimetableBackground(periods, rowHeight)
-                                        TimetableLayout(courses, periods, rowHeight,
+                                        TimetableLayout(courses, periods, rowHeight, periodTimes = periodTimes,
                                             onCourseClick = { selectedId = it.id },
                                             onCourseLongClick = { selectedId = it.id })
                                     }

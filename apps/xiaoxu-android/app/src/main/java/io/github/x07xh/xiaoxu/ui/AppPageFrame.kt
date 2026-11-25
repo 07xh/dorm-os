@@ -24,7 +24,8 @@ internal fun AppPageFrame(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.pageHorizontal)) {
+    val metrics = rememberScreenMetrics()
+    Column(Modifier.fillMaxSize().padding(horizontal = metrics.wide(AppSpacing.pageHorizontal, 12.dp))) {
         SystemTopBar(title = title, navigationIcon = onBack?.let { back ->
             { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") } }
         }, actions = actions)

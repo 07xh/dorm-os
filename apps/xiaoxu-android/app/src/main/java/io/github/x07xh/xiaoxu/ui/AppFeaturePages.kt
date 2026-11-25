@@ -1,6 +1,13 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.ui.unit.dp
+import java.time.LocalDate
+import java.time.ZoneId
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,21 +47,18 @@ internal class AppPageActions(
 internal fun AppFeaturePage(
     route: AppRoute, data: AppWorkspaceState, actions: AppPageActions,
     reminderTaskId: Long?, consumeTask: () -> Unit,
-    reminderLessonId: String?, consumeLesson: () -> Unit
+    reminderLessonId: String?, consumeLesson: () -> Unit,
+    back: (() -> Unit)? = null
 ) {
-    AppPageFrame(title = route.title, onBack = route.parent?.let { parent -> { actions.navigate(parent) } }) {
+    AppPageFrame(title = route.title, onBack = back) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.MESSAGES -> MessageCenterFeature(data, actions)
             AppRoute.SCHEDULE -> ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
             AppRoute.SCHEDULE_SETTINGS -> ScheduleSettingsFeature(data, actions)
             AppRoute.ACADEMIC -> {
-                InsetGroupedSection {
-                    AppGroupedEntry("成绩", onClick = { actions.navigate(AppRoute.GRADES) })
-                    AppGroupedEntry("考试", onClick = { actions.navigate(AppRoute.EXAMS) })
-                    AppGroupedEntry("第二课堂", onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
-                    AppGroupedEntry("学习进度", showDivider = false, onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
-                }
+                AcademicHubFeature(actions)
+
             }
             AppRoute.GRADES -> GradesFeature(data, actions)
             AppRoute.EXAMS -> ExamsFeature(data, actions)
@@ -74,44 +78,106 @@ internal fun AppFeaturePage(
 }
 
 @Composable
+private fun AcademicHubFeature(actions: AppPageActions) {
+    val tint = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
+        InsetGroupedSection(header = "教务查询") {
+            SettingsRow(Icons.Outlined.School, tint, "成绩", onClick = { actions.navigate(AppRoute.GRADES) })
+            SettingsRow(Icons.Outlined.DateRange, tint, "考试", showDivider = false,
+                onClick = { actions.navigate(AppRoute.EXAMS) })
+        }
+        InsetGroupedSection(header = "学习与活动") {
+            SettingsRow(Icons.Outlined.Event, tint, "第二课堂", onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
+            SettingsRow(Icons.Outlined.MenuBook, tint, "学习进度", showDivider = false,
+                onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
+        }
+    }
+}
+
+@Composable
 private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
-        item {
-            AppSnapshotContent(data.lessons) {
-                InsetGroupedSection(header = "本机课表") {
-                    AppGroupedEntry("全部课表", "${it.size} 个课块", onClick = { actions.navigate(AppRoute.SCHEDULE) })
-                    homeCoursePreview(it).forEachIndexed { index, lesson ->
-                        InsetGroupedRow(title = lesson.title, subtitle = "星期${lesson.weekday} · 第${lesson.startSection}–${lesson.endSection}节",
-                            showDivider = index < homeCoursePreview(it).lastIndex)
-                    }
+    // Shared upstream grouped rows and stat strip, not a new dashboard component system.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 680.dp) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
+                    HomeSchedule(data, actions)
+                    HomeTasks(data, actions)
+                }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    HomeNotices(data, actions)
                 }
             }
-        }
-        item {
-            AppSnapshotContent(data.localTasks) {
-                InsetGroupedSection {
-                    AppGroupedEntry("本机待办", "${it.count { task -> !task.completed }} 项未完成",
-                        showDivider = false, onClick = { actions.navigate(AppRoute.TASKS) })
-                    if (it.isNotEmpty()) GlassProgressBar(it.count { task -> task.completed }.toFloat() / it.size,
-                        modifier = Modifier.padding(horizontal = androidx.compose.ui.unit.Dp(16f))
-                            .padding(bottom = androidx.compose.ui.unit.Dp(12f)))
-                }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
+                item { HomeSchedule(data, actions) }
+                item { HomeTasks(data, actions) }
+                item { HomeNotices(data, actions) }
             }
         }
-        item { AppEntry("通知中心", "校园公告与本机提醒", onClick = { actions.navigate(AppRoute.MESSAGES) }) }
-        item { SystemSectionHeader("校园通知") }
-        if (data.cloud.notices.isEmpty()) item {
-            when (val phase = deriveMessagePhase(data.cloud)) {
-                MessagePhase.Loading -> AppNotice("正在读取通知")
-                MessagePhase.NotConnected -> AppNotice("尚未读取通知")
-                MessagePhase.Empty -> AppNotice("已读取，暂无通知")
-                is MessagePhase.Failed -> AppNotice(phase.message, error = true)
-                is MessagePhase.Content -> Unit
+    }
+}
+
+@Composable
+private fun HomeSchedule(data: AppWorkspaceState, actions: AppPageActions) {
+    val today = LocalDate.now(ZoneId.of("Asia/Shanghai"))
+    val week = data.semesterCalendar?.currentWeek(today)
+    val day = today.dayOfWeek.value
+    AppSnapshotContent(data.lessons) { lessons ->
+        val preview = remember(lessons, week, day) {
+            if (week == null) homeCoursePreview(lessons)
+            else homeCoursePreview(lessons.filter { it.weekday == day && week in it.weeks }.sortedBy { it.startSection })
+        }
+        InsetGroupedSection(header = if (week == null) "本机课表" else "今日课程") {
+            preview.forEach { lesson ->
+                InsetGroupedRow(title = lesson.title,
+                    subtitle = listOfNotNull(
+                        if (week == null) "星期${lesson.weekday}" else null,
+                        "第${lesson.startSection}–${lesson.endSection}节",
+                        lesson.location.takeIf { it.isNotBlank() }).joinToString(" · "),
+                    onClick = { actions.openLocalCourse(lesson.id, lesson.weekday) })
             }
+            AppGroupedEntry("查看课表",
+                summary = if (lessons.isEmpty()) "尚未导入" else if (week != null && preview.isEmpty()) "今日无已导入课程"
+                    else if (week == null) "未确定当前教学周" else null,
+                showDivider = false, onClick = { actions.navigate(AppRoute.SCHEDULE) })
         }
-        if (data.cloud.noticesPartial) item { AppNotice("通知来源部分可用，可能不是完整列表。") }
-        items(data.cloud.notices.take(5), key = { it.url }) { notice ->
-            AppEntry(notice.title, notice.dateLabel, onClick = { actions.openArticle(notice.url) })
+    }
+}
+
+@Composable
+private fun HomeTasks(data: AppWorkspaceState, actions: AppPageActions) {
+    AppSnapshotContent(data.localTasks) { tasks ->
+        InsetGroupedSection(header = "本机任务") {
+            SystemStatStrip(items = listOf("待办" to tasks.count { !it.completed }.toString(),
+                "已完成" to tasks.count { it.completed }.toString()))
+            AppGroupedEntry("查看任务", showDivider = false, onClick = { actions.navigate(AppRoute.TASKS) })
         }
+    }
+}
+
+@Composable
+private fun HomeNotices(data: AppWorkspaceState, actions: AppPageActions) {
+    val phase = deriveMessagePhase(data.cloud)
+    val notices = data.cloud.notices.distinctBy { it.url }.take(5)
+    InsetGroupedSection(header = "校园通知") {
+        if (notices.isEmpty()) {
+            val summary = when (phase) {
+                MessagePhase.Loading -> "正在读取"
+                MessagePhase.NotConnected -> "尚未读取"
+                MessagePhase.Empty -> "已读取，暂无通知"
+                is MessagePhase.Failed -> phase.message
+                is MessagePhase.Content -> "暂无可展示公告"
+            }
+            InsetGroupedRow(title = summary)
+        }
+        notices.forEach { notice ->
+            InsetGroupedRow(title = notice.title, subtitle = notice.dateLabel,
+                onClick = { actions.openArticle(notice.url) })
+        }
+        AppGroupedEntry("通知中心", summary = if (data.cloud.noticesPartial) "部分来源读取失败" else "公告与提醒",
+            showDivider = false, onClick = { actions.navigate(AppRoute.MESSAGES) })
     }
 }

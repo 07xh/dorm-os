@@ -89,3 +89,6 @@ R30 编译门禁 45577309278 全部通过，API32 离线 GPU 测试 45577309613 
 
 ## R32 开关及分段控件光学接入、APK 构建阻塞修复
 R30 离线 GPU 验收 45577309613 在 :app:dexBuilderDebug 失败，D8 明确定位 AcademicSnapshotListKt.class 的 NON_LOCAL_RETURN 标记；尚未运行渲染测试。将 Compose key 内 return@key 改为等价条件分支，保留 owner、快照状态和真实数据逻辑；常规 CI 增加 assembleDebug，不发布 APK。移植上游 ThumbLens.kt 及开关、分段选中透镜的折射、高光、阴影、形变参数；仅性能档位允许的 API33+、非高对比度和非减少动效状态启用，采样源为各自独立轨道，不捕获页面自身或标签层，保留静态文字。开关合成表面使用主题色作为背景，不是上游完整环境采样。API31/32 路径仍关闭，待实际 GPU 测试和新构建通过后再启用。R31 Kotlin/JVM 已通过，仪器源码门禁继续执行。本次修复与新光学控件待验收。
+
+## R33 五大主页面布局收敛
+复用既有 InsetGroupedSection、SettingsRow、SystemStatStrip、LiquidSegmentedControl、ScreenMetrics 与上游 ScheduleScreen 节次时间列；总览改为课程、任务、公告三个分组，宽屏双栏，真实学期配置存在时按当前教学周和中国时区筛选今日课程，否则明确展示本机预览，不推断日期。课表主操作收敛为日/周切换、新增及更多菜单，恢复已配置节次时间。教务采用与我的页面相同的分组入口；任务状态直接分段切换，通知打开任务时定位并打开详情；二级页面从实际来路返回，系统返回和标题返回共享处理。未改数据层、授权或自动同步策略。R32 CI 正在运行，本轮待编译及设备验收。
