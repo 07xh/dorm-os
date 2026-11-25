@@ -192,3 +192,11 @@ GPL-3.0, original authors and contributors. SettingsRow directly reused from
 SettingsScreen.kt; profile and connection groups use the existing ported
 InsetGroupedSection, InsetGroupedRow and shared read feedback. Task page
 reuses Xiaoxu's existing task projection, status filters and transactional DAO.
+
+------------------------------------------------------------------
+2026-11-25 navigation optics
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. DampedDragAnimation.kt,
+DragGestureInspector.kt, GlassMaterial.kt, platform optics from
+PhysicalLensSurface.kt / GlassCompat.kt and CapsuleNavigationBar gesture
+and velocity deformation logic reused; local route and fallback adapters.
