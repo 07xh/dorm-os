@@ -22,7 +22,11 @@ for (const path of obsoleteUiPaths) {
     '淘汰代码或构建请求不可从旧 UI 分支恢复: ' + path);
 }
 
-const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileSettingsPage.kt');
+// Settings navigation and reminders now live in separate, active upstream-hosted routes.
+const profileSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ReminderSettingsFeature.kt');
+const settingsIndex = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SettingsScreen.kt');
+const settingsRoutes = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppFeaturePages.kt');
+const sharedFrame = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppPageFrame.kt');
 const db = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskDatabase.kt');
 const ci = read('.github/workflows/build-xiaoxu-android.yml');
 const visualQa = read('scripts/xiaoxu-ace6-visual-qa.mjs');
@@ -237,7 +241,7 @@ assert.match(profileSettings, /private fun ReminderToggleRow\(/,
   'Course and deadline reminders must share one settings row');
 assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 6,
   'Course, deadline, two date phases and local quiet hours share one toggle implementation');
-assert.equal((profileSettings.match(/XiaoxuSettingsSwitch\(/g) || []).length, 1,
+assert.equal((profileSettings.match(/LiquidSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
 assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
 assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
@@ -278,7 +282,7 @@ assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
 assert.match(main, /ProfileSettingsPage\(/, '我的页面应接入唯一原生设置路由');
-assert.match(profileSettings, /ConnectionsPanel\(client, openWebsite, openLocalSchool,/,
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '已有真实授权面板应仅被复用于数据连接二级页');
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
 assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/);
@@ -306,11 +310,11 @@ assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
 assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
   '旧版工具弹窗和混合式连接入口应彻底退役');
-assert.match(profileSettings, /"home" ->[\s\S]*?"connections" -> item/,
+assert.match(settingsIndex, /actions\.navigate\(AppRoute\.CONNECTIONS\)/,
   '设置按分类索引；业务内容应进入独立二级路由');
-assert.match(profileSettings, /"notifications", "notifications-course", "notifications-task" -> item \{/,
+assert.match(settingsRoutes, /AppRoute\.REMINDER_SETTINGS -> ReminderSettingsFeature\(data\)/,
   '通知设置必须共用一套二级路由，而不是复制页面');
-assert.match(profileSettings, /NotificationSettingsContent\(localTasks, animatedRoute, onRouteChange\)/,
+assert.match(profileSettings, /AppSnapshotContent\(data\.localTasks\)[\s\S]*?NotificationSettingsContent\(tasks\)/,
   '分类设置复用唯一提醒权限与调度网关');
 assert.doesNotMatch(profileSettings, /onRouteChange\("notifications-course"\)/,
   'Reminder settings must not require a second navigation hop');
@@ -324,9 +328,9 @@ assert.match(profileSettings, /title = "截止提醒", subtitle = "", checked = 
   '本机截止提醒独立显示真实开关状态');
 assert.match(profileSettings, /LocalCourseReminders\.setLeadMinutes\(context, minutes\)/,
   '课程提前时间调整应写入唯一的本机提醒配置');
-assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/);
-assert.match(profileSettings, /"licenses" -> item \{ OpenSourceCreditsPanel\(\) \}/);
-assert.doesNotMatch(profileSettings, /第二课堂记录|selectedTool/,
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/);
+assert.match(settingsRoutes, /AppRoute\.LICENSES -> LazyColumn \{ item \{ OpenSourceCreditsPanel\(\) \} \}/);
+assert.doesNotMatch(settingsIndex, /第二课堂记录|selectedTool/,
   '第二课堂记录属于业务页，不回流设置首页');
 
 assert.match(panels, /openLocalSchool\(id\)/);
@@ -1110,22 +1114,22 @@ assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJava
 
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
-assert.match(profileSettings, /"backup" -> item \{ LocalTaskBackupPanel\(\) \}/,
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/,
   '本机备份与恢复只能由账户与数据二级页面打开');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+assert.match(settingsIndex, /"任务备份",[\s\S]*?actions\.navigate\(AppRoute\.TASK_BACKUP\)/,
   '本机备份仍可通过唯一入口进入');
 const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
-assert.match(profileSettings, /"about" -> item \{\s*AboutPage\(onOpenLicenses/,
+assert.match(settingsRoutes, /AppRoute\.ABOUT -> AboutFeature\(\{ actions\.navigate\(AppRoute\.LICENSES\) \}/,
   '关于校序应使用单独的品牌信息页面');
 assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\)/,
   '开源许可从关于页进入，不在设置首页重复');
 assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
   '关于页保留开源署名入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "账户与数据"\)/,
+assert.match(settingsIndex, /header = "数据与安全"/,
   '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
 assert.doesNotMatch(main, /if \(showLocalBackup\) item|CompactActionRow\("第二课堂记录"/,
   '移除退役的旧工具入口和向下展开式备份');
-assert.doesNotMatch(profileSettings, /"工具" ->|第二课堂记录/,
+assert.doesNotMatch(settingsIndex, /"工具" ->|第二课堂记录/,
   '业务记录不应混入设置');
 assert.doesNotMatch(main, /云端第二课堂个人快照（可选）|按需使用系统文件选择器，不自动上传本机任务/,
   '我的页面默认不再展示多余解释性小字');
@@ -1554,7 +1558,7 @@ assert.match(glassRowDialogSource, /if \(expanded\) \{\s*XiaoxuGlassDialog\(/,
   '平台与二课的详情应使用浮层，不再在卡片内向下展开');
 assert.doesNotMatch(glassRowDialogSource, /AnimatedVisibility\(/,
   '禁止在详情卡片内重新引入向下展开');
-assert.match(profileSettings, /"connections" -> item \{/,
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '数据连接详情独立成二级页面，而非旧版工具浮层');
 assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
   '云端同步详情不得顶开本机连接列表');
@@ -1631,13 +1635,13 @@ assert.match(profileSettings, /modifier = Modifier\.fillMaxSize\(\)\.clipToBound
   '设置转场必须裁剪页边界，防止滑动时文字越界');
 assert.match(profileSettings, /Column\(\s*modifier = Modifier\.fillMaxSize\(\)\.background\(XiaoxuPalette\.PageGradient\)/,
   '每个设置二级页必须自行绘制不透明背景，不能透出上一页');
-assert.match(profileSettings, /horizontalAlignment = Alignment\.CenterHorizontally/,
+assert.match(settingsIndex, /wrapContentWidth\(androidx\.compose\.ui\.Alignment\.CenterHorizontally\)/,
   '设置内容在平板居中对齐，不应再出现整页偏左的宽屏布局');
-assert.match(profileSettings, /modifier = Modifier\.weight\(1f\)\.xiaoxuPageWidth\(\)/,
+assert.match(sharedFrame, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/,
   '设置二级页面复用统一内容宽度');
-assert.doesNotMatch(profileSettings, /SettingsEntry\("校序 Academic OS"/,
+assert.doesNotMatch(settingsIndex, /SettingsRow\([^\n]*"校序 Academic OS"/,
   '设置首页不应保留重复品牌入口');
-assert.match(profileSettings, /SettingsEditorialSection\(title = "其他"\)/,
+assert.match(settingsIndex, /header = "应用与支持"/,
   '关于校序必须保留在「其他」分组，不占据设置首页首屏');
 assert.match(main, /label = "profileTimetableChild"/,
   '我的→课表设置仍走同一二级页宿主');
@@ -2200,7 +2204,7 @@ assert.match(panels, /XiaoxuCard\(contentPadding = 14\.dp\)/,
   '我的页面账户信息应为紧凑白色状态卡');
 assert.doesNotMatch(panels, /我的学习空间|学校账号各自授权；本机读取不依赖校序云端登录/,
   '账户区不得恢复大面积旧版宣传卡及解释文字');
-assert.match(profileSettings, /"connections" -> item \{/,
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '真实学校读取入口归属我的 → 数据连接二级页面，不回退独立首页容器');
 assert.match(panels, /title = "云端同步"/,
   '云端授权应继续收纳为独立可操作区域');
@@ -2253,21 +2257,17 @@ assert.match(academicAction, /onClickLabel = "打开\$title"/,
   '教务入口保持有意义的无障碍点击描述');
 assert.doesNotMatch(academicAction, /background\(XiaoxuPalette\.BrandSoft\)/,
   '教务入口不新增蓝色装饰瓷砖');
-assert.match(profileSettings, /private fun SettingsEditorialSection\(/,
-  '设置首页使用开放式分组而非复制组件库');
-for (const label of ['学习与课程', '账户与数据', '其他']) {
-  assert.ok(profileSettings.includes('SettingsEditorialSection(title = "' + label + '")'),
-    label + ' 原有导航分组需完整保留');
+// Preserve the settings organization contract against the shared upstream groups.
+for (const label of ['账号与教务','学习与课程','数据与安全','应用与支持']) {
+  assert.ok(settingsIndex.includes('header = "' + label + '"'),
+    label + ' settings group remains reachable');
 }
-const settingsEditorial = profileSettings.slice(profileSettings.indexOf('private fun SettingsEditorialSection('),
-  profileSettings.indexOf('private fun SettingsDivider('));
-assert.match(settingsEditorial, /HorizontalDivider\(color = XiaoxuPalette\.Line, thickness = 1\.dp\)/,
-  '设置首页用细线组织内容');
-assert.doesNotMatch(settingsEditorial, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
-  '设置首页分组不得嵌套内容玻璃卡');
-assert.match(profileSettings, /"connections" -> item \{/,
+assert.match(settingsIndex, /InsetGroupedSection\(/);
+assert.doesNotMatch(settingsIndex, /XiaoxuCard\(|XiaoxuGroupSurface\(/,
+  'Do not restore the replaced settings surface system');
+assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '实际连接页必须继续在原二级路由内');
-assert.match(profileSettings, /SettingsEntry\("备份与恢复", Icons\.Outlined\.CheckCircle\)/,
+assert.match(settingsIndex, /"任务备份",[\s\S]*?actions\.navigate\(AppRoute\.TASK_BACKUP\)/,
   '备份恢复入口仍可达');
 
 
