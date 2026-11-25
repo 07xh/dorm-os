@@ -2248,6 +2248,13 @@ assert.match(workspace, /if \(sourceMenuOpen\) \{\s*XiaoxuBottomActionSheet\(\s*
 assert.match(workspace, /selected = sourceFilter == source/);
 assert.doesNotMatch(workspace, /DropdownMenu\(|DropdownMenuItem\(/, '移除独立来源下拉菜单');
 assert.match(workspace, /if \(showProgressCourses && canSyncChaoxingHttp && !chaoxingSyncBusy\) \{\s*XiaoxuBottomActionSheet\(\s*title = "选择课程"/, '课程进度也使用统一浮层且保持授权门禁');
+assert.match(workspace, /remember\(state\.ownerId, canSyncChaoxingHttp\) \{ mutableStateOf\(false\) \}/, '失去授权时关闭旧课程选择浮层');
+const foregroundRefreshGate = cloud.slice(cloud.indexOf('suspend fun refreshOnForeground()'), cloud.indexOf('suspend fun refresh()'));
+assert.match(foregroundRefreshGate, /state\.busy \|\| state\.schoolSyncBusyProvider != null/);
+assert.doesNotMatch(foregroundRefreshGate, /lastForegroundRefreshMs\s*=\s*now/, '跳过刷新不消耗冷却窗口');
+const courseReadGate = cloud.slice(cloud.indexOf('private suspend fun readChaoxingCourseData('), cloud.indexOf('suspend fun syncChaoxingNoticesHttp('));
+assert.match(courseReadGate, /if \(token == null\) \{[\s\S]*?refreshPrivate\(\)\s*return false/);
+assert.match(courseReadGate, /if \(response\.code == 401\) \{\s*refreshPrivate\(\)\s*return false/);
 assert.match(workspace, /taskScope\.launch \{ client\.readChaoxingCourseProgress\(course\) \}/);
 assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');

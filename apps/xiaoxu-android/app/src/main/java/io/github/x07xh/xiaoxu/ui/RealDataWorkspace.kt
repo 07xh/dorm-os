@@ -1214,7 +1214,7 @@ internal fun RealAcademicTaskHub(
         state.platforms.any { it.id == "chaoxing" && it.sessionState == "active" &&
             it.authorization == "verified_session" }
     val chaoxingSyncBusy = state.busy || state.schoolSyncBusyProvider != null
-    var showProgressCourses by remember(state.ownerId) { mutableStateOf(false) }
+    var showProgressCourses by remember(state.ownerId, canSyncChaoxingHttp) { mutableStateOf(false) }
     // Per-row state delivers immediate feedback while the owner-only POST runs.
     // Other checkboxes remain interactive; only a pending row is locked.
     val pendingWechatTaskUpdates = remember { mutableStateMapOf<String, Boolean>() }
@@ -1859,7 +1859,11 @@ internal fun RealAcademicTaskHub(
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
                                     taskScope.launch {
-                                        if (client.readChaoxingCourseProgress()) showProgressCourses = true
+                                        if (client.readChaoxingCourseProgress() &&
+                                            client.state.ownerId == state.ownerId &&
+                                            client.state.authenticated && client.state.connectionsFresh) {
+                                            showProgressCourses = true
+                                        }
                                     }
                                 }
                             ) { Text("查询课程进度") }

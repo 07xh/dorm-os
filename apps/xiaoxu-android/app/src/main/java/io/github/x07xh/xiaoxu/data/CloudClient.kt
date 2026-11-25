@@ -329,9 +329,10 @@ class CloudClient(context: Context) {
 
     suspend fun refreshOnForeground() {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (state.busy || (lastForegroundRefreshMs >= 0L &&
+        if (state.busy || state.schoolSyncBusyProvider != null ||
+            (lastForegroundRefreshMs >= 0L &&
                 now - lastForegroundRefreshMs < 60_000L)) return
-        lastForegroundRefreshMs = now
+        // refresh() owns the timestamp: a skipped refresh must not consume cooldown.
         refresh()
     }
 
@@ -1033,8 +1034,14 @@ class CloudClient(context: Context) {
         else state.copy(schoolSyncBusyProvider = provider, chaoxingGradeError = null,
             chaoxingGradeCourse = null, chaoxingGrades = emptyList())
         try {
-            val token = withContext(Dispatchers.IO) { session.load() } ?: return false
+            val token = withContext(Dispatchers.IO) { session.load() }
             if (!current()) return false
+            if (token == null) {
+                // Reconcile the missing owner session through the existing private refresh.
+                // Never issue a school request without the bound token.
+                refreshPrivate()
+                return false
+            }
             val view = if (course == null) "courses" else if (progress) "progress" else "grades"
             val path = "/api/v1/chaoxing-homework?view=" + view +
                 (if (course == null) "" else "&courseId=" + course.courseId +
@@ -1043,6 +1050,10 @@ class CloudClient(context: Context) {
                 request(path, authenticated = true, boundSessionToken = token)
             }
             if (!current()) return false
+            if (response.code == 401) {
+                refreshPrivate()
+                return false
+            }
             if (response.code != 200 ||
                 response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
                 response.json.optString("view") != view || !response.json.optBoolean("live")) {
