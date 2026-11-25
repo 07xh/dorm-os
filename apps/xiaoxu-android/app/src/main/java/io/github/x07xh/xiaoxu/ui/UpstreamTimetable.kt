@@ -20,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
+import com.tyust.course.ui.theme.NeuDivider
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -39,6 +41,255 @@ import androidx.compose.ui.unit.*
 import kotlin.math.roundToInt
 
 private val SchedulePeriodHeight = 84.dp
+
+private val ScheduleTimeColumnWidth = 40.dp
+internal val ScheduleTimeColumnShadowWidth = 8.dp
+
+/** 窄屏收窄的时间列与网格左右留白，把省下的宽度全给七个日列。 */
+private val ScheduleTimeColumnWidthTight = 40.dp
+private val SchedulePeriodHeightTight = 68.dp
+private val ScheduleGridPaddingTight = 10.dp
+
+/**
+ * 网格的横向几何。**星期条与网格必须调用同一对函数**——星期标签靠
+ * 「相同的左右留白 + 相同宽度的时间列占位」才和日期列对齐（见 `WeekHeaderCompact`
+ * 里那条注释），两边取不同的值就会整体错位。
+ */
+@Composable
+internal fun scheduleGridPadding(): Dp =
+    rememberScreenMetrics().wide(AppSpacing.pageHorizontal, ScheduleGridPaddingTight)
+
+@Composable
+internal fun scheduleTimeColumnWidth(): Dp =
+    rememberScreenMetrics().wide(ScheduleTimeColumnWidth, ScheduleTimeColumnWidthTight)
+
+/** 单节课的行高。短屏收到 68dp，一屏能多看一节多。 */
+@Composable
+private fun schedulePeriodHeight(): Dp =
+    rememberScreenMetrics().tall(SchedulePeriodHeight, SchedulePeriodHeightTight)
+
+
+@Composable
+fun ScheduleGrid(
+    courses: List<ScheduleCourseUi>,
+    currentWeek: Int,
+    periodTimes: List<PeriodTimeUi> = emptyList(),
+    periodCount: Int = 12,
+    onCourseClick: (ScheduleCourseUi) -> Unit,
+    /**
+     * 每个 pager 页独立持有；调用方在切周时传递位置，避免相邻页测量相互夹取滚动范围。
+     */
+    scrollState: ScrollState = rememberScrollState(),
+    /**
+     * 顶栏高度。**施加在 verticalScroll 内部**——容器保持全出血，于是滚动位置 0
+     * 时内容起始于顶栏之下，滚起来则从顶栏底下穿过，顶栏芯片才有东西可折射。
+     * 加在容器上（`Modifier.padding(paddingValues)`）就成了"内容被推到顶栏下方"，
+     * 芯片背后永远是空的。
+     */
+    topInset: Dp = 0.dp,
+    showWeekend: Boolean = true,
+    /** ISO days in display order; the first entry is the leftmost timetable column. */
+    dayOrder: List<Int> = (1..7).toList(),
+    compact: Boolean = false,
+    beforeGrid: @Composable () -> Unit = {},
+    onCourseLongClick: (ScheduleCourseUi) -> Unit = {}
+) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val weeklyCourses = remember(courses, currentWeek) {
+        courses.filter { isInWeek(it.weeks, currentWeek) }
+    }
+    val columns = remember(dayOrder, showWeekend) {
+        if (showWeekend) dayOrder else dayOrder.filter { it != 6 && it != 7 }
+    }
+    val days = columns.size
+    val visibleCourses = remember(weeklyCourses, columns) { weeklyCourses.filter { it.day in columns } }
+    val timeColumnWidth = scheduleTimeColumnWidth()
+    val gridPadding = scheduleGridPadding()
+    val density = LocalDensity.current
+    val columnWidth = ((maxWidth - gridPadding * 2 - timeColumnWidth -
+        ScheduleTimeColumnShadowWidth) / days).coerceAtLeast(1.dp)
+    // Measure the whole timetable, not just this week's cards. Paging and live
+    // status changes keep one geometry while names and teachers remain complete.
+    val periodHeight = rememberFullCoursePeriodHeight(courses, columnWidth,
+        maxOf(schedulePeriodHeight() * if (compact) 0.85f else 1f,
+            (if (compact) 70.dp else 76.dp) * density.fontScale.coerceAtLeast(1f)))
+    val anchor = remember(scrollState) { GridScrollAnchor() }
+    val periodPixels = with(density) { periodHeight.toPx() }
+    val contentTop = with(density) { (topInset + 8.dp).toPx() }
+    val totalHeight = periodHeight * periodCount
+    val darkGrid = com.tyust.course.ui.system.rememberGlassDarkTheme()
+    val gridTint = MaterialTheme.colorScheme.surface.copy(alpha =
+        if (darkGrid || com.tyust.course.manager.AppearanceSettingsManager.mode != com.tyust.course.manager.WallpaperMode.Preset) 0.86f else 0.18f)
+    val timeColumnTint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (darkGrid) 0.4f else 0.28f)
+
+    Column(
+        modifier = Modifier
+            .testTag("schedule-grid-$currentWeek")
+            .fillMaxSize()
+            .verticalScroll(scrollState, overscrollEffect = null)
+            .onGloballyPositioned {
+                // A genuine metadata/font change may need more room. Preserve the
+                // visible teaching period (or bottom edge) during the layout pass.
+                if (anchor.period > 0f && kotlin.math.abs(anchor.period - periodPixels) > 0.5f) {
+                    val target = if (anchor.maximum > 0 && anchor.offset >= anchor.maximum - 2) scrollState.maxValue.toFloat()
+                        else if (anchor.offset <= anchor.top) anchor.offset.toFloat()
+                        else contentTop + (anchor.offset - anchor.top) / anchor.period * periodPixels
+                    scrollState.dispatchRawDelta(target.coerceIn(0f, scrollState.maxValue.toFloat()) - scrollState.value)
+                }
+                anchor.period = periodPixels; anchor.top = contentTop
+                anchor.maximum = scrollState.maxValue; anchor.offset = scrollState.value
+            }
+            .padding(
+                start = gridPadding,
+                end = gridPadding,
+                top = topInset + 8.dp,
+                bottom = com.tyust.course.ui.system.LocalAppOverlayBottomInset.current + 24.dp
+            ),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        beforeGrid()
+        // 去卡片化：轻玻璃衬底压到很低，让壁纸渐变与网格线透上来。
+        // 这个 alpha 是"顶栏芯片能不能看出折射"的直接开关——衬底一厚，
+        // 白芯片压在白板上，折射再准也是白压白。
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(gridTint)
+                .border(
+                    0.5.dp,
+                    Color.White.copy(alpha = 0.34f),
+                    RoundedCornerShape(24.dp)
+                )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(totalHeight)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(timeColumnWidth)
+                        .fillMaxHeight()
+                        .background(timeColumnTint),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    for (i in 1..periodCount) {
+                        val periodTime = periodTimes.find { it.period == i }
+                        Box(
+                            modifier = Modifier
+                                .height(periodHeight)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(top = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                Text(
+                                    text = i.toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (periodTime != null) {
+                                    Text(
+                                        text = periodTime.startTime,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 9.sp,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = periodTime.endTime,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 9.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 时间列右侧阴影，柔和过渡
+                Box(
+                    modifier = Modifier
+                        .width(ScheduleTimeColumnShadowWidth)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    NeuDivider.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    TimetableBackground(
+                        periodCount = periodCount,
+                        periodHeight = periodHeight,
+                        dayCount = days
+                    )
+                    TimetableLayout(
+                        courses = visibleCourses,
+                        periodCount = periodCount,
+                        periodHeight = periodHeight,
+                        dayCount = days,
+                        dayOrder = columns,
+                        periodTimes = periodTimes,
+                        onCourseClick = onCourseClick,
+                        onCourseLongClick = onCourseLongClick
+                    )
+
+                    if (visibleCourses.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            SystemEmptyState(
+                                title = "本周无已导入课程",
+                                message = "",
+                                modifier = Modifier.padding(24.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+
+            Row(
+                modifier = Modifier.fillMaxWidth().height(32.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AnimatedNumberText("本周 ${weeklyCourses.size} 门已导入课程",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                if (weeklyCourses.any { it.isCustom }) {
+                    SystemStatusBadge(
+                        text = "含自定义课程",
+                        tone = SystemTone.Warning
+                    )
+                }
+            }
+        if (!showWeekend) Box(Modifier.fillMaxWidth().height(24.dp * LocalDensity.current.fontScale)) {
+            if (weeklyCourses.any { it.day > 5 }) Text(
+                "另有 ${weeklyCourses.count { it.day > 5 }} 节周末课程，可在日视图查看",
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    }
+}
 
 data class ScheduleCourseUi(
     val name: String,
