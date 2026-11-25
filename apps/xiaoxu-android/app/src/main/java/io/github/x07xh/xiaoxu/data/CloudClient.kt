@@ -113,6 +113,11 @@ data class PlatformConnection(
         get() = authorization == "verified_session" &&
             sessionState == "active" && status in setOf("connected", "partial")
 }
+data class ChaoxingGradeCourse(val courseId: String, val classId: String, val cpi: String, val title: String) {
+    val key: String get() = "$courseId:$classId:$cpi"
+}
+data class ChaoxingCourseProgress(val course: ChaoxingGradeCourse, val completed: Int, val total: Int)
+
 data class CloudUiState(
     val busy: Boolean = false, val signingIn: Boolean = false,
     val authenticated: Boolean = false,
@@ -138,6 +143,10 @@ data class CloudUiState(
     val schoolSyncBusyProvider: String? = null,
     val schoolSyncResultProvider: String? = null,
     val schoolSyncMessage: String? = null,
+    val chaoxingProgressCourses: List<ChaoxingGradeCourse> = emptyList(),
+    val chaoxingCourseProgress: ChaoxingCourseProgress? = null,
+    val chaoxingProgressOwner: String? = null,
+    val chaoxingProgressError: String? = null,
     val grades: AcademicGradesSnapshot? = null,
     val gradesOwner: String? = null,
     val gradesBusy: Boolean = false,
@@ -762,6 +771,99 @@ class CloudClient(context: Context) {
     }
 
     /** One owner-bound read pipeline for stored academic sections. */
+    suspend fun readChaoxingCourseProgress(course: ChaoxingGradeCourse?): Boolean {
+        val owner = state.ownerId ?: return false
+        val provider = "chaoxing"
+        if (!state.authenticated || !state.connectionsFresh || state.busy ||
+            state.schoolSyncBusyProvider != null || state.platforms.none {
+                it.id == provider && it.sessionState == "active" &&
+                    it.authorization == "verified_session"
+            }) return false
+        if (course != null && (state.chaoxingProgressOwner != owner || course !in state.chaoxingProgressCourses)) return false
+        val epoch = sessionEpoch
+        fun current() = epoch == sessionEpoch && state.authenticated && state.ownerId == owner
+        state = state.copy(schoolSyncBusyProvider = provider, chaoxingCourseProgress = null,
+            chaoxingProgressError = null,
+            chaoxingProgressCourses = if (course == null) emptyList() else state.chaoxingProgressCourses,
+            chaoxingProgressOwner = owner)
+        try {
+            val token = withContext(Dispatchers.IO) { session.load() }
+            if (!current()) return false
+            if (token == null) {
+                // Reconcile the missing owner session through the existing private refresh.
+                // Never issue a school request without the bound token.
+                refreshPrivate()
+                return false
+            }
+            val view = if (course == null) "courses" else "progress"
+            val path = "/api/v1/chaoxing-homework?view=" + view +
+                (if (course == null) "" else "&courseId=" + course.courseId +
+                    "&classId=" + course.classId + "&cpi=" + course.cpi)
+            val response = withContext(Dispatchers.IO) {
+                request(path, authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return false
+            if (response.code == 401) {
+                refreshPrivate()
+                return false
+            }
+            if (response.code != 200 ||
+                response.json.optString("schema") != "xiaoxu/chaoxing-work-browser-v1" ||
+                response.json.optString("view") != view || !response.json.optBoolean("live")) {
+                val error = when (response.json.optString("error")) {
+                    "grades_unverified" -> "官方作业成绩表尚未核实"
+                    "progress_unverified" -> "官方课程进度尚未核实"
+                    "session_expired", "interactive_login_required" -> "需要重新完成学习通授权"
+                    else -> "查询未成功，请重试"
+                }
+                state = state.copy(chaoxingProgressError = error)
+                return false
+            }
+            val data = response.json.getJSONObject("data")
+            fun parseCourse(row: JSONObject): ChaoxingGradeCourse {
+                val id = row.getString("courseId")
+                val clazz = row.getString("classId")
+                val cpi = row.getString("cpi")
+                val title = row.getString("title")
+                if (listOf(id, clazz, cpi).any { !Regex("[0-9]{1,24}").matches(it) } ||
+                    title.isBlank() || title.length > 100) throw IllegalStateException("invalid_course")
+                return ChaoxingGradeCourse(id, clazz, cpi, title)
+            }
+            if (course == null) {
+                val rows = data.getJSONArray("courses")
+                if (rows.length() !in 0..120) throw IllegalStateException("invalid_course_list")
+                val list = (0 until rows.length()).map { parseCourse(rows.getJSONObject(it)) }
+                if (list.map { it.key }.distinct().size != list.size)
+                    throw IllegalStateException("duplicate_course")
+                state = state.copy(chaoxingProgressCourses = list, chaoxingProgressOwner = owner)
+            } else {
+                if (data.optString("schema") != "xiaoxu/chaoxing-course-progress-v1" ||
+                    data.optString("metric") != "official_task_points" ||
+                    parseCourse(data.getJSONObject("course")) != course)
+                    throw IllegalStateException("invalid_progress")
+                fun count(key: String): Int {
+                    val n = (data.get(key) as? Number)?.toDouble()
+                        ?: throw IllegalStateException("invalid_count")
+                    if (!n.isFinite() || n !in 0.0..999999.0 || n % 1.0 != 0.0)
+                        throw IllegalStateException("invalid_count")
+                    return n.toInt()
+                }
+                val completed = count("completed")
+                val total = count("total")
+                if (completed > total) throw IllegalStateException("invalid_progress")
+                state = state.copy(chaoxingCourseProgress = ChaoxingCourseProgress(course, completed, total))
+            }
+            return true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (current()) state = state.copy(chaoxingProgressError = "课程进度查询未完成")
+            return false
+        } finally {
+            if (current()) state = state.copy(schoolSyncBusyProvider = null)
+        }
+    }
+
     suspend fun loadGrades() = loadAcademicSection("grades")
     suspend fun loadExams() = loadAcademicSection("exams")
 
@@ -808,6 +910,8 @@ class CloudClient(context: Context) {
 
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
         ownerId = null,
+        chaoxingProgressCourses = emptyList(), chaoxingCourseProgress = null,
+        chaoxingProgressOwner = null, chaoxingProgressError = null,
         grades = null, gradesOwner = null, gradesBusy = false, gradesError = null,
         exams = null, examsOwner = null, examsBusy = false, examsError = null,
         tasksFresh = false, connectionsFresh = false,
