@@ -3,9 +3,13 @@ import { readFileSync } from 'node:fs';
 
 const file = name => readFileSync(name, 'utf8');
 const main = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/MainActivity.kt');
-const screen = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
+const screen = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleFeature.kt');
+const header = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleHeader.kt');
+const workspace = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppWorkspaceState.kt');
+const shell = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildShell.kt');
+const pages = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppFeaturePages.kt');
 const preview = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
-const settings = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
+const settings = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleSettingsFeature.kt');
 const store = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalScheduleStore.kt');
 const localReminders = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalCourseReminders.kt');
 const ics = file('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/IcsTimetableParser.kt');
@@ -25,14 +29,12 @@ assert.match(main, /localScheduleRevision\+\+/,
   '导入相同课程但不同学期设置时也必须触发界面刷新');
 assert.match(main, /localScheduleRevision = localScheduleRevision/,
   '课表版本变动必须送达原生课表');
-assert.match(screen, /LaunchedEffect\(localScheduleRevision\)/,
-  '恢复学期设置不可只依赖课程列表是否改变');
-assert.match(screen, /onExport = \{\s*onSettingsOpenChanged\(false\)\s*onSettingsFileAction\(\)\s*openFileExport\(\)/,
-  '备份入口应留在同窗口课表设置，并关闭子页面后调起系统文件选择器');
-assert.match(screen, /selectableTeachingWeeks\(data\.lessons, calendar\)/,
-  '已设置学期必须可选择无课教学周');
-assert.match(screen, /config\.currentWeek\(LocalDate\.now\(\)\)\?\.let/,
-  '首次设置学期应直接定位当前教学周，无须本周必须有课');
+assert.match(workspace, /key2 = scheduleRevision, key3 = settingsRevision/);
+assert.match(shell, /rememberAppWorkspace\(dao, cloud, localLessons, localScheduleRevision, settingsRevision/);
+assert.match(settings, /title = "导出课表"[\s\S]*?onClick = actions\.exportTimetable/);
+assert.match(screen, /selectableTeachingWeeks\(availableLessons, calendar\)/);
+assert.match(screen, /todayWeek = calendar\?\.currentWeek\(today\)/);
+assert.match(screen, /todayWeek\?\.takeIf \{ it in weeks \}/);
 // File writes and post-commit reload must run on IO; old asynchronous reads
 // must not restore an earlier timetable after a successful import.
 assert.match(main, /withContext\(Dispatchers\.IO\)\s*\{\s*val count = LocalScheduleStore\.saveParsed\(/);
@@ -42,7 +44,7 @@ assert.match(main, /LocalCourseReminders\.reconcileAfterSave\(/,
   '提醒维护失败不可将已经保存的课表伪装成导入失败');
 assert.match(main, /已保存 " \+ count \+ " 个课块，但提醒维护失败/,
   '若课表保存成功但通知维护失败，必须提供准确反馈');
-assert.match(screen, /LocalCourseReminders\.reconcileAfterSave\(/,
+assert.match(shell, /LocalCourseReminders\.reconcileAfterSave\(/,
   '手动添加或单周编辑成功也不能被提醒调度错误掩盖');
 assert.match(localReminders, /fun reconcileAfterSave\(/);
 assert.match(localReminders, /getNotificationChannel\(CHANNEL\)/,
@@ -60,60 +62,30 @@ assert.match(main, /TimetableImportPreviewSheet\(/,
   'The file confirmation must be rendered inside the single Compose design system');
 assert.doesNotMatch(main, /AlertDialog\.Builder\(/,
   'Do not show a raw Android text-dialog for parsed lessons');
-assert.match(preview, /XiaoxuSheet\(/);
+assert.match(preview, /AppDialog\(/);
 assert.match(preview, /LazyColumn\(/,
   '25+ lessons must be reviewed in a bounded, scrollable list');
-assert.match(preview, /formatWeeks\(lesson\.weeks\)/);
+assert.match(preview, /previewWeeks\(lesson\.weeks\)/);
 assert.match(preview, /lesson\.location\.ifBlank/);
 assert.match(preview, /lesson\.teacher\.ifBlank/);
 assert.match(preview, /confirmedReduced/,
   'Replacing fewer meetings requires an additional explicit confirmation');
-// 本机导入是课表唯一数据源；只检查当前真实渲染的组件，
-// 不再要求已废弃的云端 Header / stale badge 继续存在。
-assert.match(screen, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
-  '本机导入源标签须明确待本人核对');
-assert.match(screen, /sourceLabel = "本机导入 · 待本人核对"/,
-  '当前课表须直接提示核对来源，避免在标题区堆课程数');
-assert.match(screen, /sourceLabel = "本机导入 · 待本人核对"/,
-  '来源核验标记由课表页头显示，详情抽屉保持参考图文字不变');
-assert.doesNotMatch(screen, /text = "本机导入 · 待核对"/,
-  '课程详情不得加入参考图之外的状态文案');
-assert.match(screen, /CourseDetailBottomSheet\(\s*lesson = opened,/);
-assert.match(screen, /onDismiss = \{ selectedCourseKey = null \}/);
-assert.match(screen, /onEdit = \{/,
-  '课程编辑入口在同一个详情抽屉，不引入新课表页');
-assert.match(screen, /CourseDetailBottomSheet\(lesson\.toUi\(\), onDismiss = onDismiss\)/,
-  '首页与课表复用本机来源的同一课程详情');
-assert.doesNotMatch(screen, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/,
-  '禁止已退役的云端可信详情分支回流');
-assert.doesNotMatch(screen, /当前混合展示整学期课块；选择具体周次才能判断那周是否有课/,
-  '课表不得混合多周课程来伪装成具体教学周');
-assert.doesNotMatch(screen, /a11yLabel = "显示全部周次"/,
-  '周次选择器不再提供无效的整学期入口');
-assert.match(screen, /weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers/,
-  '导入数据变化时必须恢复有效的具体教学周');
-assert.match(screen, /个课块/);
-
-assert.match(screen, /Text\("打开课表设置"\)/);
-const currentTimetableEntry = screen.slice(
-  screen.indexOf('fun CloudTimetablePanel('),
-  screen.indexOf('private fun ScheduleVerifiedContent(')
-);
-assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\([\s\S]*?localLessons = localLessons,\s*openFileImport = openFileImport,/,
-  '课表仍只读取真实本机课程并沿用文件选择器');
-assert.match(main, /focusLessonId = inboxLessonId \?: reminderLessonId/,
-  '本机提醒与系统通知复用原课程详情入口，不引入云端假课表');
-assert.match(screen, /data\.lessons\.isEmpty\(\)/);
-assert.match(currentTimetableEntry, /localImportedScheduleView\(localLessons\)/);
-assert.match(screen, /LocalTimetableEmptyState\(/);
-assert.match(currentTimetableEntry, /onMessages = onMessages/, '空课表也必须保留消息入口');
-assert.doesNotMatch(currentTimetableEntry, /deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/,
-  '本机课表不依赖云端课程或云端新鲜度');
-assert.match(screen, /onImport = \{\s*onSettingsOpenChanged\(false\)\s*onSettingsFileAction\(\)\s*openFileImport\(\)/,
-  '导入仅从课表设置连接原有文件选择器');
-assert.match(settings, /title = "导入课表"/);
-assert.doesNotMatch(screen, /label = "重新导入课表"/,
-  '课表顶部不应出现重复导入入口');
+// The new route is a thin adapter to the existing local workspace and original import callbacks.
+assert.match(screen, /localImportedScheduleView\(lessons\)\.sourceLabel/);
+assert.match(workspace, /lessons = pageSnapshot\(lessons\.takeIf/);
+assert.match(screen, /UpstreamCourseDetailSheet\(course, allCourses/);
+assert.match(screen, /onClose = \{ selectedId = null \}/);
+assert.match(screen, /onEdit = \{/);
+assert.match(pages, /actions\.openLocalCourse\(lesson\.id, lesson\.weekday\)/);
+assert.match(shell, /openLocalCourse = \{ id, _ -> inboxLessonId = id; goTo\(AppRoute\.SCHEDULE\)/);
+assert.match(shell, /inboxLessonId \?: reminderLessonId/);
+assert.doesNotMatch(screen, /华水青果 · 可信只读|deriveScheduleUiState\(state\)|client\.refresh\(\)|state\.lessons/);
+assert.match(screen, /requestedWeek\.takeIf \{ it in weeks \}/);
+assert.match(screen, /lessons\.isEmpty\(\)/);
+assert.match(settings, /title = "导入课表"[\s\S]*?onClick = actions\.importTimetable/);
+assert.doesNotMatch(header, /onImportClick|onExportClick/);
+assert.match(header, /onSettingsClick\(\)/);
+assert.match(shell, /importTimetable = openFileImport, exportTimetable = openFileExport/);
 assert.match(store, /fun parseIcs\(input: String\): List<VerifiedLesson>/);
 assert.match(ics, /anchors\.size == 1/);
 assert.match(ics, /MAX_EVENTS = 1200/);
