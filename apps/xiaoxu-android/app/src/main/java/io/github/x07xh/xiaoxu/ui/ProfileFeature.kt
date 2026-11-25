@@ -41,6 +41,20 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
             SettingsRow(Icons.Outlined.Event, tint, "第二课堂", "本机读取入口", showDivider = false,
                 onClick = { actions.connectLocal("second_class") })
         }
+        InsetGroupedSection(header = "云端学校授权") {
+            val linked = cloud.platforms.firstOrNull { it.id == "second_class" }
+            val verified = cloud.authenticated && cloud.connectionsFresh
+            AppNotice("本机读取与云端授权独立；只展示已核验的连接状态。")
+            SettingsRow(Icons.Outlined.Event, tint, "第二课堂云端授权", status("second_class"),
+                onClick = { actions.authorize("second_class") })
+            if (verified && linked?.sessionState == "active") {
+                linked.lastSuccessAt?.let { AppNotice("最近成功读取：$it") }
+                TextButton(enabled = !cloud.busy && cloud.schoolSyncBusyProvider == null,
+                    onClick = { scope.launch { actions.syncAuthorizedSchool("second_class") } }) {
+                    Text(if (cloud.schoolSyncBusyProvider == "second_class") "正在同步" else "同步已授权第二课堂")
+                }
+            }
+        }
         InsetGroupedSection(header = "云端账户") {
             SettingsRow(Icons.Outlined.Person, tint, "账户管理", showDivider = false, onClick = { actions.navigate(AppRoute.ACCOUNT) })
         }
