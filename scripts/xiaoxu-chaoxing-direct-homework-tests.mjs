@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {parseChaoxingCourseList,parseChaoxingWorkCredentials,
- parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus} from '../lib/academic-chaoxing-work-discovery.mjs';
+ parseChaoxingWorkList,safeChaoxingWorkUrl,classifyChaoxingWorkStatus,parseChaoxingCourseProgress} from '../lib/academic-chaoxing-work-discovery.mjs';
 import {createChaoxingSchoolAdapter} from '../lib/academic-chaoxing-provider.mjs';
 globalThis.crypto??=webcrypto;
 const courseHtml='<a href="/visit/stucoursemiddle?courseid=123&clazzid=456&cpi=789"></a>'+
@@ -633,3 +633,16 @@ assert.throws(()=>parseChaoxingCourseWorkEntry('<input id="courseid" value="999"
  '<a data-url="'+actualEntryPath+'?'+actualEntryQuery+'">作业</a>',courseKeys),
  e=>e.code==='authorization_failed');
 console.log('Chaoxing actual-entry ownership, URL and hidden-identity guards passed');
+
+
+// Only explicit visible official task-point counts may establish progress.
+const progressPage=body=>'<html><body>'+body+'</body></html>';
+assert.deepEqual(parseChaoxingCourseProgress(progressPage('<p>已完成任务点：3 / 8</p>')),{
+ schema:'xiaoxu/chaoxing-course-progress-v1',metric:'official_task_points',completed:3,total:8,percent:37.5
+});
+assert.equal(parseChaoxingCourseProgress(progressPage('<p>已完成任务点：0/0</p>')).percent,null);
+assert.throws(()=>parseChaoxingCourseProgress(progressPage('<p>作业已完成 3/8</p>')),e=>e.code==='progress_unverified');
+assert.throws(()=>parseChaoxingCourseProgress(progressPage('<p hidden>已完成任务点：8/8</p>')),e=>e.code==='progress_unverified');
+assert.throws(()=>parseChaoxingCourseProgress(progressPage('<p>已完成任务点：8/3</p>')),e=>e.code==='invalid_response');
+assert.throws(()=>parseChaoxingCourseProgress(progressPage('<p>已完成任务点：1/2</p><p>已完成任务点：3/4</p>')),e=>e.code==='progress_unverified');
+assert.throws(()=>parseChaoxingCourseProgress(progressPage('<p>请输入验证码</p><p>已完成任务点：1/2</p>')),e=>e.code==='interactive_login_required');
