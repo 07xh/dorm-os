@@ -3,6 +3,8 @@ package io.github.x07xh.xiaoxu.ui
 // Reused original MessageCenter.kt filtering, source labels and reminder summary.
 // Shared page frame, snapshot state and Material components replace old shell.
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -211,7 +213,17 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
                     item {
                         InsetGroupedSection(header = "微信候选") {
                             InsetGroupedRow(title = pendingWechatLabel(state.pendingWechatCount, state.authenticated, state.wechatError),
-                                subtitle = "通过现有云端入口审核", onClick = actions.openWebsite, showDivider = false)
+                                subtitle = if (state.authenticated) "核对原消息后逐条确认" else "连接校序云端后读取",
+                                showDivider = false)
+                            if (!state.authenticated) AppGroupedEntry("连接云端", showDivider = false,
+                                onClick = { actions.navigate(AppRoute.ACCOUNT) })
+                            if (state.wechatError != null) AppNotice(state.wechatError, error = true)
+                            AppGroupedEntry("网页审核备用", showDivider = false, onClick = actions.openWebsite)
+                        }
+                    }
+                    if (state.authenticated) {
+                        items(state.wechatCandidates, key = { it.id }) { candidate ->
+                            WechatCandidateReview(candidate, state, actions)
                         }
                     }
                 } else {
@@ -266,4 +278,68 @@ private fun NoticeDetails(notice: AcademicNotice, openArticle: (String) -> Unit)
         Text("正文请在学校官网查看", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { openArticle(notice.url) }) { Text("在官网查看原文") }
     }
+}
+
+
+/** Reuses the existing owner-scoped CloudClient review transaction.
+ * Candidates are not official assignments; only deliberate, fresh review may mutate them.
+ */
+@Composable
+private fun WechatCandidateReview(item: WechatCandidate, state: CloudUiState, actions: AppPageActions) {
+    val scope = rememberCoroutineScope()
+    var opened by rememberSaveable(state.ownerId, item.id) { mutableStateOf(false) }
+    var pendingDecision by remember(state.ownerId, item.id) { mutableStateOf<String?>(null) }
+    var failed by remember(state.ownerId, item.id) { mutableStateOf(false) }
+    val reviewing = state.wechatReviewingId != null
+    val fresh = state.authenticated && state.pendingWechatCount != null && state.wechatError == null
+    val kind = when (item.kind) {
+        "homework" -> "作业候选"
+        "exam" -> "考试候选"
+        "activity" -> "活动候选"
+        "signup" -> "报名候选"
+        else -> "其他候选"
+    }
+    InsetGroupedSection {
+        InsetGroupedRow(title = item.title,
+            subtitle = listOfNotNull(kind, item.chatLabel, item.dueLocalDate).joinToString(" · "),
+            showDivider = false, onClick = { pendingDecision = null; failed = false; opened = true })
+    }
+    if (opened && state.authenticated) AppDialog(
+        onDismissRequest = { if (!reviewing) { opened = false; pendingDecision = null } },
+        title = { Text("核对微信候选") },
+        text = {
+            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.title, style = MaterialTheme.typography.titleMedium)
+                AppNotice(kind + " · " + (item.chatLabel ?: "来源未标注"))
+                AppNotice("消息时间：" + item.sentAt)
+                AppNotice("候选截止：" + (item.dueLocalDate ?: "未识别"))
+                Text(item.excerpt ?: "没有摘要，请核对微信原消息。")
+                WechatTaskLinkActions(item.links)
+                AppNotice("电脑提取的候选不代表学校官方确认。")
+                if (!fresh || failed) AppNotice("状态尚未核验，请关闭并刷新列表后再审核。", error = true)
+                if (pendingDecision == null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(enabled = fresh && !reviewing && !failed,
+                            onClick = { pendingDecision = "accept" }) { Text("加入任务") }
+                        TextButton(enabled = fresh && !reviewing && !failed,
+                            onClick = { pendingDecision = "dismiss" }) { Text("忽略候选") }
+                    }
+                } else {
+                    Text(if (pendingDecision == "accept") "确认加入普通云端任务？" else "确认忽略这条候选？")
+                    TextButton(enabled = !reviewing, onClick = { pendingDecision = null }) { Text("返回审核") }
+                }
+            }
+        },
+        confirmButton = {
+            val decision = pendingDecision
+            if (decision != null) Button(enabled = fresh && !reviewing && !failed, onClick = {
+                scope.launch {
+                    if (actions.reviewWechatCandidate(item.id, decision)) opened = false
+                    else { failed = true; pendingDecision = null }
+                }
+            }) { Text(if (reviewing) "正在提交" else "确认") }
+            else TextButton(enabled = !reviewing, onClick = { opened = false }) { Text("关闭") }
+        }
+    )
 }
