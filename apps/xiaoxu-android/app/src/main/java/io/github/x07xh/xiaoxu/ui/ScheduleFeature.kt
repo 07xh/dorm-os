@@ -120,7 +120,7 @@ internal fun ColumnScope.ScheduleFeature(
             val week = requestedWeek.takeIf { it in weeks } ?: todayWeek?.takeIf { it in weeks }
                 ?: weeks.firstOrNull()
             var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-            var weekMenu by remember { mutableStateOf(false) }
+            var weekMenu by rememberSaveable { mutableStateOf(false) }
             val selected = lessons.firstOrNull { it.id == selectedId }
             LaunchedEffect(target, lessons) {
                 val lesson = target?.let { id -> lessons.firstOrNull { it.id == id } }
@@ -185,12 +185,12 @@ internal fun ColumnScope.ScheduleFeature(
                             ScheduleWeekLabel(week, false, MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.primary)
                             if (todayWeek == week) Text(" · 本周", style = MaterialTheme.typography.labelSmall)
                         }
-                        DropdownMenu(expanded = weekMenu, onDismissRequest = { weekMenu = false }) {
-                            weeks.forEach { item ->
-                                DropdownMenuItem(text = { Text("第 $item 周") },
-                                    onClick = { requestedWeek = item; weekMenu = false })
-                            }
-                        }
+                        if (weekMenu) GlassOptionWheelDialog(
+                            options = weeks.map { "第 $it 周" },
+                            selectedIndex = weeks.indexOf(week),
+                            onConfirm = { requestedWeek = weeks[it]; weekMenu = false },
+                            onDismiss = { weekMenu = false }, title = "选择教学周"
+                        )
                     }
                     TextButton(onClick = { requestedWeek = weeks[index + 1] }, enabled = index < weeks.lastIndex) { Text("下周") }
                 }
@@ -209,9 +209,9 @@ internal fun ColumnScope.ScheduleFeature(
                         val periods = maxOf(data.timetableSections, courses.maxOfOrNull { it.endPeriod } ?: 1)
                             .coerceIn(1, 24)
                         val rowLabels = listOf("一", "二", "三", "四", "五", "六", "日")
-                        val timeWidth = 40.dp
+                        val timeWidth = scheduleTimeColumnWidth() + ScheduleTimeColumnShadowWidth
                         val scroll = rememberScrollState()
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = if (viewMode == "week") scheduleGridPadding() else 0.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (viewMode == "week") Spacer(Modifier.width(timeWidth))
                             rowLabels.forEachIndexed { index, label ->
                                 Column(Modifier.weight(1f).clickable {
@@ -248,61 +248,14 @@ internal fun ColumnScope.ScheduleFeature(
                                 }
                             }
                         } else {
-                            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                                val width = (maxWidth - timeWidth).coerceAtLeast(1.dp)
-                                val rowHeight = rememberFullCoursePeriodHeight(courses, width / 7,
-                                    rememberScreenMetrics().tall(84.dp, 68.dp))
-                                Row(Modifier.fillMaxSize().verticalScroll(scroll)) {
-                                    Column(Modifier.width(timeWidth)) {
-                                        // Upstream ScheduleScreen.kt time-column layout.
-                                        for (i in 1..periods) {
-                        val periodTime = periodTimes.find { it.period == i }
-                        Box(
-                            modifier = Modifier
-                                .height(rowHeight)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(top = 6.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(1.dp)
-                            ) {
-                                Text(
-                                    text = i.toString(),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (periodTime != null) {
-                                    Text(
-                                        text = periodTime.startTime,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.sp,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = periodTime.endTime,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.sp,
-                                        maxLines = 1
-                                    )
-                                }
+                            Box(Modifier.fillMaxWidth().weight(1f)) {
+                                ScheduleGrid(courses = allCourses.map { course ->
+                                    courses.firstOrNull { it.id == course.id } ?: course
+                                }, currentWeek = pageWeek, periodTimes = periodTimes,
+                                    periodCount = periods, scrollState = scroll,
+                                    onCourseClick = { selectedId = it.id },
+                                    onCourseLongClick = { selectedId = it.id })
                             }
-                        }
-                    }
-                                    }
-                                    Box(Modifier.weight(1f).height(rowHeight * periods)) {
-                                        TimetableBackground(periods, rowHeight)
-                                        TimetableLayout(courses, periods, rowHeight, periodTimes = periodTimes,
-                                            onCourseClick = { selectedId = it.id },
-                                            onCourseLongClick = { selectedId = it.id })
-                                    }
-                                }
-                            }
-                                if (courses.isEmpty()) AppNotice("本周无已导入课程。")
                         }
                     }
                 }
