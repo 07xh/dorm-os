@@ -17,13 +17,14 @@ internal enum class AppRoute(val primary: MainDestination, val title: String) {
     SECOND_CLASS(MainDestination.ACADEMIC, "第二课堂"),
     STUDY_PROGRESS(MainDestination.ACADEMIC, "学习进度"),
     CONNECTIONS(MainDestination.PROFILE, "数据连接"),
+    REMINDER_SETTINGS(MainDestination.PROFILE, "通知与提醒"),
     TASK_BACKUP(MainDestination.PROFILE, "任务备份"),
     LICENSES(MainDestination.PROFILE, "开源许可");
 
     val parent: AppRoute? get() = when (this) {
         SCHEDULE_SETTINGS -> SCHEDULE
         GRADES, EXAMS, SECOND_CLASS, STUDY_PROGRESS -> ACADEMIC
-        CONNECTIONS, TASK_BACKUP, LICENSES -> PROFILE
+        CONNECTIONS, REMINDER_SETTINGS, TASK_BACKUP, LICENSES -> PROFILE
         else -> null
     }
 

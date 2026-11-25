@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.VerifiedLesson
 import io.github.x07xh.xiaoxu.data.selectableTeachingWeeks
 import java.time.LocalDate
+import android.widget.Toast
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import io.github.x07xh.xiaoxu.data.LocalScheduleEditor
 
 /**
  * Xiaoxu-only data binding. The actual grid, cards, text fit and overlapping
@@ -34,6 +38,13 @@ internal fun ColumnScope.ScheduleFeature(
     target: String?, consume: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var editorOpen by rememberSaveable { mutableStateOf(false) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingWeek by rememberSaveable { mutableStateOf<Int?>(null) }
+    var editorBusy by remember { mutableStateOf(false) }
+    var editorError by remember { mutableStateOf<String?>(null) }
+    var requestedWeek by rememberSaveable { mutableIntStateOf(0) }
     var viewMode by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
     var selectedDay by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value) }
     fun selectView(mode: String) {
@@ -50,6 +61,46 @@ internal fun ColumnScope.ScheduleFeature(
         FilterChip(selected = viewMode == "week", onClick = { selectView("week") }, label = { Text("周") })
     }
     AppSnapshotContent(data.lessons) { lessons ->
+        TextButton(onClick = {
+            editingId = null
+            editingWeek = requestedWeek.takeIf { it > 0 } ?: data.semesterCalendar?.currentWeek(LocalDate.now())
+            editorError = null
+            editorOpen = true
+        }) { Text("新增课程") }
+        if (editorOpen) {
+            val original = lessons.firstOrNull { it.id == editingId }
+            if (editingId != null && original == null) {
+                AlertDialog(onDismissRequest = { editorOpen = false }, title = { Text("课程已变化") },
+                    text = { Text("请关闭后重新选择课程。") },
+                    confirmButton = { TextButton(onClick = { editorOpen = false }) { Text("关闭") } })
+            } else {
+                fun commit(changed: List<VerifiedLesson>) {
+                    if (editorBusy) return
+                    editorBusy = true
+                    editorError = null
+                    scope.launch {
+                        try {
+                            val remindersOk = actions.saveCourseChanges(lessons, changed, editingId)
+                            editorOpen = false
+                            editingId = null
+                            if (!remindersOk) Toast.makeText(context, "课程已保存，但提醒维护失败", Toast.LENGTH_LONG).show()
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (failure: Exception) { editorError = failure.message ?: "本机课表修改失败" }
+                        finally { editorBusy = false }
+                    }
+                }
+                CourseEditorDialog(original, editingWeek, editorBusy, editorError,
+                    onDismiss = { if (!editorBusy) editorOpen = false },
+                    onSave = { replacement, only ->
+                        try { commit(LocalScheduleEditor.upsert(lessons, editingId, replacement, editingWeek.takeIf { only })) }
+                        catch (failure: Exception) { editorError = failure.message ?: "课程冲突，未保存" }
+                    },
+                    onDelete = { only ->
+                        try { commit(LocalScheduleEditor.delete(lessons, requireNotNull(editingId), editingWeek.takeIf { only })) }
+                        catch (failure: Exception) { editorError = failure.message ?: "删除失败" }
+                    })
+            }
+        }
         AppNotice(localImportedScheduleView(lessons).sourceLabel)
         if (lessons.isEmpty()) {
             SystemEmptyState("本机尚无课程", "导入课表后在这里查看课程。")
@@ -57,7 +108,6 @@ internal fun ColumnScope.ScheduleFeature(
             val calendar = data.semesterCalendar
             val weeks = remember(lessons, calendar) { selectableTeachingWeeks(lessons, calendar) }
             val todayWeek = calendar?.currentWeek(LocalDate.now())
-            var requestedWeek by rememberSaveable { mutableIntStateOf(0) }
             val week = requestedWeek.takeIf { it in weeks } ?: todayWeek?.takeIf { it in weeks }
                 ?: weeks.firstOrNull()
             var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -221,7 +271,10 @@ internal fun ColumnScope.ScheduleFeature(
                 allCourses.firstOrNull { it.id == lesson.id }?.let { course ->
                     UpstreamCourseDetailSheet(course, allCourses,
                         timeRange = calendar?.periodLabel(lesson.startSection, lesson.endSection).orEmpty(),
-                        currentWeek = week ?: 0, onClose = { selectedId = null })
+                        currentWeek = week ?: 0, onEdit = {
+                            editingId = lesson.id; editingWeek = week; editorError = null
+                            selectedId = null; editorOpen = true
+                        }, onClose = { selectedId = null })
                 }
             }
         }

@@ -56,3 +56,6 @@ R17 提交 e60d2ae 的 CI 45572257841 主程序 Kotlin 编译与 JVM 测试通�
 
 ## R21 恢复任务成熟组件
 上一提交 4dda75f 的 CI 45572748305 已全部通过（Kotlin、JVM 单测、Android 仪器测试源码编译）。直接恢复旧版 LocalTaskBackupPanel、LocalTaskDependencyGraph 和 TaskBoard 本机编辑器，保留数据模型、事务、依赖环检查、SAF 导入导出与合并规则；替换旧色板和弹层依赖为统一主题及 Material 对话框。任务详情进入原编辑器，关系图支持搜索、追踪和打开编辑器，个人中心接入任务备份页。新增提交需要重新执行编译门禁，模拟器实际执行尚未通过验收。
+
+## R22 课程编辑及提醒设置恢复
+直接恢复旧版 CourseEditorDialog 与 ProfileSettingsPage 通知提醒内容，统一主题、分组和 Material 选择弹层。课程新增、编辑、整门及单周删除沿用 LocalScheduleEditor 校验、LocalScheduleStore 存储、ID 重映射与提醒调度；通过统一 AppPageActions 回写 Activity 的真实课程快照，保存前核对本机记录，避免覆盖已经变化的课表。提醒页保留课程和个人截止提醒独立开关、提前时间、任务提醒时刻、本机免打扰及系统通知权限入口。未引入第二套存储或调度器；均为本机操作，不提交学校。第四轮主程序及 JVM 单测已通过；新提交仍需编译和实际运行测试。

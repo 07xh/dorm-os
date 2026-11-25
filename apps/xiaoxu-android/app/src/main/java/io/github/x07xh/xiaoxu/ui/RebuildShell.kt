@@ -71,6 +71,22 @@ internal fun NativeShell(
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
         localTaskDao = dao,
+        saveCourseChanges = { expected, changed, originalId ->
+            val (fresh, reminderOk) = withContext(Dispatchers.IO) {
+                require(LocalScheduleStore.load(context) == expected) { "课表已经变化，请重新打开编辑器" }
+                LocalScheduleStore.saveEdited(context, changed)
+                val saved = LocalScheduleStore.load(context)
+                val preferenceOk = if (originalId.isNullOrBlank()) true else runCatching {
+                    LocalCourseReminders.migrateCourseEnabled(context, originalId,
+                        remappedCourseIds(originalId, changed, saved))
+                }.getOrDefault(false)
+                val scheduled = LocalCourseReminders.reconcileAfterSave(context, saved,
+                    LocalSemesterConfigStore.load(context))
+                saved to (preferenceOk && scheduled)
+            }
+            onLocalLessonsChanged(fresh)
+            reminderOk
+        },
         executionDao = remember(context) { LocalTaskDatabase.open(context).executions() },
         addLocalTask = { title, due -> dao.insert(LocalTask(title = title, source = TASK_SOURCE_LOCAL, due = due)) },
         saveScheduleSettings = { calendar, sections ->

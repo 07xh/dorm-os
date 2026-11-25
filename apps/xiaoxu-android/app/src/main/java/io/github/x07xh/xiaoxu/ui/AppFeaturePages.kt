@@ -30,7 +30,8 @@ internal class AppPageActions(
     val readExams: suspend () -> Unit,
     val addLocalTask: suspend (String, String?) -> Long,
     val executionDao: TaskExecutionDao,
-    val localTaskDao: LocalTaskDao
+    val localTaskDao: LocalTaskDao,
+    val saveCourseChanges: suspend (List<VerifiedLesson>, List<VerifiedLesson>, String?) -> Boolean
 )
 
 @Composable
@@ -62,6 +63,7 @@ internal fun AppFeaturePage(
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
             AppRoute.PROFILE -> ProfileFeature(data, actions)
             AppRoute.CONNECTIONS -> ConnectionsFeature(data, actions)
+            AppRoute.REMINDER_SETTINGS -> ReminderSettingsFeature(data)
             AppRoute.TASK_BACKUP -> LazyColumn { item { LocalTaskBackupPanel() } }
             AppRoute.LICENSES -> LazyColumn { item { OpenSourceCreditsPanel() } }
         }

@@ -39,7 +39,7 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun UpstreamCourseDetailSheet(course: ScheduleCourseUi, allCourses: List<ScheduleCourseUi>,
-    timeRange: String, currentWeek: Int, onClose: () -> Unit) {
+    timeRange: String, currentWeek: Int, onEdit: () -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
@@ -81,6 +81,7 @@ internal fun UpstreamCourseDetailSheet(course: ScheduleCourseUi, allCourses: Lis
                         Text(course.name, Modifier.padding(top = 7.dp).semantics { heading() },
                             fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
                     }
+                    IconButton(onEdit, Modifier.size(48.dp)) { Icon(Icons.Outlined.Edit, contentDescription = "编辑课程") }
                     IconButton(onClose, Modifier.size(48.dp)) { Icon(Icons.Outlined.Close, contentDescription = "关闭课程详情") }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

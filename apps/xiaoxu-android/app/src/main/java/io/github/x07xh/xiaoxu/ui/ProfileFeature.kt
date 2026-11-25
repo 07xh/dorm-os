@@ -56,8 +56,10 @@ internal fun ProfileFeature(data: AppWorkspaceState, actions: AppPageActions) {
                 onClick = { actions.navigate(AppRoute.CONNECTIONS) })
         }
         InsetGroupedSection(header = "学习设置") {
-            SettingsRow(Icons.Outlined.DateRange, tint, "课表设置", showDivider = false,
+            SettingsRow(Icons.Outlined.DateRange, tint, "课表设置",
                 onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) })
+            SettingsRow(Icons.Outlined.Notifications, tint, "通知与提醒", showDivider = false,
+                onClick = { actions.navigate(AppRoute.REMINDER_SETTINGS) })
         }
         InsetGroupedSection(header = "数据与安全") {
             SettingsRow(Icons.Outlined.Storage, tint, "任务备份", showDivider = false,
