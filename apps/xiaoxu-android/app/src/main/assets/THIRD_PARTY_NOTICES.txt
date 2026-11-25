@@ -278,3 +278,14 @@ ExamScheduleContent list/header layout adapted in AcademicSnapshotList.kt;
 GradeRefreshStatus reused. Shared existing upstream wheel dialog and page
 host; owner-scoped readonly snapshots remain the sole data source. No
 upstream exam writes, unsupported statistics, or export actions imported.
+
+------------------------------------------------------------------
+2026-11-25 shared upstream navigation motion
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. NavigationMotion.kt replaces
+partial ScheduleMotionProfile.kt; NativeShell uses upstream NavigationPages,
+NavigationMotionState and ModuleMotion timeline for the existing AppRoute set.
+Only the active business page is composed; outgoing-page drawing is disabled
+to avoid duplicate reminders, data readers and dialog side effects. System
+reduced-motion preference and original route history are preserved. No data
+or network layer changes. Compilation and device validation remain pending.
