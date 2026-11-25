@@ -28,6 +28,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tyust.course.ui.system.LocalAppBackdrop
+import com.tyust.course.ui.system.rememberWallpaperRegionState
+import com.tyust.course.ui.system.rememberWallpaperRegionAppearance
+import com.tyust.course.ui.system.ProvideWallpaperAppearance
+import com.tyust.course.ui.system.wallpaperRegion
+import com.tyust.course.ui.system.isBackdropSupported
+import com.tyust.course.ui.theme.NeuPrimary
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -40,12 +47,13 @@ fun SystemTopBar(
     collapseFraction: Float = 0f,
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
-    backdrop: Backdrop? = null
+    backdrop: Backdrop? = LocalAppBackdrop.current
 ) {
-    val useGlass = backdrop != null && android.os.Build.VERSION.SDK_INT >= 33
-    val appearance = MaterialTheme.colorScheme
-    val customWallpaper = false
-    val isLightTheme = !isSystemInDarkTheme()
+    val useGlass = backdrop != null && isBackdropSupported()
+    val regionState = rememberWallpaperRegionState()
+    val appearance = rememberWallpaperRegionAppearance(regionState)
+    val customWallpaper = com.tyust.course.manager.AppearanceSettingsManager.mode != com.tyust.course.manager.WallpaperMode.Preset
+    val isLightTheme = appearance.usesDarkForeground
     val titleColor = appearance.onSurface
 
     // iOS 26 分离式头部：展开态大标题直接浮在内容上（无背景），
@@ -59,11 +67,14 @@ fun SystemTopBar(
     val surfaceTint = appearance.surface.copy(
         alpha = if (customWallpaper) appearance.surface.alpha else if (isLightTheme) 0.46f else 0.34f
     )
+    com.tyust.course.ui.theme.ReportStatusBarSurface(surfaceTint.copy(alpha = surfaceTint.alpha * (if (customWallpaper) 1f else 0.85f + 0.15f * collapse)))
 
+    ProvideWallpaperAppearance(appearance) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            
+            .wallpaperRegion(regionState)
+
     ) {
         val showShell = customWallpaper || collapse > 0.01f
         val shellModifier = when {
@@ -93,8 +104,8 @@ fun SystemTopBar(
                 )
             !useGlass && showShell -> Modifier.background(
                 Brush.verticalGradient(
-                    0f to appearance.surface.copy(alpha = if (customWallpaper) 1f else collapse),
-                    0.86f to appearance.surface.copy(alpha = if (customWallpaper) 1f else collapse),
+                    0f to appearance.solidSurface.copy(alpha = if (customWallpaper) 1f else collapse),
+                    0.86f to appearance.solidSurface.copy(alpha = if (customWallpaper) 1f else collapse),
                     1f to Color.Transparent
                 )
             )
@@ -128,9 +139,10 @@ fun SystemTopBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                                        .padding(
-                        start = 0.dp,
-                        end = 0.dp,
+
+                    .padding(
+                        start = 20.dp,
+                        end = 20.dp,
                         top = lerpDp(10.dp, 6.dp, collapse),
                         bottom = lerpDp(10.dp, 8.dp, collapse)
                     ),
@@ -164,7 +176,7 @@ fun SystemTopBar(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(appearance.primary.copy(alpha = 0.65f))
+                                        .background(NeuPrimary.copy(alpha = 0.65f))
                                 )
                                 Text(
                                     text = subtitle,
@@ -185,6 +197,7 @@ fun SystemTopBar(
                 )
             }
         }
+    }
     }
 }
 

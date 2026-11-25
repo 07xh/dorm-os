@@ -151,51 +151,40 @@ internal fun NativeShell(
     }
     BackHandler(enabled = route.parent != null || routeTrail.isNotEmpty()) { goBack() }
 
-    val wallpaper = rememberAppWallpaperStyle()
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 700.dp
-        val showPrimary = route.parent == null
-        Row(Modifier.fillMaxSize().drawBehind { if (wide) drawWallpaperPattern(wallpaper) }) {
-            if (wide) NavigationRail {
-                MainDestination.entries.forEach { dest ->
-                    NavigationRailItem(selected = route.primary == dest,
-                        onClick = { goTo(AppRoute.root(dest)) },
-                        icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+    GlassWindowHost {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth >= 700.dp
+            val showPrimary = route.parent == null
+            Row(Modifier.fillMaxSize()) {
+                if (wide) NavigationRail {
+                    MainDestination.entries.forEach { dest ->
+                        NavigationRailItem(selected = route.primary == dest,
+                            onClick = { goTo(AppRoute.root(dest)) },
+                            icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+                    }
                 }
-            }
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                val tier = rememberNavigationMaterialTier()
-                val backdrop = rememberLayerBackdrop()
-                val dialogHost = rememberDialogHostState()
-                val accessibility = rememberGlassAccessibilityMode()
-                val allowPortal = !wide && tier == NavigationMaterialTier.Refractive && !accessibility.highContrast
-                val capture = if (!wide && tier == NavigationMaterialTier.Refractive &&
-                    (showPrimary || dialogHost.hasBlockingSurface))
-                    Modifier.layerBackdrop(backdrop) else Modifier
-                val backgroundSemantics = if (dialogHost.hasBlockingSurface)
-                    Modifier.semantics { hideFromAccessibility() } else Modifier
-                CompositionLocalProvider(
-                    LocalDialogHost provides dialogHost.takeIf { allowPortal },
-                    LocalAppDialogBackdrop provides backdrop.takeIf { allowPortal }
-                ) {
-                    Scaffold(containerColor = Color.Transparent, modifier = Modifier.fillMaxSize().then(capture)
-                        .drawBehind { if (!wide) drawWallpaperPattern(wallpaper) }.then(backgroundSemantics)) { padding ->
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    val tier = rememberNavigationMaterialTier()
+                    val wallpaperBackdrop = com.tyust.course.ui.system.LocalAppBackdrop.current
+                    val fallbackBackdrop = rememberLayerBackdrop()
+                    Scaffold(containerColor = Color.Transparent) { padding ->
                         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                             .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
                             pageState.SaveableStateProvider(route.name) {
-                                AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
-                                    { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
-                                    { inboxLessonId = null; onReminderCourseConsumed() },
-                                    back = if (route.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
+                                CompositionLocalProvider(LocalLoadingRoute provides route.name.lowercase()) {
+                                    AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
+                                        { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
+                                        { inboxLessonId = null; onReminderCourseConsumed() },
+                                        back = if (route.parent != null || routeTrail.isNotEmpty()) ::goBack else null)
+                                }
                             }
                         }
                     }
                     if (!wide && showPrimary) RebuildCapsuleDock(
-                        selected = route.primary, onSelect = { goTo(AppRoute.root(it)) }, tier = tier,
-                        backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter).then(backgroundSemantics)
+                        selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
+                        tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
+                        backdrop = wallpaperBackdrop ?: fallbackBackdrop, modifier = Modifier.align(Alignment.BottomCenter)
                     )
-                    // Sibling to the source layer: never include the optical surface in its own backdrop.
-                    DialogHost(dialogHost, Modifier.fillMaxSize())
                 }
             }
         }

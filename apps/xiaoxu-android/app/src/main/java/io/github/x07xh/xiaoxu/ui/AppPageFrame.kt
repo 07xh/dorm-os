@@ -24,14 +24,10 @@ internal fun AppPageFrame(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val metrics = rememberScreenMetrics()
-    Column(Modifier.fillMaxSize().padding(horizontal = metrics.wide(AppSpacing.pageHorizontal, 12.dp))) {
-        SystemTopBar(title = title, navigationIcon = onBack?.let { back ->
-            { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") } }
-        }, actions = actions)
-        Column(Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.item),
-            content = content)
+    GlassPageScaffold(title = title, onBack = onBack, actions = actions) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+            .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.item), content = content)
     }
 }
 
@@ -67,7 +63,7 @@ internal fun <T> AppSnapshotContent(
     when (snapshot) {
         PageSnapshot.Loading -> Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
-            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            PageLoadingIcon(modifier = Modifier.size(28.dp))
             AppNotice("正在读取数据")
         }
         is PageSnapshot.Unavailable -> {

@@ -52,6 +52,10 @@ internal fun AppFeaturePage(
     reminderLessonId: String?, consumeLesson: () -> Unit,
     back: (() -> Unit)? = null
 ) {
+    if (route == AppRoute.PROFILE) {
+        SettingsScreen(data, actions)
+        return
+    }
     AppPageFrame(title = route.title, onBack = back) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
@@ -70,7 +74,7 @@ internal fun AppFeaturePage(
             }
             AppRoute.SECOND_CLASS -> SecondClassContent(data.nativeRecords, modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
-            AppRoute.PROFILE -> ProfileFeature(data, actions)
+            AppRoute.PROFILE -> Unit
             AppRoute.CONNECTIONS -> ConnectionsFeature(data, actions)
             AppRoute.ACCOUNT -> AccountFeature(data, actions)
             AppRoute.ABOUT -> AboutFeature({ actions.navigate(AppRoute.LICENSES) }, actions.openWebsite)

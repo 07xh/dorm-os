@@ -56,6 +56,7 @@ internal object RebuildDockMetrics {
 @Composable
 internal fun rememberNavigationMaterialTier(): NavigationMaterialTier {
     val context = LocalContext.current
+    if (!com.tyust.course.manager.AppearanceSettingsManager.glassEffectEnabled) return NavigationMaterialTier.Opaque
     return remember(context) {
         val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         navigationMaterialTier(Build.VERSION.SDK_INT, manager?.isLowRamDevice ?: true,
@@ -100,7 +101,7 @@ internal fun RebuildCapsuleDock(
         if (drag.targetValue == index.toFloat()) drag.release() else drag.animateToValue(index.toFloat())
     }
     val shape = RoundedCornerShape(32.dp)
-    val dark = isSystemInDarkTheme()
+    val dark = com.tyust.course.ui.system.rememberGlassDarkTheme()
     val trackMaterial = GlassMaterials.resolve(GlassMaterialRole.Navigation, accessibility)
     val indicatorMaterial = GlassMaterials.resolve(GlassMaterialRole.Interactive, accessibility)
     val tint = if (optical) scheme.surface.copy(alpha = if (dark) 0.72f else 0.28f)

@@ -21,63 +21,6 @@ import kotlinx.coroutines.launch
 import io.github.x07xh.xiaoxu.data.PlatformConnection
 
 @Composable
-internal fun SettingsRow(
-    icon: ImageVector,
-    iconTint: Color,
-    title: String,
-    subtitle: String? = null,
-    showDivider: Boolean = true,
-    onClick: () -> Unit
-) {
-    InsetGroupedRow(
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        iconTint = iconTint,
-        showDivider = showDivider,
-        onClick = onClick,
-        trailing = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    )
-}
-
-@Composable
-internal fun ProfileFeature(data: AppWorkspaceState, actions: AppPageActions) {
-    val tint = MaterialTheme.colorScheme.primary
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
-        InsetGroupedSection(header = "账号与教务") {
-            SettingsRow(Icons.Outlined.Person, tint, "云端账户",
-                if (data.cloud.authenticated) "已连接" else "未连接", onClick = { actions.navigate(AppRoute.ACCOUNT) })
-            SettingsRow(Icons.Outlined.Link, tint, "数据连接", showDivider = false,
-                onClick = { actions.navigate(AppRoute.CONNECTIONS) })
-        }
-        InsetGroupedSection(header = "学习设置") {
-            SettingsRow(Icons.Outlined.DateRange, tint, "课表设置",
-                onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) })
-            SettingsRow(Icons.Outlined.Notifications, tint, "通知与提醒",
-                onClick = { actions.navigate(AppRoute.REMINDER_SETTINGS) })
-            SettingsRow(Icons.Outlined.Event, tint, "第二课堂同步", showDivider = false,
-                onClick = { actions.navigate(AppRoute.SECOND_CLASS_SETTINGS) })
-        }
-        InsetGroupedSection(header = "数据与安全") {
-            SettingsRow(Icons.Outlined.Storage, tint, "任务备份", showDivider = false,
-                onClick = { actions.navigate(AppRoute.TASK_BACKUP) })
-        }
-        InsetGroupedSection(header = "应用与支持") {
-            SettingsRow(Icons.Outlined.Info, tint, "关于校序", showDivider = false,
-                onClick = { actions.navigate(AppRoute.ABOUT) })
-        }
-    }
-}
-
-@Composable
 internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions) {
     val cloud = data.cloud
     val scope = rememberCoroutineScope()

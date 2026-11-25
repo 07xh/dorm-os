@@ -101,3 +101,5 @@ R34 CI 45580208201 全部通过，包括 APK 打包。恢复原 CloudClient.sign
 
 ## R36 上游优先视觉基底
 R35 QA 的实际观感未达到用户要求，废弃简化自制主题。以固定上游提交 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed 的原包名引入完整主题、色板、字型、壁纸渲染/色调图/图片存储/可读性源码，恢复原分组控件的壁纸区域及动画。现有入口仅桥接 CourseSelectorTheme，主容器直接绘制原壁纸。未移植 AppCompat 跨进程主题应用，保留校序 Activity/数据与原有设备性能降级；不宣称完整页面或导航已替换。后续以整页源码及真实截图比较验收，不以组件数量估计还原度。R35 原始备份分支 backup/android-r35-before-upstream-rebase。
+## R37 统一上游窗口与页面基础设施
+R36 完整上游主题及壁纸源码迁移的编译门禁 45585128446 已全部通过。停止并行维护简化组件：以完整 GlassKit.kt、AnimatedCount.kt、PageLoadingIcon.kt、ModuleMotion.kt、GlassOverlayHost.kt、GlassWindowHost.kt、GlassPageScaffold.kt 为统一公共基础，删除 UpstreamGlassKit.kt 和 UpstreamGlassTextField.kt，保留原组件签名。根窗口统一独立壁纸源、页面源、模态合成源；不在采样层中绘制自己的光学结果。五个根页面及二级路由共享该窗口；普通页面经 GlassPageScaffold，设置页直接采用上游 SettingsScreen 的完整页面 Scaffold、滚动折叠、分组与账号头布局，替换不可用的上游业务入口为校序真实路由，并复用现有上游滚轮及 AppearanceSettingsManager 提供主题、预设背景和玻璃开关。原版独立设备采样门禁保留，API31/32 离屏路径继续禁用。未完成原版完整导航、课表及成绩页面业务映射，未声称视觉完全一致。此批需编译、运行和截图验收；未发布。
