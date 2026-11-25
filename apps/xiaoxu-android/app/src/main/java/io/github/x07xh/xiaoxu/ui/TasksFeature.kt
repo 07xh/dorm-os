@@ -111,7 +111,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             LocalTaskEditSheet(task, actions.localTaskDao, onDismiss = { editTaskId = null })
         }
         combined.firstOrNull { it.key == detailKey }?.let { task ->
-            AlertDialog(onDismissRequest = { detailKey = null }, title = { Text(task.title) },
+            AppDialog(onDismissRequest = { detailKey = null }, title = { Text(task.title) },
                 text = { Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(task.origin)
@@ -141,7 +141,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         var title by rememberSaveable { mutableStateOf("") }
         var due by rememberSaveable { mutableStateOf("") }
         var inputError by rememberSaveable { mutableStateOf<String?>(null) }
-        AlertDialog(onDismissRequest = { if (!saving) adding = false }, title = { Text("新建本机任务") },
+        AppDialog(onDismissRequest = { if (!saving) adding = false }, title = { Text("新建本机任务") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassFormField(title, { title = it }, "任务名称", Modifier.fillMaxWidth())
                 GlassFormField(due, { due = it }, "个人截止日期（可空）", Modifier.fillMaxWidth(), placeholder = "YYYY-MM-DD")

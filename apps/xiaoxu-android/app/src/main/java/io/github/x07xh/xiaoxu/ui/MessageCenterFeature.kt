@@ -195,8 +195,8 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
     val showWechat = source == MSG_FILTER_WECHAT
     val opened = state.notices.firstOrNull { it.url == openedUrl }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        GlassFilterCapsule(label = "官方通知", selected = !showWechat, onClick = { source = MSG_FILTER_NOTICE })
-        GlassFilterCapsule(label = "微信审核", selected = showWechat, onClick = { source = MSG_FILTER_WECHAT })
+        LiquidSegmentedControl(listOf("官方通知", "微信审核"), if (showWechat) 1 else 0,
+            onSelect = { source = if (it == 0) MSG_FILTER_NOTICE else MSG_FILTER_WECHAT }, modifier = Modifier.weight(1f))
         AcademicReadAction("刷新", state.busy) { scope.launch { actions.refreshCloud() } }
     }
     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -250,7 +250,7 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
             }
         }
         if (!wide && !showWechat && opened != null) {
-            AlertDialog(onDismissRequest = { openedUrl = null }, title = { Text("公告详情") },
+            AppDialog(onDismissRequest = { openedUrl = null }, title = { Text("公告详情") },
                 text = { NoticeDetails(opened, actions.openArticle) },
                 confirmButton = { TextButton(onClick = { openedUrl = null }) { Text("关闭") } })
         }

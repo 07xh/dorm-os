@@ -301,7 +301,7 @@ internal fun NotificationSettingsContent(tasks: List<LocalTask>) {
     }
 
     if (leadPickerOpen) {
-        AlertDialog(onDismissRequest = { leadPickerOpen = false }, title = { Text("课前提醒时间") },
+        AppDialog(onDismissRequest = { leadPickerOpen = false }, title = { Text("课前提醒时间") },
             text = {
                 Column {
                     listOf(0, 5, 10, 15, 20, 30, 45, 60).forEach { minutes ->

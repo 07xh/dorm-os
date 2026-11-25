@@ -238,7 +238,7 @@ internal fun CourseEditorDialog(
         }
     }
     if (confirmDelete && original != null) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { if (!busy) confirmDelete = false },
             title = { Text("确认删除课程") },
             text = { Text(if (weekOnly && canScope) "仅删除第${selectedWeek}周的这门课程？"

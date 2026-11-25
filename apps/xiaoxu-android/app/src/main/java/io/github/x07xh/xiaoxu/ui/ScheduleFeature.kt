@@ -55,10 +55,8 @@ internal fun ColumnScope.ScheduleFeature(
         TextButton(onClick = actions.importTimetable) { Text("导入") }
         TextButton(onClick = actions.exportTimetable) { Text("导出") }
         TextButton(onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) }) { Text("设置") }
-        Spacer(Modifier.weight(1f))
-        GlassFilterCapsule(label = "日", selected = viewMode == "day", onClick = { selectView("day") })
-        Spacer(Modifier.width(6.dp))
-        GlassFilterCapsule(label = "周", selected = viewMode == "week", onClick = { selectView("week") })
+        LiquidSegmentedControl(options = listOf("日", "周"), selectedIndex = if (viewMode == "day") 0 else 1,
+            onSelect = { selectView(if (it == 0) "day" else "week") }, modifier = Modifier.weight(1f), height = 42.dp)
     }
     AppSnapshotContent(data.lessons) { lessons ->
         TextButton(onClick = {
@@ -70,7 +68,7 @@ internal fun ColumnScope.ScheduleFeature(
         if (editorOpen) {
             val original = lessons.firstOrNull { it.id == editingId }
             if (editingId != null && original == null) {
-                AlertDialog(onDismissRequest = { editorOpen = false }, title = { Text("课程已变化") },
+                AppDialog(onDismissRequest = { editorOpen = false }, title = { Text("课程已变化") },
                     text = { Text("请关闭后重新选择课程。") },
                     confirmButton = { TextButton(onClick = { editorOpen = false }) { Text("关闭") } })
             } else {

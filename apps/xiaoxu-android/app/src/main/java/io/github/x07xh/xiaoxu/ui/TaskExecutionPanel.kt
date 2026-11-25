@@ -189,7 +189,7 @@ internal fun TaskExecutionPanel(
         if(error!=null) Text(error!!,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
     }
     deleting?.let { step ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { if (!busy) deleting = null },
             title = { Text("删除个人步骤？") },
             text = { Text("删除“${step.title}”也会解除其他步骤对它的前置要求。") },

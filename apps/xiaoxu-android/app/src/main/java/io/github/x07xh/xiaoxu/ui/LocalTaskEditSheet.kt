@@ -92,7 +92,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     val graphWithoutThis = edgeRows.filter { it.taskId != task.id } +
         chosen.map { LocalTaskDependency(task.id, it) }
 
-    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("编辑本机任务") }, text = {
+    AppDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("编辑本机任务") }, text = {
         Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         GlassFormField(title, { title = it.take(120); error = null }, "任务名称", Modifier.fillMaxWidth(), enabled = !saving)
         LocalTaskSourcePicker(

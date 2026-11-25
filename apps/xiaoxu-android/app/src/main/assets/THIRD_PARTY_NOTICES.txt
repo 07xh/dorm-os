@@ -214,3 +214,10 @@ Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544b
 GPL-3.0, original authors and contributors. GlassWheelPicker.kt and
 LiquidComponents.kt LiquidSwitch fallback reused with shared dialog host,
 accessibility settings and asynchronous controlled-state adapter.
+
+------------------------------------------------------------------
+2026-11-25 shared segmented control and dialog layout
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. LiquidSelectionComponents.kt
+fallback control and SystemUi.kt SystemDialogContent layout adapted to the
+existing local state, theme, native dialog window and performance policy.
