@@ -72,33 +72,48 @@ assert.doesNotMatch(visualQa, /(?:upload|fetch|axios)\s*\(/,
   '截图只能在本机保存，不能自动传输私人课程或任务截图');
 
 assert.match(strings, /<string name="app_name">校序<\/string>/);
-const designSystem = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuDesignSystem.kt');
-const scheduleUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
-assert.match(designSystem, /fun Modifier\.xiaoxuPageWidth\(/, '正文最大宽度由唯一设计系统定义');
-assert.match(scheduleUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
-assert.match(messageUi, /\.xiaoxuPageWidth\(XiaoxuPageLayout\.ContentMaxWidth\)/);
-assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/, '页面不得残留重复宽度实现');
-
-// Interaction regressions: no dark, unbounded ripple; shared sheet dim.
-assert.match(designSystem, /LocalIndication provides ripple\(bounded = true/,
-  '默认按压反馈须使用共享受界浅色 ripple');
-assert.match(designSystem, /fun XiaoxuSoftIconButton\(/,
-  '顶栏和设置图标应使用唯一柔和按压组件');
-assert.match(designSystem, /fun XiaoxuDialogDim\(/,
-  '居中详情弹窗需共享低对比遮罩');
-assert.match(scheduleUi, /scrimColor = XiaoxuPalette\.ModalScrim/,
-  '课程详情背景遮罩必须与统一材质一致');
-assert.match(scheduleUi, /indication = null,\s*onClick = onEdit/,
-  '课程详情长标题不允许绘制大面积矩形按压遮罩');
-assert.match(scheduleUi, /background\(XiaoxuPalette\.SheetSheen\)/,
-  '课程详情共享轻量表面渐变，不增加实时模糊');
-assert.match(designSystem, /val GlassSheen = Brush\.verticalGradient\(/,
-  '通用卡片复用同一轻量玻璃高光材质');
-assert.match(scheduleUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '课表课程卡按压反馈须受圆角裁切');
-assert.match(messageUi, /indication = ripple\(bounded = true, color = XiaoxuPalette\.PressTint\)/,
-  '通知卡不可重新引入深色点击灰块');
+const glassKit = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassKit.kt');
+const pageScaffold = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassPageScaffold.kt');
+const windowHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWindowHost.kt');
+const dialogHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppDialog.kt');
+const uiTheme = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildTheme.kt');
+const systemUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamSystemUi.kt');
+const motionHost = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleMotionProfile.kt');
+const rebuildShell = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildShell.kt');
+const navDock = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildCapsuleDock.kt');
+const designSystem = [glassKit, pageScaffold, windowHost, dialogHost, uiTheme, systemUi, sharedFrame].join('\n');
+const scheduleUi = ['ScheduleFeature.kt','ScheduleHeader.kt','UpstreamTimetable.kt','UpstreamCourseDetailSheet.kt'].map(name => read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/' + name)).join('\n');
+const messageUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenterFeature.kt');
+// Current UI uses a single upstream layout/theme/window host. The old fixed
+// XiaoxuPalette geometry is intentionally retired; device comparison remains
+// independently required by the unchanged Ace6 visual QA evidence checks.
+assert.match(sharedFrame, /widthIn\(max = if \(wideContent\) AppSpacing\.workspaceMaxWidth else AppSpacing\.formMaxWidth\)/);
+assert.match(settingsIndex, /widthIn\(max = AppSpacing\.formMaxWidth\)/);
+assert.match(settingsRoutes, /wideContent = route == AppRoute\.HOME \|\| route == AppRoute\.TASKS \|\| route == AppRoute\.MESSAGES/);
+assert.doesNotMatch(scheduleUi + messageUi, /private fun Modifier\.pageWidth\(/);
+assert.match(uiTheme, /CourseSelectorTheme\(content = content\)/);
+assert.match(systemUi, /fun SystemTopBar\(/);
+assert.match(sharedFrame, /SystemTopBar\(title = title, collapseFraction = lift/);
+assert.match(pageScaffold, /GlassWindowHost\(modifier\)/);
+assert.match(windowHost, /LocalGlassWindowOwner\.current === view && !isolatePage/);
+assert.match(dialogHost, /window\?\.setDimAmount\(DialogScrimAlpha\)/);
+assert.match(glassKit, /fun InsetGroupedSection\(/);
+assert.match(glassKit, /fun InsetGroupedRow\(/);
+assert.match(glassKit, /\.background\(glassSurfaceColor\(\)\)/);
+assert.match(scheduleUi, /ModalBottomSheet\(onDismissRequest = onClose/);
+assert.match(scheduleUi, /IconButton\(onEdit, Modifier\.size\(48\.dp\)\)/);
+assert.match(scheduleUi, /\.combinedClickable\([\s\S]*?indication = null,/);
+assert.match(messageUi, /InsetGroupedRow\(title = notice\.title/);
+assert.match(messageUi, /AppDialog\(usePortal = true,/);
+assert.match(motionHost, /Box\(modifier\.fillMaxSize\(\)\.clipToBounds\(\)\)/);
+assert.match(rebuildShell, /activePage = route\.ordinal, retainOutgoing = false/);
+assert.match(motionHost, /else listOf\(activePage\)/);
+assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/);
+assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
+assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/);
+assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/);
+assert.match(navDock, /else iconPlayback\.replay\(index\)/);
+assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/);
 
 assert.doesNotMatch(strings, /<string name="start_url"/, '已退役 TWA 默认主页');
 assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:exported="true"/);
@@ -113,9 +128,9 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(main, /PrimaryBottomNavigation\(selected = current, backdrop = navBackdrop\)/,
+assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/,
   '主壳层须只放一套可折射玻璃底栏');
-assert.match(main, /PrimarySideNavigation\(selected = current\)/,
+assert.match(rebuildShell, /if \(wide\) NavigationRail \{/,
   '宽屏保留唯一横屏侧栏适配');
 assert.match(main, /LocalTaskDatabase/);
 assert.match(db, /@Entity\(tableName = "local_tasks"/);
