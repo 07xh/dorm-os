@@ -1,25 +1,20 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
-import com.tyust.course.ui.theme.rememberAppWallpaperStyle
-import com.tyust.course.ui.system.drawWallpaperPattern
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.hideFromAccessibility
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import io.github.x07xh.xiaoxu.*
@@ -70,7 +65,7 @@ internal fun NativeShell(
     val navigationMotion = rememberNavigationMotionState(route.ordinal, "xiaoxu-routes", reducedMotion)
     fun goTo(next: AppRoute) {
         if (route == next) return
-        routeTrail = if (next.parent == null) "" else listOf(routeTrail, route.name).filter { it.isNotEmpty() }.joinToString("/")
+        routeTrail = if (next.parent == null) "" else (routeTrail.split("/").filter { it.isNotEmpty() } + route.name).takeLast(30).joinToString("/")
         navigationMotion.select(next.ordinal, reducedMotion)
         route = next
     }
@@ -83,7 +78,6 @@ internal fun NativeShell(
             route = parent
         }
     }
-    val pageState = rememberSaveableStateHolder()
     var inboxTaskId by remember { mutableStateOf<Long?>(null) }
     var inboxLessonId by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current.applicationContext
@@ -158,31 +152,66 @@ internal fun NativeShell(
     }
     BackHandler(enabled = route.parent != null || routeTrail.isNotEmpty()) { goBack() }
 
+    // MainActivity.kt upstream application host: one overlay/window, shared page state,
+    // navigation timeline, scroll intent, and a dock outside the page subtree.
+    // Xiaoxu retains single-live-page semantics and existing physical inset reservation.
+    val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
+    val pageData = remember(accountKey) { PageDataState() }
+    DisposableEffect(pageData) { onDispose { pageData.close() } }
+    val finished by remember(navigationMotion) { derivedStateOf { navigationMotion.transitionFinished } }
     GlassWindowHost {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = maxWidth >= 700.dp
-            val showPrimary = route.parent == null
-            Row(Modifier.fillMaxSize()) {
-                if (wide) NavigationRail {
-                    MainDestination.entries.forEach { dest ->
-                        NavigationRailItem(selected = route.primary == dest,
-                            onClick = { goTo(AppRoute.root(dest)) },
-                            icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+        CompositionLocalProvider(LocalPageDataState provides pageData) {
+            val dialogs = LocalDialogHost.current
+            val density = LocalDensity.current
+            val autoCollapse = com.tyust.course.manager.AppearanceSettingsManager.navBarAutoCollapseEnabled &&
+                !reducedMotion
+            var minimized by remember { mutableStateOf(false) }
+            val intent = remember { NavScrollIntent() }
+            val scroll = remember(density, dialogs, autoCollapse) {
+                object : NestedScrollConnection {
+                    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                        if (autoCollapse && source == NestedScrollSource.UserInput && dialogs?.hasBlockingSurface != true) {
+                            if (consumed.y == 0f && available.y > 0f) {
+                                minimized = false
+                                intent.reset()
+                            } else if (kotlin.math.abs(consumed.y) > kotlin.math.abs(consumed.x)) {
+                                intent.scroll(consumed.y / density.density)?.let { minimized = it }
+                            }
+                        }
+                        return Offset.Zero
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxHeight()) {
-                    val tier = rememberNavigationMaterialTier()
-                    val wallpaperBackdrop = com.tyust.course.ui.system.LocalAppBackdrop.current
-                    val fallbackBackdrop = rememberLayerBackdrop()
-                    Scaffold(containerColor = Color.Transparent) { padding ->
-                        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                            .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
-                            // Reuse the upstream navigation timeline; only the active business
-                            // page is composed to avoid duplicate readers, reminders and dialog hosts.
-                            NavigationPages(navigationMotion, activePage = route.ordinal, retainOutgoing = false) { index ->
+            }
+            LaunchedEffect(route, autoCollapse) { minimized = false; intent.reset() }
+            BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                val wide = maxWidth >= 700.dp
+                val showPrimary = route.parent == null
+                Row(Modifier.fillMaxSize()) {
+                    if (wide) NavigationRail {
+                        MainDestination.entries.forEach { dest ->
+                            NavigationRailItem(selected = route.primary == dest,
+                                onClick = { goTo(AppRoute.root(dest)) },
+                                icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
+                        }
+                    }
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        val tier = rememberNavigationMaterialTier()
+                        val wallpaperBackdrop = com.tyust.course.ui.system.LocalAppBackdrop.current
+                        key(accountKey) {
+                            val savedPages = rememberSaveableStateHolder()
+                            NavigationPages(navigationMotion,
+                                modifier = Modifier.fillMaxSize()
+                                    .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)
+                                    .nestedScroll(scroll),
+                                activePage = route.ordinal, retainOutgoing = false) { index ->
                                 val pageRoute = AppRoute.entries[index]
-                                pageState.SaveableStateProvider(pageRoute.name) {
-                                    CompositionLocalProvider(LocalLoadingRoute provides pageRoute.name.lowercase()) {
+                                val routeKey = "app." + pageRoute.name.lowercase()
+                                savedPages.SaveableStateProvider(pageRoute.name) {
+                                    // Existing workspace performs all actual reads. No new school client
+                                    // or second database is created by the page-entry host.
+                                    InitialPageLoad(key = routeKey, title = pageRoute.title,
+                                        active = pageRoute == route, transitionFinished = finished,
+                                        route = routeKey, prepare = {}, awaitContent = false) {
                                         AppFeaturePage(pageRoute, data, actions, inboxTaskId ?: reminderTaskId,
                                             { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
                                             { inboxLessonId = null; onReminderCourseConsumed() },
@@ -191,12 +220,13 @@ internal fun NativeShell(
                                 }
                             }
                         }
+                        if (!wide && showPrimary) RebuildCapsuleDock(
+                            selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
+                            tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
+                            backdrop = wallpaperBackdrop, modifier = Modifier.align(Alignment.BottomCenter),
+                            minimized = autoCollapse && minimized, onExpandRequest = { minimized = false; intent.reset() }
+                        )
                     }
-                    if (!wide && showPrimary) RebuildCapsuleDock(
-                        selected = route.primary, onSelect = { goTo(AppRoute.root(it)) },
-                        tier = if (wallpaperBackdrop != null) tier else NavigationMaterialTier.Opaque,
-                        backdrop = wallpaperBackdrop ?: fallbackBackdrop, modifier = Modifier.align(Alignment.BottomCenter)
-                    )
                 }
             }
         }
