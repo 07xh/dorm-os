@@ -18,6 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.SemesterCalendar
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -28,6 +31,8 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
         return
     }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var defaultView by remember { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
     val saved = data.semesterCalendar
     var dateText by rememberSaveable { mutableStateOf(saved?.firstMonday?.toString().orEmpty()) }
     var weeksText by rememberSaveable { mutableStateOf(saved?.totalWeeks?.toString().orEmpty()) }
@@ -60,6 +65,19 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
         InsetGroupedSection(header = "基础设置") {
+            // Existing settings preference; shared upstream inline segmented control.
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("默认课表视图", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge)
+                LiquidSegmentedControl(options = listOf("周", "日"),
+                    selectedIndex = if (defaultView == "day") 1 else 0,
+                    onSelect = { index ->
+                        defaultView = if (index == 1) "day" else "week"
+                        LocalSemesterConfigStore.saveViewMode(context, defaultView)
+                    }, modifier = Modifier.width(100.dp), height = 36.dp)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             InsetGroupedRow(
                                 icon = Icons.Filled.DateRange,
                                 iconTint = Color(0xFF0A84FF),
