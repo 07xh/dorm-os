@@ -115,6 +115,12 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
                                 )
                             }
         }
+        InsetGroupedSection(header = "课表文件") {
+            InsetGroupedRow(title = "导入课表", subtitle = "从本机文件导入并预览",
+                onClick = actions.importTimetable)
+            InsetGroupedRow(title = "导出课表", subtitle = "备份课程与学期设置",
+                showDivider = false, onClick = actions.exportTimetable)
+        }
         error?.let { AppNotice(it, error = true) }
         status?.let { AppNotice(it) }
         Button(modifier = Modifier.fillMaxWidth(), enabled = !saving, onClick = {
