@@ -46,11 +46,24 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.shapes.Capsule
 import io.github.x07xh.xiaoxu.MainDestination
 
+// NavBarMetrics: upstream CapsuleNavigationBar.kt, bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed.
+// GPL-3.0; original authors and contributors.
+// The shell already consumes system navigation insets. Reserve the full
+// remaining track block here, rather than subtracting the upstream list padding.
 internal object RebuildDockMetrics {
-    @Composable fun trackHeight() = rememberScreenMetrics().tall(64.dp, 58.dp)
+    @Composable
+    fun trackHeight(): androidx.compose.ui.unit.Dp {
+        val metrics = rememberScreenMetrics()
+        val optical = rememberNavigationMaterialTier() == NavigationMaterialTier.Refractive &&
+            !rememberGlassAccessibilityMode().highContrast &&
+            com.tyust.course.ui.system.LocalAppBackdrop.current != null
+        return if (optical) metrics.tall(72.dp, 62.dp)
+        else metrics.tall(64.dp, 58.dp)
+    }
+
     @Composable fun outerGap() = rememberScreenMetrics().tall(8.dp, 6.dp)
     @Composable fun horizontalGap() = rememberScreenMetrics().wide(16.dp, 10.dp)
-    @Composable fun contentReserve() = trackHeight() + outerGap() * 2
+    @Composable fun contentReserve() = outerGap() * 2 + trackHeight()
 }
 
 @Composable
