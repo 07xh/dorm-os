@@ -151,8 +151,8 @@ assert.match(db, /suspend fun insert\(/);
 assert.match(db, /suspend fun setCompleted\(/);
 assert.match(db, /suspend fun remove\(/);
 const reminder = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalDeadlineReminders.kt');
-const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
-const taskWorkspaceForComposerGate = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+const localTaskUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskEditSheet.kt');
+const taskWorkspaceForComposerGate = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TasksFeature.kt');
 assert.match(profileSettings, /fun requestNotificationAccess\(target: String\)/,
   'Two reminder toggles must share one Android permission gateway');
 assert.equal(profileSettings.split('ContextCompat.checkSelfPermission(').length - 1, 1,
@@ -193,9 +193,9 @@ assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/,
 assert.doesNotMatch(localTaskUi,
   /LazyRow\(horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\)\s*\{\s*items\(count = TASK_SOURCES\.size/,
   '新建和编辑任务禁止再出现横向截断的五项分类');
-assert.match(taskWorkspaceForComposerGate, /showLocalComposer by rememberSaveable/,
+assert.match(taskWorkspaceForComposerGate, /adding by rememberSaveable/,
   '顶栏新增任务必须独立于本机任务管理');
-assert.match(taskWorkspaceForComposerGate, /label = "新增本机任务",[\s\S]*?onClick = \{ showLocalComposer = true \}/,
+assert.match(taskWorkspaceForComposerGate, /onClick = \{ adding = true \}[\s\S]*?if \(adding\) LocalTaskCreateSheet\(actions\.localTaskDao,/,
   '新增按钮直接进入单用途新建页');
 // The secondary local manager was retired; main hub and Room execution tests own this behavior.
 assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
@@ -248,9 +248,9 @@ assert.match(localTaskUi, /internal fun TaskCompletionCheckbox\(/,
   'Local editor and task hub must share one completion-checkbox renderer');
 assert.equal((localTaskUi.match(/\bCheckbox\(/g) || []).length, 1,
   'Only the reusable task control may instantiate a Material checkbox');
-assert.equal((workspace.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
-  'Local and approved WeChat task rows must reuse the shared checkbox');
-assert.doesNotMatch(workspace, /\bCheckbox\(/,
+assert.equal((taskWorkspaceForComposerGate.match(/TaskCompletionCheckbox\(/g) || []).length, 1,
+  'Local task rows must reuse the shared checkbox; WeChat write support must be verified separately');
+assert.doesNotMatch(taskWorkspaceForComposerGate, /\bCheckbox\(/,
   'Unified task list must not maintain duplicate Material checkbox chrome');
 assert.match(profileSettings, /private fun ReminderToggleRow\(/,
   'Course and deadline reminders must share one settings row');
@@ -269,7 +269,7 @@ assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|privat
   '已废弃的首页展示卡片和专用颜色不得回流');
 assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
 assert.match(workspace, /fun RealAcademicTaskHub\(/);
-const localEditorSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+const localEditorSource = localTaskUi;
 assert.match(localEditorSource, /fun LocalTaskEditSheet\(/);
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
   '禁止独立 Material3 Card 回流本机任务编辑器');
@@ -1101,7 +1101,7 @@ assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
   '预览列表不能重新嵌套大卡片');
 
 // 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
-const taskBoard = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskBoard.kt');
+const taskBoard = localTaskUi;
 const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
 assert.match(bottomActions, /BoxWithConstraints\(/,
   '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
