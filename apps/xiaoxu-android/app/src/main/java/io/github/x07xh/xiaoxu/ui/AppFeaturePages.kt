@@ -69,6 +69,11 @@ internal fun AppFeaturePage(
         }
         return
     }
+    if (route == AppRoute.GRADES || route == AppRoute.EXAMS) {
+        AcademicRecordsFeature(data, actions, if (route == AppRoute.EXAMS) 2 else 0,
+            onBack = { if (back != null) back() else actions.navigate(AppRoute.ACADEMIC) })
+        return
+    }
     AppPageFrame(title = route.title, onBack = back,
         wideContent = route == AppRoute.HOME || route == AppRoute.TASKS || route == AppRoute.MESSAGES) {
         when (route) {
@@ -80,8 +85,8 @@ internal fun AppFeaturePage(
                 AcademicHubFeature(actions)
 
             }
-            AppRoute.GRADES -> GradesFeature(data, actions)
-            AppRoute.EXAMS -> ExamsFeature(data, actions)
+            AppRoute.GRADES -> Unit
+            AppRoute.EXAMS -> Unit
             AppRoute.STUDY_PROGRESS -> {
                 SystemEmptyState("尚未接入课程进度", "目前没有已核验的课程进度数据。任务完成状态不等于课程学习进度。")
                 TextButton(onClick = { actions.navigate(AppRoute.CONNECTIONS) }) { Text("数据连接") }
