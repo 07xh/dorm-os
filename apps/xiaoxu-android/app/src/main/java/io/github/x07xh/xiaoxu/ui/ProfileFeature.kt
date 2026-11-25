@@ -25,6 +25,19 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
     val cloud = data.cloud
     val scope = rememberCoroutineScope()
     val tint = MaterialTheme.colorScheme.primary
+    val lessonsLabel = when (val snapshot = data.lessons) {
+        PageSnapshot.Loading -> "尚无已读取课表"
+        is PageSnapshot.Unavailable -> "课表暂不可读取"
+        is PageSnapshot.Ready -> "已保存 ${snapshot.value.size} 条本机课程"
+    }
+    val localRows = (data.nativeRecords as? PageSnapshot.Ready)?.value
+    fun localStatus(provider: String): String {
+        if (localRows == null) return "本机记录尚未读取"
+        val stored = localRows.filter { it.provider == provider && it.kind != "account_binding" }
+        val stamp = stored.maxOfOrNull { it.capturedAt } ?: return "暂无已保存记录"
+        val time = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(stamp))
+        return "已保存 ${stored.size} 条 · 最近读取 $time"
+    }
     fun status(provider: String): String {
         if (!cloud.authenticated || !cloud.connectionsFresh) return "云端状态尚未核验"
         val record = cloud.platforms.firstOrNull { it.id == provider } ?: return "尚无连接记录"
@@ -37,10 +50,14 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
         cloud.privateError?.let { AppNotice(it, error = true) }
         InsetGroupedSection(header = "本机学校读取") {
             AppNotice("本机读取无需连接校序云端；只保存学校本人可见记录。")
-            SettingsRow(Icons.Outlined.School, tint, "华水青果", "在 App 中导入课表", onClick = { actions.connectLocal("ncwu") })
-            SettingsRow(Icons.Outlined.MenuBook, tint, "学习通", "本机读取入口", onClick = { actions.connectLocal("chaoxing") })
-            SettingsRow(Icons.Outlined.Event, tint, "第二课堂", "本机读取入口", showDivider = false,
+            SettingsRow(Icons.Outlined.School, tint, "华水青果", lessonsLabel, onClick = { actions.connectLocal("ncwu") })
+            AppGroupedEntry("查看本机课表", onClick = { actions.navigate(AppRoute.SCHEDULE) })
+            SettingsRow(Icons.Outlined.MenuBook, tint, "学习通", localStatus("chaoxing"), onClick = { actions.connectLocal("chaoxing") })
+            AppGroupedEntry("查看作业与任务", onClick = { actions.navigate(AppRoute.TASKS) })
+            AppGroupedEntry("查看课程进度", onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
+            SettingsRow(Icons.Outlined.Event, tint, "第二课堂", localStatus("second_class"),
                 onClick = { actions.connectLocal("second_class") })
+            AppGroupedEntry("查看活动与积分", showDivider = false, onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
         }
         InsetGroupedSection(header = "云端学校授权") {
             SettingsRow(Icons.Outlined.School, tint, "青果教务授权", status("ncwu"),
