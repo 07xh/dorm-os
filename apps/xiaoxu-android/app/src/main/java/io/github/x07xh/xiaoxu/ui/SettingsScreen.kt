@@ -98,7 +98,7 @@ internal fun SettingsScreen(data: AppWorkspaceState, actions: AppPageActions) {
         // 内容延伸到玻璃顶栏下方，滚动时从顶栏底下穿过（padding 施加在滚动内容内部）
         Column(
             modifier = Modifier
-                .fillMaxSize().wrapContentWidth(androidx.compose.ui.Alignment.CenterHorizontally).widthIn(max = 680.dp)
+                .fillMaxSize().wrapContentWidth(androidx.compose.ui.Alignment.CenterHorizontally).widthIn(max = AppSpacing.formMaxWidth)
                 .verticalScroll(scrollState)
                 .padding(
                     start = 20.dp,
