@@ -195,7 +195,7 @@ assert.doesNotMatch(localTaskUi,
   '新建和编辑任务禁止再出现横向截断的五项分类');
 assert.match(taskWorkspaceForComposerGate, /adding by rememberSaveable/,
   '顶栏新增任务必须独立于本机任务管理');
-assert.match(taskWorkspaceForComposerGate, /onClick = \{ adding = true \}[\s\S]*?if \(adding\) LocalTaskCreateSheet\(actions\.localTaskDao,/,
+assert.match(taskWorkspaceForComposerGate, /if \(data\.cloud\.authenticated\) chooseDestination = true else adding = true[\s\S]*?if \(adding\) LocalTaskCreateSheet\(actions\.localTaskDao,/,
   '新增按钮直接进入单用途新建页');
 // The secondary local manager was retired; main hub and Room execution tests own this behavior.
 assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
@@ -220,7 +220,7 @@ assert.match(taskUpdateRoute, /export async function onRequestPost\(context\)/,
   'Android 个人完成状态须通过现有云端任务路径 POST 兼容方法');
 assert.match(taskUpdateRoute, /Object\.keys\(body\)\.sort\(\)\.join\(','\)!=='localStatus,revision'/,
   '兼容 POST 严格限定个人状态与版本，不开放标题或官方字段修改');
-const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CloudPanels.kt');
+const panels = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ProfileFeature.kt');
 assert.match(cloud, /https:\/\/dorm-os-dk9\.pages\.dev/);
 assert.match(cloud, /instanceFollowRedirects = false/);
 assert.match(cloud, /AndroidKeyStore/);
@@ -233,27 +233,29 @@ assert.match(cloud, /\/api\/v1\/assignments/);
 assert.match(cloud, /refreshOnForeground/);
 assert.match(cloud, /SystemClock\.elapsedRealtime/);
 assert.match(cloud, /60_000L/);
-assert.match(main, /LifecycleEventObserver/);
-assert.match(main, /Lifecycle\.Event\.ON_RESUME/);
-assert.match(main, /DisposableEffect/);
-assert.match(main, /cloud\.refreshOnForeground\(\)/);
+assert.match(appWorkspace, /LifecycleEventObserver/);
+assert.match(appWorkspace, /Lifecycle\.Event\.ON_RESUME/);
+assert.match(appWorkspace, /DisposableEffect/);
+assert.match(appWorkspace, /cloud\.refreshOnForeground\(\)/);
 assert.match(main, /shouldRefreshAfterWebsite = true/);
-assert.match(main, /if \(force\) cloud\.refresh\(\)/);
+assert.match(appWorkspace, /if \(force\) cloud\.refresh\(\)/);
 
 assert.match(cloud, /\/api\/v1\/connections/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/,
   '本机课表不能再从云端自动拉取课程');
-assert.match(main, /CloudTimetablePanel/);
+assert.match(settingsRoutes, /ScheduleFeature\(data, actions,/);
 assert.match(cloud, /\/api\/v1\/wechat\/candidates/);
 assert.match(cloud, /\/api\/notices/);
 assert.match(cloud, /www2\.ncwu\.edu\.cn/);
-const workspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RealDataWorkspace.kt');
+const workspaceLogic = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WorkspaceTaskLogic.kt');
+const readContracts = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/RebuildReadContracts.kt');
+const workspace = [taskWorkspaceForComposerGate, workspaceLogic, settingsRoutes, appWorkspace, readContracts].join('\n');
 assert.match(localTaskUi, /internal fun TaskCompletionCheckbox\(/,
   'Local editor and task hub must share one completion-checkbox renderer');
 assert.equal((localTaskUi.match(/\bCheckbox\(/g) || []).length, 1,
   'Only the reusable task control may instantiate a Material checkbox');
-assert.equal((taskWorkspaceForComposerGate.match(/TaskCompletionCheckbox\(/g) || []).length, 1,
-  'Local task rows must reuse the shared checkbox; WeChat write support must be verified separately');
+assert.equal((taskWorkspaceForComposerGate.match(/TaskCompletionCheckbox\(/g) || []).length, 2,
+  'Local and accepted WeChat rows share the same completion checkbox');
 assert.doesNotMatch(taskWorkspaceForComposerGate, /\bCheckbox\(/,
   'Unified task list must not maintain duplicate Material checkbox chrome');
 assert.match(profileSettings, /private fun ReminderToggleRow\(/,
@@ -262,17 +264,17 @@ assert.equal((profileSettings.match(/ReminderToggleRow\(/g) || []).length, 6,
   'Course, deadline, two date phases and local quiet hours share one toggle implementation');
 assert.equal((profileSettings.match(/LiquidSwitch\(/g) || []).length, 1,
   'Both reminders must use a shared switch layout');
-assert.match(main, /RealAcademicHome\(localTasks, client = cloud/);
-assert.match(main, /RealAcademicTaskHub\(localTasks, dao, cloud, openWebsite,/);
-assert.match(main, /openLocalSchool = openLocalSchool/);
-assert.match(workspace, /openLocalSchool\("chaoxing"\)/);
+assert.match(settingsRoutes, /AppRoute\.HOME -> HomeFeature\(data, actions\)/);
+assert.match(settingsRoutes, /AppRoute\.TASKS -> TasksFeature\(data, actions,/);
+assert.match(rebuildShell, /connectLocal = openLocalSchool/);
+assert.match(panels, /actions\.connectLocal\("chaoxing"\)/);
 assert.ok(main.includes('https://dorm-os-dk9.pages.dev/#settings'), 'school connector must deep-link into the existing connection center');
 assert.match(workspace, /fun combineWorkspaceTasks\(/);
-assert.match(workspace, /fun RealAcademicHome\(/);
+assert.match(settingsRoutes, /fun HomeFeature\(/);
 assert.doesNotMatch(workspace, /private fun (?:WorkspaceCard|Metric)\s*\(|private val WorkspaceBlue\b/,
   '已废弃的首页展示卡片和专用颜色不得回流');
-assert.match(workspace, /fun RealAcademicTaskHub\(/, '真实任务工作台继续复用既有组件');
-assert.match(workspace, /fun RealAcademicTaskHub\(/);
+assert.match(workspace, /fun (?:ColumnScope\.)?TasksFeature\(/, '真实任务工作台继续复用既有组件');
+assert.match(workspace, /fun (?:ColumnScope\.)?TasksFeature\(/);
 const localEditorSource = localTaskUi;
 assert.match(localEditorSource, /fun LocalTaskEditSheet\(/);
 assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
@@ -280,53 +282,44 @@ assert.doesNotMatch(localEditorSource, /\bCardDefaults\b|\bCard\s*\(/,
 assert.doesNotMatch(localEditorSource, /fun LocalTaskBoard\(/);
 assert.doesNotMatch(localEditorSource, /private fun StatTile\(/,
   '任务 KPI 仅由新版任务中心展示，不复活旧数字大卡');
-assert.match(workspace, /dao\.trySetCompleted\(id, checked\)/, '统一任务列表保留真实完成写入');
-assert.match(workspace, /dao\.remove\(deletingTask\.id\)/, '统一详情保留删除确认与真实 Room 写入');
+assert.match(rebuildShell, /dao\.trySetCompleted\(id, value\)/, '统一任务列表保留真实完成写入');
+assert.match(taskWorkspaceForComposerGate, /actions\.localTaskDao\.remove\(deleting\.id\)/, '统一详情保留删除确认与真实 Room 写入');
 assert.match(profileSettings, /LocalDeadlineReminders\.setEnabled\(context, value\)/,
   '本机截止提醒应由统一通知页面控制');
 assert.match(profileSettings, /LocalDeadlineReminders\.reconcile\(context, tasks\)/,
   '新通知设置必须沿用真实 Room 任务的既有提醒计划');
-assert.match(workspace, /CloudTaskEditor\(client\)/);
-assert.match(panels, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
-assert.match(panels, /client\.addCloudTask\(value\)/, '云端新增仍使用现有真实接口');
+assert.match(taskWorkspaceForComposerGate, /CloudTaskEditor\(data\.cloud, actions,/);
+assert.match(taskWorkspaceForComposerGate, /fun CloudTaskEditor\(/, '云端任务编辑器复用已有 CloudClient');
+assert.match(rebuildShell, /cloud\.addCloudTask\(title, owner\)/, '云端新增仍使用现有真实接口');
 assert.doesNotMatch(panels, /fun CloudTasksPanel\(/,
   '退役的嵌套云端任务列表不应重新出现在管理面板');
 assert.doesNotMatch(panels, /state\.tasks\.take\(50\)/,
   '云端列表仅由统一任务中心显示，避免重复卡片和不同截断上限');
-assert.match(workspace, /不能据此推断学校没有作业/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/, '首页只匹配本机导入课表星期');
-assert.match(read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt'),
-  /本机导入 · 待本人核对/,
+assert.match(taskWorkspaceForComposerGate, /仅显示已读取的任务，不推断平台状态/);
+assert.match(settingsRoutes, /lessons\.filter \{ it\.weekday == day && week in it\.weeks \}/, '首页只匹配本机导入课表星期');
+assert.match(readContracts,
+  /本机导入（待本人核对）/,
   '课表来源与未核验教学周必须在课表页保留提示，首页无需反复显示');
 assert.doesNotMatch(workspace, /WebView|HttpURLConnection|CookieManager/);
 assert.doesNotMatch(workspace, /VerifiedLesson\(/);
-assert.match(main, /ProfileSettingsPage\(/, '我的页面应接入唯一原生设置路由');
+assert.match(settingsRoutes, /SettingsScreen\(data, actions\)/, '我的页面应接入唯一原生设置路由');
 assert.match(settingsRoutes, /AppRoute\.CONNECTIONS -> ConnectionsFeature\(data, actions\)/,
   '已有真实授权面板应仅被复用于数据连接二级页');
 // 消息页由 MessageCenterPanel 承担：公开公告 + 微信待审核计数，两个旧面板已并入。
-assert.match(main, /MessageCenterPanel\(cloud, openWebsite, openArticle,/);
+assert.match(settingsRoutes, /AppRoute\.MESSAGES -> MessageCenterFeature\(data, actions\)/);
 assert.match(panels, /PasswordVisualTransformation/);
-assert.match(panels, /fun ConnectionsPanel\(/);
-assert.equal((panels.match(/\bLocalSchoolConnectionPanel\s*\(/g) || []).length, 1,
-  'Native school connection content must not be duplicated for different screen widths');
-assert.equal((panels.match(/\bCloudAuthorizationSection\s*\(/g) || []).length, 2,
-  'Cloud authorization must have exactly one definition and one responsive invocation');
-assert.match(panels, /val localConnections: @Composable \(\) -> Unit = \{/,
-  'Responsive native connection content must be shared');
-assert.match(panels, /val cloudConnections: @Composable \(\) -> Unit = \{/,
-  'Responsive cloud authorization content must be shared');
-// The owner can begin each school's permitted local read without cloud login
-// or first navigating to Xiaoxu's website. Cloud authorization remains optional.
-assert.match(panels, /var cloudAdvanced by rememberSaveable \{ mutableStateOf\(false\) \}/);
-assert.ok(
-    panels.indexOf('LocalSchoolConnectionPanel(') <
-        panels.indexOf('if (cloudAdvanced)'),
-    '本机官方页面读取必须先于云端可选授权展示'
-);
-const nativeSchoolPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
-assert.match(nativeSchoolPanel, /连接学习通／刷新全部任务/);
-assert.match(nativeSchoolPanel, /在 App 中导入青果课表/);
-assert.match(nativeSchoolPanel, /连接第二课堂／刷新积分/);
+assert.match(panels, /internal fun ConnectionsFeature\(/);
+assert.match(panels, /internal fun AccountFeature\(/);
+assert.equal((panels.match(/header = "本机学校读取"/g) || []).length, 1);
+assert.equal((panels.match(/header = "云端学校授权"/g) || []).length, 1);
+assert.ok(panels.indexOf('header = "本机学校读取"') < panels.indexOf('header = "云端学校授权"'),
+  '本机官方页面读取必须先于云端可选授权展示');
+const nativeSchoolPanel = panels;
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("chaoxing"\)/);
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("ncwu"\)/);
+assert.match(nativeSchoolPanel, /actions\.connectLocal\("second_class"\)/);
+assert.match(panels, /val verified = cloud\.authenticated && cloud\.connectionsFresh/);
+assert.match(panels, /if \(verified && linked\?\.sessionState == "active"\)/);
 assert.doesNotMatch(main, /var selectedTool by rememberSaveable|private fun ConnectionsPage\(/,
   '旧版工具弹窗和混合式连接入口应彻底退役');
 assert.match(settingsIndex, /actions\.navigate\(AppRoute\.CONNECTIONS\)/,
@@ -352,26 +345,26 @@ assert.match(settingsRoutes, /AppRoute\.LICENSES -> LazyColumn \{ item \{ OpenSo
 assert.doesNotMatch(settingsIndex, /第二课堂记录|selectedTool/,
   '第二课堂记录属于业务页，不回流设置首页');
 
-assert.match(panels, /openLocalSchool\(id\)/);
-assert.match(panels, /LocalSchoolConnectionPanel/);
-assert.match(panels, /成绩读取待接入/,
+assert.match(panels, /actions\.connectLocal\("ncwu"\)/);
+assert.match(panels, /fun ConnectionsFeature\(/);
+assert.match(rebuildShell, /readGrades = \{ cloud\.loadGrades\(\) \}/,
   '青果连接保留，旧课表同步不得冒充成绩读取');
 assert.doesNotMatch(panels, /"ncwu" -> "本机打开青果官方课表"/);
-assert.match(panels, /本机打开第二课堂官网/);
-assert.match(panels, /本机官网读取仅保存当前可见记录/);
+assert.match(panels, /actions\.connectLocal\("second_class"\)/);
+assert.match(panels, /只保存学校本人可见记录/);
 assert.match(cloud, /val tasksFresh: Boolean = false/);
 assert.match(cloud, /state = state\.copy\(tasksFresh = false, connectionsFresh = false,/);
 assert.match(cloud, /tasksFresh = tasks != null/);
 assert.match(cloud, /tasksFresh = false, connectionsFresh = false,/);
-assert.match(workspace, /!state\.tasksFresh && state\.tasks\.isNotEmpty\(\)/,
+assert.match(taskWorkspaceForComposerGate, /data\.cloud\.authenticated && !data\.cloud\.tasksFresh/,
   '云端任务快照新鲜度必须由统一任务中心说明');
-assert.match(workspace, /含上次云端快照/,
-  '旧快照提醒不可因删除嵌套列表而消失');
-assert.match(panels, /openLocalSchool: \(String\) -> Unit/);
-assert.match(panels, /connectionStatusLabel\(platform\)/);
-assert.match(panels, /client\.syncAuthorizedSchool\(id\)/);
-assert.match(panels, /"ncwu" to "青果教务"/);
-assert.match(panels, /"second_class" to "第二课堂"/);
+assert.match(taskWorkspaceForComposerGate, /data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}\.orEmpty\(\)/,
+  '新版明确提示未核验，并且隐藏未通过当前账户验证的云端任务');
+assert.match(settingsRoutes, /val connectLocal: \(String\) -> Unit/);
+assert.match(panels, /connectionStatusLabel\(record\)/);
+assert.match(rebuildShell, /cloud\.syncAuthorizedSchool\(provider\)/);
+assert.match(panels, /actions\.authorize\("ncwu"\)/);
+assert.match(panels, /actions\.authorize\("second_class"\)/);
 assert.match(panels, /学校授权/);
 assert.match(cloud, /suspend fun syncAuthorizedSchool\(provider: String\): Boolean/);
 assert.match(cloud, /provider != "second_class"/,
@@ -403,8 +396,8 @@ assert.doesNotMatch(cloud, /state\.scheduleStatus/);
 assert.match(cloud, /state\.secondClassFresh &&/);
 assert.match(cloud, /state\.secondClass\?\.provenance == "trusted_readonly"/);
 assert.doesNotMatch(cloud, /val verified = state\.privateError == null/);
-assert.match(panels, /本次无法核验连接状态/);
-assert.match(panels, /val canRead = state\.authenticated && state\.connectionsFresh/);
+assert.match(panels, /云端状态尚未核验/);
+assert.match(panels, /val verified = cloud\.authenticated && cloud\.connectionsFresh/);
 assert.match(cloud, /clearAccountSnapshots/);
 assert.doesNotMatch(panels, /schoolPassword|CookieManager|WebView|READ_SMS/);
 
