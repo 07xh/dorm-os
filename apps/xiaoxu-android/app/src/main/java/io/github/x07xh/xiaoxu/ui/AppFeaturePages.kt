@@ -91,10 +91,7 @@ internal fun AppFeaturePage(
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
                 CampusRunFeature(data.campusRunScope)
             }
-            AppRoute.STUDY_PROGRESS -> {
-                SystemEmptyState("尚未接入课程进度", "目前没有已核验的课程进度数据。任务完成状态不等于课程学习进度。")
-                TextButton(onClick = { actions.navigate(AppRoute.CONNECTIONS) }) { Text("数据连接") }
-            }
+            AppRoute.STUDY_PROGRESS -> StudyProgressFeature(data, actions)
             AppRoute.SECOND_CLASS -> SecondClassContent(data.nativeRecords, modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
             AppRoute.PROFILE -> Unit
@@ -186,10 +183,33 @@ private fun HomeSchedule(data: AppWorkspaceState, actions: AppPageActions) {
 
 @Composable
 private fun HomeTasks(data: AppWorkspaceState, actions: AppPageActions) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
+    val archivedKeys = archiveStore.archivedKeys
     AppSnapshotContent(data.localTasks) { tasks ->
-        InsetGroupedSection(header = "本机任务") {
-            SystemStatStrip(items = listOf("待办" to tasks.count { !it.completed }.toString(),
-                "已完成" to tasks.count { it.completed }.toString()))
+        val native = (data.nativeRecords as? PageSnapshot.Ready)?.value
+        val cloud = data.cloud.tasks.takeIf { data.cloud.authenticated && data.cloud.tasksFresh }.orEmpty()
+        val all = remember(tasks, cloud, native, archivedKeys) {
+            visibleWorkspaceTasks(combineWorkspaceTasks(tasks, cloud, native.orEmpty()), archivedKeys)
+        }
+        val today = LocalDate.now(ZoneId.of("Asia/Shanghai"))
+        val priorities = remember(all, today) {
+            all.filter { isTodayPriorityWorkspaceTask(it, today) }.sortedBy { it.date }.take(3)
+        }
+        InsetGroupedSection(header = "任务总览") {
+            SystemStatStrip(items = listOf("待办" to all.count(::isActionableWorkspaceTask).toString(),
+                "待核验" to all.count(::requiresChaoxingVerification).toString(),
+                "已完成" to all.count(::considerCompleteInTaskList).toString()))
+            if (native == null || (data.cloud.authenticated && !data.cloud.tasksFresh))
+                AppNotice("部分任务来源尚未读取或核验，统计仅包含已读取记录。")
+            priorities.forEach { task ->
+                InsetGroupedRow(title = task.title,
+                    subtitle = listOfNotNull(task.origin, task.date?.toString()).joinToString(" · "),
+                    onClick = {
+                        val id = task.key.takeIf { task.storage == "local" }?.removePrefix("local:")?.toLongOrNull()
+                        if (id != null) actions.openLocalTask(id) else actions.navigate(AppRoute.TASKS)
+                    })
+            }
             AppGroupedEntry("查看任务", showDivider = false, onClick = { actions.navigate(AppRoute.TASKS) })
         }
     }
