@@ -17,6 +17,7 @@ internal enum class AppRoute(val primary: MainDestination, val title: String) {
     EXAMS(MainDestination.ACADEMIC, "考试"),
     SECOND_CLASS(MainDestination.ACADEMIC, "第二课堂"),
     STUDY_PROGRESS(MainDestination.ACADEMIC, "学习进度"),
+    CAMPUS_RUN(MainDestination.ACADEMIC, "校园跑记录"),
     CONNECTIONS(MainDestination.PROFILE, "数据连接"),
     ACCOUNT(MainDestination.PROFILE, "云端账户"),
     ABOUT(MainDestination.PROFILE, "关于校序"),
@@ -28,7 +29,7 @@ internal enum class AppRoute(val primary: MainDestination, val title: String) {
     val parent: AppRoute? get() = when (this) {
         MESSAGES -> HOME
         SCHEDULE_SETTINGS -> SCHEDULE
-        GRADES, EXAMS, SECOND_CLASS, STUDY_PROGRESS -> ACADEMIC
+        GRADES, EXAMS, SECOND_CLASS, STUDY_PROGRESS, CAMPUS_RUN -> ACADEMIC
         CONNECTIONS, ACCOUNT, ABOUT, SECOND_CLASS_SETTINGS, REMINDER_SETTINGS, TASK_BACKUP, LICENSES -> PROFILE
         else -> null
     }
