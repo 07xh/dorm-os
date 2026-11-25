@@ -4,7 +4,7 @@
 import {authorize,json} from './assignments.js';
 import {availableSchoolAdapter,readConnectedChaoxing} from '../../../lib/academic-school-login.mjs';
 const NUM=/^\d{1,24}$/;
-const MODES=new Set(['courses','list','detail']);
+const MODES=new Set(['courses','list','detail','progress']);
 export async function onRequestGet(context){
  const auth=await authorize(context);
  if(auth.response)return auth.response;
@@ -26,6 +26,7 @@ export async function onRequestGet(context){
     secret:context.env?.SCHOOL_SESSION_KEY,reader:async source=>
       mode==='courses'?{courses:await source.readCourses()}:
       mode==='list'?await source.readHomeworkList(params):
+      mode==='progress'?await source.readCourseProgress(params):
       await source.readHomeworkDetail(params)});
   // Signed links, cookies and source HTML cannot be selected by query or emitted.
   return json({schema:'xiaoxu/chaoxing-work-browser-v1',view:mode,live:true,data});
@@ -41,7 +42,7 @@ export async function onRequestGet(context){
    return safeError('session_expired',409);
   if(code==='interactive_login_required')return safeError(code,409);
   if(code==='not_found')return safeError('not_found',404);
-  if(code==='work_not_available'||code==='courses_unverified'||
+  if(code==='progress_unverified'||code==='work_not_available'||code==='courses_unverified'||
      code==='work_list_incomplete'||code==='invalid_response')
    return safeError(code,422);
   if(code==='not_configured'||code==='database_unavailable')
