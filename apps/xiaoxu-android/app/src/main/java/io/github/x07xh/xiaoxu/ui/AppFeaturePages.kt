@@ -65,7 +65,8 @@ internal fun AppFeaturePage(
         }
         return
     }
-    AppPageFrame(title = route.title, onBack = back) {
+    AppPageFrame(title = route.title, onBack = back,
+        wideContent = route == AppRoute.HOME || route == AppRoute.TASKS || route == AppRoute.MESSAGES) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.MESSAGES -> MessageCenterFeature(data, actions)
