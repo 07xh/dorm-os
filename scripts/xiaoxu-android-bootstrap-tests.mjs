@@ -817,26 +817,21 @@ const metadataOnly = catalogObserver
   .replace("getResponseHeader('content-type')", "");
 assert.doesNotMatch(metadataOnly, /document\.cookie|localStorage|sessionStorage|response\.text\(|response\.json\(|headers\.get\(|getResponseHeader\(|XMLHttpRequest\.prototype\.send\s*=/);
 
-const localSchoolUi = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalSchoolPanels.kt');
+const localSchoolUi = panels;
 assert.match(manifest, /android:name="\.NativeSchoolConnectActivity"[\s\S]*?android:exported="false"/);
 assert.match(main, /NativeSchoolConnectActivity\.EXTRA_PROVIDER/);
 assert.match(main, /provider == "ncwu"/);
 assert.match(main, /LocalQingguoImportActivity::class\.java/);
-assert.match(main, /ProfileSettingsPage\([\s\S]*?startSchoolAuthorization = startSchoolAuthorization,/,
-  '我的页保留原学校授权回调，不另建授权系统');
-assert.match(main, /recentImport = localCaptureReturn,\s*localTasks = localTasks,\s*onMessages = \{ messagesOpen = true \}/,
-  '本人读取结果与消息入口仍要传给二级页');
+assert.match(rebuildShell, /authorize = startSchoolAuthorization, connectLocal = openLocalSchool/);
+assert.match(main, /nativeSchoolLauncher = registerForActivityResult/);
 assert.match(main, /ActivityResultContracts\.StartActivityForResult/);
 assert.match(main, /nativeSchoolLauncher\.launch\(/);
 assert.match(main, /result\.resultCode == Activity\.RESULT_OK/);
 assert.match(main, /LocalSchoolImportReceipt\(/);
 assert.match(main, /localCaptureReturn = lastLocalCapture/);
-assert.match(main, /if \(localCaptureReturn != null\) \{/);
-assert.match(main, /if \(localCaptureReturn\.provider == "chaoxing"\) MainDestination\.TASKS/);
-assert.match(main, /else \{ academic = AcademicDestination\.SECOND_CLASS; MainDestination\.ACADEMIC \}/);
-assert.match(panels, /startSchoolAuthorization: \(String\) -> Unit/);
-assert.match(panels, /startSchoolAuthorization\(id\)/);
-assert.match(main, /cloud\.completeSchoolReturn\(provider\)/);
+assert.match(rebuildShell, /LaunchedEffect\(localCaptureReturn\)/);
+assert.match(rebuildShell, /goTo\(if \(receipt\.provider == "chaoxing"\) AppRoute\.TASKS else AppRoute\.SECOND_CLASS\)/);
+assert.match(rebuildShell, /cloud\.completeSchoolReturn\(provider\)/);
 assert.match(manifest, /android:scheme="xiaoxu" android:host="\$\{schoolAuthHost\}"/);
 assert.match(appGradle, /schoolAuthHost: 'school-auth-return'/,
   'The normal application must retain its existing authorization return URI');
@@ -865,105 +860,43 @@ assert.match(read('public/index.html'), /xiaoxu-android-return\.js/);
 assert.match(appReturn, /sessionStorage\.removeItem\(KEY\)/);
 assert.match(appReturn, /xiaoxu:\/\/school-auth-return/);
 assert.doesNotMatch(appReturn, /document\.cookie|schoolPassword|CAS_TICKET/);
-assert.match(localSchoolUi, /LocalSchoolConnectionPanel\(/);
-assert.match(localSchoolUi, /课表在课表页查看/,
-  '青果本机课表入口保持可达，不重复堆技术说明');
-assert.match(localSchoolUi, /XiaoxuExpandableGlassRow\(/,
-  '三个本机平台入口须共用玻璃展开组件');
-assert.match(localSchoolUi, /mutableStateOf\(justImported != null\)/,
-  '读取成功自动显示真实本机回执');
-assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevation = 1\.dp\)/,
-  '删除本机连接中的旧 Material 灰色卡片阴影');
-assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
-assert.match(main, /localLessons = localLessons,/);
-assert.match(workspace, /val sameWeekday = localLessons\.filter/,
-  '主页必须只展示已导入的本机课表，不可回退云端');
-assert.match(workspace, /val nativeRows by nativeDao\.observe\(\)\.collectAsState\(initial = emptyList\(\)\)/);
-assert.match(workspace, /it\.provider == "chaoxing" && it\.kind == "homework"/);
-assert.match(workspace, /HomeQuickAction\("第二课堂"/, '第二课堂由真实学业入口打开');
-assert.match(workspace, /学习通 · 本机读取/);
-// Only source-ID-verified official records may affect task completion.
-assert.match(workspace, /nativeChaoxingWorkSourceId\(record\)/);
-assert.match(workspace, /localEvidence\.filterKeys \{ it !in represented \}/);
-assert.match(workspace, /通知、学习计划和课程作业共用本机读取结果/);
-
-// Issue #261：任务中心分行分区 + 来源徽标（纯 UI 增量）。
-assert.match(workspace, /private fun TaskSectionHeader\(/, '任务列表须有分区标题');
-// 任务中心新版必须直接改真实 Compose 页面，不引入假数据与第二套消息审核。
-assert.match(workspace, /internal fun searchWorkspaceTasks\(/, '应支持对真实本机与云端记录搜索');
-assert.match(workspace, /val shown = remember\(all, filter, searchQuery, sourceFilter, onlyThisWeek,[\s\S]*?today, localTasks, dependencies, taskSteps, state\.ownerId, schoolBinding\)[\s\S]*?facetWorkspaceTasks\(/,
-  '任务中心按真实任务与当前筛选条件计算可见记录');
-assert.match(workspace, /searchExecutionRoots\(searchWorkspaceTasks\(all, filter, "", today\)/, '任务仍使用真实搜索结果');
-assert.match(workspace, /"pending", "now" -> isActionableWorkspaceTask\(task\)/,
-  '待完成不能包含学习通未知或未关联的旧通知');
-assert.match(workspace, /"verify" -> requiresChaoxingVerification\(task\)/,
-  '历史未知学校状态必须保留人工核对筛选');
-assert.match(workspace, /label = "待完成", count = all\.count\(::isActionableWorkspaceTask\)/,
-  '任务中心待完成数量须与可执行待办一致');
-assert.match(workspace, /val pending = all\.count\(::isActionableWorkspaceTask\)/,
-  '首页待完成数量不得包含未核对旧通知');
-assert.match(workspace, /filter = "verify"/,
-  '学习通待核对必须可以单独选择，不依赖其它分组');
-assert.match(workspace, /if \(showSchoolRecords\) \{/,
-  '本机学习通快照应可收纳，避免默认铺满任务页');
-assert.ok(workspace.indexOf('title = "其他云端待办"') <
-    workspace.indexOf('title = "微信任务"') &&
-    workspace.indexOf('title = "微信任务"') <
-    workspace.indexOf('title = "本机任务"'),
-  '任务按课程、审核通过微信、本机三个来源独立排序');
-assert.doesNotMatch(workspace, /WechatReviewPanel\(/,
-  '任务中心不能重复承载群消息候选审核；必须归属消息中心');
-assert.match(messageCenter, /WechatReviewPanel\(/,
-  '消息中心继续保留原生微信候选审核');
-assert.doesNotMatch(workspace, /PosterDemo/, '真实任务中心不可嵌入海报版演示');
-
-assert.match(workspace, /private fun TaskRow\(/, '任务行须是独立展示组件');
-assert.match(workspace, /private fun SnapshotRow\(/, '学习通快照行须是独立展示组件');
-assert.match(workspace, /title = "本机任务"/, '本机待办须有独立分区');
-assert.match(workspace, /title = "其他云端待办"/, '云端课程任务须有独立分区');
-assert.match(workspace, /title = "微信任务"/, '已审核微信任务须有独立分区');
-assert.match(workspace, /本机读取记录/, '快照须标注来源徽标');
-assert.match(workspace, /含上次云端快照/,
-  '上次云端任务必须明确标注快照，不可冒充新读取');
-assert.match(workspace, /DueUi\("日期未记录", "云端任务没有已核实的截止日期"/,
-  '云端无截止来源时只显示日期未记录，不虚构学校核验结果');
-assert.match(workspace, /截止未记录/, '本机缺日期须显示未记录');
-assert.match(workspace, /if \(task.storage == "cloud"\) \{\s*return DueUi\("记录 \$text",/,
-  '未经来源核实的云端日期只能称记录日期，不得直接标为学校逾期作业');
-assert.match(workspace, /!task.done && date.isBefore\(today\)/,
-  '本人填写的实际逾期任务仍须保留过期提醒');
-assert.doesNotMatch(workspace, /visible\.take\(|visible\.size > 80/, '任务中心使用懒列表展示全部筛选结果，不得静默截断任务');
-assert.match(workspace, /heightIn\(min = 64\.dp\)/, '任务行触控区域须 ≥48dp');
-assert.match(workspace, /contentDescription = task\.title \+ "；来源："/,
-  '任务行须有完整读屏描述');
-assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '任务中心不得打印日志');
-assert.match(workspace, /采集时间/);
-assert.match(schedulePanel, /本机导入 · 待本人核对/);
-assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativeRows/);
-assert.match(panels, /LocalSchoolConnectionPanel\(/);
-assert.ok(panels.indexOf('LocalSchoolConnectionPanel(') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
-assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
-assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
-assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
-assert.match(localSchoolUi, /已从本机数据库重新读取/);
-
-assert.match(localSchoolUi, /fun LocalSchoolRecordSection\(/,
-  '本机历史读取仍有独立只读组件，不丢真实记录');
-assert.match(localSchoolUi, /title = "手机本机读取"/,
-  '本机保存记录列表使用原生展开标题');
-assert.match(localSchoolUi, /subtitle = "已保存 \$\{rows\.size\} 条本机记录"/,
-  '历史记录折叠态仍显示真实数量');
-assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/,
-  '本机读取不得混入旧 Material 实心卡片体系');
-assert.match(localSchoolUi, /查看本机全部/);
-assert.match(localSchoolUi, /val prioritized = if \(justImported == null\) list else/);
-assert.match(localSchoolUi, /item\.capturedAt/);
-assert.match(localSchoolUi, /不代表当前官网状态/);
+assert.match(localSchoolUi, /header = "本机学校读取"/);
+assert.match(localSchoolUi, /actions\.connectLocal\("ncwu"\)/);
+assert.match(localSchoolUi, /actions\.connectLocal\("chaoxing"\)/);
+assert.match(localSchoolUi, /actions\.connectLocal\("second_class"\)/);
+assert.match(localSchoolUi, /localRows\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
+assert.match(localSchoolUi, /stored\.maxOfOrNull \{ it\.capturedAt \}/);
+assert.match(localSchoolUi, /已保存 \$\{stored\.size\} 条/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看本机课表", onClick = \{ actions\.navigate\(AppRoute\.SCHEDULE\) \}\)/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看作业与任务", onClick = \{ actions\.navigate\(AppRoute\.TASKS\) \}\)/);
+assert.match(localSchoolUi, /AppGroupedEntry\("查看课程进度", onClick = \{ actions\.navigate\(AppRoute\.STUDY_PROGRESS\) \}\)/);
+assert.match(localSchoolUi, /actions\.navigate\(AppRoute\.SECOND_CLASS\)/);
+assert.match(rebuildShell, /data class LocalSchoolImportReceipt\(/);
+assert.match(appWorkspace, /rememberSnapshotRows\(nativeDao\) \{ nativeDao\.observe\(\) \}/);
+assert.match(settingsRoutes, /lessons\.filter \{ it\.weekday == day && week in it\.weeks \}/);
+assert.match(settingsRoutes, /all\.count\(::isActionableWorkspaceTask\)/);
+assert.match(settingsRoutes, /all\.count\(::requiresChaoxingVerification\)/);
+assert.match(workspaceLogic, /nativeChaoxingWorkSourceId\(record\)/);
+assert.match(workspaceLogic, /localEvidence\.filterKeys \{ it !in represented \}/);
+assert.match(workspaceLogic, /internal fun searchWorkspaceTasks\(/);
+assert.match(workspaceLogic, /"pending", "now" -> isActionableWorkspaceTask\(task\)/);
+assert.match(workspaceLogic, /"verify" -> requiresChaoxingVerification\(task\)/);
+assert.match(taskWorkspaceForComposerGate, /val visible = remember\(combined, filter, query, sourceFilter, onlyThisWeek, today\)/);
+assert.match(taskWorkspaceForComposerGate, /combined\.count\(::isActionableWorkspaceTask\)/);
+assert.match(taskWorkspaceForComposerGate, /"verify" to "待核验"/);
+assert.match(taskWorkspaceForComposerGate, /items\(visible, key = \{ it\.key \}\)/);
+assert.match(taskWorkspaceForComposerGate, /val cloud = data\.cloud\.tasks\.takeIf \{ data\.cloud\.authenticated && data\.cloud\.tasksFresh \}\.orEmpty\(\)/);
+assert.match(taskWorkspaceForComposerGate, /云端任务尚未核验最新状态/);
+assert.match(taskWorkspaceForComposerGate, /showDivider = false, onClick = \{ detailKey = task\.key \}/);
+assert.doesNotMatch(taskWorkspaceForComposerGate, /WechatCandidateReview\(|PosterDemo|visible\.take\(|visible\.size > 80/);
+assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/);
+assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/);
+assert.match(readContracts, /本机导入（待本人核对）/);
 assert.match(localNative, /EXTRA_RETURN_KIND/);
 assert.match(localNative, /EXTRA_SAVED_COUNT/);
 assert.match(localNative, /setResult\(Activity\.RESULT_OK, Intent\(\)/);
 assert.match(main, /if \(permitted && count in 1\.\.5000\)/);
-assert.match(workspace, /items\(count = minOf\(capturedHomework\.size, 5000\)/);
+assert.match(taskWorkspaceForComposerGate, /items\(visible, key = \{ it\.key \}\)/);
 assert.doesNotMatch(main + localSchoolUi, /ownerCookie|schoolPassword|CAS_TICKET/);
 for (const host of ['i.chaoxing.com','dekt.ncwu.edu.cn']) assert.ok(localNative.includes(host));
 assert.doesNotMatch(localNative, /"ncwu" to "https:/);
@@ -1012,7 +945,7 @@ assert.match(main, /if \(provider == "ncwu"\) \{\s*startActivity\(Intent\(this@M
   '本机青果入口仍通过数据连接中心的官方来源选择器可达');
 assert.doesNotMatch(main, /\bopenLocalImport\b|\bSchedulePage\(/,
   '旧课表转发回调与空代理页面不应继续存在');
-assert.match(main, /MainDestination\.SCHEDULE -> CloudTimetablePanel\(/,
+assert.match(settingsRoutes, /ScheduleFeature\(data, actions,/,
   '课表路由应直接渲染本机课表');
 // Timetable persistence must not parse on the cold-start UI thread.
 const startup = main.slice(main.indexOf('override fun onCreate'), main.indexOf('private fun importTimetableFile'));
@@ -1025,8 +958,8 @@ assert.match(main, /if \(LocalCourseReminders\.enabled\(applicationContext\)\)/,
   '提醒维护必须默认跳过未启用的用户');
 assert.match(cloud, /coroutineScope\s*\{\s*launch\s*\{\s*refreshNotices\(\)\s*\}\s*launch\s*\{\s*refreshPrivate\(\)/);
 assert.match(cloud, /withContext\(Dispatchers\.IO\) \{ session\.load\(\) \}/);
-assert.match(schedulePanel, /本机导入/);
-assert.match(schedulePanel, /待本人核对/);
+assert.match(readContracts, /本机导入/);
+assert.match(readContracts, /待本人核对/);
 assert.match(importer, /https:\/\/jwmis\.ncwu\.edu\.cn\//);
 assert.match(importer, /uri\.scheme == "https"/);
 assert.match(importer, /setAcceptThirdPartyCookies\(this, false\)/);
