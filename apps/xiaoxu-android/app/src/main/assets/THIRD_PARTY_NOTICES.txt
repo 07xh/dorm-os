@@ -149,3 +149,12 @@ Material icons, existing ModalBottomSheet, Xiaoxu LocalCourseReminders and
 LocalSemesterConfigStore. Full upstream glass dialog host, custom course
 editing and study-slot planner were not imported. Day/week selection uses
 existing view-mode preference; no new store or school client.
+
+------------------------------------------------------------------
+2026-11-25 upstream schedule settings layout reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported basic date and period
+count rows and period time list layout from ScheduleSettingsScreen.kt.
+Adapted to Xiaoxu's existing page route, calendar validation and storage;
+Material input dialogs replace the not-yet-ported glass wheel pickers.
+No new storage, account manager, or automatic school synchronization.

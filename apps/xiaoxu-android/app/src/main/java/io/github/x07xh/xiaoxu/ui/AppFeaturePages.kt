@@ -24,7 +24,8 @@ internal class AppPageActions(
     val openWebsite: () -> Unit,
     val refreshCloud: suspend () -> Unit,
     val updateLocalTask: suspend (Long, Boolean) -> Boolean,
-    val openArticle: (String) -> Unit
+    val openArticle: (String) -> Unit,
+    val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean
 )
 
 @Composable
@@ -37,6 +38,7 @@ internal fun AppFeaturePage(
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.SCHEDULE -> ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
+            AppRoute.SCHEDULE_SETTINGS -> ScheduleSettingsFeature(data, actions)
             AppRoute.ACADEMIC -> {
                 InsetGroupedSection {
                     AppGroupedEntry("成绩", onClick = { actions.navigate(AppRoute.GRADES) })

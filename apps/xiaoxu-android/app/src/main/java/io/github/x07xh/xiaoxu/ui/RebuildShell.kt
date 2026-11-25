@@ -19,6 +19,9 @@ import androidx.lifecycle.Lifecycle
 import io.github.x07xh.xiaoxu.*
 import io.github.x07xh.xiaoxu.data.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
 
 data class LocalSchoolImportReceipt(val provider: String, val kind: String, val savedCount: Int, val serial: Long)
 
@@ -56,13 +59,24 @@ internal fun NativeShell(
 ) {
     var route by rememberSaveable { mutableStateOf(AppRoute.HOME) }
     val pageState = rememberSaveableStateHolder()
-    val data = rememberAppWorkspace(dao, cloud, localLessons, localScheduleRevision,
+    val context = LocalContext.current.applicationContext
+    var settingsRevision by remember { mutableIntStateOf(0) }
+    val data = rememberAppWorkspace(dao, cloud, localLessons, localScheduleRevision, settingsRevision,
         appLifecycle, returnedSchool, consumeWebsiteReturn)
     val actions = AppPageActions(
         navigate = { route = it }, importTimetable = openFileImport, exportTimetable = openFileExport,
         authorize = startSchoolAuthorization, connectLocal = openLocalSchool, openWebsite = openWebsite,
         refreshCloud = { cloud.refresh() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
-        openArticle = openArticle
+        openArticle = openArticle,
+        saveScheduleSettings = { calendar, sections ->
+            require(sections in 1..24)
+            LocalSemesterConfigStore.save(context, calendar)
+            LocalSemesterConfigStore.saveSections(context, sections)
+            settingsRevision++
+            withContext(Dispatchers.IO) {
+                LocalCourseReminders.reconcileAfterSave(context, LocalScheduleStore.load(context), calendar)
+            }
+        }
     )
     var consumedTaskEvent by rememberSaveable { mutableIntStateOf(0) }
     var consumedScheduleEvent by rememberSaveable { mutableIntStateOf(0) }

@@ -43,6 +43,7 @@ internal fun ColumnScope.ScheduleFeature(
     Row {
         TextButton(onClick = actions.importTimetable) { Text("导入") }
         TextButton(onClick = actions.exportTimetable) { Text("导出") }
+        TextButton(onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) }) { Text("设置") }
         Spacer(Modifier.weight(1f))
         FilterChip(selected = viewMode == "day", onClick = { selectView("day") }, label = { Text("日") })
         Spacer(Modifier.width(6.dp))

@@ -19,7 +19,8 @@ internal class AppWorkspaceState(
     val nativeRecords: PageSnapshot<List<NativeSchoolRecord>>,
     val cloud: CloudUiState,
     val semesterCalendar: SemesterCalendar?,
-    val timetableSections: Int
+    val timetableSections: Int,
+    val timetableSettingsLoaded: Boolean
 )
 
 @Composable
@@ -31,18 +32,18 @@ internal fun <T> rememberSnapshotRows(owner: Any, query: () -> Flow<List<T>>): S
 @Composable
 internal fun rememberAppWorkspace(
     dao: LocalTaskDao, cloud: CloudClient,
-    lessons: List<VerifiedLesson>, scheduleRevision: Int,
+    lessons: List<VerifiedLesson>, scheduleRevision: Int, settingsRevision: Int,
     lifecycle: Lifecycle, returnedSchool: String?, consumeWebsiteReturn: () -> Boolean
 ): AppWorkspaceState {
     val context = LocalContext.current.applicationContext
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val tasks by rememberSnapshotRows(dao) { dao.observe() }
     val records by rememberSnapshotRows(nativeDao) { nativeDao.observe() }
-    val semester by produceState<SemesterCalendar?>(initialValue = null, key1 = context, key2 = scheduleRevision) {
-        value = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
-    }
-    val sections by produceState(initialValue = 12, key1 = context, key2 = scheduleRevision) {
-        value = withContext(Dispatchers.IO) { LocalSemesterConfigStore.loadSections(context) }
+    val settings by produceState<Pair<SemesterCalendar?, Int>?>(initialValue = null,
+        key1 = context, key2 = scheduleRevision, key3 = settingsRevision) {
+        value = withContext(Dispatchers.IO) {
+            LocalSemesterConfigStore.load(context) to LocalSemesterConfigStore.loadSections(context)
+        }
     }
     val scope = rememberCoroutineScope()
     val currentReturn by rememberUpdatedState(returnedSchool)
@@ -72,7 +73,8 @@ internal fun rememberAppWorkspace(
         lessons = pageSnapshot(lessons.takeIf { scheduleRevision > 0 || it.isNotEmpty() }),
         nativeRecords = pageSnapshot(records),
         cloud = cloud.state,
-        semesterCalendar = semester,
-        timetableSections = sections
+        semesterCalendar = settings?.first,
+        timetableSections = settings?.second ?: 12,
+        timetableSettingsLoaded = settings != null
     )
 }
