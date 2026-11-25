@@ -56,11 +56,20 @@ internal fun AppFeaturePage(
         SettingsScreen(data, actions)
         return
     }
+    if (route == AppRoute.SCHEDULE) {
+        GlassPageScaffold(title = route.title, topBar = {}) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.item)) {
+                ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
+            }
+        }
+        return
+    }
     AppPageFrame(title = route.title, onBack = back) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.MESSAGES -> MessageCenterFeature(data, actions)
-            AppRoute.SCHEDULE -> ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
+            AppRoute.SCHEDULE -> Unit
             AppRoute.SCHEDULE_SETTINGS -> ScheduleSettingsFeature(data, actions)
             AppRoute.ACADEMIC -> {
                 AcademicHubFeature(actions)
