@@ -986,19 +986,29 @@ class CloudClient(context: Context) {
         }
     }
 
-    suspend fun addCloudTask(title: String): Boolean {
-        if (!state.authenticated || title.isBlank() || title.trim().length > 120) return false
+    suspend fun addCloudTask(title: String, expectedOwnerId: String = state.ownerId.orEmpty()): Boolean {
+        if (!state.authenticated || expectedOwnerId.isBlank() || state.ownerId != expectedOwnerId ||
+            title.isBlank() || title.trim().length > 120) return false
+        val epoch = sessionEpoch
+        val boundToken = withContext(Dispatchers.IO) { session.load() } ?: return false
+        if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) return false
         return try {
             val body = JSONObject().put("title", title.trim())
                 .put("localStatus", "todo").put("deadline", JSONObject().put("precision", "unknown"))
             val r = withContext(Dispatchers.IO) {
-                request("/api/v1/assignments", "POST", body, authenticated = true)
-            }
+                if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) null
+                else request("/api/v1/assignments", "POST", body, authenticated = true,
+                    boundSessionToken = boundToken)
+            } ?: return false
+            if (epoch != sessionEpoch || state.ownerId != expectedOwnerId) return false
             if (r.code != 201) throw IllegalStateException()
             refreshPrivate()
-            true
+            epoch == sessionEpoch && state.ownerId == expectedOwnerId
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
-            state = state.copy(privateError = "新增云端任务失败；没有写入本地")
+            if (epoch == sessionEpoch && state.ownerId == expectedOwnerId)
+                state = state.copy(privateError = "新增云端任务未确认；请刷新核对，不要重复提交")
             false
         }
     }
