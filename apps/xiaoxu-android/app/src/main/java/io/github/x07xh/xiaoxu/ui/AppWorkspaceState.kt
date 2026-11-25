@@ -19,6 +19,7 @@ internal class AppWorkspaceState(
     val lessons: PageSnapshot<List<VerifiedLesson>>,
     val nativeRecords: PageSnapshot<List<NativeSchoolRecord>>,
     val cloud: CloudUiState,
+    val campusRunScope: String?,
     val semesterCalendar: SemesterCalendar?,
     val timetableSections: Int,
     val timetableSettingsLoaded: Boolean
@@ -76,6 +77,8 @@ internal fun rememberAppWorkspace(
         lessons = pageSnapshot(lessons.takeIf { scheduleRevision > 0 || it.isNotEmpty() }),
         nativeRecords = pageSnapshot(records),
         cloud = cloud.state,
+        campusRunScope = campusRunVisibleScope(authenticated = cloud.state.authenticated,
+            ownerSessionBinding = cloud.ownerSessionBinding()),
         semesterCalendar = settings?.first,
         timetableSections = settings?.second ?: 12,
         timetableSettingsLoaded = settings != null
