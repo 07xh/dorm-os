@@ -29,3 +29,6 @@ R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 N
 
 ## R9 周次滑动与日期动画
 直接移植上游 MotionTokens、MotionProfile（不引入无关全局导航依赖）、ScheduleDateText、ScheduleWeekLabel、ScheduleWeekPagerSync 及原测试。使用 HorizontalPager 绑定已有周课表，将稀疏导入周次映射到连续页索引；按钮、周次下拉、滑动共用状态，程序跳页不重复回写。修正 R8 文本测量列宽参数误传像素整数，恢复 Dp 参数。课程详情仍为现有 AlertDialog；日视图、完整液态日期栏、详情弹层待移植。未完成编译和设备验证，继续保留发布门禁。
+
+## R10 日课表与课程详情
+移植 ScheduleAgendaContent 的日课程卡片及空状态、CourseDetailContent 的信息区和信息卡、ScheduleGlass 的高光材质。日/周视图共享原有周分页、真实课程、学期配置及本机视图偏好；点击星期打开日视图。详情统一用现有 Material 底部面板承载移植内容，恢复原 LocalCourseReminders 单课程开关、通知授权和调度，不复制上游提醒数据库。真实节次时间缺失时明确显示未配置，不生成假时间。修复文本测量 Dp 与像素混算。完整上游光学弹层、日自习计划、课程编辑、课表设置仍待接入；未完成全量编译及真机验证。

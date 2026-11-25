@@ -1,6 +1,9 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
+import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.PagerDefaults
@@ -30,9 +33,20 @@ internal fun ColumnScope.ScheduleFeature(
     data: AppWorkspaceState, actions: AppPageActions,
     target: String?, consume: () -> Unit
 ) {
+    val context = LocalContext.current
+    var viewMode by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
+    var selectedDay by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value) }
+    fun selectView(mode: String) {
+        viewMode = mode
+        LocalSemesterConfigStore.saveViewMode(context, mode)
+    }
     Row {
         TextButton(onClick = actions.importTimetable) { Text("导入") }
         TextButton(onClick = actions.exportTimetable) { Text("导出") }
+        Spacer(Modifier.weight(1f))
+        FilterChip(selected = viewMode == "day", onClick = { selectView("day") }, label = { Text("日") })
+        Spacer(Modifier.width(6.dp))
+        FilterChip(selected = viewMode == "week", onClick = { selectView("week") }, label = { Text("周") })
     }
     AppSnapshotContent(data.lessons) { lessons ->
         if (lessons.isEmpty()) {
@@ -52,9 +66,28 @@ internal fun ColumnScope.ScheduleFeature(
                 if (lesson != null) {
                     requestedWeek = lesson.weeks.firstOrNull { it == todayWeek }
                         ?: lesson.weeks.firstOrNull() ?: 0
+                    selectedDay = lesson.weekday
                     selectedId = lesson.id
                     consume()
                 }
+            }
+            val scheme = MaterialTheme.colorScheme
+            val colors = listOf(scheme.primary, scheme.secondary, scheme.tertiary,
+                Color(0xFF477D96), Color(0xFF6D8060), Color(0xFF9C6882))
+            val allCourses = remember(lessons, colors) {
+                lessons.filter { it.weekday in 1..7 && it.startSection in 1..24 &&
+                    it.endSection in it.startSection..24 }.map { lesson ->
+                    ScheduleCourseUi(name = lesson.title, teacher = lesson.teacher,
+                        location = lesson.location, day = lesson.weekday,
+                        startPeriod = lesson.startSection, endPeriod = lesson.endSection,
+                        weeks = lesson.weeks.joinToString(","), id = lesson.id,
+                        color = colors[ScheduleIdentity.colorIndex(lesson.title, colors.size)])
+                }
+            }
+            val periodTimes = remember(calendar) {
+                calendar?.sectionTimes?.entries?.sortedBy { it.key }?.map { (period, time) ->
+                    PeriodTimeUi(period, time.start.toString(), time.end.toString())
+                }.orEmpty()
             }
             if (week == null) {
                 AppNotice("课程周次未确认，请检查原始导入记录。")
@@ -101,23 +134,16 @@ internal fun ColumnScope.ScheduleFeature(
                     TextButton(onClick = { requestedWeek = weeks[index + 1] }, enabled = index < weeks.lastIndex) { Text("下周") }
                 }
                 if (calendar == null) AppNotice("未配置学期起始日期；仅按已导入周次显示。")
-                val scheme = MaterialTheme.colorScheme
-                val colors = listOf(scheme.primary, scheme.secondary, scheme.tertiary,
-                    Color(0xFF477D96), Color(0xFF6D8060), Color(0xFF9C6882))
                 HorizontalPager(pager, modifier = Modifier.fillMaxWidth().weight(1f),
                     beyondViewportPageCount = 0, overscrollEffect = null,
                     flingBehavior = PagerDefaults.flingBehavior(pager, snapAnimationSpec = MotionSpecs.standard())) { page ->
                     val pageWeek = weeks[page]
                     Column(Modifier.fillMaxSize()) {
-                        val courses = remember(lessons, pageWeek, colors) {
-                            lessons.filter { pageWeek in it.weeks && it.weekday in 1..7 &&
-                                it.startSection in 1..24 && it.endSection in it.startSection..24 }.map { lesson ->
-                                ScheduleCourseUi(name = lesson.title, teacher = lesson.teacher,
-                                    location = lesson.location, day = lesson.weekday,
-                                    startPeriod = lesson.startSection, endPeriod = lesson.endSection,
-                                    weeks = lesson.weeks.joinToString(","), id = lesson.id,
-                                    color = colors[ScheduleIdentity.colorIndex(lesson.title, colors.size)])
-                            }
+                        val courses = remember(allCourses, pageWeek) {
+                            val weekCourses = allCourses.filter { isInWeek(it.weeks, pageWeek) }
+                            val conflictIds = scheduleOverlapGroups(weekCourses.map { it.record() })
+                                .filter { it.courses.size > 1 }.flatMap { it.courses }.map { it.id }.toSet()
+                            weekCourses.map { it.copy(hasConflict = it.id in conflictIds) }
                         }
                         val periods = maxOf(data.timetableSections, courses.maxOfOrNull { it.endPeriod } ?: 1)
                             .coerceIn(1, 24)
@@ -125,60 +151,76 @@ internal fun ColumnScope.ScheduleFeature(
                         val timeWidth = 36.dp
                         val scroll = rememberScrollState()
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Spacer(Modifier.width(timeWidth))
+                            if (viewMode == "week") Spacer(Modifier.width(timeWidth))
                             rowLabels.forEachIndexed { index, label ->
-                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(label, style = MaterialTheme.typography.labelMedium)
+                                Column(Modifier.weight(1f).clickable {
+                                    selectedDay = index + 1
+                                    selectView("day")
+                                }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    val dayColor = if (viewMode == "day" && selectedDay == index + 1)
+                                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    Text(label, style = MaterialTheme.typography.labelMedium, color = dayColor)
                                     calendar?.dateFor(pageWeek, index + 1)?.let { date ->
                                         ScheduleDateText("${date.monthValue}/${date.dayOfMonth}", date.toEpochDay(),
                                             "schedule-day-number-${index + 1}", MaterialTheme.typography.labelSmall,
-                                            MaterialTheme.colorScheme.onSurfaceVariant, fillColumn = true)
+                                            dayColor, fillColumn = true)
                                     }
                                 }
                             }
                         }
-                        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                            val width = (maxWidth - timeWidth).coerceAtLeast(1.dp)
-                            val rowHeight = rememberFullCoursePeriodHeight(courses, width / 7,
-                                rememberScreenMetrics().tall(84.dp, 68.dp))
-                            Row(Modifier.fillMaxSize().verticalScroll(scroll)) {
-                                Column(Modifier.width(timeWidth)) {
-                                    repeat(periods) { i ->
-                                        Box(Modifier.height(rowHeight).fillMaxWidth(),
-                                            contentAlignment = Alignment.TopCenter) {
-                                            Text((i + 1).toString(), style = MaterialTheme.typography.labelSmall,
-                                                modifier = Modifier.padding(top = 4.dp))
+                        if (viewMode == "day") {
+                            val daily = remember(courses, selectedDay) {
+                                courses.filter { it.day == selectedDay }.sortedWith(
+                                    compareBy<ScheduleCourseUi> { it.startPeriod }.thenBy { it.name })
+                            }
+                            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("当日 ${daily.size} 堂", style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (daily.isEmpty()) ScheduleNotice("当天没有已导入课程")
+                                daily.forEach { course ->
+                                    key(course.id) {
+                                        ScheduleDayCourse(course, periodTimes, compact = false,
+                                            onClick = { selectedId = course.id },
+                                            onLongClick = { selectedId = course.id })
+                                    }
+                                }
+                            }
+                        } else {
+                            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                                val width = (maxWidth - timeWidth).coerceAtLeast(1.dp)
+                                val rowHeight = rememberFullCoursePeriodHeight(courses, width / 7,
+                                    rememberScreenMetrics().tall(84.dp, 68.dp))
+                                Row(Modifier.fillMaxSize().verticalScroll(scroll)) {
+                                    Column(Modifier.width(timeWidth)) {
+                                        repeat(periods) { i ->
+                                            Box(Modifier.height(rowHeight).fillMaxWidth(),
+                                                contentAlignment = Alignment.TopCenter) {
+                                                Text((i + 1).toString(), style = MaterialTheme.typography.labelSmall,
+                                                    modifier = Modifier.padding(top = 4.dp))
+                                            }
                                         }
                                     }
-                                }
-                                Box(Modifier.weight(1f).height(rowHeight * periods)) {
-                                    TimetableBackground(periods, rowHeight)
-                                    TimetableLayout(courses, periods, rowHeight,
-                                        onCourseClick = { selectedId = it.id },
-                                        onCourseLongClick = { selectedId = it.id })
+                                    Box(Modifier.weight(1f).height(rowHeight * periods)) {
+                                        TimetableBackground(periods, rowHeight)
+                                        TimetableLayout(courses, periods, rowHeight,
+                                            onCourseClick = { selectedId = it.id },
+                                            onCourseLongClick = { selectedId = it.id })
+                                    }
                                 }
                             }
-                        }
                                 if (courses.isEmpty()) AppNotice("本周无已导入课程。")
+                        }
                     }
                 }
                 }
             }
             selected?.let { lesson ->
-                AlertDialog(onDismissRequest = { selectedId = null },
-                    title = { Text(lesson.title) },
-                    text = {
-                        Column(Modifier.verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("教师：${lesson.teacher.ifBlank { "未记录" }}")
-                            Text("教室：${lesson.location.ifBlank { "未记录" }}")
-                            Text("星期${lesson.weekday} · 第${lesson.startSection}–${lesson.endSection}节")
-                            calendar?.periodLabel(lesson.startSection, lesson.endSection)?.let { Text(it) }
-                            Text("周次：${lesson.weeks.joinToString("、")}")
-                            Text("来源：本机课表", style = MaterialTheme.typography.labelSmall)
-                        }
-                    },
-                    confirmButton = { TextButton(onClick = { selectedId = null }) { Text("关闭") } })
+                allCourses.firstOrNull { it.id == lesson.id }?.let { course ->
+                    UpstreamCourseDetailSheet(course, allCourses,
+                        timeRange = calendar?.periodLabel(lesson.startSection, lesson.endSection).orEmpty(),
+                        currentWeek = week ?: 0, onClose = { selectedId = null })
+                }
             }
         }
     }

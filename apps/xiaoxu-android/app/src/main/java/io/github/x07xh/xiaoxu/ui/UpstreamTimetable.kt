@@ -94,7 +94,7 @@ internal fun rememberFullCoursePeriodHeight(courses: List<ScheduleCourseUi>, col
     val base = androidx.compose.material3.LocalTextStyle.current.merge(MaterialTheme.typography.labelSmall)
     return remember(courses, columnWidth, minimum, density, measurer, base) {
         with(density) {
-            val textWidth = (columnWidth - 2 * 1.dp.roundToPx() - 5.dp.roundToPx() - 2.dp.roundToPx() - 2).coerceAtLeast(1)
+            val textWidth = (columnWidth.roundToPx() - 2 * 1.dp.roundToPx() - 5.dp.roundToPx() - 2.dp.roundToPx() - 2).coerceAtLeast(1)
             var height = minimum.toPx()
             courses.forEach { course ->
                 val duration = (course.endPeriod - course.startPeriod + 1).coerceAtLeast(1)
@@ -279,7 +279,7 @@ fun CourseCard(course: ScheduleCourseUi, onLongClick: () -> Unit = {}, onClick: 
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed && android.animation.ValueAnimator.areAnimatorsEnabled()) 0.97f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(140),
+        animationSpec = androidx.compose.animation.core.tween(MotionDuration.Fast),
         label = "courseCardScale"
     )
 

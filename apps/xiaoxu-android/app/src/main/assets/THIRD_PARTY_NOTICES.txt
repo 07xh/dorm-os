@@ -137,3 +137,15 @@ ScheduleDateText.kt, ScheduleWeekLabel from ScheduleHeader.kt,
 ScheduleWeekPagerSync.kt and its original tests. Adapted package names,
 platform reduce-motion binding and local sparse-week mapping. No changes to
 school interfaces or timetable storage. Full course sheet and day agenda pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream course agenda and detail layout reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported ScheduleDayCourse and
+ScheduleNotice from ScheduleAgendaContent.kt, scheduleGlassSheen from
+ScheduleGlass.kt, information layout and DetailInfoTile/DetailInfoLine
+from CourseDetailContent.kt. Local bindings: system reduced motion,
+Material icons, existing ModalBottomSheet, Xiaoxu LocalCourseReminders and
+LocalSemesterConfigStore. Full upstream glass dialog host, custom course
+editing and study-slot planner were not imported. Day/week selection uses
+existing view-mode preference; no new store or school client.
