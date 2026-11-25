@@ -38,26 +38,32 @@ internal fun AppFeaturePage(
             AppRoute.HOME -> HomeFeature(data, actions)
             AppRoute.SCHEDULE -> ScheduleFeature(data.lessons, actions, reminderLessonId, consumeLesson)
             AppRoute.ACADEMIC -> {
-                AppEntry("成绩", onClick = { actions.navigate(AppRoute.GRADES) })
-                AppEntry("考试", onClick = { actions.navigate(AppRoute.EXAMS) })
-                AppEntry("第二课堂", onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
-                AppEntry("学习进度", onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
+                InsetGroupedSection {
+                    AppGroupedEntry("成绩", onClick = { actions.navigate(AppRoute.GRADES) })
+                    AppGroupedEntry("考试", onClick = { actions.navigate(AppRoute.EXAMS) })
+                    AppGroupedEntry("第二课堂", onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
+                    AppGroupedEntry("学习进度", showDivider = false, onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
+                }
             }
             AppRoute.GRADES, AppRoute.EXAMS, AppRoute.STUDY_PROGRESS ->
                 AppNotice("此功能尚未完成新页面迁移，不显示模拟数据。")
             AppRoute.SECOND_CLASS -> SecondClassPage(modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
             AppRoute.PROFILE -> {
-                AppEntry("数据连接", onClick = { actions.navigate(AppRoute.CONNECTIONS) })
-                AppEntry("开源许可", onClick = { actions.navigate(AppRoute.LICENSES) })
+                InsetGroupedSection {
+                    AppGroupedEntry("数据连接", onClick = { actions.navigate(AppRoute.CONNECTIONS) })
+                    AppGroupedEntry("开源许可", showDivider = false, onClick = { actions.navigate(AppRoute.LICENSES) })
+                }
             }
             AppRoute.CONNECTIONS -> {
                 val scope = rememberCoroutineScope()
                 AppNotice(data.cloud.schoolSyncMessage ?: data.cloud.authMessage)
-                AppEntry("华水青果", onClick = { actions.authorize("ncwu") })
-                AppEntry("学习通", onClick = { actions.connectLocal("chaoxing") })
-                AppEntry("第二课堂", onClick = { actions.connectLocal("second_class") })
-                AppEntry("云端账户管理", onClick = actions.openWebsite)
+                InsetGroupedSection {
+                    AppGroupedEntry("华水青果", onClick = { actions.authorize("ncwu") })
+                    AppGroupedEntry("学习通", onClick = { actions.connectLocal("chaoxing") })
+                    AppGroupedEntry("第二课堂", onClick = { actions.connectLocal("second_class") })
+                    AppGroupedEntry("云端账户管理", showDivider = false, onClick = actions.openWebsite)
+                }
                 TextButton(onClick = { scope.launch { actions.refreshCloud() } },
                     enabled = !data.cloud.busy) { Text("刷新连接状态") }
                 data.cloud.privateError?.let { AppNotice(it, error = true) }
@@ -77,8 +83,13 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
         }
         item {
             AppSnapshotContent(data.localTasks) {
-                AppEntry("本机待办", "${it.count { task -> !task.completed }} 项未完成",
-                    onClick = { actions.navigate(AppRoute.TASKS) })
+                InsetGroupedSection {
+                    AppGroupedEntry("本机待办", "${it.count { task -> !task.completed }} 项未完成",
+                        showDivider = false, onClick = { actions.navigate(AppRoute.TASKS) })
+                    if (it.isNotEmpty()) GlassProgressBar(it.count { task -> task.completed }.toFloat() / it.size,
+                        modifier = Modifier.padding(horizontal = androidx.compose.ui.unit.Dp(16f))
+                            .padding(bottom = androidx.compose.ui.unit.Dp(12f)))
+                }
             }
         }
         item { Text("校园通知", style = MaterialTheme.typography.titleMedium) }

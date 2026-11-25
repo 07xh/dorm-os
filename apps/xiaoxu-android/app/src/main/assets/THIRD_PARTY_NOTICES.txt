@@ -83,3 +83,15 @@ material-selection policy, informed by CourseSelector's public architecture.
 No upstream CapsuleNavigationBar.kt or GlassKit.kt source was imported in
 this commit. Remaining source and license compatibility still require review
 before distribution; this notice is not a release clearance.
+
+------------------------------------------------------------------
+2026-11-25 direct upstream reuse (development branch)
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors (upstream history).
+GlassKit.kt -> ui/UpstreamGlassKit.kt: GlassIconChip, InsetGroupedSection,
+InsetGroupedRow, GlassProgressBar. Adapted package/imports, local theme
+instead of wallpaper manager, Compose animation defaults.
+GlassPerformancePolicy.kt -> ui/GlassPerformancePolicy.kt: package change only.
+Local adapter keeps the existing API 33+ rendering gate.
+GPL text already bundled; entire distribution/license compatibility review
+still required before releasing an APK.

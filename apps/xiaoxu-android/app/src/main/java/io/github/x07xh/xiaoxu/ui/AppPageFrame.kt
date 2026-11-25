@@ -41,13 +41,19 @@ internal fun AppPageFrame(
 
 @Composable
 internal fun AppEntry(title: String, summary: String? = null, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.medium) {
-        ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = summary?.let { text -> { Text(text) } },
-            trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) }
-        )
+    InsetGroupedSection {
+        AppGroupedEntry(title, summary, showDivider = false, onClick = onClick)
     }
+}
+
+@Composable
+internal fun AppGroupedEntry(
+    title: String, summary: String? = null, showDivider: Boolean = true,
+    onClick: () -> Unit
+) {
+    InsetGroupedRow(title = title, subtitle = summary, showDivider = showDivider,
+        trailing = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+        onClick = onClick)
 }
 
 @Composable

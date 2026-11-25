@@ -9,8 +9,10 @@ internal enum class NavigationMaterialTier { Opaque, Translucent, Refractive }
 internal fun navigationMaterialTier(
     api: Int, lowMemory: Boolean, abis: List<String>
 ): NavigationMaterialTier {
-    if (api < 31) return NavigationMaterialTier.Opaque
-    if (api < 33 || lowMemory || abis.any { it.lowercase().startsWith("x86") })
-        return NavigationMaterialTier.Translucent
-    return NavigationMaterialTier.Refractive
+    return when (GlassPerformancePolicy.resolve(GlassDeviceProfile(api, abis, lowMemory))) {
+        GlassPerformanceTier.Material -> NavigationMaterialTier.Opaque
+        GlassPerformanceTier.Balanced -> NavigationMaterialTier.Translucent
+        GlassPerformanceTier.Full -> if (api < 33) NavigationMaterialTier.Translucent
+            else NavigationMaterialTier.Refractive
+    }
 }

@@ -23,10 +23,5 @@ fun XiaoxuTheme(content: @Composable () -> Unit) {
 
 @Composable
 internal fun XiaoxuGroupedSection(title: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 1.dp) {
-            Column(Modifier.fillMaxWidth()) { content() }
-        }
-    }
+    InsetGroupedSection(header = title) { content() }
 }
