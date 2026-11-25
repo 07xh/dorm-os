@@ -681,11 +681,11 @@ assert.match(messageCenter, /Button\(onClick = \{ openArticle\(notice\.url\) \}\
 assert.match(messageCenter, /GlassFormField\(query, \{ query = it\.take\(60\) \}/, "共享检索表单");
 assert.match(messageCenter, /GlassFilterCapsule\(label = option\.label, selected = filter == option\.key/, "共享公告筛选");
 assert.match(messageCenter, /fun pendingWechatShortLabel\(/, "区分待审计数未知");
-assert.match(messageCenter, /rememberSaveable\(state\.ownerId, item\.id\)/, "候选详情按账号及ID隔离");
+assert.match(messageCenter, /key\(state\.ownerId, candidate\.id\)/, "候选详情按账号及ID隔离");
 assert.match(messageCenter, /val fresh = state\.authenticated && state\.pendingWechatCount != null && state\.wechatError == null/, "旧候选不可审核");
-assert.match(messageCenter, /if \(opened && state\.authenticated\) AppDialog\(/, "审核使用同一个弹窗");
+assert.match(messageCenter, /reviewingCandidate\?\.let \{ candidate ->[\s\S]*?WechatCandidateReview\(candidate, state, actions,/, "审核使用同一个弹窗");
 assert.match(messageCenter, /if \(pendingDecision == null\) \{/, "二次确认而非独立窗口");
-assert.match(messageCenter, /Button\(enabled = fresh && !reviewing && !failed,[\s\S]*?actions\.reviewWechatCandidate\(item\.id, decision\)/, "确认后才通过原接口提交");
+assert.match(messageCenter, /Button\(enabled = fresh && !reviewing && !failed,[\s\S]*?actions\.reviewWechatCandidate\(item\.id, decision, owner\)/, "确认后才通过原接口提交");
 assert.match(messageCenter, /没有摘要，请核对微信原消息/, "候选摘要缺失提示");
 assert.match(messageCenter, /核对原消息后逐条确认/, "人工审核");
 assert.match(stepEditor, /AppDialog\(/, "步骤删除共享弹窗");
