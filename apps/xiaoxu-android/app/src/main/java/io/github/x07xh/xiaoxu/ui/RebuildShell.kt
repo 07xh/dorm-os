@@ -1,6 +1,8 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -18,14 +20,14 @@ import kotlinx.coroutines.launch
 
 data class LocalSchoolImportReceipt(val provider: String, val kind: String, val savedCount: Int, val serial: Long)
 
-private val MainDestination.label: String get() = when(this) {
+internal val MainDestination.label: String get() = when(this) {
     MainDestination.HOME -> "总览"
     MainDestination.SCHEDULE -> "课表"
     MainDestination.ACADEMIC -> "教务"
     MainDestination.TASKS -> "任务"
     MainDestination.PROFILE -> "我的"
 }
-private val MainDestination.icon get() = when(this) {
+internal val MainDestination.icon get() = when(this) {
     MainDestination.HOME -> Icons.Outlined.Home
     MainDestination.SCHEDULE -> Icons.Outlined.DateRange
     MainDestination.ACADEMIC -> Icons.Outlined.School
@@ -73,16 +75,15 @@ internal fun NativeShell(
                         icon = { Icon(dest.icon, contentDescription = null) }, label = { Text(dest.label) })
                 }
             }
-            Scaffold(modifier = Modifier.weight(1f), bottomBar = {
-                if(!wide) NavigationBar {
-                    MainDestination.entries.forEach { dest ->
-                        NavigationBarItem(selected = route == dest, onClick = { route = dest },
-                            icon = { Icon(dest.icon, contentDescription = null) },
-                            label = { Text(dest.label) })
-                    }
-                }
-            }) { padding ->
-                Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                val tier = rememberNavigationMaterialTier()
+                val backdrop = rememberLayerBackdrop()
+                val capture = if (!wide && tier == NavigationMaterialTier.Refractive)
+                    Modifier.layerBackdrop(backdrop) else Modifier
+                Scaffold(modifier = Modifier.fillMaxSize().then(capture)) { padding ->
+                Column(Modifier.fillMaxSize().padding(padding)
+                    .padding(bottom = if (wide) 0.dp else RebuildDockMetrics.contentReserve)
+                    .padding(horizontal = 20.dp)) {
                     Text(route.label, style = MaterialTheme.typography.headlineMedium,
                         modifier = Modifier.padding(vertical = 16.dp))
                     when(route) {
@@ -140,6 +141,11 @@ internal fun NativeShell(
                         }
                     }
                 }
+                }
+                if (!wide) RebuildCapsuleDock(
+                    selected = route, onSelect = { route = it }, tier = tier,
+                    backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

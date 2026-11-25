@@ -72,3 +72,14 @@ Distribution warning: combining the GPLv3 UI adaptation with the existing
 non-commercial SleepDown-derived animation code has NOT been cleared for
 public redistribution. This is a development/QA integration; publicly
 distributing APKs requires a separate license compatibility/source review.
+
+------------------------------------------------------------------
+2026-11-25 Android UI rebuild (development branch)
+Historical attribution above is retained for prior source versions.
+The old SleepDown-derived navigation files and prior NorthGlass navigation
+files have been removed from the new UI branch. The replacement dock uses
+existing Kyant backdrop/shapes dependencies and an independently written
+material-selection policy, informed by CourseSelector's public architecture.
+No upstream CapsuleNavigationBar.kt or GlassKit.kt source was imported in
+this commit. Remaining source and license compatibility still require review
+before distribution; this notice is not a release clearance.
