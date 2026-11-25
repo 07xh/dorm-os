@@ -234,10 +234,14 @@ fun LocalSchoolConnectionPanel(
 }
 
 @Composable
-fun LocalSchoolRecordSection(types: Set<String>) {
-    val context = LocalContext.current
-    val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
-    val all by rememberLocalRows(dao) { dao.observe() }
+fun LocalSchoolRecordSection(types: Set<String>, records: List<NativeSchoolRecord>? = null) {
+    // The task workspace already owns a warm Room observer; do not subscribe again.
+    val all = if (records != null) records else {
+        val context = LocalContext.current
+        val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
+        val observed by rememberLocalRows(dao) { dao.observe() }
+        observed
+    }
     val rows = remember(all, types) { all.filter { it.kind in types } }
     if (rows.isEmpty()) return
     var expanded by rememberSaveable(types.sorted().joinToString("|")) {

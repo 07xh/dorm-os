@@ -1243,8 +1243,8 @@ internal fun RealAcademicTaskHub(
     // One recoverable action, visible only after Room confirms a completion.
     // This is presentation state; task completion still belongs to the existing DAO.
     var lastCompletedLocalId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val lastCompletedLocalTask = localTasks.firstOrNull {
-        it.id == lastCompletedLocalId && it.completed
+    val lastCompletedLocalTask = remember(localTasks, lastCompletedLocalId) {
+        localTasks.firstOrNull { it.id == lastCompletedLocalId && it.completed }
     }
     val staleTasksShown = !state.tasksFresh && state.tasks.isNotEmpty()
     // 详情只保存稳定 key，不缓存可能过期的学校/云端任务对象。
@@ -1275,9 +1275,10 @@ internal fun RealAcademicTaskHub(
             else filtered
         }
     }
-    val executionRows = remember(shown, taskSteps, stepEdges, executions, searchQuery,
+    val executionRows = remember(filter, shown, taskSteps, stepEdges, executions, searchQuery,
         authenticatedOwnerId, schoolBinding, onlyThisWeek, today) {
-        traceWorkspace("Xiaoxu.tasks.executionRows") {
+        // Only the Now view consumes these projected execution rows.
+        if (filter != "now") emptyList() else traceWorkspace("Xiaoxu.tasks.executionRows") {
             val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
             val nextMonday = monday.plusDays(7)
             executionReadyRows(shown, taskSteps, stepEdges, executions, resolveExecution, searchQuery)
@@ -2122,7 +2123,7 @@ internal fun RealAcademicTaskHub(
         }
         if (schoolRows.any { it.kind == "course" }) item {
             Box(Modifier.padding(top = 12.dp)) {
-                LocalSchoolRecordSection(setOf("course"))
+                LocalSchoolRecordSection(setOf("course"), records = schoolRows)
             }
         }
 

@@ -1320,7 +1320,10 @@ assert.match(localSchoolUi, /mutableStateOf\(justImported != null\)/,
   '读取成功自动显示真实本机回执');
 assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardElevation\(defaultElevation = 1\.dp\)/,
   '删除本机连接中的旧 Material 灰色卡片阴影');
-assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\)\)/);
+assert.match(workspace, /LocalSchoolRecordSection\(setOf\("course"\), records = schoolRows\)/, "历史课程记录复用任务工作区的 Room 快照");
+assert.match(localSchoolUi, /val all = if \(records != null\) records else \{[\s\S]*?rememberLocalRows\(dao\) \{ dao\.observe\(\) \}/);
+assert.match(workspace, /val executionRows = remember\(filter, shown,[\s\S]*?if \(filter != "now"\) emptyList\(\) else traceWorkspace\("Xiaoxu.tasks.executionRows"\)/, "非现在做视图不执行未使用的步骤投影");
+assert.match(workspace, /val lastCompletedLocalTask = remember\(localTasks, lastCompletedLocalId\)/);
 assert.match(main, /localLessons = localLessons,/);
 assert.match(workspace, /val sameWeekday = remember\(localLessons, today\) \{\s*localLessons\.filter/,
   '主页必须只展示已导入的本机课表，不可回退云端');
