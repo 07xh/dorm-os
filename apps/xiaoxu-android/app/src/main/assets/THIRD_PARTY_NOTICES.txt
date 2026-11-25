@@ -269,3 +269,12 @@ AnimatedCount.kt, PageLoadingIcon.kt, ModuleMotion.kt, GlassOverlayHost.kt,
 GlassWindowHost.kt, GlassPageScaffold.kt and SettingsScreen layout reused.
 SystemTopBar and SystemStatusBadge restored from SystemUi.kt. Local package,
 real Xiaoxu routes, shell insets and existing device fallback adapted.
+
+------------------------------------------------------------------
+2026-11-25 shared academic list page layout
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. SemesterGradesContent and
+ExamScheduleContent list/header layout adapted in AcademicSnapshotList.kt;
+GradeRefreshStatus reused. Shared existing upstream wheel dialog and page
+host; owner-scoped readonly snapshots remain the sole data source. No
+upstream exam writes, unsupported statistics, or export actions imported.
