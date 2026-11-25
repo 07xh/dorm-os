@@ -530,7 +530,10 @@ assert.match(secondClassMain, /SecondClassSaveReceipt\.validate/);
 assert.doesNotMatch(secondClassHome, /dao\.observe\(|nativeSchoolRecords\(\)/,
     'second-class local entry must reuse the main page, not maintain duplicate UI');
 
-assert.match(secondClassMain, /candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.match(secondClassMain, /val capture = credits\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
+assert.match(secondClassMain, /val confirmed = capture != null && capture > 0 && binding\?\.capturedAt == capture/);
+assert.match(secondClassMain, /val personal = records\.filter \{ it\.kind in setOf\("activity", "activity_summary"\) && it\.capturedAt == stamp \}/);
+assert.match(secondClassMain, /val catalogTime = catalog\.map \{ it\.capturedAt \}\.distinct\(\)\.singleOrNull\(\)/);
 assert.doesNotMatch(secondClassMain, /SecondClassActivity\(|HttpURLConnection|CookieManager|addJavascriptInterface|schoolPassword/);
 
 assert.match(cloud, /\/api\/v1\/second-class/);
@@ -546,345 +549,106 @@ assert.match(secondClassMain, /fun SecondClassPage\(/);
 assert.doesNotMatch(secondClass, /CookieManager|schoolPassword|READ_SMS|addJavascriptInterface/);
 
 // 课表改为唯一的本机导入来源：以前的云端四态仅保留为旧工具函数。
-const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleScreen.kt');
-const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WeeklyTimetableGrid.kt');
-const localTimetableEntry = schedulePanel.slice(
-    schedulePanel.indexOf('fun CloudTimetablePanel('),
-    schedulePanel.indexOf('private fun ScheduleVerifiedContent(')
-);
-assert.match(schedulePanel, /if \(data\.lessons\.isEmpty\(\)\)/,
-  '无本机课程走唯一课表设置宿主的空态');
-assert.match(schedulePanel, /LocalTimetableEmptyState\(/);
-assert.match(localTimetableEntry, /onMessages = onMessages/, '课表消息入口由唯一内容页处理');
-assert.match(localTimetableEntry, /localImportedScheduleView\(localLessons\)/);
-assert.doesNotMatch(localTimetableEntry, /deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)|ScheduleQuickActions\(/,
-  '课表不依赖云端、没有旧版重复登录/同步动作');
-assert.match(schedulePanel, /Text\("打开课表设置"\)/);
-assert.doesNotMatch(schedulePanel, /label = "重新导入课表"/);
-assert.match(schedulePanel, /label = "新增课程"/);
-assert.match(schedulePanel, /label = "课表设置"/);
-const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SemesterSettingsDialog.kt');
-const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
-assert.doesNotMatch(timetableSettings, /SettingsGroupTitle\("课程提醒"\)/,
-  '全局上课提醒开关只能保留在通知与提醒二级页');
-assert.match(profileSettings, /LocalCourseReminders\.setEnabled\(context, value\)/,
-  '全局开关必须继续写入现有本地提醒设置');
-assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/,
-  'Android 13+ 运行时通知权限应按用户操作申请');
-assert.match(profileSettings, /ACTION_APP_NOTIFICATION_SETTINGS/,
-  '通知权限只作为通知二级页内的系统入口');
-assert.match(timetableSettings, /internal fun SemesterSettingsPage\(/,
-  '课表设置必须是同 Activity 内原生子页面');
-const timetablePageSource = timetableSettings.slice(
-  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
-  timetableSettings.indexOf('// Keep the existing date chooser; use a numeric wheel for lesson times.')
-);
-assert.doesNotMatch(timetablePageSource, /Dialog\(|systemBarsPadding\(/,
-  '整页设置不能再创建额外的全屏 Window 和状态栏灰色遮罩');
-assert.match(timetablePageSource, /Modifier\.fillMaxSize\(\)/,
-  '课表设置需要填满当前主导航内容窗口');
-assert.match(timetableSettings, /if \(editingSection > 0\)[\s\S]*?XiaoxuBottomSheet\(/,
-  '节次时间轮盘使用共享底部容器，不得回退为全屏设置');
-assert.match(timetableSettings, /XiaoxuBottomSheet\(/,
-  '时间和周数轮盘必须使用统一的底部浮层容器');
-assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
-  '课表节次时间保留当前数字滚轮交互');
-assert.match(schedulePanel, /targetState = settingsOpen/,
-  '课表和设置应复用一个动画内容宿主');
-assert.match(schedulePanel, /label = "timetableSettingsRoute"/,
-  '课表设置推进和返回应具有明确的动画入口');
-assert.match(schedulePanel, /xiaoxuSettingsRouteTransition\(/,
-  '课表设置应复用统一阻尼推进与返回动画');
-assert.match(schedulePanel, /if \(!animatedSettingsOpen\) \{/,
-  '默认课表与设置按动画目标状态互斥，不得额外叠加 Dialog');
-assert.match(schedulePanel, /if \(animatedSettingsOpen\) \{\s*SemesterSettingsPage\(/,
-  '课表设置应在同窗口中绘制，不得再建独立 Window');
-assert.match(main, /var scheduleSettingsOpen by rememberSaveable \{ mutableStateOf\(false\) \}/,
-  '导航层应保存课表子页面状态');
-assert.match(main, /BackHandler\(enabled = current == MainDestination\.SCHEDULE && scheduleSettingsOpen\)/,
-  '安卓系统返回键应从课表设置回到课表');
-assert.match(main, /settingsOpen = scheduleSettingsOpen,\s*onSettingsOpenChanged = \{/,
-  '课表路由状态必须由唯一 NativeShell 维护');
-assert.match(main, /MainDestination\.PROFILE -> \{[\s\S]*?AnimatedContent\([\s\S]*?label = "profileTimetableChild"[\s\S]*?if \(timetableChild\)/,
-  '课表设置须作为我的原生二级路由，使用统一二级页转场，不切换主标签页');
-assert.match(main, /settingsOpen = profileSettingsRoute == "timetable-settings"/,
-  '课表设置应直接渲染同一课表设置组件，不能先露出周视图');
-assert.match(main, /onScheduleSettings = \{\s*profileSettingsRoute = "timetable-settings"\s*\}/,
-  '进入课表设置只切换内部路由');
-assert.doesNotMatch(main, /onScheduleSettings = \{\s*current = MainDestination\.SCHEDULE/,
-  '禁止设置入口触发主导航页切换和玻璃残影');
-assert.match(main, /onEditorClosed = \{ profileSettingsRoute = "home" \}/,
-  '从设置添加课程完成或取消应回到设置');
-assert.doesNotMatch(main, /scheduleSettingsFromProfile/,
-  '删去旧跨主标签路由的额外状态');
-assert.match(main, /profileSettingsRoute != "home"/,
-  '设置二级页应处理系统返回并收起主导航');
-assert.match(main, /val showPrimaryNavigation = !messagesOpen &&[\s\S]*?!\(current == MainDestination\.SCHEDULE && scheduleSettingsOpen\) &&[\s\S]*?!\(current == MainDestination\.PROFILE && profileSettingsRoute != "home"\)/,
-  '主导航需共用唯一显隐判断，所有二级页都不能露出底栏或背景采样');
-assert.equal((main.match(/if \(!tabletLayout && showPrimaryNavigation\)/g) || []).length, 2,
-  '底栏本体与 Scaffold 占位必须同时使用统一显隐标记');
-assert.match(main, /if \(tabletLayout && showPrimaryNavigation\)/,
-  '平板侧栏也遵守相同子页面规则');
-assert.match(main, /navBackdrop = if \(!tabletLayout && showPrimaryNavigation/,
-  '没有底栏时不得额外保留全屏玻璃采样层');
-assert.match(main, /profileSettingsRoute == "timetable-editor"/,
-  '新增课程编辑页应保留独立二级路由，不能回退到跨标签状态');
-assert.match(main, /onSettingsFileAction = \{ profileSettingsRoute = "home" \}/,
-  '导入导出只需要退出到设置，不必分派旧字符串动作');
-assert.doesNotMatch(main, /onSettingsAction|timetable-action/,
-  '旧字符串动作分发和泛化二级页状态应彻底退场');
+const schedulePanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleFeature.kt');
+const nativeWeekGrid = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamTimetable.kt');
+const scheduleHeaderSource = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleHeader.kt');
+const timetableSettings = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/ScheduleSettingsFeature.kt');
 const courseEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/CourseEditorDialog.kt');
-assert.match(courseEditor, /Dialog\(onDismissRequest[\s\S]*DialogProperties\(usePlatformDefaultWidth = false\)/,
-  '课程编辑须与课表设置共享原生全屏页面位置，不回退到系统表单弹框');
-assert.match(courseEditor, /\.background\(XiaoxuPalette\.PageGradient\)/,
-  '课程编辑背景必须沿用现有课表设置背景');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "课程信息"\)/,
-  '课程信息必须复用同一玻璃分组组件');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课时间"\)/,
-  '编辑节次不能再出现孤立弹框');
-assert.match(courseEditor, /XiaoxuSegmentedControl\(/,
-  '编辑课程星期须使用与课表设置同一套原生分段选择组件');
-assert.match(courseEditor, /selectedKey = weekday/,
-  '星期选中态必须来自正在编辑的真实课程');
-assert.match(courseEditor, /onSelected = \{ if \(!busy\) weekday = it \}/,
-  '选择星期必须更新已有课程字段而非仅展示');
-assert.match(courseEditor, /XiaoxuGroupedSection\(title = "上课周次"\)/);
-assert.match(courseEditor, /compact = true/,
-  '课程星期采用紧凑分段控件');
-assert.match(courseEditor, /enabled = !weekOnly && !busy/,
-  '保存中不允许修改课程周次');
-assert.match(courseEditor, /仅修改本机课表，不会提交到学校教务系统/,
-  '课程编辑须明确告知只改本机');
-assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/,
-  '保留已确认的仅删除选中周次行为');
-assert.match(courseEditor, /onSave\(it, weekOnly\)/,
-  '表单仍须连接已有本机课程编辑回调');
-assert.doesNotMatch(courseEditor, /\n    AlertDialog\(\s*onDismissRequest = \{ if \(!busy\) onDismiss\(\) \}/,
-  '主编辑页不能再使用 AlertDialog');
-const dayCardSource = schedulePanel.slice(
-  schedulePanel.indexOf('private fun LessonCard('),
-  schedulePanel.indexOf('/** 首页与完整课表共用')
-);
-assert.match(dayCardSource, /onClickLabel = "查看课程详情"/,
-  '点击日视图课程应打开与周视图共用的详情抽屉');
-assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ChevronRight|Icons\.Outlined\.ExpandMore/,
-  '紧凑课程卡整行点击打开详情，不再堆叠无用箭头');
-assert.doesNotMatch(dayCardSource, /Icons\.Outlined\.ExpandMore/,
-  '不要误导用户课程卡向下展开');
-assert.match(schedulePanel, /color = XiaoxuPalette\.Ink2[\s\S]*?val openCourse:/,
-  '顶部日期信息需使用统一的次级文字颜色');
-assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/);
-assert.match(schedulePanel, /initialViewMode = viewMode/);
-assert.match(schedulePanel, /initialSections = visibleSections/);
-assert.match(schedulePanel, /dailySections = visibleSections/);
-assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, newViewMode\)/);
-assert.doesNotMatch(schedulePanel, /ScheduleViewModeTabs\(|private fun ViewModeTab\(/,
-  '周视图和日视图不得再占用课表顶部');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("week", "周视图"\)/,
- '设置必须保留周视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentOption\("day", "日视图"\)/,
- '设置必须保留日视图选项');
-assert.match(timetableSettings, /XiaoxuSegmentedControl\(/,
- '设置与其它页面必须复用同一原生分段控件');
-assert.match(timetableSettings, /selectedKey = viewMode/,
- '视图选中态必须来自真实用户偏好');
-assert.match(timetableSettings, /onSelected = \{ viewMode = it \}/,
- '点击分段项应更新设置草稿，保存动作仍由完成按钮触发');
-assert.match(timetableSettings, /onSave\(config, viewMode, sections\)/,
- '周日偏好与学期数据必须通过原保存回调提交');
-assert.match(timetableSettings, /DatePicker\(state = dateState/,
-  '日期选择须使用统一 Compose 控件');
-const timetableTimeWheel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuTimeWheel.kt');
-assert.match(timetableSettings, /XiaoxuTimeWheel\(/,
-  '节次时间使用滚动数字选择器而非圆形时钟盘');
-assert.doesNotMatch(timetableSettings, /\bTimePicker\(|rememberTimePickerState/,
-  '不得回退到与参考图不一致的圆形时钟选择');
-assert.match(timetableTimeWheel, /NumberPicker\(context\)/,
-  '数字滚轮复用成熟 Android 原生控件，不手写滚动与回弹物理');
-assert.match(timetableTimeWheel, /HOUR_OPTIONS = \(0\.\.23\)\.toList\(\)/,
-  '小时数字范围必须保持 00–23');
-assert.match(timetableTimeWheel, /MINUTE_OPTIONS = \(0\.\.59\)\.toList\(\)/,
-  '分钟数字范围必须保持 00–59');
-assert.match(timetableTimeWheel, /internal fun XiaoxuNumberWheel\(/,
-  '时间、学期周数和每天节数必须复用唯一原生数字滚轮');
-assert.match(timetableSettings, /XiaoxuNumberWheel\(/,
-  '学期周数和每天节数已使用同一丝滑数字滚轮');
-assert.match(timetableSettings, /selectedNumber = it/,
-  '滚动时只更新临时选择值');
-assert.match(timetableSettings, /if \(choosingSections\) sections = selectedNumber/,
-  '确认才持久更新每天节数草稿');
-assert.match(timetableSettings, /else weeks = selectedNumber\.toString\(\)/,
-  '确认才更新学期周数草稿');
-assert.doesNotMatch(timetableSettings, /options\.forEach \{ number ->/,
-  '旧学期/节数 35 行列表滚动实现应清理');
-assert.match(timetableTimeWheel, /setOnValueChangedListener/,
-  '滚动数字必须更新对应的小时或分钟草稿');
-assert.match(timetableSettings, /LocalTime\.of\(pickedHour, pickedMinute\)/,
-  '确认时间必须使用用户真实选取的数值');
-assert.match(timetableSettings, /!chosen\.isAfter\(stagedStart\)/,
-  '结束时间不可早于或等于开始时间');
-assert.match(timetableSettings, /replaceSectionTime\(/,
-  '保存时仅更新当前节次时间草稿');
-assert.match(timetableSettings, /Icons\.Outlined\.ChevronRight/,
-  '作息列表行使用进入箭头，不显示突兀的蓝色时间胶囊');
-assert.match(timetableSettings, /if \(sectionsMenu \|\| weeksMenu\)/,
-  '节数与周数弹层需统一为可滚动玻璃选择器');
-assert.doesNotMatch(timetableSettings, /android\.app\.(DatePickerDialog|TimePickerDialog)|DropdownMenu\(/,
-  '课表设置不可重新混用系统旧弹窗或漂浮长菜单');
-assert.match(timetableSettings, /monday\.isBlank\(\) && weeks\.isBlank\(\) && times\.isBlank\(\)/,
-  '未设置学期时仍应允许保存视图偏好');
-assert.match(timetableSettings, /onSave\(config, viewMode, sections\)/);
+const timetableTimeWheel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWheelPicker.kt');
+const courseDetail = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamCourseDetailSheet.kt');
+const academicGradeArea = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GradesFeature.kt');
+const localTimetableEntry = schedulePanel;
+const timetablePageSource = timetableSettings;
+const timetablePrefs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalSemesterConfigStore.kt');
+assert.match(schedulePanel, /AppSnapshotContent\(data\.lessons\)/, "课表唯一真实本机快照");
+assert.match(schedulePanel, /localImportedScheduleView\(lessons\)\.sourceLabel/, "保留本机来源标注");
+assert.match(schedulePanel, /if \(lessons\.isEmpty\(\)\)[\s\S]*?SystemEmptyState\("本机尚无课程"/, "真实空态");
+assert.match(schedulePanel, /onSettingsClick = \{ actions\.navigate\(AppRoute\.SCHEDULE_SETTINGS\) \}/, "设置入口");
+assert.match(schedulePanel, /onAddClick = if \(data\.lessons is PageSnapshot\.Ready\)/, "只在数据已读取时新增");
+assert.match(schedulePanel, /mutableStateOf\(LocalSemesterConfigStore\.loadViewMode\(context\)\)/, "读取持久化视图偏好");
+assert.match(schedulePanel, /LocalSemesterConfigStore\.saveViewMode\(context, mode\)/, "保存视图偏好");
+assert.match(schedulePanel, /requestedWeek\.takeIf \{ it in weeks \} \?: todayWeek\?\.takeIf \{ it in weeks \}/, "选择有效教学周");
+assert.match(schedulePanel, /onDayClick = \{ selectedDay = it; selectView\("day"\) \}/, "用户选择星期");
+assert.match(schedulePanel, /rememberPagerState\(initialPage = index, pageCount = \{ weeks\.size \}\)/, "保留真实周次翻页");
+assert.match(schedulePanel, /courses\.filter \{ it\.day == selectedDay \}/, "日视图按用户选择过滤");
+assert.match(schedulePanel, /val selected = lessons\.firstOrNull \{ it\.id == selectedId \}/, "详情只用真实课程身份");
+assert.match(schedulePanel, /UpstreamCourseDetailSheet\(/, "统一周日详情");
+assert.match(schedulePanel, /LocalScheduleEditor\.upsert\(lessons, editingId, replacement, editingWeek\.takeIf \{ only \}\)/, "本机编辑保留周次范围");
+assert.match(schedulePanel, /LocalScheduleEditor\.delete\(lessons, requireNotNull\(editingId\), editingWeek\.takeIf \{ only \}\)/, "本机删除保留周次范围");
+assert.match(scheduleHeaderSource, /GlassOptionWheelDialog\(weeks\.map \{ "第 \$it 周" \}, weeks\.indexOf\(currentWeek\)\.coerceAtLeast\(0\)/, "周次轮盘定位当前周");
+assert.match(scheduleHeaderSource, /weeks\.getOrNull\(it\)\?\.let\(onWeekSelect\)/, "有效周次选择");
+assert.match(scheduleHeaderSource, /onAddClick\(\)/, "新增课程可达");
+assert.match(scheduleHeaderSource, /onSettingsClick\(\)/, "课表设置可达");
+assert.match(timetableSettings, /internal fun ScheduleSettingsFeature\(/, "唯一设置页");
+assert.match(timetableSettings, /Modifier\.fillMaxSize\(\)\.verticalScroll/, "共享页面内布局");
+assert.match(timetableSettings, /LiquidSegmentedControl\(options = listOf\("周", "日"\)/, "上游分段控件");
+assert.match(timetableSettings, /selectedIndex = if \(defaultView == "day"\) 1 else 0/, "真实偏好");
+assert.match(timetableSettings, /LocalSemesterConfigStore\.saveViewMode\(context, defaultView\)/, "保存视图偏好");
+assert.match(timetableSettings, /SemesterCalendar\.parse\(dateText, weeksText, periodsText\)/, "学期数据严格验证");
+assert.match(timetableSettings, /actions\.saveScheduleSettings\(config, periodCount\)/, "已有保存接口");
+assert.match(timetableSettings, /date\.dayOfWeek != java\.time\.DayOfWeek\.MONDAY/, "第一周起始必须周一");
+assert.match(timetableSettings, /GlassDatePickerDialog\(/, "统一日期选择");
+assert.match(timetableSettings, /options = \(1\.\.35\)\.map/, "教学周有效范围");
+assert.match(timetableSettings, /options = \(1\.\.24\)\.map/, "每天节数范围");
+assert.match(timetableSettings, /onConfirm = \{ periodCount = it \+ 1; accepted\(\) \}/, "确认节数");
+assert.match(timetableSettings, /GlassTimeRangePickerDialog\(/, "统一起止时间轮盘");
+assert.match(timetableSettings, /java\.time\.LocalTime\.parse\(end\)\.isAfter\(java\.time\.LocalTime\.parse\(start\)\)/, "结束必须晚于开始");
+assert.match(timetableSettings, /updatePeriod\(period, start, end\)/, "只更新目标节次");
+assert.match(timetableSettings, /maxOf\(periodCount, rows\.keys\.maxOrNull\(\) \?: 1\)/, "减少显示节数不丢失原作息");
+assert.match(timetableSettings, /onClick = actions\.importTimetable/, "真实导入");
+assert.match(timetableSettings, /onClick = actions\.exportTimetable/, "真实导出");
+assert.match(timetableTimeWheel, /fun GlassWheelColumn\(/, "上游共享轮盘");
+assert.match(timetableTimeWheel, /fun GlassTimeRangePickerDialog\(/, "统一时间范围选择");
+assert.match(timetableTimeWheel, /fun GlassOptionWheelDialog\(/, "统一数字轮盘");
+assert.match(timetableTimeWheel, /LazyColumn\(/, "惰性滚动轮盘");
+assert.match(courseEditor, /onSave\(it, weekOnly\)/, "保存真实课程");
+assert.match(courseEditor, /onDelete\(weekOnly && canScope\)/, "仅删除选中周");
+assert.match(courseEditor, /GlassFilterCapsule\(label = label\.toString\(\), selected = weekday == key, onClick = \{ weekday = key \}, enabled = !busy\)/, "课程星期交互");
+assert.match(courseEditor, /enabled = !weekOnly && !busy/, "提交时锁定周次");
+assert.match(courseEditor, /GlassFormField\(/, "统一表单");
+assert.match(courseDetail, /LocalCourseReminders\.enabledForCourse\(context, course\.id\)/, "课程提醒来源");
+assert.match(courseDetail, /LocalCourseReminders\.setCourseEnabled\(context, course\.id, enabled\)/, "课程提醒持久化");
+assert.match(courseDetail, /ActivityResultContracts\.RequestPermission\(\)/, "按需运行时授权");
+assert.match(courseDetail, /LocalCourseReminders\.canNotify\(context\)/, "通知权限核验");
+assert.match(courseDetail, /LocalCourseReminders\.reconcileAfterSave\(/, "提醒调度");
+assert.match(nativeWeekGrid, /fun TimetableLayout\(/, "直接上游网格");
+assert.match(nativeWeekGrid, /private fun timetableEntries\(courses: List<ScheduleCourseUi>\)/, "复用重叠分组");
+assert.match(nativeWeekGrid, /if \(entry\.courses\.size == 1\) onCourseClick\(entry\.courses\.first\(\)\) else selectedGroup = entry\.courses/, "重叠课程选择不虚构原始记录");
+assert.match(nativeWeekGrid, /onClick = \{ selectedGroup = null; onCourseClick\(course\) \}/, "点击原始课程");
+assert.match(nativeWeekGrid, /val days = columns\.size/, "按实际日期列布局");
+assert.match(academicGradeArea, /cloud\.grades\.takeIf \{ owner != null && cloud\.gradesOwner == owner \}/, "成绩所有者校验");
+assert.match(academicGradeArea, /cloud\.exams\.takeIf \{ owner != null && cloud\.examsOwner == owner \}/, "考试所有者校验");
+assert.match(academicGradeArea, /val semesterListState = rememberLazyListState\(\)/, "上游独立滚动状态");
+assert.match(academicGradeArea, /val overallListState = rememberLazyListState\(\)/, "总体独立滚动");
+assert.match(academicGradeArea, /val examListState = rememberLazyListState\(\)/, "考试独立滚动");
+assert.match(academicGradeArea, /val travel: Dp get\(\) = \(expanded - collapsed\)\.coerceAtLeast\(1\.dp\)/, "上游测量折叠行程");
+assert.match(academicGradeArea, /非实时/, "成绩考试快照口径");
+assert.match(academicGradeArea, /if \(tab == 2\) actions\.readExams\(\) else actions\.readGrades\(\)/, "真实只读接口");
+assert.match(academicGradeArea, /actions\.navigate\(AppRoute\.CONNECTIONS\)/, "数据连接入口");
+assert.doesNotMatch(schedulePanel, /VerifiedLesson\(|HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|deriveScheduleUiState\(state\)|state\.lessons|client\.refresh\(\)/);
+assert.doesNotMatch(timetableSettings, /reminderEnabled: Boolean|wantReminders|android\.app\.(DatePickerDialog|TimePickerDialog)|\bTimePicker\(/);
+assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
+assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/);
+assert.match(profileSettings, /LocalCourseReminders\.setEnabled\(context, value\)/);
+assert.match(profileSettings, /ActivityResultContracts\.RequestPermission\(\)/);
+assert.match(profileSettings, /ACTION_APP_NOTIFICATION_SETTINGS/);
+assert.match(rebuildShell, /saveScheduleSettings = \{ calendar, sections ->[\s\S]*?LocalCourseReminders\.reconcileAfterSave\(/);
+assert.match(rebuildShell, /val showPrimary = route\.parent == null/);
+assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
+assert.match(settingsRoutes, /AppRoute\.SCHEDULE_SETTINGS -> ScheduleSettingsFeature\(data, actions\)/);
+assert.match(settingsRoutes, /route == AppRoute\.GRADES \|\| route == AppRoute\.EXAMS/);
 assert.match(timetablePrefs, /fun loadViewMode\(context: Context\)/);
 assert.match(timetablePrefs, /fun saveViewMode\(context: Context, mode: String\)/);
 assert.match(timetablePrefs, /putString\(VIEW_MODE_KEY, mode\)\.apply\(\)/);
 assert.match(timetablePrefs, /fun loadSections\(context: Context\)/);
 assert.match(timetablePrefs, /fun saveSections\(context: Context, count: Int\)/);
-assert.match(schedulePanel, /Text\("课程详情"/);
-assert.match(schedulePanel, /Text\("课程提醒"/);
-assert.match(schedulePanel, /enabledForCourse\(context, lesson\.sourceId\)/);
-assert.match(schedulePanel, /ContextCompat\.checkSelfPermission\(/,
-  '课程提醒必须区分Android通知运行时权限与通知总开关');
-assert.match(schedulePanel, /AndroidSettings\.ACTION_APP_NOTIFICATION_SETTINGS/,
-  '已经授权但系统通知被禁用时，应打开通知设置而不是重复请求权限');
-assert.match(schedulePanel, /context\.startActivity\(settings\)/,
-  '通知设置入口必须真正连接系统设置');
-const timetableSettingsCallback = schedulePanel.slice(
-  schedulePanel.indexOf('if (animatedSettingsOpen) {'),
-  schedulePanel.indexOf('private fun DayLessonList(')
-);
-assert.match(timetableSettingsCallback, /LocalCourseReminders\.anyEnabled\(context\)/,
-  '修改学期后只有已经启用的提醒需要重新规划');
-assert.match(timetableSettingsCallback, /LocalCourseReminders\.reconcileAfterSave\(/,
-  '保存学期作息仍需更新已存在的单课程提醒');
-assert.doesNotMatch(timetableSettingsCallback,
-  /LocalCourseReminders\.setEnabled\(|reminderPermissionLauncher|ACTION_APP_NOTIFICATION_SETTINGS/,
-  '课表保存不可重复修改全局提醒状态或再申请通知权限');
-assert.doesNotMatch(timetableSettings, /reminderEnabled: Boolean|wantReminders/,
-  '退役的课表提醒开关及其保存参数必须同时删除');
+assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/);
 
-const weekPickerBody = schedulePanel.slice(
-  schedulePanel.indexOf('private fun WeekSelector('),
-  schedulePanel.indexOf('private fun SelectablePill(')
-);
-assert.match(weekPickerBody, /rememberLazyListState\(/,
-  '周次选择条必须保存真实横向滚动状态');
-assert.match(weekPickerBody, /LaunchedEffect\(weeks, selected\)/,
-  '第10周等当前选中周次必须自动定位至可见范围');
-assert.match(weekPickerBody, /weekListState\.scrollToItem\(/,
-  '周次列表必须随选中项滚动，而非永远从第1周开始');
-assert.match(weekPickerBody, /LazyRow\(state = weekListState/,
-  '周次列表必须绑定滚动状态');
-const settingsHeaderError = timetableSettings.slice(
-  timetableSettings.indexOf('internal fun SemesterSettingsPage('),
-  timetableSettings.indexOf('SettingsGroupTitle("学期与显示")')
-);
-assert.match(settingsHeaderError, /if \(error != null\) \{/,
-  '设置验证错误须在顶部完成按钮附近显示');
-assert.match(timetableSettings, /hasError = errorField == "weeks"/,
-  '学期周数错误须高亮对应设置行');
-assert.match(timetableSettings, /hasError = errorField == "date"/,
-  '学期日期错误须高亮对应设置行');
-assert.doesNotMatch(timetableSettings, /modifier = Modifier\.padding\(top = 14\.dp\)/,
-  '设置错误不得仅显示在节次列表末尾');
-
-assert.match(schedulePanel, /showWeekPicker by rememberSaveable/);
-assert.doesNotMatch(schedulePanel, /"全部周次 ▾"|"显示全部周次"|label = "全部",\s*isSelected = selected == ALL_WEEKS/,
-  '课表不得暴露无用途的整学期混合周次入口');
-assert.match(schedulePanel, /if \(weekNumbers\.isNotEmpty\(\) && selectedWeek !in weekNumbers\)/,
-  '导入课程或变更教学周后必须回到有效的具体周次');
-assert.match(schedulePanel, /Text\(if \(currentIndex >= 0\) "第 \$selectedWeek 周 ▾" else "选择周次 ▾"/,
-  '周次栏必须以具体教学周为主要状态');
-
-assert.match(schedulePanel, /val currentIndex = weekNumbers.indexOf\(selectedWeek\)/);
-assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex - 1\]/);
-assert.match(schedulePanel, /Icons\.Outlined\.ChevronLeft/);
-assert.match(schedulePanel, /selectedWeek = weekNumbers\[currentIndex \+ 1\]/);
-assert.match(schedulePanel, /Icons\.Outlined\.ChevronRight/);
-assert.match(schedulePanel, /data\.lessons\.filter \{ selectedWeek in it\.weeks \}/);
-assert.match(schedulePanel, /val effectiveWeekday = selectedWeekday/,
-  '用户选了空白星期不能自动跳到另一天');
-assert.match(schedulePanel, /selectedWeekday = tabletWeekday/,
-  '平板需要保持七日网格选中状态与侧栏一致');
-assert.match(schedulePanel, /onSelectWeekday = \{ selectedWeekday = it \}/);
-assert.match(schedulePanel, /WeekdayStrip\(/);
-assert.match(schedulePanel, /WeeklyTimetableGrid\(/);
-assert.match(schedulePanel, /DayLessonList\(/);
-assert.match(schedulePanel, /CourseDetailBottomSheet\(/);
-assert.match(schedulePanel, /ModalBottomSheet\(/);
-assert.match(schedulePanel, /filtered\.firstOrNull \{ it\.key == selectedCourseKey \}/,
-  '课程详情应引用当前筛选真实课程');
-assert.doesNotMatch(schedulePanel, /VerifiedLesson\(/, '不得在界面层写死课程');
-assert.doesNotMatch(schedulePanel, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
-assert.match(nativeWeekGrid, /lessons: List<VerifiedLesson>/);
-// Indexed occupancy is equivalent to the former per-cell lesson filter, while
-// avoiding a full list scan for every slot during Compose recompositions.
-assert.match(nativeWeekGrid, /for \(section in lesson\.startSection\.coerceAtLeast\(1\)\.\.lesson\.endSection\.coerceAtMost\(maxSection\)\)/);
-assert.match(nativeWeekGrid, /buckets\[lesson\.weekday\]\[section\]\.add\(lesson\)/);
-assert.match(nativeWeekGrid, /val available = occupancy\[day\]\[section\]/);
-assert.match(nativeWeekGrid, /val next = occupancy\[day\]\[probe\]/);
-assert.match(nativeWeekGrid, /for \(day in 1\.\.7\)/);
-assert.match(nativeWeekGrid, /onLessonClick\(first\)/);
-assert.match(nativeWeekGrid, /val dayWidth = if \(compact\) \(maxWidth - labelWidth - 8\.dp\) \/ 7/,
-  '周日不能被挤出屏幕：七日按当前设备宽度分配');
-assert.match(nativeWeekGrid, /first\.teacher\.isNotBlank\(\)/);
-assert.match(nativeWeekGrid, /if \(next != available\) break/,
-  '不同课程交叠时必须分段而非合成一张假课程');
-assert.match(nativeWeekGrid, /overlapChoices = available/);
-assert.match(nativeWeekGrid, /role = Role\.Tab/);
-assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
-assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
-  '只有首页的顶栏提供云端刷新，课表页仍使用自己的原生导航');
-assert.match(main, /AcademicDestination\.GRADES -> Content\(topPadding = 6\.dp\)/,
-  '成绩页面入口仍为独立原生内容页');
-assert.match(main, /AcademicDestination\.EXAMS -> Content\(topPadding = 6\.dp\)/,
-  '考试页面与成绩统一页内间距');
-const academicGradeArea = main.slice(main.indexOf('AcademicDestination.GRADES -> Content('),
-    main.indexOf('AcademicDestination.SERVICES -> Content('));
-assert.equal((academicGradeArea.match(/XiaoxuEmpty\(/g) || []).length, 2,
-  '成绩与考试须使用唯一的玻璃空态组件，禁止两套自绘白卡');
-assert.match(academicGradeArea, /title = "成绩尚未读取"/,
-  '成绩未取得本人真实数据时明确为空态');
-assert.match(academicGradeArea, /title = "考试安排尚未读取"/,
-  '考试未读取前不能显示模拟考试安排');
-assert.match(academicGradeArea, /actionLabel = "连接青果教务",\s*onAction = openProfile/,
-  '成绩操作必须打开现有学校连接中心');
-assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction = openProfile/,
-  '考试操作必须打开现有学校连接中心');
-assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
-  '未核验数据不能混入成绩或考试页面');
-
-const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
-    workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
-assert.match(statusTabSource, /selectable\(selected = active, role = Role\.Tab, onClick = onClick\)/,
-  '任务三态筛选须具备可访问的选中态，不只是视觉高亮');
-assert.match(workspace, /\.selectableGroup\(\)/,
-  '任务三态筛选须成组供无障碍导航');
-assert.match(statusTabSource, /XiaoxuRadius\.tile/,
-  '任务筛选圆角必须复用唯一设计系统');
-// messageUi is loaded before these assertions; messageCenter is declared later.
-const messageSearchSource = messageUi.slice(
-    messageUi.indexOf('private fun MessageSearchField('),
-    messageUi.indexOf('private fun FilterRow('));
-assert.match(messageSearchSource, /focusedContainerColor = XiaoxuPalette\.GlassCard/,
-  '消息搜索框需与列表共用玻璃材质');
-assert.match(messageSearchSource, /GlassBorder/,
-  '消息搜索框描边须取自唯一组件调色板');
-assert.equal((timetableSettings.match(/XiaoxuGroupSurface\s*\{/g) || []).length, 3,
-  '课表设置的三个分组必须直接复用设计系统的玻璃容器');
-assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/,
-  '课表设置不得恢复已移除的重复分组包装');
-const groupedGlassSource = designSystem.slice(
-    designSystem.indexOf('internal fun XiaoxuGroupSurface('),
-    designSystem.indexOf('/** 连续分组设置', designSystem.indexOf('internal fun XiaoxuGroupSurface(')));
-assert.match(groupedGlassSource, /RoundedCornerShape\(XiaoxuRadius\.group\)/,
-  '课表设置分组圆角必须与所有设置页同源');
-assert.match(groupedGlassSource, /background\(XiaoxuPalette\.GlassCard\)/,
-  '课表设置分组使用同一玻璃材质，但不改变原版弹出位置与文字');
-assert.match(groupedGlassSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.Line/,
-  '内容分组应使用轻量中性描边，不叠加玻璃高光');
-assert.match(designSystem, /XiaoxuGroupSurface\(verticalPadding = 4\.dp, content = content\)/,
-  '普通分组继续保持原有上下4dp内边距；课表设置独立保持0dp');
-
+assert.match(messageUi, /GlassFormField\(/, '消息搜索复用共享表单');
+assert.match(timetableSettings, /InsetGroupedSection\(header = "基础设置"\)/);
+assert.match(timetableSettings, /InsetGroupedSection\(header = "节次时间"/);
+assert.match(timetableSettings, /InsetGroupedSection\(header = "课表文件"\)/);
+assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/);
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
