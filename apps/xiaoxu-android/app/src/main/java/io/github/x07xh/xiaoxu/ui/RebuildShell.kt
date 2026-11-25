@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import io.github.x07xh.xiaoxu.*
@@ -147,22 +149,35 @@ internal fun NativeShell(
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 val tier = rememberNavigationMaterialTier()
                 val backdrop = rememberLayerBackdrop()
-                val capture = if (!wide && showPrimary && tier == NavigationMaterialTier.Refractive)
+                val dialogHost = rememberDialogHostState()
+                val accessibility = rememberGlassAccessibilityMode()
+                val allowPortal = !wide && tier == NavigationMaterialTier.Refractive && !accessibility.highContrast
+                val capture = if (!wide && tier == NavigationMaterialTier.Refractive &&
+                    (showPrimary || dialogHost.hasBlockingSurface))
                     Modifier.layerBackdrop(backdrop) else Modifier
-                Scaffold(modifier = Modifier.fillMaxSize().then(capture)) { padding ->
-                    Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                        .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
-                        pageState.SaveableStateProvider(route.name) {
-                            AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
-                                { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
-                                { inboxLessonId = null; onReminderCourseConsumed() })
+                val backgroundSemantics = if (dialogHost.hasBlockingSurface)
+                    Modifier.semantics { hideFromAccessibility() } else Modifier
+                CompositionLocalProvider(
+                    LocalDialogHost provides dialogHost.takeIf { allowPortal },
+                    LocalAppDialogBackdrop provides backdrop.takeIf { allowPortal }
+                ) {
+                    Scaffold(modifier = Modifier.fillMaxSize().then(capture).then(backgroundSemantics)) { padding ->
+                        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+                            .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
+                            pageState.SaveableStateProvider(route.name) {
+                                AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
+                                    { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
+                                    { inboxLessonId = null; onReminderCourseConsumed() })
+                            }
                         }
                     }
+                    if (!wide && showPrimary) RebuildCapsuleDock(
+                        selected = route.primary, onSelect = { route = AppRoute.root(it) }, tier = tier,
+                        backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter).then(backgroundSemantics)
+                    )
+                    // Sibling to the source layer: never include the optical surface in its own backdrop.
+                    DialogHost(dialogHost, Modifier.fillMaxSize())
                 }
-                if (!wide && showPrimary) RebuildCapsuleDock(
-                    selected = route.primary, onSelect = { route = AppRoute.root(it) }, tier = tier,
-                    backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter)
-                )
             }
         }
     }

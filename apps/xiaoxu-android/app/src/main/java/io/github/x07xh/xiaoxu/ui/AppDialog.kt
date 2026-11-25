@@ -6,6 +6,12 @@ package io.github.x07xh.xiaoxu.ui
 // do not sample the backdrop across window boundaries.
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
+import com.kyant.backdrop.Backdrop
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.layout.*
@@ -20,6 +26,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 
+internal val LocalAppDialogBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+// Forms and nested native windows retain platform focus and IME behavior.
+// Opt-in read-only/selection dialogs use the upstream same-window portal.
 @Composable
 internal fun AppDialog(
     onDismissRequest: () -> Unit,
@@ -27,7 +37,51 @@ internal fun AppDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     icon: @Composable (() -> Unit)? = null,
     title: @Composable (() -> Unit)? = null,
-    text: @Composable (() -> Unit)? = null
+    text: @Composable (() -> Unit)? = null,
+    usePortal: Boolean = false
+) {
+    val host = LocalDialogHost.current
+    val backdrop = LocalAppDialogBackdrop.current
+    val accessibility = rememberGlassAccessibilityMode()
+    val currentDismiss by rememberUpdatedState(onDismissRequest)
+    val body: @Composable () -> Unit = {
+        AppDialogBody(confirmButton, dismissButton, icon, title, text,
+            backdrop = backdrop.takeIf { usePortal && !accessibility.highContrast && host != null })
+    }
+    if (usePortal && host != null && backdrop != null && !accessibility.highContrast) {
+        val currentBody by rememberUpdatedState(body)
+        DisposableEffect(host) {
+            val handle = host.show(onDismiss = { currentDismiss() }) { currentBody() }
+            onDispose { host.dismiss(handle, notify = false) }
+        }
+    } else {
+        Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            val dialogView = LocalView.current
+            DisposableEffect(dialogView) {
+                val window = (dialogView.parent as? DialogWindowProvider)?.window
+                window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window?.setDimAmount(DialogScrimAlpha)
+                onDispose { }
+            }
+            var visible by remember { mutableStateOf(accessibility.reduceMotion) }
+            LaunchedEffect(Unit) { withFrameNanos { }; visible = true }
+            AnimatedVisibility(visible, enter = fadeIn() + scaleIn(initialScale = 0.92f)) {
+                CompositionLocalProvider(LocalDialogHost provides null, LocalAppDialogBackdrop provides null) {
+                    AppDialogBody(confirmButton, dismissButton, icon, title, text, backdrop = null)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppDialogBody(
+    confirmButton: @Composable (() -> Unit),
+    dismissButton: @Composable (() -> Unit)?,
+    icon: @Composable (() -> Unit)?,
+    title: @Composable (() -> Unit)?,
+    text: @Composable (() -> Unit)?,
+    backdrop: Backdrop?
 ) {
     val screen = rememberScreenMetrics()
     val dialogWidth = minOf(if (screen.widthDp < 600.dp) 320.dp else 560.dp, screen.widthDp - 40.dp).coerceAtLeast(200.dp)
@@ -35,20 +89,12 @@ internal fun AppDialog(
     val dialogVerticalPadding = screen.tall(24.dp, 18.dp)
     val dialogHeaderGap = screen.tall(16.dp, 12.dp)
     val dialogButtonGap = screen.tall(24.dp, 16.dp)
-    val accessibility = rememberGlassAccessibilityMode()
-    Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        val dialogView = LocalView.current
-        DisposableEffect(dialogView) {
-            val window = (dialogView.parent as? DialogWindowProvider)?.window
-            window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            window?.setDimAmount(0.22f)
-            onDispose { }
-        }
-        var visible by remember { mutableStateOf(accessibility.reduceMotion) }
-        LaunchedEffect(Unit) { withFrameNanos { }; visible = true }
-        AnimatedVisibility(visible, enter = fadeIn() + scaleIn(initialScale = 0.92f)) {
-            Surface(Modifier.width(dialogWidth), shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+    val shape = RoundedCornerShape(28.dp)
+    val colors = MaterialTheme.colorScheme
+    val panel = if (backdrop != null) Modifier.glassSheet(backdrop) else Modifier.clip(shape)
+        .background(colors.surface).border(0.75.dp, colors.outlineVariant, shape)
+    Box(Modifier.width(dialogWidth).then(panel).semantics { paneTitle = "对话框" }) {
+        CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
             Column(
                 modifier = Modifier.padding(
                     horizontal = dialogHorizontalPadding,
@@ -83,7 +129,7 @@ internal fun AppDialog(
                     content = { text?.invoke() }
                 )
             }
-            if (confirmButton != null || dismissButton != null) {
+            if (dismissButton != null || confirmButton != null) {
                 Spacer(modifier = Modifier.height(dialogButtonGap))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -103,7 +149,6 @@ internal fun AppDialog(
                 }
             }
         }
-            }
         }
     }
 }

@@ -83,3 +83,6 @@ R28 CI 45576163019 全部通过。直接移植上游 EGL/ES2 引擎、渲染器�
 
 ## R30 光学引擎离线运行验收
 R29 CI 45576797300 已全部通过（主程序编译、JVM 测试、仪器测试源码编译）。直接迁移上游 GlassLensRendererTest、GlassLensGeometryDeviceTest、GlassLensCaptureDeviceTest，保留原断言并仅适配包名和 MaterialTheme。复用现有 xiaoxuRuntimeTest 离线隔离构建，在 API32 模拟器上运行三组光学测试；不使用学校账户、真实业务数据或签名发布。编译门禁不再主动取消运行中的测试。离屏渲染目前仍未接入正式页面，须在实际运行验证后再接入；本批 CI 尚未验收。
+
+## R31 同窗口光学弹层整组接入
+R30 编译门禁 45577309278 全部通过，API32 离线 GPU 测试 45577309613 仍运行。直接移植 DialogHost、ScheduleBottomSheetState、GlassSheetSurface 和 DialogHostStateTest，适配已复用的 MotionProfile、材质及现有页面采样。仅性能档位允许的 Android 13+ 手机启用同窗滚轮和公告详情；其他设备、编辑表单及嵌套原生窗口继续使用原生 Dialog。页面采样与弹层为兄弟节点，关闭时停止额外采样，阻挡底层触摸及无障碍访问；未经设备验证，不启用 Android12 离屏折射或嵌套控件捕获。离线引擎工作流限定引擎、测试及构建相关路径，不主动取消运行中的测试。新提交待编译、交互和性能验证。

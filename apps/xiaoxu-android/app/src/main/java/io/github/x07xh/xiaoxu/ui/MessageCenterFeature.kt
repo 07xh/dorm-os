@@ -250,7 +250,7 @@ internal fun ColumnScope.MessageCenterFeature(data: AppWorkspaceState, actions: 
             }
         }
         if (!wide && !showWechat && opened != null) {
-            AppDialog(onDismissRequest = { openedUrl = null }, title = { Text("公告详情") },
+            AppDialog(usePortal = true, onDismissRequest = { openedUrl = null }, title = { Text("公告详情") },
                 text = { NoticeDetails(opened, actions.openArticle) },
                 confirmButton = { TextButton(onClick = { openedUrl = null }) { Text("关闭") } })
         }

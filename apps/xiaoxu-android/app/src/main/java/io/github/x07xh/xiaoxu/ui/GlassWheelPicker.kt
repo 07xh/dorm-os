@@ -187,7 +187,7 @@ fun GlassTimePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialTime, 0), minuteValues))
     }
 
-    AppDialog(
+    AppDialog(usePortal = true, 
         onDismissRequest = onDismiss,
         title = { Text(title) },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -285,7 +285,7 @@ fun GlassDatePickerDialog(
     }
     if (dayIndex > daysInMonth - 1) dayIndex = daysInMonth - 1
 
-    AppDialog(onDismissRequest = onDismiss,
+    AppDialog(usePortal = true, onDismissRequest = onDismiss,
         title = { Text(title) },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
         confirmButton = { TextButton(onClick = { onConfirm(java.time.LocalDate.of(years[yearIndex], monthIndex + 1, dayIndex + 1)) }) { Text("确定") } },
@@ -360,7 +360,7 @@ fun GlassTimeRangePickerDialog(
         mutableIntStateOf(nearestMinuteIndex(parseMinute(initialEnd, 45), minuteValues))
     }
 
-    AppDialog(onDismissRequest = onDismiss,
+    AppDialog(usePortal = true, onDismissRequest = onDismiss,
         title = { Text(title) },
         dismissButton = { Row { if (onClear != null) TextButton(onClick = onClear) { Text("清除") }; TextButton(onClick = onDismiss) { Text("取消") } } },
         confirmButton = { TextButton(onClick = { onConfirm("%02d:%02d".format(startHour, minuteValues[startMinute]), "%02d:%02d".format(endHour, minuteValues[endMinute])) }) { Text("确定") } },
@@ -437,7 +437,7 @@ fun GlassOptionWheelDialog(
         mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
     }
 
-    AppDialog(onDismissRequest = onDismiss,
+    AppDialog(usePortal = true, onDismissRequest = onDismiss,
         title = { Text(title) },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
         confirmButton = { TextButton(onClick = { onConfirm(index) }) { Text("确定") } },
