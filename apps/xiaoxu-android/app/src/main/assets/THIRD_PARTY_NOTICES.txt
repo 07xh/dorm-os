@@ -127,3 +127,13 @@ Adapted package, theme/dialog/icon bindings and maximum imported week count
 (35, matching Xiaoxu's existing local import contract). ScheduleFeature
 binds the existing Xiaoxu local timetable and semester settings; no new
 storage or network client. Full upstream header/pager/agenda/sheet pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream schedule navigation and motion reuse
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported MotionTokens.kt,
+MotionProfile (without unrelated navigation transition dependency),
+ScheduleDateText.kt, ScheduleWeekLabel from ScheduleHeader.kt,
+ScheduleWeekPagerSync.kt and its original tests. Adapted package names,
+platform reduce-motion binding and local sparse-week mapping. No changes to
+school interfaces or timetable storage. Full course sheet and day agenda pending.

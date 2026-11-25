@@ -26,3 +26,6 @@ R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 N
 
 ## R8 周课表源码移植
 移植上游 TimetableLayout、TimetableBackground、CourseCard、文本测量、ScheduleOverlap、ScheduleLocation 与 ScheduleDomain 相关实现。原临时列表替换为周网格；ScheduleFeature 仅做现有本机课程及学期配置绑定、周次选择和课程详情。保留导入导出和提醒打开课程入口。周次上限适配既有 35 周约束，不猜测开学日期；未配置学期时仅展示真实周次。上游完整头部、日视图、滑动分页和玻璃详情弹层尚未迁移。编译及真机验收仍待完成。
+
+## R9 周次滑动与日期动画
+直接移植上游 MotionTokens、MotionProfile（不引入无关全局导航依赖）、ScheduleDateText、ScheduleWeekLabel、ScheduleWeekPagerSync 及原测试。使用 HorizontalPager 绑定已有周课表，将稀疏导入周次映射到连续页索引；按钮、周次下拉、滑动共用状态，程序跳页不重复回写。修正 R8 文本测量列宽参数误传像素整数，恢复 Dp 参数。课程详情仍为现有 AlertDialog；日视图、完整液态日期栏、详情弹层待移植。未完成编译和设备验证，继续保留发布门禁。
