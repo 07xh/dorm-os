@@ -115,3 +115,15 @@ lerpDp/lerpSp from CollapsingGlassHeader.kt, SystemTopBar, SystemEmptyState,
 SystemSectionHeader and SystemListItem from SystemUi.kt. Changes: package,
 local theme bindings, shell-owned insets, optional backdrop. Adaptive dock
 geometry uses upstream responsive dimensions; not a full optical port.
+
+------------------------------------------------------------------
+2026-11-25 upstream timetable replacement
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. Imported ScheduleDomain,
+ScheduleOverlap, ScheduleLocation, ScheduleFocus, ScheduleDetail model,
+TimetableLayout, TimetableBackground, CourseCard, text measurement and
+schedule card colors/borders from upstream schedule and UI sources.
+Adapted package, theme/dialog/icon bindings and maximum imported week count
+(35, matching Xiaoxu's existing local import contract). ScheduleFeature
+binds the existing Xiaoxu local timetable and semester settings; no new
+storage or network client. Full upstream header/pager/agenda/sheet pending.

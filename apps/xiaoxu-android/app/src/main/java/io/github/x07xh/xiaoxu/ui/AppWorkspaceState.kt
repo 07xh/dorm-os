@@ -17,7 +17,9 @@ internal class AppWorkspaceState(
     val localTasks: PageSnapshot<List<LocalTask>>,
     val lessons: PageSnapshot<List<VerifiedLesson>>,
     val nativeRecords: PageSnapshot<List<NativeSchoolRecord>>,
-    val cloud: CloudUiState
+    val cloud: CloudUiState,
+    val semesterCalendar: SemesterCalendar?,
+    val timetableSections: Int
 )
 
 @Composable
@@ -36,6 +38,12 @@ internal fun rememberAppWorkspace(
     val nativeDao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val tasks by rememberSnapshotRows(dao) { dao.observe() }
     val records by rememberSnapshotRows(nativeDao) { nativeDao.observe() }
+    val semester by produceState<SemesterCalendar?>(initialValue = null, key1 = context, key2 = scheduleRevision) {
+        value = withContext(Dispatchers.IO) { LocalSemesterConfigStore.load(context) }
+    }
+    val sections by produceState(initialValue = 12, key1 = context, key2 = scheduleRevision) {
+        value = withContext(Dispatchers.IO) { LocalSemesterConfigStore.loadSections(context) }
+    }
     val scope = rememberCoroutineScope()
     val currentReturn by rememberUpdatedState(returnedSchool)
     val currentConsume by rememberUpdatedState(consumeWebsiteReturn)
@@ -63,6 +71,8 @@ internal fun rememberAppWorkspace(
         localTasks = pageSnapshot(tasks),
         lessons = pageSnapshot(lessons.takeIf { scheduleRevision > 0 || it.isNotEmpty() }),
         nativeRecords = pageSnapshot(records),
-        cloud = cloud.state
+        cloud = cloud.state,
+        semesterCalendar = semester,
+        timetableSections = sections
     )
 }

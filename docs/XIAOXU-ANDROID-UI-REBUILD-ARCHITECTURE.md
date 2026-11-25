@@ -23,3 +23,6 @@ R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 N
 
 ## R7 公共页面替换
 直接移植上游 ScreenMetrics、CollapsingGlassHeader 插值函数、SystemTopBar、SystemEmptyState、SystemSectionHeader、SystemListItem；替换 AppPageFrame 顶栏和课表列表行、空状态，底栏尺寸与内容留白统一使用上游响应式尺寸策略。仍保留唯一 Shell 与数据契约。完整周课表网格、弹窗系统、物理折射尚未移植，本提交未完成编译与运行验证。
+
+## R8 周课表源码移植
+移植上游 TimetableLayout、TimetableBackground、CourseCard、文本测量、ScheduleOverlap、ScheduleLocation 与 ScheduleDomain 相关实现。原临时列表替换为周网格；ScheduleFeature 仅做现有本机课程及学期配置绑定、周次选择和课程详情。保留导入导出和提醒打开课程入口。周次上限适配既有 35 周约束，不猜测开学日期；未配置学期时仅展示真实周次。上游完整头部、日视图、滑动分页和玻璃详情弹层尚未迁移。编译及真机验收仍待完成。

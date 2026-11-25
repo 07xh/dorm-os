@@ -36,7 +36,7 @@ internal fun AppFeaturePage(
     AppPageFrame(title = route.title, onBack = route.parent?.let { parent -> { actions.navigate(parent) } }) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
-            AppRoute.SCHEDULE -> ScheduleFeature(data.lessons, actions, reminderLessonId, consumeLesson)
+            AppRoute.SCHEDULE -> ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
             AppRoute.ACADEMIC -> {
                 InsetGroupedSection {
                     AppGroupedEntry("成绩", onClick = { actions.navigate(AppRoute.GRADES) })
@@ -99,33 +99,6 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
         if (data.cloud.noticesPartial) item { AppNotice("通知来源部分可用，可能不是完整列表。") }
         items(data.cloud.notices.take(5), key = { it.url }) { notice ->
             AppEntry(notice.title, notice.dateLabel, onClick = { actions.openArticle(notice.url) })
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.ScheduleFeature(snapshot: PageSnapshot<List<VerifiedLesson>>,
-    actions: AppPageActions, target: String?, consume: () -> Unit) {
-    Row {
-        TextButton(onClick = actions.importTimetable) { Text("导入") }
-        TextButton(onClick = actions.exportTimetable) { Text("导出") }
-    }
-    AppSnapshotContent(snapshot) { lessons ->
-        val ordered = remember(lessons) { lessons.sortedWith(compareBy({ it.weekday }, { it.startSection })) }
-        val listState = rememberLazyListState()
-        LaunchedEffect(target, ordered) {
-            if (target != null) {
-                val index = ordered.indexOfFirst { it.id == target }
-                if (index >= 0) { listState.scrollToItem(index); consume() }
-            }
-        }
-        if (ordered.isEmpty()) SystemEmptyState("本机尚无课程", "导入课表后在这里查看课程。")
-        LazyColumn(Modifier.weight(1f), state = listState) {
-            items(ordered) { lesson ->
-                SystemListItem(title = lesson.title,
-                    subtitle = "星期${lesson.weekday} · ${lesson.startSection}–${lesson.endSection} 节 · ${lesson.location}")
-                HorizontalDivider()
-            }
         }
     }
 }
