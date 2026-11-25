@@ -664,7 +664,9 @@ private fun ScheduleVerifiedContent(
     }
     }
     // 详情从当前筛选的本机课程集合查找，避免回显已替换的旧课表。
-    val opened = filtered.firstOrNull { it.key == selectedCourseKey }
+    val opened = remember(filtered, selectedCourseKey) {
+        filtered.firstOrNull { it.key == selectedCourseKey }
+    }
     if (opened != null && !showSchoolSchedule) {
         CourseDetailBottomSheet(
             lesson = opened,
@@ -821,7 +823,10 @@ private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, 
     val authorized = cloud.canCheckNcwuBusiness()
     val weeks = remember(snapshot) { snapshot?.lessons.orEmpty().flatMap { it.weeks }.distinct().sorted() }
     var selectedWeek by rememberSaveable { mutableStateOf(1) }
-    var selectedLesson by remember(snapshot) { mutableStateOf<VerifiedLesson?>(null) }
+    val weekLessons = remember(snapshot, selectedWeek) {
+        snapshot?.lessons.orEmpty().filter { selectedWeek in it.weeks }
+    }
+    var selectedLesson by remember(snapshot, selectedWeek) { mutableStateOf<VerifiedLesson?>(null) }
     LaunchedEffect(weeks) { if (weeks.isNotEmpty() && selectedWeek !in weeks) selectedWeek = weeks.first() }
     Column(Modifier.fillMaxWidth().xiaoxuPageWidth().padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -837,7 +842,7 @@ private fun SchoolReadOnlyTimetable(cloud: CloudClient, onSettings: () -> Unit, 
                 "上次核验：${snapshot.capturedAt}", style = MaterialTheme.typography.labelSmall)
             if (weeks.isNotEmpty()) {
                 WeekSelector(weeks = weeks, selected = selectedWeek, onSelect = { selectedWeek = it })
-                WeeklyTimetableGrid(lessons = snapshot.lessons.filter { selectedWeek in it.weeks }) {
+                WeeklyTimetableGrid(lessons = weekLessons) {
                     selectedLesson = it
                 }
             } else Text("本次已核验课表无课块")

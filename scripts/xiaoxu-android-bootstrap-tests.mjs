@@ -901,6 +901,9 @@ assert.match(nativeWeekGrid, /first\.teacher\.isNotBlank\(\)/);
 assert.match(nativeWeekGrid, /if \(next != available\) break/,
   '不同课程交叠时必须分段而非合成一张假课程');
 assert.match(nativeWeekGrid, /overlapChoices = available/);
+assert.match(nativeWeekGrid, /var overlapChoices by remember\(all\)/, "课程快照切换后不保留旧冲突弹窗");
+assert.match(schedulePanel, /val weekLessons = remember\(snapshot, selectedWeek\) \{\s*snapshot\?\.lessons\.orEmpty\(\)\.filter \{ selectedWeek in it\.weeks \}/);
+assert.match(schedulePanel, /var selectedLesson by remember\(snapshot, selectedWeek\)/);
 assert.match(nativeWeekGrid, /role = Role\.Tab/);
 assert.doesNotMatch(nativeWeekGrid, /电路基础|E103|演示数据|faker/i);
 assert.match(main, /MainDestination\.HOME -> Column\(Modifier\.fillMaxSize\(\)\)[\s\S]*?onRefresh = \{ scope\.launch \{ cloud\.refresh\(\) \} \}/,
@@ -1394,7 +1397,8 @@ assert.doesNotMatch(workspace, /add\(WorkspaceTask\("school:"|CloudTask\(.*nativ
 assert.match(panels, /LocalSchoolConnectionPanel\(/);
 assert.ok(panels.indexOf('LocalSchoolConnectionPanel(') < panels.indexOf('if (cloudAdvanced)'), '本机记录入口始终可见，无须先展开云端或等待导入');
 assert.match(localSchoolUi, /data class LocalSchoolImportReceipt\(/);
-assert.match(localSchoolUi, /records\.filter \{ it\.provider == provider && it\.kind != "account_binding" \}/);
+assert.match(localSchoolUi, /records\.filter \{ it\.kind != "account_binding" \}\.groupBy \{ it\.provider \}/, "账号绑定记录不进入展示分组");
+assert.match(localSchoolUi, /val list = recordsByProvider\[provider\]\.orEmpty\(\)/, "各平台只展示自己的记录");
 assert.match(localSchoolUi, /stored\.size == justImported\.savedCount/);
 assert.match(localSchoolUi, /已从本机数据库重新读取/);
 

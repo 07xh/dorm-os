@@ -84,7 +84,8 @@ internal fun WeeklyTimetableGrid(
         all.forEach { lesson -> if (lesson.weekday in 1..7) counts[lesson.weekday]++ }
     } }
     val days = listOf("一", "二", "三", "四", "五", "六", "日")
-    var overlapChoices by remember { mutableStateOf<List<VerifiedLesson>>(emptyList()) }
+    // A new week or updated snapshot must not leave an old course picker open.
+    var overlapChoices by remember(all) { mutableStateOf<List<VerifiedLesson>>(emptyList()) }
 
     // Reuse the existing native weekly-grid model; adapt only the presentation
     // to the phone viewport. All seven days fit when there is sufficient room,
