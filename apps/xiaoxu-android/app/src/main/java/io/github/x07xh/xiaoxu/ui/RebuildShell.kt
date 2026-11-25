@@ -95,6 +95,7 @@ internal fun NativeShell(
         syncAuthorizedSchool = { provider -> cloud.syncAuthorizedSchool(provider) },
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
+        readChaoxingProgress = { course -> cloud.readChaoxingCourseProgress(course) },
         localTaskDao = dao,
         openLocalTask = { id -> inboxTaskId = id; goTo(AppRoute.TASKS) },
         openLocalCourse = { id, _ -> inboxLessonId = id; goTo(AppRoute.SCHEDULE) },
