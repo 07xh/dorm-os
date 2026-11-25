@@ -289,3 +289,15 @@ Only the active business page is composed; outgoing-page drawing is disabled
 to avoid duplicate reminders, data readers and dialog side effects. System
 reduced-motion preference and original route history are preserved. No data
 or network layer changes. Compilation and device validation remain pending.
+
+------------------------------------------------------------------
+2026-11-25 complete upstream capsule navigation source
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. CapsuleNavigationBar.kt and
+ChromaticFringe.kt replace the partial RebuildCapsuleDock and standalone
+NavTab rendering; the existing route-to-symbol and device tier adapters
+remain. Upstream glass track, indicator, gesture, minimized capsule and
+fallback renderers are retained. Xiaoxu currently enables optical navigation
+only on its existing supported API 33+ tier; no API 31/32 expansion or
+scroll-driven minimization is claimed. License compatibility, compilation
+and device validation remain pending before any public APK distribution.
