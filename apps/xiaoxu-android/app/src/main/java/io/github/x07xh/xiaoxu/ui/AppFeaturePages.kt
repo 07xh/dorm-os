@@ -35,6 +35,8 @@ internal class AppPageActions(
     val signOutCloud: suspend () -> Unit,
     val updateLocalTask: suspend (Long, Boolean) -> Boolean,
     val updateWechatTask: suspend (String, Int, Boolean, String) -> Boolean,
+    val addCloudTask: suspend (String, String) -> Boolean,
+    val syncAuthorizedSchool: suspend (String) -> Boolean,
     val openArticle: (String) -> Unit,
     val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean,
     val readGrades: suspend () -> Unit,
