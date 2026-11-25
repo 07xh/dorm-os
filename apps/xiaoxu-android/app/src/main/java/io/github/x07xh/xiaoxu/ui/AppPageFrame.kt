@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 internal object AppSpacing {
+    val formMaxWidth = 680.dp
+    val workspaceMaxWidth = 1200.dp
     val pageHorizontal = 20.dp
     val pageVertical = 12.dp
     val section = 20.dp
@@ -27,6 +29,7 @@ internal object AppSpacing {
 internal fun AppPageFrame(
     title: String, onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    wideContent: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     // Share the upstream SettingsScreen/SystemTopBar collapse treatment.
@@ -50,9 +53,12 @@ internal fun AppPageFrame(
             }, actions = actions)
         }
     }) { padding ->
-        Column(Modifier.fillMaxSize().nestedScroll(observer).padding(padding).consumeWindowInsets(padding)
-            .padding(horizontal = AppSpacing.pageHorizontal),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.item), content = content)
+        Box(Modifier.fillMaxSize().nestedScroll(observer).padding(padding).consumeWindowInsets(padding),
+            contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.widthIn(max = if (wideContent) AppSpacing.workspaceMaxWidth else AppSpacing.formMaxWidth)
+                .fillMaxWidth().fillMaxHeight().padding(horizontal = AppSpacing.pageHorizontal),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.item), content = content)
+        }
     }
 }
 
