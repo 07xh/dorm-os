@@ -31,7 +31,9 @@ internal class AppPageActions(
     val addLocalTask: suspend (String, String?) -> Long,
     val executionDao: TaskExecutionDao,
     val localTaskDao: LocalTaskDao,
-    val saveCourseChanges: suspend (List<VerifiedLesson>, List<VerifiedLesson>, String?) -> Boolean
+    val saveCourseChanges: suspend (List<VerifiedLesson>, List<VerifiedLesson>, String?) -> Boolean,
+    val openLocalTask: (Long) -> Unit,
+    val openLocalCourse: (String, Int) -> Unit
 )
 
 @Composable
@@ -43,6 +45,7 @@ internal fun AppFeaturePage(
     AppPageFrame(title = route.title, onBack = route.parent?.let { parent -> { actions.navigate(parent) } }) {
         when (route) {
             AppRoute.HOME -> HomeFeature(data, actions)
+            AppRoute.MESSAGES -> MessageCenterFeature(data, actions)
             AppRoute.SCHEDULE -> ScheduleFeature(data, actions, reminderLessonId, consumeLesson)
             AppRoute.SCHEDULE_SETTINGS -> ScheduleSettingsFeature(data, actions)
             AppRoute.ACADEMIC -> {
@@ -95,6 +98,7 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
                 }
             }
         }
+        item { AppEntry("通知中心", "校园公告与本机提醒", onClick = { actions.navigate(AppRoute.MESSAGES) }) }
         item { SystemSectionHeader("校园通知") }
         if (data.cloud.notices.isEmpty()) item {
             when (val phase = deriveMessagePhase(data.cloud)) {

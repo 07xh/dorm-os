@@ -59,6 +59,8 @@ internal fun NativeShell(
 ) {
     var route by rememberSaveable { mutableStateOf(AppRoute.HOME) }
     val pageState = rememberSaveableStateHolder()
+    var inboxTaskId by remember { mutableStateOf<Long?>(null) }
+    var inboxLessonId by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current.applicationContext
     var settingsRevision by remember { mutableIntStateOf(0) }
     val data = rememberAppWorkspace(dao, cloud, localLessons, localScheduleRevision, settingsRevision,
@@ -71,6 +73,8 @@ internal fun NativeShell(
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
         localTaskDao = dao,
+        openLocalTask = { id -> inboxTaskId = id; route = AppRoute.TASKS },
+        openLocalCourse = { id, _ -> inboxLessonId = id; route = AppRoute.SCHEDULE },
         saveCourseChanges = { expected, changed, originalId ->
             val (fresh, reminderOk) = withContext(Dispatchers.IO) {
                 require(LocalScheduleStore.load(context) == expected) { "课表已经变化，请重新打开编辑器" }
@@ -149,8 +153,9 @@ internal fun NativeShell(
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                         .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
                         pageState.SaveableStateProvider(route.name) {
-                            AppFeaturePage(route, data, actions, reminderTaskId, onReminderTaskConsumed,
-                                reminderLessonId, onReminderCourseConsumed)
+                            AppFeaturePage(route, data, actions, inboxTaskId ?: reminderTaskId,
+                                { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
+                                { inboxLessonId = null; onReminderCourseConsumed() })
                         }
                     }
                 }
