@@ -87,6 +87,10 @@ internal fun AppFeaturePage(
             }
             AppRoute.GRADES -> Unit
             AppRoute.EXAMS -> Unit
+            AppRoute.CAMPUS_RUN -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.section)) {
+                CampusRunFeature(data.campusRunScope)
+            }
             AppRoute.STUDY_PROGRESS -> {
                 SystemEmptyState("尚未接入课程进度", "目前没有已核验的课程进度数据。任务完成状态不等于课程学习进度。")
                 TextButton(onClick = { actions.navigate(AppRoute.CONNECTIONS) }) { Text("数据连接") }
@@ -120,8 +124,10 @@ private fun AcademicHubFeature(actions: AppPageActions) {
         }
         InsetGroupedSection(header = "学习与活动") {
             SettingsRow(Icons.Outlined.Event, tint, "第二课堂", onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
-            SettingsRow(Icons.Outlined.MenuBook, tint, "学习进度", showDivider = false,
+            SettingsRow(Icons.Outlined.MenuBook, tint, "学习进度",
                 onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
+            SettingsRow(Icons.Outlined.Event, tint, "校园跑记录", showDivider = false,
+                onClick = { actions.navigate(AppRoute.CAMPUS_RUN) })
         }
     }
 }
