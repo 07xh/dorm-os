@@ -35,6 +35,9 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
     var sourceMenuOpen by remember { mutableStateOf(false) }
     var onlyThisWeek by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var chooseDestination by rememberSaveable { mutableStateOf(false) }
+    var addingCloud by rememberSaveable { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
     var editTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var graphOpen by rememberSaveable { mutableStateOf(false) }
@@ -82,7 +85,14 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { showArchived = true }) { Text("归档 (${archivedRows.size})") }
             TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
-            TextButton(onClick = { adding = true }) { Text("新建任务") }
+            TextButton(enabled = !refreshing && !data.cloud.busy, onClick = {
+                refreshing = true
+                scope.launch {
+                    try { actions.refreshCloud() }
+                    finally { refreshing = false }
+                }
+            }) { Text("刷新") }
+            TextButton(onClick = { if (data.cloud.authenticated) chooseDestination = true else adding = true }) { Text("新建任务") }
         }
         GlassFormField(query, { query = it }, "搜索任务", Modifier.fillMaxWidth(), placeholder = "任务名称")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -249,6 +259,28 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                 } }, confirmButton = { TextButton(onClick = { detailKey = null }) { Text("关闭") } })
         }
     }
+    if (chooseDestination) AppDialog(onDismissRequest = { chooseDestination = false },
+        title = { Text("新建任务") },
+        text = {
+            InsetGroupedSection {
+                InsetGroupedRow(title = "本机任务", subtitle = "保存在本设备", onClick = {
+                    chooseDestination = false
+                    adding = true
+                })
+                InsetGroupedRow(title = "云端任务", subtitle = "同步到本人校序账户", showDivider = false,
+                    onClick = { chooseDestination = false; addingCloud = true })
+            }
+        },
+        confirmButton = { TextButton(onClick = { chooseDestination = false }) { Text("取消") } })
+    if (addingCloud) CloudTaskEditor(data.cloud, actions,
+        onDismiss = { addingCloud = false },
+        onCreated = {
+            addingCloud = false
+            filter = "pending"
+            query = ""
+            sourceFilter = "cloud"
+            onlyThisWeek = false
+        })
     if (adding) LocalTaskCreateSheet(actions.localTaskDao,
         onDismiss = { adding = false },
         onCreated = {
@@ -259,4 +291,45 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             onlyThisWeek = false
             error = null
         })
+}
+
+
+/** Existing owner-protected task creation contract; no local shadow record. */
+@Composable
+private fun CloudTaskEditor(state: CloudUiState, actions: AppPageActions, onDismiss: () -> Unit,
+    onCreated: () -> Unit) {
+    val owner = state.ownerId
+    val scope = rememberCoroutineScope()
+    var title by rememberSaveable(owner) { mutableStateOf("") }
+    var submitting by remember(owner) { mutableStateOf(false) }
+    var uncertain by remember(owner) { mutableStateOf(false) }
+    val connected = state.authenticated && !owner.isNullOrBlank()
+    AppDialog(onDismissRequest = { if (!submitting) onDismiss() },
+        title = { Text("新建云端任务") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppNotice("仅写入本人校序云端，不代表学校官方任务。")
+                if (!connected) AppNotice("请先连接校序云端。", error = true)
+                GlassFormField(title, { title = it.take(120) }, "任务名称", Modifier.fillMaxWidth(),
+                    enabled = connected && !submitting && !uncertain)
+                if (uncertain) AppNotice("提交结果未确认，请关闭并刷新任务列表后核对。", error = true)
+            }
+        },
+        confirmButton = {
+            Button(enabled = connected && !state.busy && !submitting && !uncertain && title.isNotBlank(),
+                onClick = {
+                    val boundOwner = owner ?: return@Button
+                    val value = title.trim()
+                    submitting = true
+                    scope.launch {
+                        try {
+                            if (actions.addCloudTask(value, boundOwner)) onCreated()
+                            else uncertain = true
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (_: Exception) { uncertain = true }
+                        finally { submitting = false }
+                    }
+                }) { Text(if (submitting) "保存中" else "保存至云端") }
+        },
+        dismissButton = { TextButton(enabled = !submitting, onClick = onDismiss) { Text("取消") } })
 }
