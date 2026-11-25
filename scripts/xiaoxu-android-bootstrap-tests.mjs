@@ -652,126 +652,66 @@ assert.doesNotMatch(timetableSettings, /\b(?:fun|class)\s+SettingsSurface\b/);
 
 
 // 消息中心：公开公告与微信待审核分开，失败/过期要显式提示，不伪造正文。
-const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenter.kt');
-assert.doesNotMatch(messageCenter, /private val TileShape\s*=/,
-  '消息中心不得恢复未使用的页面级形状常量');
-assert.match(messageCenter, /fun filterNotices\(/);
-assert.match(messageCenter, /state\.notices/);
-assert.match(messageCenter, /state\.pendingWechatCount/);
-assert.match(messageCenter, /state\.publicError/);
-assert.match(messageCenter, /noticesPartial/);
-assert.match(messageCenter, /openArticle\(notice\.url\)/);
-assert.match(messageCenter, /未连接校序云端/);
-assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie/);
-assert.doesNotMatch(messageCenter, /AcademicNotice\(/, '不得在界面层手写公告对象冒充真实数据');
-
-const messagePillSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessagePill('),
-  messageCenter.indexOf('private fun MessageCountLine('));
-assert.match(messagePillSource, /XiaoxuPalette\.GlassTrack/,
-  '官方消息筛选未选中态与导航共用轻玻璃材质');
-assert.match(messagePillSource, /XiaoxuSpacing\.glassStroke/,
-  '官方消息筛选不可恢复旧1dp灰色硬描边');
-
-const skeletonSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessageSkeleton('));
-assert.match(skeletonSource, /height\(76\.dp\)/,
-  '消息占位不应在内容为空时占据过厚的灰色长卡');
-assert.match(skeletonSource, /background\(XiaoxuPalette\.GlassTrack\)/,
-  '消息加载占位必须采用统一玻璃轨道材质');
-assert.match(messageCenter, /container = MaterialTheme\.colorScheme\.errorContainer/,
-  '云端公告读取失败仍显示明确的错误语义');
-
-const messageBannerSource = messageCenter.slice(
-  messageCenter.indexOf('private fun MessageBanner('),
-  messageCenter.indexOf('private fun MessageErrorCard('));
-assert.match(messageBannerSource, /XiaoxuPalette\.GlassBorder/,
-  '官方通知状态横幅采用统一柔和玻璃边界');
-assert.doesNotMatch(messageBannerSource, /border\(1\.dp, XiaoxuPalette\.Line/,
-  '状态横幅禁止恢复旧1dp灰色硬边');
-const noticeDetailSource = messageCenter.slice(
-  messageCenter.indexOf('internal fun NoticeDetailSheet('),
-  messageCenter.indexOf('private fun SheetMetaRow('));
-assert.match(noticeDetailSource, /text = notice\.title/,
-  '官方公告标题仍来自真实读取记录');
-assert.doesNotMatch(noticeDetailSource, /background\(XiaoxuPalette\.BrandSoft\)/,
-  '官方公告玻璃抽屉不再额外嵌套实心标题卡片');
-assert.match(designSystem, /internal fun XiaoxuDialogPrimaryButton\(/,
-  '弹窗主按钮必须由统一设计系统维护');
-assert.match(designSystem, /XiaoxuDialogPrimaryButton\(onClick = onDismiss\)/,
-  '完成按钮必须复用统一胶囊主按钮');
-assert.match(noticeDetailSource, /XiaoxuDialogPrimaryButton\(/,
-  '官网原文按钮必须复用完成按钮的胶囊组件');
-assert.match(noticeDetailSource, /onClick = \{ openArticle\(notice\.url\) \}/,
-  '官网链接跳转行为必须保留');
-assert.doesNotMatch(noticeDetailSource, /RoundedCornerShape\(14\.dp\)/,
-  '公告不得恢复旧 14dp 按钮圆角');
-const secondaryActionSource = panels.slice(panels.indexOf('private fun SecondaryAction('));
-assert.match(secondaryActionSource, /border\(XiaoxuSpacing\.glassStroke, XiaoxuPalette\.GlassBorder/,
-  '我的连接次要操作统一玻璃描边而非旧1dp灰色硬边');
-
-
-// 消息中心来源分区（Issue #263）：官方公告与微信候选必须各有分区标题与真实计数，
-// 顶部不能再用单一「官方来源」徽标覆盖整页。
-assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
-assert.match(messageCenter, /state\.notices\.isNotEmpty\(\)/,
-  "只有已读取的公告数量非零时，顶部来源标签才显示计数");
-assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
-assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
-assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
-  '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
-assert.match(messageCenter, /title = "微信候选"/);
-assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
-  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
-assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
-  '消息中心禁止持续显示面向开发人员的来源免责声明');
-assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
-assert.doesNotMatch(messageCenter, /private fun SourceChip\(/,
-  '来源摘要卡已退出消息主布局，防止第二套来源容器回流');
-assert.ok(messageCenter.includes('val noticeTitle = "官方通知" +'),
-  '官方来源分段标题必须仍显示真实公告数量');
-
-// 公告只有标题/分类/日期/链接：入口与抽屉都不得声称"全文"或提供正文/附件。
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/,
-  '紧凑海报式公告卡仍须打开真实官方详情');
-assert.doesNotMatch(messageCenter, /查看全文/, '公告详情不得声称查看全文');
-assert.match(messageCenter, /onClickLabel = "查看公告详情与官网链接"/);
-assert.match(messageCenter, /XiaoxuSheet\(onDismiss = onDismiss, title = "公告详情"\)/,
-  '公告详情必须复用唯一玻璃弹层');
-assert.doesNotMatch(messageCenter, /ModalBottomSheet\(/,
-  '消息页不能再创建第二套底部弹层容器');
-assert.match(messageCenter, /正文请在学校官网查看/,
-  '仅有官方元数据时不编造公告正文');
-const officialNoticeDetail = messageCenter.slice(
-  messageCenter.indexOf('internal fun NoticeDetailSheet('),
-  messageCenter.indexOf('private fun SheetMetaRow(')
-);
-assert.doesNotMatch(officialNoticeDetail, /text = "关闭"/,
-  '公告详情仅使用共享弹层的完成按钮，不能重复关闭');
-assert.doesNotMatch(messageCenter, /全部已读|提取为任务|标记为已读/, '不得展示未实现的批量操作');
-
-// 搜索范围只覆盖官方公告，微信候选只用已有审核面板呈现。
-assert.match(messageCenter, /WechatReviewPanel\(/);
-assert.match(messageCenter, /pendingCount = state\.pendingWechatCount/);
-
-// 触控与读屏：筛选 48dp、单选组 + selected、窄屏内边距与可滚动详情。
-assert.match(messageCenter, /\.selectableGroup\(\)/);
-assert.match(messageCenter, /\.selectable\(\s*selected = isSelected,\s*role = Role\.Tab,/);
-assert.match(messageCenter, /\.heightIn\(min = 48\.dp\)/);
-assert.match(messageCenter, /maxWidth < 380\.dp/);
-assert.match(designSystem, /verticalScroll\(rememberScrollState\(\)\)/,
-  '统一底部弹层必须支持内容滚动');
-assert.match(messageCenter, /mergeDescendants = true/);
-assert.match(messageCenter, /rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/);
-assert.match(messageCenter, /var openedId by rememberSaveable/);
-
-// App 原生微信审核：只通过现有 Owner Session 读取真实候选、二次确认后提交。
-// 后端沿用已上线的同源 POST + 人工审核事务，绝不新增微信采集器。
-const wechatReview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/WechatReviewPanel.kt');
+const messageCenter = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/MessageCenterFeature.kt');
+const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
+const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppDialog.kt');
+const wechatReview = messageCenter;
+const taskBoard = localTaskUi;
 const reviewRoute = read('functions/api/v1/wechat/candidates/[id].js');
-assert.match(messageCenter, /WechatReviewPanel\(/);
-assert.doesNotMatch(messageCenter, /WechatSourceCard\(/);
+assert.match(messageCenter, /fun filterNotices\(/, "公告检索");
+assert.match(messageCenter, /filterNotices\(state\.notices, query, filter\)\.distinctBy \{ it\.url \}/, "真实公告与去重");
+assert.match(messageCenter, /pendingWechatLabel\(state\.pendingWechatCount, state\.authenticated, state\.wechatError\)/, "待审数量含账户及错误状态");
+assert.match(messageCenter, /state\.publicError != null && state\.notices\.isNotEmpty\(\)/, "明确缓存数据");
+assert.match(messageCenter, /if \(state\.noticesPartial\) item \{ AppNotice/, "部分读取失败");
+assert.match(messageCenter, /MessagePhase\.NotConnected -> item \{ SystemEmptyState\("尚未读取公告"/, "未读取不同于空列表");
+assert.match(messageCenter, /MessagePhase\.Failed -> item \{ AppNotice\(phase\.message, error = true\)/, "真实错误语义");
+assert.match(messageCenter, /LiquidSegmentedControl\(listOf\("官方通知", "微信审核"\)/, "独立来源");
+assert.match(messageCenter, /state = if \(showWechat\) reviewList else officialList/, "各来源滚动状态");
+assert.match(messageCenter, /InsetGroupedSection\(header = "微信候选"\)/, "微信来源独立分组");
+assert.match(messageCenter, /if \(state\.authenticated\) \{\s*items\(state\.wechatCandidates, key = \{ it\.id \}\)/, "仅账户内候选");
+assert.match(messageCenter, /var filter by rememberSaveable \{ mutableStateOf\(MSG_FILTER_ALL\) \}/, "恢复筛选状态");
+assert.match(messageCenter, /var openedUrl by rememberSaveable/, "恢复真实公告身份");
+assert.match(messageCenter, /state\.notices\.firstOrNull \{ it\.url == openedUrl \}/, "选中真实公告");
+assert.match(messageCenter, /maxWidth >= 840\.dp && !showWechat/, "宽屏双栏与手机统一内容");
+assert.match(messageCenter, /AppDialog\(usePortal = true, onDismissRequest = \{ openedUrl = null \}, title = \{ Text\("公告详情"\) \}/, "共用公告浮层");
+assert.match(messageCenter, /Text\(notice\.title, style = MaterialTheme\.typography\.titleMedium\)/, "真实标题");
+assert.match(messageCenter, /正文请在学校官网查看/, "无正文数据不得编造");
+assert.match(messageCenter, /Button\(onClick = \{ openArticle\(notice\.url\) \}\)/, "官网原文入口");
+assert.match(messageCenter, /GlassFormField\(query, \{ query = it\.take\(60\) \}/, "共享检索表单");
+assert.match(messageCenter, /GlassFilterCapsule\(label = option\.label, selected = filter == option\.key/, "共享公告筛选");
+assert.match(messageCenter, /fun pendingWechatShortLabel\(/, "区分待审计数未知");
+assert.match(messageCenter, /rememberSaveable\(state\.ownerId, item\.id\)/, "候选详情按账号及ID隔离");
+assert.match(messageCenter, /val fresh = state\.authenticated && state\.pendingWechatCount != null && state\.wechatError == null/, "旧候选不可审核");
+assert.match(messageCenter, /if \(opened && state\.authenticated\) AppDialog\(/, "审核使用同一个弹窗");
+assert.match(messageCenter, /if \(pendingDecision == null\) \{/, "二次确认而非独立窗口");
+assert.match(messageCenter, /Button\(enabled = fresh && !reviewing && !failed,[\s\S]*?actions\.reviewWechatCandidate\(item\.id, decision\)/, "确认后才通过原接口提交");
+assert.match(messageCenter, /没有摘要，请核对微信原消息/, "候选摘要缺失提示");
+assert.match(messageCenter, /核对原消息后逐条确认/, "人工审核");
+assert.match(stepEditor, /AppDialog\(/, "步骤删除共享弹窗");
+assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/, "真实本机删除");
+assert.match(stepEditor, /onDismissRequest = \{ if \(!busy\) deleting = null \}/, "写入期间禁止误关闭");
+assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/, "导入减少二次确认");
+assert.match(importPreview, /HorizontalDivider\(color = MaterialTheme\.colorScheme\.outlineVariant/, "共享主题分隔线");
+assert.match(importPreview, /onDismissRequest = \{ if \(!saving\) onDismiss\(\) \}/, "导入期间禁止关闭");
+assert.match(bottomActions, /DialogProperties\(usePlatformDefaultWidth = false\)/, "原生窗口回退");
+assert.match(bottomActions, /val dialogWidth = minOf\(/, "动态窗口宽度");
+assert.match(bottomActions, /window\?\.setDimAmount\(DialogScrimAlpha\)/, "唯一遮罩");
+assert.match(bottomActions, /host\.show\(onDismiss = \{ currentDismiss\(\) \}\)/, "同窗口弹窗宿主");
+assert.match(bottomActions, /host\.dismiss\(handle, notify = false\)/, "退出释放弹窗");
+assert.match(bottomActions, /semantics \{ paneTitle = "对话框" \}/, "读屏对话框语义");
+assert.match(localTaskUi, /private fun LocalTaskSourcePicker\(/, "任务分类唯一选择器");
+assert.match(localTaskUi, /TASK_SOURCES\.forEach \{ option ->/, "真实分类");
+assert.match(localTaskUi, /dao\.insert\(LocalTask\(/, "本机写入");
+assert.match(localTaskUi, /onDismissRequest = \{ if \(!saving\) onDismiss\(\) \}/, "保存期间禁止关闭");
+assert.match(localTaskUi, /GlassDatePickerDialog\(/, "统一日期选择");
+
+assert.doesNotMatch(messageCenter, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager|document\.cookie|READ_SMS|READ_CONTACTS/);
+assert.doesNotMatch(messageCenter, /AcademicNotice\(|查看全文|全部已读|提取为任务|标记为已读|AlertDialog\(|ModalBottomSheet\(/);
+assert.doesNotMatch(stepEditor, /AlertDialog\(/);
+assert.doesNotMatch(importPreview, /XiaoxuCard\(/);
+assert.doesNotMatch(bottomActions, /LocalConfiguration\.current\.screenHeightDp/);
+assert.doesNotMatch(localTaskUi, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 assert.match(cloud, /data class WechatCandidate/);
 assert.match(cloud, /wechatCandidates = candidates \?: state\.wechatCandidates/);
 assert.match(cloud, /reviewStatus"\) != "needs_review"/);
@@ -780,62 +720,9 @@ assert.match(cloud, /\/api\/v1\/wechat\/candidates\/\$candidateId/);
 assert.match(cloud, /JSONObject\(\)\.put\("decision", decision\)/);
 assert.match(cloud, /reviewWechatCandidate[\s\S]*?sessionEpoch/);
 assert.match(cloud, /clearAccountSnapshots\(/);
-assert.match(wechatReview, /ModalBottomSheet\(/);
-assert.match(wechatReview, /if \(pendingDecision != null\)/,
-  '微信候选必须在同一弹窗内二次确认，不叠加系统对话框');
-assert.doesNotMatch(wechatReview, /AlertDialog\(/,
-  '微信候选二次确认不应重复叠加弹窗');
-assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/,
-  '人工确认仍须调用原有授权审核接口');
-assert.match(wechatReview, /client\.reviewWechatCandidate\(selected\.id, decision\)/);
-assert.match(wechatReview, /本条候选没有摘要；请前往微信核实原消息/);
-assert.match(wechatReview, /候选摘要 · 请核对原消息后确认/);
-assert.doesNotMatch(wechatReview, /HttpURLConnection|openConnection|WebView|CookieManager|READ_SMS|READ_CONTACTS/);
 assert.match(reviewRoute, /authorize\(context\)/);
 assert.match(reviewRoute, /sec-fetch-site/);
 assert.match(reviewRoute, /reviewWechatCandidate\(auth\.db,auth\.userId/);
-
-const stepEditor = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
-const importPreview = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TimetableImportPreviewSheet.kt');
-assert.match(stepEditor, /XiaoxuBottomActionSheet\(/,
-  '步骤删除采用统一确认组件');
-assert.match(stepEditor, /dao\.removeStep\(root, step\.id\)/,
-  '保留本机 Room 删除事务');
-assert.doesNotMatch(stepEditor, /AlertDialog\(/,
-  '步骤删除不应叠加第二层弹窗');
-assert.match(importPreview, /if \(decreased && !confirmedReduced\) confirmedReduced = true/,
-  '课表导入记录减少必须二次确认');
-assert.match(importPreview, /HorizontalDivider\(color = XiaoxuPalette\.Line/,
-  '长课程列表保留连续分隔线');
-assert.doesNotMatch(importPreview, /XiaoxuCard\(/,
-  '预览列表不能重新嵌套大卡片');
-
-// 任务看板：来源与截止只写本地库，不碰网络，不冒充官方截止。
-const taskBoard = localTaskUi;
-const bottomActions = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/XiaoxuBottomActionSheet.kt');
-assert.match(bottomActions, /BoxWithConstraints\(/,
-  '底部悬浮容器必须按当前可用窗口测量，不能用静态屏幕高度');
-assert.match(bottomActions, /val sheetMaxHeight = maxHeight \* 0\.88f/,
-  '底部浮层高度必须相对可用空间限制');
-assert.match(bottomActions, /\.statusBarsPadding\(\)[\s\S]*?\.navigationBarsPadding\(\)[\s\S]*?\.imePadding\(\)/,
-  '底部浮层须避让状态栏、导航栏和键盘');
-assert.doesNotMatch(bottomActions, /LocalConfiguration\.current\.screenHeightDp/,
-  '键盘展开后不能沿用整屏静态高度');
-assert.match(bottomActions, /dismissEnabled: Boolean = true/,
-  '共享弹窗必须允许耗时操作禁用误关闭');
-assert.match(bottomActions, /enabled = dismissEnabled/,
-  '耗时操作时遮罩和取消按钮不能仍响应');
-
-assert.match(taskBoard, /XiaoxuBottomActionSheet\(/,
-  '个人分类选择应改用统一的底部操作弹窗');
-assert.match(bottomActions, /stateDescription = "已选择"/,
-  '选中状态必须对无障碍服务可见');
-assert.match(bottomActions, /indication = ripple\(/,
-  '底部弹窗按钮必须有清晰的触控反馈');
-assert.match(taskBoard, /TASK_SOURCES/);
-assert.match(taskBoard, /dao\.insert\(LocalTask\(/);
-assert.match(taskBoard, /本人标注/);
-assert.doesNotMatch(taskBoard, /HttpURLConnection|openConnection|WebView|addJavascriptInterface|CookieManager/);
 
 const taskBackup = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/data/LocalTaskBackup.kt');
 const taskBackupPanel = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/LocalTaskBackupPanel.kt');
@@ -843,12 +730,12 @@ assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ Loc
   '本机备份与恢复只能由账户与数据二级页面打开');
 assert.match(settingsIndex, /"任务备份",[\s\S]*?actions\.navigate\(AppRoute\.TASK_BACKUP\)/,
   '本机备份仍可通过唯一入口进入');
-const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutPage.kt');
+const aboutPage = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AboutFeature.kt');
 assert.match(settingsRoutes, /AppRoute\.ABOUT -> AboutFeature\(\{ actions\.navigate\(AppRoute\.LICENSES\) \}/,
   '关于校序应使用单独的品牌信息页面');
-assert.match(aboutPage, /AboutInfoRow\("开源许可", onClick = onOpenLicenses\)/,
+assert.match(aboutPage, /AppGroupedEntry\("开源许可与致谢", showDivider = false, onClick = onOpenLicenses\)/,
   '开源许可从关于页进入，不在设置首页重复');
-assert.match(aboutPage, /XiaoxuGroupedSection\(title = "项目致谢"\)/,
+assert.match(aboutPage, /InsetGroupedSection\(header = "项目"\)/,
   '关于页保留开源署名入口');
 assert.match(settingsIndex, /header = "数据与安全"/,
   '账户与备份入口须保留在设置首页同一分组，不改变二级路由');
@@ -894,12 +781,12 @@ assert.match(backupSource, /onBusyChange\(true\)/,
   '本机备份开始时需向父页面通知繁忙状态');
 assert.match(backupSource, /onBusyChange\(false\)/,
   '本机备份完成后需解除按钮锁定');
-assert.match(workspace, /onBusyChange = \{ backupBusy = it \}/,
-  '备份浮层关闭控制应与真实文件操作状态关联');
-assert.match(workspace, /LocalTaskBackupPanel\(\s*embedded = true,\s*onBusyChange = \{ backupBusy = it \}/,
-  '任务备份复用弹窗内的简洁版本，禁止套双层卡片');
-assert.match(workspace, /if \(showTaskBackup\) \{\s*var backupBusy by remember \{ mutableStateOf\(false\) \}\s*XiaoxuBottomSheet\(/,
-  '任务备份浮层在真实文件操作期间不可误关闭');
+assert.match(taskBackupPanel, /if \(uri != null && !busy\) \{/,
+  '文件操作期间禁止并发备份');
+assert.match(taskBackupPanel, /enabled = !busy,/,
+  '真实文件操作期间锁定按钮');
+assert.match(settingsRoutes, /AppRoute\.TASK_BACKUP -> LazyColumn \{ item \{ LocalTaskBackupPanel\(\) \} \}/,
+  '独立二级备份页复用唯一备份面板');
 assert.doesNotMatch(taskBackup + taskBackupPanel, /CookieManager|addJavascriptInterface|SCHOOL_SESSION_KEY|OWNER_LOGIN_SECRET|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 
