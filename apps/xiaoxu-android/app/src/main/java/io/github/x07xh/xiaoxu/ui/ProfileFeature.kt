@@ -35,13 +35,16 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
         AcademicReadAction("刷新连接状态", cloud.busy) { scope.launch { actions.refreshCloud() } }
         AppNotice(cloud.schoolSyncMessage ?: cloud.authMessage)
         cloud.privateError?.let { AppNotice(it, error = true) }
-        InsetGroupedSection(header = "教务与学习平台") {
-            SettingsRow(Icons.Outlined.School, tint, "华水青果", status("ncwu"), onClick = { actions.authorize("ncwu") })
+        InsetGroupedSection(header = "本机学校读取") {
+            AppNotice("本机读取无需连接校序云端；只保存学校本人可见记录。")
+            SettingsRow(Icons.Outlined.School, tint, "华水青果", "在 App 中导入课表", onClick = { actions.connectLocal("ncwu") })
             SettingsRow(Icons.Outlined.MenuBook, tint, "学习通", "本机读取入口", onClick = { actions.connectLocal("chaoxing") })
             SettingsRow(Icons.Outlined.Event, tint, "第二课堂", "本机读取入口", showDivider = false,
                 onClick = { actions.connectLocal("second_class") })
         }
         InsetGroupedSection(header = "云端学校授权") {
+            SettingsRow(Icons.Outlined.School, tint, "青果教务授权", status("ncwu"),
+                onClick = { actions.authorize("ncwu") })
             val linked = cloud.platforms.firstOrNull { it.id == "second_class" }
             val verified = cloud.authenticated && cloud.connectionsFresh
             AppNotice("本机读取与云端授权独立；只展示已核验的连接状态。")
