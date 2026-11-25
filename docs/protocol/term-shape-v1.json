@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "description": "Synthetic offline fixtures only; not captured school responses or proof of identity.",
+  "cases": [
+    {
+      "name": "valid",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user"
+      },
+      "expected": true
+    },
+    {
+      "name": "extra fields ignored",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user",
+        "extra": "synthetic"
+      },
+      "expected": true
+    },
+    {
+      "name": "missing user marker",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term"
+      },
+      "expected": false
+    },
+    {
+      "name": "empty",
+      "payload": {
+        "xn": "",
+        "xqM": "1",
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user"
+      },
+      "expected": false
+    },
+    {
+      "name": "whitespace",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": " \t\n",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user"
+      },
+      "expected": false
+    },
+    {
+      "name": "wrong type",
+      "payload": {
+        "xn": "2026",
+        "xqM": 1,
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user"
+      },
+      "expected": false
+    },
+    {
+      "name": "overlength",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": "第一学期",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "expected": false
+    },
+    {
+      "name": "array",
+      "payload": [
+        {
+          "xn": "2026",
+          "xqM": "1",
+          "xqName": "第一学期",
+          "jwUserYeartermId": "synthetic-term",
+          "userCode": "synthetic-user"
+        }
+      ],
+      "expected": false
+    },
+    {
+      "name": "null",
+      "payload": null,
+      "expected": false
+    },
+    {
+      "name": "unicode length boundary",
+      "payload": {
+        "xn": "2026",
+        "xqM": "1",
+        "xqName": "学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学学",
+        "jwUserYeartermId": "synthetic-term",
+        "userCode": "synthetic-user"
+      },
+      "expected": true
+    }
+  ]
+}
