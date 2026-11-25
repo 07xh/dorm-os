@@ -60,7 +60,7 @@ private fun LocalTaskSourcePicker(source: String?, onSelect: (String?) -> Unit, 
     }
 }
 @Composable
-private fun EditorCompletionCheckbox(checked: Boolean, enabled: Boolean, description: String, onCheckedChange: (Boolean) -> Unit) {
+internal fun TaskCompletionCheckbox(checked: Boolean, enabled: Boolean, description: String, onCheckedChange: (Boolean) -> Unit) {
     Checkbox(checked, onCheckedChange = onCheckedChange, enabled = enabled,
         modifier = Modifier.semantics { contentDescription = description })
 }
@@ -144,7 +144,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            EditorCompletionCheckbox(
+                            TaskCompletionCheckbox(
                                 checked = checked,
                                 enabled = !saving && !wouldCycle,
                                 description = "将“" + candidate.title + "”设为前置任务",
