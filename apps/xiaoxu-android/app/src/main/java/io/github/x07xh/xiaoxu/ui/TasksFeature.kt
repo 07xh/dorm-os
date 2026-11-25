@@ -189,34 +189,12 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                 } }, confirmButton = { TextButton(onClick = { detailKey = null }) { Text("关闭") } })
         }
     }
-    if (adding) {
-        var title by rememberSaveable { mutableStateOf("") }
-        var due by rememberSaveable { mutableStateOf("") }
-        var inputError by rememberSaveable { mutableStateOf<String?>(null) }
-        AppDialog(onDismissRequest = { if (!saving) adding = false }, title = { Text("新建本机任务") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassFormField(title, { title = it }, "任务名称", Modifier.fillMaxWidth())
-                GlassFormField(due, { due = it }, "个人截止日期（可空）", Modifier.fillMaxWidth(), placeholder = "YYYY-MM-DD")
-                inputError?.let { AppNotice(it, error = true) }
-            } }, confirmButton = { TextButton(enabled = !saving, onClick = {
-                val date = due.trim()
-                if (title.isBlank() || title.trim().length > 160) inputError = "请输入 1–160 字的任务名称"
-                else if (date.isNotEmpty() && runCatching { LocalDate.parse(date) }.isFailure) inputError = "请填写有效日期"
-                else {
-                    saving = true
-                    scope.launch {
-                        try {
-                            actions.addLocalTask(title.trim(), date.ifBlank { null })
-                            adding = false
-                            filter = "pending"
-                            query = ""
-                            error = null
-                        } catch (cancel: CancellationException) { throw cancel }
-                        catch (_: Exception) { inputError = "保存失败，请重试" }
-                        finally { saving = false }
-                    }
-                }
-            }) { Text("保存") } },
-            dismissButton = { TextButton(enabled = !saving, onClick = { adding = false }) { Text("取消") } })
-    }
+    if (adding) LocalTaskCreateSheet(actions.localTaskDao,
+        onDismiss = { adding = false },
+        onCreated = {
+            adding = false
+            filter = "pending"
+            query = ""
+            error = null
+        })
 }
