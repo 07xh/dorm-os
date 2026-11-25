@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -140,7 +141,7 @@ fun NavigationPages(state: NavigationMotionState, modifier: Modifier = Modifier,
     activePage: Int = state.target, retainOutgoing: Boolean = true,
     content: @Composable (Int) -> Unit) {
     val density = LocalDensity.current
-    Box(modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize().clipToBounds()) {
         val pages = if (retainOutgoing) state.pages.keys.sortedBy { if (it == state.target) 1 else 0 }
             else listOf(activePage)
         pages.forEach { page ->
