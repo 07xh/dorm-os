@@ -141,7 +141,11 @@ data class CloudUiState(
     val grades: AcademicGradesSnapshot? = null,
     val gradesOwner: String? = null,
     val gradesBusy: Boolean = false,
-    val gradesError: String? = null
+    val gradesError: String? = null,
+    val exams: AcademicExamsSnapshot? = null,
+    val examsOwner: String? = null,
+    val examsBusy: Boolean = false,
+    val examsError: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -203,6 +207,7 @@ class CloudClient(context: Context) {
     private var privateSnapshotReadId: Long = 0L
     private var secondClassReadId: Long = 0L
     private var gradesReadId: Long = 0L
+    private var examsReadId: Long = 0L
     private var secondClassSnapshotReadId: Long = -1L
 
     /** Hash of this App's owner session, never the Cookie itself. */
@@ -382,7 +387,9 @@ class CloudClient(context: Context) {
             val owner = auth.json.optString("ownerId").takeIf { it.isNotBlank() }
             if (owner != state.ownerId) {
                 gradesReadId++
-                state = state.copy(grades = null, gradesOwner = null, gradesBusy = false, gradesError = null)
+                examsReadId++
+                state = state.copy(grades = null, gradesOwner = null, gradesBusy = false, gradesError = null,
+                    exams = null, examsOwner = null, examsBusy = false, examsError = null)
             }
             state = state.copy(ownerId = owner)
         } catch (_: Exception) {
@@ -754,43 +761,55 @@ class CloudClient(context: Context) {
         }
     }
 
-    /** Manual owner-authorized read of the existing stored grade snapshot.
-     * Never logs in to the school, submits an evaluation or calls a sync endpoint.
-     */
-    suspend fun loadGrades() {
+    /** One owner-bound read pipeline for stored academic sections. */
+    suspend fun loadGrades() = loadAcademicSection("grades")
+    suspend fun loadExams() = loadAcademicSection("exams")
+
+    private suspend fun loadAcademicSection(kind: String) {
+        require(kind in setOf("grades", "exams"))
+        val grades = kind == "grades"
         val owner = state.ownerId ?: return
-        if (!state.authenticated || state.gradesBusy) return
+        if (!state.authenticated || (if (grades) state.gradesBusy else state.examsBusy)) return
         val epoch = sessionEpoch
-        val readId = ++gradesReadId
+        val readId = if (grades) ++gradesReadId else ++examsReadId
         val token = withContext(Dispatchers.IO) { session.load() } ?: return
-        if (epoch != sessionEpoch || state.ownerId != owner || readId != gradesReadId) return
-        state = state.copy(gradesBusy = true, gradesError = null)
-        fun current() = epoch == sessionEpoch && readId == gradesReadId &&
+        fun current() = epoch == sessionEpoch &&
+            readId == (if (grades) gradesReadId else examsReadId) &&
             state.authenticated && state.ownerId == owner
+        if (!current()) return
+        state = if (grades) state.copy(gradesBusy = true, gradesError = null)
+            else state.copy(examsBusy = true, examsError = null)
         try {
             val response = withContext(Dispatchers.IO) {
-                request("/api/v1/verified/grades", authenticated = true, boundSessionToken = token)
+                request("/api/v1/verified/$kind", authenticated = true, boundSessionToken = token)
             }
             if (!current()) return
             if (response.code == 401 || response.code == 403) {
-                state = state.copy(grades = null, gradesOwner = null, gradesError = "授权失效，请重新连接云端账户")
+                gradesReadId++
+                examsReadId++
+                state = state.copy(grades = null, gradesOwner = null, gradesBusy = false,
+                    gradesError = "授权失效，请重新连接云端账户",
+                    exams = null, examsOwner = null, examsBusy = false,
+                    examsError = "授权失效，请重新连接云端账户")
                 return
             }
-            if (response.code != 200) error("grade read failed")
-            val snapshot = parseAcademicGradesSnapshot(response.json)
-            if (current()) state = state.copy(grades = snapshot, gradesOwner = owner)
+            if (response.code != 200) error("academic read failed")
+            state = if (grades) state.copy(grades = parseAcademicGradesSnapshot(response.json), gradesOwner = owner)
+                else state.copy(exams = parseAcademicExamsSnapshot(response.json), examsOwner = owner)
         } catch (cancel: kotlinx.coroutines.CancellationException) {
             throw cancel
         } catch (_: Exception) {
-            if (current()) state = state.copy(gradesError = "成绩快照读取失败，旧记录不代表最新成绩")
+            if (current()) state = if (grades) state.copy(gradesError = "成绩快照读取失败，旧记录不代表最新成绩")
+                else state.copy(examsError = "考试快照读取失败，旧记录不代表最新安排")
         } finally {
-            if (current()) state = state.copy(gradesBusy = false)
+            if (current()) state = if (grades) state.copy(gradesBusy = false) else state.copy(examsBusy = false)
         }
     }
 
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
         ownerId = null,
         grades = null, gradesOwner = null, gradesBusy = false, gradesError = null,
+        exams = null, examsOwner = null, examsBusy = false, examsError = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
