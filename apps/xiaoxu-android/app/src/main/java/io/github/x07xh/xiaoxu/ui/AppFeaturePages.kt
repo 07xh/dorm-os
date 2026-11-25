@@ -25,7 +25,8 @@ internal class AppPageActions(
     val refreshCloud: suspend () -> Unit,
     val updateLocalTask: suspend (Long, Boolean) -> Boolean,
     val openArticle: (String) -> Unit,
-    val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean
+    val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean,
+    val readGrades: suspend () -> Unit
 )
 
 @Composable
@@ -47,7 +48,8 @@ internal fun AppFeaturePage(
                     AppGroupedEntry("学习进度", showDivider = false, onClick = { actions.navigate(AppRoute.STUDY_PROGRESS) })
                 }
             }
-            AppRoute.GRADES, AppRoute.EXAMS, AppRoute.STUDY_PROGRESS ->
+            AppRoute.GRADES -> GradesFeature(data, actions)
+            AppRoute.EXAMS, AppRoute.STUDY_PROGRESS ->
                 AppNotice("此功能尚未完成新页面迁移，不显示模拟数据。")
             AppRoute.SECOND_CLASS -> SecondClassPage(modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)

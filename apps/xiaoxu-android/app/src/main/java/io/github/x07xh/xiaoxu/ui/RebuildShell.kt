@@ -68,6 +68,7 @@ internal fun NativeShell(
         authorize = startSchoolAuthorization, connectLocal = openLocalSchool, openWebsite = openWebsite,
         refreshCloud = { cloud.refresh() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
         openArticle = openArticle,
+        readGrades = { cloud.loadGrades() },
         saveScheduleSettings = { calendar, sections ->
             require(sections in 1..24)
             LocalSemesterConfigStore.save(context, calendar)

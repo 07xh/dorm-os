@@ -137,7 +137,11 @@ data class CloudUiState(
     val secondClassError: String? = null,
     val schoolSyncBusyProvider: String? = null,
     val schoolSyncResultProvider: String? = null,
-    val schoolSyncMessage: String? = null
+    val schoolSyncMessage: String? = null,
+    val grades: AcademicGradesSnapshot? = null,
+    val gradesOwner: String? = null,
+    val gradesBusy: Boolean = false,
+    val gradesError: String? = null
 )
 
 /** Keystore-encrypted token for the existing owner login, never a school credential. */
@@ -198,6 +202,7 @@ class CloudClient(context: Context) {
     // Out-of-order HTTPS results must not overwrite a newer owner snapshot.
     private var privateSnapshotReadId: Long = 0L
     private var secondClassReadId: Long = 0L
+    private var gradesReadId: Long = 0L
     private var secondClassSnapshotReadId: Long = -1L
 
     /** Hash of this App's owner session, never the Cookie itself. */
@@ -374,7 +379,12 @@ class CloudClient(context: Context) {
                 )
                 return
             }
-            state = state.copy(ownerId = auth.json.optString("ownerId").takeIf { it.isNotBlank() })
+            val owner = auth.json.optString("ownerId").takeIf { it.isNotBlank() }
+            if (owner != state.ownerId) {
+                gradesReadId++
+                state = state.copy(grades = null, gradesOwner = null, gradesBusy = false, gradesError = null)
+            }
+            state = state.copy(ownerId = owner)
         } catch (_: Exception) {
             if (epoch == sessionEpoch && snapshotRead == privateSnapshotReadId)
                 state = state.copy(privateError = "网络或登录服务异常，无法验证云端会话")
@@ -744,8 +754,43 @@ class CloudClient(context: Context) {
         }
     }
 
+    /** Manual owner-authorized read of the existing stored grade snapshot.
+     * Never logs in to the school, submits an evaluation or calls a sync endpoint.
+     */
+    suspend fun loadGrades() {
+        val owner = state.ownerId ?: return
+        if (!state.authenticated || state.gradesBusy) return
+        val epoch = sessionEpoch
+        val readId = ++gradesReadId
+        val token = withContext(Dispatchers.IO) { session.load() } ?: return
+        if (epoch != sessionEpoch || state.ownerId != owner || readId != gradesReadId) return
+        state = state.copy(gradesBusy = true, gradesError = null)
+        fun current() = epoch == sessionEpoch && readId == gradesReadId &&
+            state.authenticated && state.ownerId == owner
+        try {
+            val response = withContext(Dispatchers.IO) {
+                request("/api/v1/verified/grades", authenticated = true, boundSessionToken = token)
+            }
+            if (!current()) return
+            if (response.code == 401 || response.code == 403) {
+                state = state.copy(grades = null, gradesOwner = null, gradesError = "授权失效，请重新连接云端账户")
+                return
+            }
+            if (response.code != 200) error("grade read failed")
+            val snapshot = parseAcademicGradesSnapshot(response.json)
+            if (current()) state = state.copy(grades = snapshot, gradesOwner = owner)
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            if (current()) state = state.copy(gradesError = "成绩快照读取失败，旧记录不代表最新成绩")
+        } finally {
+            if (current()) state = state.copy(gradesBusy = false)
+        }
+    }
+
     private fun clearAccountSnapshots(): CloudUiState = state.copy(
         ownerId = null,
+        grades = null, gradesOwner = null, gradesBusy = false, gradesError = null,
         tasksFresh = false, connectionsFresh = false,
         secondClassFresh = false, wechatCandidates = emptyList(), wechatError = null, wechatReviewingId = null,
         schoolSyncBusyProvider = null, schoolSyncResultProvider = null, schoolSyncMessage = null
