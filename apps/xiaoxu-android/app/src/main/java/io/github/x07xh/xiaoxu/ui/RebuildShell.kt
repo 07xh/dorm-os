@@ -112,7 +112,7 @@ internal fun NativeShell(
                     Modifier.layerBackdrop(backdrop) else Modifier
                 Scaffold(modifier = Modifier.fillMaxSize().then(capture)) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                        .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve else 0.dp)) {
+                        .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
                         pageState.SaveableStateProvider(route.name) {
                             AppFeaturePage(route, data, actions, reminderTaskId, onReminderTaskConsumed,
                                 reminderLessonId, onReminderCourseConsumed)

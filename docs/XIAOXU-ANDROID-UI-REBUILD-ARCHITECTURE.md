@@ -20,3 +20,6 @@ R4 采用一个 Shell、一个页面框架和一个共享读模型，不另建�
 
 ## R6 现有自研组件替换原则
 R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 NavTab、PhosphorNavigationIcon、NavigationIconPlayback、NavigationIconMotion 原实现，并移植上游动作测试。仅保留路由映射、主题绑定及外层 backdrop 与安全区；完整物理折射、拖拽和最小化依赖待继续移植。禁止并存两套同功能 UI。校序独有业务保留原业务逻辑，成熟上游同功能 UI 优先替换。
+
+## R7 公共页面替换
+直接移植上游 ScreenMetrics、CollapsingGlassHeader 插值函数、SystemTopBar、SystemEmptyState、SystemSectionHeader、SystemListItem；替换 AppPageFrame 顶栏和课表列表行、空状态，底栏尺寸与内容留白统一使用上游响应式尺寸策略。仍保留唯一 Shell 与数据契约。完整周课表网格、弹窗系统、物理折射尚未移植，本提交未完成编译与运行验证。

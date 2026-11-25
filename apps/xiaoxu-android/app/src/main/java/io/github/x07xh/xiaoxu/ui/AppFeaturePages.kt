@@ -92,7 +92,7 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
                 }
             }
         }
-        item { Text("校园通知", style = MaterialTheme.typography.titleMedium) }
+        item { SystemSectionHeader("校园通知") }
         if (data.cloud.notices.isEmpty()) item {
             AppNotice(data.cloud.publicError ?: if (data.cloud.busy) "正在读取通知" else "尚无已读取通知")
         }
@@ -119,11 +119,11 @@ private fun ColumnScope.ScheduleFeature(snapshot: PageSnapshot<List<VerifiedLess
                 if (index >= 0) { listState.scrollToItem(index); consume() }
             }
         }
-        if (ordered.isEmpty()) AppNotice("本机尚无课程")
+        if (ordered.isEmpty()) SystemEmptyState("本机尚无课程", "导入课表后在这里查看课程。")
         LazyColumn(Modifier.weight(1f), state = listState) {
             items(ordered) { lesson ->
-                ListItem(headlineContent = { Text(lesson.title) },
-                    supportingContent = { Text("星期${lesson.weekday} · ${lesson.startSection}–${lesson.endSection} 节 · ${lesson.location}") })
+                SystemListItem(title = lesson.title,
+                    subtitle = "星期${lesson.weekday} · ${lesson.startSection}–${lesson.endSection} 节 · ${lesson.location}")
                 HorizontalDivider()
             }
         }
@@ -151,7 +151,7 @@ private fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageAc
         }
         if (data.nativeRecords == PageSnapshot.Loading) AppNotice("正在读取本机平台记录")
         if (data.cloud.authenticated && !data.cloud.tasksFresh) AppNotice("尚未核验最新云端任务")
-        if (combined.isEmpty()) AppNotice("暂无已读取任务")
+        if (combined.isEmpty()) SystemEmptyState("暂无已读取任务", "当前没有可展示的任务记录。")
         LazyColumn(Modifier.weight(1f), state = listState) {
             items(combined) { task ->
                 val localId = if (task.storage == "local") task.key.removePrefix("local:").toLongOrNull() else null

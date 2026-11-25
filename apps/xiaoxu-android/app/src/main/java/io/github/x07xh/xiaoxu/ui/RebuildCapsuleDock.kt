@@ -31,9 +31,10 @@ import com.kyant.shapes.Capsule
 import io.github.x07xh.xiaoxu.MainDestination
 
 internal object RebuildDockMetrics {
-    val trackHeight = 60.dp
-    val outerGap = 8.dp
-    val contentReserve = trackHeight + outerGap * 2
+    @Composable fun trackHeight() = rememberScreenMetrics().tall(64.dp, 58.dp)
+    @Composable fun outerGap() = rememberScreenMetrics().tall(8.dp, 6.dp)
+    @Composable fun horizontalGap() = rememberScreenMetrics().wide(16.dp, 10.dp)
+    @Composable fun contentReserve() = trackHeight() + outerGap() * 2
 }
 
 @Composable
@@ -69,10 +70,10 @@ internal fun RebuildCapsuleDock(
         )
     } else Modifier.clip(shape).background(tint)
     Box(modifier.fillMaxWidth().navigationBarsPadding()
-        .padding(horizontal = 12.dp, vertical = RebuildDockMetrics.outerGap),
+        .padding(horizontal = RebuildDockMetrics.horizontalGap(), vertical = RebuildDockMetrics.outerGap()),
         contentAlignment = Alignment.Center) {
         Row(Modifier.widthIn(max = 480.dp).fillMaxWidth()
-            .height(RebuildDockMetrics.trackHeight).then(material)
+            .height(RebuildDockMetrics.trackHeight()).then(material)
             .border(0.5.dp, scheme.outlineVariant, shape)
             .padding(4.dp).selectableGroup(),
             verticalAlignment = Alignment.CenterVertically) {

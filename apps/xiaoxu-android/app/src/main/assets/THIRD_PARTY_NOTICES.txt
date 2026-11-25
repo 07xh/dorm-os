@@ -106,3 +106,12 @@ Adapted package names, destination-to-symbol mapping and theme bindings.
 Phosphor geometry: MIT license, Copyright (c) 2023 Phosphor Icons; bundled license
 assets/licenses/phosphor-icons.txt. Outer backdrop container remains for now;
 full upstream optical/drag dependencies and release review are pending.
+
+------------------------------------------------------------------
+2026-11-25 upstream shared UI replacement
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, upstream authors and contributors. Imported ScreenMetrics.kt,
+lerpDp/lerpSp from CollapsingGlassHeader.kt, SystemTopBar, SystemEmptyState,
+SystemSectionHeader and SystemListItem from SystemUi.kt. Changes: package,
+local theme bindings, shell-owned insets, optional backdrop. Adaptive dock
+geometry uses upstream responsive dimensions; not a full optical port.

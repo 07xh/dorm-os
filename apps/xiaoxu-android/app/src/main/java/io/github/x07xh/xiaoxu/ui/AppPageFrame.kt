@@ -25,14 +25,9 @@ internal fun AppPageFrame(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.pageHorizontal)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-            }
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            actions()
-        }
+        SystemTopBar(title = title, navigationIcon = onBack?.let { back ->
+            { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") } }
+        }, actions = actions)
         Column(Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.item),
             content = content)
