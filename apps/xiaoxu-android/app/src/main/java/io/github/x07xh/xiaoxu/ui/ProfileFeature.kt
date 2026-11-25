@@ -45,6 +45,11 @@ internal fun ConnectionsFeature(data: AppWorkspaceState, actions: AppPageActions
         InsetGroupedSection(header = "云端学校授权") {
             SettingsRow(Icons.Outlined.School, tint, "青果教务授权", status("ncwu"),
                 onClick = { actions.authorize("ncwu") })
+            SettingsRow(Icons.Outlined.MenuBook, tint, "学习通云端授权", status("chaoxing"),
+                onClick = {
+                    if (!cloud.authenticated) actions.navigate(AppRoute.ACCOUNT)
+                    else actions.authorize("chaoxing")
+                })
             val linked = cloud.platforms.firstOrNull { it.id == "second_class" }
             val verified = cloud.authenticated && cloud.connectionsFresh
             AppNotice("本机读取与云端授权独立；只展示已核验的连接状态。")
