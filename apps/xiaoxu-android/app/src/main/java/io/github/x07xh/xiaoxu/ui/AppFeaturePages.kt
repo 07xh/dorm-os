@@ -30,7 +30,7 @@ internal class AppPageActions(
     val connectLocal: (String) -> Unit,
     val openWebsite: () -> Unit,
     val refreshCloud: suspend () -> Unit,
-    val reviewWechatCandidate: suspend (String, String) -> Boolean,
+    val reviewWechatCandidate: suspend (String, String, String) -> Boolean,
     val signInCloud: suspend (String) -> Boolean,
     val signOutCloud: suspend () -> Unit,
     val updateLocalTask: suspend (Long, Boolean) -> Boolean,
