@@ -72,7 +72,7 @@ fun GlassWheelColumn(
     val scope = rememberCoroutineScope()
 
     // 吸附中心行索引（滚动中实时更新）
-    val centerIndex by remember(state) {
+    val centerIndex by remember(state, items.size, itemHeightPx) {
         derivedStateOf {
             val offsetRows = (state.firstVisibleItemScrollOffset / itemHeightPx).roundToInt()
             (state.firstVisibleItemIndex + offsetRows).coerceIn(0, (items.size - 1).coerceAtLeast(0))
@@ -245,4 +245,218 @@ private fun nearestMinuteIndex(minute: Int, values: List<Int>): Int {
         if (abs(value - minute) < abs(values[best] - minute)) best = index
     }
     return best
+}
+
+
+@Composable
+fun GlassDatePickerDialog(
+    onConfirm: (java.time.LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+    initialDate: java.time.LocalDate = java.time.LocalDate.now(),
+    title: String = "选择日期",
+    preserveInitial: Boolean = false
+) {
+    val initialCal = remember(initialDate) {
+        Calendar.getInstance().apply { clear(); set(initialDate.year, initialDate.monthValue - 1, initialDate.dayOfMonth) }
+    }
+    val thisYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    val years = remember(thisYear, initialDate, preserveInitial) {
+        val initialYear = initialCal.get(Calendar.YEAR)
+        val first = if (preserveInitial) minOf(thisYear - 2, initialYear) else thisYear - 2
+        val last = if (preserveInitial) maxOf(thisYear + 1, initialYear) else thisYear + 1
+        (first..last).toList()
+    }
+
+    var yearIndex by remember {
+        mutableIntStateOf(years.indexOf(initialCal.get(Calendar.YEAR)).coerceAtLeast(0))
+    }
+    var monthIndex by remember {
+        mutableIntStateOf(initialCal.get(Calendar.MONTH))
+    }
+    var dayIndex by remember {
+        mutableIntStateOf(initialCal.get(Calendar.DAY_OF_MONTH) - 1)
+    }
+
+    val daysInMonth = remember(yearIndex, monthIndex) {
+        Calendar.getInstance().apply {
+            clear()
+            set(years[yearIndex], monthIndex, 1)
+        }.getActualMaximum(Calendar.DAY_OF_MONTH)
+    }
+    if (dayIndex > daysInMonth - 1) dayIndex = daysInMonth - 1
+
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text(title) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = { TextButton(onClick = { onConfirm(java.time.LocalDate.of(years[yearIndex], monthIndex + 1, dayIndex + 1)) }) { Text("确定") } },
+        text = {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // 中心行 systemFill 胶囊指示条
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF787880).copy(alpha = 0.12f))
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                GlassWheelColumn(
+                    items = years.map { "${it}年" },
+                    selectedIndex = yearIndex,
+                    onSelect = { yearIndex = it },
+                    modifier = Modifier.weight(1.1f)
+                )
+                GlassWheelColumn(
+                    items = (1..12).map { "${it}月" },
+                    selectedIndex = monthIndex,
+                    onSelect = { monthIndex = it },
+                    modifier = Modifier.weight(0.9f)
+                )
+                Box(modifier = Modifier.weight(0.9f)) {
+                    key(daysInMonth) {
+                        GlassWheelColumn(
+                            items = (1..daysInMonth).map { "${it}日" },
+                            selectedIndex = dayIndex.coerceIn(0, daysInMonth - 1),
+                            onSelect = { dayIndex = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+    })
+}
+
+@Composable
+fun GlassTimeRangePickerDialog(
+    initialStart: String,
+    initialEnd: String,
+    onConfirm: (start: String, end: String) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "编辑节次时间",
+    minuteStep: Int = 5,
+    preserveInitial: Boolean = false,
+    onClear: (() -> Unit)? = null
+) {
+    val hourLabels = remember { (0..23).map { "%02d".format(it) } }
+    val step = minuteStep.coerceIn(1, 30)
+    val minuteValues = remember(step, initialStart, initialEnd, preserveInitial) {
+        val values = (0 until 60 step step).toList()
+        if (preserveInitial) (values + parseMinute(initialStart, 0) + parseMinute(initialEnd, 45)).distinct().sorted() else values
+    }
+    val minuteLabels = remember(minuteValues) { minuteValues.map { "%02d".format(it) } }
+
+    var startHour by remember { mutableIntStateOf(parseHour(initialStart, 8)) }
+    var startMinute by remember {
+        mutableIntStateOf(nearestMinuteIndex(parseMinute(initialStart, 0), minuteValues))
+    }
+    var endHour by remember { mutableIntStateOf(parseHour(initialEnd, 8)) }
+    var endMinute by remember {
+        mutableIntStateOf(nearestMinuteIndex(parseMinute(initialEnd, 45), minuteValues))
+    }
+
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text(title) },
+        dismissButton = { Row { if (onClear != null) TextButton(onClick = onClear) { Text("清除") }; TextButton(onClick = onDismiss) { Text("取消") } } },
+        confirmButton = { TextButton(onClick = { onConfirm("%02d:%02d".format(startHour, minuteValues[startMinute]), "%02d:%02d".format(endHour, minuteValues[endMinute])) }) { Text("确定") } },
+        text = {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            listOf(
+                Triple("开始", startHour to startMinute, true),
+                Triple("结束", endHour to endMinute, false)
+            ).forEach { (label, value, isStart) ->
+                Box(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                    Box(modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                        // 中心行 systemFill 胶囊指示条
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .align(Alignment.Center)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF787880).copy(alpha = 0.12f))
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            GlassWheelColumn(
+                                items = hourLabels,
+                                selectedIndex = value.first,
+                                onSelect = { if (isStart) startHour = it else endHour = it },
+                                modifier = Modifier.weight(1f),
+                                visibleCount = 3
+                            )
+                            Text(
+                                text = ":",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            GlassWheelColumn(
+                                items = minuteLabels,
+                                selectedIndex = value.second,
+                                onSelect = { if (isStart) startMinute = it else endMinute = it },
+                                modifier = Modifier.weight(1f),
+                                visibleCount = 3
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+@Composable
+fun GlassOptionWheelDialog(
+    options: List<String>,
+    selectedIndex: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "请选择"
+) {
+    if (options.isEmpty()) return
+    var index by remember {
+        mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
+    }
+
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text(title) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = { TextButton(onClick = { onConfirm(index) }) { Text("确定") } },
+        text = {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF787880).copy(alpha = 0.12f))
+            )
+            GlassWheelColumn(
+                items = options,
+                selectedIndex = index,
+                onSelect = { index = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    })
 }

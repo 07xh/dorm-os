@@ -94,13 +94,7 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
 
     AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("编辑本机任务") }, text = {
         Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it.take(120); error = null },
-            label = { Text("任务名称") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        GlassFormField(title, { title = it.take(120); error = null }, "任务名称", Modifier.fillMaxWidth(), enabled = !saving)
         LocalTaskSourcePicker(
             source = source,
             onSelect = { selected -> source = selected; error = null },
@@ -212,23 +206,9 @@ internal fun LocalTaskEditSheet(task: LocalTask, dao: LocalTaskDao, onDismiss: (
     }, confirmButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("取消") } })
 
     if (pickerOpen) {
-        val millis = parseDue(due)?.atStartOfDay(ZoneOffset.UTC)
-            ?.toInstant()?.toEpochMilli()
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = millis)
-        DatePickerDialog(
-            onDismissRequest = { pickerOpen = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { value ->
-                        due = Instant.ofEpochMilli(value).atZone(ZoneOffset.UTC)
-                            .toLocalDate().toString()
-                    }
-                    pickerOpen = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pickerOpen = false }) { Text("取消") }
-            }
-        ) { DatePicker(state = pickerState) }
+        GlassDatePickerDialog(initialDate = parseDue(due) ?: LocalDate.now(),
+            title = "选择截止日期", preserveInitial = true,
+            onDismiss = { pickerOpen = false },
+            onConfirm = { date -> due = date.toString(); pickerOpen = false; error = null })
     }
 }

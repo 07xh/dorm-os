@@ -67,7 +67,7 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
                                 subtitle = "以已确认的第一周周一计算",
                                 trailing = {
                                     Text(
-                                        text = dateText,
+                                        text = dateText.ifBlank { "未设置" },
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.primary
@@ -140,57 +140,50 @@ internal fun ScheduleSettingsFeature(data: AppWorkspaceState, actions: AppPageAc
         Spacer(Modifier.height(12.dp))
     }
     editing?.let { field ->
-        val period = field.substringAfter("period:", "").toIntOrNull()
-        val initial = when (field) {
-            "date" -> dateText
-            "weeks" -> weeksText
-            "sections" -> periodCount.toString()
-            else -> rows[period]?.startTime.orEmpty()
+        fun accepted() { editing = null; error = null; status = null }
+        when (field) {
+            "date" -> GlassDatePickerDialog(
+                initialDate = runCatching { java.time.LocalDate.parse(dateText) }
+                    .getOrElse { java.time.LocalDate.now() },
+                title = "第一周周一", preserveInitial = true,
+                onDismiss = { editing = null },
+                onConfirm = { date ->
+                    if (date.dayOfWeek != java.time.DayOfWeek.MONDAY) {
+                        error = "第一周开始日期必须为周一"
+                        status = null
+                        editing = null
+                    } else { dateText = date.toString(); accepted() }
+                })
+            "weeks" -> GlassOptionWheelDialog(
+                options = (1..35).map { "$it 周" },
+                selectedIndex = (weeksText.toIntOrNull() ?: 1) - 1,
+                title = "教学周数", onDismiss = { editing = null },
+                onConfirm = { weeksText = (it + 1).toString(); accepted() })
+            "sections" -> GlassOptionWheelDialog(
+                options = (1..24).map { "$it 节" },
+                selectedIndex = periodCount - 1,
+                title = "每天节数", onDismiss = { editing = null },
+                onConfirm = { periodCount = it + 1; accepted() })
+            else -> {
+                val period = field.substringAfter("period:", "").toIntOrNull()
+                if (period != null) {
+                    GlassTimeRangePickerDialog(
+                        initialStart = rows[period]?.startTime.orEmpty(),
+                        initialEnd = rows[period]?.endTime.orEmpty(),
+                        title = "第 ${period} 节", minuteStep = 1, preserveInitial = true,
+                        onDismiss = { editing = null },
+                        onClear = { updatePeriod(period, "", ""); accepted() },
+                        onConfirm = { start, end ->
+                            if (java.time.LocalTime.parse(end).isAfter(java.time.LocalTime.parse(start))) {
+                                updatePeriod(period, start, end); accepted()
+                            } else {
+                                error = "结束时间必须晚于开始时间"
+                                status = null
+                                editing = null
+                            }
+                        })
+                }
+            }
         }
-        var first by rememberSaveable(field) { mutableStateOf(initial) }
-        var second by rememberSaveable(field) { mutableStateOf(rows[period]?.endTime.orEmpty()) }
-        var inputError by rememberSaveable(field) { mutableStateOf<String?>(null) }
-        AlertDialog(onDismissRequest = { editing = null },
-            title = { Text(when (field) {
-                "date" -> "第一周周一"; "weeks" -> "教学周数"; "sections" -> "每天节数"
-                else -> "第 ${period} 节"
-            }) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(first, { first = it }, singleLine = true,
-                        label = { Text(when (field) {
-                            "date" -> "YYYY-MM-DD"; "weeks" -> "1–35"; "sections" -> "1–24"
-                            else -> "开始时间 HH:mm"
-                        }) })
-                    if (period != null) OutlinedTextField(second, { second = it }, singleLine = true,
-                        label = { Text("结束时间 HH:mm") })
-                    inputError?.let { AppNotice(it, error = true) }
-                }
-            },
-            confirmButton = { TextButton(onClick = {
-                val valid = when (field) {
-                    "date" -> runCatching { java.time.LocalDate.parse(first.trim()).dayOfWeek == java.time.DayOfWeek.MONDAY }.getOrDefault(false)
-                    "weeks" -> first.trim().toIntOrNull()?.let { it in 1..35 } == true
-                    "sections" -> first.trim().toIntOrNull()?.let { it in 1..24 } == true
-                    else -> first.isBlank() && second.isBlank() || runCatching {
-                        val pattern = Regex("[0-9]{2}:[0-9]{2}")
-                        pattern.matches(first.trim()) && pattern.matches(second.trim()) &&
-                            java.time.LocalTime.parse(second.trim()).isAfter(java.time.LocalTime.parse(first.trim()))
-                    }.getOrDefault(false)
-                }
-                if (!valid) inputError = "请检查日期、范围或起止时间"
-                else {
-                    when (field) {
-                        "date" -> dateText = first.trim()
-                        "weeks" -> weeksText = first.trim()
-                        "sections" -> periodCount = first.trim().toInt()
-                        else -> if (period != null) updatePeriod(period, first, second)
-                    }
-                    editing = null
-                    error = null
-                    status = null
-                }
-            }) { Text("确定") } },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("取消") } })
     }
 }
