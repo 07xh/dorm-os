@@ -82,7 +82,7 @@ internal fun NativeShell(
     val actions = AppPageActions(
         navigate = ::goTo, importTimetable = openFileImport, exportTimetable = openFileExport,
         authorize = startSchoolAuthorization, connectLocal = openLocalSchool, openWebsite = openWebsite,
-        refreshCloud = { cloud.refresh() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
+        refreshCloud = { cloud.refresh() }, signInCloud = { cloud.signIn(it) }, signOutCloud = { cloud.signOut() }, updateLocalTask = { id, value -> dao.trySetCompleted(id, value) },
         openArticle = openArticle,
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },

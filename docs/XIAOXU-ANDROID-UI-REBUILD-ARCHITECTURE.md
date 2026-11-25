@@ -95,3 +95,6 @@ R30 离线 GPU 验收 45577309613 在 :app:dexBuilderDebug 失败，D8 明确定
 
 ## R34 原任务归档与删除功能恢复
 R33 CI 45578766609 全部通过，包括 assembleDebug APK 打包。复用原 LocalTaskArchiveStore 与 visibleWorkspaceTasks，将已完成的学习通云端任务本机归档、恢复及归档计数接回统一任务页；不写入平台或云端完成状态。通过原 LocalTaskDao.remove 事务恢复本机任务删除入口，显示删除确认及关联关系提示。新提交待编译与运行验收，GPU 实际运行尚需核验。
+
+## R35 原生账户、关于与第二课堂设置恢复
+R34 CI 45580208201 全部通过，包括 APK 打包。恢复原 CloudClient.signIn/signOut/refresh 调用入口，个人口令仅短暂保存在非 saveable 状态；退出前确认，不删除本机任务或课表。复用旧 CloudPanels 的真实会话状态映射、AboutPage 安装版本查询、SecondClassAutoReadControls 的原设置订阅及 configure 调用，统一分组和 LiquidSwitch。新增 ACCOUNT、ABOUT、SECOND_CLASS_SETTINGS 二级路由，保留手动读取入口。未调整既有第二课堂后台检查及读取间隔（约30分钟检查、10分钟快照有效期），不宣称已经满足12小时同步要求。未修改学校授权或数据协议。新提交待 CI 和设备验证。

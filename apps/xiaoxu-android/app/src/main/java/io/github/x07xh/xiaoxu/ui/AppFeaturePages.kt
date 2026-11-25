@@ -30,6 +30,8 @@ internal class AppPageActions(
     val connectLocal: (String) -> Unit,
     val openWebsite: () -> Unit,
     val refreshCloud: suspend () -> Unit,
+    val signInCloud: suspend (String) -> Boolean,
+    val signOutCloud: suspend () -> Unit,
     val updateLocalTask: suspend (Long, Boolean) -> Boolean,
     val openArticle: (String) -> Unit,
     val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean,
@@ -70,6 +72,12 @@ internal fun AppFeaturePage(
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
             AppRoute.PROFILE -> ProfileFeature(data, actions)
             AppRoute.CONNECTIONS -> ConnectionsFeature(data, actions)
+            AppRoute.ACCOUNT -> AccountFeature(data, actions)
+            AppRoute.ABOUT -> AboutFeature({ actions.navigate(AppRoute.LICENSES) }, actions.openWebsite)
+            AppRoute.SECOND_CLASS_SETTINGS -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                InsetGroupedSection(header = "本机第二课堂读取") { SecondClassAutoReadControls() }
+                AppGroupedEntry("手动读取与积分", showDivider = false, onClick = { actions.navigate(AppRoute.SECOND_CLASS) })
+            }
             AppRoute.REMINDER_SETTINGS -> ReminderSettingsFeature(data)
             AppRoute.TASK_BACKUP -> LazyColumn { item { LocalTaskBackupPanel() } }
             AppRoute.LICENSES -> LazyColumn { item { OpenSourceCreditsPanel() } }

@@ -18,6 +18,9 @@ internal enum class AppRoute(val primary: MainDestination, val title: String) {
     SECOND_CLASS(MainDestination.ACADEMIC, "第二课堂"),
     STUDY_PROGRESS(MainDestination.ACADEMIC, "学习进度"),
     CONNECTIONS(MainDestination.PROFILE, "数据连接"),
+    ACCOUNT(MainDestination.PROFILE, "云端账户"),
+    ABOUT(MainDestination.PROFILE, "关于校序"),
+    SECOND_CLASS_SETTINGS(MainDestination.PROFILE, "第二课堂同步"),
     REMINDER_SETTINGS(MainDestination.PROFILE, "通知与提醒"),
     TASK_BACKUP(MainDestination.PROFILE, "任务备份"),
     LICENSES(MainDestination.PROFILE, "开源许可");
@@ -26,7 +29,7 @@ internal enum class AppRoute(val primary: MainDestination, val title: String) {
         MESSAGES -> HOME
         SCHEDULE_SETTINGS -> SCHEDULE
         GRADES, EXAMS, SECOND_CLASS, STUDY_PROGRESS -> ACADEMIC
-        CONNECTIONS, REMINDER_SETTINGS, TASK_BACKUP, LICENSES -> PROFILE
+        CONNECTIONS, ACCOUNT, ABOUT, SECOND_CLASS_SETTINGS, REMINDER_SETTINGS, TASK_BACKUP, LICENSES -> PROFILE
         else -> null
     }
 
