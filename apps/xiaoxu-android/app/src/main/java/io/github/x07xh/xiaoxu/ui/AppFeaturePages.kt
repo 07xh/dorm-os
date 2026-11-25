@@ -27,7 +27,8 @@ internal class AppPageActions(
     val openArticle: (String) -> Unit,
     val saveScheduleSettings: suspend (SemesterCalendar, Int) -> Boolean,
     val readGrades: suspend () -> Unit,
-    val readExams: suspend () -> Unit
+    val readExams: suspend () -> Unit,
+    val addLocalTask: suspend (String, String?) -> Long
 )
 
 @Composable
@@ -57,25 +58,8 @@ internal fun AppFeaturePage(
             }
             AppRoute.SECOND_CLASS -> SecondClassContent(data.nativeRecords, modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
-            AppRoute.PROFILE -> {
-                InsetGroupedSection {
-                    AppGroupedEntry("数据连接", onClick = { actions.navigate(AppRoute.CONNECTIONS) })
-                    AppGroupedEntry("开源许可", showDivider = false, onClick = { actions.navigate(AppRoute.LICENSES) })
-                }
-            }
-            AppRoute.CONNECTIONS -> {
-                val scope = rememberCoroutineScope()
-                AppNotice(data.cloud.schoolSyncMessage ?: data.cloud.authMessage)
-                InsetGroupedSection {
-                    AppGroupedEntry("华水青果", onClick = { actions.authorize("ncwu") })
-                    AppGroupedEntry("学习通", onClick = { actions.connectLocal("chaoxing") })
-                    AppGroupedEntry("第二课堂", onClick = { actions.connectLocal("second_class") })
-                    AppGroupedEntry("云端账户管理", showDivider = false, onClick = actions.openWebsite)
-                }
-                TextButton(onClick = { scope.launch { actions.refreshCloud() } },
-                    enabled = !data.cloud.busy) { Text("刷新连接状态") }
-                data.cloud.privateError?.let { AppNotice(it, error = true) }
-            }
+            AppRoute.PROFILE -> ProfileFeature(data, actions)
+            AppRoute.CONNECTIONS -> ConnectionsFeature(data, actions)
             AppRoute.LICENSES -> LazyColumn { item { OpenSourceCreditsPanel() } }
         }
     }
@@ -107,50 +91,6 @@ private fun HomeFeature(data: AppWorkspaceState, actions: AppPageActions) {
         if (data.cloud.noticesPartial) item { AppNotice("通知来源部分可用，可能不是完整列表。") }
         items(data.cloud.notices.take(5), key = { it.url }) { notice ->
             AppEntry(notice.title, notice.dateLabel, onClick = { actions.openArticle(notice.url) })
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageActions,
-    target: Long?, consume: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    var error by remember { mutableStateOf<String?>(null) }
-    AppNotice("本机、学习通与云端任务共享同一列表；仅本机待办可在此勾选。")
-    error?.let { AppNotice(it, error = true) }
-    AppSnapshotContent(data.localTasks) { local ->
-        val records = (data.nativeRecords as? PageSnapshot.Ready)?.value.orEmpty()
-        // A stale or unauthenticated owner must not contribute a cloud task.
-        val cloud = data.cloud.tasks.takeIf { data.cloud.authenticated && data.cloud.tasksFresh }.orEmpty()
-        val combined = remember(local, records, cloud) { combineWorkspaceTasks(local, cloud, records) }
-        val listState = rememberLazyListState()
-        LaunchedEffect(target, combined) {
-            if (target != null) {
-                val index = combined.indexOfFirst { it.key == "local:$target" }
-                if (index >= 0) { listState.scrollToItem(index); consume() }
-            }
-        }
-        if (data.nativeRecords == PageSnapshot.Loading) AppNotice("正在读取本机平台记录")
-        if (data.cloud.authenticated && !data.cloud.tasksFresh) AppNotice("尚未核验最新云端任务")
-        if (combined.isEmpty()) SystemEmptyState("暂无已读取任务", "当前没有可展示的任务记录。")
-        LazyColumn(Modifier.weight(1f), state = listState) {
-            items(combined) { task ->
-                val localId = if (task.storage == "local") task.key.removePrefix("local:").toLongOrNull() else null
-                ListItem(headlineContent = { Text(task.title) },
-                    supportingContent = { Text(listOfNotNull(task.origin, task.date?.toString(),
-                        task.officialStatusRaw).joinToString(" · ")) },
-                    leadingContent = if (localId != null) {
-                        { Checkbox(task.done, onCheckedChange = { value ->
-                            scope.launch {
-                                try {
-                                    error = if (actions.updateLocalTask(localId, value)) null else "请先完成前置任务"
-                                } catch (cancel: CancellationException) { throw cancel }
-                                catch (_: Exception) { error = "保存失败" }
-                            }
-                        }) }
-                    } else null)
-                HorizontalDivider()
-            }
         }
     }
 }

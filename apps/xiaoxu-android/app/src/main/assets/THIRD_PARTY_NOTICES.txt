@@ -184,3 +184,11 @@ GPL-3.0, original authors and contributors. SystemStatStrip from SystemUi.kt
 reused with local theme binding. Grade, exam and second-class pages share
 existing section components, term picker and manual read feedback. The local
 second-class reader, account binding and persistence are retained.
+
+------------------------------------------------------------------
+2026-11-25 unified tasks and settings
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. SettingsRow directly reused from
+SettingsScreen.kt; profile and connection groups use the existing ported
+InsetGroupedSection, InsetGroupedRow and shared read feedback. Task page
+reuses Xiaoxu's existing task projection, status filters and transactional DAO.

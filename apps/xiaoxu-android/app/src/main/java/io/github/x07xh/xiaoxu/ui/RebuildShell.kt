@@ -70,6 +70,7 @@ internal fun NativeShell(
         openArticle = openArticle,
         readGrades = { cloud.loadGrades() },
         readExams = { cloud.loadExams() },
+        addLocalTask = { title, due -> dao.insert(LocalTask(title = title, source = TASK_SOURCE_LOCAL, due = due)) },
         saveScheduleSettings = { calendar, sections ->
             require(sections in 1..24)
             LocalSemesterConfigStore.save(context, calendar)
