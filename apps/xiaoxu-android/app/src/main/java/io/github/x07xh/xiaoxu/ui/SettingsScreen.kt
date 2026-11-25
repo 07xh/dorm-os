@@ -48,7 +48,6 @@ import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -68,7 +67,6 @@ import com.tyust.course.manager.WallpaperPreset
 import com.tyust.course.manager.WallpaperMode
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import io.github.x07xh.xiaoxu.ui.InsetGroupedRow
@@ -85,9 +83,8 @@ internal fun SettingsScreen(data: AppWorkspaceState, actions: AppPageActions) {
     val headerCollapse by remember {
         derivedStateOf { (scrollState.value / 96f).coerceIn(0f, 1f) }
     }
-    Scaffold(
-        containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    GlassPageScaffold(
+        title = "我的",
         topBar = {
             Box(Modifier.moduleEntrance(0)) {
             SystemTopBar(
@@ -107,7 +104,7 @@ internal fun SettingsScreen(data: AppWorkspaceState, actions: AppPageActions) {
                     start = 20.dp,
                     end = 20.dp,
                     top = padding.calculateTopPadding() + 8.dp,
-                    bottom = 24.dp
+                    bottom = padding.calculateBottomPadding() + 24.dp
                 ),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
