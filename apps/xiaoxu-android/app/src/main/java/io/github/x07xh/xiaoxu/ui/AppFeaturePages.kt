@@ -166,6 +166,7 @@ private fun HomeSchedule(data: AppWorkspaceState, actions: AppPageActions) {
             else homeCoursePreview(lessons.filter { it.weekday == day && week in it.weeks }.sortedBy { it.startSection })
         }
         InsetGroupedSection(header = if (week == null) "本机课表" else "今日课程") {
+            if (lessons.isEmpty()) AppGroupedEntry("导入课表", onClick = actions.importTimetable)
             preview.forEach { lesson ->
                 InsetGroupedRow(title = lesson.title,
                     subtitle = listOfNotNull(
@@ -221,6 +222,8 @@ private fun HomeNotices(data: AppWorkspaceState, actions: AppPageActions) {
     val phase = deriveMessagePhase(data.cloud)
     val notices = data.cloud.notices.distinctBy { it.url }.take(5)
     InsetGroupedSection(header = "校园通知") {
+        if (data.cloud.publicError != null && notices.isNotEmpty())
+            AppNotice("刷新失败，显示上次读取的公告。", error = true)
         if (notices.isEmpty()) {
             val summary = when (phase) {
                 MessagePhase.Loading -> "正在读取"
