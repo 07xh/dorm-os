@@ -59,6 +59,10 @@ internal fun ProfileFeature(data: AppWorkspaceState, actions: AppPageActions) {
             SettingsRow(Icons.Outlined.DateRange, tint, "课表设置", showDivider = false,
                 onClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) })
         }
+        InsetGroupedSection(header = "数据与安全") {
+            SettingsRow(Icons.Outlined.Storage, tint, "任务备份", showDivider = false,
+                onClick = { actions.navigate(AppRoute.TASK_BACKUP) })
+        }
         InsetGroupedSection(header = "应用与支持") {
             SettingsRow(Icons.Outlined.Info, tint, "开源许可", showDivider = false,
                 onClick = { actions.navigate(AppRoute.LICENSES) })

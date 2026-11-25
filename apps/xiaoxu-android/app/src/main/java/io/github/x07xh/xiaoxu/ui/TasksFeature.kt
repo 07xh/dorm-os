@@ -27,6 +27,8 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
     var query by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var editTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var graphOpen by rememberSaveable { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     val filters = listOf("pending" to "待办", "verify" to "待核验", "done" to "已完成", "all" to "全部")
     val today = LocalDate.now(ZoneId.of("Asia/Shanghai"))
@@ -63,6 +65,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                         onClick = { filter = value; menu = false }) }
                 }
             }
+            TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
             TextButton(onClick = { adding = true }) { Text("新建任务") }
         }
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
@@ -98,6 +101,16 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                 }
             }
         }
+        if (graphOpen) {
+            val deps = data.dependencies
+            if (deps is PageSnapshot.Ready) LocalTaskDependencyGraphDialog(local, deps.value,
+                onEditTask = { graphOpen = false; editTaskId = it },
+                onManageTasks = { graphOpen = false; filter = "all"; query = "" },
+                onDismiss = { graphOpen = false })
+        }
+        local.firstOrNull { it.id == editTaskId }?.let { task ->
+            LocalTaskEditSheet(task, actions.localTaskDao, onDismiss = { editTaskId = null })
+        }
         combined.firstOrNull { it.key == detailKey }?.let { task ->
             AlertDialog(onDismissRequest = { detailKey = null }, title = { Text(task.title) },
                 text = { Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
@@ -115,6 +128,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                                 is PageSnapshot.Ready -> id in waitingLocalTaskIds(local, deps.value)
                                 else -> true
                             }
+                            TextButton(onClick = { detailKey = null; editTaskId = id }) { Text("编辑任务与前置关系") }
                             HorizontalDivider()
                             TaskExecutionPanel(ExecutionRoot("device", task.key), task.done, actions.executionDao,
                                 onFinish = { actions.updateLocalTask(id, true) },
