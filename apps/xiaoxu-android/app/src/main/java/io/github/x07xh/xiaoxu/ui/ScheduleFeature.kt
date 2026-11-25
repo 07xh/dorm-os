@@ -42,7 +42,8 @@ internal fun ColumnScope.ScheduleFeature(
     var editorBusy by remember { mutableStateOf(false) }
     var editorError by remember { mutableStateOf<String?>(null) }
     var requestedWeek by rememberSaveable { mutableIntStateOf(0) }
-    var viewMode by rememberSaveable { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
+    // The persisted setting is authoritative when returning from the settings route.
+    var viewMode by remember { mutableStateOf(LocalSemesterConfigStore.loadViewMode(context)) }
     var selectedDay by rememberSaveable { mutableIntStateOf(LocalDate.now().dayOfWeek.value) }
     fun selectView(mode: String) {
         viewMode = mode
