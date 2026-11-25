@@ -73,7 +73,6 @@ internal fun ColumnScope.ScheduleFeature(
             selectedDay = today.dayOfWeek.value
             scope.launch { activeScroll?.scrollTo(0) }
         },
-        onImportClick = actions.importTimetable, onExportClick = actions.exportTimetable,
         onSettingsClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) },
         onAddClick = if (data.lessons is PageSnapshot.Ready) ({
             editingId = null; editingWeek = week; editorError = null; editorOpen = true
