@@ -13,6 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import com.tyust.course.ui.theme.rememberAppWallpaperStyle
+import com.tyust.course.ui.system.drawWallpaperPattern
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -147,10 +151,11 @@ internal fun NativeShell(
     }
     BackHandler(enabled = route.parent != null || routeTrail.isNotEmpty()) { goBack() }
 
+    val wallpaper = rememberAppWallpaperStyle()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 700.dp
         val showPrimary = route.parent == null
-        Row(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize().drawBehind { if (wide) drawWallpaperPattern(wallpaper) }) {
             if (wide) NavigationRail {
                 MainDestination.entries.forEach { dest ->
                     NavigationRailItem(selected = route.primary == dest,
@@ -173,7 +178,8 @@ internal fun NativeShell(
                     LocalDialogHost provides dialogHost.takeIf { allowPortal },
                     LocalAppDialogBackdrop provides backdrop.takeIf { allowPortal }
                 ) {
-                    Scaffold(modifier = Modifier.fillMaxSize().then(capture).then(backgroundSemantics)) { padding ->
+                    Scaffold(containerColor = Color.Transparent, modifier = Modifier.fillMaxSize().then(capture)
+                        .drawBehind { if (!wide) drawWallpaperPattern(wallpaper) }.then(backgroundSemantics)) { padding ->
                         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                             .padding(bottom = if (!wide && showPrimary) RebuildDockMetrics.contentReserve() else 0.dp)) {
                             pageState.SaveableStateProvider(route.name) {

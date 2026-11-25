@@ -25,6 +25,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.tyust.course.ui.system.rememberWallpaperRegionState
+import com.tyust.course.ui.system.rememberReadableContentAppearance
+import com.tyust.course.ui.system.wallpaperRegion
+import com.tyust.course.ui.system.readableWallpaper
+import com.tyust.course.ui.system.ProvideThemedContent
+import com.tyust.course.ui.theme.NeuPrimary
 
 private val GlassCardShape = RoundedCornerShape(24.dp)
 @Composable
@@ -64,8 +70,9 @@ fun InsetGroupedSection(
     footer: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val wallpaperColors = MaterialTheme.colorScheme
-    Column(modifier = modifier.fillMaxWidth()) {
+    val region = rememberWallpaperRegionState()
+    val wallpaperColors = rememberReadableContentAppearance(region)
+    Column(modifier = modifier.fillMaxWidth().wallpaperRegion(region)) {
         if (!header.isNullOrBlank()) {
             Text(
                 text = header,
@@ -73,27 +80,29 @@ fun InsetGroupedSection(
                 fontWeight = FontWeight.Medium,
                 color = wallpaperColors.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp, bottom = 7.dp)
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                    .readableWallpaper(wallpaperColors).padding(horizontal = 6.dp, vertical = 3.dp)
             )
         }
         // The card is tinted by the app theme. Its children must not inherit
         // white wallpaper text when a light card sits on a dark photograph.
+        ProvideThemedContent {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(GlassCardShape)
                 .background(glassSurfaceColor())
                 .border(0.5.dp, glassBorderColor(), GlassCardShape)
-                .animateContentSize(),
+                .animateContentSize(animationSpec = MotionSpring.liquidSettle()),
             content = content
         )
+        }
         if (!footer.isNullOrBlank()) {
             Text(
                 text = footer,
                 style = MaterialTheme.typography.bodySmall,
                 color = wallpaperColors.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp, top = 7.dp)
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                    .readableWallpaper(wallpaperColors).padding(horizontal = 6.dp, vertical = 3.dp)
             )
         }
     }
@@ -106,7 +115,7 @@ fun InsetGroupedRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     icon: ImageVector? = null,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = NeuPrimary,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
     trailing: @Composable (() -> Unit)? = null,
     showDivider: Boolean = true,

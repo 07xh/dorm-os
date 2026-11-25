@@ -98,3 +98,6 @@ R33 CI 45578766609 全部通过，包括 assembleDebug APK 打包。复用原 Lo
 
 ## R35 原生账户、关于与第二课堂设置恢复
 R34 CI 45580208201 全部通过，包括 APK 打包。恢复原 CloudClient.signIn/signOut/refresh 调用入口，个人口令仅短暂保存在非 saveable 状态；退出前确认，不删除本机任务或课表。复用旧 CloudPanels 的真实会话状态映射、AboutPage 安装版本查询、SecondClassAutoReadControls 的原设置订阅及 configure 调用，统一分组和 LiquidSwitch。新增 ACCOUNT、ABOUT、SECOND_CLASS_SETTINGS 二级路由，保留手动读取入口。未调整既有第二课堂后台检查及读取间隔（约30分钟检查、10分钟快照有效期），不宣称已经满足12小时同步要求。未修改学校授权或数据协议。新提交待 CI 和设备验证。
+
+## R36 上游优先视觉基底
+R35 QA 的实际观感未达到用户要求，废弃简化自制主题。以固定上游提交 bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed 的原包名引入完整主题、色板、字型、壁纸渲染/色调图/图片存储/可读性源码，恢复原分组控件的壁纸区域及动画。现有入口仅桥接 CourseSelectorTheme，主容器直接绘制原壁纸。未移植 AppCompat 跨进程主题应用，保留校序 Activity/数据与原有设备性能降级；不宣称完整页面或导航已替换。后续以整页源码及真实截图比较验收，不以组件数量估计还原度。R35 原始备份分支 backup/android-r35-before-upstream-rebase。

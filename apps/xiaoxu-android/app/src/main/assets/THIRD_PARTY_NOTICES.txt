@@ -257,3 +257,6 @@ existing performance and accessibility policy.
 Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
 GPL-3.0, original authors and contributors. ScheduleScreen.kt period-time
 column layout reused with existing local schedule and calendar data.
+
+
+R36: Direct upstream visual source, znjhahaha/zhengfang-apk, commit bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed, GPL-3.0. Original theme, wallpaper, readability, indication and appearance sources retain original package. App theme coordinator adapted to existing Activity; no public APK distribution until license compatibility verified.

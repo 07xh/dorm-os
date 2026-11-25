@@ -1,24 +1,17 @@
 package io.github.x07xh.xiaoxu.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.tyust.course.manager.AppearanceSettingsManager
+import com.tyust.course.ui.theme.CourseSelectorTheme
 
-/** New presentation baseline. One theme, no old glass implementation. */
+/** Bridge only: visual theme now uses the upstream implementation. */
 @Composable
 fun XiaoxuTheme(content: @Composable () -> Unit) {
-    val colors = if (isSystemInDarkTheme()) darkColorScheme(
-        primary = Color(0xFFB5CBFF)
-    ) else lightColorScheme(
-        primary = Color(0xFF315FA9),
-        background = Color(0xFFF7F8FA),
-        surface = Color(0xFFFFFFFF)
-    )
-    MaterialTheme(colorScheme = colors, content = content)
+    val context = LocalContext.current.applicationContext
+    remember(context) { AppearanceSettingsManager.initialize(context) }
+    CourseSelectorTheme(content = content)
 }
 
 @Composable

@@ -101,6 +101,9 @@ dependencies {
     baselineProfile(project(':benchmark'))
     // Mature MIT HTML parser, same parsing layer used by the reference client.
     implementation 'org.jsoup:jsoup:1.21.2'
+    // Same upstream wallpaper image pipeline dependencies.
+    implementation 'androidx.exifinterface:exifinterface:1.3.6'
+    implementation 'com.squareup.okio:okio:3.6.0'
     testImplementation 'junit:junit:4.13.2'
     // JVM tests exercise JSONObject with a real implementation, not Android stubs.
     testImplementation 'org.json:json:20240303'
