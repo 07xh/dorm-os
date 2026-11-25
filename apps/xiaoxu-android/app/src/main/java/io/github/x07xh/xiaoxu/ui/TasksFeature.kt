@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.x07xh.xiaoxu.data.*
 import java.time.LocalDate
@@ -22,6 +23,11 @@ import kotlinx.coroutines.launch
 internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageActions,
     target: Long?, consume: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val archiveStore = remember(context) { LocalTaskArchiveStore.get(context) }
+    val archivedKeys = archiveStore.archivedKeys
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    var deleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var filter by rememberSaveable { mutableStateOf("pending") }
     var query by rememberSaveable { mutableStateOf("") }
@@ -38,7 +44,9 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             else -> emptyList()
         }
         val cloud = data.cloud.tasks.takeIf { data.cloud.authenticated && data.cloud.tasksFresh }.orEmpty()
-        val combined = remember(local, records, cloud) { combineWorkspaceTasks(local, cloud, records) }
+        val allRecords = remember(local, records, cloud) { combineWorkspaceTasks(local, cloud, records) }
+        val combined = remember(allRecords, archivedKeys) { visibleWorkspaceTasks(allRecords, archivedKeys) }
+        val archivedRows = remember(allRecords, archivedKeys) { allRecords.filter { it.key in archivedKeys } }
         val visible = remember(combined, filter, query, today) { searchWorkspaceTasks(combined, filter, query, today) }
         val listState = rememberLazyListState()
         LaunchedEffect(target, combined) {
@@ -64,6 +72,7 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
             selectedIndex = filters.indexOfFirst { it.first == filter }.coerceAtLeast(0),
             onSelect = { filter = filters[it].first }, height = 40.dp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { showArchived = true }) { Text("归档 (${archivedRows.size})") }
             TextButton(onClick = { graphOpen = true }, enabled = data.dependencies is PageSnapshot.Ready) { Text("关系图") }
             TextButton(onClick = { adding = true }) { Text("新建任务") }
         }
@@ -99,6 +108,41 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                 }
             }
         }
+        if (showArchived) {
+            AppDialog(onDismissRequest = { showArchived = false }, title = { Text("本机归档") },
+                text = {
+                    Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppNotice("归档仅隐藏本机列表，不改变学校或云端记录。")
+                        if (archivedRows.isEmpty()) Text("当前账户没有可恢复的已读取归档记录")
+                        archivedRows.forEach { task ->
+                            InsetGroupedSection {
+                                InsetGroupedRow(title = task.title, subtitle = task.origin, showDivider = false,
+                                    trailing = { TextButton(onClick = { archiveStore.restore(task.key) }) { Text("恢复") } })
+                            }
+                        }
+                    }
+                }, confirmButton = { TextButton(onClick = { showArchived = false }) { Text("关闭") } })
+        }
+        val deleting = local.firstOrNull { it.id == deleteId }
+        if (deleting != null) {
+            AppDialog(onDismissRequest = { if (!saving) deleteId = null }, title = { Text("删除本机任务？") },
+                text = { Text("将删除「${deleting.title}」及其本机执行步骤和关联关系。此操作不会修改平台记录。") },
+                confirmButton = { TextButton(enabled = !saving, onClick = {
+                    saving = true
+                    scope.launch {
+                        try {
+                            actions.localTaskDao.remove(deleting.id)
+                            deleteId = null
+                            detailKey = null
+                            error = null
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (_: Exception) { error = "删除失败，请重试" }
+                        finally { saving = false }
+                    }
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) } },
+                dismissButton = { TextButton(enabled = !saving, onClick = { deleteId = null }) { Text("取消") } })
+        }
         if (graphOpen) {
             val deps = data.dependencies
             if (deps is PageSnapshot.Ready) LocalTaskDependencyGraphDialog(local, deps.value,
@@ -118,15 +162,24 @@ internal fun ColumnScope.TasksFeature(data: AppWorkspaceState, actions: AppPageA
                     task.officialDeadline?.let { Text(it) }
                     task.officialStatusRaw?.let { Text(it) }
                     officialTaskStatusLabel(task.officialStatus)?.let { Text(it) }
-                    if (task.storage != "local") AppNotice("平台记录只读，不修改学校提交状态。")
-                    else {
+                    if (task.storage != "local") {
+                        AppNotice("平台记录只读，不修改学校提交状态。")
+                        if (task.storage == "cloud" && task.provider == "chaoxing" && considerCompleteInTaskList(task)) {
+                            TextButton(onClick = { archiveStore.archive(task.key); detailKey = null }) { Text("移至本机归档") }
+                        }
+                    } else {
                         val id = task.key.removePrefix("local:").toLongOrNull()
                         if (id != null) {
                             val blocked = when (val deps = data.dependencies) {
                                 is PageSnapshot.Ready -> id in waitingLocalTaskIds(local, deps.value)
                                 else -> true
                             }
-                            TextButton(onClick = { detailKey = null; editTaskId = id }) { Text("编辑任务与前置关系") }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                TextButton(onClick = { detailKey = null; editTaskId = id }) { Text("编辑任务") }
+                                TextButton(enabled = !saving, onClick = { detailKey = null; deleteId = id }) {
+                                    Text("删除任务", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
                             HorizontalDivider()
                             TaskExecutionPanel(ExecutionRoot("device", task.key), task.done, actions.executionDao,
                                 onFinish = { actions.updateLocalTask(id, true) },

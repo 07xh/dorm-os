@@ -92,3 +92,6 @@ R30 离线 GPU 验收 45577309613 在 :app:dexBuilderDebug 失败，D8 明确定
 
 ## R33 五大主页面布局收敛
 复用既有 InsetGroupedSection、SettingsRow、SystemStatStrip、LiquidSegmentedControl、ScreenMetrics 与上游 ScheduleScreen 节次时间列；总览改为课程、任务、公告三个分组，宽屏双栏，真实学期配置存在时按当前教学周和中国时区筛选今日课程，否则明确展示本机预览，不推断日期。课表主操作收敛为日/周切换、新增及更多菜单，恢复已配置节次时间。教务采用与我的页面相同的分组入口；任务状态直接分段切换，通知打开任务时定位并打开详情；二级页面从实际来路返回，系统返回和标题返回共享处理。未改数据层、授权或自动同步策略。R32 CI 正在运行，本轮待编译及设备验收。
+
+## R34 原任务归档与删除功能恢复
+R33 CI 45578766609 全部通过，包括 assembleDebug APK 打包。复用原 LocalTaskArchiveStore 与 visibleWorkspaceTasks，将已完成的学习通云端任务本机归档、恢复及归档计数接回统一任务页；不写入平台或云端完成状态。通过原 LocalTaskDao.remove 事务恢复本机任务删除入口，显示删除确认及关联关系提示。新提交待编译与运行验收，GPU 实际运行尚需核验。
