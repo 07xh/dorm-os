@@ -132,7 +132,7 @@ test('single-page second-class keeps verified data and no duplicate refresh',()=
     'missing official total is unknown, not fabricated zero');
   assert.match(page,/if \(countConfirmed\) myActivities\.size\.toString\(\) else "—"/,
     'do not show personal activity count without a complete batch');
-  assert.match(page,/val catalogActivities = all\.filter/,
+  assert.match(page,/val catalogActivities = remember\(all\) \{\s*all\.filter/,
     'catalog list reads only persisted validated local records');
   assert.match(page,/visibleCatalogActivities\.isNotEmpty\(\)/,
     'nonempty verified official catalog renders native cards');

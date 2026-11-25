@@ -475,7 +475,7 @@ assert.match(secondClassMain, /"活动暂未获取"/, '未同步不能虚构暂�
 assert.doesNotMatch(secondClassMain, /发现活动|学校活动广场尚未完成本机读取|个人已报名活动不是活动广场|TabRow\(|FilterChip\(/,
  '二课不能恢复网站式导航与说明卡');
 assert.match(secondClassMain, /"catalog_empty"/);
-assert.match(secondClassMain, /val catalogActivities = all\.filter/,
+assert.match(secondClassMain, /val catalogActivities = remember\(all\) \{\s*all\.filter/,
   '第二课堂活动广场必须读取本机已验证的非空目录记录');
 assert.match(secondClassMain, /selectedKey = catalogFilter\.toString\(\)/,
  '活动筛选继续保持所选官方目录类别');
@@ -1407,7 +1407,10 @@ assert.match(localSchoolUi, /subtitle = "已保存 \$\{rows\.size\} 条本机记
 assert.doesNotMatch(localSchoolUi, /CardDefaults\.cardColors|CardDefaults\.cardElevation/,
   '本机读取不得混入旧 Material 实心卡片体系');
 assert.match(localSchoolUi, /查看本机全部/);
-assert.match(localSchoolUi, /val prioritized = if \(justImported == null\) list else/);
+assert.match(localSchoolUi, /val prioritized = remember\(list, justImported\) \{\s*if \(justImported == null\) list else/);
+assert.match(localSchoolUi, /val recordsByProvider = remember\(records\)/);
+assert.match(secondClassMain, /val countConfirmed = remember\(candidates, batch\) \{\s*batch != null && candidates\.all \{ it\.capturedAt == batch\.capturedAt \}/);
+assert.match(messageCenter, /val privateNotices = remember\(state\.chaoxingInbox, state\.authenticated, showWechat, filterKey, query\)/);
 assert.match(localSchoolUi, /item\.capturedAt/);
 assert.match(localSchoolUi, /不代表当前官网状态/);
 assert.match(localNative, /EXTRA_RETURN_KIND/);

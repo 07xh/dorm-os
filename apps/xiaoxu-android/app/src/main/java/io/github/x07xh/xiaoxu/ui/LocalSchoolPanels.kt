@@ -72,6 +72,9 @@ fun LocalSchoolConnectionPanel(
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val records by rememberLocalRows(dao) { dao.observe() }
+    val recordsByProvider = remember(records) {
+        records.filter { it.kind != "account_binding" }.groupBy { it.provider }
+    }
     val scope = rememberCoroutineScope()
     var syncingSecondClass by remember { mutableStateOf(false) }
     var secondClassSyncMessage by remember { mutableStateOf<String?>(null) }
@@ -80,13 +83,15 @@ fun LocalSchoolConnectionPanel(
         for ((provider, name) in listOf(
             "chaoxing" to "学习通", "ncwu" to "青果教务",
             "second_class" to "第二课堂")) {
-            val list = records.filter { it.provider == provider && it.kind != "account_binding" }
+            val list = recordsByProvider[provider].orEmpty()
             val justImported = recentImport?.takeIf { it.provider == provider }
             // Always put the just-confirmed source/type first, even if another
             // course or activity was saved more recently.
-            val prioritized = if (justImported == null) list else
-                list.filter { it.kind == justImported.kind } +
-                    list.filter { it.kind != justImported.kind }
+            val prioritized = remember(list, justImported) {
+                if (justImported == null) list else
+                    list.filter { it.kind == justImported.kind } +
+                        list.filter { it.kind != justImported.kind }
+            }
             var platformOpen by rememberSaveable(provider, recentImport?.serial) {
                 mutableStateOf(justImported != null)
             }
@@ -233,7 +238,7 @@ fun LocalSchoolRecordSection(types: Set<String>) {
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val all by rememberLocalRows(dao) { dao.observe() }
-    val rows = all.filter { it.kind in types }
+    val rows = remember(all, types) { all.filter { it.kind in types } }
     if (rows.isEmpty()) return
     var expanded by rememberSaveable(types.sorted().joinToString("|")) {
         mutableStateOf(false)

@@ -79,18 +79,20 @@ fun SecondClassPage(
     val context = LocalContext.current
     val dao = remember(context) { LocalTaskDatabase.open(context).nativeSchoolRecords() }
     val all by rememberLocalRows(dao) { dao.observe() }
-    val scores = all.filter { it.provider == "second_class" && it.kind == "credits" }
-    val candidates = all.filter {
-        it.provider == "second_class" && it.kind in setOf("activity", "activity_summary")
+    val scores = remember(all) { all.filter { it.provider == "second_class" && it.kind == "credits" } }
+    val candidates = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind in setOf("activity", "activity_summary") }
     }
-    val batch = candidates.singleOrNull { it.kind == "activity_summary" }
-    val activities = if (batch != null &&
-        candidates.all { it.capturedAt == batch.capturedAt }) candidates else emptyList()
-    val catalogRows = all.filter {
-        it.provider == "second_class" && it.kind == "catalog_empty"
+    val batch = remember(candidates) { candidates.singleOrNull { it.kind == "activity_summary" } }
+    val countConfirmed = remember(candidates, batch) {
+        batch != null && candidates.all { it.capturedAt == batch.capturedAt }
     }
-    val catalogActivities = all.filter {
-        it.provider == "second_class" && it.kind == "catalog_activity"
+    val activities = if (countConfirmed) candidates else emptyList()
+    val catalogRows = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind == "catalog_empty" }
+    }
+    val catalogActivities = remember(all) {
+        all.filter { it.provider == "second_class" && it.kind == "catalog_activity" }
     }
 
     var catalogFilter by rememberSaveable { mutableIntStateOf(0) }
@@ -192,22 +194,24 @@ fun SecondClassPage(
 
 // The official parser is the only source of truth: never infer today's term,
     // approval status, score totals or catalog entries from a missing snapshot.
-    val termRows = scores.filter {
-        Regex("^第[1-9][0-9]*学期积分$").matches(it.title)
-    }.sortedByDescending {
-        it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
+    val termRows = remember(scores) {
+        val termPattern = Regex("^第[1-9][0-9]*学期积分$")
+        scores.filter { termPattern.matches(it.title) }.sortedByDescending {
+            it.title.removePrefix("第").removeSuffix("学期积分").toIntOrNull() ?: 0
+        }
     }
     var selectedTermTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var termMenuOpen by rememberSaveable { mutableStateOf(false) }
     val selectedTerm = termRows.firstOrNull { it.title == selectedTermTitle }
         ?: termRows.firstOrNull()
-    val schoolTotal = scores.firstOrNull { it.title == "学校积分合计" }
-    val myActivities = activities.filter { it.kind == "activity" }
-    val countConfirmed = batch != null &&
-        candidates.all { it.capturedAt == batch.capturedAt }
+    val schoolTotal = remember(scores) { scores.firstOrNull { it.title == "学校积分合计" } }
+    val myActivities = remember(activities) { activities.filter { it.kind == "activity" } }
     var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val detailRecord = (scores + myActivities + catalogActivities).firstOrNull {
-        it.kind + ":" + it.fingerprint == detailKey
+    val detailRecord = remember(scores, myActivities, catalogActivities, detailKey) {
+        if (detailKey == null) null else
+            sequenceOf(scores, myActivities, catalogActivities).flatten().firstOrNull {
+                it.kind + ":" + it.fingerprint == detailKey
+            }
     }
     val catalogOptions = remember {
         listOf(
@@ -221,8 +225,8 @@ fun SecondClassPage(
     val catalogRecord = catalogRows.singleOrNull {
         it.title == activeCatalogFilter
     }
-    val visibleCatalogActivities = catalogActivities.filter {
-        it.details.startsWith("筛选：$activeCatalogFilter\n")
+    val visibleCatalogActivities = remember(catalogActivities, activeCatalogFilter) {
+        catalogActivities.filter { it.details.startsWith("筛选：$activeCatalogFilter\n") }
     }
 
     LazyColumn(
