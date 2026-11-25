@@ -1,24 +1,17 @@
 package io.github.x07xh.xiaoxu.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import io.github.x07xh.xiaoxu.data.LocalSemesterConfigStore
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.animation.core.tween
 import kotlinx.coroutines.flow.collect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -55,26 +48,37 @@ internal fun ColumnScope.ScheduleFeature(
         viewMode = mode
         LocalSemesterConfigStore.saveViewMode(context, mode)
     }
-    var toolsOpen by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LiquidSegmentedControl(options = listOf("日课表", "周课表"), selectedIndex = if (viewMode == "day") 0 else 1,
-            onSelect = { selectView(if (it == 0) "day" else "week") }, modifier = Modifier.weight(1f), height = 42.dp)
-        TextButton(enabled = data.lessons is PageSnapshot.Ready, onClick = {
-            editingId = null
-            editingWeek = requestedWeek.takeIf { it > 0 } ?: data.semesterCalendar?.currentWeek(LocalDate.now())
-            editorError = null
-            editorOpen = true
-        }) { Text("新增") }
-        Box {
-            IconButton(onClick = { toolsOpen = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "课表操作") }
-            DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                DropdownMenuItem(text = { Text("导入课表") }, onClick = { toolsOpen = false; actions.importTimetable() })
-                DropdownMenuItem(text = { Text("导出课表") }, onClick = { toolsOpen = false; actions.exportTimetable() })
-                DropdownMenuItem(text = { Text("课表设置") }, onClick = { toolsOpen = false; actions.navigate(AppRoute.SCHEDULE_SETTINGS) })
-            }
-        }
+    val calendar = data.semesterCalendar
+    val availableLessons = when (val snapshot = data.lessons) {
+        is PageSnapshot.Ready -> snapshot.value
+        else -> emptyList()
     }
+    val weeks = remember(availableLessons, calendar) { selectableTeachingWeeks(availableLessons, calendar) }
+    val today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+    val todayWeek = calendar?.currentWeek(today)
+    val week = requestedWeek.takeIf { it in weeks } ?: todayWeek?.takeIf { it in weeks } ?: weeks.firstOrNull()
+    var activeScroll by remember { mutableStateOf<androidx.compose.foundation.ScrollState?>(null) }
+    val travel = with(LocalDensity.current) { 64.dp.toPx() }.coerceAtLeast(1f)
+    val lift by remember(activeScroll, travel) { derivedStateOf {
+        ((activeScroll?.value ?: 0) / travel).coerceIn(0f, 1f)
+    } }
+    WeekHeaderCompact(currentWeek = week, weeks = weeks, selectedDay = selectedDay,
+        dateFor = { w, day -> calendar?.dateFor(w, day) },
+        actualWeek = todayWeek, actualDay = today.dayOfWeek.value,
+        dayView = viewMode == "day", onDayView = { selectView(if (it) "day" else "week") },
+        onDayClick = { selectedDay = it; selectView("day") },
+        onWeekSelect = { requestedWeek = it },
+        onTodayClick = {
+            requestedWeek = todayWeek ?: 0
+            selectedDay = today.dayOfWeek.value
+            scope.launch { activeScroll?.scrollTo(0) }
+        },
+        onImportClick = actions.importTimetable, onExportClick = actions.exportTimetable,
+        onSettingsClick = { actions.navigate(AppRoute.SCHEDULE_SETTINGS) },
+        onAddClick = if (data.lessons is PageSnapshot.Ready) ({
+            editingId = null; editingWeek = week; editorError = null; editorOpen = true
+        }) else null,
+        collapseFraction = lift)
     AppSnapshotContent(data.lessons) { lessons ->
         if (editorOpen) {
             val original = lessons.firstOrNull { it.id == editingId }
@@ -114,13 +118,7 @@ internal fun ColumnScope.ScheduleFeature(
         if (lessons.isEmpty()) {
             SystemEmptyState("本机尚无课程", "导入课表后在这里查看课程。")
         } else {
-            val calendar = data.semesterCalendar
-            val weeks = remember(lessons, calendar) { selectableTeachingWeeks(lessons, calendar) }
-            val todayWeek = calendar?.currentWeek(LocalDate.now())
-            val week = requestedWeek.takeIf { it in weeks } ?: todayWeek?.takeIf { it in weeks }
-                ?: weeks.firstOrNull()
             var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-            var weekMenu by rememberSaveable { mutableStateOf(false) }
             val selected = lessons.firstOrNull { it.id == selectedId }
             LaunchedEffect(target, lessons) {
                 val lesson = target?.let { id -> lessons.firstOrNull { it.id == id } }
@@ -176,24 +174,6 @@ internal fun ColumnScope.ScheduleFeature(
                         if (!scrolling) sync.settledWeek(page)?.let { latestSelect(it - 1) }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
-                    val index = weeks.indexOf(week)
-                    TextButton(onClick = { requestedWeek = weeks[index - 1] }, enabled = index > 0) { Text("上周") }
-                    Box {
-                        TextButton(onClick = { weekMenu = true }) {
-                            ScheduleWeekLabel(week, false, MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.primary)
-                            if (todayWeek == week) Text(" · 本周", style = MaterialTheme.typography.labelSmall)
-                        }
-                        if (weekMenu) GlassOptionWheelDialog(
-                            options = weeks.map { "第 $it 周" },
-                            selectedIndex = weeks.indexOf(week),
-                            onConfirm = { requestedWeek = weeks[it]; weekMenu = false },
-                            onDismiss = { weekMenu = false }, title = "选择教学周"
-                        )
-                    }
-                    TextButton(onClick = { requestedWeek = weeks[index + 1] }, enabled = index < weeks.lastIndex) { Text("下周") }
-                }
                 if (calendar == null) AppNotice("未配置学期起始日期；仅按已导入周次显示。")
                 HorizontalPager(pager, modifier = Modifier.fillMaxWidth().weight(1f),
                     beyondViewportPageCount = 0, overscrollEffect = null,
@@ -208,26 +188,9 @@ internal fun ColumnScope.ScheduleFeature(
                         }
                         val periods = maxOf(data.timetableSections, courses.maxOfOrNull { it.endPeriod } ?: 1)
                             .coerceIn(1, 24)
-                        val rowLabels = listOf("一", "二", "三", "四", "五", "六", "日")
-                        val timeWidth = scheduleTimeColumnWidth() + ScheduleTimeColumnShadowWidth
                         val scroll = rememberScrollState()
-                        Row(Modifier.fillMaxWidth().padding(horizontal = if (viewMode == "week") scheduleGridPadding() else 0.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (viewMode == "week") Spacer(Modifier.width(timeWidth))
-                            rowLabels.forEachIndexed { index, label ->
-                                Column(Modifier.weight(1f).clickable {
-                                    selectedDay = index + 1
-                                    selectView("day")
-                                }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    val dayColor = if (viewMode == "day" && selectedDay == index + 1)
-                                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    Text(label, style = MaterialTheme.typography.labelMedium, color = dayColor)
-                                    calendar?.dateFor(pageWeek, index + 1)?.let { date ->
-                                        ScheduleDateText("${date.monthValue}/${date.dayOfMonth}", date.toEpochDay(),
-                                            "schedule-day-number-${index + 1}", MaterialTheme.typography.labelSmall,
-                                            dayColor, fillColumn = true)
-                                    }
-                                }
-                            }
+                        LaunchedEffect(pager.settledPage, page, scroll) {
+                            if (pager.settledPage == page) activeScroll = scroll
                         }
                         if (viewMode == "day") {
                             val daily = remember(courses, selectedDay) {
