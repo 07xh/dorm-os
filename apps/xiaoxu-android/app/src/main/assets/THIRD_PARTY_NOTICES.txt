@@ -176,3 +176,11 @@ GPL-3.0, upstream authors and contributors. Imported ExamItemUi,
 ExamItemRow and ExamDetailRow from GradesScreen.kt; adapted local surface
 and badge dependencies. Grades and exams share the existing owner-bound
 CloudClient read pipeline and snapshot validation. No school-side writes.
+
+------------------------------------------------------------------
+2026-11-25 unified academic views
+Source: https://github.com/znjhahaha/zhengfang-apk/tree/bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+GPL-3.0, original authors and contributors. SystemStatStrip from SystemUi.kt
+reused with local theme binding. Grade, exam and second-class pages share
+existing section components, term picker and manual read feedback. The local
+second-class reader, account binding and persistence are retained.

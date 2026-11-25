@@ -41,3 +41,6 @@ R3 自研底栏的选中颜色、静态图标和文字单元已替换为上游 N
 
 ## R13 考试页面
 直接移植上游考试卡片及信息行，接入 EXAMS 路由；通过现有 CloudClient 手动读取 /api/v1/verified/exams，复用成绩的账号隔离、来源、状态、时间戳及稳定记录身份校验。两种业务共享 loadAcademicSection，不新增客户端，不自动同步学校。按学期筛选及日期排序；缺失座位等字段不推测。真实学校考试查询、完整上游考试管理和统计仍待接入，未完成编译及真机验证。
+
+## R14 统一教务观感及交互
+成绩和考试合并重复的页面控制逻辑至 AcademicSnapshotList；共用 AcademicTermPicker、AcademicReadAction、上游 SystemStatStrip、现有 SystemSectionHeader 与 AppSnapshotContent。业务页只负责数据映射和业务卡片。第二课堂主路由直接接收 AppWorkspaceState.nativeRecords，不重复订阅数据库；独立 Activity 保留兼容入口并复用同一内容。积分概览同行学期筛选、学校合计、本人活动及目录同页展示，身份绑定和批次不一致时不展示为确认数据；详情可展开查看原始已保存文本，旧目录单独提示。保持现有读取入口和同步策略，不添加自动查询。学习通课程进度目前无已核验专用数据，仅统一空状态及数据连接入口，不从作业完成推算。编译和真机验收未执行。

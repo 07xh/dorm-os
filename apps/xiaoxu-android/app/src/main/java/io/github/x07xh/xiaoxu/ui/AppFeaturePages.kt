@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import io.github.x07xh.xiaoxu.SecondClassPage
+import io.github.x07xh.xiaoxu.SecondClassContent
 import io.github.x07xh.xiaoxu.data.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -51,9 +51,11 @@ internal fun AppFeaturePage(
             }
             AppRoute.GRADES -> GradesFeature(data, actions)
             AppRoute.EXAMS -> ExamsFeature(data, actions)
-            AppRoute.STUDY_PROGRESS ->
-                AppNotice("此功能尚未完成新页面迁移，不显示模拟数据。")
-            AppRoute.SECOND_CLASS -> SecondClassPage(modifier = Modifier.weight(1f))
+            AppRoute.STUDY_PROGRESS -> {
+                SystemEmptyState("尚未接入课程进度", "目前没有已核验的课程进度数据。任务完成状态不等于课程学习进度。")
+                TextButton(onClick = { actions.navigate(AppRoute.CONNECTIONS) }) { Text("数据连接") }
+            }
+            AppRoute.SECOND_CLASS -> SecondClassContent(data.nativeRecords, modifier = Modifier.weight(1f))
             AppRoute.TASKS -> TasksFeature(data, actions, reminderTaskId, consumeTask)
             AppRoute.PROFILE -> {
                 InsetGroupedSection {
