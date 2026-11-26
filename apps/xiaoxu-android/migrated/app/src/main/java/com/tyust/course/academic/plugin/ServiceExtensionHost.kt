@@ -33,7 +33,7 @@ class ServiceEntryPreferences(context: Context, private val accountScope: String
         fun accountScope() = UserManager.getInstance().let { "${it.currentSchool?.id.orEmpty()}:${it.currentAccountStorageKey}" }
         fun placementName(value: String) = when (value) { "home" -> "课程首页"; "schedule" -> "课表页"; "grades" -> "成绩页"; else -> value }
         fun declared(packages: List<PluginPackage>, school: SchoolConfig?, placement: String): List<ServiceExtensionEntry> = packages
-            .filter { it.official && it.manifest.isService && school != null && AcademicProviderRegistry.matches(it, school) }
+            .filter { (it.official || it.bundled) && it.manifest.isService && school != null && AcademicProviderRegistry.matches(it, school) }
             .flatMap { pkg -> PluginJson.objects(pkg.manifest.service!!.getJSONArray("entries")).filter { placement in PluginJson.strings(it.optJSONArray("placements")) }.map { ServiceExtensionEntry(pkg, it) } }
             .sortedWith(compareBy({ it.declaration.getInt("order") }, { it.pkg.manifest.id }, { it.declaration.getString("id") }))
     }
