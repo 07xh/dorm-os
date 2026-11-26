@@ -1,0 +1,37 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/AppAppearance.kt",
+      "blob": "04a17a2c5bbdb2dd60e8caad45aab483f58920a0"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/AppSystemBars.kt",
+      "blob": "77086fc13146555e3d823b2e4a72404a324c63e7"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/Color.kt",
+      "blob": "4d4b29fb6534c08db287c6b17a8d8fa181b82664"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/ModuleMotion.kt",
+      "blob": "227c34cf991099f13941119a82c78d7a13b3d1c6"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/MotionTokens.kt",
+      "blob": "838e6dcf10127df9af51d4a9a5ff9edd10e43787"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/NavigationMotion.kt",
+      "blob": "a8fedd374444298e53f10272418207a54ba1f658"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/Theme.kt",
+      "blob": "1a5e92e4b53d30a51335d52490a2f80f2f90da56"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/theme/Type.kt",
+      "blob": "1773ab76be59f861a94cff114f6a04085aac84d6"
+    }
+  ]
+}
