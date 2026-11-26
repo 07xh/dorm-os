@@ -1185,9 +1185,10 @@ assert.doesNotMatch(workspace, /Log\.[diwev]\(|println\(/, '首页不得输出�
 // 课表主页面继续保留本机导入及来源分离门禁。
 assert.doesNotMatch(cloud, /scheduleStatus|scheduleFetchedAt|val lessons: List<VerifiedLesson> = emptyList/);
 assert.doesNotMatch(cloud, /request\("\/api\/v1\/schedule"/);
-assert.match(schedulePanel, /fun localImportedScheduleView\(/);
-assert.match(schedulePanel, /本机课表 · 离线查看/);
-assert.match(schedulePanel, /sourceLabel = "本机导入 · 待本人核对"/,
+assert.match(readContracts, /fun localImportedScheduleView\(lessons: List<VerifiedLesson>\)/);
+assert.match(readContracts, /lessons = lessons,/);
+assert.match(schedulePanel, /AppNotice\(localImportedScheduleView\(lessons\)\.sourceLabel\)/);
+assert.match(readContracts, /sourceLabel = "华水青果 · 本机导入（待本人核对）"/,
   "课表仍需明确来源与核对状态，界面不得强制重复显示课块统计");
 assert.match(panels, /enabled = id != "ncwu"/,
   '青果的旧服务器课表同步不可被当做成绩同步');

@@ -105,6 +105,8 @@ dependencies {
     implementation 'androidx.exifinterface:exifinterface:1.3.6'
     implementation 'com.squareup.okio:okio:3.6.0'
     testImplementation 'junit:junit:4.13.2'
+    // Upstream navigation tests use virtual time; keep the test dependency compatible with Kotlin 2.2.
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2'
     // JVM tests exercise JSONObject with a real implementation, not Android stubs.
     testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.7.0'
