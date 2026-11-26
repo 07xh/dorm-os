@@ -280,12 +280,11 @@ jobs:
           test "$actual_tree" = "$UPSTREAM_TREE"
           test "$actual_files" = "$EXPECTED_FILES"
 
-          if [[ -e "$TARGET" ]]; then
-            diff -qr --exclude=.git "$source_dir" "$TARGET"
-          else
-            mkdir -p "$(dirname "$TARGET")"
-            rsync -a --exclude=.git "$source_dir/" "$TARGET/"
-          fi
+          mkdir -p "$(dirname "$TARGET")"
+          mkdir -p "$TARGET"
+          # Reconcile the isolated vendor directory to the exact upstream tree.
+          # --delete removes only stale files inside this dedicated mirror directory.
+          rsync -a --delete --exclude=.git "$source_dir/" "$TARGET/"
 
           copied_files=$(find "$TARGET" -type f | wc -l | tr -d ' ')
           test "$copied_files" = "$EXPECTED_FILES"
