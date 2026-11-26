@@ -21,3 +21,8 @@ jobs:
           gradle-version: '8.13'
       - name: Compile actual app and test business state
         run: gradle -p apps/xiaoxu-android :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+      - name: Compile optimized Release locally (no APK upload or publication)
+        run: |
+          gradle -p apps/xiaoxu-android :app:assembleRelease --no-daemon
+          test -s apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk
+          sha256sum apps/xiaoxu-android/app/build/outputs/apk/release/app-release-unsigned.apk

@@ -435,7 +435,7 @@ assert.match(secondClassMain, /if \(countConfirmed\) myActivities\.size\.toStrin
   '未验证活动快照不能推导数量');
 assert.doesNotMatch(secondClassMain, /ScrollableTabRow|TabRow\(/, '二课不可恢复网站式标签栏');
 assert.match(secondClassMain, /Text\("学校官网"\)/, '学校页面按需打开');
-assert.match(secondClassMain, /IconButton\(onClick = ::refreshPersonalRecords, enabled = !refreshing\)/,
+assert.match(secondClassMain, /SystemIconButton\(Icons\.Outlined\.Refresh, "从学校重新读取第二课堂",\s*::refreshPersonalRecords, enabled = !refreshing\)/,
   '第二课堂从学校读取入口与分类栏同列且只保留一个刷新按钮');
 assert.match(secondClassMain, /activities\.filter \{ it\.kind == "activity" \}/,
   '汇总标题不可显示为个人活动卡片');
