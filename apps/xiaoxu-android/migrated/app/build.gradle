@@ -127,6 +127,10 @@ android {
             }
         }
         debug {
+            // Install the migration preview side-by-side; never overwrite the
+            // user's current signed 校序 app or its private data during UI QA.
+            applicationIdSuffix '.northui'
+            versionNameSuffix '-northui-preview'
             minifyEnabled false
             debuggable true
         }
