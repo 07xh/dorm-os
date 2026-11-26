@@ -30,11 +30,11 @@ assert.match(visualQa, /\['03-course-detail',/,'一加 Ace 6 真机流程必须�
 assert.match(visualQa, /\['04-schedule-settings',/,'一加 Ace 6 真机流程必须采集原课表设置页');
 assert.match(visualQa, /\['05-schedule-day',/,'需要采集日视图，避免只核验周视图');
 assert.match(visualQa, /\['06-course-editor',/,'编辑课程全屏玻璃页面是必需的真机截图场景');
-assert.match(visualQa, /requiredReferenceScenes:[^\n]*'02-schedule'[^\n]*'03-course-detail'[^\n]*'04-schedule-settings'[^\n]*'05-schedule-day'[^\n]*'06-course-editor'[^\n]*'11-glass-rest'[^\n]*'16-glass-dialog-gray-edge'/,
+assert.match(visualQa, /requiredReferenceScenes:[^\n]*'02-schedule'[^\n]*'03-course-detail'[^\n]*'04-schedule-settings'[^\n]*'05-schedule-day'[^\n]*'06-course-editor'[^\n]*'07-navigation-transitions'[^\n]*'08-scroll-performance'/,
   '课表及玻璃导航关键截图缺一不可');
-assert.match(visualQa, /\['12-glass-rapid-tabs',/, '必须采集快速切页流畅度');
-assert.match(visualQa, /\['13-glass-drag-return',/, '必须采集拖拽回弹');
-assert.match(visualQa, /\['14-glass-course-content',/, '必须采集课表背景折射');
+assert.match(visualQa, /\['07-navigation-transitions',/, '必须采集原版导航转场与快速切页流畅度');
+assert.match(visualQa, /\['08-scroll-performance',/, '必须采集课表滚动、切周与帧耗时');
+assert.match(visualQa, /requiredReferenceScenes:[^\n]*'08-scroll-performance'/, '课表性能场景必须纳入有效验收');
 assert.match(visualQa, /\['15-glass-gesture-inset',/, '必须检查系统手势安全区');
 assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
 assert.match(visualQa, /function isTargetInForeground\(targetPackage = packageName\)/,
