@@ -35,7 +35,7 @@ assert.match(visualQa, /requiredReferenceScenes:[^\n]*'02-schedule'[^\n]*'03-cou
 assert.match(visualQa, /\['07-navigation-transitions',/, '必须采集原版导航转场与快速切页流畅度');
 assert.match(visualQa, /\['08-scroll-performance',/, '必须采集课表滚动、切周与帧耗时');
 assert.match(visualQa, /requiredReferenceScenes:[^\n]*'08-scroll-performance'/, '课表性能场景必须纳入有效验收');
-assert.match(visualQa, /\['15-glass-gesture-inset',/, '必须检查系统手势安全区');
+assert.match(visualQa, /sdk === 37 && release === '17'/, '必须支持 Android 17 的 Ace 6 真机验收');
 assert.match(visualQa, /incomplete_reference_screenshots/,'缺失关键截图时不可误报验收完成');
 assert.match(visualQa, /function isTargetInForeground\(targetPackage = packageName\)/,
   '真机截图须核验校序应用位于前台');
