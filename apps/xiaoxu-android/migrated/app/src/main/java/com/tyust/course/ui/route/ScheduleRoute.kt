@@ -123,11 +123,14 @@ fun ScheduleRoute(isActive: Boolean = true) {
     val scope = rememberCoroutineScope()
     val isDemoMode = remember { UserManager.getInstance().isDemoMode }
     val userManager = UserManager.getInstance()
-    // Local-only 校序 schedule data uses the existing app preferences when no
-    // official school account is selected. It never attempts a school write.
-    val isXiaoxuLocalMode = !isDemoMode && userManager.currentSchool == null
     val routeAccountKey = remember { userManager.currentAccountStorageKey.ifBlank { XiaoxuLocalScheduleAdapter.ACCOUNT_KEY } }
     var localScheduleRevision by remember { mutableIntStateOf(0) }
+    val hasLocalScheduleData = remember(context, localScheduleRevision) {
+        LocalScheduleStore.load(context).isNotEmpty()
+    }
+    // Prefer the existing 校序 local timetable whenever it has data, even if a
+    // school account is also configured. The route never writes to the school.
+    val isXiaoxuLocalMode = !isDemoMode && (userManager.currentSchool == null || hasLocalScheduleData)
     var localCalendar by remember { mutableStateOf(LocalSemesterConfigStore.load(context)) }
     val browsingSession = rememberSaveable(routeAccountKey) { java.util.UUID.randomUUID().toString() }
     val sessions = UserManager.getInstance().sessionState
