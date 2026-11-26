@@ -23,7 +23,7 @@ for (const name of ['ScheduleBanner', 'ScheduleLoadingState', 'SkeletonBlock',
 assert.doesNotMatch(source, /sealed interface ScheduleUiState|fun deriveScheduleUiState\(|CloudUiState|client:\s*CloudClient/);
 assert.doesNotMatch(source, /华水青果 · 可信只读|localImport: Boolean|if \(localImport\)/);
 assert.match(feature, /localImportedScheduleView\(lessons\)\.sourceLabel/);
-assert.match(workspace, /lessons = pageSnapshot\(lessons\.takeIf/);
+assert.match(workspace, /lessonsSource = \{ pageSnapshot\(latestLessons\.value\.takeIf \{ latestRevision\.value > 0 \|\| it\.isNotEmpty\(\) \}\) \}/, '仅使用真实本机课表快照');
 assert.match(shell, /rememberAppWorkspace\(dao, cloud, localLessons, localScheduleRevision/);
 assert.match(feature, /ScheduleGrid\(courses =/);
 assert.match(grid, /fun ScheduleGrid\(/);
