@@ -477,7 +477,21 @@ assert.match(segmentControl, /\/ optionCount\)\s*\.coerceAtLeast\(1f\)/, "按分
 assert.match(segmentControl, /\.weight\(1f\)[\s\S]*?role = Role\.Tab/, "分段等宽且有标签语义");
 assert.match(taskWorkspaceForComposerGate, /onSelect = \{ filter = filters\[it\]\.first \}, height = 48\.dp\)/, "任务页使用48dp分段控件");
 assert.match(taskWorkspaceForComposerGate, /SystemStatStrip\(items = listOf\("待办"[\s\S]*?"待核验"[\s\S]*?"已完成"/, "统一三态统计");
-assert.match(taskWorkspaceForComposerGate, /DropdownMenu\(expanded = sourceMenuOpen/, "来源筛选可关闭");
+const upstreamPicker = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/UpstreamLiquidPicker.kt');
+assert.match(taskWorkspaceForComposerGate, /SystemPicker\(options = sources\.map \{ it\.second \}/, "来源筛选使用统一选择器");
+assert.match(taskWorkspaceForComposerGate, /onSelect = \{ sourceFilter = sources\[it\]\.first \}/, "来源选择真实更新筛选条件");
+assert.doesNotMatch(taskWorkspaceForComposerGate, /DropdownMenu\(|sourceMenuOpen/, "禁止旧来源弹窗回流");
+assert.match(upstreamPicker, /BackHandler\(enabled = expanded\) \{ expanded = false \}/, "来源筛选支持返回键关闭");
+assert.match(upstreamPicker, /onDismiss = \{ expanded = false \}/, "来源筛选支持点击外部关闭");
+assert.match(upstreamPicker, /onSelect\(index\)\s*expanded = false/, "选中来源后关闭公共选择器");
+const upstreamMenu = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/SystemActionMenu.kt');
+const taskExecutionMenu = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/TaskExecutionPanel.kt');
+const wheelDialogs = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/GlassWheelPicker.kt');
+assert.match(upstreamMenu, /AnchoredGlassOverlay\(/, "操作菜单使用公共玻璃宿主");
+assert.match(taskExecutionMenu, /SystemActionMenu\(/, "任务步骤使用上游操作菜单");
+assert.doesNotMatch(taskExecutionMenu, /DropdownMenu\(/, "禁止退役步骤菜单回流");
+assert.doesNotMatch(wheelDialogs, /WheelDialogHost\(/, "禁止专用滚轮弹窗宿主回流");
+assert.equal((wheelDialogs.match(/AppDialog\(/g) || []).length, 5, "五类滚轮共享公共弹窗");
 assert.match(taskWorkspaceForComposerGate, /if \(onlyThisWeek\) TextButton\(onClick = \{ onlyThisWeek = false \}\)/, "本周筛选可直接解除");
 assert.match(taskWorkspaceForComposerGate, /onClick = \{ detailKey = task\.key \}/, "任务直接进入详情");
 assert.match(taskWorkspaceForComposerGate, /sourceFilter = "all"; onlyThisWeek = false; query = ""/, "清除筛选及搜索词");
@@ -1441,9 +1455,9 @@ assert.match(panels, /if \(cloudAdvanced\) XiaoxuBottomSheet\(/,
 
 // Issue #268 P2：任务统计卡可点击筛选，详情跳转到真实管理区，窄屏来源标题分行。
 assert.match(workspace, /active = filter == "all"/, '全部任务为独立状态');
-assert.match(workspace, /sourceFilter = source/, '来源菜单选项必须真实更新筛选条件');
-assert.match(workspace, /DropdownMenu\(/, '来源筛选收纳为单个下拉入口');
-assert.match(workspace, /sourceMenuOpen = false/, '来源菜单选择后必须关闭');
+assert.match(workspace, /sourceFilter = sources\[it\]\.first/, '来源菜单选项必须真实更新筛选条件');
+assert.match(workspace, /SystemPicker\(options = sources\.map/, '来源筛选收纳为单个下拉入口');
+assert.match(upstreamPicker, /onSelect\(index\)\s*expanded = false/, '来源菜单选择后必须关闭');
 assert.match(workspace, /facetWorkspaceTasks\(/, '来源与日期筛选纯函数可测');
 assert.match(workspace, /filter = "pending"/,
   '待完成统计卡应真实切换过滤器');
