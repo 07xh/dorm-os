@@ -155,6 +155,11 @@ fun CourseSelectorTheme(
             WindowCompat.setDecorFitsSystemWindows(window, false)
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            // AndroidX enables the platform navigation scrim by default on API 29+.
+            // The upstream wallpaper tone map already selects readable bar icons.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = statusBarUsesDarkIcons
                 isAppearanceLightNavigationBars = navigationBarUsesDarkIcons
