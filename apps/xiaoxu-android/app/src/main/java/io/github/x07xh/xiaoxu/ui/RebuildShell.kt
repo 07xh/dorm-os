@@ -163,7 +163,6 @@ internal fun NativeShell(
     val accountKey = if (data.cloud.authenticated) "cloud:" + data.cloud.ownerId.orEmpty() else "local"
     val pageData = remember(accountKey) { PageDataState() }
     DisposableEffect(pageData) { onDispose { pageData.close() } }
-    val finished by remember(navigationMotion) { derivedStateOf { navigationMotion.transitionFinished } }
     GlassWindowHost {
         CompositionLocalProvider(LocalPageDataState provides pageData) {
             val dialogs = LocalDialogHost.current
@@ -212,11 +211,9 @@ internal fun NativeShell(
                                 val pageRoute = AppRoute.entries[index]
                                 val routeKey = "app." + pageRoute.name.lowercase()
                                 savedPages.SaveableStateProvider(pageRoute.name) {
-                                    // Existing workspace performs all actual reads. No new school client
-                                    // or second database is created by the page-entry host.
-                                    InitialPageLoad(key = routeKey, title = pageRoute.title,
-                                        active = pageRoute == route, transitionFinished = finished,
-                                        route = routeKey, prepare = {}, awaitContent = false) {
+                                    // The workspace already owns the data. Mount immediately rather than
+                                    // gating a cached page on a second asynchronous preparation/animation.
+                                    CompositionLocalProvider(LocalLoadingRoute provides routeKey, LocalLoadingActive provides true) {
                                         AppFeaturePage(pageRoute, data, actions, inboxTaskId ?: reminderTaskId,
                                             { inboxTaskId = null; onReminderTaskConsumed() }, inboxLessonId ?: reminderLessonId,
                                             { inboxLessonId = null; onReminderCourseConsumed() },
