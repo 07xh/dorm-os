@@ -114,51 +114,10 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "逐条审核",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = XiaoxuPalette.Ink,
-                    modifier = Modifier.weight(1f)
-                )
-                // 只在真有候选可刷新且已连接时给出刷新，避免无意义按钮。
-                if (state.authenticated) {
-                    Box(
-                        modifier = Modifier
-                            .heightIn(min = 44.dp)
-                            .clip(RoundedCornerShape(XiaoxuRadius.pill))
-                            .background(XiaoxuPalette.SurfaceAlt)
-                            .clickable(
-                                enabled = !state.busy && !reviewing,
-                                onClick = { scope.launch { client.refreshPrivate() } },
-                                role = Role.Button
-                            )
-                            .padding(horizontal = 12.dp)
-                            .semantics { contentDescription = "刷新微信待审核候选" },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.Refresh,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = XiaoxuPalette.Ink2
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                text = "刷新",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = XiaoxuPalette.Ink2
-                            )
-                        }
-                    }
-                }
-            }
             Text(
-                text = pendingWechatLabel(pendingCount, state.authenticated, state.wechatError),
+                text = pendingWechatShortLabel(pendingCount, state.authenticated, state.wechatError),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (pendingCount == null && state.authenticated)
-                    XiaoxuPalette.Warning else XiaoxuPalette.Ink2
+                color = XiaoxuPalette.Ink2
             )
             if (!state.authenticated) {
                 Text(
@@ -188,16 +147,22 @@ fun WechatReviewPanel(client: CloudClient, pendingCount: Int?, openWebsite: () -
                     )
                 }
                 // Show the actual server response only: no sample chats or guessed messages.
-                state.wechatCandidates.forEach { item ->
-                    WechatCandidateRow(
-                        item = item,
-                        enabled = !reviewing,
-                        onClick = { pendingDecision = null; selectedId = item.id }
-                    )
+                Column(Modifier.fillMaxWidth()) {
+                    state.wechatCandidates.forEachIndexed { index, item ->
+                        androidx.compose.runtime.key(item.id) {
+                            XiaoxuConnectedListRow(index = index, total = state.wechatCandidates.size, standalone = true) {
+                                WechatCandidateRow(
+                                    item = item,
+                                    enabled = !reviewing,
+                                    onClick = { pendingDecision = null; selectedId = item.id }
+                                )
+                            }
+                        }
+                    }
                 }
                 if (pendingCount != null && pendingCount >= 30) {
                     Text(
-                        text = "接口每次最多返回 30 条，审核后刷新即可加载后续候选。",
+                        text = "审核后刷新，查看更多消息。",
                         style = MaterialTheme.typography.labelSmall,
                         color = XiaoxuPalette.Ink3
                     )
@@ -391,9 +356,7 @@ private fun WechatCandidateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(XiaoxuRadius.card))
-            .background(XiaoxuPalette.Surface)
-            .border(1.dp, XiaoxuPalette.Line, RoundedCornerShape(XiaoxuRadius.card))
+            .heightIn(min = XiaoxuSpacing.listRowMin)
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
             .padding(horizontal = 13.dp, vertical = 13.dp)
             .semantics(mergeDescendants = true) {
