@@ -1,0 +1,85 @@
+name: Full upstream baseline import and build
+on:
+  push:
+    branches: [refactor/android-upstream-baseline]
+    paths: ['.github/workflows/android-full-upstream-baseline.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: upstream-baseline
+  cancel-in-progress: false
+jobs:
+  import-exact-tree:
+    if: github.ref == 'refs/heads/refactor/android-upstream-baseline'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/android-upstream-baseline
+          fetch-depth: 1
+      - name: Import entire pinned Git tree without executing upstream code
+        shell: bash
+        run: |
+          set -euo pipefail
+          pin=bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+          expected=9284dad51679829d1182f05b57b33490b464e611
+          prefix=apps/zhengfang-upstream
+          git fetch --no-tags --depth=1 https://github.com/znjhahaha/zhengfang-apk.git "$pin"
+          test "$(git rev-parse FETCH_HEAD)" = "$pin"
+          test "$(git rev-parse FETCH_HEAD^{tree})" = "$expected"
+          if git cat-file -e "HEAD:$prefix" 2>/dev/null; then
+            test "$(git rev-parse "HEAD:$prefix")" = "$expected"
+          else
+            git read-tree --prefix="$prefix/" FETCH_HEAD
+            test "$(git write-tree | xargs -I TREE git rev-parse "TREE:$prefix")" = "$expected"
+            git -c user.name='upstream-baseline[bot]' -c user.email='upstream-baseline@users.noreply.github.com' commit -m "vendor: import complete unmodified zhengfang-apk bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed"
+            git push origin HEAD:refs/heads/refactor/android-upstream-baseline
+          fi
+          test "$(git rev-parse "HEAD:$prefix")" = "$expected"
+          git ls-tree -r "$expected" > upstream-tree.txt
+          echo "Upstream tree: $expected" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tracked files: $(wc -l < upstream-tree.txt)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-upstream-tree-manifest
+          path: upstream-tree.txt
+  original-build:
+    needs: import-exact-tree
+    if: github.ref == 'refs/heads/refactor/android-upstream-baseline'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: znjhahaha/zhengfang-apk
+          ref: bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+          persist-credentials: false
+      - name: Verify unmodified original tree
+        run: |
+          test "$(git rev-parse HEAD^{tree})" = "9284dad51679829d1182f05b57b33490b464e611"
+          test -z "$(git status --porcelain)"
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+      - uses: android-actions/setup-android@v4
+      - name: Install original SDK
+        run: |
+          sdkmanager "platforms;android-37.0" || sdkmanager --channel=3 "platforms;android-37.0"
+      - name: Original unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-parallel --max-workers=2 --console=plain
+      - name: Original upstream release-derived benchmark APK
+        run: ./gradlew :app:assembleBenchmark --no-parallel --max-workers=2 --console=plain
+      - name: Verify tracked source unchanged
+        run: git diff --exit-code HEAD --
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-upstream-benchmark-apk
+          path: app/build/outputs/apk/benchmark/*.apk
+          if-no-files-found: error
+          retention-days: 14
