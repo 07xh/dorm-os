@@ -2,55 +2,48 @@
   "schema": "xiaoxu/notices-v1",
   "school": "4141010078",
   "mode": "auto",
-  "lastSuccessAt": "2026-11-25T11:23:03.026Z",
+  "lastSuccessAt": "2026-11-26T00:25:34.416Z",
   "sources": [
     {
       "id": "jwc",
       "name": "教务处通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
       "count": 8
     },
     {
       "id": "school",
       "name": "学校通知",
-      "status": "error",
-      "lastSuccessAt": "2026-11-23T10:50:46.561Z",
+      "status": "ok",
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
       "count": 8
     },
     {
       "id": "student",
       "name": "学生工作处",
-      "status": "error",
-      "lastSuccessAt": "2026-11-24T20:41:49.011Z",
-      "count": 20
-    },
-    {
-      "id": "jwc-api",
-      "name": "教务处公开公告（代理兜底）",
       "status": "ok",
-      "lastSuccessAt": "2026-11-25T11:23:03.026Z",
-      "count": 27
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
+      "count": 20
     },
     {
       "id": "dianqi",
       "name": "电气工程学院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-25T11:23:03.026Z",
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
       "count": 10
     },
     {
       "id": "gcxlzx",
       "name": "工程实践与创新中心通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-25T11:23:03.026Z",
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
       "count": 10
     },
     {
       "id": "qysy",
       "name": "清源书院通知",
       "status": "ok",
-      "lastSuccessAt": "2026-11-25T11:23:03.026Z",
+      "lastSuccessAt": "2026-11-26T00:25:34.416Z",
       "count": 10
     }
   ],
@@ -329,6 +322,15 @@
       "id": "ncwu-322450993ef0c061",
       "title": "关于进行2026—2027学年第一学期期中教学检查的通知",
       "url": "https://www.ncwu.edu.cn/info/1063/23373.htm",
+      "date": null,
+      "sourceId": "jwc",
+      "sourceName": "教务处通知",
+      "category": "教学"
+    },
+    {
+      "id": "ncwu-fa0019f476408af7",
+      "title": "关于组织申报第二批科教融汇协同育人项目的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23406.htm",
       "date": null,
       "sourceId": "jwc",
       "sourceName": "教务处通知",
@@ -839,9 +841,27 @@
       "category": "校园"
     },
     {
-      "id": "ncwu-fa0019f476408af7",
-      "title": "关于组织申报第二批科教融汇协同育人项目的通知",
-      "url": "https://www.ncwu.edu.cn/info/1063/23406.htm",
+      "id": "ncwu-45a6ba8fe56fb376",
+      "title": "关于报送2026年工作总结和 2027年工作要点的通知",
+      "url": "https://www.ncwu.edu.cn/info/1061/23522.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-76a8707903eee552",
+      "title": "关于2026年度河南省本科高校智慧课程申报工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23518.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-a1af1a575f0d18b6",
+      "title": "关于开展2026-2027学年第一学期本科教学工作量核算工作的通知",
+      "url": "https://www.ncwu.edu.cn/info/1063/23521.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
@@ -902,6 +922,15 @@
       "category": "校园"
     },
     {
+      "id": "ncwu-8987c2c4b2547aaf",
+      "title": "关于2026年度河南省教育厅及学校青年骨干教师培养计划拟推荐人选的公示",
+      "url": "https://www.ncwu.edu.cn/info/1065/23524.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
       "id": "ncwu-40f52be3a8533c68",
       "title": "关于做好2027年来华留学生招收专业确认工作的通知",
       "url": "https://www.ncwu.edu.cn/info/1084/23448.htm",
@@ -914,6 +943,15 @@
       "id": "ncwu-b76252757a87d39c",
       "title": "关于开展华北水利水电大学2026年消防宣传月系列活动的通知",
       "url": "https://www.ncwu.edu.cn/info/1086/23386.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-e2b832bb5d79f224",
+      "title": "关于办理2027年度大学生属地城乡居民医疗保险的补充通知",
+      "url": "https://www.ncwu.edu.cn/info/1087/23523.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
@@ -977,6 +1015,15 @@
       "id": "ncwu-00e834b867ce2617",
       "title": "关于举办华北水利水电大学“中金杯”AI短视频创意大赛的通知",
       "url": "https://www.ncwu.edu.cn/info/1321/23500.htm",
+      "date": null,
+      "sourceId": "school",
+      "sourceName": "学校通知",
+      "category": "校园"
+    },
+    {
+      "id": "ncwu-89a6cc1516069a9f",
+      "title": "关于举办华北水利水电大学“中金杯”AI短视频创意大赛的通知",
+      "url": "https://www.ncwu.edu.cn/info/1321/23530.htm",
       "date": null,
       "sourceId": "school",
       "sourceName": "学校通知",
