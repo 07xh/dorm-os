@@ -206,8 +206,12 @@ assert.doesNotMatch(localTaskUi, /LocalDeadlineReminders\.setEnabled|rememberLau
 const appWorkspace = read('apps/xiaoxu-android/app/src/main/java/io/github/x07xh/xiaoxu/ui/AppWorkspaceState.kt');
 assert.match(rebuildShell, /val data = rememberAppWorkspace\(dao, cloud,/,
   'Reminder observer must be owned by the application shell rather than a task page');
-assert.match(appWorkspace, /val tasks by rememberSnapshotRows\(dao\) \{ dao\.observe\(\) \}/);
-assert.match(appWorkspace, /LaunchedEffect\(tasks\) \{\s*val snapshot = tasks \?: return@LaunchedEffect[\s\S]*?LocalDeadlineReminders\.reconcile\(context, snapshot, previousTasks = previous\)[\s\S]*?previousTasks = snapshot/,
+assert.match(appWorkspace, /val tasks = rememberSnapshotRows\(dao\) \{ dao\.observe\(\) \}/);
+assert.match(appWorkspace, /@Stable\s*internal class AppWorkspaceState/);
+assert.match(appWorkspace, /tasksSource = \{ pageSnapshot\(tasks\.value\) \}/);
+assert.match(appWorkspace, /recordsSource = \{ pageSnapshot\(records\.value\) \}/);
+assert.match(appWorkspace, /cloudSource = \{ cloud\.state \}/);
+assert.match(appWorkspace, /LaunchedEffect\(dao, tasks, context\) \{[\s\S]*?snapshotFlow \{ tasks\.value \}\.filterNotNull\(\)\.collect \{ snapshot ->[\s\S]*?LocalDeadlineReminders\.reconcile\(context, snapshot, previousTasks = previous\)[\s\S]*?previousTasks = snapshot/,
   'Room edits must re-plan notifications, including when the task page is absent, without inventing an initial empty snapshot');
 
 assert.match(ci, /assembleDebug/);
