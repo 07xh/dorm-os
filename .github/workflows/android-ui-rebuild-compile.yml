@@ -31,5 +31,22 @@ jobs:
         run: gradle -p apps/xiaoxu-android :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon --stacktrace
       - name: Compile instrumentation sources without running an emulator
         run: gradle -p apps/xiaoxu-android :app:compileDebugAndroidTestKotlin --no-daemon --stacktrace
-      - name: Verify debug APK dexing and packaging without publishing
-        run: gradle -p apps/xiaoxu-android :app:assembleDebug --no-daemon --stacktrace
+      - name: Build isolated UI rebuild QA APK
+        run: gradle -p apps/xiaoxu-android :app:assembleDebug -PxiaoxuIsolatedQa=true --no-daemon --stacktrace
+      - name: Verify isolated package and stage APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=apps/xiaoxu-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -F "package: name='io.github.x07xh.xiaoxu.unifiedqa'"
+          mkdir -p qa-artifacts
+          cp "$apk" "qa-artifacts/xiaoxu-ui-rebuild-${GITHUB_SHA:0:12}.apk"
+          (cd qa-artifacts && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Upload installable UI rebuild QA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoxu-ui-rebuild-qa-${{ github.sha }}
+          path: qa-artifacts/
+          if-no-files-found: error
+          retention-days: 14
