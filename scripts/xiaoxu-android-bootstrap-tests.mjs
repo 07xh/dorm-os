@@ -470,12 +470,13 @@ assert.match(designSystem, /titleLarge = TextStyle\(fontSize = 20\.sp, lineHeigh
  '一级页面共用20sp字级与26sp行高');
 assert.match(scheduleUi, /"我的课表"[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
  '课表标题从统一主题取得字级');
-assert.match(messageUi, /text = "消息中心",\s*style = MaterialTheme\.typography\.titleLarge/,
- '消息标题从统一主题取得字级');
-assert.match(workspace, /Text\("任务",[\s\S]*?style = MaterialTheme\.typography\.titleLarge/,
- '任务页使用简短标题与统一主题字级');
-assert.match(workspace, /\.heightIn\(min = 56\.dp\)/,
- '三态数字同卡保留内容且压缩多余高度');
+assert.match(messageUi, /XiaoxuTopBar\(\s*title = "消息中心"/,
+ '消息标题调用唯一公共顶栏');
+assert.match(workspace, /XiaoxuTopBar\(\s*title = "任务"/,
+ '任务标题调用唯一公共顶栏');
+assert.match(designSystem.slice(designSystem.indexOf('fun XiaoxuTopBar(')), /style = MaterialTheme\.typography\.titleLarge/,
+ '公共顶栏从统一主题取得字级');
+assert.match(workspace, /XiaoxuSegmentedControl\(/, '任务状态复用统一分段控件');
 assert.match(designSystem, /internal fun XiaoxuToolbarAction\(/,
  '任务顶部四个工具按钮必须复用唯一组件');
 assert.match(designSystem, /modifier = Modifier\.size\(42\.dp\)/,
@@ -888,14 +889,14 @@ assert.match(academicGradeArea, /actionLabel = "查看数据连接",\s*onAction 
 assert.doesNotMatch(academicGradeArea, /DemoData|mockGrades|fakeExam/,
   '未核验数据不能混入成绩或考试页面');
 
-const statusTabSource = workspace.slice(workspace.indexOf('private fun TaskStatusTab('),
-    workspace.indexOf('/** 轻量分组标题',workspace.indexOf('private fun TaskStatusTab(')));
-assert.match(statusTabSource, /selectable\(selected = active, role = Role\.Tab, onClick = onClick\)/,
-  '任务三态筛选须具备可访问的选中态，不只是视觉高亮');
-assert.match(workspace, /\.selectableGroup\(\)/,
-  '任务三态筛选须成组供无障碍导航');
-assert.match(statusTabSource, /XiaoxuRadius\.tile/,
-  '任务筛选圆角必须复用唯一设计系统');
+const statusTabSource = designSystem.slice(designSystem.indexOf('fun XiaoxuSegmentedControl('),
+    designSystem.indexOf('internal fun XiaoxuGroupSurface('));
+assert.match(statusTabSource, /selectable\(selected = selected, role = Role\.Tab,/,
+  '共享任务筛选须具备可访问的选中态');
+assert.match(statusTabSource, /\.selectableGroup\(\)/,
+  '共享分段筛选须成组供无障碍导航');
+assert.doesNotMatch(workspace, /private fun TaskStatusTab\(/,
+  '不得恢复独立任务筛选控件');
 // messageUi is loaded before these assertions; messageCenter is declared later.
 const messageSearchSource = messageUi.slice(
     messageUi.indexOf('private fun MessageSearchField('),
@@ -988,13 +989,12 @@ assert.match(messageCenter, /fun pendingWechatShortLabel\(/);
 assert.match(messageCenter, /state\.notices\.isNotEmpty\(\)/,
   "只有已读取的公告数量非零时，顶部来源标签才显示计数");
 assert.match(messageCenter, /暂无已保存的官方公告/, "零条状态需区分尚未读取与官方确认空列表");
-assert.match(messageCenter, /private fun SourceSectionHeader\(/, '需要独立来源分区标题');
 assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_NOTICE, noticeTitle\)/,
-  '官方通知的真实数量只在来源分段栏显示，不再堆额外标题');
-assert.match(messageCenter, /title = "微信候选"/);
-assert.match(messageCenter, /badge = "本人云端"/);
-assert.equal((messageCenter.match(/SourceSectionHeader\(/g) || []).length, 2,
-  '只有微信审核保留来源身份行，官方通知标题与数量归入单一分段栏');
+  '官方通知的真实数量只在来源分段栏显示');
+assert.match(messageCenter, /XiaoxuSegmentOption\(MSG_FILTER_WECHAT, wechatTitle\)/,
+  '微信审核独立来源保留在分段栏');
+assert.doesNotMatch(messageCenter, /private fun SourceSectionHeader\(/,
+  '避免重复来源标题');
 assert.doesNotMatch(messageCenter, /MessageFooterNote\(/,
   '消息中心禁止持续显示面向开发人员的来源免责声明');
 assert.doesNotMatch(messageCenter, /text = "官方来源"/, '顶部不得用单一官方徽标覆盖含微信候选的页面');
@@ -1925,14 +1925,12 @@ assert.match(scheduleVisual, /ModalBottomSheet\(/);
 
 // Issue #268 P1：三页复用 #269 统一组件，不得悄悄改动本人数据/审核动作。
 // 这里保护关键视觉结构与操作入口；真实布局仍以 Android APK/截图为最终验收。
-assert.match(workspace, /private fun TaskStatusTab\(/, '三态统计筛选必须可操作');
-assert.match(workspace, /One continuous status strip/, '三项统计必须位于同一个白色容器中');
-assert.match(workspace, /verticalArrangement = Arrangement\.spacedBy\(3\.dp, Alignment\.CenterVertically\)/,
-  '三项统计应采用上下标签和数量而非横排大卡');
-assert.match(workspace, /label = "待完成", count = all\.count/, '待办胶囊计数必须是真实任务');
+assert.match(workspace, /XiaoxuSegmentedControl\(/, '任务状态筛选使用统一分段控件');
+assert.match(workspace, /XiaoxuSegmentOption\("pending", "待完成 \$\{all\.count\(::isActionableWorkspaceTask\)\}/,
+  '待办胶囊计数必须是真实任务');
 assert.match(workspace, /onlyThisWeek by rememberSaveable/, '截止日期筛选须保留状态');
 assert.match(workspace, /Text\("本周日期"\)/, '一键筛选应标明仅本机任务，避免误判官方截止日期');
-assert.match(workspace, /label = "已完成", count = all\.count/, '完成状态只能统计现有记录');
+assert.match(workspace, /XiaoxuSegmentOption\("done", "已完成 \$\{all\.count/, '完成状态只能统计现有记录');
 assert.match(workspace, /private fun TaskGroupHeader\(/, '任务分区必须保留来源与折叠入口');
 assert.match(workspace, /var showCourseTasks by rememberSaveable \{ mutableStateOf\(false\) \}/,
   '首次进入任务中心的课程任务必须默认折叠');
@@ -1961,16 +1959,16 @@ const taskHubRegion = workspace.slice(workspace.indexOf('fun RealAcademicTaskHub
 assert.match(taskHubRegion, /verticalArrangement = Arrangement\.spacedBy\(0\.dp\)/,
   '任务列表应取消 LazyColumn 默认行间距以连接同组任务');
 assert.match(taskHubRegion,
-  /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = cloudRows\.size\)/,
+  /items\(count = cloudRows\.size, key = \{ i -> cloudRows\[i\]\.key \}\)[\s\S]*?XiaoxuConnectedListRow\(index = i, total = cloudRows\.size\)/,
   '云端任务维持逐条 lazy item 与稳定 key，不允许合并成一次性大 Column');
 assert.match(taskHubRegion,
-  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(index = i, total = localRows\.size\)/,
+  /items\(count = localRows\.size, key = \{ i -> localRows\[i\]\.key \}\)[\s\S]*?XiaoxuConnectedListRow\(index = i, total = localRows\.size\)/,
   '本机任务维持逐条 lazy item 与稳定 key');
-assert.match(workspace, /private fun ConnectedTaskShell\(/,
+assert.match(designSystem, /internal fun XiaoxuConnectedListRow\(/,
   '任务行使用共享首尾圆角与连接线容器');
-assert.match(workspace, /if \(index > 0\) \{\s*HorizontalDivider\(/,
+assert.match(designSystem, /if \(index > 0\) \{\s*HorizontalDivider\(/,
   '相邻任务之间必须只有轻分割线');
-assert.match(workspace, /index == total - 1 -> RoundedCornerShape\(/,
+assert.match(designSystem, /index == total - 1 -> RoundedCornerShape\(/,
   '任务分组最后一条保留与玻璃外壳一致的底部圆角');
 assert.match(workspace, /joinedRows = true,/,
   '课程、微信和本机任务分组须与所属任务行衔接为单层玻璃列表');
@@ -2010,7 +2008,7 @@ assert.match(workspace, /title = "微信任务"/,
 assert.match(workspace, /var showWechatTasks by rememberSaveable/,
   '微信任务独立于课程/本机分组折叠');
 assert.match(taskHubRegion,
-  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?ConnectedTaskShell\(\s*index = i, total = wechatRows\.size\s*[,\)]/,
+  /items\(count = wechatRows\.size, key = \{ i -> wechatRows\[i\]\.key \}\)[\s\S]*?XiaoxuConnectedListRow\(\s*index = i, total = wechatRows\.size\s*[,\)]/,
   '微信任务必须维持独立带 key 的 LazyColumn 列表');
 assert.match(workspace, /val wechatRows = remember\(shown\) \{ shown\.filter \{ it\.category == "wechat" \} \}/,
   '审核通过微信任务保持独立缓存分组');
@@ -2184,13 +2182,12 @@ assert.match(messageCenter, /XiaoxuSegmentedControl\(/,
   '官方与微信来源使用共享原生分段组件');
 assert.match(messageCenter, /Box\(Modifier\.size\(7\.dp\)\.clip\(CircleShape\)/,
   'B2 公告使用紧凑状态圆点，避免重复大图标造成视觉拥挤');
-assert.match(messageCenter, /private fun SourceSectionHeader\(/,
-  '保留列表内的来源标题与状态语义');
-assert.match(messageCenter, /private fun MessageHeader\(onRefresh:/,
-  '消息统一使用紧凑页头');
+assert.match(messageCenter, /XiaoxuTopBar\(/,
+  '消息统一使用公共页头');
 assert.match(messageCenter, /XiaoxuToolbarAction\(/,
   '消息刷新及返回须复用工具按钮');
-assert.match(messageCenter, /heading\(\)/, '消息页标题需有标题语义');
+assert.match(designSystem.slice(designSystem.indexOf('fun XiaoxuTopBar(')), /heading\(\)/,
+  '公共页标题需有标题语义');
 assert.doesNotMatch(messageCenter, /AI 摘要|智能整理|未读红点/,
   '海报里的智能摘要与未读红点不能写进真实消息页');
 
@@ -2329,10 +2326,14 @@ assert.match(messageCenter, /count == null -> "数量未读取"/,
   '数量为空时不得伪造为 0');
 assert.match(messageCenter, /state\.authenticated && state\.wechatError == null &&/,
   '微信标签仅在会话正常且计数有效时展示真实数量');
-assert.match(messageCenter, /pendingWechatShortLabel\(\n\s*state\.pendingWechatCount,\n\s*state\.authenticated,\n\s*state\.wechatError\n\s*\)/,
-  '微信候选分区头须把 wechatError 传给短文案');
-assert.match(wechatReview, /pendingWechatLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
-  '微信候选卡头部须把 wechatError 传给长文案');
+assert.match(wechatReview, /pendingWechatShortLabel\(pendingCount, state\.authenticated, state\.wechatError\)/,
+  '微信审核列表须把 wechatError 传给短文案');
+assert.match(wechatReview, /来自已绑定电脑/,
+  '微信审核来源标识仍须存在');
+assert.match(messageCenter, /XiaoxuConnectedListRow\(/,
+  '官方公告复用公共连接列表');
+assert.match(wechatReview, /XiaoxuConnectedListRow\(/,
+  '微信候选复用公共连接列表');
 assert.match(panels, /state\.wechatError != null -> state\.pendingWechatCount\.toString\(\) \+ "（快照）"/,
   '我的页待审核指标须在读取失败时标快照');
 assert.match(panels, /state\.pendingWechatCount == null -> "未读取"/,
