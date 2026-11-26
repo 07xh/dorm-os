@@ -27,7 +27,7 @@ class StudyReminderSchedulingTest {
     private val account = "acct-" + UUID.randomUUID()
     private val term = "2026-2027-1"
     private val studyKey = CourseReminderKey(account, term, StudyReminders.courseId(ScheduleStudyKind.Morning, 1))
-    private val tuesday = ScheduleCourseRecord("custom:tue", "周二课", "", "", 2, 1, 2, "1-25周")
+    private val tuesday = ScheduleCourseRecord("custom:tue", "周二课", "", "", 2, 1, 2, "1-${ScheduleMaxWeeks}周")
     private val context: Context get() = RuntimeEnvironment.getApplication()
     // Robolectric 每例重建 Application；调度器也需独立，避免单例保留上例的 SharedPreferences。
     private val scheduler by lazy {
