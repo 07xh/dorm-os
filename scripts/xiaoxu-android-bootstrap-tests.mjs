@@ -110,7 +110,7 @@ assert.match(rebuildShell, /activePage = route\.ordinal, retainOutgoing = false/
 assert.match(motionHost, /else listOf\(activePage\)/);
 assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)/);
 assert.match(rebuildShell, /BackHandler\(enabled = route\.parent != null \|\| routeTrail\.isNotEmpty\(\)\)/);
-assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/);
+assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/);
 assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/);
 assert.match(navDock, /else iconPlayback\.replay\(index\)/);
 assert.match(windowHost, /rememberCombinedBackdrop\(wallpaper, page\)/);
@@ -128,7 +128,7 @@ assert.match(rootGradle, /org\.jetbrains\.kotlin\.plugin\.compose/);
 assert.match(appGradle, /io\.github\.x07xh\.xiaoxu/);
 assert.match(appGradle, /androidx\.room:room-runtime:2\.8\.5/);
 assert.match(appGradle, /androidx\.compose:compose-bom:2026\.03\.01/);
-assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/,
+assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/,
   '主壳层须只放一套可折射玻璃底栏');
 assert.match(rebuildShell, /if \(wide\) NavigationRail \{/,
   '宽屏保留唯一横屏侧栏适配');
@@ -1108,9 +1108,9 @@ assert.match(rebuildShell, /savedPages\.SaveableStateProvider\(pageRoute\.name\)
 assert.match(rebuildShell, /val accountKey = if \(data\.cloud\.authenticated\) "cloud:" \+ data\.cloud\.ownerId\.orEmpty\(\) else "local"/, "账号隔离");
 assert.match(rebuildShell, /val showPrimary = route\.parent == null/, "子页隐藏底栏");
 assert.match(rebuildShell, /NavBarMetrics\.contentInset\(\)/, "导航占位来自上游");
-assert.match(rebuildShell, /if \(!wide && showPrimary\) RebuildCapsuleDock\(/, "唯一手机底栏");
+assert.match(rebuildShell, /if \(phoneDock\) RebuildCapsuleDock\(/, "唯一手机底栏");
 assert.match(rebuildShell, /if \(wide\) NavigationRail/, "宽屏侧栏");
-assert.match(navDock, /NavBarMetrics\.blockPadding\(\) \* 2 \+ NavBarMetrics\.trackHeight\(\)/, "导航与内容占位一致");
+assert.match(navDock, /return \(blockPadding\(\) \* 2 \+ trackHeight\(\) \+ navigationBar - 16\.dp\)/, "导航与内容占位一致");
 assert.match(navDock, /rememberCombinedBackdrop\(backdrop, tabsBackdrop\)/, "上游光学采样");
 assert.match(navDock, /haptics\.performHapticFeedback\(HapticFeedbackType\.ContextClick\)/, "真实切换触觉反馈");
 assert.match(navDock, /else iconPlayback\.replay\(index\)/, "重复点击仅重播图标");
@@ -1718,3 +1718,5 @@ assert.match(settingsRoutes, /GlassPageScaffold\(title = route\.title, onBack = 
 assert.match(rebuildShell, /LocalAppOverlayBottomInset provides navBarContentInset/);
 assert.doesNotMatch(rebuildShell, /RebuildDockMetrics/);
 assert.match(pageScaffold, /if \(LocalDialogHost\.current == null\)/);
+
+assert.match(rebuildShell, /val phoneDock = !wide && showPrimary/);
