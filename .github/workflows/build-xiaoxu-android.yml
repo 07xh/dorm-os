@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - '.github/xiaoxu-apk-build-requests/pending/*.txt'
+      - '.github/north-ui-source-import-requests/pending/*.txt'
   push:
     branches: [main]
     paths:
@@ -244,3 +245,86 @@ jobs:
           path: ${{ runner.temp }}/xiaoxu-release/
           if-no-files-found: ignore
           retention-days: 30
+
+  import-north-ui-full-source:
+    # This one-off request imports a complete, immutable upstream project snapshot.
+    # It is deliberately separate from the normal 校序 APK build/release gate.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Fetch and verify the pinned complete upstream source
+        env:
+          UPSTREAM_COMMIT: bb3b80a6d64e4c2057c0544bb417696ceaa2a9ed
+          UPSTREAM_TREE: 9284dad51679829d1182f05b57b33490b464e611
+          EXPECTED_FILES: '1222'
+          TARGET: apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135
+          IMPORT_MARKER: .github/north-ui-source-import-requests/pending/v1.0.135.txt
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/zhengfang-apk-v1.0.135"
+          git clone --depth 1 --branch v1.0.135 https://github.com/znjhahaha/zhengfang-apk.git "$source_dir"
+
+          actual_commit=$(git -C "$source_dir" rev-parse HEAD)
+          actual_tree=$(git -C "$source_dir" rev-parse 'HEAD^{tree}')
+          actual_files=$(git -C "$source_dir" ls-tree -r --name-only HEAD | wc -l | tr -d ' ')
+          test "$actual_commit" = "$UPSTREAM_COMMIT"
+          test "$actual_tree" = "$UPSTREAM_TREE"
+          test "$actual_files" = "$EXPECTED_FILES"
+
+          if [[ -e "$TARGET" ]]; then
+            diff -qr --exclude=.git "$source_dir" "$TARGET"
+          else
+            mkdir -p "$(dirname "$TARGET")"
+            rsync -a --exclude=.git "$source_dir/" "$TARGET/"
+          fi
+
+          copied_files=$(find "$TARGET" -type f | wc -l | tr -d ' ')
+          test "$copied_files" = "$EXPECTED_FILES"
+          diff -qr --exclude=.git "$source_dir" "$TARGET"
+
+          # Remove the one-shot request marker so it cannot become a standing build trigger.
+          git rm -f --ignore-unmatch "$IMPORT_MARKER" || true
+          git add -- "$TARGET"
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "vendor(android): import complete upstream v1.0.135 source"
+            git push origin "HEAD:refs/heads/$PR_HEAD_REF"
+          fi
+
+          {
+            echo "## Complete upstream source import"
+            echo "- Repository: https://github.com/znjhahaha/zhengfang-apk"
+            echo "- Tag: v1.0.135"
+            echo "- Commit: `$actual_commit`"
+            echo "- Tree: `$actual_tree`"
+            echo "- Files verified: $copied_files / $EXPECTED_FILES"
+            echo "- Destination: `$TARGET`"
+            echo "- Source was copied without editing or pruning."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - name: Install the exact upstream compile SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Compile and test the untouched upstream project
+        working-directory: apps/xiaoxu-android/upstream/zhengfang-apk-v1.0.135
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=2 --console=plain
+
