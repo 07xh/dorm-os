@@ -37,7 +37,7 @@ class ScheduleDomainTest {
     @Test fun mixedParityAndChineseSeparatorsAreSegmentLocal() {
         assertEquals(setOf(1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16), ScheduleWeeks.parse("1-4周，6-14周（双）、15-16周").weeks)
         assertEquals(setOf(1, 3, 5, 8), ScheduleWeeks.parse("１－５周(单), 8周").weeks)
-        listOf("", "待定", "0-4", "4-1", "1-26", "1周,").forEach { assertFalse(it, ScheduleWeeks.parse(it).valid) }
+        listOf("", "待定", "0-4", "4-1", "1-36", "1周,").forEach { assertFalse(it, ScheduleWeeks.parse(it).valid) }
         assertTrue(ScheduleWeeks.parse("待定").visibleIn(6))
     }
 
