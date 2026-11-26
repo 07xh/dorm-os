@@ -121,19 +121,6 @@ object XiaoxuPalette {
     val Bg = Color(0xFFF4F7FD)
 
 
-    /** 卡片与底栏共享的轻玻璃配色：不采样背景，低成本透明合成。 */
-    val GlassCard = Color.White.copy(alpha = 0.95f)
-    val GlassBorder = Color.White.copy(alpha = 0.74f)
-    val GlassTrack = Color.White.copy(alpha = 0.48f)
-    val SheetSurface = Color(0xFFF9FAFF)
-    /** 北化式材质分工：仅悬浮控件带高光，普通内容卡仍使用稳定浅色底。 */
-    /** 单条白色柔性边缘高光；不再叠加第二层深灰 Card 描边。 */
-
-    /** Touch feedback is pale blue, never a default dark rectangular ripple. */
-    val PressTint = Color(0xFF4D86D9).copy(alpha = 0.12f)
-    /** One low-contrast dim strength for modal surfaces, including system-bar regions. */
-    val ModalScrim = Color.Black.copy(alpha = 0.12f)
-
     /** 不改变课程颜色，统一其他页面的基础材质。 */
     val Surface = Color(0xFFFFFFFF)
 

@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemSecondaryButton
 import com.tyust.course.ui.theme.MotionSpecs
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -725,21 +726,5 @@ private fun SecondaryAction(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassBorder, RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) XiaoxuPalette.Ink2 else XiaoxuPalette.Ink3,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    SystemSecondaryButton(label, onClick, modifier, enabled)
 }

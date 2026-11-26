@@ -18,6 +18,7 @@ for (const file of files) {
   const source = readFileSync(file,'utf8');
   const code = source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^[ \t]*\/\/.*$/gm,'');
   for (const match of code.matchAll(retired)) invalid.push({file, symbol:match[0]});
+  for (const match of code.matchAll(/XiaoxuPalette\.(?:GlassCard|GlassBorder|GlassTrack|SheetSurface|PressTint|ModalScrim)\b/g)) invalid.push({file, symbol:match[0]});
   const counts = {
     localAnimation:(code.match(/\b(?:animateFloatAsState|animateColorAsState|AnimatedContent|AnimatedVisibility)\s*\(/g)||[]).length,
     localContainer:(code.match(/\b(?:Dialog|AlertDialog|ModalBottomSheet|DropdownMenu|Scaffold)\s*\(/g)||[]).length,
