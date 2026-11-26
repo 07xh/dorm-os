@@ -1,0 +1,33 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/PageInlineNotice.kt",
+      "blob": "f99e845833e7bcfbc5d1a9966bd864879fa73ef5"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/ScheduleBottomSheetState.kt",
+      "blob": "c5365f7a5620b5158edcdea08d8a00eaaf3ad2dc"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/ScreenMetrics.kt",
+      "blob": "999909c4e3c602d1529ee2672fc217e3e54d7a75"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/StateSymbols.kt",
+      "blob": "6feb33b8f9fcb2c9e620f5ff0f1c1648adb08202"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/SystemFormPage.kt",
+      "blob": "6dcb91e36136404171efc2c38374dcf1629b59af"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/WallpaperAppearance.kt",
+      "blob": "5fba1dc89e597bb5e7a5fcd7e5d9ca8001f3d375"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/WallpaperRenderer.kt",
+      "blob": "df4fa10d991bb6349719a57b23b572cd5051e5ee"
+    }
+  ]
+}
