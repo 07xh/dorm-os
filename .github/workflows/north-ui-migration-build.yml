@@ -245,7 +245,46 @@ jobs:
           disable-animations: true
           script: |
             set -eu
-            adb install -r apps/xiaoxu-android/migrated/app/build/outputs/apk/debug/app-debug.apk
+            apk="apps/xiaoxu-android/migrated/app/build/outputs/apk/debug/app-debug.apk"
+            adb wait-for-device
+
+            # The x86_64 AVD can briefly report boot-complete while adbd/package
+            # services are still reconnecting. Wait for PackageManager itself,
+            # not only sys.boot_completed, before attempting an install.
+            package_service_ready=0
+            for attempt in 1 2 3 4 5 6; do
+              if adb shell cmd package list packages >/dev/null 2>&1; then
+                package_service_ready=1
+                break
+              fi
+              adb reconnect offline >/dev/null 2>&1 || true
+              adb wait-for-device
+              sleep 5
+            done
+            if [ "$package_service_ready" -ne 1 ]; then
+              adb devices -l
+              echo "Android PackageManager did not become ready after emulator boot." >&2
+              exit 1
+            fi
+
+            # Use the push-then-install path for this large debug APK. This
+            # avoids the ADB streaming install session that previously failed
+            # with a PackageManager Binder broken pipe on the emulator.
+            installed=0
+            for attempt in 1 2 3; do
+              if adb install --no-streaming -r "$apk"; then
+                installed=1
+                break
+              fi
+              adb reconnect offline >/dev/null 2>&1 || true
+              adb wait-for-device
+              sleep 5
+            done
+            if [ "$installed" -ne 1 ]; then
+              adb devices -l
+              echo "Failed to install the migration APK after ADB reconnect retries." >&2
+              exit 1
+            fi
             adb shell am force-stop io.github.x07xh.xiaoxu.northui
             adb shell am start -W -n io.github.x07xh.xiaoxu.northui/com.tyust.course.MainActivity
             sleep 12
