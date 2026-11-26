@@ -51,6 +51,10 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import com.tyust.course.ui.system.SystemSegmentedControl
+import com.tyust.course.ui.system.SystemCompactSegmentedControl
+import com.tyust.course.ui.system.SystemDialog
+import com.tyust.course.ui.system.SystemPrimaryButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -458,51 +462,16 @@ fun XiaoxuSegmentedControl(
     compact: Boolean = false
 ) {
     if (options.isEmpty()) return
-    val track = RoundedCornerShape(999.dp)
-    Row(
-        modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier).clip(track)
-            .background(if (compact) XiaoxuPalette.SurfaceAlt else XiaoxuPalette.GlassTrack)
-            .then(if (compact) Modifier.border(
-                XiaoxuSpacing.glassStroke, Color(0xFFD6E0F0), track
-            ) else Modifier.background(XiaoxuPalette.GlassControlSurface)
-                .border(XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, track))
-            .padding(if (compact) 3.dp else 4.dp).selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        options.forEach { option ->
-            val selected = selectedKey == option.key
-            val itemShape = RoundedCornerShape(999.dp)
-            val itemColor = animateColorAsState(
-                targetValue = if (selected) {
-                    if (compact) XiaoxuPalette.BrandSoft else XiaoxuPalette.GlassIndicator
-                } else Color.Transparent,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-bg"
-            ).value
-            val inkColor = animateColorAsState(
-                targetValue = if (selected) XiaoxuPalette.BrandDeep else XiaoxuPalette.Ink2,
-                animationSpec = tween(XiaoxuMotion.SelectionMs), label = "xiaoxu-segment-text"
-            ).value
-            Box(
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
-                    .clip(itemShape).background(itemColor)
-                    // The track owns the outline: avoid a second dark rim
-                    // around ordinary selected tabs while retaining compact styling.
-                    .then(
-                        if (selected && compact) Modifier.border(
-                            XiaoxuSpacing.glassStroke, Color(0xFFB8CFF9), itemShape
-                        ) else if (selected) Modifier.border(
-                            XiaoxuSpacing.glassStroke, XiaoxuPalette.GlassRim, itemShape
-                        ) else Modifier
-                    )
-                    .selectable(selected = selected, role = Role.Tab,
-                        onClick = { if (!selected) onSelected(option.key) }),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(option.label, style = MaterialTheme.typography.titleSmall,
-                    color = inkColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
+    val labels = options.map { it.label }
+    val selectedIndex = options.indexOfFirst { it.key == selectedKey }.coerceAtLeast(0)
+    val layout = modifier.then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
+    val select: (Int) -> Unit = { index ->
+        options.getOrNull(index)?.let { if (it.key != selectedKey) onSelected(it.key) }
+    }
+    if (compact) {
+        SystemCompactSegmentedControl(labels, selectedIndex, select, modifier = layout)
+    } else {
+        SystemSegmentedControl(labels, selectedIndex, select, modifier = layout)
     }
 }
 
@@ -798,54 +767,21 @@ fun XiaoxuGlassDialog(
     showDismissButton: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(XiaoxuRadius.modal)
-    Dialog(
+    SystemDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        title = {
+            Text(title, style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }, textAlign = TextAlign.Center)
+        },
+        confirmButton = if (showDismissButton) {
+            { SystemPrimaryButton(dismissLabel, onDismiss, modifier = Modifier.fillMaxWidth()) }
+        } else null
     ) {
-        XiaoxuDialogDim()
-        // Center within the visible area: tall forms stay scrollable with IME open.
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            val availableDialogHeight = maxHeight * 0.88f
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .widthIn(max = 560.dp)
-                    .heightIn(max = availableDialogHeight)
-                    .clip(shape)
-                    .background(XiaoxuPalette.GlassModalFallback)
-                    .border(0.5.dp, XiaoxuPalette.GlassRim, shape)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = XiaoxuPalette.Ink,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().semantics { heading() }
-                )
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    content = content
-                )
-                if (showDismissButton) {
-                    XiaoxuDialogPrimaryButton(onClick = onDismiss) {
-                        Text(dismissLabel)
-                    }
-                }
-            }
-        }
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
     }
 }
 
