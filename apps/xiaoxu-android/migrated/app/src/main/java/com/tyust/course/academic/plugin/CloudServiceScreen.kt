@@ -55,11 +55,12 @@ internal fun CloudServiceScreen(
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var noticeFilter by remember { mutableStateOf(MSG_FILTER_ALL) }
+    var noticeQuery by remember { mutableStateOf("") }
     var pendingAction by remember { mutableStateOf<JSONObject?>(null) }
 
     LaunchedEffect(client) { client.refreshOnForeground() }
 
-    val page = remember(state, noticeFilter) { buildCloudMessagePage(state, noticeFilter) }
+    val page = remember(state, noticeFilter, noticeQuery) { buildCloudMessagePage(state, noticeFilter, noticeQuery) }
     val blocks = remember(page.toString()) { layout.order(page) }
     val hidden = remember(page.getString("pageId")) { layout.hidden(page.getString("pageId")) }
 
@@ -96,6 +97,8 @@ internal fun CloudServiceScreen(
                 val next = action.optJSONObject("params")?.optString("filterKey").orEmpty()
                 noticeFilter = next.takeIf { it in setOf(MSG_FILTER_ALL, MSG_FILTER_NOTICE, MSG_FILTER_EXAM, MSG_FILTER_WECHAT) } ?: MSG_FILTER_ALL
             }
+            "message.search" -> noticeQuery = action.optJSONObject("params")?.optString("query").orEmpty().take(80)
+            "message.clear_search" -> noticeQuery = ""
             "cloud.logout", "wechat.candidate.accept", "wechat.candidate.dismiss", "wechat.task.toggle" ->
                 pendingAction = JSONObject(action.toString())
             "notice.open" -> {
@@ -198,7 +201,8 @@ internal fun CloudServiceScreen(
 
 internal fun buildCloudMessagePage(
     state: CloudUiState,
-    filterKey: String = MSG_FILTER_ALL
+    filterKey: String = MSG_FILTER_ALL,
+    query: String = ""
 ): JSONObject {
     val blocks = JSONArray()
     blocks.put(JSONObject()
@@ -285,7 +289,28 @@ internal fun buildCloudMessagePage(
         }))
 
     if (filterKey != MSG_FILTER_WECHAT) {
-        val filtered = filterNotices(state.notices, "", filterKey)
+        blocks.put(JSONObject()
+            .put("id", "message_search")
+            .put("type", "form")
+            .put("title", "搜索公告")
+            .put("fields", JSONArray().put(JSONObject()
+                .put("id", "query")
+                .put("type", "text")
+                .put("label", "关键词")
+                .put("placeholder", "标题、日期或分类")
+                .put("value", query)
+                .put("required", false)))
+            .put("submit", JSONObject().put("actionId", "message.search").put("label", "搜索")))
+        if (query.isNotBlank()) {
+            blocks.put(JSONObject()
+                .put("id", "message_search_reset")
+                .put("type", "actions")
+                .put("items", JSONArray().put(actionItem("清除搜索", "message.clear_search"))))
+        }
+    }
+
+    if (filterKey != MSG_FILTER_WECHAT) {
+        val filtered = filterNotices(state.notices, query, filterKey)
         if (filtered.isNotEmpty()) {
             val items = JSONArray()
             filtered.take(60).forEach { notice ->
