@@ -1,0 +1,37 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/AnimatedCount.kt",
+      "blob": "4952c891e36a52505a2d5cfd7edf137946587900"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/AnimatedIconSpec.kt",
+      "blob": "b442746daca94e0a42769187ec0150dd1ab6b6a0"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/AnimatedStateIcon.kt",
+      "blob": "48be3dd01dd3ebbf10be0cd09b7f800303b34500"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/AppSymbol.kt",
+      "blob": "551a71beb617b5f5e03868813080af28a3d9e881"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/NavigationIconMotion.kt",
+      "blob": "e31262437192f70acdb3775c74a024af846a512e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/NavigationIconPlayback.kt",
+      "blob": "ca51d7afe14cdaa853732104627c59591b477cff"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/PhosphorNavigationIcon.kt",
+      "blob": "9b29b3b51490039c2da7c7bbbe5fe24033fb7079"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/PageDataState.kt",
+      "blob": "ca175efe10c93ee4e4269ff0a5c06932752e70e1"
+    }
+  ]
+}
