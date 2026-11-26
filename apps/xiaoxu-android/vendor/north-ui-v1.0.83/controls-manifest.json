@@ -1,0 +1,37 @@
+{
+  "commit": "e3f2833a2fb1e184968724ee4c7f71ebc816a2dd",
+  "files": [
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/CollapsingGlassHeader.kt",
+      "blob": "7bcd18c00999fdcd26dc13d471ec0be8af0a4f4e"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassActionRail.kt",
+      "blob": "86c17005a0a878ecb12cfda0903ee752162dd00f"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassGradientSlider.kt",
+      "blob": "d0db15ccc1e9d17011406b76f069f57ad30693be"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassIndication.kt",
+      "blob": "9c055b34c809a62f44c7eb8d6dd2547c033b69fd"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassToast.kt",
+      "blob": "b192d6c50f8009bb5b485684e9cbbcea85860780"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/GlassWheelPicker.kt",
+      "blob": "c0d1e9e0e054236d90cd5d5b14d62bd66a25d8d2"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/LiquidSlider.kt",
+      "blob": "79ec8ca7ededcb60be3a0fa79614f6388a63bfb3"
+    },
+    {
+      "path": "app/src/main/java/com/tyust/course/ui/system/NavScrollIntent.kt",
+      "blob": "3f8670856013842b3d483408f200d2843a888275"
+    }
+  ]
+}
